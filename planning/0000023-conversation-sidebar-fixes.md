@@ -192,7 +192,7 @@ Update the shared `ConversationList` component so filter tabs, refresh, row-leve
 5. [ ] `npm run e2e`
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check to confirm ConversationList control gating (filters/refresh/bulk UI), archive/restore actions, and no regressions in Chat sidebar behavior. Then open `/logs` and filter for `0000023 conversationlist controls visible` and confirm at least one entry with `showFilters=true` and `enableBulkUi=true`.
+8. [ ] Manual Playwright-MCP check to confirm ConversationList control gating (filters/refresh/bulk UI), archive/restore actions, and no regressions in Chat sidebar behavior. Check the browser console for errors and resolve any issues before proceeding. Then open `/logs` and filter for `0000023 conversationlist controls visible` and confirm at least one entry with `showFilters=true` and `enableBulkUi=true`.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -282,7 +282,7 @@ Wire AgentsPage to pass the full set of conversation handlers so the shared Conv
 5. [ ] `npm run e2e`
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check to confirm Agents sidebar wiring (filters, bulk actions, archive/restore) and persistence-disabled gating behaves the same as Chat. Then open `/logs` and filter for `0000023 agents sidebar handlers wired` and confirm at least one entry for the selected agent with `hasBulkActions=true` (when persistence enabled) and `persistenceEnabled=false` when persistence is disabled.
+8. [ ] Manual Playwright-MCP check to confirm Agents sidebar wiring (filters, bulk actions, archive/restore) and persistence-disabled gating behaves the same as Chat. Check the browser console for errors and resolve any issues before proceeding. Then open `/logs` and filter for `0000023 agents sidebar handlers wired` and confirm at least one entry for the selected agent with `hasBulkActions=true` (when persistence enabled) and `persistenceEnabled=false` when persistence is disabled.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -622,7 +622,7 @@ Extend existing conversation sidebar tests and add Agents-specific coverage to e
 5. [ ] `npm run e2e`
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check to confirm new/updated sidebar tests pass visually (Agents parity, bulk actions, and persistence-disabled states). Then open `/logs` and filter for `0000023 sidebar parity tests rendered` and confirm entries for both `variant=chat` and `variant=agents`.
+8. [ ] Manual Playwright-MCP check to confirm new/updated sidebar tests pass visually (Agents parity, bulk actions, and persistence-disabled states). Check the browser console for errors and resolve any issues before proceeding. Then open `/logs` and filter for `0000023 sidebar parity tests rendered` and confirm entries for both `variant=chat` and `variant=agents`.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -702,7 +702,7 @@ Update Drawer paper styling to prevent horizontal scrollbars and ensure the Draw
 5. [ ] `npm run e2e`
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check to confirm Drawer paper overflow guard fixes prevent horizontal scrolling and preserve alignment. Then open `/logs` and filter for `0000023 drawer overflow guard applied` and confirm entries for both `page=chat` and `page=agents`.
+8. [ ] Manual Playwright-MCP check to confirm Drawer paper overflow guard fixes prevent horizontal scrolling and preserve alignment. Check the browser console for errors and resolve any issues before proceeding. Then open `/logs` and filter for `0000023 drawer overflow guard applied` and confirm entries for both `page=chat` and `page=agents`.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -783,7 +783,7 @@ Align header/row padding to 12px and move vertical scrolling into the list panel
 5. [ ] `npm run e2e`
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check to confirm list panel scroll/padding changes (Load more reachability, no horizontal scroll) behave correctly. Then open `/logs` and filter for `0000023 sidebar list panel layout` and confirm `scrollContainer=true` and `loadMoreInside=true`.
+8. [ ] Manual Playwright-MCP check to confirm list panel scroll/padding changes (Load more reachability, no horizontal scroll) behave correctly. Check the browser console for errors and resolve any issues before proceeding. Then open `/logs` and filter for `0000023 sidebar list panel layout` and confirm `scrollContainer=true` and `loadMoreInside=true`.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -930,7 +930,7 @@ Extend layout tests to assert vertical scrolling in the list panel, “Load more
 5. [ ] `npm run e2e`
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check to confirm layout test changes (scroll container, Load more placement, padding parity) match expected behavior. Then open `/logs` and filter for `0000023 sidebar layout tests configured` and confirm `scrollContainer=true`, `loadMoreInside=true`, and `overflowGuarded=true`.
+8. [ ] Manual Playwright-MCP check to confirm layout test changes (scroll container, Load more placement, padding parity) match expected behavior. Check the browser console for errors and resolve any issues before proceeding. Then open `/logs` and filter for `0000023 sidebar layout tests configured` and confirm `scrollContainer=true`, `loadMoreInside=true`, and `overflowGuarded=true`.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -990,6 +990,7 @@ Validate the story end-to-end: Agents and Chat sidebars match, scrolling/padding
    - Confirm filter tabs, per-row archive/restore, and bulk actions appear in both sidebars.
    - Confirm bulk delete only appears when Archived is selected.
    - Scroll the list panel to verify “Load more” is reachable and no horizontal scrollbar appears.
+   - Check the browser console for errors and resolve any issues before proceeding.
    - Open `/logs` and filter for:
      - `0000023 conversationlist controls visible` (expect `showFilters=true`, `enableBulkUi=true`)
      - `0000023 agents sidebar handlers wired` (expect `hasBulkActions=true` when persistence enabled)
@@ -1072,7 +1073,7 @@ Validate the story end-to-end: Agents and Chat sidebars match, scrolling/padding
 5. [ ] `npm run e2e`
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP verification + screenshots (see subtasks). Ensure `/logs` contains `0000023 verification logs reviewed` with `logChecksComplete=true`.
+8. [ ] Manual Playwright-MCP verification + screenshots (see subtasks). Check the browser console for errors and resolve any issues before proceeding. Ensure `/logs` contains `0000023 verification logs reviewed` with `logChecksComplete=true`.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes

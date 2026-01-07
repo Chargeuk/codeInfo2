@@ -97,7 +97,7 @@ The story is well scoped: it is confined to the client-side sidebar layout and f
 
 ### 1. Client: ConversationList control parity (filters, row actions, bulk UI)
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **to_do**
 
 #### Overview

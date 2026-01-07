@@ -366,7 +366,17 @@ Extend existing conversation sidebar tests and add Agents-specific coverage to e
    - Purpose:
      - Verifies persistence-disabled state matches Chat behavior.
 
-8. [ ] Unit test (RTL) - Chat persistence banner disables sidebar controls:
+8. [ ] Documentation update - projectStructure.md (new test file):
+   - Documentation to read (repeat for standalone subtask context):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Files to edit:
+     - `projectStructure.md`
+   - Description:
+     - Add `client/src/test/agentsPage.sidebarActions.test.tsx` to the tree with a short description.
+   - Purpose:
+     - Keep the repository map in sync after adding a new test file.
+
+9. [ ] Unit test (RTL) - Chat persistence banner disables sidebar controls:
    - Documentation to read (repeat for standalone subtask context):
      - Jest: Context7 `/jestjs/jest`
      - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
@@ -377,7 +387,7 @@ Extend existing conversation sidebar tests and add Agents-specific coverage to e
    - Purpose:
      - Keeps Chat persistence behavior explicit after sidebar changes.
 
-9. [ ] Unit test (RTL) - ConversationList error state + retry:
+10. [ ] Unit test (RTL) - ConversationList error state + retry:
    - Documentation to read (repeat for standalone subtask context):
      - Jest: Context7 `/jestjs/jest`
      - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
@@ -389,7 +399,7 @@ Extend existing conversation sidebar tests and add Agents-specific coverage to e
    - Purpose:
      - Covers sidebar error handling path.
 
-10. [ ] Unit test (RTL) - ConversationList pagination happy path:
+11. [ ] Unit test (RTL) - ConversationList pagination happy path:
     - Documentation to read (repeat for standalone subtask context):
       - Jest: Context7 `/jestjs/jest`
       - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
@@ -401,7 +411,7 @@ Extend existing conversation sidebar tests and add Agents-specific coverage to e
     - Purpose:
       - Confirms paging control appears and functions.
 
-11. [ ] Unit test (RTL) - ConversationList pagination hidden when inactive:
+12. [ ] Unit test (RTL) - ConversationList pagination hidden when inactive:
     - Documentation to read (repeat for standalone subtask context):
       - Jest: Context7 `/jestjs/jest`
       - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
@@ -412,7 +422,7 @@ Extend existing conversation sidebar tests and add Agents-specific coverage to e
     - Purpose:
       - Covers pagination corner case (no load-more state).
 
-12. [ ] Run formatting/linting and resolve any failures:
+13. [ ] Run formatting/linting and resolve any failures:
    - Documentation to read:
      - ESLint CLI: Context7 `/eslint/eslint`
      - Prettier CLI: Context7 `/prettier/prettier`
@@ -647,7 +657,17 @@ Extend layout tests to assert vertical scrolling in the list panel, “Load more
    - Purpose:
      - Ensures Agents layout stays in sync with Chat if shared tests aren’t sufficient.
 
-6. [ ] Run formatting/linting and resolve any failures:
+6. [ ] Documentation update - projectStructure.md (only if Agents layout test file added):
+   - Documentation to read (repeat for standalone subtask context):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Files to edit:
+     - `projectStructure.md`
+   - Description:
+     - Add `client/src/test/agentsPage.layoutWrap.test.tsx` to the tree with a short description.
+   - Purpose:
+     - Keep the repository map in sync when adding the optional Agents layout test.
+
+7. [ ] Run formatting/linting and resolve any failures:
    - Documentation to read:
      - ESLint CLI: Context7 `/eslint/eslint`
      - Prettier CLI: Context7 `/prettier/prettier`

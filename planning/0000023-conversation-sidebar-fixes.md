@@ -663,7 +663,7 @@ Extend existing conversation sidebar tests and add Agents-specific coverage to e
 
 ### 4. Client: Drawer paper overflow guard (Chat + Agents)
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **to_do**
 
 #### Overview

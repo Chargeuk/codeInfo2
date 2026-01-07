@@ -777,7 +777,7 @@ Align header/row padding to 12px and move vertical scrolling into the list panel
 
 #### Subtasks
 
-1. [ ] Adjust ConversationList padding + scroll container:
+1. [x] Adjust ConversationList padding + scroll container:
    - Documentation to read (repeat for standalone subtask context):
      - MUI Lists: https://llms.mui.com/material-ui/6.4.12/components/lists.md
      - MUI Stack: https://llms.mui.com/material-ui/6.4.12/components/stack.md
@@ -803,7 +803,7 @@ Align header/row padding to 12px and move vertical scrolling into the list panel
      </Box>
      ```
 
-2. [ ] Add a client log line confirming list panel padding/scroll layout:
+2. [x] Add a client log line confirming list panel padding/scroll layout:
    - Files to edit:
      - `client/src/components/chat/ConversationList.tsx`
    - Log line requirements:
@@ -813,23 +813,34 @@ Align header/row padding to 12px and move vertical scrolling into the list panel
    - Purpose:
      - Manual Playwright-MCP check will confirm the list panel layout is active.
 
-3. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+3. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check to confirm list panel scroll/padding changes (Load more reachability, no horizontal scroll) behave correctly. Check the browser console for errors and resolve any issues before proceeding. Then open `/logs` and filter for `0000023 sidebar list panel layout` and confirm `scrollContainer=true` and `loadMoreInside=true`.
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check to confirm list panel scroll/padding changes (Load more reachability, no horizontal scroll) behave correctly. Check the browser console for errors and resolve any issues before proceeding. Then open `/logs` and filter for `0000023 sidebar list panel layout` and confirm `scrollContainer=true` and `loadMoreInside=true`.
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- (fill in after implementation)
+- Applied 12px header/bulk padding, moved list + load-more into a scroll container, and added `minWidth: 0` to no-wrap title layout in `ConversationList`.
+- Logged `0000023 sidebar list panel layout` with padding/scroll context for manual verification.
+- Ran `npm run lint --workspaces` (warnings only) and `npm run format:check --workspaces` cleanly.
+- Verified server build with `npm run build --workspace server`.
+- Verified client build with `npm run build --workspace client` (chunk size warnings only).
+- Ran `npm run test --workspace server` successfully.
+- Ran `npm run test --workspace client`; existing console act warnings persist.
+- Ran `npm run e2e` successfully.
+- Built the main compose images with `npm run compose:build`.
+- Brought up the main compose stack with `npm run compose:up`.
+- Playwright MCP manual check blocked by an in-use browser profile, so `/chat`, `/agents`, and `/logs` verification still needs a local rerun against `http://host.docker.internal:5001`.
+- Brought the main compose stack down with `npm run compose:down`.
 
 ---
 

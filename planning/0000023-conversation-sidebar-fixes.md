@@ -106,10 +106,17 @@ Update the shared `ConversationList` component so filter tabs, refresh, row-leve
 
 #### Documentation Locations
 
-- MUI ToggleButton/ToggleButtonGroup (filter tabs): https://llms.mui.com/material-ui/6.4.12/components/toggle-button.md
-- MUI Lists (List, ListItem, ListItemButton): https://llms.mui.com/material-ui/6.4.12/components/lists.md
-- MUI Stack (alignment + `minWidth: 0` guidance): https://llms.mui.com/material-ui/6.4.12/components/stack.md
-- MUI Box (padding layout + `sx` usage): https://llms.mui.com/material-ui/6.4.12/components/box.md
+- MUI ToggleButton/ToggleButtonGroup (filter tabs + exclusive selection behavior): https://llms.mui.com/material-ui/6.4.12/components/toggle-button.md
+- MUI Lists (List/ListItem/ListItemButton padding + `disableGutters` guidance): https://llms.mui.com/material-ui/6.4.12/components/lists.md
+- MUI Stack (`minWidth: 0` with `noWrap` text): https://llms.mui.com/material-ui/6.4.12/components/stack.md
+- MUI Box (`sx` layout/padding patterns used in sidebar containers): https://llms.mui.com/material-ui/6.4.12/components/box.md
+- ESLint CLI (lint command behavior used by `npm run lint --workspaces`): Context7 `/eslint/eslint`
+- Prettier CLI (format check/write used by `npm run format:*`): Context7 `/prettier/prettier`
+- Jest (client test runner for `npm run test --workspace client`): Context7 `/jestjs/jest`
+- React Testing Library (component testing APIs + queries used in sidebar tests): https://testing-library.com/docs/react-testing-library/intro/
+- Playwright Test (e2e runner used by `npm run e2e`): https://playwright.dev/docs/next/writing-tests
+- Docker Compose CLI (build/up/down used in testing steps): https://docs.docker.com/reference/cli/docker/compose/
+- Cucumber guides (server integration tests invoked by `npm run test --workspace server`): https://cucumber.io/docs/guides/10-minute-tutorial
 
 #### Subtasks
 
@@ -189,8 +196,15 @@ Wire AgentsPage to pass the full set of conversation handlers so the shared Conv
 
 #### Documentation Locations
 
-- MUI Box (layout + `sx`): https://llms.mui.com/material-ui/6.4.12/components/box.md
-- MUI Stack (layout + spacing): https://llms.mui.com/material-ui/6.4.12/components/stack.md
+- MUI Box (`sx` layout + container spacing used in Agents page): https://llms.mui.com/material-ui/6.4.12/components/box.md
+- MUI Stack (row/column spacing patterns used in Agents layout): https://llms.mui.com/material-ui/6.4.12/components/stack.md
+- ESLint CLI (lint command behavior used by `npm run lint --workspaces`): Context7 `/eslint/eslint`
+- Prettier CLI (format check/write used by `npm run format:*`): Context7 `/prettier/prettier`
+- Jest (client test runner for `npm run test --workspace client`): Context7 `/jestjs/jest`
+- React Testing Library (component testing APIs + queries): https://testing-library.com/docs/react-testing-library/intro/
+- Playwright Test (e2e runner used by `npm run e2e`): https://playwright.dev/docs/next/writing-tests
+- Docker Compose CLI (build/up/down used in testing steps): https://docs.docker.com/reference/cli/docker/compose/
+- Cucumber guides (server integration tests invoked by `npm run test --workspace server`): https://cucumber.io/docs/guides/10-minute-tutorial
 
 #### Subtasks
 
@@ -246,15 +260,21 @@ Extend existing conversation sidebar tests and add Agents-specific coverage to e
 
 #### Documentation Locations
 
-- Jest (client unit tests): Context7 `/jestjs/jest`
-- Testing Library (React): Context7 `/testing-library/testing-library-docs`
+- Jest (test runner + matchers used in unit tests): Context7 `/jestjs/jest`
+- React Testing Library (queries and render patterns for UI tests): https://testing-library.com/docs/react-testing-library/intro/
+- Testing Library user-event (interaction helpers used in sidebar tests): https://testing-library.com/docs/user-event/intro/
+- ESLint CLI (lint command behavior used by `npm run lint --workspaces`): Context7 `/eslint/eslint`
+- Prettier CLI (format check/write used by `npm run format:*`): Context7 `/prettier/prettier`
+- Playwright Test (e2e runner used by `npm run e2e`): https://playwright.dev/docs/next/writing-tests
+- Docker Compose CLI (build/up/down used in testing steps): https://docs.docker.com/reference/cli/docker/compose/
+- Cucumber guides (server integration tests invoked by `npm run test --workspace server`): https://cucumber.io/docs/guides/10-minute-tutorial
 
 #### Subtasks
 
 1. [ ] Extend ConversationList tests:
    - Documentation to read (repeat for standalone subtask context):
      - Jest: Context7 `/jestjs/jest`
-     - Testing Library: Context7 `/testing-library/testing-library-docs`
+     - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
    - Files to edit:
      - `client/src/test/chatSidebar.test.tsx`
    - Requirements:
@@ -267,9 +287,10 @@ Extend existing conversation sidebar tests and add Agents-specific coverage to e
 2. [ ] Add Agents sidebar parity tests:
    - Documentation to read (repeat for standalone subtask context):
      - Jest: Context7 `/jestjs/jest`
-     - Testing Library: Context7 `/testing-library/testing-library-docs`
+     - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
    - Files to edit/add:
      - `client/src/test/agentsPage.sidebarActions.test.tsx` (new)
+     - (Reference pattern file) `client/src/test/agentsPage.sidebarWs.test.tsx`
    - Requirements:
      - Assert filter tabs render on Agents and toggle filter state.
      - Assert row selection checkboxes render and can be toggled.
@@ -277,6 +298,7 @@ Extend existing conversation sidebar tests and add Agents-specific coverage to e
      - Assert bulk delete appears only when the filter is Archived.
      - Assert per-row archive/restore icon buttons render based on the row’s `archived` flag.
      - Assert conversation filters/actions are disabled when persistence is unavailable.
+     - Reuse existing AgentsPage test harness patterns (router setup + fetch stubs) from `agentsPage.sidebarWs.test.tsx` instead of creating new helpers.
    - Mocking requirements:
      - Mock `/health` to return `mongoConnected` true/false for enabled/disabled assertions.
      - Mock `/conversations` to return a mix of archived + active rows for filter tests.
@@ -284,7 +306,7 @@ Extend existing conversation sidebar tests and add Agents-specific coverage to e
 3. [ ] Update persistence banner test if needed:
    - Documentation to read (repeat for standalone subtask context):
      - Jest: Context7 `/jestjs/jest`
-     - Testing Library: Context7 `/testing-library/testing-library-docs`
+     - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
    - Files to edit:
      - `client/src/test/chatPersistenceBanner.test.tsx`
    - Requirements:
@@ -329,7 +351,14 @@ Update Drawer paper styling to prevent horizontal scrollbars and ensure the Draw
 #### Documentation Locations
 
 - MUI Drawer (paper sizing + overflow control): https://llms.mui.com/material-ui/6.4.12/components/drawers.md
-- MUI Drawer API (slotProps vs PaperProps): https://llms.mui.com/material-ui/6.4.12/api/drawer.md
+- MUI Drawer API (`slotProps.paper`/`PaperProps` supported in 6.4.x): https://llms.mui.com/material-ui/6.4.12/api/drawer.md
+- ESLint CLI (lint command behavior used by `npm run lint --workspaces`): Context7 `/eslint/eslint`
+- Prettier CLI (format check/write used by `npm run format:*`): Context7 `/prettier/prettier`
+- Jest (client test runner for `npm run test --workspace client`): Context7 `/jestjs/jest`
+- React Testing Library (component testing APIs + queries): https://testing-library.com/docs/react-testing-library/intro/
+- Playwright Test (e2e runner used by `npm run e2e`): https://playwright.dev/docs/next/writing-tests
+- Docker Compose CLI (build/up/down used in testing steps): https://docs.docker.com/reference/cli/docker/compose/
+- Cucumber guides (server integration tests invoked by `npm run test --workspace server`): https://cucumber.io/docs/guides/10-minute-tutorial
 
 #### Subtasks
 
@@ -382,9 +411,16 @@ Align header/row padding to 12px and move vertical scrolling into the list panel
 
 #### Documentation Locations
 
-- MUI Lists (List + ListItem padding): https://llms.mui.com/material-ui/6.4.12/components/lists.md
-- MUI Stack (nowrap + `minWidth: 0` guidance): https://llms.mui.com/material-ui/6.4.12/components/stack.md
-- MUI Box (layout + `sx`): https://llms.mui.com/material-ui/6.4.12/components/box.md
+- MUI Lists (List + ListItem padding and `disableGutters` behavior): https://llms.mui.com/material-ui/6.4.12/components/lists.md
+- MUI Stack (`minWidth: 0` guidance for `noWrap` text): https://llms.mui.com/material-ui/6.4.12/components/stack.md
+- MUI Box (`sx` layout used for list panel containers): https://llms.mui.com/material-ui/6.4.12/components/box.md
+- ESLint CLI (lint command behavior used by `npm run lint --workspaces`): Context7 `/eslint/eslint`
+- Prettier CLI (format check/write used by `npm run format:*`): Context7 `/prettier/prettier`
+- Jest (client test runner for `npm run test --workspace client`): Context7 `/jestjs/jest`
+- React Testing Library (component testing APIs + queries): https://testing-library.com/docs/react-testing-library/intro/
+- Playwright Test (e2e runner used by `npm run e2e`): https://playwright.dev/docs/next/writing-tests
+- Docker Compose CLI (build/up/down used in testing steps): https://docs.docker.com/reference/cli/docker/compose/
+- Cucumber guides (server integration tests invoked by `npm run test --workspace server`): https://cucumber.io/docs/guides/10-minute-tutorial
 
 #### Subtasks
 
@@ -441,15 +477,21 @@ Extend layout tests to assert vertical scrolling in the list panel, “Load more
 
 #### Documentation Locations
 
-- Jest (client unit tests): Context7 `/jestjs/jest`
-- Testing Library (React): Context7 `/testing-library/testing-library-docs`
+- Jest (test runner + matchers used in layout tests): Context7 `/jestjs/jest`
+- React Testing Library (render/query patterns for layout assertions): https://testing-library.com/docs/react-testing-library/intro/
+- Testing Library user-event (interaction helpers if needed): https://testing-library.com/docs/user-event/intro/
+- ESLint CLI (lint command behavior used by `npm run lint --workspaces`): Context7 `/eslint/eslint`
+- Prettier CLI (format check/write used by `npm run format:*`): Context7 `/prettier/prettier`
+- Playwright Test (e2e runner used by `npm run e2e`): https://playwright.dev/docs/next/writing-tests
+- Docker Compose CLI (build/up/down used in testing steps): https://docs.docker.com/reference/cli/docker/compose/
+- Cucumber guides (server integration tests invoked by `npm run test --workspace server`): https://cucumber.io/docs/guides/10-minute-tutorial
 
 #### Subtasks
 
 1. [ ] Update Chat layout tests:
    - Documentation to read (repeat for standalone subtask context):
      - Jest: Context7 `/jestjs/jest`
-     - Testing Library: Context7 `/testing-library/testing-library-docs`
+     - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
    - Files to edit:
      - `client/src/test/chatPage.layoutWrap.test.tsx`
    - Requirements:
@@ -457,6 +499,7 @@ Extend layout tests to assert vertical scrolling in the list panel, “Load more
      - Assert the “Load more” button is rendered inside the bordered list panel.
      - Assert the Drawer paper uses `overflowX: hidden` (or equivalent) to prevent horizontal scroll.
      - Validate header and row padding use the same `px` value.
+     - Reuse existing layout helpers in this file (`installChatLayoutRectMocks`, `installTranscriptWidthMock`) instead of adding new layout utilities.
    - Suggested selectors:
      - `conversation-list` for the drawer list container.
      - `conversation-load-more` for the load more button.
@@ -464,7 +507,7 @@ Extend layout tests to assert vertical scrolling in the list panel, “Load more
 2. [ ] Add Agents layout test only if needed:
    - Documentation to read (repeat for standalone subtask context):
      - Jest: Context7 `/jestjs/jest`
-     - Testing Library: Context7 `/testing-library/testing-library-docs`
+     - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
    - Files to edit/add:
      - `client/src/test/agentsPage.layoutWrap.test.tsx` (new, only if Chat tests can’t cover Agents-specific layout)
    - Requirements:
@@ -508,25 +551,14 @@ Validate the story end-to-end: Agents and Chat sidebars match, scrolling/padding
 
 #### Documentation Locations
 
-- Docker/Compose:
-  - Context7 `/docker/docs`
-  - https://docs.docker.com/reference/cli/docker/compose/
-- Playwright:
-  - Context7 `/microsoft/playwright`
-  - https://playwright.dev/docs/intro
-- Husky:
-  - Context7 `/typicode/husky`
-  - https://typicode.github.io/husky
-- Mermaid:
-  - Context7 `/mermaid-js/mermaid`
-  - https://mermaid.js.org/intro/syntax-reference.html
-- Jest:
-  - Context7 `/jestjs/jest`
-  - https://jestjs.io/docs/getting-started
-- Cucumber:
-  - https://cucumber.io/docs/guides/
-  - https://cucumber.io/docs/guides/10-minute-tutorial/
-  - https://cucumber.io/docs/gherkin/reference/
+- Docker/Compose (CLI reference for build/up/down commands): https://docs.docker.com/reference/cli/docker/compose/
+- Playwright Test (manual verification flow + locators): https://playwright.dev/docs/next/writing-tests
+- Husky (git hooks behavior when validating final checks): https://typicode.github.io/husky
+- Mermaid (diagram syntax used in `design.md` updates): https://mermaid.js.org/intro/
+- Mermaid flowchart syntax reference (common diagrams in design notes): https://mermaid.js.org/syntax/flowchart.html
+- Jest (test runner for client verification): https://jestjs.io/docs/getting-started
+- Cucumber guides (BDD workflow + running features): https://cucumber.io/docs/guides/10-minute-tutorial
+- Gherkin reference (keyword syntax for `.feature` files): https://cucumber.io/docs/gherkin/reference
 - Markdown syntax (PR summary + docs edits): https://www.markdownguide.org/basic-syntax/
 
 #### Subtasks

@@ -544,13 +544,13 @@ Align header/row padding to 12px and move vertical scrolling into the list panel
      - `client/src/components/chat/ConversationList.tsx`
    - Requirements:
      - Apply consistent 12px left/right padding (`px: 1.5`) to the header/filter area and list rows.
-    - Keep the “Load more” row inside the bordered list panel so it scrolls with the list once the scroll container is added.
+     - Keep the “Load more” row inside the bordered list panel so it scrolls with the list once the scroll container is added.
      - Make the list panel the vertical scroll container (e.g., `overflowY: 'auto'` on the list wrapper) while keeping the header outside the scroll area.
      - Add `minWidth: 0` to any Stack/Box wrapping `Typography noWrap` to prevent horizontal overflow.
-  - UI elements to verify after change:
-    - `conversation-load-more` remains visible inside the bordered panel.
-    - When `hasMore` is false, the button shows “No more” and stays disabled.
-    - The panel (the Box wrapping the List) has `overflowY: 'auto'` and still uses `borderColor: 'divider'`.
+   - UI elements to verify after change:
+     - `conversation-load-more` remains visible inside the bordered panel.
+     - When `hasMore` is false, the button shows “No more” and stays disabled.
+     - The panel (the Box wrapping the List) has `overflowY: 'auto'` and still uses `borderColor: 'divider'`.
 
 2. [ ] Run formatting/linting and resolve any failures:
    - Documentation to read:

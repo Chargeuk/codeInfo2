@@ -132,14 +132,14 @@
         "5. [ ] `npm run e2e`",
         "6. [ ] `npm run compose:build`",
         "7. [ ] `npm run compose:up`",
-        "8. [ ] Manual Playwright-MCP check to manually confirm items within the story and general regressions checks that should be detailed based on the task being tested.",
+        "8. [ ] Manual Playwright-MCP check to manually confirm items within the story and general regressions checks that should be detailed based on the task being tested. This should include a check to ensure that there are no logged errors withing the debug console if possible",
         "9. [ ] `npm run compose:down`"
       ]
     },
     {
       "type": "message",
       "role": "user",
-      "content": ["Ensure each task has specific log lines to add that will be tested for during the Manual Playwright-MCP check step. These log lines should be detailed in the subtasks and will confirm events are triggered as expected. Commit after making any changes."]
+      "content": ["Ensure each task has specific log lines to add that will be tested for during the Manual Playwright-MCP check step. These log lines should be detailed in the subtasks and will confirm events are triggered as expected. Include updates to the Manual Playwright-MCP check to check for these specific log lines and what the expected outcome is. Commit after making any changes."]
     }
   ]
 }

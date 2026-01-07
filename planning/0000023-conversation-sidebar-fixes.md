@@ -846,8 +846,8 @@ Align header/row padding to 12px and move vertical scrolling into the list panel
 
 ### 6. Client: Layout tests for scroll + overflow
 
-- Task Status: **__in_progress__**
-- Git Commits: **to_do**
+- Task Status: **__done__**
+- Git Commits: 237b835
 
 #### Overview
 
@@ -1002,6 +1002,7 @@ Extend layout tests to assert vertical scrolling in the list panel, “Load more
 - Attempted manual Playwright-MCP verification, but the Playwright MCP browser reported "Browser is already in use" and could not launch; `/logs` verification could not be completed in this run.
 - Completed `npm run compose:down`.
 - Re-ran `npm run format:check --workspaces` after `npm run format --workspaces` fixed the inline padding formatting change in `ConversationList`.
+- `git push` failed (missing GitHub credentials in this environment).
 
 ---
 

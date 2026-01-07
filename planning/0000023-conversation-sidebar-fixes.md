@@ -754,7 +754,7 @@ Update Drawer paper styling to prevent horizontal scrollbars and ensure the Draw
 
 ### 5. Client: List panel padding + vertical scroll behavior
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **to_do**
 
 #### Overview

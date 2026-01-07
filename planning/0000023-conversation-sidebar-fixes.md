@@ -1008,7 +1008,7 @@ Extend layout tests to assert vertical scrolling in the list panel, “Load more
 
 ### 7. Final verification (acceptance criteria, clean builds, docs, PR summary)
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **to_do**
 
 #### Overview

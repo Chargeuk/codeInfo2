@@ -182,7 +182,8 @@ Update the shared `ConversationList` component so filter tabs, refresh, row-leve
 5. [ ] `npm run e2e`
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] `npm run compose:down`
+8. [ ] Manual Playwright-MCP check to confirm ConversationList control gating (filters/refresh/bulk UI), archive/restore actions, and no regressions in Chat sidebar behavior.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -261,7 +262,8 @@ Wire AgentsPage to pass the full set of conversation handlers so the shared Conv
 5. [ ] `npm run e2e`
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] `npm run compose:down`
+8. [ ] Manual Playwright-MCP check to confirm Agents sidebar wiring (filters, bulk actions, archive/restore) and persistence-disabled gating behaves the same as Chat.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -589,7 +591,8 @@ Extend existing conversation sidebar tests and add Agents-specific coverage to e
 5. [ ] `npm run e2e`
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] `npm run compose:down`
+8. [ ] Manual Playwright-MCP check to confirm new/updated sidebar tests pass visually (Agents parity, bulk actions, and persistence-disabled states).
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -657,7 +660,8 @@ Update Drawer paper styling to prevent horizontal scrollbars and ensure the Draw
 5. [ ] `npm run e2e`
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] `npm run compose:down`
+8. [ ] Manual Playwright-MCP check to confirm Drawer paper overflow guard fixes prevent horizontal scrolling and preserve alignment.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -727,7 +731,8 @@ Align header/row padding to 12px and move vertical scrolling into the list panel
 5. [ ] `npm run e2e`
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] `npm run compose:down`
+8. [ ] Manual Playwright-MCP check to confirm list panel scroll/padding changes (Load more reachability, no horizontal scroll) behave correctly.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -863,7 +868,8 @@ Extend layout tests to assert vertical scrolling in the list panel, “Load more
 5. [ ] `npm run e2e`
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] `npm run compose:down`
+8. [ ] Manual Playwright-MCP check to confirm layout test changes (scroll container, Load more placement, padding parity) match expected behavior.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 

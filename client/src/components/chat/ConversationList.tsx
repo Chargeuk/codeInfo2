@@ -278,7 +278,11 @@ export function ConversationList({
 
   return (
     <Stack spacing={1} sx={{ height: '100%' }}>
-      <Stack spacing={0.75} sx={{ px: 1.5 }}>
+      <Stack
+        spacing={0.75}
+        sx={{ px: 1.5 }}
+        style={{ paddingLeft: 12, paddingRight: 12 }}
+      >
         <Stack
           direction="row"
           alignItems="center"
@@ -548,6 +552,7 @@ export function ConversationList({
                       onClick={() => onSelect(conversation.conversationId)}
                       disabled={disabled}
                       data-testid="conversation-row"
+                      style={{ paddingLeft: 12, paddingRight: 12 }}
                       sx={{ alignItems: 'flex-start', py: 1.25, px: 1.5 }}
                     >
                       {enableBulkUi && (

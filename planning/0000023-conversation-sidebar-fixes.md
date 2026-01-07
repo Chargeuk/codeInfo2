@@ -746,16 +746,39 @@ Validate the story end-to-end: Agents and Chat sidebars match, scrolling/padding
    - Scroll the list panel to verify “Load more” is reachable and no horizontal scrollbar appears.
    - Save screenshots to `./test-results/screenshots/` named `0000023-3-<short-name>.png`.
 
-4. [ ] Documentation updates:
+4. [ ] Documentation update - `README.md`:
+   - Documentation to read (repeat for standalone subtask context):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Document location:
+     - `README.md`
+   - Description:
+     - Update any user-facing behavior notes if the sidebar UX changes warrant it.
+   - Purpose:
+     - Keep top-level usage documentation accurate.
+
+5. [ ] Documentation update - `design.md` (Mermaid required if flows/architecture change):
    - Documentation to read (repeat for standalone subtask context):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
      - Mermaid syntax: Context7 `/mermaid-js/mermaid`
      - Mermaid syntax (web reference): https://mermaid.js.org/intro/syntax-reference.html
-   - `README.md` (user-facing behavior updates, if any)
-   - `design.md` (layout/padding or flow notes, if any; include Mermaid diagrams when flows/architecture change)
-   - `projectStructure.md` (new/changed files)
+   - Document location:
+     - `design.md`
+   - Description:
+     - Update layout/padding or flow notes; include Mermaid diagrams if any flow/architecture changes are introduced.
+   - Purpose:
+     - Keep design/architecture documentation synchronized with UI behavior.
 
-5. [ ] Create a PR summary comment covering all story changes.
+6. [ ] Documentation update - `projectStructure.md`:
+   - Documentation to read (repeat for standalone subtask context):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Document location:
+     - `projectStructure.md`
+   - Description:
+     - Add or update entries for any new/changed files created by this story.
+   - Purpose:
+     - Keep the repository map accurate.
+
+7. [ ] Create a PR summary comment covering all story changes.
    - Documentation to read (repeat for standalone subtask context):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
 

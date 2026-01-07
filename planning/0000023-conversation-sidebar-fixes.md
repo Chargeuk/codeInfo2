@@ -271,61 +271,145 @@ Extend existing conversation sidebar tests and add Agents-specific coverage to e
 
 #### Subtasks
 
-1. [ ] Extend ConversationList tests:
-   - Documentation to read (repeat for standalone subtask context):
-     - Jest: Context7 `/jestjs/jest`
-     - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-   - Files to edit:
-     - `client/src/test/chatSidebar.test.tsx`
-   - Requirements:
-     - Reuse existing bulk-selection and delete confirmation patterns.
-     - Add any missing assertions needed for new control gating.
-   - Test IDs to assert against (from ConversationList):
-     - Filters: `conversation-filter-active`, `conversation-filter-all`, `conversation-filter-archived`
-     - Bulk: `conversation-bulk-archive`, `conversation-bulk-restore`, `conversation-bulk-delete`
-
-2. [ ] Add Agents sidebar parity tests:
-   - Documentation to read (repeat for standalone subtask context):
-     - Jest: Context7 `/jestjs/jest`
-     - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-   - Files to edit/add:
-     - `client/src/test/agentsPage.sidebarActions.test.tsx` (new)
-     - (Reference pattern file) `client/src/test/agentsPage.sidebarWs.test.tsx`
-   - Requirements:
-     - Assert filter tabs render on Agents and toggle filter state.
-     - Assert row selection checkboxes render and can be toggled.
-     - Assert bulk archive/restore buttons appear and enable when selections match the filter state.
-     - Assert bulk delete appears only when the filter is Archived.
-     - Assert per-row archive/restore icon buttons render based on the row’s `archived` flag.
-     - Assert conversation filters/actions are disabled when persistence is unavailable.
-     - Reuse existing AgentsPage test harness patterns (router setup + fetch stubs) from `agentsPage.sidebarWs.test.tsx` instead of creating new helpers.
-   - Mocking requirements:
-     - Mock `/health` to return `mongoConnected` true/false for enabled/disabled assertions.
-     - Mock `/conversations` to return a mix of archived + active rows for filter tests.
-
-3. [ ] Update persistence banner test if needed:
-   - Documentation to read (repeat for standalone subtask context):
-     - Jest: Context7 `/jestjs/jest`
-     - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-   - Files to edit:
-     - `client/src/test/chatPersistenceBanner.test.tsx`
-   - Requirements:
-     - Ensure persistence-disabled behavior still disables conversation controls when mongo is down.
-     - Assert `conversation-filter-active` is disabled when `mongoConnected === false`.
-
-4. [ ] Add ConversationList error + pagination edge case tests:
+1. [ ] Unit test (RTL) - ConversationList filter/refresh gating:
    - Documentation to read (repeat for standalone subtask context):
      - Jest: Context7 `/jestjs/jest`
      - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
      - Testing Library user-event: https://testing-library.com/docs/user-event/intro/
-   - Files to edit:
+   - Test location:
      - `client/src/test/chatSidebar.test.tsx`
-   - Requirements:
-     - Error state: render `ConversationList` with `isError: true` and `error` set; assert `conversation-error` appears and clicking the retry action calls `onRetry`.
-     - Pagination: with `hasMore: true` + `onLoadMore`, assert `conversation-load-more` is visible and invokes `onLoadMore` on click.
-     - Corner case: with `hasMore: false` or `onLoadMore` missing, assert `conversation-load-more` is not rendered.
+   - Description:
+     - Render `ConversationList` with `variant="agents"` **and** handler props (`onFilterChange`, `onRefresh`) and assert the filter ToggleButtons + refresh icon render.
+   - Purpose:
+     - Proves the controls are now handler-driven instead of variant-driven.
 
-5. [ ] Run formatting/linting and resolve any failures:
+2. [ ] Unit test (RTL) - ConversationList bulk UI gating:
+   - Documentation to read (repeat for standalone subtask context):
+     - Jest: Context7 `/jestjs/jest`
+     - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+     - Testing Library user-event: https://testing-library.com/docs/user-event/intro/
+   - Test location:
+     - `client/src/test/chatSidebar.test.tsx`
+   - Description:
+     - Render `ConversationList` without `onBulkArchive/onBulkRestore/onBulkDelete` and assert bulk UI (`conversation-select-all`, bulk buttons) is not rendered.
+   - Purpose:
+     - Ensures bulk UI only appears when bulk handlers are supplied.
+
+3. [ ] Integration test (RTL) - Agents sidebar filter tabs:
+   - Documentation to read (repeat for standalone subtask context):
+     - Jest: Context7 `/jestjs/jest`
+     - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+     - Testing Library user-event: https://testing-library.com/docs/user-event/intro/
+   - Test location:
+     - `client/src/test/agentsPage.sidebarActions.test.tsx` (new)
+     - (Reference pattern file) `client/src/test/agentsPage.sidebarWs.test.tsx`
+   - Description:
+     - Mount AgentsPage; assert filter tabs (`conversation-filter-*`) render and toggle selection state when clicked.
+   - Purpose:
+     - Confirms Agents sidebar exposes the same filter controls as Chat.
+   - Mocking requirements:
+     - Mock `/health` with `mongoConnected: true`.
+     - Mock `/conversations` with active + archived items for filter toggling.
+     - Reuse existing AgentsPage test harness patterns from `agentsPage.sidebarWs.test.tsx`.
+
+4. [ ] Integration test (RTL) - Agents bulk selection + archive/restore:
+   - Documentation to read (repeat for standalone subtask context):
+     - Jest: Context7 `/jestjs/jest`
+     - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+     - Testing Library user-event: https://testing-library.com/docs/user-event/intro/
+   - Test location:
+     - `client/src/test/agentsPage.sidebarActions.test.tsx`
+     - (Reference pattern file) `client/src/test/agentsPage.sidebarWs.test.tsx`
+   - Description:
+     - Select rows via `conversation-select`, assert bulk archive/restore buttons enable based on the current filter.
+   - Purpose:
+     - Ensures bulk actions are available and stateful in Agents.
+   - Mocking requirements:
+     - Mock `/health` with `mongoConnected: true` and `/conversations` with mixed archived/active rows.
+     - Reuse existing AgentsPage test harness patterns from `agentsPage.sidebarWs.test.tsx`.
+
+5. [ ] Integration test (RTL) - Agents bulk delete archived-only:
+   - Documentation to read (repeat for standalone subtask context):
+     - Jest: Context7 `/jestjs/jest`
+     - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+     - Testing Library user-event: https://testing-library.com/docs/user-event/intro/
+   - Test location:
+     - `client/src/test/agentsPage.sidebarActions.test.tsx`
+   - Description:
+     - Verify `conversation-bulk-delete` renders only when filter is Archived and hides on Active/All.
+   - Purpose:
+     - Confirms delete visibility rules match Chat (archived-only).
+
+6. [ ] Integration test (RTL) - Agents row archive/restore actions:
+   - Documentation to read (repeat for standalone subtask context):
+     - Jest: Context7 `/jestjs/jest`
+     - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+     - Testing Library user-event: https://testing-library.com/docs/user-event/intro/
+   - Test location:
+     - `client/src/test/agentsPage.sidebarActions.test.tsx`
+   - Description:
+     - Assert `conversation-archive` is shown for active rows and `conversation-restore` for archived rows.
+   - Purpose:
+     - Ensures per-row actions are available in Agents.
+
+7. [ ] Integration test (RTL) - Agents persistence disabled state:
+   - Documentation to read (repeat for standalone subtask context):
+     - Jest: Context7 `/jestjs/jest`
+     - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+   - Test location:
+     - `client/src/test/agentsPage.sidebarActions.test.tsx`
+   - Description:
+     - Mock `/health` with `mongoConnected: false`; assert filters/actions are disabled.
+   - Purpose:
+     - Verifies persistence-disabled state matches Chat behavior.
+
+8. [ ] Unit test (RTL) - Chat persistence banner disables sidebar controls:
+   - Documentation to read (repeat for standalone subtask context):
+     - Jest: Context7 `/jestjs/jest`
+     - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+   - Test location:
+     - `client/src/test/chatPersistenceBanner.test.tsx`
+   - Description:
+     - Ensure conversation controls are disabled when `mongoConnected === false` (e.g., `conversation-filter-active`).
+   - Purpose:
+     - Keeps Chat persistence behavior explicit after sidebar changes.
+
+9. [ ] Unit test (RTL) - ConversationList error state + retry:
+   - Documentation to read (repeat for standalone subtask context):
+     - Jest: Context7 `/jestjs/jest`
+     - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+     - Testing Library user-event: https://testing-library.com/docs/user-event/intro/
+   - Test location:
+     - `client/src/test/chatSidebar.test.tsx`
+   - Description:
+     - Render `ConversationList` with `isError: true` and `error` set; assert `conversation-error` and that clicking Retry calls `onRetry`.
+   - Purpose:
+     - Covers sidebar error handling path.
+
+10. [ ] Unit test (RTL) - ConversationList pagination happy path:
+    - Documentation to read (repeat for standalone subtask context):
+      - Jest: Context7 `/jestjs/jest`
+      - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+      - Testing Library user-event: https://testing-library.com/docs/user-event/intro/
+    - Test location:
+      - `client/src/test/chatSidebar.test.tsx`
+    - Description:
+      - With `hasMore: true` + `onLoadMore`, assert `conversation-load-more` renders and invokes `onLoadMore` on click.
+    - Purpose:
+      - Confirms paging control appears and functions.
+
+11. [ ] Unit test (RTL) - ConversationList pagination hidden when inactive:
+    - Documentation to read (repeat for standalone subtask context):
+      - Jest: Context7 `/jestjs/jest`
+      - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+    - Test location:
+      - `client/src/test/chatSidebar.test.tsx`
+    - Description:
+      - With `hasMore: false` **or** missing `onLoadMore`, assert `conversation-load-more` is not rendered.
+    - Purpose:
+      - Covers pagination corner case (no load-more state).
+
+12. [ ] Run formatting/linting and resolve any failures:
    - Documentation to read:
      - ESLint CLI: Context7 `/eslint/eslint`
      - Prettier CLI: Context7 `/prettier/prettier`
@@ -500,33 +584,64 @@ Extend layout tests to assert vertical scrolling in the list panel, “Load more
 
 #### Subtasks
 
-1. [ ] Update Chat layout tests:
+1. [ ] Unit test (RTL) - Chat list panel uses vertical scroll:
    - Documentation to read (repeat for standalone subtask context):
      - Jest: Context7 `/jestjs/jest`
      - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-   - Files to edit:
+   - Test location:
      - `client/src/test/chatPage.layoutWrap.test.tsx`
-   - Requirements:
-     - Assert the conversation list container uses vertical scrolling (`overflowY: 'auto'` or equivalent).
-     - Assert the “Load more” button is rendered inside the bordered list panel.
-     - Assert the Drawer paper uses `overflowX: hidden` (or equivalent) to prevent horizontal scroll.
-     - Validate header and row padding use the same `px` value.
-     - Reuse existing layout helpers in this file (`installChatLayoutRectMocks`, `installTranscriptWidthMock`) instead of adding new layout utilities.
-   - Suggested selectors:
-     - `conversation-list` for the drawer list container.
-     - `conversation-load-more` for the load more button.
+   - Description:
+     - Assert the list panel element (`conversation-list` container) uses `overflowY: 'auto'` (or equivalent).
+   - Purpose:
+     - Confirms long lists scroll within the panel instead of the entire sidebar.
+   - Reuse helpers:
+     - Use existing `installChatLayoutRectMocks` / `installTranscriptWidthMock` from this file.
 
-2. [ ] Add Agents layout test only if needed:
+2. [ ] Unit test (RTL) - Chat “Load more” is inside the list panel:
    - Documentation to read (repeat for standalone subtask context):
      - Jest: Context7 `/jestjs/jest`
      - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-   - Files to edit/add:
-     - `client/src/test/agentsPage.layoutWrap.test.tsx` (new, only if Chat tests can’t cover Agents-specific layout)
-   - Requirements:
-     - Only add this file if Chat layout assertions cannot prove Agents layout parity.
-     - Reuse the same data-testid selectors from the Chat tests to avoid divergence.
+   - Test location:
+     - `client/src/test/chatPage.layoutWrap.test.tsx`
+   - Description:
+     - Assert `conversation-load-more` renders within the bordered list panel DOM subtree.
+   - Purpose:
+     - Ensures paging controls remain reachable via list panel scrolling.
 
-3. [ ] Run formatting/linting and resolve any failures:
+3. [ ] Unit test (RTL) - Chat Drawer paper hides horizontal overflow:
+   - Documentation to read (repeat for standalone subtask context):
+     - Jest: Context7 `/jestjs/jest`
+     - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+   - Test location:
+     - `client/src/test/chatPage.layoutWrap.test.tsx`
+   - Description:
+     - Assert the Drawer paper element uses `overflowX: hidden` (or equivalent) to prevent horizontal scrollbars.
+   - Purpose:
+     - Guards against sideways scroll regressions.
+
+4. [ ] Unit test (RTL) - Chat header/row padding parity:
+   - Documentation to read (repeat for standalone subtask context):
+     - Jest: Context7 `/jestjs/jest`
+     - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+   - Test location:
+     - `client/src/test/chatPage.layoutWrap.test.tsx`
+   - Description:
+     - Assert header/filter container and row items share the same horizontal padding (expected `px: 1.5`).
+   - Purpose:
+     - Prevents padding drift between header controls and list rows.
+
+5. [ ] Integration test (RTL) - Agents layout parity (only if needed):
+   - Documentation to read (repeat for standalone subtask context):
+     - Jest: Context7 `/jestjs/jest`
+     - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+   - Test location:
+     - `client/src/test/agentsPage.layoutWrap.test.tsx` (new, only if Chat layout tests cannot prove Agents parity)
+   - Description:
+     - Assert the same `conversation-list` and `conversation-load-more` layout rules on the Agents page.
+   - Purpose:
+     - Ensures Agents layout stays in sync with Chat if shared tests aren’t sufficient.
+
+6. [ ] Run formatting/linting and resolve any failures:
    - Documentation to read:
      - ESLint CLI: Context7 `/eslint/eslint`
      - Prettier CLI: Context7 `/prettier/prettier`

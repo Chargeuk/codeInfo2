@@ -316,8 +316,8 @@ Wire AgentsPage to pass the full set of conversation handlers so the shared Conv
 
 ### 3. Client: Sidebar parity tests (ConversationList + Agents)
 
-- Task Status: **__in_progress__**
-- Git Commits: **to_do**
+- Task Status: **__done__**
+- Git Commits: 9b0134c, cf28150
 
 #### Overview
 

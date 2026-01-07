@@ -55,6 +55,7 @@ import useConversationTurns, {
 } from '../hooks/useConversationTurns';
 import useConversations from '../hooks/useConversations';
 import usePersistenceStatus from '../hooks/usePersistenceStatus';
+import { createLogger } from '../logging/logger';
 
 export default function ChatPage() {
   const theme = useTheme();
@@ -196,6 +197,7 @@ export default function ChatPage() {
     drawerTopOffsetPx > 0
       ? `calc(100% - ${drawerTopOffsetPx}px)`
       : `calc(100% - ${theme.spacing(3)})`;
+  const log = useMemo(() => createLogger('client'), []);
   const selectedConversation = useMemo(
     () =>
       conversations.find(
@@ -209,6 +211,15 @@ export default function ChatPage() {
   const turnsAutoFetch = Boolean(
     turnsConversationId && knownConversationIds.has(turnsConversationId),
   );
+
+  useEffect(() => {
+    log('info', '0000023 drawer overflow guard applied', {
+      page: 'chat',
+      drawerWidth,
+      overflowX: 'hidden',
+      boxSizing: 'border-box',
+    });
+  }, [drawerWidth, log]);
   const {
     turns,
     inflight: inflightSnapshot,
@@ -970,14 +981,20 @@ export default function ChatPage() {
               variant={isMobile ? 'temporary' : 'persistent'}
               ModalProps={{ keepMounted: false }}
               data-testid="conversation-drawer"
+              slotProps={{
+                paper: {
+                  sx: {
+                    boxSizing: 'border-box',
+                    overflowX: 'hidden',
+                    width: drawerWidth,
+                    mt: drawerTopOffset,
+                    height: drawerHeight,
+                  },
+                },
+              }}
               sx={{
                 width: isMobile ? undefined : drawerOpen ? drawerWidth : 0,
                 flexShrink: 0,
-                '& .MuiDrawer-paper': {
-                  width: drawerWidth,
-                  mt: drawerTopOffset,
-                  height: drawerHeight,
-                },
               }}
             >
               <Box

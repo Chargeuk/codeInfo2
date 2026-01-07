@@ -178,6 +178,15 @@ export default function AgentsPage() {
   }, [isMobile, log]);
 
   useEffect(() => {
+    log('info', '0000023 drawer overflow guard applied', {
+      page: 'agents',
+      drawerWidth,
+      overflowX: 'hidden',
+      boxSizing: 'border-box',
+    });
+  }, [drawerWidth, log]);
+
+  useEffect(() => {
     if (isMobile) {
       setMobileDrawerOpen(false);
       return;
@@ -1295,14 +1304,20 @@ export default function AgentsPage() {
               variant={isMobile ? 'temporary' : 'persistent'}
               ModalProps={{ keepMounted: false }}
               data-testid="conversation-drawer"
+              slotProps={{
+                paper: {
+                  sx: {
+                    boxSizing: 'border-box',
+                    overflowX: 'hidden',
+                    width: drawerWidth,
+                    mt: drawerTopOffset,
+                    height: drawerHeight,
+                  },
+                },
+              }}
               sx={{
                 width: isMobile ? undefined : drawerOpen ? drawerWidth : 0,
                 flexShrink: 0,
-                '& .MuiDrawer-paper': {
-                  width: drawerWidth,
-                  mt: drawerTopOffset,
-                  height: drawerHeight,
-                },
               }}
             >
               <Box

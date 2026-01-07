@@ -685,7 +685,7 @@ Update Drawer paper styling to prevent horizontal scrollbars and ensure the Draw
 
 #### Subtasks
 
-1. [ ] Apply Drawer paper overflow guard:
+1. [x] Apply Drawer paper overflow guard:
    - Documentation to read (repeat for standalone subtask context):
      - MUI Drawer: https://llms.mui.com/material-ui/6.4.12/components/drawers.md
      - MUI Drawer API: https://llms.mui.com/material-ui/6.4.12/api/drawer.md
@@ -710,7 +710,7 @@ Update Drawer paper styling to prevent horizontal scrollbars and ensure the Draw
      }}
      ```
 
-2. [ ] Add a client log line confirming Drawer paper overflow guard applied:
+2. [x] Add a client log line confirming Drawer paper overflow guard applied:
    - Files to edit:
      - `client/src/pages/ChatPage.tsx`
      - `client/src/pages/AgentsPage.tsx`
@@ -721,23 +721,34 @@ Update Drawer paper styling to prevent horizontal scrollbars and ensure the Draw
    - Purpose:
      - Manual Playwright-MCP check will assert the layout guard is active in both pages via `/logs`.
 
-3. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+3. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check to confirm Drawer paper overflow guard fixes prevent horizontal scrolling and preserve alignment. Check the browser console for errors and resolve any issues before proceeding. Then open `/logs` and filter for `0000023 drawer overflow guard applied` and confirm entries for both `page=chat` and `page=agents`.
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check to confirm Drawer paper overflow guard fixes prevent horizontal scrolling and preserve alignment. Check the browser console for errors and resolve any issues before proceeding. Then open `/logs` and filter for `0000023 drawer overflow guard applied` and confirm entries for both `page=chat` and `page=agents`.
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- (fill in after implementation)
+- Applied `slotProps.paper` styling for the chat and agents drawers to enforce `boxSizing: 'border-box'`, `overflowX: 'hidden'`, and fixed width while preserving existing offset/height calculations.
+- Added `0000023 drawer overflow guard applied` logging in both Chat and Agents pages with the required context fields.
+- Ran `npm run lint --workspaces` (warnings only) and `npm run format:check --workspaces` cleanly.
+- Verified server build with `npm run build --workspace server`.
+- Verified client build with `npm run build --workspace client` (chunk size warnings only).
+- Ran `npm run test --workspace server` successfully.
+- Ran `npm run test --workspace client`; existing console act warnings persist.
+- Ran `npm run e2e` successfully after re-running once due to an ingest beforeAll timeout; `npm run e2e:down` cleared the stack between attempts.
+- Built the main compose images with `npm run compose:build`.
+- Brought up the main compose stack with `npm run compose:up`.
+- Playwright MCP manual check blocked by an in-use browser profile, so `/chat`, `/agents`, and `/logs` verification still needs a local rerun against `http://host.docker.internal:5001`.
+- Brought the main compose stack down with `npm run compose:down`.
 
 ---
 

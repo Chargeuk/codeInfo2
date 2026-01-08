@@ -26,8 +26,8 @@ import {
   Typography,
 } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
-import { createLogger } from '../../logging/logger';
 import type { ConversationFilterState } from '../../hooks/useConversations';
+import { createLogger } from '../../logging/logger';
 
 export type ConversationListItem = {
   conversationId: string;
@@ -383,6 +383,8 @@ export function ConversationList({
               py: 0.5,
               borderBottom: '1px solid',
               borderColor: 'divider',
+              flexWrap: 'wrap',
+              rowGap: 0.5,
             }}
           >
             <Stack direction="row" spacing={1} alignItems="center">
@@ -416,12 +418,17 @@ export function ConversationList({
               )}
             </Stack>
 
-            <Stack direction="row" spacing={1}>
+            <Stack
+              direction="row"
+              spacing={1}
+              sx={{ flexWrap: 'wrap', rowGap: 0.5, justifyContent: 'flex-end' }}
+            >
               <Button
                 size="small"
                 variant="outlined"
                 disabled={!canBulkArchive}
                 data-testid="conversation-bulk-archive"
+                sx={{ minWidth: 0, px: 1 }}
                 onClick={() => {
                   void handleBulk('archive');
                 }}
@@ -433,6 +440,7 @@ export function ConversationList({
                 variant="outlined"
                 disabled={!canBulkRestore}
                 data-testid="conversation-bulk-restore"
+                sx={{ minWidth: 0, px: 1 }}
                 onClick={() => {
                   void handleBulk('restore');
                 }}
@@ -446,6 +454,7 @@ export function ConversationList({
                   color="error"
                   disabled={!canBulkDelete}
                   data-testid="conversation-bulk-delete"
+                  sx={{ minWidth: 0, px: 1 }}
                   onClick={() => setDeleteDialogOpen(true)}
                 >
                   Delete

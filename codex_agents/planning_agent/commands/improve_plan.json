@@ -24,7 +24,7 @@
     {
       "type": "message",
       "role": "user",
-      "content": ["Are there any sections in this story that are not defined in a way that a junior developer could understand what the output should be, and what the story needs to acheive? If so please update all relevent planning sections to get them to where we need to be. Commit after making any changes."]
+      "content": ["Are there any sections in this story that are not defined in a way that a junior developer could understand what the output should be, and what the story needs to achieve? If so please update all relevent planning sections to get them to where we need to be. Commit after making any changes."]
     },
     {
       "type": "message",

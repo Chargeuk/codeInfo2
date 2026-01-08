@@ -4,7 +4,7 @@
     {
       "type": "message",
       "role": "user",
-      "content": ["Please read Agents.md and follow it's instructions. Give me an overview of the project and where we are up to and how the next steps will be achieved."]
+      "content": ["Please read Agents.md and follow its instructions. Give me an overview of the project and where we are up to and how the next steps will be achieved."]
     },
     {
       "type": "message",

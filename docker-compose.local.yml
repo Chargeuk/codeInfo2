@@ -158,6 +158,16 @@ services:
     networks:
       - internal
 
+  playwright-mcp:
+    container_name: codeinfo2-playwright-mcp-local
+    image: mcr.microsoft.com/playwright/mcp:latest
+    entrypoint: ['node', 'cli.js']
+    command: ['--headless', '--browser', 'chromium', '--no-sandbox', '--port', '8931']
+    ports:
+      - '8932:8931'
+    networks:
+      - internal
+
 networks:
   internal:
 

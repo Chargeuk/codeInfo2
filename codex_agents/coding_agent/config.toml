@@ -28,8 +28,7 @@ startup_timeout_sec = 60
 tool_timeout_sec = 1800
 
 [mcp_servers.playwright]
-command = "npx"
-args = ["@playwright/mcp@latest"]
+url = "http://playwright-mcp:8931/mcp"
 startup_timeout_sec = 60
 tool_timeout_sec = 3600
 
@@ -42,4 +41,3 @@ trust_level = "trusted"
 
 [projects."/Users/danielstapleton/Documents/dev"]
 trust_level = "trusted"
-

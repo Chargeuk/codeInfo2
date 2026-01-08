@@ -5,10 +5,12 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { setupChatWsHarness } from './support/mockChatWs';
+import { createLogger } from '../logging/logger';
 
 const mockFetch = jest.fn();
 
@@ -37,6 +39,15 @@ const routes = [
     ],
   },
 ];
+
+const logSidebarLayoutConfigured = (params: {
+  scrollContainer: boolean;
+  loadMoreInside: boolean;
+  overflowGuarded: boolean;
+}) => {
+  const log = createLogger('client-test', () => '/test');
+  log('info', '0000023 sidebar layout tests configured', params);
+};
 
 function getAppShellContainer(): HTMLElement {
   const containers = Array.from(
@@ -592,5 +603,121 @@ describe('Chat page layout alignment', () => {
     const transcript = await screen.findByTestId('chat-transcript');
     installTranscriptWidthMock(transcript);
     expect(transcript.scrollWidth).toBeLessThanOrEqual(transcript.clientWidth);
+  });
+
+  it('uses the list panel as a vertical scroll container', async () => {
+    window.innerWidth = 1280;
+    window.dispatchEvent(new Event('resize'));
+
+    setupChatWsHarness({
+      mockFetch,
+      conversations: {
+        items: [
+          {
+            conversationId: 'c1',
+            title: 'Conversation',
+            provider: 'lmstudio',
+            model: 'm1',
+            lastMessageAt: '2025-01-01T00:00:00.000Z',
+            archived: false,
+          },
+        ],
+        nextCursor: null,
+      },
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const row = await screen.findByTestId('conversation-row');
+    const list = row.closest('ul');
+    const scrollContainer = list?.parentElement;
+    expect(scrollContainer).not.toBeNull();
+    expect(getComputedStyle(scrollContainer!).overflowY).toBe('auto');
+  });
+
+  it('keeps Load more inside the list panel', async () => {
+    window.innerWidth = 1280;
+    window.dispatchEvent(new Event('resize'));
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const panel = await screen.findByTestId('conversation-list');
+    expect(
+      within(panel).getByTestId('conversation-load-more'),
+    ).toBeInTheDocument();
+  });
+
+  it('hides horizontal overflow on the drawer paper', async () => {
+    window.innerWidth = 1280;
+    window.dispatchEvent(new Event('resize'));
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    await screen.findByTestId('chat-transcript');
+
+    const drawer = screen.getByTestId('conversation-drawer');
+    const paper = drawer.querySelector(
+      '.MuiDrawer-paper',
+    ) as HTMLElement | null;
+    expect(paper).not.toBeNull();
+    expect(getComputedStyle(paper!).overflowX).toBe('hidden');
+  });
+
+  it('keeps header and row padding aligned', async () => {
+    window.innerWidth = 1280;
+    window.dispatchEvent(new Event('resize'));
+
+    setupChatWsHarness({
+      mockFetch,
+      conversations: {
+        items: [
+          {
+            conversationId: 'c1',
+            title: 'Conversation',
+            provider: 'lmstudio',
+            model: 'm1',
+            lastMessageAt: '2025-01-01T00:00:00.000Z',
+            archived: false,
+          },
+        ],
+        nextCursor: null,
+      },
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const filter = await screen.findByTestId('conversation-filter');
+    const rowButton = await screen.findByTestId('conversation-row');
+    const headerContainer = filter.parentElement as HTMLElement | null;
+
+    expect(headerContainer).not.toBeNull();
+
+    const headerPadding =
+      headerContainer!.style.paddingLeft ||
+      getComputedStyle(headerContainer!).paddingLeft;
+    const rowPadding =
+      rowButton.style.paddingLeft || getComputedStyle(rowButton).paddingLeft;
+
+    expect(headerPadding).toBe(rowPadding);
+  });
+
+  it('logs layout configuration for manual verification', async () => {
+    window.innerWidth = 1280;
+    window.dispatchEvent(new Event('resize'));
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    await screen.findByTestId('conversation-list');
+
+    logSidebarLayoutConfigured({
+      scrollContainer: true,
+      loadMoreInside: true,
+      overflowGuarded: true,
+    });
   });
 });

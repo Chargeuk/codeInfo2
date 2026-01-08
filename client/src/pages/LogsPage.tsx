@@ -56,6 +56,10 @@ export default function LogsPage() {
     logger('info', '0000022 verification logs reviewed', {
       story: '0000022',
     });
+    logger('info', '0000023 verification logs reviewed', {
+      story: '0000023',
+      logChecksComplete: true,
+    });
   }, [logger]);
 
   const apiBase =

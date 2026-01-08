@@ -178,6 +178,15 @@ export default function AgentsPage() {
   }, [isMobile, log]);
 
   useEffect(() => {
+    log('info', '0000023 drawer overflow guard applied', {
+      page: 'agents',
+      drawerWidth,
+      overflowX: 'hidden',
+      boxSizing: 'border-box',
+    });
+  }, [drawerWidth, log]);
+
+  useEffect(() => {
     if (isMobile) {
       setMobileDrawerOpen(false);
       return;
@@ -287,6 +296,11 @@ export default function AgentsPage() {
     hasMore: conversationsHasMore,
     loadMore: loadMoreConversations,
     refresh: refreshConversations,
+    archive: archiveConversation,
+    restore: restoreConversation,
+    bulkArchive,
+    bulkRestore,
+    bulkDelete,
     applyWsUpsert,
     applyWsDelete,
   } = useConversations({ agentName: effectiveAgentName });
@@ -862,6 +876,28 @@ export default function AgentsPage() {
     !selectedAgentName ||
     persistenceLoading ||
     isSending;
+  const conversationListDisabled = controlsDisabled || persistenceUnavailable;
+
+  const hasFilters = Boolean(setFilterState && refreshConversations);
+  const hasBulkActions = Boolean(bulkArchive || bulkRestore || bulkDelete);
+  const hasRowActions = Boolean(archiveConversation && restoreConversation);
+
+  useEffect(() => {
+    log('info', '0000023 agents sidebar handlers wired', {
+      agentName: selectedAgentName,
+      hasFilters,
+      hasBulkActions,
+      hasRowActions,
+      persistenceEnabled: !persistenceUnavailable,
+    });
+  }, [
+    hasBulkActions,
+    hasFilters,
+    hasRowActions,
+    log,
+    persistenceUnavailable,
+    selectedAgentName,
+  ]);
 
   const selectedAgent = agents.find((a) => a.name === selectedAgentName);
 
@@ -1268,14 +1304,20 @@ export default function AgentsPage() {
               variant={isMobile ? 'temporary' : 'persistent'}
               ModalProps={{ keepMounted: false }}
               data-testid="conversation-drawer"
+              slotProps={{
+                paper: {
+                  sx: {
+                    boxSizing: 'border-box',
+                    overflowX: 'hidden',
+                    width: drawerWidth,
+                    mt: drawerTopOffset,
+                    height: drawerHeight,
+                  },
+                },
+              }}
               sx={{
                 width: isMobile ? undefined : drawerOpen ? drawerWidth : 0,
                 flexShrink: 0,
-                '& .MuiDrawer-paper': {
-                  width: drawerWidth,
-                  mt: drawerTopOffset,
-                  height: drawerHeight,
-                },
               }}
             >
               <Box
@@ -1292,12 +1334,15 @@ export default function AgentsPage() {
                   hasMore={conversationsHasMore}
                   filterState={filterState}
                   mongoConnected={mongoConnected}
-                  disabled={controlsDisabled}
+                  disabled={conversationListDisabled}
                   variant="agents"
                   onSelect={handleSelectConversation}
                   onFilterChange={setFilterState}
-                  onArchive={() => {}}
-                  onRestore={() => {}}
+                  onArchive={archiveConversation}
+                  onRestore={restoreConversation}
+                  onBulkArchive={bulkArchive}
+                  onBulkRestore={bulkRestore}
+                  onBulkDelete={bulkDelete}
                   onLoadMore={loadMoreConversations}
                   onRefresh={refreshConversations}
                   onRetry={refreshConversations}

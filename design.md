@@ -206,7 +206,7 @@ flowchart LR
 - Bulk actions are available when one or more conversations are selected:
   - **Archive** is enabled only when all selected conversations are active.
   - **Restore** is enabled only when all selected conversations are archived.
-  - **Delete** is enabled for any selection and requires a confirmation dialog.
+  - **Delete** is available only in the Archived filter and requires a confirmation dialog.
 - When MongoDB persistence is unavailable (`mongoConnected === false`), selection and bulk actions are disabled and the sidebar shows a warning that bulk actions are unavailable.
 - Bulk actions call `POST /conversations/bulk/archive|restore|delete` and surface success/failure via snackbars; selection is cleared after a successful bulk operation.
 - Layout: the sidebar is a responsive MUI `Drawer`.
@@ -1509,6 +1509,7 @@ sequenceDiagram
 ### Agents sidebar WS feed (agent-filtered)
 
 - The Agents sidebar stays live by subscribing to the shared `subscribe_sidebar` feed.
+- Agents and Chat sidebars share the same ConversationList controls (filters, per-row archive/restore, and bulk archive/restore), with bulk delete only available in the Archived filter.
 - `conversation_upsert` events are applied only when `conversation.agentName === selectedAgentName`.
 - `conversation_delete` events remove by `conversationId` (no-op if the item is not in the current sidebar list).
 

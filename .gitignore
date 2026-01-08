@@ -6,6 +6,8 @@ coverage
 .DS_Store
 playwright-report
 test-results
+playwright-output/
+playwright-output-local/
 npm-debug.log*
 .vscode
 *.tsbuildinfo

@@ -26,8 +26,8 @@ import {
   Typography,
 } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
-import { createLogger } from '../../logging/logger';
 import type { ConversationFilterState } from '../../hooks/useConversations';
+import { createLogger } from '../../logging/logger';
 
 export type ConversationListItem = {
   conversationId: string;
@@ -98,7 +98,9 @@ export function ConversationList({
   onRetry,
 }: Props) {
   const log = useMemo(() => createLogger('client'), []);
-  const enableBulkUi = variant === 'chat';
+  const enableBulkUi = Boolean(onBulkArchive || onBulkRestore || onBulkDelete);
+  const showFilters = Boolean(onFilterChange && onRefresh);
+  const showRowActions = Boolean(onArchive && onRestore);
   const bulkDisabled = Boolean(disabled || mongoConnected === false);
   const sorted = useMemo(
     () =>
@@ -151,6 +153,23 @@ export function ConversationList({
       selectedCount: selectedIds.size,
     });
   }, [enableBulkUi, filterState, log, selectedIds.size, selectedKey]);
+
+  useEffect(() => {
+    log('info', '0000023 conversationlist controls visible', {
+      variant,
+      showFilters,
+      enableBulkUi,
+      showRowActions,
+    });
+  }, [enableBulkUi, log, showFilters, showRowActions, variant]);
+
+  useEffect(() => {
+    log('info', '0000023 sidebar list panel layout', {
+      paddingPx: 12,
+      scrollContainer: true,
+      loadMoreInside: true,
+    });
+  }, [log]);
 
   const allConversationIds = useMemo(
     () => sorted.map((c) => c.conversationId),
@@ -259,7 +278,11 @@ export function ConversationList({
 
   return (
     <Stack spacing={1} sx={{ height: '100%' }}>
-      <Stack spacing={0.75}>
+      <Stack
+        spacing={0.75}
+        sx={{ px: 1.5 }}
+        style={{ paddingLeft: 12, paddingRight: 12 }}
+      >
         <Stack
           direction="row"
           alignItems="center"
@@ -268,7 +291,7 @@ export function ConversationList({
           <Typography variant="subtitle1" fontWeight={700}>
             Conversations
           </Typography>
-          {variant === 'chat' && (
+          {showFilters && (
             <Tooltip title="Refresh list">
               <span>
                 <IconButton
@@ -285,7 +308,7 @@ export function ConversationList({
           )}
         </Stack>
 
-        {variant === 'chat' && (
+        {showFilters && (
           <ToggleButtonGroup
             size="small"
             exclusive
@@ -356,10 +379,12 @@ export function ConversationList({
             alignItems="center"
             justifyContent="space-between"
             sx={{
-              px: 1,
+              px: 1.5,
               py: 0.5,
               borderBottom: '1px solid',
               borderColor: 'divider',
+              flexWrap: 'wrap',
+              rowGap: 0.5,
             }}
           >
             <Stack direction="row" spacing={1} alignItems="center">
@@ -393,12 +418,17 @@ export function ConversationList({
               )}
             </Stack>
 
-            <Stack direction="row" spacing={1}>
+            <Stack
+              direction="row"
+              spacing={1}
+              sx={{ flexWrap: 'wrap', rowGap: 0.5, justifyContent: 'flex-end' }}
+            >
               <Button
                 size="small"
                 variant="outlined"
                 disabled={!canBulkArchive}
                 data-testid="conversation-bulk-archive"
+                sx={{ minWidth: 0, px: 1 }}
                 onClick={() => {
                   void handleBulk('archive');
                 }}
@@ -410,6 +440,7 @@ export function ConversationList({
                 variant="outlined"
                 disabled={!canBulkRestore}
                 data-testid="conversation-bulk-restore"
+                sx={{ minWidth: 0, px: 1 }}
                 onClick={() => {
                   void handleBulk('restore');
                 }}
@@ -423,6 +454,7 @@ export function ConversationList({
                   color="error"
                   disabled={!canBulkDelete}
                   data-testid="conversation-bulk-delete"
+                  sx={{ minWidth: 0, px: 1 }}
                   onClick={() => setDeleteDialogOpen(true)}
                 >
                   Delete
@@ -431,203 +463,213 @@ export function ConversationList({
             </Stack>
           </Stack>
         )}
-        {sorted.length === 0 && !isLoading ? (
-          <Stack
-            alignItems="center"
-            justifyContent="center"
-            sx={{ flex: 1, p: 2 }}
-            spacing={1}
-            data-testid="conversation-empty"
-          >
-            <Typography color="text.secondary" align="center">
-              No conversations yet. Start a chat to see history here.
-            </Typography>
-          </Stack>
-        ) : (
-          <List dense disablePadding sx={{ flex: 1 }}>
-            {sorted.map((conversation) => {
-              const selected = selectedId === conversation.conversationId;
-              return (
-                <ListItem
-                  key={conversation.conversationId}
-                  disableGutters
-                  secondaryAction={
-                    variant === 'agents' ? null : conversation.archived ? (
-                      <Tooltip title="Restore conversation">
-                        <span>
-                          <IconButton
-                            edge="end"
-                            size="small"
-                            onClick={() => {
-                              void Promise.resolve(
-                                onRestore(conversation.conversationId),
-                              )
-                                .then(() => {
-                                  setToast({
-                                    severity: 'success',
-                                    message: 'Conversation restored',
-                                  });
-                                })
-                                .catch((err) => {
-                                  setToast({
-                                    severity: 'error',
-                                    message:
-                                      (err as Error).message ||
-                                      'Restore failed',
-                                  });
-                                });
-                            }}
-                            disabled={disabled}
-                            data-testid="conversation-restore"
-                            aria-label="Restore conversation"
-                          >
-                            <RestoreIcon fontSize="small" />
-                          </IconButton>
-                        </span>
-                      </Tooltip>
-                    ) : (
-                      <Tooltip title="Archive conversation">
-                        <span>
-                          <IconButton
-                            edge="end"
-                            size="small"
-                            onClick={() => {
-                              void Promise.resolve(
-                                onArchive(conversation.conversationId),
-                              )
-                                .then(() => {
-                                  setToast({
-                                    severity: 'success',
-                                    message: 'Conversation archived',
-                                  });
-                                })
-                                .catch((err) => {
-                                  setToast({
-                                    severity: 'error',
-                                    message:
-                                      (err as Error).message ||
-                                      'Archive failed',
-                                  });
-                                });
-                            }}
-                            disabled={disabled}
-                            data-testid="conversation-archive"
-                            aria-label="Archive conversation"
-                          >
-                            <ArchiveIcon fontSize="small" />
-                          </IconButton>
-                        </span>
-                      </Tooltip>
-                    )
-                  }
-                >
-                  <ListItemButton
-                    selected={selected}
-                    onClick={() => onSelect(conversation.conversationId)}
-                    disabled={disabled}
-                    data-testid="conversation-row"
-                    sx={{ alignItems: 'flex-start', py: 1.25, px: 1.5 }}
-                  >
-                    {enableBulkUi && (
-                      <Checkbox
-                        size="small"
-                        checked={selectedIds.has(conversation.conversationId)}
-                        disabled={bulkDisabled}
-                        onClick={(event) => event.stopPropagation()}
-                        onChange={() => {
-                          setSelectedIds((prev) => {
-                            const next = new Set(prev);
-                            if (next.has(conversation.conversationId)) {
-                              next.delete(conversation.conversationId);
-                            } else {
-                              next.add(conversation.conversationId);
-                            }
-                            return next;
-                          });
-                        }}
-                        inputProps={{
-                          'aria-label': 'Select conversation',
-                          'data-testid': 'conversation-select',
-                        }}
-                        sx={{ mt: 0.25, mr: 0.5 }}
-                      />
-                    )}
-                    <ListItemText
-                      disableTypography
-                      primary={
-                        <Stack direction="row" spacing={1} alignItems="center">
-                          <Typography
-                            variant="body2"
-                            fontWeight={selected ? 700 : 600}
-                            noWrap
-                            data-testid="conversation-title"
-                            sx={{ maxWidth: '14rem' }}
-                          >
-                            {conversation.title || 'Untitled conversation'}
-                          </Typography>
-                          {conversation.archived && (
-                            <Chip
-                              label="Archived"
-                              size="small"
-                              color="default"
-                              variant="outlined"
-                              data-testid="conversation-archived-chip"
-                            />
-                          )}
-                        </Stack>
-                      }
-                      secondary={
-                        <Stack spacing={0.5} alignItems="flex-start">
-                          <Typography
-                            variant="caption"
-                            color="text.secondary"
-                            data-testid="conversation-meta"
-                          >
-                            {conversation.provider} · {conversation.model} ·{' '}
-                            {conversation.source ?? 'REST'}
-                          </Typography>
-                          <Typography
-                            variant="caption"
-                            color="text.secondary"
-                            data-testid="conversation-updated"
-                          >
-                            {formatTimestamp(conversation.lastMessageAt)}
-                          </Typography>
-                        </Stack>
-                      }
-                    />
-                  </ListItemButton>
-                </ListItem>
-              );
-            })}
-            <Divider />
-          </List>
-        )}
-        <Stack
-          direction="row"
-          alignItems="center"
-          justifyContent="space-between"
-          sx={{ p: 1 }}
-        >
-          <Button
-            size="small"
-            variant="text"
-            onClick={() => onLoadMore()}
-            disabled={disabled || isLoading || !hasMore}
-            data-testid="conversation-load-more"
-          >
-            {hasMore ? 'Load more' : 'No more'}
-          </Button>
-          {isLoading && (
-            <Typography
-              variant="caption"
-              color="text.secondary"
-              data-testid="conversation-loading"
+        <Box sx={{ flex: 1, overflowY: 'auto' }}>
+          {sorted.length === 0 && !isLoading ? (
+            <Stack
+              alignItems="center"
+              justifyContent="center"
+              sx={{ flex: 1, p: 2 }}
+              spacing={1}
+              data-testid="conversation-empty"
             >
-              Loading...
-            </Typography>
+              <Typography color="text.secondary" align="center">
+                No conversations yet. Start a chat to see history here.
+              </Typography>
+            </Stack>
+          ) : (
+            <List dense disablePadding>
+              {sorted.map((conversation) => {
+                const selected = selectedId === conversation.conversationId;
+                return (
+                  <ListItem
+                    key={conversation.conversationId}
+                    disableGutters
+                    secondaryAction={
+                      showRowActions ? (
+                        conversation.archived ? (
+                          <Tooltip title="Restore conversation">
+                            <span>
+                              <IconButton
+                                edge="end"
+                                size="small"
+                                onClick={() => {
+                                  void Promise.resolve(
+                                    onRestore(conversation.conversationId),
+                                  )
+                                    .then(() => {
+                                      setToast({
+                                        severity: 'success',
+                                        message: 'Conversation restored',
+                                      });
+                                    })
+                                    .catch((err) => {
+                                      setToast({
+                                        severity: 'error',
+                                        message:
+                                          (err as Error).message ||
+                                          'Restore failed',
+                                      });
+                                    });
+                                }}
+                                disabled={disabled}
+                                data-testid="conversation-restore"
+                                aria-label="Restore conversation"
+                              >
+                                <RestoreIcon fontSize="small" />
+                              </IconButton>
+                            </span>
+                          </Tooltip>
+                        ) : (
+                          <Tooltip title="Archive conversation">
+                            <span>
+                              <IconButton
+                                edge="end"
+                                size="small"
+                                onClick={() => {
+                                  void Promise.resolve(
+                                    onArchive(conversation.conversationId),
+                                  )
+                                    .then(() => {
+                                      setToast({
+                                        severity: 'success',
+                                        message: 'Conversation archived',
+                                      });
+                                    })
+                                    .catch((err) => {
+                                      setToast({
+                                        severity: 'error',
+                                        message:
+                                          (err as Error).message ||
+                                          'Archive failed',
+                                      });
+                                    });
+                                }}
+                                disabled={disabled}
+                                data-testid="conversation-archive"
+                                aria-label="Archive conversation"
+                              >
+                                <ArchiveIcon fontSize="small" />
+                              </IconButton>
+                            </span>
+                          </Tooltip>
+                        )
+                      ) : null
+                    }
+                  >
+                    <ListItemButton
+                      selected={selected}
+                      onClick={() => onSelect(conversation.conversationId)}
+                      disabled={disabled}
+                      data-testid="conversation-row"
+                      style={{ paddingLeft: 12, paddingRight: 12 }}
+                      sx={{ alignItems: 'flex-start', py: 1.25, px: 1.5 }}
+                    >
+                      {enableBulkUi && (
+                        <Checkbox
+                          size="small"
+                          checked={selectedIds.has(conversation.conversationId)}
+                          disabled={bulkDisabled}
+                          onClick={(event) => event.stopPropagation()}
+                          onChange={() => {
+                            setSelectedIds((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(conversation.conversationId)) {
+                                next.delete(conversation.conversationId);
+                              } else {
+                                next.add(conversation.conversationId);
+                              }
+                              return next;
+                            });
+                          }}
+                          inputProps={{
+                            'aria-label': 'Select conversation',
+                            'data-testid': 'conversation-select',
+                          }}
+                          sx={{ mt: 0.25, mr: 0.5 }}
+                        />
+                      )}
+                      <ListItemText
+                        disableTypography
+                        primary={
+                          <Stack
+                            direction="row"
+                            spacing={1}
+                            alignItems="center"
+                            sx={{ minWidth: 0 }}
+                          >
+                            <Typography
+                              variant="body2"
+                              fontWeight={selected ? 700 : 600}
+                              noWrap
+                              data-testid="conversation-title"
+                              sx={{ maxWidth: '14rem' }}
+                            >
+                              {conversation.title || 'Untitled conversation'}
+                            </Typography>
+                            {conversation.archived && (
+                              <Chip
+                                label="Archived"
+                                size="small"
+                                color="default"
+                                variant="outlined"
+                                data-testid="conversation-archived-chip"
+                              />
+                            )}
+                          </Stack>
+                        }
+                        secondary={
+                          <Stack spacing={0.5} alignItems="flex-start">
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                              data-testid="conversation-meta"
+                            >
+                              {conversation.provider} · {conversation.model} ·{' '}
+                              {conversation.source ?? 'REST'}
+                            </Typography>
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                              data-testid="conversation-updated"
+                            >
+                              {formatTimestamp(conversation.lastMessageAt)}
+                            </Typography>
+                          </Stack>
+                        }
+                      />
+                    </ListItemButton>
+                  </ListItem>
+                );
+              })}
+              <Divider />
+            </List>
           )}
-        </Stack>
+          <Stack
+            direction="row"
+            alignItems="center"
+            justifyContent="space-between"
+            sx={{ px: 1.5, py: 1 }}
+          >
+            <Button
+              size="small"
+              variant="text"
+              onClick={() => onLoadMore()}
+              disabled={disabled || isLoading || !hasMore}
+              data-testid="conversation-load-more"
+            >
+              {hasMore ? 'Load more' : 'No more'}
+            </Button>
+            {isLoading && (
+              <Typography
+                variant="caption"
+                color="text.secondary"
+                data-testid="conversation-loading"
+              >
+                Loading...
+              </Typography>
+            )}
+          </Stack>
+        </Box>
       </Box>
 
       <Dialog

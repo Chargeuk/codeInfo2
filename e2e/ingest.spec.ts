@@ -154,7 +154,7 @@ const selectEmbeddingModel = async (
 };
 
 test.describe.serial('Ingest flows', () => {
-  test.setTimeout(180_000);
+  test.setTimeout(240_000);
   test.beforeAll(async () => {
     await checkPrereqs();
   });

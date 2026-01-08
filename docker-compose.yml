@@ -141,6 +141,8 @@ services:
     image: mcr.microsoft.com/playwright/mcp:latest
     entrypoint: ['node', 'cli.js']
     command: ['--headless', '--browser', 'chromium', '--no-sandbox', '--port', '8931']
+    volumes:
+      - ./playwright-output:/tmp/playwright-output
     networks:
       - internal
 

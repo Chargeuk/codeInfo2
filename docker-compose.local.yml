@@ -165,6 +165,8 @@ services:
     command: ['--host', '0.0.0.0', '--headless', '--browser', 'chromium', '--no-sandbox', '--port', '8931']
     ports:
       - '8931:8931'
+    volumes:
+      - ./playwright-output-local:/tmp/playwright-output
     networks:
       - internal
 

@@ -2,7 +2,7 @@ Setup:
 Please read Agents.md and follow it's instructions. Give me an overview of the project and where we are up to and how the next steps will be achieved.
 
 Planning:
-Do you have any remaining questions about what we want to aceive in this story or how it will be done?
+Do you have any remaining questions about what we want to acheive in this story or how it will be done?
 
 Is there any acceptance in this story that is not defined in a way that a junior developer could understand what the output should be? If so please update all relevent planning sections to get them to where we need to be.
 

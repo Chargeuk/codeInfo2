@@ -2,7 +2,7 @@ Setup:
 Please read Agents.md and follow it's instructions. Give me an overview of the project and where we are up to and how the next steps will be achieved.
 
 Planning:
-Do you have any remaining questions about what we want to acheive in this story or how it will be done?
+Do you have any remaining questions about what we want to achieve in this story or how it will be done?
 
 Is there any acceptance in this story that is not defined in a way that a junior developer could understand what the output should be? If so please update all relevent planning sections to get them to where we need to be.
 
@@ -12,7 +12,7 @@ Without actually tasking up, can you create a rough plan on what will need to be
 
 Does the story require any new message contracts or storage shapes, or changes to existing ones? If so, can these be defined within their own section of the story up front based on what we know is needed?
 
-Are there any sections in this story that are not defined in a way that a junior developer could understand what the output should be, and what the story needs to acheive? If so please update all relevent planning sections to get them to where we need to be.
+Are there any sections in this story that are not defined in a way that a junior developer could understand what the output should be, and what the story needs to achieve? If so please update all relevent planning sections to get them to where we need to be.
 
 Is everything in the planning consistent, or are there some contradictions, especially across the various sections? If so, please resolve and remove the contradictions based on what we know we actually want.
 

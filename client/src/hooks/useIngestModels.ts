@@ -1,12 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { getApiBaseUrl } from '../api/baseUrl';
 import type { IngestModel } from '../components/ingest/IngestForm';
 
 type Status = 'idle' | 'loading' | 'success' | 'error';
 
-const serverBase =
-  (typeof import.meta !== 'undefined' &&
-    (import.meta as ImportMeta).env?.VITE_API_URL) ??
-  'http://localhost:5010';
+const serverBase = getApiBaseUrl();
 
 type ModelsResponse = {
   models: IngestModel[];

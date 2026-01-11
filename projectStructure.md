@@ -31,6 +31,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚  â”œâ”€ .env.local â€” client local overrides (ignored by git consumers)
 â”‚  â”œâ”€ .gitignore â€” client-specific ignores
 â”‚  â”œâ”€ Dockerfile â€” client image build
+â”‚  â”œâ”€ entrypoint.sh â€” client runtime config writer + preview runner
 â”‚  â”œâ”€ README.md â€” client-specific notes
 â”‚  â”œâ”€ eslint.config.js â€” client ESLint entry
 â”‚  â”œâ”€ index.html â€” Vite HTML shell
@@ -41,6 +42,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚  â”œâ”€ tsconfig.node.json â€” TS config for tools
 â”‚  â”œâ”€ vite.config.ts â€” Vite config
 â”‚  â”œâ”€ public/
+â”‚  â”‚  â”œâ”€ config.js â€” runtime client config (API base/port)
 â”‚  â”‚  â””â”€ vite.svg â€” Vite logo asset
 â”‚  â””â”€ src/
 â”‚     â”œâ”€ App.tsx â€” app shell with CssBaseline/NavBar/Container
@@ -78,6 +80,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 |     |  - useLogs.ts ? log history + SSE hook with filters
 |     |- api/
 |     |  - agents.ts ? client wrapper for GET /agents and POST /agents/:agentName/run (AbortSignal supported)
+|     |  - baseUrl.ts ? runtime API base resolver (config/env/location)
 |     |- index.css ? minimal global styles (font smoothing, margin reset)
 |     |- main.tsx ? app entry with RouterProvider
 |     |- pages/

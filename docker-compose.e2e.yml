@@ -52,6 +52,8 @@ services:
       - internal_e2e
     env_file:
       - client/.env.e2e
+    environment:
+      - API_PORT=6010
     depends_on:
       server:
         condition: service_healthy

@@ -2,6 +2,7 @@ import { fetchServerVersion, VersionInfo } from '@codeinfo2/common';
 import { Box, Card, CardContent, Typography } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
 import pkg from '../../package.json';
+import { getApiBaseUrl } from '../api/baseUrl';
 import { createLogger } from '../logging';
 
 export default function HomePage() {
@@ -10,10 +11,7 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const clientVersion = pkg.version;
   const logger = useMemo(() => createLogger('client-home'), []);
-  const apiUrl =
-    (typeof import.meta !== 'undefined' &&
-      (import.meta as ImportMeta)?.env?.VITE_API_URL) ??
-    'http://localhost:5010';
+  const apiUrl = getApiBaseUrl();
 
   useEffect(() => {
     let cancelled = false;

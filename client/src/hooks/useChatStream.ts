@@ -1,5 +1,6 @@
 import type { LogLevel } from '@codeinfo2/common';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { getApiBaseUrl } from '../api/baseUrl';
 import { createLogger } from '../logging/logger';
 import type { ChatWsToolEvent, ChatWsTranscriptEvent } from './useChatWs';
 import type { InflightSnapshot } from './useConversationTurns';
@@ -70,10 +71,7 @@ export type ChatMessage = {
 
 type Status = 'idle' | 'sending';
 
-const API_BASE =
-  (typeof import.meta !== 'undefined' &&
-    (import.meta as ImportMeta).env?.VITE_API_URL) ??
-  'http://localhost:5010';
+const API_BASE = getApiBaseUrl();
 
 const DEFAULT_SANDBOX_MODE: SandboxMode = 'workspace-write';
 const DEFAULT_APPROVAL_POLICY: ApprovalPolicy = 'on-failure';

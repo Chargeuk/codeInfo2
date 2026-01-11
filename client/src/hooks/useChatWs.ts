@@ -1,10 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { getApiBaseUrl } from '../api/baseUrl';
 import { createLogger } from '../logging/logger';
 
-const API_BASE =
-  (typeof import.meta !== 'undefined' &&
-    (import.meta as ImportMeta).env?.VITE_API_URL) ??
-  'http://localhost:5010';
+const API_BASE = getApiBaseUrl();
 
 const WS_PROTOCOL_VERSION = 'v1' as const;
 
@@ -587,7 +585,7 @@ export function useChatWs(params?: UseChatWsParams): UseChatWsState {
       wsRef.current = null;
       setConnectionState('closed');
     };
-  }, [clearReconnectTimer, connectNow]);
+  }, [clearReconnectTimer, connectNow, realtimeEnabled, sendRaw]);
 
   const subscribeSidebar = useCallback(() => {
     if (!realtimeEnabled) return;

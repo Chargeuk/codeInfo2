@@ -9,12 +9,10 @@ import {
   Typography,
 } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
+import { getApiBaseUrl } from '../../api/baseUrl';
 import DirectoryPickerDialog from './DirectoryPickerDialog';
 
-const serverBase =
-  (typeof import.meta !== 'undefined' &&
-    (import.meta as ImportMeta).env?.VITE_API_URL) ??
-  'http://localhost:5010';
+const serverBase = getApiBaseUrl();
 
 export type IngestModel = {
   id: string;

@@ -55,6 +55,7 @@ We want each chat and agent message bubble header to show the message date and t
 ## Contracts & Storage Changes (explicit)
 
 - Reuse existing `Turn.command` metadata (`name`, `stepIndex`, `totalSteps`) for agent step display (no new schema needed for steps).
+- Expose `command` step metadata on inflight snapshots (`inflight_snapshot` + REST `inflight`) so step indicators are available during streaming.
 - Add optional usage metadata on assistant turns only (input/output/total tokens plus cached input when supplied).
 - Add optional timing metadata on assistant turns only (provider time taken + tokens/sec when available; calculate elapsed time when missing).
 - All new fields are optional and omitted when values are unavailable.
@@ -73,7 +74,7 @@ We want each chat and agent message bubble header to show the message date and t
 - **REST append turn (`POST /conversations/:id/turns`):** extend request schema to accept optional `usage` + `timing` (no changes for user turns).
 - **REST turn snapshots (`GET /conversations/:id/turns`):** include `usage` + `timing` on returned assistant turn items when stored; continue returning `command` when present.
 - **WebSocket updates (`turn_final`):** include `usage` + `timing` so live UI can render without waiting for a refresh; continue relying on persisted turns for history.
-- **Inflight snapshot:** no new fields required on `inflight_snapshot`; the UI uses `inflight.startedAt` for temporary timestamps until persisted turns arrive.
+- **Inflight snapshot:** add optional `command` metadata (`name`, `stepIndex`, `totalSteps`) on `inflight_snapshot` and REST `inflight` payloads so the UI can show “Step X of Y” while streaming; continue using `inflight.startedAt` for temporary timestamps until persisted turns arrive.
 
 ---
 
@@ -82,6 +83,7 @@ We want each chat and agent message bubble header to show the message date and t
 - `server/src/mongo/turn.ts` already stores `createdAt` timestamps and `command` metadata (`name`, `stepIndex`, `totalSteps`) for turns.
 - `server/src/mongo/repo.ts` accepts optional `createdAt` when appending turns, and updates `lastMessageAt` from that timestamp.
 - `server/src/chat/inflightRegistry.ts` tracks `userTurn.createdAt` and derives `assistantCreatedAt` for in-flight UI rendering.
+- `server/src/chat/inflightRegistry.ts` and `server/src/ws/types.ts` currently do **not** include `command` metadata in `snapshotInflight` or `WsInflightSnapshotEvent`, so step metadata is unavailable during streaming.
 - `server/src/chat/interfaces/ChatInterfaceCodex.ts` logs any `usage` payloads found on Codex events and logs full `turn.completed` payloads, but does not persist usage yet.
 - `server/src/chat/interfaces/ChatInterface.ts` currently emits `complete` without usage/timing metadata and `chatStreamBridge` publishes `turn_final` without usage/timing; both need extension to carry the new metadata.
 - `@lmstudio/sdk` exposes `PredictionResult.stats` on the `OngoingPrediction` result (via `prediction.result()`), which includes `tokensPerSecond`, `totalTimeSec`, and token counts.
@@ -105,8 +107,8 @@ We want each chat and agent message bubble header to show the message date and t
 
 - **Server turn metadata:** Extend `server/src/mongo/turn.ts` with optional `usage` and `timing` fields (keep existing `command` metadata for step display). Thread these fields through `server/src/mongo/repo.ts` (`AppendTurnInput`, `TurnSummary`) and `server/src/routes/conversations.ts` (append schema + REST response). Use `createdAt` + run start time to calculate elapsed time when providers omit timing.
 - **Provider capture:** In `server/src/chat/interfaces/ChatInterfaceCodex.ts`, capture `event.usage` from `turn.completed` and store it on the assistant turn. In `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`, read `PredictionResult.stats` (tokens per second, total time) and token counts to populate usage/timing; ensure the metadata is passed into `ChatInterface.persistAssistantTurn` so it persists.
-- **Inflight/WS updates:** Extend `server/src/ws/types.ts` (`turn_final` payload) and `client/src/hooks/useChatWs.ts` to carry usage/timing so the UI updates immediately after a streamed response completes (no manual refresh needed).
-- **Client data flow:** Add usage/timing fields to `client/src/hooks/useConversationTurns.ts` (`StoredTurn`) and `client/src/hooks/useChatStream.ts` (`ChatMessage`), mapping REST and WS data into the message model. Ensure `command` is already mapped for step indicators.
+- **Inflight/WS updates:** Extend `server/src/chat/inflightRegistry.ts` + `server/src/ws/types.ts` to include optional `command` metadata in inflight snapshots, and extend `turn_final` payloads with usage/timing. Mirror these additions in `client/src/hooks/useChatWs.ts` so the UI can render step indicators and usage immediately after streamed responses complete.
+- **Client data flow:** Add usage/timing fields to `client/src/hooks/useConversationTurns.ts` (`StoredTurn`) and `client/src/hooks/useChatStream.ts` (`ChatMessage`), mapping REST and WS data into the message model. Also map `command` from inflight snapshots so step indicators render during streaming.
 - **Bubble rendering:** Update `client/src/pages/ChatPage.tsx` and `client/src/pages/AgentsPage.tsx` bubble headers to render: (1) localized timestamp using `Intl.DateTimeFormat` (use `inflight.startedAt` for in-flight assistant bubbles), (2) token usage line only when available, (3) time + rate line when present, and (4) “Step X of Y” when `command` metadata exists. Use MUI `Stack`, `Typography`, and `Tooltip` as needed for layout and hover details.
 
 ---
@@ -673,7 +675,152 @@ Capture LM Studio prediction stats and feed them into the shared chat usage/timi
 
 ---
 
-### 5. Server: extend WS `turn_final` payload with usage/timing
+### 5. Server: include command metadata in inflight snapshots (WS + REST)
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Expose command step metadata on inflight snapshots so agent bubbles can render “Step X of Y” while streaming (both WS and REST inflight payloads).
+
+#### Documentation Locations
+
+- `ws` 8.18.3 server API (send/receive JSON payloads): Context7 `/websockets/ws/8_18_3`
+- TypeScript handbook (optional properties + object typing): https://www.typescriptlang.org/docs/handbook/2/objects.html
+- Node.js test runner `node:test` (integration test structure): https://nodejs.org/api/test.html
+- Mermaid docs (sequence diagram updates for inflight payloads): Context7 `/mermaid-js/mermaid`
+- ESLint CLI docs (lint command flags + usage): https://eslint.org/docs/latest/use/command-line-interface
+- Prettier formatting options + CLI (format/check commands): https://prettier.io/docs/options
+- Markdown syntax (README/design updates): https://www.markdownguide.org/basic-syntax/
+
+#### Subtasks
+
+1. [ ] Review inflight state and snapshot publishing:
+   - Documentation to read (repeat):
+     - `ws` 8.18.3 server API: Context7 `/websockets/ws/8_18_3`
+     - TypeScript handbook (object types): https://www.typescriptlang.org/docs/handbook/2/objects.html
+   - Recap (acceptance criteria): inflight snapshots must expose command step metadata when provided.
+   - Files to read:
+     - `server/src/chat/inflightRegistry.ts`
+     - `server/src/ws/types.ts`
+     - `server/src/ws/server.ts`
+     - `server/src/agents/service.ts`
+     - `server/src/routes/chat.ts`
+     - `server/src/mcp2/tools/codebaseQuestion.ts`
+     - `server/src/test/integration/conversations.turns.test.ts`
+     - `server/src/test/integration/agents-run-ws-stream.test.ts`
+
+2. [ ] Extend inflight state to store command metadata:
+   - Documentation to read (repeat):
+     - TypeScript handbook (object types): https://www.typescriptlang.org/docs/handbook/2/objects.html
+   - Recap (acceptance criteria): store command metadata only when provided; keep optional.
+   - Files to edit:
+     - `server/src/chat/inflightRegistry.ts`
+   - Requirements:
+     - Add optional `command` to `InflightState` and `createInflight` params.
+     - Include `command` on `snapshotInflight` and `snapshotInflightTurns` output when present.
+
+3. [ ] Pass command metadata into inflight creation for agent runs:
+   - Documentation to read (repeat):
+     - TypeScript handbook (object types): https://www.typescriptlang.org/docs/handbook/2/objects.html
+   - Recap (acceptance criteria): inflight snapshots for command runs include step metadata.
+   - Files to edit:
+     - `server/src/agents/service.ts`
+   - Requirements:
+     - Include `params.command` when calling `createInflight` in `runAgentInstructionUnlocked`.
+     - Leave other createInflight call sites unchanged (chat route + MCP codebase question).
+
+4. [ ] Extend WS inflight snapshot payload to include command metadata:
+   - Documentation to read (repeat):
+     - `ws` 8.18.3 server API: Context7 `/websockets/ws/8_18_3`
+   - Recap (acceptance criteria): include `command` only when present.
+   - Files to edit:
+     - `server/src/ws/types.ts`
+     - `server/src/ws/server.ts`
+   - Requirements:
+     - Add optional `command` inside `WsInflightSnapshotEvent.inflight`.
+     - Include `command` in `publishInflightSnapshot` when available.
+
+5. [ ] Integration test (server): REST inflight includes command metadata
+   - Test type: Integration (`node:test`)
+   - Location: `server/src/test/integration/conversations.turns.test.ts`
+   - Description: Create an inflight state with command metadata and assert REST `inflight.command` fields.
+   - Purpose: Ensure `/conversations/:id/turns` returns command metadata for in-flight agent runs.
+   - Documentation to read (repeat):
+     - Node.js test runner (node:test): https://nodejs.org/api/test.html
+
+6. [ ] Integration test (server): REST inflight omits command when missing
+   - Test type: Integration (`node:test`)
+   - Location: `server/src/test/integration/conversations.turns.test.ts`
+   - Description: Create an inflight state without command metadata and verify `inflight.command` is absent.
+   - Purpose: Ensure REST inflight responses omit optional command metadata when not provided.
+   - Documentation to read (repeat):
+     - Node.js test runner (node:test): https://nodejs.org/api/test.html
+
+7. [ ] Integration test (server): WS inflight_snapshot includes command metadata
+   - Test type: Integration (`node:test`)
+   - Location: `server/src/test/integration/agents-run-ws-stream.test.ts`
+   - Description: Run an agent instruction with command metadata and assert `inflight_snapshot.inflight.command` fields.
+   - Purpose: Ensure streaming WS snapshots include step metadata for agent commands.
+   - Documentation to read (repeat):
+     - `ws` 8.18.3 server API: Context7 `/websockets/ws/8_18_3`
+     - Node.js test runner (node:test): https://nodejs.org/api/test.html
+
+8. [ ] Documentation update - `README.md` (if any user-facing behavior changes need to be called out):
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Recap: call out inflight step metadata availability if user-visible.
+   - Document: `README.md`
+   - Location: `README.md`
+   - Description: Note streaming step indicator metadata if user-visible.
+   - Purpose: Keep README aligned with live metadata behavior.
+
+9. [ ] Documentation update - `design.md` (document inflight payload changes + diagrams):
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+     - Mermaid docs: Context7 `/mermaid-js/mermaid`
+   - Recap: document `inflight_snapshot` payload shape and update any relevant WS sequence diagrams.
+   - Document: `design.md`
+   - Location: `design.md`
+   - Description: Update inflight snapshot payload docs and diagrams to include `command` metadata.
+   - Purpose: Keep WS flow docs accurate.
+
+10. [ ] Documentation update - `projectStructure.md` (only if files/paths change):
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Recap: update tree only if file paths change.
+   - Ordering: complete this after any subtask that adds/removes files.
+   - Document: `projectStructure.md`
+   - Location: `projectStructure.md`
+   - Description: Update tree entries for any new/changed files.
+   - Purpose: Keep the repository map current.
+
+11. [ ] Run full linting:
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier: https://prettier.io/docs/en/
+   - Recap: run from repo root and fix issues before moving on.
+   - `npm run lint --workspaces`
+   - `npm run format:check --workspaces`
+   - If either fails, run `npm run lint:fix` / `npm run format --workspaces` and resolve remaining issues.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run compose:build`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test --workspace server`
+6. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Notes added during implementation.
+
+---
+
+### 6. Server: extend WS `turn_final` payload with usage/timing
 
 - Task Status: **__to_do__**
 - Git Commits: **__to_do__**
@@ -785,14 +932,14 @@ Expose usage/timing metadata on the WS `turn_final` payload so clients can rende
 
 ---
 
-### 6. Client: map REST usage/timing into stored turns
+### 7. Client: map REST usage/timing into stored turns
 
 - Task Status: **__to_do__**
 - Git Commits: **__to_do__**
 
 #### Overview
 
-Extend the REST turn snapshot mapping to include usage/timing fields in stored turns.
+Extend the REST turn snapshot mapping to include usage/timing fields in stored turns and command metadata on inflight snapshots.
 
 #### Documentation Locations
 
@@ -824,7 +971,17 @@ Extend the REST turn snapshot mapping to include usage/timing fields in stored t
      - Add optional `usage` + `timing` fields, including `cachedInputTokens`.
      - Map REST response fields into the new shape without breaking existing consumers.
 
-3. [ ] Hook test (client): REST turns retain usage/timing
+3. [ ] Extend InflightSnapshot to include command metadata:
+   - Documentation to read (repeat):
+     - TypeScript handbook (object types): https://www.typescriptlang.org/docs/handbook/2/objects.html
+   - Recap (acceptance criteria): REST inflight snapshots must include step metadata when present.
+   - Files to edit:
+     - `client/src/hooks/useConversationTurns.ts`
+   - Requirements:
+     - Add optional `command` to `InflightSnapshot` with `{ name, stepIndex, totalSteps }`.
+     - Keep `command` undefined when the server omits it.
+
+4. [ ] Hook test (client): REST turns retain usage/timing
    - Test type: Hook test (React Testing Library)
    - Location: `client/src/test/useConversationTurns.commandMetadata.test.ts`
    - Description: Mock REST response with usage/timing and verify stored turn shape.
@@ -832,7 +989,7 @@ Extend the REST turn snapshot mapping to include usage/timing fields in stored t
    - Documentation to read (repeat):
      - React Testing Library (hook tests): https://testing-library.com/docs/react-testing-library/intro/
 
-4. [ ] Hook test (client): REST turns omit missing metadata
+5. [ ] Hook test (client): REST turns omit missing metadata
    - Test type: Hook test (React Testing Library)
    - Location: `client/src/test/useConversationTurns.commandMetadata.test.ts`
    - Description: Mock REST response without usage/timing and verify no defaults.
@@ -840,7 +997,23 @@ Extend the REST turn snapshot mapping to include usage/timing fields in stored t
    - Documentation to read (repeat):
      - React Testing Library (hook tests): https://testing-library.com/docs/react-testing-library/intro/
 
-5. [ ] Documentation update - `README.md` (if any user-facing behavior changes need to be called out):
+6. [ ] Hook test (client): REST inflight retains command metadata
+   - Test type: Hook test (React Testing Library)
+   - Location: `client/src/test/useConversationTurns.commandMetadata.test.ts`
+   - Description: Mock REST response with `inflight.command` metadata and verify hook state.
+   - Purpose: Ensure inflight snapshots expose command step metadata for streaming UI.
+   - Documentation to read (repeat):
+     - React Testing Library (hook tests): https://testing-library.com/docs/react-testing-library/intro/
+
+7. [ ] Hook test (client): REST inflight omits command when missing
+   - Test type: Hook test (React Testing Library)
+   - Location: `client/src/test/useConversationTurns.commandMetadata.test.ts`
+   - Description: Mock REST response with inflight data but no command metadata.
+   - Purpose: Ensure inflight snapshots omit command metadata when not supplied.
+   - Documentation to read (repeat):
+     - React Testing Library (hook tests): https://testing-library.com/docs/react-testing-library/intro/
+
+8. [ ] Documentation update - `README.md` (if any user-facing behavior changes need to be called out):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: call out any user-visible metadata changes if needed.
@@ -849,7 +1022,7 @@ Extend the REST turn snapshot mapping to include usage/timing fields in stored t
    - Description: Note any REST metadata changes visible to users.
    - Purpose: Keep README aligned with persisted data behavior.
 
-6. [ ] Documentation update - `design.md` (document REST turn mapping changes):
+9. [ ] Documentation update - `design.md` (document REST turn mapping changes):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: document client mapping for usage/timing fields.
@@ -858,7 +1031,7 @@ Extend the REST turn snapshot mapping to include usage/timing fields in stored t
    - Description: Document REST turn mapping and client model updates.
    - Purpose: Keep architecture docs accurate for REST data flow.
 
-7. [ ] Documentation update - `projectStructure.md` (only if files/paths change):
+10. [ ] Documentation update - `projectStructure.md` (only if files/paths change):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: update tree only if file paths change.
@@ -868,7 +1041,7 @@ Extend the REST turn snapshot mapping to include usage/timing fields in stored t
    - Description: Update tree entries for any new/changed files.
    - Purpose: Keep the repository map current.
 
-8. [ ] Run full linting:
+11. [ ] Run full linting:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/en/
@@ -892,14 +1065,14 @@ Extend the REST turn snapshot mapping to include usage/timing fields in stored t
 
 ---
 
-### 7. Client: map WS usage/timing into stream state
+### 8. Client: map WS usage/timing into stream state
 
 - Task Status: **__to_do__**
 - Git Commits: **__to_do__**
 
 #### Overview
 
-Extend the WS transcript event mapping so usage/timing fields land on streaming assistant messages.
+Extend the WS transcript event mapping so usage/timing fields and inflight command metadata land on streaming assistant messages.
 
 #### Documentation Locations
 
@@ -919,7 +1092,7 @@ Extend the WS transcript event mapping so usage/timing fields land on streaming 
      - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
      - TypeScript handbook (object types): https://www.typescriptlang.org/docs/handbook/2/objects.html
      - React Testing Library (hook tests): https://testing-library.com/docs/react-testing-library/intro/
-   - Recap (acceptance criteria): `turn_final` should deliver usage/timing to streaming UI.
+   - Recap (acceptance criteria): `turn_final` should deliver usage/timing and inflight snapshots should deliver command metadata to streaming UI.
    - Files to read:
      - `client/src/hooks/useChatWs.ts`
      - `client/src/hooks/useChatStream.ts`
@@ -930,23 +1103,25 @@ Extend the WS transcript event mapping so usage/timing fields land on streaming 
    - Documentation to read (repeat):
      - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
      - TypeScript handbook (object types): https://www.typescriptlang.org/docs/handbook/2/objects.html
-   - Recap (acceptance criteria): in-flight assistant bubble uses `inflight.startedAt` for timestamps.
+   - Recap (acceptance criteria): in-flight assistant bubble uses `inflight.startedAt` for timestamps and exposes `command` step metadata when provided.
    - Files to edit:
      - `client/src/hooks/useChatWs.ts`
      - `client/src/hooks/useChatStream.ts`
    - Requirements:
      - Add optional `usage` + `timing` to `turn_final` event handling.
+     - Add optional `command` to `inflight_snapshot` event typing and propagate it to the assistant message.
      - When hydrating an inflight snapshot, update the assistant bubble timestamp to `inflight.startedAt`.
 
 3. [ ] Update fixtures + WS mocks:
    - Documentation to read (repeat):
      - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
-   - Recap (acceptance criteria): fixtures should include usage/timing when present.
+   - Recap (acceptance criteria): fixtures should include usage/timing and inflight command metadata when present.
    - Files to edit:
      - `common/src/fixtures/chatStream.ts`
      - `client/src/test/support/mockChatWs.ts`
    - Requirements:
      - Add representative usage/timing fields to `chatWsTurnFinalFixture` and mock events.
+     - Add representative `command` metadata to `chatWsInflightSnapshotFixture` and mock inflight events.
 
 4. [ ] Hook test (client): WS preserves usage/timing
    - Test type: Hook test (React Testing Library)
@@ -972,7 +1147,23 @@ Extend the WS transcript event mapping so usage/timing fields land on streaming 
    - Documentation to read (repeat):
      - React Testing Library (hook tests): https://testing-library.com/docs/react-testing-library/intro/
 
-7. [ ] Documentation update - `README.md` (if any user-facing behavior changes need to be called out):
+7. [ ] Hook test (client): inflight snapshot preserves command metadata
+   - Test type: Hook test (React Testing Library)
+   - Location: `client/src/test/useChatStream.toolPayloads.test.tsx`
+   - Description: Hydrate an inflight snapshot with `command` metadata and assert the assistant message includes it.
+   - Purpose: Ensure streaming UI receives step metadata for agent commands.
+   - Documentation to read (repeat):
+     - React Testing Library (hook tests): https://testing-library.com/docs/react-testing-library/intro/
+
+8. [ ] Hook test (client): inflight snapshot omits command when missing
+   - Test type: Hook test (React Testing Library)
+   - Location: `client/src/test/useChatStream.toolPayloads.test.tsx`
+   - Description: Hydrate an inflight snapshot without `command` metadata and verify the assistant message omits it.
+   - Purpose: Ensure command metadata is optional in streaming state.
+   - Documentation to read (repeat):
+     - React Testing Library (hook tests): https://testing-library.com/docs/react-testing-library/intro/
+
+9. [ ] Documentation update - `README.md` (if any user-facing behavior changes need to be called out):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: call out any user-visible metadata changes if needed.
@@ -981,7 +1172,7 @@ Extend the WS transcript event mapping so usage/timing fields land on streaming 
    - Description: Note WS metadata availability if user-visible.
    - Purpose: Keep README aligned with live updates.
 
-8. [ ] Documentation update - `design.md` (document WS mapping changes + diagrams):
+10. [ ] Documentation update - `design.md` (document WS mapping changes + diagrams):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
      - Mermaid docs: Context7 `/mermaid-js/mermaid`
@@ -991,7 +1182,7 @@ Extend the WS transcript event mapping so usage/timing fields land on streaming 
    - Description: Update client WS mapping notes and related diagrams.
    - Purpose: Keep architecture docs accurate for WS flows.
 
-9. [ ] Documentation update - `projectStructure.md` (only if files/paths change):
+11. [ ] Documentation update - `projectStructure.md` (only if files/paths change):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: update tree only if file paths change.
@@ -1001,7 +1192,7 @@ Extend the WS transcript event mapping so usage/timing fields land on streaming 
    - Description: Update tree entries for any new/changed files.
    - Purpose: Keep the repository map current.
 
-10. [ ] Run full linting:
+12. [ ] Run full linting:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/en/
@@ -1025,7 +1216,7 @@ Extend the WS transcript event mapping so usage/timing fields land on streaming 
 
 ---
 
-### 8. Client: render bubble header metadata (Chat + Agents)
+### 9. Client: render bubble header metadata (Chat + Agents)
 
 - Task Status: **__to_do__**
 - Git Commits: **__to_do__**
@@ -1186,7 +1377,7 @@ Render message header metadata for user/assistant bubbles in Chat and Agents: ti
 
 ---
 
-### 9. Final verification + documentation + PR summary
+### 10. Final verification + documentation + PR summary
 
 - Task Status: **__to_do__**
 - Git Commits: **__to_do__**

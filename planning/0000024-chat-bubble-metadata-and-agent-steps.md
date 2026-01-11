@@ -26,6 +26,7 @@ We want each chat and agent message bubble header to show the message date and t
 - **Timestamp on every user/assistant bubble:** Chat and Agents pages show a date + time header on every user and assistant bubble (status/error bubbles excluded).
 - **Timestamp formatting:** Use `Intl.DateTimeFormat` with `{ dateStyle: 'medium', timeStyle: 'short' }` (example output: “Jan 11, 2026, 2:05 PM”).
 - **UTC -> local conversion:** Timestamps are stored as UTC and rendered in the browser’s local time zone via `new Date(utc).toLocaleString(...)` or an equivalent conversion.
+- **Timestamp source:** Use persisted `turn.createdAt` for stored turns; for in-flight assistant bubbles, use `inflight.startedAt` until the persisted turn replaces it.
 - **Assistant token usage (when present):** Assistant bubbles show “Tokens: in <input> · out <output> · total <total>”. If cached input tokens are provided, append “(cached <cachedInput>)”.
 - **Timing + rate (when present):** Assistant bubbles show “Time: <seconds>s” when `totalTimeSec` is provided or calculated from run timing; show “Rate: <tokensPerSecond> tok/s” only when supplied by the provider.
 - **Omit when missing:** If a provider does not supply any token usage fields, do not render any token usage text. If no timing data exists, do not render time/rate text.
@@ -73,6 +74,7 @@ We want each chat and agent message bubble header to show the message date and t
 - **REST append turn (`POST /conversations/:id/turns`):** extend request schema to accept optional `usage` + `timing` (no changes for user turns).
 - **REST turn snapshots (`GET /conversations/:id/turns`):** include `usage` + `timing` on returned assistant turn items when stored; continue returning `command` when present.
 - **WebSocket updates (`turn_final`):** include `usage` + `timing` so live UI can render without waiting for a refresh; continue relying on persisted turns for history.
+- **Inflight snapshot:** no new fields required on `inflight_snapshot`; the UI uses `inflight.startedAt` for temporary timestamps until persisted turns arrive.
 
 ---
 
@@ -98,6 +100,6 @@ We want each chat and agent message bubble header to show the message date and t
 - **Provider capture:** In `server/src/chat/interfaces/ChatInterfaceCodex.ts`, capture `event.usage` from `turn.completed` and store it on the assistant turn. In `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`, read `PredictionResult.stats` (tokens per second, total time) and token counts to populate usage/timing; ensure the metadata is passed into `ChatInterface.persistAssistantTurn` so it persists.
 - **Inflight/WS updates:** Extend `server/src/ws/types.ts` (`turn_final` payload) and `client/src/hooks/useChatWs.ts` to carry usage/timing so the UI updates immediately after a streamed response completes (no manual refresh needed).
 - **Client data flow:** Add usage/timing fields to `client/src/hooks/useConversationTurns.ts` (`StoredTurn`) and `client/src/hooks/useChatStream.ts` (`ChatMessage`), mapping REST and WS data into the message model. Ensure `command` is already mapped for step indicators.
-- **Bubble rendering:** Update `client/src/pages/ChatPage.tsx` and `client/src/pages/AgentsPage.tsx` bubble headers to render: (1) localized timestamp using `Intl.DateTimeFormat`, (2) token usage line only when available, (3) time + rate line when present, and (4) “Step X of Y” when `command` metadata exists. Use MUI `Stack`, `Typography`, and `Tooltip` as needed for layout and hover details.
+- **Bubble rendering:** Update `client/src/pages/ChatPage.tsx` and `client/src/pages/AgentsPage.tsx` bubble headers to render: (1) localized timestamp using `Intl.DateTimeFormat` (use `inflight.startedAt` for in-flight assistant bubbles), (2) token usage line only when available, (3) time + rate line when present, and (4) “Step X of Y” when `command` metadata exists. Use MUI `Stack`, `Typography`, and `Tooltip` as needed for layout and hover details.
 
 ---

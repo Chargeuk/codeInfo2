@@ -293,7 +293,7 @@ Extend the server’s stored turn shape to include optional usage and timing met
 2. [x] `npm run build --workspace client`
 3. [ ] `npm run test --workspace server`
 4. [x] `npm run test --workspace client`
-5. [x] `npm run e2e`
+5. [x] `npm run e2e` (allow up to 5 minutes; e.g., `timeout 5m` or set `timeout_ms=300000` in the harness)
 6. [x] `npm run compose:build`
 7. [x] `npm run compose:up`
 8. [ ] Manual Playwright-MCP check: open Chat + Agents, send a message, refresh history, and verify no console errors; confirm console/network logs include `DEV-0000024:T1:turns_snapshot_usage` and `DEV-0000024:T1:assistant_usage_accepted` with `hasUsage/hasTiming=true` when metadata is present.
@@ -313,7 +313,7 @@ Extend the server’s stored turn shape to include optional usage and timing met
 - `npm run build --workspace server` and `npm run build --workspace client` succeeded (client build warns about chunk size).
 - `npm run test --workspace server` failed in cucumber integration with `ChromaConnectionError` (Chroma container unhealthy), leaving step 3 incomplete.
 - `npm run test --workspace client` succeeded with existing React DOM nesting console warnings.
-- `npm run e2e`, `npm run compose:build`, `npm run compose:up`, and `npm run compose:down` succeeded.
+- `npm run e2e` (allow up to 5 minutes; e.g., `timeout 5m` or set `timeout_ms=300000` in the harness), `npm run compose:build`, `npm run compose:up`, and `npm run compose:down` succeeded.
 - Manual Playwright-MCP check blocked: Playwright MCP endpoint at `host.docker.internal:8931` rejects non-localhost access; localhost binding not reachable from this environment.
 
 ---
@@ -457,7 +457,7 @@ Extend the core chat event pipeline so usage/timing metadata can flow from provi
 2. [ ] `npm run build --workspace client`
 3. [ ] `npm run test --workspace server`
 4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
+5. [ ] `npm run e2e` (allow up to 5 minutes; e.g., `timeout 5m` or set `timeout_ms=300000` in the harness)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
 8. [ ] Manual Playwright-MCP check: run a chat request and confirm streaming completes without console errors; verify console logs include `DEV-0000024:T2:complete_usage_received` and `DEV-0000024:T2:persist_usage_forwarded` when metadata is present; inspect WS frames if possible to confirm `turn_final` payload contains usage/timing.
@@ -596,7 +596,7 @@ Capture usage metadata from Codex `turn.completed` events and feed it into the s
 2. [ ] `npm run build --workspace client`
 3. [ ] `npm run test --workspace server`
 4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
+5. [ ] `npm run e2e` (allow up to 5 minutes; e.g., `timeout 5m` or set `timeout_ms=300000` in the harness)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
 8. [ ] Manual Playwright-MCP check: if Codex is available, run a Codex chat or agent command and verify no console errors; confirm `DEV-0000024:T3:codex_usage_received` appears in logs and usage metadata appears in the response payload/UI when available.
@@ -725,7 +725,7 @@ Capture LM Studio prediction stats and feed them into the shared chat usage/timi
 2. [ ] `npm run build --workspace client`
 3. [ ] `npm run test --workspace server`
 4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
+5. [ ] `npm run e2e` (allow up to 5 minutes; e.g., `timeout 5m` or set `timeout_ms=300000` in the harness)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
 8. [ ] Manual Playwright-MCP check: use LM Studio provider to send a chat message, confirm response renders, no console errors, and verify `DEV-0000024:T4:lmstudio_stats_mapped` appears in logs alongside usage/timing metadata in payload/UI when available.
@@ -884,7 +884,7 @@ Expose command step metadata on inflight snapshots so agent bubbles can render �
 2. [ ] `npm run build --workspace client`
 3. [ ] `npm run test --workspace server`
 4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
+5. [ ] `npm run e2e` (allow up to 5 minutes; e.g., `timeout 5m` or set `timeout_ms=300000` in the harness)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
 8. [ ] Manual Playwright-MCP check: run an agent command and confirm the “Step X of Y” indicator appears during streaming, with no console errors, and verify `DEV-0000024:T5:inflight_command_snapshot` appears in logs.
@@ -1005,7 +1005,7 @@ Expose usage/timing metadata on the WS `turn_final` payload so clients can rende
 2. [ ] `npm run build --workspace client`
 3. [ ] `npm run test --workspace server`
 4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
+5. [ ] `npm run e2e` (allow up to 5 minutes; e.g., `timeout 5m` or set `timeout_ms=300000` in the harness)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
 8. [ ] Manual Playwright-MCP check: send a chat message and confirm token/time metadata appears immediately after completion (no refresh), with no console errors, and verify `DEV-0000024:T6:turn_final_usage` appears in logs.
@@ -1150,7 +1150,7 @@ Extend the REST turn snapshot mapping to include usage/timing fields in stored t
 2. [ ] `npm run build --workspace client`
 3. [ ] `npm run test --workspace server`
 4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
+5. [ ] `npm run e2e` (allow up to 5 minutes; e.g., `timeout 5m` or set `timeout_ms=300000` in the harness)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
 8. [ ] Manual Playwright-MCP check: send a message, refresh the page, and confirm usage/timing metadata persists in history; verify no console errors and confirm `DEV-0000024:T7:rest_usage_mapped` + `DEV-0000024:T7:rest_inflight_command` appear in logs.
@@ -1317,7 +1317,7 @@ Extend the WS transcript event mapping so usage/timing fields and inflight comma
 2. [ ] `npm run build --workspace client`
 3. [ ] `npm run test --workspace server`
 4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
+5. [ ] `npm run e2e` (allow up to 5 minutes; e.g., `timeout 5m` or set `timeout_ms=300000` in the harness)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
 8. [ ] Manual Playwright-MCP check: open two tabs on the same conversation, verify WS updates show tokens/timing live, and confirm no console errors; ensure logs include `DEV-0000024:T8:ws_usage_applied` and `DEV-0000024:T8:ws_inflight_command`.
@@ -1533,7 +1533,7 @@ Render message header metadata for user/assistant bubbles in Chat and Agents: ti
 2. [ ] `npm run build --workspace client`
 3. [ ] `npm run test --workspace server`
 4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
+5. [ ] `npm run e2e` (allow up to 5 minutes; e.g., `timeout 5m` or set `timeout_ms=300000` in the harness)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
 8. [ ] Manual Playwright-MCP check: verify timestamps, token lines (including cached suffix), timing/rate visibility, step indicator during agent runs, and no console errors; confirm logs include `DEV-0000024:T9:ui_metadata_rendered` and `DEV-0000024:T9:ui_step_indicator` when the UI renders those elements.
@@ -1630,7 +1630,7 @@ Validate the full story against acceptance criteria, perform clean builds/tests,
 2. [ ] `npm run build --workspace client`
 3. [ ] `npm run test --workspace server`
 4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
+5. [ ] `npm run e2e` (allow up to 5 minutes; e.g., `timeout 5m` or set `timeout_ms=300000` in the harness)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
 8. [ ] Manual Playwright-MCP check: validate chat/agents metadata UI end-to-end, capture screenshots to `./test-results/screenshots/` (name: `0000024-9-<short-name>.png`), confirm no console errors, and ensure `DEV-0000024:T10:manual_validation_complete` appears in logs.

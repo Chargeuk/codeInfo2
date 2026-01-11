@@ -199,41 +199,64 @@ Extend the server’s stored turn shape to include optional usage and timing met
      - Add `usage` + `timing` to `appendTurnSchema`.
      - Enforce that `usage`/`timing` is only accepted when `role === 'assistant'` (use Zod `superRefine` or equivalent v3 pattern).
 
-5. [ ] Add/extend server integration tests for usage/timing:
+5. [ ] Integration test (server): assistant POST accepts usage/timing
+   - Test type: Integration (`node:test`)
+   - Location: `server/src/test/integration/conversations.turns.test.ts`
+   - Description: Exercise `POST /conversations/:id/turns` with an assistant payload containing usage/timing.
+   - Purpose: Ensure `POST /conversations/:id/turns` accepts assistant usage/timing metadata.
    - Documentation to read (repeat):
      - Node.js test runner (node:test): https://nodejs.org/api/test.html
      - Express response basics: https://expressjs.com/en/api.html#res.json
-   - Recap (acceptance criteria): assistant metadata appears in GET; user metadata ignored.
-   - Files to edit:
-     - `server/src/test/integration/conversations.turns.test.ts`
-   - Requirements:
-     - Cover `POST /conversations/:id/turns` with assistant usage/timing metadata.
-     - Assert `GET /conversations/:id/turns` returns the metadata fields intact.
-     - Assert user turns with usage/timing are rejected (400) by validation.
-     - Assert assistant turns without usage/timing omit the fields (no `null` values).
 
-6. [ ] Documentation update - `README.md` (if any user-facing changes need to be called out):
+6. [ ] Integration test (server): GET returns usage/timing fields
+   - Test type: Integration (`node:test`)
+   - Location: `server/src/test/integration/conversations.turns.test.ts`
+   - Description: Fetch turns after persistence and inspect usage/timing fields on assistant items.
+   - Purpose: Ensure `GET /conversations/:id/turns` returns stored usage/timing intact.
+   - Documentation to read (repeat):
+     - Node.js test runner (node:test): https://nodejs.org/api/test.html
+     - Express response basics: https://expressjs.com/en/api.html#res.json
+
+7. [ ] Integration test (server): user POST rejects usage/timing
+   - Test type: Integration (`node:test`)
+   - Location: `server/src/test/integration/conversations.turns.test.ts`
+   - Description: Submit a user-role payload with usage/timing fields.
+   - Purpose: Ensure user turns with usage/timing are rejected (400) by validation.
+   - Documentation to read (repeat):
+     - Node.js test runner (node:test): https://nodejs.org/api/test.html
+     - Express response basics: https://expressjs.com/en/api.html#res.json
+
+8. [ ] Integration test (server): assistant without metadata omits fields
+   - Test type: Integration (`node:test`)
+   - Location: `server/src/test/integration/conversations.turns.test.ts`
+   - Description: Persist an assistant turn without usage/timing and verify response shape.
+   - Purpose: Ensure assistant turns without usage/timing omit the fields (no `null`).
+   - Documentation to read (repeat):
+     - Node.js test runner (node:test): https://nodejs.org/api/test.html
+     - Express response basics: https://expressjs.com/en/api.html#res.json
+
+9. [ ] Documentation update - `README.md` (if any user-facing changes need to be called out):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap (acceptance criteria): note any user-visible metadata additions if surfaced.
    - Document location:
      - `README.md`
 
-7. [ ] Documentation update - `design.md` (document new turn metadata fields):
+10. [ ] Documentation update - `design.md` (document new turn metadata fields):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap (acceptance criteria): document assistant-only `usage`/`timing` fields and optionality.
    - Document location:
      - `design.md`
 
-8. [ ] Documentation update - `projectStructure.md` (only if files/paths change):
+11. [ ] Documentation update - `projectStructure.md` (only if files/paths change):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: update tree only if files move or new files added.
    - Document location:
      - `projectStructure.md`
 
-9. [ ] Run full linting:
+12. [ ] Run full linting:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/en/
@@ -314,40 +337,55 @@ Extend the core chat event pipeline so usage/timing metadata can flow from provi
      - Include usage/timing when calling `persistAssistantTurn`.
      - Ensure memory persistence stores the same optional fields.
 
-4. [ ] Add/extend unit tests for ChatInterface persistence:
+4. [ ] Unit test (server): persist usage/timing when provided
+   - Test type: Unit (`node:test`)
+   - Location: `server/src/test/unit/chat-interface-run-persistence.test.ts`
+   - Description: Simulate a completion event with usage/timing and verify persisted turn data.
+   - Purpose: Ensure assistant turns store usage/timing from completion events.
    - Documentation to read (repeat):
      - Node.js test runner (node:test): https://nodejs.org/api/test.html
      - Node.js EventEmitter: https://nodejs.org/api/events.html
-   - Recap (acceptance criteria): usage/timing should persist when supplied by provider adapters.
-   - Files to edit:
-     - `server/src/test/unit/chat-interface-run-persistence.test.ts`
-   - Requirements:
-     - Assert assistant turns store usage/timing when provided.
-     - Assert assistant turns omit usage/timing when the completion event has none.
-     - Assert fallback timing uses run start timestamp when provider timing is absent.
 
-5. [ ] Documentation update - `README.md` (if any user-facing behavior changes need to be called out):
+5. [ ] Unit test (server): omit usage/timing when missing
+   - Test type: Unit (`node:test`)
+   - Location: `server/src/test/unit/chat-interface-run-persistence.test.ts`
+   - Description: Simulate a completion event without usage/timing metadata.
+   - Purpose: Ensure assistant turns omit usage/timing when completion provides none.
+   - Documentation to read (repeat):
+     - Node.js test runner (node:test): https://nodejs.org/api/test.html
+     - Node.js EventEmitter: https://nodejs.org/api/events.html
+
+6. [ ] Unit test (server): fallback timing uses run start
+   - Test type: Unit (`node:test`)
+   - Location: `server/src/test/unit/chat-interface-run-persistence.test.ts`
+   - Description: Run a completion path without provider timing and inspect elapsed time.
+   - Purpose: Ensure fallback `totalTimeSec` uses run start timestamp when provider timing is absent.
+   - Documentation to read (repeat):
+     - Node.js test runner (node:test): https://nodejs.org/api/test.html
+     - Node.js EventEmitter: https://nodejs.org/api/events.html
+
+7. [ ] Documentation update - `README.md` (if any user-facing behavior changes need to be called out):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: call out any new metadata behavior that affects users.
    - Document location:
      - `README.md`
 
-6. [ ] Documentation update - `design.md` (document chat event metadata flow):
+8. [ ] Documentation update - `design.md` (document chat event metadata flow):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: document where usage/timing flows through ChatInterface events.
    - Document location:
      - `design.md`
 
-7. [ ] Documentation update - `projectStructure.md` (only if files/paths change):
+9. [ ] Documentation update - `projectStructure.md` (only if files/paths change):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: update tree only if file paths change.
    - Document location:
      - `projectStructure.md`
 
-8. [ ] Run full linting:
+10. [ ] Run full linting:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/en/
@@ -412,41 +450,64 @@ Capture usage metadata from Codex `turn.completed` events and feed it into the s
      - Map `input_tokens`, `cached_input_tokens`, `output_tokens` into stored usage fields.
      - Derive `totalTokens` when Codex omits it.
 
-3. [ ] Update Codex integration tests:
+3. [ ] Unit test (server): Codex usage persisted
+   - Test type: Unit (`node:test`)
+   - Location: `server/src/test/unit/chat-interface-codex.test.ts`
+   - Description: Feed a Codex `turn.completed` event with usage payload into the adapter.
+   - Purpose: Ensure assistant turns persist Codex usage metadata.
    - Documentation to read (repeat):
      - OpenAI Codex SDK overview: https://developers.openai.com/codex/sdk
      - Node.js test runner (node:test): https://nodejs.org/api/test.html
-   - Recap (acceptance criteria): ensure assistant turns persist usage metadata.
-   - Files to edit:
-     - `server/src/test/integration/chat-codex.test.ts`
-     - `server/src/test/unit/chat-interface-codex.test.ts`
-   - Requirements:
-     - Assert usage metadata is persisted on assistant turns.
-     - Assert missing `cached_input_tokens` does not block usage capture.
-     - Assert `totalTokens` is derived when Codex omits it.
 
-4. [ ] Documentation update - `README.md` (if any user-facing behavior changes need to be called out):
+4. [ ] Unit test (server): missing cached input tokens handled
+   - Test type: Unit (`node:test`)
+   - Location: `server/src/test/unit/chat-interface-codex.test.ts`
+   - Description: Provide usage without `cached_input_tokens` and verify mapping.
+   - Purpose: Ensure missing `cached_input_tokens` does not block usage capture.
+   - Documentation to read (repeat):
+     - OpenAI Codex SDK overview: https://developers.openai.com/codex/sdk
+     - Node.js test runner (node:test): https://nodejs.org/api/test.html
+
+5. [ ] Unit test (server): derive totalTokens when omitted
+   - Test type: Unit (`node:test`)
+   - Location: `server/src/test/unit/chat-interface-codex.test.ts`
+   - Description: Provide usage with input/output only and verify derived total.
+   - Purpose: Ensure `totalTokens` is derived when Codex omits it.
+   - Documentation to read (repeat):
+     - OpenAI Codex SDK overview: https://developers.openai.com/codex/sdk
+     - Node.js test runner (node:test): https://nodejs.org/api/test.html
+
+6. [ ] Integration test (server): Codex usage persists end-to-end
+   - Test type: Integration (`node:test`)
+   - Location: `server/src/test/integration/chat-codex.test.ts`
+   - Description: Run a Codex chat flow and inspect persisted assistant turns.
+   - Purpose: Ensure assistant turns persist usage metadata via Codex run flow.
+   - Documentation to read (repeat):
+     - OpenAI Codex SDK overview: https://developers.openai.com/codex/sdk
+     - Node.js test runner (node:test): https://nodejs.org/api/test.html
+
+7. [ ] Documentation update - `README.md` (if any user-facing behavior changes need to be called out):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: call out any user-visible token usage behavior if needed.
    - Document location:
      - `README.md`
 
-5. [ ] Documentation update - `design.md` (document Codex usage capture):
+8. [ ] Documentation update - `design.md` (document Codex usage capture):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: document where Codex usage is captured and stored.
    - Document location:
      - `design.md`
 
-6. [ ] Documentation update - `projectStructure.md` (only if files/paths change):
+9. [ ] Documentation update - `projectStructure.md` (only if files/paths change):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: update tree only if file paths change.
    - Document location:
      - `projectStructure.md`
 
-7. [ ] Run full linting:
+10. [ ] Run full linting:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/en/
@@ -510,40 +571,55 @@ Capture LM Studio prediction stats and feed them into the shared chat usage/timi
      - Map stats to usage/timing fields (prompt/predicted/total tokens; totalTimeSec/tokensPerSecond).
      - Fall back to run timing when stats are missing.
 
-3. [ ] Update LM Studio persistence tests:
+3. [ ] Integration test (server): LM Studio usage/timing persisted
+   - Test type: Integration (`node:test`)
+   - Location: `server/src/test/integration/chat-assistant-persistence.test.ts`
+   - Description: Use an LM Studio completion with stats and verify stored metadata.
+   - Purpose: Ensure assistant turns persist LM Studio usage/timing metadata when stats exist.
    - Documentation to read (repeat):
      - LM Studio SDK README (prediction stats): https://www.npmjs.com/package/@lmstudio/sdk
      - Node.js test runner (node:test): https://nodejs.org/api/test.html
-   - Recap (acceptance criteria): assistant turns should persist usage/timing when stats exist.
-   - Files to edit:
-     - `server/src/test/integration/chat-assistant-persistence.test.ts`
-   - Requirements:
-     - Assert usage/timing metadata is persisted on assistant turns.
-     - Assert absence of prediction stats still stores elapsed `totalTimeSec` from run timing.
-     - Assert `tokensPerSecond` is omitted when stats do not include it.
 
-4. [ ] Documentation update - `README.md` (if any user-facing behavior changes need to be called out):
+4. [ ] Integration test (server): fallback total time when stats missing
+   - Test type: Integration (`node:test`)
+   - Location: `server/src/test/integration/chat-assistant-persistence.test.ts`
+   - Description: Run an LM Studio completion without stats and inspect timing output.
+   - Purpose: Ensure missing prediction stats still store elapsed `totalTimeSec` from run timing.
+   - Documentation to read (repeat):
+     - LM Studio SDK README (prediction stats): https://www.npmjs.com/package/@lmstudio/sdk
+     - Node.js test runner (node:test): https://nodejs.org/api/test.html
+
+5. [ ] Integration test (server): omit tokensPerSecond when absent
+   - Test type: Integration (`node:test`)
+   - Location: `server/src/test/integration/chat-assistant-persistence.test.ts`
+   - Description: Provide stats lacking tokens/sec and verify omission.
+   - Purpose: Ensure `tokensPerSecond` is omitted when stats do not include it.
+   - Documentation to read (repeat):
+     - LM Studio SDK README (prediction stats): https://www.npmjs.com/package/@lmstudio/sdk
+     - Node.js test runner (node:test): https://nodejs.org/api/test.html
+
+6. [ ] Documentation update - `README.md` (if any user-facing behavior changes need to be called out):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: call out any user-visible metadata additions.
    - Document location:
      - `README.md`
 
-5. [ ] Documentation update - `design.md` (document LM Studio stats capture):
+7. [ ] Documentation update - `design.md` (document LM Studio stats capture):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: document where LM Studio stats are read and stored.
    - Document location:
      - `design.md`
 
-6. [ ] Documentation update - `projectStructure.md` (only if files/paths change):
+8. [ ] Documentation update - `projectStructure.md` (only if files/paths change):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: update tree only if file paths change.
    - Document location:
      - `projectStructure.md`
 
-7. [ ] Run full linting:
+9. [ ] Run full linting:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/en/
@@ -607,40 +683,46 @@ Expose usage/timing metadata on the WS `turn_final` payload so clients can rende
      - Add optional `usage` + `timing` on `WsTurnFinalEvent`.
      - Pass usage/timing from the completion event into `publishTurnFinal`.
 
-3. [ ] Update WS tests for enriched `turn_final` payloads:
+3. [ ] Unit test (server): `turn_final` includes usage/timing
+   - Test type: Unit (`node:test`)
+   - Location: `server/src/test/unit/ws-chat-stream.test.ts`
+   - Description: Publish a completion event with usage/timing and assert payload fields.
+   - Purpose: Ensure usage/timing fields survive WS publish when provided.
    - Documentation to read (repeat):
      - `ws` 8.18.3 server API: Context7 `/websockets/ws/8_18_3`
      - Node.js test runner (node:test): https://nodejs.org/api/test.html
-   - Recap (acceptance criteria): WS events preserve usage/timing when supplied.
-   - Files to edit:
-     - `server/src/test/unit/ws-chat-stream.test.ts`
-     - `server/src/test/unit/ws-server.test.ts`
-   - Requirements:
-     - Assert usage/timing fields survive the WS publish step when provided.
-     - Assert `turn_final` omits usage/timing when completion has none.
 
-4. [ ] Documentation update - `README.md` (if any user-facing behavior changes need to be called out):
+4. [ ] Unit test (server): `turn_final` omits metadata when missing
+   - Test type: Unit (`node:test`)
+   - Location: `server/src/test/unit/ws-server.test.ts`
+   - Description: Publish a completion event without usage/timing and verify omission.
+   - Purpose: Ensure `turn_final` omits usage/timing when completion has none.
+   - Documentation to read (repeat):
+     - `ws` 8.18.3 server API: Context7 `/websockets/ws/8_18_3`
+     - Node.js test runner (node:test): https://nodejs.org/api/test.html
+
+5. [ ] Documentation update - `README.md` (if any user-facing behavior changes need to be called out):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: call out WS metadata if user-visible.
    - Document location:
      - `README.md`
 
-5. [ ] Documentation update - `design.md` (document WS payload changes):
+6. [ ] Documentation update - `design.md` (document WS payload changes):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: document `turn_final` payload shape and usage/timing fields.
    - Document location:
      - `design.md`
 
-6. [ ] Documentation update - `projectStructure.md` (only if files/paths change):
+7. [ ] Documentation update - `projectStructure.md` (only if files/paths change):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: update tree only if file paths change.
    - Document location:
      - `projectStructure.md`
 
-7. [ ] Run full linting:
+8. [ ] Run full linting:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/en/
@@ -702,38 +784,44 @@ Extend the REST turn snapshot mapping to include usage/timing fields in stored t
      - Add optional `usage` + `timing` fields, including `cachedInputTokens`.
      - Map REST response fields into the new shape without breaking existing consumers.
 
-3. [ ] Update REST turn hook tests:
+3. [ ] Hook test (client): REST turns retain usage/timing
+   - Test type: Hook test (React Testing Library)
+   - Location: `client/src/test/useConversationTurns.commandMetadata.test.ts`
+   - Description: Mock REST response with usage/timing and verify stored turn shape.
+   - Purpose: Ensure stored turns retain usage/timing fields from REST.
    - Documentation to read (repeat):
      - React Testing Library (hook tests): https://testing-library.com/docs/react-testing-library/intro/
-   - Recap (acceptance criteria): stored turns retain usage/timing fields.
-   - Files to edit:
-     - `client/src/test/useConversationTurns.commandMetadata.test.ts`
-   - Requirements:
-     - Assert usage/timing fields are retained on stored turns.
-     - Assert turns without usage/timing do not get defaulted fields.
 
-4. [ ] Documentation update - `README.md` (if any user-facing behavior changes need to be called out):
+4. [ ] Hook test (client): REST turns omit missing metadata
+   - Test type: Hook test (React Testing Library)
+   - Location: `client/src/test/useConversationTurns.commandMetadata.test.ts`
+   - Description: Mock REST response without usage/timing and verify no defaults.
+   - Purpose: Ensure turns without usage/timing do not get defaulted fields.
+   - Documentation to read (repeat):
+     - React Testing Library (hook tests): https://testing-library.com/docs/react-testing-library/intro/
+
+5. [ ] Documentation update - `README.md` (if any user-facing behavior changes need to be called out):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: call out any user-visible metadata changes if needed.
    - Document location:
      - `README.md`
 
-5. [ ] Documentation update - `design.md` (document REST turn mapping changes):
+6. [ ] Documentation update - `design.md` (document REST turn mapping changes):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: document client mapping for usage/timing fields.
    - Document location:
      - `design.md`
 
-6. [ ] Documentation update - `projectStructure.md` (only if files/paths change):
+7. [ ] Documentation update - `projectStructure.md` (only if files/paths change):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: update tree only if file paths change.
    - Document location:
      - `projectStructure.md`
 
-7. [ ] Run full linting:
+8. [ ] Run full linting:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/en/
@@ -811,39 +899,52 @@ Extend the WS transcript event mapping so usage/timing fields land on streaming 
    - Requirements:
      - Add representative usage/timing fields to `chatWsTurnFinalFixture` and mock events.
 
-4. [ ] Update WS hook tests:
+4. [ ] Hook test (client): WS preserves usage/timing
+   - Test type: Hook test (React Testing Library)
+   - Location: `client/src/test/useChatStream.toolPayloads.test.tsx`
+   - Description: Emit `turn_final` with usage/timing and inspect message state.
+   - Purpose: Ensure `turn_final` usage/timing metadata is preserved on streamed assistant messages.
    - Documentation to read (repeat):
      - React Testing Library (hook tests): https://testing-library.com/docs/react-testing-library/intro/
-   - Recap (acceptance criteria): assert metadata preserved on streamed assistant messages.
-   - Files to edit:
-     - `client/src/test/useChatStream.toolPayloads.test.tsx`
-   - Requirements:
-     - Assert usage/timing metadata is preserved on streamed assistant messages.
-     - Assert `turn_final` without usage/timing does not add empty metadata fields.
-     - Assert inflight snapshot uses `inflight.startedAt` for assistant timestamp.
 
-5. [ ] Documentation update - `README.md` (if any user-facing behavior changes need to be called out):
+5. [ ] Hook test (client): WS omits missing metadata
+   - Test type: Hook test (React Testing Library)
+   - Location: `client/src/test/useChatStream.toolPayloads.test.tsx`
+   - Description: Emit `turn_final` without usage/timing and verify no empty fields.
+   - Purpose: Ensure `turn_final` without usage/timing does not add empty metadata fields.
+   - Documentation to read (repeat):
+     - React Testing Library (hook tests): https://testing-library.com/docs/react-testing-library/intro/
+
+6. [ ] Hook test (client): inflight uses startedAt timestamp
+   - Test type: Hook test (React Testing Library)
+   - Location: `client/src/test/useChatStream.toolPayloads.test.tsx`
+   - Description: Hydrate an inflight snapshot and confirm timestamp uses `inflight.startedAt`.
+   - Purpose: Ensure inflight snapshot uses `inflight.startedAt` for assistant timestamp.
+   - Documentation to read (repeat):
+     - React Testing Library (hook tests): https://testing-library.com/docs/react-testing-library/intro/
+
+7. [ ] Documentation update - `README.md` (if any user-facing behavior changes need to be called out):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: call out any user-visible metadata changes if needed.
    - Document location:
      - `README.md`
 
-6. [ ] Documentation update - `design.md` (document WS mapping changes):
+8. [ ] Documentation update - `design.md` (document WS mapping changes):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: document client WS mapping of usage/timing.
    - Document location:
      - `design.md`
 
-7. [ ] Documentation update - `projectStructure.md` (only if files/paths change):
+9. [ ] Documentation update - `projectStructure.md` (only if files/paths change):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: update tree only if file paths change.
    - Document location:
      - `projectStructure.md`
 
-8. [ ] Run full linting:
+10. [ ] Run full linting:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/en/
@@ -934,41 +1035,68 @@ Render message header metadata for user/assistant bubbles in Chat and Agents: ti
      - Show “Step X of Y” for agent bubbles when `command.stepIndex` + `command.totalSteps` exist.
      - Do not render metadata for status/error bubbles.
 
-4. [ ] Add/adjust UI tests for metadata rendering:
+4. [ ] Component test (client): ChatPage shows timestamp + tokens
+   - Test type: Component test (React Testing Library)
+   - Location: `client/src/test/chatPage.stream.test.tsx`
+   - Description: Render ChatPage with an assistant turn containing usage/timing metadata.
+   - Purpose: Ensure ChatPage assistant bubbles show timestamp + token usage when provided.
    - Documentation to read (repeat):
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-   - Recap (acceptance criteria): verify timestamp + token usage render when provided.
-   - Files to edit:
-     - `client/src/test/chatPage.stream.test.tsx`
-     - `client/src/test/agentsPage.streaming.test.tsx`
-   - Requirements:
-     - Assert timestamp and token metadata appear for assistant turns when provided.
-     - Assert metadata rows are omitted for status/error bubbles.
-     - Assert “Step X of Y” appears only when command metadata includes both step index + total.
-     - Assert timing/rate rows are omitted when timing fields are missing or non-finite.
 
-5. [ ] Documentation update - `README.md` (if any user-facing changes need to be called out):
+5. [ ] Component test (client): AgentsPage shows timestamp + tokens
+   - Test type: Component test (React Testing Library)
+   - Location: `client/src/test/agentsPage.streaming.test.tsx`
+   - Description: Render AgentsPage with an assistant turn containing usage/timing metadata.
+   - Purpose: Ensure AgentsPage assistant bubbles show timestamp + token usage when provided.
+   - Documentation to read (repeat):
+     - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+
+6. [ ] Component test (client): omit metadata rows for status/error
+   - Test type: Component test (React Testing Library)
+   - Location: `client/src/test/chatPage.stream.test.tsx`
+   - Description: Render status/error bubbles and assert metadata rows are absent.
+   - Purpose: Ensure status/error bubbles do not render metadata rows.
+   - Documentation to read (repeat):
+     - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+
+7. [ ] Component test (client): step indicator conditional
+   - Test type: Component test (React Testing Library)
+   - Location: `client/src/test/agentsPage.streaming.test.tsx`
+   - Description: Provide agent command metadata with and without step counts.
+   - Purpose: Ensure “Step X of Y” renders only when `stepIndex` + `totalSteps` exist.
+   - Documentation to read (repeat):
+     - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+
+8. [ ] Component test (client): omit timing/rate when missing
+   - Test type: Component test (React Testing Library)
+   - Location: `client/src/test/chatPage.stream.test.tsx`
+   - Description: Provide assistant turns without timing/tokens-per-second fields.
+   - Purpose: Ensure timing/rate rows are omitted when timing fields are missing or non-finite.
+   - Documentation to read (repeat):
+     - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+
+9. [ ] Documentation update - `README.md` (if any user-facing changes need to be called out):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: call out any new metadata visible to users.
    - Document location:
      - `README.md`
 
-6. [ ] Documentation update - `design.md` (document bubble metadata UI behavior):
+10. [ ] Documentation update - `design.md` (document bubble metadata UI behavior):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: document UI rules for timestamps, tokens, timing, and steps.
    - Document location:
      - `design.md`
 
-7. [ ] Documentation update - `projectStructure.md` (only if files/paths change):
+11. [ ] Documentation update - `projectStructure.md` (only if files/paths change):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: update tree only if file paths change.
    - Document location:
      - `projectStructure.md`
 
-8. [ ] Run full linting:
+12. [ ] Run full linting:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/en/

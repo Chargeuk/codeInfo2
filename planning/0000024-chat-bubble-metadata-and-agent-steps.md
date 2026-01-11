@@ -175,6 +175,9 @@ Extend the server’s stored turn shape to include optional usage and timing met
      - Do not add defaults; store only when data exists.
      - Keep `command` metadata unchanged for agent step display.
      - Ensure these fields are optional and safe for non-assistant turns.
+     - Example (stored assistant turn fields):
+       - `usage: { inputTokens: 120, outputTokens: 48, totalTokens: 168, cachedInputTokens: 32 }`
+       - `timing: { totalTimeSec: 1.42, tokensPerSecond: 118 }`
 
 3. [ ] Thread usage/timing through repo types and append helpers:
    - Documentation to read (repeat):
@@ -189,6 +192,8 @@ Extend the server’s stored turn shape to include optional usage and timing met
      - Ensure `persistAssistantTurn` can pass usage/timing into `appendTurn` and memory persistence.
      - Return `usage`/`timing` in `GET /conversations/:id/turns` when stored.
      - Omit fields (not `null`) when values are missing.
+     - Example (assistant append payload):
+       - `{ role: 'assistant', content: '...', usage: { inputTokens: 10, outputTokens: 5, totalTokens: 15 }, timing: { totalTimeSec: 0.4 } }`
 
 4. [ ] Extend REST turn schemas to accept usage/timing safely:
    - Documentation to read (repeat):
@@ -200,6 +205,8 @@ Extend the server’s stored turn shape to include optional usage and timing met
    - Requirements:
      - Add `usage` + `timing` to `appendTurnSchema`.
      - Enforce that `usage`/`timing` is only accepted when `role === 'assistant'` (use Zod `superRefine` or equivalent v3 pattern).
+     - Example (valid assistant request):
+       - `{ role: 'assistant', content: 'Hi', usage: { inputTokens: 4, outputTokens: 6, totalTokens: 10 } }`
 
 5. [ ] Integration test (server): assistant POST accepts usage/timing
    - Test type: Integration (`node:test`)
@@ -336,6 +343,8 @@ Extend the core chat event pipeline so usage/timing metadata can flow from provi
      - Add optional `usage` + `timing` on the completion event (or introduce a new event type).
      - Capture a run start timestamp in `run()` for fallback timing.
      - Store latest usage/timing in `run()` so `persistAssistantTurn` can consume it.
+     - Example (completion event payload):
+       - `{ type: 'complete', threadId: 't1', usage: { inputTokens: 12, outputTokens: 8, totalTokens: 20 }, timing: { totalTimeSec: 0.9, tokensPerSecond: 22 } }`
 
 3. [ ] Pass usage/timing into assistant persistence:
    - Documentation to read (repeat):
@@ -346,6 +355,8 @@ Extend the core chat event pipeline so usage/timing metadata can flow from provi
    - Requirements:
      - Include usage/timing when calling `persistAssistantTurn`.
      - Ensure memory persistence stores the same optional fields.
+     - Example (persistAssistantTurn params):
+       - `{ content: '...', usage: { inputTokens: 12, outputTokens: 8, totalTokens: 20 }, timing: { totalTimeSec: 0.9 } }`
 
 4. [ ] Unit test (server): persist usage/timing when provided
    - Test type: Unit (`node:test`)
@@ -467,6 +478,9 @@ Capture usage metadata from Codex `turn.completed` events and feed it into the s
    - Requirements:
      - Map `input_tokens`, `cached_input_tokens`, `output_tokens` into stored usage fields.
      - Derive `totalTokens` when Codex omits it.
+     - Example (Codex usage mapping):
+       - Input: `{ usage: { input_tokens: 10, cached_input_tokens: 2, output_tokens: 6 } }`
+       - Stored: `{ usage: { inputTokens: 10, cachedInputTokens: 2, outputTokens: 6, totalTokens: 16 } }`
 
 3. [ ] Unit test (server): Codex usage persisted
    - Test type: Unit (`node:test`)
@@ -595,6 +609,9 @@ Capture LM Studio prediction stats and feed them into the shared chat usage/timi
      - Use `prediction.result()` or `onPredictionCompleted` to access `PredictionResult.stats`.
      - Map stats to usage/timing fields (prompt/predicted/total tokens; totalTimeSec/tokensPerSecond).
      - Fall back to run timing when stats are missing.
+     - Example (LM Studio stats mapping):
+       - Stats: `{ promptTokensCount: 12, predictedTokensCount: 4, totalTokensCount: 16, totalTimeSec: 0.5, tokensPerSecond: 32 }`
+       - Stored: `{ usage: { inputTokens: 12, outputTokens: 4, totalTokens: 16 }, timing: { totalTimeSec: 0.5, tokensPerSecond: 32 } }`
 
 3. [ ] Integration test (server): LM Studio usage/timing persisted
    - Test type: Integration (`node:test`)
@@ -720,6 +737,8 @@ Expose command step metadata on inflight snapshots so agent bubbles can render �
    - Requirements:
      - Add optional `command` to `InflightState` and `createInflight` params.
      - Include `command` on `snapshotInflight` and `snapshotInflightTurns` output when present.
+     - Example (inflight state):
+       - `command: { name: 'improve_plan', stepIndex: 2, totalSteps: 6 }`
 
 3. [ ] Pass command metadata into inflight creation for agent runs:
    - Documentation to read (repeat):
@@ -730,6 +749,8 @@ Expose command step metadata on inflight snapshots so agent bubbles can render �
    - Requirements:
      - Include `params.command` when calling `createInflight` in `runAgentInstructionUnlocked`.
      - Leave other createInflight call sites unchanged (chat route + MCP codebase question).
+     - Example (createInflight params):
+       - `{ command: { name: 'improve_plan', stepIndex: 2, totalSteps: 6 } }`
 
 4. [ ] Extend WS inflight snapshot payload to include command metadata:
    - Documentation to read (repeat):
@@ -741,6 +762,8 @@ Expose command step metadata on inflight snapshots so agent bubbles can render �
    - Requirements:
      - Add optional `command` inside `WsInflightSnapshotEvent.inflight`.
      - Include `command` in `publishInflightSnapshot` when available.
+     - Example (WS inflight payload):
+       - `{ inflight: { inflightId: 'i1', startedAt: '...', command: { name: 'improve_plan', stepIndex: 2, totalSteps: 6 } } }`
 
 5. [ ] Integration test (server): REST inflight includes command metadata
    - Test type: Integration (`node:test`)
@@ -860,6 +883,8 @@ Expose usage/timing metadata on the WS `turn_final` payload so clients can rende
    - Requirements:
      - Add optional `usage` + `timing` on `WsTurnFinalEvent`.
      - Pass usage/timing from the completion event into `publishTurnFinal`.
+     - Example (turn_final payload):
+       - `{ type: 'turn_final', status: 'ok', usage: { inputTokens: 10, outputTokens: 6, totalTokens: 16 }, timing: { totalTimeSec: 0.7, tokensPerSecond: 22 } }`
 
 3. [ ] Unit test (server): `turn_final` includes usage/timing
    - Test type: Unit (`node:test`)
@@ -970,6 +995,8 @@ Extend the REST turn snapshot mapping to include usage/timing fields in stored t
    - Requirements:
      - Add optional `usage` + `timing` fields, including `cachedInputTokens`.
      - Map REST response fields into the new shape without breaking existing consumers.
+     - Example (StoredTurn shape):
+       - `{ usage: { inputTokens: 9, outputTokens: 3, totalTokens: 12, cachedInputTokens: 2 }, timing: { totalTimeSec: 0.4 } }`
 
 3. [ ] Extend InflightSnapshot to include command metadata:
    - Documentation to read (repeat):
@@ -980,6 +1007,8 @@ Extend the REST turn snapshot mapping to include usage/timing fields in stored t
    - Requirements:
      - Add optional `command` to `InflightSnapshot` with `{ name, stepIndex, totalSteps }`.
      - Keep `command` undefined when the server omits it.
+     - Example (REST inflight payload):
+       - `{ inflight: { inflightId: 'i1', startedAt: '...', command: { name: 'improve_plan', stepIndex: 1, totalSteps: 4 } } }`
 
 4. [ ] Hook test (client): REST turns retain usage/timing
    - Test type: Hook test (React Testing Library)
@@ -1111,6 +1140,9 @@ Extend the WS transcript event mapping so usage/timing fields and inflight comma
      - Add optional `usage` + `timing` to `turn_final` event handling.
      - Add optional `command` to `inflight_snapshot` event typing and propagate it to the assistant message.
      - When hydrating an inflight snapshot, update the assistant bubble timestamp to `inflight.startedAt`.
+     - Example (WS events):
+       - `turn_final` with usage: `{ type: 'turn_final', usage: { inputTokens: 8, outputTokens: 4, totalTokens: 12 }, timing: { totalTimeSec: 0.6 } }`
+       - `inflight_snapshot` with command: `{ type: 'inflight_snapshot', inflight: { command: { name: 'improve_plan', stepIndex: 1, totalSteps: 4 } } }`
 
 3. [ ] Update fixtures + WS mocks:
    - Documentation to read (repeat):
@@ -1122,6 +1154,9 @@ Extend the WS transcript event mapping so usage/timing fields and inflight comma
    - Requirements:
      - Add representative usage/timing fields to `chatWsTurnFinalFixture` and mock events.
      - Add representative `command` metadata to `chatWsInflightSnapshotFixture` and mock inflight events.
+     - Example (fixture additions):
+       - `chatWsTurnFinalFixture.usage = { inputTokens: 8, outputTokens: 4, totalTokens: 12 }`
+       - `chatWsInflightSnapshotFixture.inflight.command = { name: 'improve_plan', stepIndex: 1, totalSteps: 4 }`
 
 4. [ ] Hook test (client): WS preserves usage/timing
    - Test type: Hook test (React Testing Library)
@@ -1268,6 +1303,8 @@ Render message header metadata for user/assistant bubbles in Chat and Agents: ti
      - For in-flight assistant bubbles, use `inflight.startedAt` until persisted turns arrive.
      - Fallback to `new Date()` when timestamps are invalid.
      - Use MUI 6.4.x docs (via MUI MCP) for Stack/Typography/Tooltip usage rather than the v7 public docs.
+     - Example (formatted timestamp):
+       - Input: `2026-01-11T20:05:00Z` → Output: `Jan 11, 2026, 2:05 PM` (local)
 
 3. [ ] Render metadata rows for assistant bubbles:
    - Documentation to read (repeat):
@@ -1283,6 +1320,10 @@ Render message header metadata for user/assistant bubbles in Chat and Agents: ti
      - Show timing and tokens-per-second only when provided and finite.
      - Show “Step X of Y” for agent bubbles when `command.stepIndex` + `command.totalSteps` exist.
      - Do not render metadata for status/error bubbles.
+     - Example (assistant header lines):
+       - `Tokens: in 10 · out 5 · total 15 (cached 2)`
+       - `Time: 1.2s · Rate: 12.5 tok/s`
+       - `Step 2 of 6`
 
 4. [ ] Component test (client): ChatPage shows timestamp + tokens
    - Test type: Component test (React Testing Library)

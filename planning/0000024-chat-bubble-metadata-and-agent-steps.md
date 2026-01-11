@@ -323,7 +323,7 @@ Extend the server’s stored turn shape to include optional usage and timing met
 
 ### 2. Server: propagate usage/timing through chat events
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **__to_do__**
 
 #### Overview

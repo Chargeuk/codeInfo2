@@ -144,9 +144,11 @@ Extend the server’s stored turn shape to include optional usage and timing met
 #### Subtasks
 
 1. [ ] Review current turn persistence and REST payload shapes:
-   - Documentation to read:
+   - Documentation to read (repeat):
      - Mongoose 9.0.1 schema types: Context7 `/automattic/mongoose/9.0.1`
      - Zod v3 schema validation: Context7 `/websites/v3_zod_dev`
+     - Express response basics: https://expressjs.com/en/api.html#res.json
+   - Recap (acceptance criteria): timestamps remain from persisted `turn.createdAt`, and assistant-only metadata is optional.
    - Files to read:
      - `server/src/mongo/turn.ts`
      - `server/src/mongo/repo.ts`
@@ -156,6 +158,10 @@ Extend the server’s stored turn shape to include optional usage and timing met
      - Confirm how `createdAt` and `command` metadata are stored and returned today.
 
 2. [ ] Add usage/timing fields to the Turn schema + types:
+   - Documentation to read (repeat):
+     - Mongoose 9.0.1 schema types: Context7 `/automattic/mongoose/9.0.1`
+     - Zod v3 schema validation: Context7 `/websites/v3_zod_dev`
+   - Recap (acceptance criteria): store usage/timing only for assistant turns; omit when values are missing.
    - Files to edit:
      - `server/src/mongo/turn.ts`
    - Requirements:
@@ -166,6 +172,10 @@ Extend the server’s stored turn shape to include optional usage and timing met
      - Ensure these fields are optional and safe for non-assistant turns.
 
 3. [ ] Thread usage/timing through repo types and append helpers:
+   - Documentation to read (repeat):
+     - Mongoose 9.0.1 schema types: Context7 `/automattic/mongoose/9.0.1`
+     - Zod v3 schema validation: Context7 `/websites/v3_zod_dev`
+   - Recap (acceptance criteria): REST turn snapshots must return usage/timing only when stored.
    - Files to edit:
      - `server/src/mongo/repo.ts` (AppendTurnInput + TurnSummary)
      - `server/src/chat/interfaces/ChatInterface.ts` (persistAssistantTurn payload)
@@ -176,6 +186,10 @@ Extend the server’s stored turn shape to include optional usage and timing met
      - Omit fields (not `null`) when values are missing.
 
 4. [ ] Extend REST turn schemas to accept usage/timing safely:
+   - Documentation to read (repeat):
+     - Zod v3 schema validation: Context7 `/websites/v3_zod_dev`
+     - Express response basics: https://expressjs.com/en/api.html#res.json
+   - Recap (acceptance criteria): user turns must ignore usage/timing; assistant-only validation required.
    - Files to edit:
      - `server/src/routes/conversations.ts`
    - Requirements:
@@ -183,8 +197,10 @@ Extend the server’s stored turn shape to include optional usage and timing met
      - Enforce that `usage`/`timing` is only accepted when `role === 'assistant'` (use Zod `superRefine` or equivalent v3 pattern).
 
 5. [ ] Add/extend server integration tests for usage/timing:
-   - Documentation to read:
+   - Documentation to read (repeat):
      - Node.js test runner (node:test): https://nodejs.org/api/test.html
+     - Express response basics: https://expressjs.com/en/api.html#res.json
+   - Recap (acceptance criteria): assistant metadata appears in GET; user metadata ignored.
    - Files to edit:
      - `server/src/test/integration/conversations.turns.test.ts`
    - Requirements:
@@ -193,24 +209,31 @@ Extend the server’s stored turn shape to include optional usage and timing met
      - Assert user turns ignore any usage/timing input.
 
 6. [ ] Documentation update - `README.md` (if any user-facing changes need to be called out):
-   - Documentation to read:
+   - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Recap (acceptance criteria): note any user-visible metadata additions if surfaced.
    - Document location:
      - `README.md`
 
 7. [ ] Documentation update - `design.md` (document new turn metadata fields):
-   - Documentation to read:
+   - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Recap (acceptance criteria): document assistant-only `usage`/`timing` fields and optionality.
    - Document location:
      - `design.md`
 
 8. [ ] Documentation update - `projectStructure.md` (only if files/paths change):
-   - Documentation to read:
+   - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Recap: update tree only if files move or new files added.
    - Document location:
      - `projectStructure.md`
 
 9. [ ] Run full linting:
+   - Documentation to read (repeat):
+     - ESLint: https://eslint.org/docs/latest/
+     - Prettier: https://prettier.io/docs/en/
+   - Recap: run from repo root; fix issues before proceeding.
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
    - If either fails, run `npm run lint:fix` / `npm run format --workspaces` and resolve remaining issues.
@@ -248,6 +271,11 @@ Extend the core chat event pipeline so usage/timing metadata can flow from provi
 #### Subtasks
 
 1. [ ] Review ChatInterface + stream bridge event flow:
+   - Documentation to read (repeat):
+     - OpenAI Codex SDK overview: https://developers.openai.com/codex/sdk
+     - LM Studio SDK README (prediction stats): https://www.npmjs.com/package/@lmstudio/sdk
+     - Node.js EventEmitter: https://nodejs.org/api/events.html
+   - Recap (acceptance criteria): completion events must eventually carry assistant usage/timing.
    - Files to read:
      - `server/src/chat/interfaces/ChatInterface.ts`
      - `server/src/chat/chatStreamBridge.ts`
@@ -256,6 +284,10 @@ Extend the core chat event pipeline so usage/timing metadata can flow from provi
      - `node_modules/@lmstudio/sdk/dist/index.d.ts`
 
 2. [ ] Extend chat event types to include usage/timing:
+   - Documentation to read (repeat):
+     - Node.js EventEmitter: https://nodejs.org/api/events.html
+     - OpenAI Codex SDK overview: https://developers.openai.com/codex/sdk
+   - Recap (acceptance criteria): usage/timing optional; assistant-only; omit when missing.
    - Files to edit:
      - `server/src/chat/interfaces/ChatInterface.ts`
    - Requirements:
@@ -264,6 +296,9 @@ Extend the core chat event pipeline so usage/timing metadata can flow from provi
      - Store latest usage/timing in `run()` so `persistAssistantTurn` can consume it.
 
 3. [ ] Pass usage/timing into assistant persistence:
+   - Documentation to read (repeat):
+     - Node.js EventEmitter: https://nodejs.org/api/events.html
+   - Recap (acceptance criteria): stored turns must include usage/timing when present.
    - Files to edit:
      - `server/src/chat/interfaces/ChatInterface.ts`
    - Requirements:
@@ -271,32 +306,41 @@ Extend the core chat event pipeline so usage/timing metadata can flow from provi
      - Ensure memory persistence stores the same optional fields.
 
 4. [ ] Add/extend unit tests for ChatInterface persistence:
-   - Documentation to read:
+   - Documentation to read (repeat):
      - Node.js test runner (node:test): https://nodejs.org/api/test.html
+     - Node.js EventEmitter: https://nodejs.org/api/events.html
+   - Recap (acceptance criteria): usage/timing should persist when supplied by provider adapters.
    - Files to edit:
      - `server/src/test/unit/chat-interface-run-persistence.test.ts`
    - Requirements:
      - Assert assistant turns store usage/timing when provided.
 
 5. [ ] Documentation update - `README.md` (if any user-facing behavior changes need to be called out):
-   - Documentation to read:
+   - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Recap: call out any new metadata behavior that affects users.
    - Document location:
      - `README.md`
 
 6. [ ] Documentation update - `design.md` (document chat event metadata flow):
-   - Documentation to read:
+   - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Recap: document where usage/timing flows through ChatInterface events.
    - Document location:
      - `design.md`
 
 7. [ ] Documentation update - `projectStructure.md` (only if files/paths change):
-   - Documentation to read:
+   - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Recap: update tree only if file paths change.
    - Document location:
      - `projectStructure.md`
 
 8. [ ] Run full linting:
+   - Documentation to read (repeat):
+     - ESLint: https://eslint.org/docs/latest/
+     - Prettier: https://prettier.io/docs/en/
+   - Recap: run from repo root after changes and fix any issues.
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
    - If either fails, run `npm run lint:fix` / `npm run format --workspaces` and resolve remaining issues.
@@ -333,12 +377,20 @@ Capture usage metadata from Codex `turn.completed` events and feed it into the s
 #### Subtasks
 
 1. [ ] Review Codex event handling and SDK types:
+   - Documentation to read (repeat):
+     - OpenAI Codex non-interactive event docs (turn.completed usage): https://developers.openai.com/codex/cli#non-interactive-mode
+     - OpenAI Codex SDK overview: https://developers.openai.com/codex/sdk
+   - Recap (acceptance criteria): capture assistant usage tokens when provider supplies them.
    - Files to read:
      - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
      - `node_modules/@openai/codex-sdk/dist/index.d.ts`
      - `server/src/test/unit/chat-interface-codex.test.ts`
 
 2. [ ] Capture `turn.completed` usage and forward it:
+   - Documentation to read (repeat):
+     - OpenAI Codex non-interactive event docs (turn.completed usage): https://developers.openai.com/codex/cli#non-interactive-mode
+     - OpenAI Codex SDK overview: https://developers.openai.com/codex/sdk
+   - Recap (acceptance criteria): map `input_tokens`, `output_tokens`, and `cached_input_tokens` into stored usage fields.
    - Files to edit:
      - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
    - Requirements:
@@ -346,6 +398,10 @@ Capture usage metadata from Codex `turn.completed` events and feed it into the s
      - Derive `totalTokens` when Codex omits it.
 
 3. [ ] Update Codex integration tests:
+   - Documentation to read (repeat):
+     - OpenAI Codex SDK overview: https://developers.openai.com/codex/sdk
+     - Node.js test runner (node:test): https://nodejs.org/api/test.html
+   - Recap (acceptance criteria): ensure assistant turns persist usage metadata.
    - Files to edit:
      - `server/src/test/integration/chat-codex.test.ts`
      - `server/src/test/unit/chat-interface-codex.test.ts`
@@ -353,24 +409,31 @@ Capture usage metadata from Codex `turn.completed` events and feed it into the s
      - Assert usage metadata is persisted on assistant turns.
 
 4. [ ] Documentation update - `README.md` (if any user-facing behavior changes need to be called out):
-   - Documentation to read:
+   - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Recap: call out any user-visible token usage behavior if needed.
    - Document location:
      - `README.md`
 
 5. [ ] Documentation update - `design.md` (document Codex usage capture):
-   - Documentation to read:
+   - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Recap: document where Codex usage is captured and stored.
    - Document location:
      - `design.md`
 
 6. [ ] Documentation update - `projectStructure.md` (only if files/paths change):
-   - Documentation to read:
+   - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Recap: update tree only if file paths change.
    - Document location:
      - `projectStructure.md`
 
 7. [ ] Run full linting:
+   - Documentation to read (repeat):
+     - ESLint: https://eslint.org/docs/latest/
+     - Prettier: https://prettier.io/docs/en/
+   - Recap: run from repo root and fix issues before moving on.
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
    - If either fails, run `npm run lint:fix` / `npm run format --workspaces` and resolve remaining issues.
@@ -406,12 +469,18 @@ Capture LM Studio prediction stats and feed them into the shared chat usage/timi
 #### Subtasks
 
 1. [ ] Review LM Studio prediction flow and SDK types:
+   - Documentation to read (repeat):
+     - LM Studio SDK README (prediction stats): https://www.npmjs.com/package/@lmstudio/sdk
+   - Recap (acceptance criteria): capture timing and usage when provided by the LM Studio SDK.
    - Files to read:
      - `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`
      - `node_modules/@lmstudio/sdk/dist/index.d.ts`
      - `server/src/test/integration/chat-assistant-persistence.test.ts`
 
 2. [ ] Capture prediction stats and forward them:
+   - Documentation to read (repeat):
+     - LM Studio SDK README (prediction stats): https://www.npmjs.com/package/@lmstudio/sdk
+   - Recap (acceptance criteria): map prompt/predicted/total tokens plus total time + tokens/sec when supplied.
    - Files to edit:
      - `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`
    - Requirements:
@@ -420,30 +489,41 @@ Capture LM Studio prediction stats and feed them into the shared chat usage/timi
      - Fall back to run timing when stats are missing.
 
 3. [ ] Update LM Studio persistence tests:
+   - Documentation to read (repeat):
+     - LM Studio SDK README (prediction stats): https://www.npmjs.com/package/@lmstudio/sdk
+     - Node.js test runner (node:test): https://nodejs.org/api/test.html
+   - Recap (acceptance criteria): assistant turns should persist usage/timing when stats exist.
    - Files to edit:
      - `server/src/test/integration/chat-assistant-persistence.test.ts`
    - Requirements:
      - Assert usage/timing metadata is persisted on assistant turns.
 
 4. [ ] Documentation update - `README.md` (if any user-facing behavior changes need to be called out):
-   - Documentation to read:
+   - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Recap: call out any user-visible metadata additions.
    - Document location:
      - `README.md`
 
 5. [ ] Documentation update - `design.md` (document LM Studio stats capture):
-   - Documentation to read:
+   - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Recap: document where LM Studio stats are read and stored.
    - Document location:
      - `design.md`
 
 6. [ ] Documentation update - `projectStructure.md` (only if files/paths change):
-   - Documentation to read:
+   - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Recap: update tree only if file paths change.
    - Document location:
      - `projectStructure.md`
 
 7. [ ] Run full linting:
+   - Documentation to read (repeat):
+     - ESLint: https://eslint.org/docs/latest/
+     - Prettier: https://prettier.io/docs/en/
+   - Recap: run from repo root and fix issues before moving on.
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
    - If either fails, run `npm run lint:fix` / `npm run format --workspaces` and resolve remaining issues.
@@ -479,12 +559,18 @@ Expose usage/timing metadata on the WS `turn_final` payload so clients can rende
 #### Subtasks
 
 1. [ ] Review WS type definitions and publish flow:
+   - Documentation to read (repeat):
+     - `ws` 8.18.3 server API: Context7 `/websockets/ws/8_18_3`
+   - Recap (acceptance criteria): `turn_final` must include usage/timing when available.
    - Files to read:
      - `server/src/ws/types.ts`
      - `server/src/ws/server.ts`
      - `server/src/chat/chatStreamBridge.ts`
 
 2. [ ] Extend `turn_final` payload to include usage/timing:
+   - Documentation to read (repeat):
+     - `ws` 8.18.3 server API: Context7 `/websockets/ws/8_18_3`
+   - Recap (acceptance criteria): include usage/timing only when present; omit when missing.
    - Files to edit:
      - `server/src/ws/types.ts`
      - `server/src/ws/server.ts`
@@ -494,6 +580,10 @@ Expose usage/timing metadata on the WS `turn_final` payload so clients can rende
      - Pass usage/timing from the completion event into `publishTurnFinal`.
 
 3. [ ] Update WS tests for enriched `turn_final` payloads:
+   - Documentation to read (repeat):
+     - `ws` 8.18.3 server API: Context7 `/websockets/ws/8_18_3`
+     - Node.js test runner (node:test): https://nodejs.org/api/test.html
+   - Recap (acceptance criteria): WS events preserve usage/timing when supplied.
    - Files to edit:
      - `server/src/test/unit/ws-chat-stream.test.ts`
      - `server/src/test/unit/ws-server.test.ts`
@@ -501,24 +591,31 @@ Expose usage/timing metadata on the WS `turn_final` payload so clients can rende
      - Assert usage/timing fields survive the WS publish step when provided.
 
 4. [ ] Documentation update - `README.md` (if any user-facing behavior changes need to be called out):
-   - Documentation to read:
+   - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Recap: call out WS metadata if user-visible.
    - Document location:
      - `README.md`
 
 5. [ ] Documentation update - `design.md` (document WS payload changes):
-   - Documentation to read:
+   - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Recap: document `turn_final` payload shape and usage/timing fields.
    - Document location:
      - `design.md`
 
 6. [ ] Documentation update - `projectStructure.md` (only if files/paths change):
-   - Documentation to read:
+   - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Recap: update tree only if file paths change.
    - Document location:
      - `projectStructure.md`
 
 7. [ ] Run full linting:
+   - Documentation to read (repeat):
+     - ESLint: https://eslint.org/docs/latest/
+     - Prettier: https://prettier.io/docs/en/
+   - Recap: run from repo root and fix issues before moving on.
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
    - If either fails, run `npm run lint:fix` / `npm run format --workspaces` and resolve remaining issues.
@@ -555,11 +652,18 @@ Extend the REST turn snapshot mapping to include usage/timing fields in stored t
 #### Subtasks
 
 1. [ ] Review stored-turn mapping:
+   - Documentation to read (repeat):
+     - TypeScript handbook (object types): https://www.typescriptlang.org/docs/handbook/2/objects.html
+     - React Testing Library (hook tests): https://testing-library.com/docs/react-testing-library/intro/
+   - Recap (acceptance criteria): REST turns must include usage/timing when stored.
    - Files to read:
      - `client/src/hooks/useConversationTurns.ts`
      - `client/src/test/useConversationTurns.commandMetadata.test.ts`
 
 2. [ ] Extend StoredTurn to include usage/timing:
+   - Documentation to read (repeat):
+     - TypeScript handbook (object types): https://www.typescriptlang.org/docs/handbook/2/objects.html
+   - Recap (acceptance criteria): keep fields optional; assistant-only; omit when missing.
    - Files to edit:
      - `client/src/hooks/useConversationTurns.ts`
    - Requirements:
@@ -567,30 +671,40 @@ Extend the REST turn snapshot mapping to include usage/timing fields in stored t
      - Map REST response fields into the new shape without breaking existing consumers.
 
 3. [ ] Update REST turn hook tests:
+   - Documentation to read (repeat):
+     - React Testing Library (hook tests): https://testing-library.com/docs/react-testing-library/intro/
+   - Recap (acceptance criteria): stored turns retain usage/timing fields.
    - Files to edit:
      - `client/src/test/useConversationTurns.commandMetadata.test.ts`
    - Requirements:
      - Assert usage/timing fields are retained on stored turns.
 
 4. [ ] Documentation update - `README.md` (if any user-facing behavior changes need to be called out):
-   - Documentation to read:
+   - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Recap: call out any user-visible metadata changes if needed.
    - Document location:
      - `README.md`
 
 5. [ ] Documentation update - `design.md` (document REST turn mapping changes):
-   - Documentation to read:
+   - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Recap: document client mapping for usage/timing fields.
    - Document location:
      - `design.md`
 
 6. [ ] Documentation update - `projectStructure.md` (only if files/paths change):
-   - Documentation to read:
+   - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Recap: update tree only if file paths change.
    - Document location:
      - `projectStructure.md`
 
 7. [ ] Run full linting:
+   - Documentation to read (repeat):
+     - ESLint: https://eslint.org/docs/latest/
+     - Prettier: https://prettier.io/docs/en/
+   - Recap: run from repo root and fix issues before moving on.
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
    - If either fails, run `npm run lint:fix` / `npm run format --workspaces` and resolve remaining issues.
@@ -628,6 +742,11 @@ Extend the WS transcript event mapping so usage/timing fields land on streaming 
 #### Subtasks
 
 1. [ ] Review WS transcript mapping:
+   - Documentation to read (repeat):
+     - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API
+     - TypeScript handbook (object types): https://www.typescriptlang.org/docs/handbook/2/objects.html
+     - React Testing Library (hook tests): https://testing-library.com/docs/react-testing-library/intro/
+   - Recap (acceptance criteria): `turn_final` should deliver usage/timing to streaming UI.
    - Files to read:
      - `client/src/hooks/useChatWs.ts`
      - `client/src/hooks/useChatStream.ts`
@@ -635,6 +754,10 @@ Extend the WS transcript event mapping so usage/timing fields land on streaming 
      - `common/src/fixtures/chatStream.ts`
 
 2. [ ] Extend WS event types and message updates:
+   - Documentation to read (repeat):
+     - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API
+     - TypeScript handbook (object types): https://www.typescriptlang.org/docs/handbook/2/objects.html
+   - Recap (acceptance criteria): in-flight assistant bubble uses `inflight.startedAt` for timestamps.
    - Files to edit:
      - `client/src/hooks/useChatWs.ts`
      - `client/src/hooks/useChatStream.ts`
@@ -643,6 +766,9 @@ Extend the WS transcript event mapping so usage/timing fields land on streaming 
      - When hydrating an inflight snapshot, update the assistant bubble timestamp to `inflight.startedAt`.
 
 3. [ ] Update fixtures + WS mocks:
+   - Documentation to read (repeat):
+     - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API
+   - Recap (acceptance criteria): fixtures should include usage/timing when present.
    - Files to edit:
      - `common/src/fixtures/chatStream.ts`
      - `client/src/test/support/mockChatWs.ts`
@@ -650,30 +776,40 @@ Extend the WS transcript event mapping so usage/timing fields land on streaming 
      - Add representative usage/timing fields to `chatWsTurnFinalFixture` and mock events.
 
 4. [ ] Update WS hook tests:
+   - Documentation to read (repeat):
+     - React Testing Library (hook tests): https://testing-library.com/docs/react-testing-library/intro/
+   - Recap (acceptance criteria): assert metadata preserved on streamed assistant messages.
    - Files to edit:
      - `client/src/test/useChatStream.toolPayloads.test.tsx`
    - Requirements:
      - Assert usage/timing metadata is preserved on streamed assistant messages.
 
 5. [ ] Documentation update - `README.md` (if any user-facing behavior changes need to be called out):
-   - Documentation to read:
+   - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Recap: call out any user-visible metadata changes if needed.
    - Document location:
      - `README.md`
 
 6. [ ] Documentation update - `design.md` (document WS mapping changes):
-   - Documentation to read:
+   - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Recap: document client WS mapping of usage/timing.
    - Document location:
      - `design.md`
 
 7. [ ] Documentation update - `projectStructure.md` (only if files/paths change):
-   - Documentation to read:
+   - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Recap: update tree only if file paths change.
    - Document location:
      - `projectStructure.md`
 
 8. [ ] Run full linting:
+   - Documentation to read (repeat):
+     - ESLint: https://eslint.org/docs/latest/
+     - Prettier: https://prettier.io/docs/en/
+   - Recap: run from repo root and fix issues before moving on.
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
    - If either fails, run `npm run lint:fix` / `npm run format --workspaces` and resolve remaining issues.
@@ -712,14 +848,23 @@ Render message header metadata for user/assistant bubbles in Chat and Agents: ti
 #### Subtasks
 
 1. [ ] Review existing bubble rendering for Chat and Agents:
+   - Documentation to read (repeat):
+     - MUI Stack: https://llms.mui.com/material-ui/6.4.12/components/stack.md
+     - MUI Typography: https://llms.mui.com/material-ui/6.4.12/components/typography.md
+     - MUI Tooltip: https://llms.mui.com/material-ui/6.4.12/components/tooltip.md
+     - `Intl.DateTimeFormat`: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/DateTimeFormat
+   - Recap (acceptance criteria): render timestamp for every user/assistant bubble.
    - Files to read:
      - `client/src/pages/ChatPage.tsx`
      - `client/src/pages/AgentsPage.tsx`
      - `client/src/components/chat/ConversationList.tsx` (for style patterns, if needed)
 
 2. [ ] Add timestamp formatting helpers and fallback handling:
-   - Documentation to read:
+   - Documentation to read (repeat):
+     - MUI Stack: https://llms.mui.com/material-ui/6.4.12/components/stack.md
+     - MUI Typography: https://llms.mui.com/material-ui/6.4.12/components/typography.md
      - `Intl.DateTimeFormat`: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/DateTimeFormat
+   - Recap (acceptance criteria): use `{ dateStyle: 'medium', timeStyle: 'short' }`, local time.
    - Files to edit:
      - `client/src/pages/ChatPage.tsx`
      - `client/src/pages/AgentsPage.tsx`
@@ -733,6 +878,11 @@ Render message header metadata for user/assistant bubbles in Chat and Agents: ti
      - Use MUI 6.4.x docs (via MUI MCP) for Stack/Typography/Tooltip usage rather than the v7 public docs.
 
 3. [ ] Render metadata rows for assistant bubbles:
+   - Documentation to read (repeat):
+     - MUI Stack: https://llms.mui.com/material-ui/6.4.12/components/stack.md
+     - MUI Typography: https://llms.mui.com/material-ui/6.4.12/components/typography.md
+     - MUI Tooltip: https://llms.mui.com/material-ui/6.4.12/components/tooltip.md
+   - Recap (acceptance criteria): show tokens/time/step only when values exist.
    - Files to edit:
      - `client/src/pages/ChatPage.tsx`
      - `client/src/pages/AgentsPage.tsx`
@@ -743,32 +893,40 @@ Render message header metadata for user/assistant bubbles in Chat and Agents: ti
      - Do not render metadata for status/error bubbles.
 
 4. [ ] Add/adjust UI tests for metadata rendering:
-   - Documentation to read:
+   - Documentation to read (repeat):
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+   - Recap (acceptance criteria): verify timestamp + token usage render when provided.
    - Files to edit:
      - `client/src/test/chatPage.stream.test.tsx`
    - Requirements:
      - Assert timestamp and token metadata appear for assistant turns when provided.
 
 5. [ ] Documentation update - `README.md` (if any user-facing changes need to be called out):
-   - Documentation to read:
+   - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Recap: call out any new metadata visible to users.
    - Document location:
      - `README.md`
 
 6. [ ] Documentation update - `design.md` (document bubble metadata UI behavior):
-   - Documentation to read:
+   - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Recap: document UI rules for timestamps, tokens, timing, and steps.
    - Document location:
      - `design.md`
 
 7. [ ] Documentation update - `projectStructure.md` (only if files/paths change):
-   - Documentation to read:
+   - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Recap: update tree only if file paths change.
    - Document location:
      - `projectStructure.md`
 
 8. [ ] Run full linting:
+   - Documentation to read (repeat):
+     - ESLint: https://eslint.org/docs/latest/
+     - Prettier: https://prettier.io/docs/en/
+   - Recap: run from repo root and fix issues before moving on.
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
    - If either fails, run `npm run lint:fix` / `npm run format --workspaces` and resolve remaining issues.
@@ -810,12 +968,34 @@ Validate the full story against acceptance criteria, perform clean builds/tests,
 #### Subtasks
 
 1. [ ] Build the server
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+   - Recap: confirm server build works outside Docker before final verification.
 2. [ ] Build the client
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+   - Recap: confirm client build works outside Docker before final verification.
 3. [ ] Perform a clean docker build
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+   - Recap: clean build must succeed to validate images.
 4. [ ] Ensure `README.md` is updated with any required description changes and with any new commands that have been added as part of this story
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Recap: document user-visible metadata changes and any new commands.
 5. [ ] Ensure `design.md` is updated with any required description changes including Mermaid diagrams that have been added as part of this story
+   - Documentation to read (repeat):
+     - Mermaid: Context7 `/mermaid-js/mermaid`
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Recap: ensure diagrams reflect new metadata flow if updated.
 6. [ ] Ensure `projectStructure.md` is updated with any updated, added or removed files & folders
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Recap: update tree only if file paths changed.
 7. [ ] Create a summary of all changes within this story and generate the pull request comment (must cover all tasks)
+   - Documentation to read (repeat):
+     - Husky: Context7 `/typicode/husky`
+   - Recap: summary must cover all tasks and mention any workflow changes.
 
 #### Testing
 

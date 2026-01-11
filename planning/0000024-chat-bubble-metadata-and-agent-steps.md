@@ -145,8 +145,8 @@ Extend the server’s stored turn shape to include optional usage and timing met
 
 1. [ ] Review current turn persistence and REST payload shapes:
    - Documentation to read:
-     - Mongoose schema types: https://mongoosejs.com/docs/schematypes.html
-     - Zod schema validation: Context7 `/colinhacks/zod`
+     - Mongoose 9.0.1 schema types: Context7 `/automattic/mongoose/9.0.1`
+     - Zod v3 schema validation: Context7 `/websites/v3_zod_dev`
    - Files to read:
      - `server/src/mongo/turn.ts`
      - `server/src/mongo/repo.ts`

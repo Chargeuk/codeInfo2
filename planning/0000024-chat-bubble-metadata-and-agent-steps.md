@@ -129,7 +129,7 @@ We want each chat and agent message bubble header to show the message date and t
 
 ### 1. Server: persist usage/timing metadata on assistant turns (REST + storage)
 
-- Task Status: **__done__**
+- Task Status: **__in_progress__**
 - Git Commits: **03e756a, 378fe9b**
 
 #### Overview
@@ -291,12 +291,12 @@ Extend the server’s stored turn shape to include optional usage and timing met
 
 1. [x] `npm run build --workspace server`
 2. [x] `npm run build --workspace client`
-3. [x] `npm run test --workspace server`
+3. [ ] `npm run test --workspace server`
 4. [x] `npm run test --workspace client`
 5. [x] `npm run e2e`
 6. [x] `npm run compose:build`
 7. [x] `npm run compose:up`
-8. [x] Manual Playwright-MCP check: open Chat + Agents, send a message, refresh history, and verify no console errors; confirm console/network logs include `DEV-0000024:T1:turns_snapshot_usage` and `DEV-0000024:T1:assistant_usage_accepted` with `hasUsage/hasTiming=true` when metadata is present.
+8. [ ] Manual Playwright-MCP check: open Chat + Agents, send a message, refresh history, and verify no console errors; confirm console/network logs include `DEV-0000024:T1:turns_snapshot_usage` and `DEV-0000024:T1:assistant_usage_accepted` with `hasUsage/hasTiming=true` when metadata is present.
 9. [x] `npm run compose:down`
 
 #### Implementation notes
@@ -308,15 +308,13 @@ Extend the server’s stored turn shape to include optional usage and timing met
 - Added integration coverage for assistant usage/timing acceptance, GET return shape, user rejection, and omission when absent.
 - Updated design notes for assistant `usage`/`timing` fields; README and project structure required no changes.
 - Added DEV-0000024 logging tags on turn snapshot responses and assistant append acceptance when usage/timing is present.
-- Ran workspace lint/format checks; lint reported existing warnings but no errors, Prettier check passed.
-- `npm run build --workspace server` succeeded.
-- `npm run build --workspace client` succeeded (vite warning about chunk size).
-- `npm run test --workspace server` ran unit tests, but cucumber integration failed with ChromaConnectionError during compose-based ingest scenarios.
-- `npm run test --workspace client` succeeded with existing console warnings from React DOM nesting logs.
-- `npm run e2e` succeeded after rerun with longer timeout.
-- `npm run compose:build` and `npm run compose:up` succeeded.
-- Manual metadata log verification used `http://host.docker.internal:5010` REST calls and `/logs?text=DEV-0000024:T1` to confirm the expected log tags.
-- `npm run compose:down` completed successfully.
+- Reviewed design notes for WS mapping; no additional updates required for this task.
+- Lint still reports pre-existing warnings; Prettier check passed.
+- `npm run build --workspace server` and `npm run build --workspace client` succeeded (client build warns about chunk size).
+- `npm run test --workspace server` failed in cucumber integration with `ChromaConnectionError` (Chroma container unhealthy), leaving step 3 incomplete.
+- `npm run test --workspace client` succeeded with existing React DOM nesting console warnings.
+- `npm run e2e`, `npm run compose:build`, `npm run compose:up`, and `npm run compose:down` succeeded.
+- Manual Playwright-MCP check blocked: Playwright MCP endpoint at `host.docker.internal:8931` rejects non-localhost access; localhost binding not reachable from this environment.
 
 ---
 

@@ -103,3 +103,15 @@ We want each chat and agent message bubble header to show the message date and t
 - **Bubble rendering:** Update `client/src/pages/ChatPage.tsx` and `client/src/pages/AgentsPage.tsx` bubble headers to render: (1) localized timestamp using `Intl.DateTimeFormat` (use `inflight.startedAt` for in-flight assistant bubbles), (2) token usage line only when available, (3) time + rate line when present, and (4) “Step X of Y” when `command` metadata exists. Use MUI `Stack`, `Typography`, and `Tooltip` as needed for layout and hover details.
 
 ---
+
+## Edge Cases and Failure Modes
+
+- **Missing or invalid timestamps:** If `createdAt` or `inflight.startedAt` is missing or unparsable, fall back to `new Date()` and render the timestamp without crashing.
+- **Partial usage data:** If only some usage fields are present (e.g., no cached input tokens), render only the available values and omit the cached suffix.
+- **Zero/NaN timing values:** If `totalTimeSec` or `tokensPerSecond` is `0`, `NaN`, or non-finite, omit the affected line instead of showing invalid values.
+- **No usage/timing from provider:** For providers that omit usage/timing, ensure bubbles render only the timestamp and content (no empty metadata rows).
+- **WS ordering vs REST refresh:** When a `turn_final` WS event arrives before the persisted turn is visible in REST, prefer the WS metadata for the active bubble and replace it once the persisted turn arrives.
+- **Command metadata absent for agents:** If an agent run does not include `command` metadata (single instructions or manual runs), do not render “Step X of Y”.
+- **Archived conversations:** If a conversation is archived while a turn is in-flight, ensure the UI does not crash and metadata rendering gracefully stops when the run is cancelled.
+
+---

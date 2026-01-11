@@ -262,7 +262,7 @@ Extend the serverâ€™s stored turn shape to include optional usage and timing met
    - Ordering: complete this after any subtask that adds/removes files.
    - Document: `projectStructure.md`
    - Location: `projectStructure.md`
-   - Description: Add/update tree entries for any new/changed files.
+   - Description: Add/update tree entries for any new/changed files, including every file added or removed in this task.
    - Purpose: Keep the repository map current.
 
 12. [ ] Run full linting:
@@ -400,7 +400,7 @@ Extend the core chat event pipeline so usage/timing metadata can flow from provi
    - Ordering: complete this after any subtask that adds/removes files.
    - Document: `projectStructure.md`
    - Location: `projectStructure.md`
-   - Description: Update the tree if any files were added/removed.
+   - Description: Update the tree if any files were added/removed, including every file added or removed in this task.
    - Purpose: Keep the repository map current.
 
 10. [ ] Run full linting:
@@ -529,7 +529,7 @@ Capture usage metadata from Codex `turn.completed` events and feed it into the s
    - Ordering: complete this after any subtask that adds/removes files.
    - Document: `projectStructure.md`
    - Location: `projectStructure.md`
-   - Description: Update tree entries for any new/changed files.
+   - Description: Update tree entries for any new/changed files, including every file added or removed in this task.
    - Purpose: Keep the repository map current.
 
 10. [ ] Run full linting:
@@ -648,7 +648,7 @@ Capture LM Studio prediction stats and feed them into the shared chat usage/timi
    - Ordering: complete this after any subtask that adds/removes files.
    - Document: `projectStructure.md`
    - Location: `projectStructure.md`
-   - Description: Update tree entries for any new/changed files.
+   - Description: Update tree entries for any new/changed files, including every file added or removed in this task.
    - Purpose: Keep the repository map current.
 
 9. [ ] Run full linting:
@@ -793,7 +793,7 @@ Expose command step metadata on inflight snapshots so agent bubbles can render â
    - Ordering: complete this after any subtask that adds/removes files.
    - Document: `projectStructure.md`
    - Location: `projectStructure.md`
-   - Description: Update tree entries for any new/changed files.
+   - Description: Update tree entries for any new/changed files, including every file added or removed in this task.
    - Purpose: Keep the repository map current.
 
 11. [ ] Run full linting:
@@ -905,7 +905,7 @@ Expose usage/timing metadata on the WS `turn_final` payload so clients can rende
    - Ordering: complete this after any subtask that adds/removes files.
    - Document: `projectStructure.md`
    - Location: `projectStructure.md`
-   - Description: Update tree entries for any new/changed files.
+   - Description: Update tree entries for any new/changed files, including every file added or removed in this task.
    - Purpose: Keep the repository map current.
 
 8. [ ] Run full linting:
@@ -1038,7 +1038,7 @@ Extend the REST turn snapshot mapping to include usage/timing fields in stored t
    - Ordering: complete this after any subtask that adds/removes files.
    - Document: `projectStructure.md`
    - Location: `projectStructure.md`
-   - Description: Update tree entries for any new/changed files.
+   - Description: Update tree entries for any new/changed files, including every file added or removed in this task.
    - Purpose: Keep the repository map current.
 
 11. [ ] Run full linting:
@@ -1189,7 +1189,7 @@ Extend the WS transcript event mapping so usage/timing fields and inflight comma
    - Ordering: complete this after any subtask that adds/removes files.
    - Document: `projectStructure.md`
    - Location: `projectStructure.md`
-   - Description: Update tree entries for any new/changed files.
+   - Description: Update tree entries for any new/changed files, including every file added or removed in this task.
    - Purpose: Keep the repository map current.
 
 12. [ ] Run full linting:
@@ -1389,7 +1389,7 @@ Render message header metadata for user/assistant bubbles in Chat and Agents: ti
    - Ordering: complete this after any subtask that adds/removes files.
    - Document: `projectStructure.md`
    - Location: `projectStructure.md`
-   - Description: Update tree entries for any new/changed files.
+   - Description: Update tree entries for any new/changed files, including every file added or removed in this task.
    - Purpose: Keep the repository map current.
 
 17. [ ] Run full linting:
@@ -1475,7 +1475,7 @@ Validate the full story against acceptance criteria, perform clean builds/tests,
    - Ordering: complete this after any subtask that adds/removes files.
    - Document: `projectStructure.md`
    - Location: `projectStructure.md`
-   - Description: Update the file tree for any additions/removals made in this story.
+   - Description: Update the file tree for any additions/removals made in this story, including every file added or removed.
    - Purpose: Keep repository map current.
 7. [ ] Create a summary of all changes within this story and generate the pull request comment (must cover all tasks)
    - Documentation to read (repeat):

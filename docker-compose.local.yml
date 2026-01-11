@@ -162,7 +162,7 @@ services:
     container_name: codeinfo2-playwright-mcp-local
     image: mcr.microsoft.com/playwright/mcp:latest
     entrypoint: ['node', 'cli.js']
-    command: ['--host', '0.0.0.0', '--headless', '--browser', 'chromium', '--no-sandbox', '--port', '8931']
+    command: ['--host', '0.0.0.0', '--headless', '--browser', 'chromium', '--no-sandbox', '--port', '8931', '--allowed-hosts', '*']
     ports:
       - '8931:8931'
     volumes:

@@ -23,12 +23,13 @@ startup_timeout_sec = 20.0
 
 [mcp_servers.code_info]
 command = "npx"
-args    = ["-y", "mcp-remote", "http://localhost:5011/mcp", "--debug"]
+args    = ["-y", "mcp-remote", "http://localhost:5011/mcp", "--debug", "--allow-http"]
 startup_timeout_sec = 60
 tool_timeout_sec = 1800
 
 [mcp_servers.playwright]
-url = "http://playwright-mcp:8931/mcp"
+command = "npx"
+args    = ["-y", "mcp-remote", "http://playwright-mcp:8931/mcp", "--allow-http"]
 startup_timeout_sec = 60
 tool_timeout_sec = 3600
 

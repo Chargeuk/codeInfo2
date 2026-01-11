@@ -49,8 +49,9 @@ services:
       dockerfile: client/Dockerfile
       args:
         # These are baked into the Vite bundle at build time; fall back to the local defaults if not provided.
-        VITE_API_URL: ${VITE_API_URL:-http://localhost:5010}
+        VITE_API_URL: http://host.docker.internal:5010
         VITE_LMSTUDIO_URL: ${VITE_LMSTUDIO_URL:-http://host.docker.internal:1234}
+        VITE_LOG_FORWARD_ENABLED: true
     image: codeinfo2-client
     ports:
       - '5001:5001'
@@ -142,7 +143,7 @@ services:
   playwright-mcp:
     image: mcr.microsoft.com/playwright/mcp:latest
     entrypoint: ['node', 'cli.js']
-    command: ['--host', '0.0.0.0', '--headless', '--browser', 'chromium', '--no-sandbox', '--port', '8931', '--allowed-hosts', '*']
+    command: ['--host', '0.0.0.0', '--headless', '--browser', 'chromium', '--no-sandbox', '--isolated', '--port', '8931', '--allowed-hosts', '*']
     volumes:
       - ./playwright-output:/tmp/playwright-output
     networks:

@@ -230,109 +230,73 @@ Extend the server’s stored turn shape to include optional usage and timing met
 
 ---
 
-### 2. Server: capture provider usage/timing + include in WS `turn_final`
+### 2. Server: propagate usage/timing through chat events
 
 - Task Status: **__to_do__**
 - Git Commits: **__to_do__**
 
 #### Overview
 
-Capture usage/timing metadata from Codex and LM Studio provider responses and persist them on assistant turns. Extend WS `turn_final` events to include this metadata so the UI can render it without waiting for a REST refresh.
+Extend the core chat event pipeline so usage/timing metadata can flow from provider adapters into persistence and downstream consumers. This task focuses on ChatInterface state/event shapes and run-time timing capture.
 
 #### Documentation Locations
 
-- OpenAI Codex non-interactive event docs (turn.completed usage): https://developers.openai.com/codex/cli#non-interactive-mode
 - OpenAI Codex SDK overview: https://developers.openai.com/codex/sdk
 - LM Studio SDK README (prediction stats): https://www.npmjs.com/package/@lmstudio/sdk
-- Zod v3 schema validation (WS payloads): Context7 `/websites/v3_zod_dev`
-- `ws` 8.18.3 server API (if WS tests are updated): Context7 `/websockets/ws/8_18_3`
+- Node.js EventEmitter: https://nodejs.org/api/events.html
 
 #### Subtasks
 
-1. [ ] Review provider adapters and WS event shapes:
-   - Documentation to read:
-     - OpenAI Codex SDK (event stream reference): https://github.com/openai/codex
-     - LM Studio SDK (prediction stats fields): https://github.com/lmstudio-ai/lmstudio-sdk
+1. [ ] Review ChatInterface + stream bridge event flow:
    - Files to read:
-     - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
-     - `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`
-     - `server/src/ws/types.ts`
-     - `server/src/ws/server.ts`
-     - `node_modules/@openai/codex-sdk/dist/index.d.ts`
-     - `node_modules/@lmstudio/sdk/dist/index.d.ts`
-     - `server/src/test/unit/chat-interface-codex.test.ts`
-     - `server/src/test/integration/chat-assistant-persistence.test.ts`
-   - Goal:
-     - Confirm where to capture provider usage/timing and how `turn_final` is emitted.
-
-2. [ ] Add usage/timing propagation to ChatInterface + stream bridge:
-   - Files to edit:
      - `server/src/chat/interfaces/ChatInterface.ts`
      - `server/src/chat/chatStreamBridge.ts`
-   - Requirements:
-     - Extend `ChatCompleteEvent` (or add a new event) to carry `usage` + `timing`.
-     - Track usage/timing in `run()` and pass into `persistAssistantTurn`.
-     - Capture a run start timestamp in `run()` so timing can fall back when providers omit stats.
-     - Ensure `publishTurnFinal` can include usage/timing metadata for WS clients.
+     - `server/src/test/unit/chat-interface-run-persistence.test.ts`
+     - `node_modules/@openai/codex-sdk/dist/index.d.ts`
+     - `node_modules/@lmstudio/sdk/dist/index.d.ts`
 
-3. [ ] Capture Codex usage payloads and persist them:
+2. [ ] Extend chat event types to include usage/timing:
    - Files to edit:
-     - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
+     - `server/src/chat/interfaces/ChatInterface.ts`
    - Requirements:
-     - Map `turn.completed` usage fields (`input_tokens`, `output_tokens`, `cached_input_tokens`) into stored `usage` fields.
-     - Derive `totalTokens` from Codex usage when the provider omits it.
-     - If elapsed time can be derived from run timing, populate `timing.totalTimeSec` accordingly.
+     - Add optional `usage` + `timing` on the completion event (or introduce a new event type).
+     - Capture a run start timestamp in `run()` for fallback timing.
+     - Store latest usage/timing in `run()` so `persistAssistantTurn` can consume it.
 
-4. [ ] Capture LM Studio prediction stats and persist them:
+3. [ ] Pass usage/timing into assistant persistence:
    - Files to edit:
-     - `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`
+     - `server/src/chat/interfaces/ChatInterface.ts`
    - Requirements:
-     - Use `onPredictionCompleted` or `prediction.result()` to access `PredictionResult.stats`.
-     - Map SDK stats (`promptTokensCount`, `predictedTokensCount`, `totalTokensCount`) into `usage` fields.
-     - Map `totalTimeSec`, `tokensPerSecond`, and `timeToFirstTokenSec` into `timing` fields when present.
-     - If timing is missing but run timing is available, calculate `timing.totalTimeSec`.
+     - Include usage/timing when calling `persistAssistantTurn`.
+     - Ensure memory persistence stores the same optional fields.
 
-5. [ ] Include usage/timing on WS `turn_final` events:
+4. [ ] Add/extend unit tests for ChatInterface persistence:
    - Documentation to read:
-     - Zod schema validation: Context7 `/colinhacks/zod`
+     - Node.js test runner (node:test): https://nodejs.org/api/test.html
    - Files to edit:
-     - `server/src/ws/types.ts`
-     - `server/src/ws/server.ts`
+     - `server/src/test/unit/chat-interface-run-persistence.test.ts`
    - Requirements:
-     - Add optional `usage` + `timing` to the `turn_final` payload shape.
-     - Ensure WS events still validate with existing protocol versioning.
+     - Assert assistant turns store usage/timing when provided.
 
-6. [ ] Add/extend server tests for provider/WS metadata:
-   - Documentation to read:
-     - `ws` server API: Context7 `/websockets/ws/8_18_3`
-   - Files to edit:
-     - `server/src/test/unit/ws-server.test.ts`
-     - `server/src/test/unit/chat-interface-codex.test.ts`
-     - `server/src/test/integration/chat-codex.test.ts`
-     - `server/src/test/integration/chat-assistant-persistence.test.ts`
-   - Requirements:
-     - Assert `turn_final` includes usage/timing when provided by the provider.
-     - Keep existing WS protocol expectations intact.
-
-7. [ ] Documentation update - `README.md` (if any user-facing behavior changes need to be called out):
+5. [ ] Documentation update - `README.md` (if any user-facing behavior changes need to be called out):
    - Documentation to read:
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document location:
      - `README.md`
 
-8. [ ] Documentation update - `design.md` (document provider usage/timing capture):
+6. [ ] Documentation update - `design.md` (document chat event metadata flow):
    - Documentation to read:
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document location:
      - `design.md`
 
-9. [ ] Documentation update - `projectStructure.md` (only if files/paths change):
+7. [ ] Documentation update - `projectStructure.md` (only if files/paths change):
    - Documentation to read:
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document location:
      - `projectStructure.md`
 
-10. [ ] Run full linting:
+8. [ ] Run full linting:
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
    - If either fails, run `npm run lint:fix` / `npm run format --workspaces` and resolve remaining issues.
@@ -352,86 +316,281 @@ Capture usage/timing metadata from Codex and LM Studio provider responses and pe
 
 ---
 
-### 3. Client: map usage/timing into chat + agent message models
+### 3. Server: capture Codex usage metadata
 
 - Task Status: **__to_do__**
 - Git Commits: **__to_do__**
 
 #### Overview
 
-Extend client-side message models and hooks to carry usage/timing metadata from REST snapshots and WS `turn_final` events. This task focuses on data flow and state models, not on UI rendering.
+Capture usage metadata from Codex `turn.completed` events and feed it into the shared chat usage/timing pipeline.
 
 #### Documentation Locations
 
-- WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API
-- TypeScript handbook (type composition): https://www.typescriptlang.org/docs/handbook/2/objects.html
-- React Testing Library (hook tests): https://testing-library.com/docs/react-testing-library/intro/
+- OpenAI Codex non-interactive event docs (turn.completed usage): https://developers.openai.com/codex/cli#non-interactive-mode
+- OpenAI Codex SDK overview: https://developers.openai.com/codex/sdk
 
 #### Subtasks
 
-1. [ ] Review existing chat/agent message models and mapping:
-   - Documentation to read:
-     - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API
+1. [ ] Review Codex event handling and SDK types:
    - Files to read:
-     - `client/src/hooks/useConversationTurns.ts`
-     - `client/src/hooks/useChatStream.ts`
-     - `client/src/hooks/useChatWs.ts`
-     - `client/src/test/useConversationTurns.commandMetadata.test.ts`
-     - `client/src/test/useChatStream.toolPayloads.test.tsx`
+     - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
+     - `node_modules/@openai/codex-sdk/dist/index.d.ts`
+     - `server/src/test/unit/chat-interface-codex.test.ts`
 
-2. [ ] Extend REST turn models to include usage/timing:
+2. [ ] Capture `turn.completed` usage and forward it:
    - Files to edit:
-     - `client/src/hooks/useConversationTurns.ts`
+     - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
    - Requirements:
-     - Add optional `usage` + `timing` fields to `StoredTurn`.
-     - Include `cachedInputTokens` + `timeToFirstTokenSec` in the mapped shapes.
-     - Map REST response fields into the new shape without breaking existing consumers.
+     - Map `input_tokens`, `cached_input_tokens`, `output_tokens` into stored usage fields.
+     - Derive `totalTokens` when Codex omits it.
 
-3. [ ] Update shared chat fixtures for new metadata fields:
+3. [ ] Update Codex integration tests:
    - Files to edit:
-     - `common/src/fixtures/chatStream.ts`
+     - `server/src/test/integration/chat-codex.test.ts`
+     - `server/src/test/unit/chat-interface-codex.test.ts`
    - Requirements:
-     - Add representative `usage` + `timing` fields to `chatWsTurnFinalFixture`.
-     - Keep existing fixture shapes backward-compatible with current tests.
+     - Assert usage metadata is persisted on assistant turns.
 
-4. [ ] Extend WS event mapping to include usage/timing:
-   - Files to edit:
-     - `client/src/hooks/useChatWs.ts`
-     - `client/src/hooks/useChatStream.ts`
-     - `client/src/test/support/mockChatWs.ts`
-   - Requirements:
-     - Include `usage` + `timing` in the `turn_final` event model.
-     - Prefer WS metadata for in-flight bubbles until REST refresh replaces it.
-     - When hydrating an inflight snapshot, update the assistant bubble timestamp to `inflight.startedAt`.
-
-5. [ ] Update hook tests to cover new metadata fields:
-   - Documentation to read:
-     - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-   - Files to edit:
-     - `client/src/test/useConversationTurns.commandMetadata.test.ts`
-     - `client/src/test/useChatStream.toolPayloads.test.tsx`
-   - Requirements:
-     - Add assertions for `usage` + `timing` mapping.
-
-6. [ ] Documentation update - `README.md` (if any user-facing changes need to be called out):
+4. [ ] Documentation update - `README.md` (if any user-facing behavior changes need to be called out):
    - Documentation to read:
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document location:
      - `README.md`
 
-7. [ ] Documentation update - `design.md` (document client state shape changes):
+5. [ ] Documentation update - `design.md` (document Codex usage capture):
    - Documentation to read:
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document location:
      - `design.md`
 
-8. [ ] Documentation update - `projectStructure.md` (only if files/paths change):
+6. [ ] Documentation update - `projectStructure.md` (only if files/paths change):
    - Documentation to read:
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document location:
      - `projectStructure.md`
 
-9. [ ] Run full linting:
+7. [ ] Run full linting:
+   - `npm run lint --workspaces`
+   - `npm run format:check --workspaces`
+   - If either fails, run `npm run lint:fix` / `npm run format --workspaces` and resolve remaining issues.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run compose:build`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test --workspace server`
+6. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Notes added during implementation.
+
+---
+
+### 4. Server: capture LM Studio prediction stats
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Capture LM Studio prediction stats and feed them into the shared chat usage/timing pipeline.
+
+#### Documentation Locations
+
+- LM Studio SDK README (prediction stats): https://www.npmjs.com/package/@lmstudio/sdk
+
+#### Subtasks
+
+1. [ ] Review LM Studio prediction flow and SDK types:
+   - Files to read:
+     - `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`
+     - `node_modules/@lmstudio/sdk/dist/index.d.ts`
+     - `server/src/test/integration/chat-assistant-persistence.test.ts`
+
+2. [ ] Capture prediction stats and forward them:
+   - Files to edit:
+     - `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`
+   - Requirements:
+     - Use `prediction.result()` or `onPredictionCompleted` to access `PredictionResult.stats`.
+     - Map stats to usage/timing fields (prompt/predicted/total tokens; totalTimeSec/tokensPerSecond/timeToFirstTokenSec).
+     - Fall back to run timing when stats are missing.
+
+3. [ ] Update LM Studio persistence tests:
+   - Files to edit:
+     - `server/src/test/integration/chat-assistant-persistence.test.ts`
+   - Requirements:
+     - Assert usage/timing metadata is persisted on assistant turns.
+
+4. [ ] Documentation update - `README.md` (if any user-facing behavior changes need to be called out):
+   - Documentation to read:
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Document location:
+     - `README.md`
+
+5. [ ] Documentation update - `design.md` (document LM Studio stats capture):
+   - Documentation to read:
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Document location:
+     - `design.md`
+
+6. [ ] Documentation update - `projectStructure.md` (only if files/paths change):
+   - Documentation to read:
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Document location:
+     - `projectStructure.md`
+
+7. [ ] Run full linting:
+   - `npm run lint --workspaces`
+   - `npm run format:check --workspaces`
+   - If either fails, run `npm run lint:fix` / `npm run format --workspaces` and resolve remaining issues.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run compose:build`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test --workspace server`
+6. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Notes added during implementation.
+
+---
+
+### 5. Server: extend WS `turn_final` payload with usage/timing
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Expose usage/timing metadata on the WS `turn_final` payload so clients can render metadata immediately after streaming completes.
+
+#### Documentation Locations
+
+- `ws` 8.18.3 server API: Context7 `/websockets/ws/8_18_3`
+
+#### Subtasks
+
+1. [ ] Review WS type definitions and publish flow:
+   - Files to read:
+     - `server/src/ws/types.ts`
+     - `server/src/ws/server.ts`
+     - `server/src/chat/chatStreamBridge.ts`
+
+2. [ ] Extend `turn_final` payload to include usage/timing:
+   - Files to edit:
+     - `server/src/ws/types.ts`
+     - `server/src/ws/server.ts`
+     - `server/src/chat/chatStreamBridge.ts`
+   - Requirements:
+     - Add optional `usage` + `timing` on `WsTurnFinalEvent`.
+     - Pass usage/timing from the completion event into `publishTurnFinal`.
+
+3. [ ] Update WS tests for enriched `turn_final` payloads:
+   - Files to edit:
+     - `server/src/test/unit/ws-chat-stream.test.ts`
+     - `server/src/test/unit/ws-server.test.ts`
+   - Requirements:
+     - Assert usage/timing fields survive the WS publish step when provided.
+
+4. [ ] Documentation update - `README.md` (if any user-facing behavior changes need to be called out):
+   - Documentation to read:
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Document location:
+     - `README.md`
+
+5. [ ] Documentation update - `design.md` (document WS payload changes):
+   - Documentation to read:
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Document location:
+     - `design.md`
+
+6. [ ] Documentation update - `projectStructure.md` (only if files/paths change):
+   - Documentation to read:
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Document location:
+     - `projectStructure.md`
+
+7. [ ] Run full linting:
+   - `npm run lint --workspaces`
+   - `npm run format:check --workspaces`
+   - If either fails, run `npm run lint:fix` / `npm run format --workspaces` and resolve remaining issues.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run compose:build`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test --workspace server`
+6. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Notes added during implementation.
+
+---
+
+### 6. Client: map REST usage/timing into stored turns
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Extend the REST turn snapshot mapping to include usage/timing fields in stored turns.
+
+#### Documentation Locations
+
+- TypeScript handbook (object types): https://www.typescriptlang.org/docs/handbook/2/objects.html
+- React Testing Library (hook tests): https://testing-library.com/docs/react-testing-library/intro/
+
+#### Subtasks
+
+1. [ ] Review stored-turn mapping:
+   - Files to read:
+     - `client/src/hooks/useConversationTurns.ts`
+     - `client/src/test/useConversationTurns.commandMetadata.test.ts`
+
+2. [ ] Extend StoredTurn to include usage/timing:
+   - Files to edit:
+     - `client/src/hooks/useConversationTurns.ts`
+   - Requirements:
+     - Add optional `usage` + `timing` fields, including `cachedInputTokens` + `timeToFirstTokenSec`.
+     - Map REST response fields into the new shape without breaking existing consumers.
+
+3. [ ] Update REST turn hook tests:
+   - Files to edit:
+     - `client/src/test/useConversationTurns.commandMetadata.test.ts`
+   - Requirements:
+     - Assert usage/timing fields are retained on stored turns.
+
+4. [ ] Documentation update - `README.md` (if any user-facing behavior changes need to be called out):
+   - Documentation to read:
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Document location:
+     - `README.md`
+
+5. [ ] Documentation update - `design.md` (document REST turn mapping changes):
+   - Documentation to read:
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Document location:
+     - `design.md`
+
+6. [ ] Documentation update - `projectStructure.md` (only if files/paths change):
+   - Documentation to read:
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Document location:
+     - `projectStructure.md`
+
+7. [ ] Run full linting:
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
    - If either fails, run `npm run lint:fix` / `npm run format --workspaces` and resolve remaining issues.
@@ -451,7 +610,91 @@ Extend client-side message models and hooks to carry usage/timing metadata from 
 
 ---
 
-### 4. Client: render bubble header metadata in Chat + Agents
+### 7. Client: map WS usage/timing into stream state
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Extend the WS transcript event mapping so usage/timing fields land on streaming assistant messages.
+
+#### Documentation Locations
+
+- WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API
+- TypeScript handbook (object types): https://www.typescriptlang.org/docs/handbook/2/objects.html
+- React Testing Library (hook tests): https://testing-library.com/docs/react-testing-library/intro/
+
+#### Subtasks
+
+1. [ ] Review WS transcript mapping:
+   - Files to read:
+     - `client/src/hooks/useChatWs.ts`
+     - `client/src/hooks/useChatStream.ts`
+     - `client/src/test/support/mockChatWs.ts`
+     - `common/src/fixtures/chatStream.ts`
+
+2. [ ] Extend WS event types and message updates:
+   - Files to edit:
+     - `client/src/hooks/useChatWs.ts`
+     - `client/src/hooks/useChatStream.ts`
+   - Requirements:
+     - Add optional `usage` + `timing` to `turn_final` event handling.
+     - When hydrating an inflight snapshot, update the assistant bubble timestamp to `inflight.startedAt`.
+
+3. [ ] Update fixtures + WS mocks:
+   - Files to edit:
+     - `common/src/fixtures/chatStream.ts`
+     - `client/src/test/support/mockChatWs.ts`
+   - Requirements:
+     - Add representative usage/timing fields to `chatWsTurnFinalFixture` and mock events.
+
+4. [ ] Update WS hook tests:
+   - Files to edit:
+     - `client/src/test/useChatStream.toolPayloads.test.tsx`
+     - `client/src/test/useChatStream.reasoning.test.tsx`
+   - Requirements:
+     - Assert usage/timing metadata is preserved on streamed assistant messages.
+
+5. [ ] Documentation update - `README.md` (if any user-facing behavior changes need to be called out):
+   - Documentation to read:
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Document location:
+     - `README.md`
+
+6. [ ] Documentation update - `design.md` (document WS mapping changes):
+   - Documentation to read:
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Document location:
+     - `design.md`
+
+7. [ ] Documentation update - `projectStructure.md` (only if files/paths change):
+   - Documentation to read:
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Document location:
+     - `projectStructure.md`
+
+8. [ ] Run full linting:
+   - `npm run lint --workspaces`
+   - `npm run format:check --workspaces`
+   - If either fails, run `npm run lint:fix` / `npm run format --workspaces` and resolve remaining issues.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run compose:build`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test --workspace client`
+6. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Notes added during implementation.
+
+---
+
+### 8. Client: render bubble header metadata (Chat + Agents)
 
 - Task Status: **__to_do__**
 - Git Commits: **__to_do__**
@@ -548,7 +791,7 @@ Render message header metadata for user/assistant bubbles in Chat and Agents: ti
 
 ---
 
-### 5. Final verification + documentation + PR summary
+### 9. Final verification + documentation + PR summary
 
 - Task Status: **__to_do__**
 - Git Commits: **__to_do__**
@@ -582,7 +825,7 @@ Validate the full story against acceptance criteria, perform clean builds/tests,
 2. [ ] Run the server Cucumber tests
 3. [ ] Restart the docker environment
 4. [ ] Run the e2e tests
-5. [ ] Use the Playwright MCP tool to manually check the application, saving screenshots to `./test-results/screenshots/` (name: `0000024-5-<short-name>.png`)
+5. [ ] Use the Playwright MCP tool to manually check the application, saving screenshots to `./test-results/screenshots/` (name: `0000024-9-<short-name>.png`)
 
 #### Implementation notes
 

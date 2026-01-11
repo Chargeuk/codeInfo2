@@ -136,10 +136,13 @@ Extend the server’s stored turn shape to include optional usage and timing met
 
 #### Documentation Locations
 
-- Mongoose 9.0.1 schema + subdocs: Context7 `/automattic/mongoose/9.0.1`
-- Zod v3 schema validation: Context7 `/websites/v3_zod_dev`
-- Node.js test runner (node:test): https://nodejs.org/api/test.html
-- Express response basics (status + JSON): https://expressjs.com/en/api.html#res.json
+- Mongoose 9.0.1 schema + subdocs (optional subdocuments, defaults only apply when undefined): Context7 `/automattic/mongoose/9.0.1`
+- Zod v3 schema validation (optional objects + `superRefine` for assistant-only metadata): Context7 `/websites/v3_zod_dev`
+- Express 5 API `res.json` (JSON response shaping for REST routes): https://expressjs.com/en/api.html#res.json
+- Node.js test runner `node:test` (integration test structure and assertions): https://nodejs.org/api/test.html
+- ESLint docs (lint commands referenced in this task): https://eslint.org/docs/latest/
+- Prettier formatting options + CLI (format/check commands): https://prettier.io/docs/options
+- Markdown syntax (README/design updates): https://www.markdownguide.org/basic-syntax/
 
 #### Subtasks
 
@@ -264,9 +267,14 @@ Extend the core chat event pipeline so usage/timing metadata can flow from provi
 
 #### Documentation Locations
 
-- OpenAI Codex SDK overview: https://developers.openai.com/codex/sdk
-- LM Studio SDK README (prediction stats): https://www.npmjs.com/package/@lmstudio/sdk
-- Node.js EventEmitter: https://nodejs.org/api/events.html
+- OpenAI Codex SDK overview (thread/run API + Node requirements): https://developers.openai.com/codex/sdk/
+- LM Studio SDK docs (prediction flow + client usage): https://lmstudio.ai/docs/api/sdk
+- LM Studio npm README (install + API surface reference): https://www.npmjs.com/package/@lmstudio/sdk
+- Node.js EventEmitter (event emission/handling semantics): https://nodejs.org/api/events.html
+- Node.js test runner `node:test` (unit test structure): https://nodejs.org/api/test.html
+- ESLint docs (lint commands referenced in this task): https://eslint.org/docs/latest/
+- Prettier formatting options + CLI (format/check commands): https://prettier.io/docs/options
+- Markdown syntax (README/design updates): https://www.markdownguide.org/basic-syntax/
 
 #### Subtasks
 
@@ -371,14 +379,18 @@ Capture usage metadata from Codex `turn.completed` events and feed it into the s
 
 #### Documentation Locations
 
-- OpenAI Codex non-interactive event docs (turn.completed usage): https://developers.openai.com/codex/cli#non-interactive-mode
-- OpenAI Codex SDK overview: https://developers.openai.com/codex/sdk
+- OpenAI Codex non-interactive event docs (usage on `turn.completed`): https://developers.openai.com/codex/noninteractive/
+- OpenAI Codex SDK overview (client APIs + event payload structure): https://developers.openai.com/codex/sdk/
+- Node.js test runner `node:test` (unit + integration tests): https://nodejs.org/api/test.html
+- ESLint docs (lint commands referenced in this task): https://eslint.org/docs/latest/
+- Prettier formatting options + CLI (format/check commands): https://prettier.io/docs/options
+- Markdown syntax (README/design updates): https://www.markdownguide.org/basic-syntax/
 
 #### Subtasks
 
 1. [ ] Review Codex event handling and SDK types:
    - Documentation to read (repeat):
-     - OpenAI Codex non-interactive event docs (turn.completed usage): https://developers.openai.com/codex/cli#non-interactive-mode
+     - OpenAI Codex non-interactive event docs (turn.completed usage): https://developers.openai.com/codex/noninteractive/
      - OpenAI Codex SDK overview: https://developers.openai.com/codex/sdk
    - Recap (acceptance criteria): capture assistant usage tokens when provider supplies them.
    - Files to read:
@@ -388,7 +400,7 @@ Capture usage metadata from Codex `turn.completed` events and feed it into the s
 
 2. [ ] Capture `turn.completed` usage and forward it:
    - Documentation to read (repeat):
-     - OpenAI Codex non-interactive event docs (turn.completed usage): https://developers.openai.com/codex/cli#non-interactive-mode
+     - OpenAI Codex non-interactive event docs (turn.completed usage): https://developers.openai.com/codex/noninteractive/
      - OpenAI Codex SDK overview: https://developers.openai.com/codex/sdk
    - Recap (acceptance criteria): map `input_tokens`, `output_tokens`, and `cached_input_tokens` into stored usage fields.
    - Files to edit:
@@ -464,7 +476,12 @@ Capture LM Studio prediction stats and feed them into the shared chat usage/timi
 
 #### Documentation Locations
 
-- LM Studio SDK README (prediction stats): https://www.npmjs.com/package/@lmstudio/sdk
+- LM Studio SDK docs (prediction flow + client API): https://lmstudio.ai/docs/api/sdk
+- LM Studio npm README (install + API surface reference): https://www.npmjs.com/package/@lmstudio/sdk
+- Node.js test runner `node:test` (integration test structure): https://nodejs.org/api/test.html
+- ESLint docs (lint commands referenced in this task): https://eslint.org/docs/latest/
+- Prettier formatting options + CLI (format/check commands): https://prettier.io/docs/options
+- Markdown syntax (README/design updates): https://www.markdownguide.org/basic-syntax/
 
 #### Subtasks
 
@@ -554,7 +571,11 @@ Expose usage/timing metadata on the WS `turn_final` payload so clients can rende
 
 #### Documentation Locations
 
-- `ws` 8.18.3 server API: Context7 `/websockets/ws/8_18_3`
+- `ws` 8.18.3 server API (send/receive JSON payloads): Context7 `/websockets/ws/8_18_3`
+- Node.js test runner `node:test` (unit test structure): https://nodejs.org/api/test.html
+- ESLint docs (lint commands referenced in this task): https://eslint.org/docs/latest/
+- Prettier formatting options + CLI (format/check commands): https://prettier.io/docs/options
+- Markdown syntax (README/design updates): https://www.markdownguide.org/basic-syntax/
 
 #### Subtasks
 
@@ -646,8 +667,11 @@ Extend the REST turn snapshot mapping to include usage/timing fields in stored t
 
 #### Documentation Locations
 
-- TypeScript handbook (object types): https://www.typescriptlang.org/docs/handbook/2/objects.html
-- React Testing Library (hook tests): https://testing-library.com/docs/react-testing-library/intro/
+- TypeScript handbook (object types + optional properties): https://www.typescriptlang.org/docs/handbook/2/objects.html
+- React Testing Library (hook tests + render utilities): https://testing-library.com/docs/react-testing-library/intro/
+- ESLint docs (lint commands referenced in this task): https://eslint.org/docs/latest/
+- Prettier formatting options + CLI (format/check commands): https://prettier.io/docs/options
+- Markdown syntax (README/design updates): https://www.markdownguide.org/basic-syntax/
 
 #### Subtasks
 
@@ -735,9 +759,12 @@ Extend the WS transcript event mapping so usage/timing fields land on streaming 
 
 #### Documentation Locations
 
-- WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API
-- TypeScript handbook (object types): https://www.typescriptlang.org/docs/handbook/2/objects.html
-- React Testing Library (hook tests): https://testing-library.com/docs/react-testing-library/intro/
+- WebSocket browser API (message event + JSON handling): https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API
+- TypeScript handbook (object types + optional properties): https://www.typescriptlang.org/docs/handbook/2/objects.html
+- React Testing Library (hook tests + render utilities): https://testing-library.com/docs/react-testing-library/intro/
+- ESLint docs (lint commands referenced in this task): https://eslint.org/docs/latest/
+- Prettier formatting options + CLI (format/check commands): https://prettier.io/docs/options
+- Markdown syntax (README/design updates): https://www.markdownguide.org/basic-syntax/
 
 #### Subtasks
 
@@ -840,10 +867,14 @@ Render message header metadata for user/assistant bubbles in Chat and Agents: ti
 
 #### Documentation Locations
 
-- MUI Stack: https://llms.mui.com/material-ui/6.4.12/components/stack.md
-- MUI Typography: https://llms.mui.com/material-ui/6.4.12/components/typography.md
-- MUI Tooltip: https://llms.mui.com/material-ui/6.4.12/components/tooltip.md
-- `Intl.DateTimeFormat`: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/DateTimeFormat
+- MUI Stack (layout + spacing for header rows): https://llms.mui.com/material-ui/6.4.12/components/stack.md
+- MUI Typography (text variants + inline metadata): https://llms.mui.com/material-ui/6.4.12/components/typography.md
+- MUI Tooltip (hover details for tokens/time when needed): https://llms.mui.com/material-ui/6.4.12/components/tooltips.md
+- `Intl.DateTimeFormat` (dateStyle/timeStyle formatting): https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/DateTimeFormat
+- React Testing Library (component tests + queries): https://testing-library.com/docs/react-testing-library/intro/
+- ESLint docs (lint commands referenced in this task): https://eslint.org/docs/latest/
+- Prettier formatting options + CLI (format/check commands): https://prettier.io/docs/options
+- Markdown syntax (README/design updates): https://www.markdownguide.org/basic-syntax/
 
 #### Subtasks
 
@@ -851,7 +882,7 @@ Render message header metadata for user/assistant bubbles in Chat and Agents: ti
    - Documentation to read (repeat):
      - MUI Stack: https://llms.mui.com/material-ui/6.4.12/components/stack.md
      - MUI Typography: https://llms.mui.com/material-ui/6.4.12/components/typography.md
-     - MUI Tooltip: https://llms.mui.com/material-ui/6.4.12/components/tooltip.md
+     - MUI Tooltip: https://llms.mui.com/material-ui/6.4.12/components/tooltips.md
      - `Intl.DateTimeFormat`: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/DateTimeFormat
    - Recap (acceptance criteria): render timestamp for every user/assistant bubble.
    - Files to read:
@@ -881,7 +912,7 @@ Render message header metadata for user/assistant bubbles in Chat and Agents: ti
    - Documentation to read (repeat):
      - MUI Stack: https://llms.mui.com/material-ui/6.4.12/components/stack.md
      - MUI Typography: https://llms.mui.com/material-ui/6.4.12/components/typography.md
-     - MUI Tooltip: https://llms.mui.com/material-ui/6.4.12/components/tooltip.md
+     - MUI Tooltip: https://llms.mui.com/material-ui/6.4.12/components/tooltips.md
    - Recap (acceptance criteria): show tokens/time/step only when values exist.
    - Files to edit:
      - `client/src/pages/ChatPage.tsx`
@@ -958,12 +989,13 @@ Validate the full story against acceptance criteria, perform clean builds/tests,
 
 #### Documentation Locations
 
-- Docker/Compose: Context7 `/docker/docs`
-- Playwright: Context7 `/microsoft/playwright`
-- Husky: Context7 `/typicode/husky`
-- Mermaid: Context7 `/mermaid-js/mermaid`
-- Jest: Context7 `/jestjs/jest`
-- Cucumber guides: https://cucumber.io/docs/guides/
+- Docker Compose guide (clean builds + compose up/down): https://docs.docker.com/guides/docker-compose/
+- Playwright Test docs (Node/TS setup + running tests): https://playwright.dev/docs/intro
+- Husky docs (git hook management + install): https://typicode.github.io/husky/
+- Mermaid docs (diagram syntax for design.md): https://mermaid.js.org/intro/syntax-reference.html
+- Jest docs (running unit tests): https://jestjs.io/docs/getting-started
+- Cucumber guide (JS 10-minute tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/
+- Markdown syntax (README/design updates): https://www.markdownguide.org/basic-syntax/
 
 #### Subtasks
 

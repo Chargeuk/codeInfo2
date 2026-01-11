@@ -60,6 +60,17 @@ We want each chat and agent message bubble header to show the message date and t
 
 ---
 
+## Message Contracts & Storage Shapes (draft)
+
+- **Mongo Turn document (`server/src/mongo/turn.ts`):** add optional `usage` and `timing` objects on assistant turns; keep existing `command` for step metadata.
+  - `usage`: `{ inputTokens?: number; outputTokens?: number; totalTokens?: number; cachedInputTokens?: number }`
+  - `timing`: `{ totalTimeSec?: number; tokensPerSecond?: number; timeToFirstTokenSec?: number; generatedAt?: string }`
+- **REST append turn (`POST /conversations/:id/turns`):** extend request schema to accept optional `usage` + `timing` (no changes for user turns).
+- **REST turn snapshots (`GET /conversations/:id/turns`):** include `usage` + `timing` on returned assistant turn items when stored; continue returning `command` when present.
+- **WebSocket updates (`turn_final`):** optionally include `usage` + `timing` so live UI can render without waiting for a refresh; otherwise rely on persisted turns.
+
+---
+
 ## Research Findings (code-confirmed)
 
 - `server/src/mongo/turn.ts` already stores `createdAt` timestamps and `command` metadata (`name`, `stepIndex`, `totalSteps`) for turns.

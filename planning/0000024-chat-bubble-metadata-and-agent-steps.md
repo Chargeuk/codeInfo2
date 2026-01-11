@@ -87,12 +87,17 @@ We want each chat and agent message bubble header to show the message date and t
 - `@lmstudio/sdk` exposes `PredictionResult.stats` on the `OngoingPrediction` result (via `prediction.result()`), which includes `tokensPerSecond`, `timeToFirstTokenSec`, `totalTimeSec`, and token counts.
 - `@lmstudio/sdk` defines `LLMPredictionStats` with `tokensPerSecond`, `totalTimeSec`, `promptTokensCount`, `predictedTokensCount`, and `totalTokensCount` (available on `PredictionResult.stats`).
 - Client has existing timestamp helpers: `formatTimestamp` in `client/src/components/chat/ConversationList.tsx` (guards missing values) and `client/src/pages/LogsPage.tsx` (uses `Intl.DateTimeFormat`). Reuse these patterns for bubble headers.
+- Dependency versions in this repo: React `^19.2.0`, `@mui/material` `^6.4.1`, Zod `3.25.76`, Mongoose `9.0.1`, `ws` `8.18.3`, `@openai/codex-sdk` `0.64.0`, `@lmstudio/sdk` `1.5.0`.
+- MUI docs for 6.4.x are available via the MUI MCP server (6.4.12) and should be used for Stack/Typography/Tooltip guidance.
 
 ## Research Findings (external docs)
 
-- Codex CLI/SDK event streams expose `turn.completed` events that include a `usage` object with `input_tokens`, `output_tokens`, and `cached_input_tokens` when available.
-- LM Studio REST chat/completions responses include `usage` (`prompt_tokens`, `completion_tokens`, `total_tokens`) and `stats` (`tokens_per_second`, `generation_time`, `time_to_first_token`).
-- Deepwiki does not have an indexed page for this repository yet, so no deepwiki references are available.
+- Codex docs show `turn.completed` events include `usage` with `input_tokens`, `cached_input_tokens`, and `output_tokens` (example in non-interactive mode docs).
+- Codex SDK docs describe the TypeScript SDK usage and thread handling; they specify Node 18+ for server-side use.
+- LM Studio SDK README (npm) documents accessing prediction stats via awaiting the prediction and reading `.stats` (tokens/sec, time to first token, token counts).
+- Mongoose subdocument docs reiterate that subdocument defaults are not applied when undefined; avoid defaults for optional metadata fields.
+- Public MUI docs default to v7; use the MUI MCP 6.4.x pages for Stack/Typography/Tooltip.
+- Deepwiki is not indexed for `lmstudio-ai/lmstudio-sdk`; use npm + installed types for that SDK.
 
 ---
 
@@ -131,8 +136,8 @@ Extend the server’s stored turn shape to include optional usage and timing met
 
 #### Documentation Locations
 
-- Mongoose schema types: https://mongoosejs.com/docs/schematypes.html
-- Zod schema validation: Context7 `/colinhacks/zod`
+- Mongoose 9.0.1 schema + subdocs: Context7 `/automattic/mongoose/9.0.1`
+- Zod v3 schema validation: Context7 `/websites/v3_zod_dev`
 - Node.js test runner (node:test): https://nodejs.org/api/test.html
 - Express response basics (status + JSON): https://expressjs.com/en/api.html#res.json
 
@@ -175,7 +180,7 @@ Extend the server’s stored turn shape to include optional usage and timing met
      - `server/src/routes/conversations.ts`
    - Requirements:
      - Add `usage` + `timing` to `appendTurnSchema`.
-     - Enforce that `usage`/`timing` is only accepted when `role === 'assistant'`.
+     - Enforce that `usage`/`timing` is only accepted when `role === 'assistant'` (use Zod `superRefine` or equivalent v3 pattern).
 
 5. [ ] Add/extend server integration tests for usage/timing:
    - Documentation to read:
@@ -236,10 +241,11 @@ Capture usage/timing metadata from Codex and LM Studio provider responses and pe
 
 #### Documentation Locations
 
-- OpenAI Codex SDK (event stream reference): https://github.com/openai/codex
-- LM Studio SDK (prediction stats fields): https://github.com/lmstudio-ai/lmstudio-sdk
-- Zod schema validation (WS payloads): Context7 `/colinhacks/zod`
-- `ws` server API (if WS tests are updated): Context7 `/websockets/ws/8_18_3`
+- OpenAI Codex non-interactive event docs (turn.completed usage): https://developers.openai.com/codex/cli#non-interactive-mode
+- OpenAI Codex SDK overview: https://developers.openai.com/codex/sdk
+- LM Studio SDK README (prediction stats): https://www.npmjs.com/package/@lmstudio/sdk
+- Zod v3 schema validation (WS payloads): Context7 `/websites/v3_zod_dev`
+- `ws` 8.18.3 server API (if WS tests are updated): Context7 `/websockets/ws/8_18_3`
 
 #### Subtasks
 
@@ -252,6 +258,8 @@ Capture usage/timing metadata from Codex and LM Studio provider responses and pe
      - `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`
      - `server/src/ws/types.ts`
      - `server/src/ws/server.ts`
+     - `node_modules/@openai/codex-sdk/dist/index.d.ts`
+     - `node_modules/@lmstudio/sdk/dist/index.d.ts`
      - `server/src/test/unit/chat-interface-codex.test.ts`
      - `server/src/test/integration/chat-assistant-persistence.test.ts`
    - Goal:
@@ -480,6 +488,7 @@ Render message header metadata for user/assistant bubbles in Chat and Agents: ti
      - Use `{ dateStyle: 'medium', timeStyle: 'short' }`.
      - For in-flight assistant bubbles, use `inflight.startedAt` until persisted turns arrive.
      - Fallback to `new Date()` when timestamps are invalid.
+     - Use MUI 6.4.x docs (via MUI MCP) for Stack/Typography/Tooltip usage rather than the v7 public docs.
 
 3. [ ] Render metadata rows for assistant bubbles:
    - Files to edit:

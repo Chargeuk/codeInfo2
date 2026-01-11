@@ -140,7 +140,7 @@ Extend the server’s stored turn shape to include optional usage and timing met
 - Zod v3 schema validation (optional objects + `superRefine` for assistant-only metadata): Context7 `/websites/v3_zod_dev`
 - Express 5 API `res.json` (JSON response shaping for REST routes): https://expressjs.com/en/api.html#res.json
 - Node.js test runner `node:test` (integration test structure and assertions): https://nodejs.org/api/test.html
-- ESLint docs (lint commands referenced in this task): https://eslint.org/docs/latest/
+- ESLint CLI docs (lint command flags + usage): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier formatting options + CLI (format/check commands): https://prettier.io/docs/options
 - Markdown syntax (README/design updates): https://www.markdownguide.org/basic-syntax/
 
@@ -209,7 +209,8 @@ Extend the server’s stored turn shape to include optional usage and timing met
    - Requirements:
      - Cover `POST /conversations/:id/turns` with assistant usage/timing metadata.
      - Assert `GET /conversations/:id/turns` returns the metadata fields intact.
-     - Assert user turns ignore any usage/timing input.
+     - Assert user turns with usage/timing are rejected (400) by validation.
+     - Assert assistant turns without usage/timing omit the fields (no `null` values).
 
 6. [ ] Documentation update - `README.md` (if any user-facing changes need to be called out):
    - Documentation to read (repeat):
@@ -234,7 +235,7 @@ Extend the server’s stored turn shape to include optional usage and timing met
 
 9. [ ] Run full linting:
    - Documentation to read (repeat):
-     - ESLint: https://eslint.org/docs/latest/
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/en/
    - Recap: run from repo root; fix issues before proceeding.
    - `npm run lint --workspaces`
@@ -272,7 +273,7 @@ Extend the core chat event pipeline so usage/timing metadata can flow from provi
 - LM Studio npm README (install + API surface reference): https://www.npmjs.com/package/@lmstudio/sdk
 - Node.js EventEmitter (event emission/handling semantics): https://nodejs.org/api/events.html
 - Node.js test runner `node:test` (unit test structure): https://nodejs.org/api/test.html
-- ESLint docs (lint commands referenced in this task): https://eslint.org/docs/latest/
+- ESLint CLI docs (lint command flags + usage): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier formatting options + CLI (format/check commands): https://prettier.io/docs/options
 - Markdown syntax (README/design updates): https://www.markdownguide.org/basic-syntax/
 
@@ -322,6 +323,8 @@ Extend the core chat event pipeline so usage/timing metadata can flow from provi
      - `server/src/test/unit/chat-interface-run-persistence.test.ts`
    - Requirements:
      - Assert assistant turns store usage/timing when provided.
+     - Assert assistant turns omit usage/timing when the completion event has none.
+     - Assert fallback timing uses run start timestamp when provider timing is absent.
 
 5. [ ] Documentation update - `README.md` (if any user-facing behavior changes need to be called out):
    - Documentation to read (repeat):
@@ -346,7 +349,7 @@ Extend the core chat event pipeline so usage/timing metadata can flow from provi
 
 8. [ ] Run full linting:
    - Documentation to read (repeat):
-     - ESLint: https://eslint.org/docs/latest/
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/en/
    - Recap: run from repo root after changes and fix any issues.
    - `npm run lint --workspaces`
@@ -382,7 +385,7 @@ Capture usage metadata from Codex `turn.completed` events and feed it into the s
 - OpenAI Codex non-interactive event docs (usage on `turn.completed`): https://developers.openai.com/codex/noninteractive/
 - OpenAI Codex SDK overview (client APIs + event payload structure): https://developers.openai.com/codex/sdk/
 - Node.js test runner `node:test` (unit + integration tests): https://nodejs.org/api/test.html
-- ESLint docs (lint commands referenced in this task): https://eslint.org/docs/latest/
+- ESLint CLI docs (lint command flags + usage): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier formatting options + CLI (format/check commands): https://prettier.io/docs/options
 - Markdown syntax (README/design updates): https://www.markdownguide.org/basic-syntax/
 
@@ -419,6 +422,8 @@ Capture usage metadata from Codex `turn.completed` events and feed it into the s
      - `server/src/test/unit/chat-interface-codex.test.ts`
    - Requirements:
      - Assert usage metadata is persisted on assistant turns.
+     - Assert missing `cached_input_tokens` does not block usage capture.
+     - Assert `totalTokens` is derived when Codex omits it.
 
 4. [ ] Documentation update - `README.md` (if any user-facing behavior changes need to be called out):
    - Documentation to read (repeat):
@@ -443,7 +448,7 @@ Capture usage metadata from Codex `turn.completed` events and feed it into the s
 
 7. [ ] Run full linting:
    - Documentation to read (repeat):
-     - ESLint: https://eslint.org/docs/latest/
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/en/
    - Recap: run from repo root and fix issues before moving on.
    - `npm run lint --workspaces`
@@ -479,7 +484,7 @@ Capture LM Studio prediction stats and feed them into the shared chat usage/timi
 - LM Studio SDK docs (prediction flow + client API): https://lmstudio.ai/docs/api/sdk
 - LM Studio npm README (install + API surface reference): https://www.npmjs.com/package/@lmstudio/sdk
 - Node.js test runner `node:test` (integration test structure): https://nodejs.org/api/test.html
-- ESLint docs (lint commands referenced in this task): https://eslint.org/docs/latest/
+- ESLint CLI docs (lint command flags + usage): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier formatting options + CLI (format/check commands): https://prettier.io/docs/options
 - Markdown syntax (README/design updates): https://www.markdownguide.org/basic-syntax/
 
@@ -514,6 +519,8 @@ Capture LM Studio prediction stats and feed them into the shared chat usage/timi
      - `server/src/test/integration/chat-assistant-persistence.test.ts`
    - Requirements:
      - Assert usage/timing metadata is persisted on assistant turns.
+     - Assert absence of prediction stats still stores elapsed `totalTimeSec` from run timing.
+     - Assert `tokensPerSecond` is omitted when stats do not include it.
 
 4. [ ] Documentation update - `README.md` (if any user-facing behavior changes need to be called out):
    - Documentation to read (repeat):
@@ -538,7 +545,7 @@ Capture LM Studio prediction stats and feed them into the shared chat usage/timi
 
 7. [ ] Run full linting:
    - Documentation to read (repeat):
-     - ESLint: https://eslint.org/docs/latest/
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/en/
    - Recap: run from repo root and fix issues before moving on.
    - `npm run lint --workspaces`
@@ -573,7 +580,7 @@ Expose usage/timing metadata on the WS `turn_final` payload so clients can rende
 
 - `ws` 8.18.3 server API (send/receive JSON payloads): Context7 `/websockets/ws/8_18_3`
 - Node.js test runner `node:test` (unit test structure): https://nodejs.org/api/test.html
-- ESLint docs (lint commands referenced in this task): https://eslint.org/docs/latest/
+- ESLint CLI docs (lint command flags + usage): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier formatting options + CLI (format/check commands): https://prettier.io/docs/options
 - Markdown syntax (README/design updates): https://www.markdownguide.org/basic-syntax/
 
@@ -610,6 +617,7 @@ Expose usage/timing metadata on the WS `turn_final` payload so clients can rende
      - `server/src/test/unit/ws-server.test.ts`
    - Requirements:
      - Assert usage/timing fields survive the WS publish step when provided.
+     - Assert `turn_final` omits usage/timing when completion has none.
 
 4. [ ] Documentation update - `README.md` (if any user-facing behavior changes need to be called out):
    - Documentation to read (repeat):
@@ -634,7 +642,7 @@ Expose usage/timing metadata on the WS `turn_final` payload so clients can rende
 
 7. [ ] Run full linting:
    - Documentation to read (repeat):
-     - ESLint: https://eslint.org/docs/latest/
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/en/
    - Recap: run from repo root and fix issues before moving on.
    - `npm run lint --workspaces`
@@ -669,7 +677,7 @@ Extend the REST turn snapshot mapping to include usage/timing fields in stored t
 
 - TypeScript handbook (object types + optional properties): https://www.typescriptlang.org/docs/handbook/2/objects.html
 - React Testing Library (hook tests + render utilities): https://testing-library.com/docs/react-testing-library/intro/
-- ESLint docs (lint commands referenced in this task): https://eslint.org/docs/latest/
+- ESLint CLI docs (lint command flags + usage): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier formatting options + CLI (format/check commands): https://prettier.io/docs/options
 - Markdown syntax (README/design updates): https://www.markdownguide.org/basic-syntax/
 
@@ -702,6 +710,7 @@ Extend the REST turn snapshot mapping to include usage/timing fields in stored t
      - `client/src/test/useConversationTurns.commandMetadata.test.ts`
    - Requirements:
      - Assert usage/timing fields are retained on stored turns.
+     - Assert turns without usage/timing do not get defaulted fields.
 
 4. [ ] Documentation update - `README.md` (if any user-facing behavior changes need to be called out):
    - Documentation to read (repeat):
@@ -726,7 +735,7 @@ Extend the REST turn snapshot mapping to include usage/timing fields in stored t
 
 7. [ ] Run full linting:
    - Documentation to read (repeat):
-     - ESLint: https://eslint.org/docs/latest/
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/en/
    - Recap: run from repo root and fix issues before moving on.
    - `npm run lint --workspaces`
@@ -759,10 +768,10 @@ Extend the WS transcript event mapping so usage/timing fields land on streaming 
 
 #### Documentation Locations
 
-- WebSocket browser API (message event + JSON handling): https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API
+- WebSocket browser API (message event + JSON handling): https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
 - TypeScript handbook (object types + optional properties): https://www.typescriptlang.org/docs/handbook/2/objects.html
 - React Testing Library (hook tests + render utilities): https://testing-library.com/docs/react-testing-library/intro/
-- ESLint docs (lint commands referenced in this task): https://eslint.org/docs/latest/
+- ESLint CLI docs (lint command flags + usage): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier formatting options + CLI (format/check commands): https://prettier.io/docs/options
 - Markdown syntax (README/design updates): https://www.markdownguide.org/basic-syntax/
 
@@ -770,7 +779,7 @@ Extend the WS transcript event mapping so usage/timing fields land on streaming 
 
 1. [ ] Review WS transcript mapping:
    - Documentation to read (repeat):
-     - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API
+     - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
      - TypeScript handbook (object types): https://www.typescriptlang.org/docs/handbook/2/objects.html
      - React Testing Library (hook tests): https://testing-library.com/docs/react-testing-library/intro/
    - Recap (acceptance criteria): `turn_final` should deliver usage/timing to streaming UI.
@@ -782,7 +791,7 @@ Extend the WS transcript event mapping so usage/timing fields land on streaming 
 
 2. [ ] Extend WS event types and message updates:
    - Documentation to read (repeat):
-     - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API
+     - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
      - TypeScript handbook (object types): https://www.typescriptlang.org/docs/handbook/2/objects.html
    - Recap (acceptance criteria): in-flight assistant bubble uses `inflight.startedAt` for timestamps.
    - Files to edit:
@@ -794,7 +803,7 @@ Extend the WS transcript event mapping so usage/timing fields land on streaming 
 
 3. [ ] Update fixtures + WS mocks:
    - Documentation to read (repeat):
-     - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API
+     - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Recap (acceptance criteria): fixtures should include usage/timing when present.
    - Files to edit:
      - `common/src/fixtures/chatStream.ts`
@@ -810,6 +819,8 @@ Extend the WS transcript event mapping so usage/timing fields land on streaming 
      - `client/src/test/useChatStream.toolPayloads.test.tsx`
    - Requirements:
      - Assert usage/timing metadata is preserved on streamed assistant messages.
+     - Assert `turn_final` without usage/timing does not add empty metadata fields.
+     - Assert inflight snapshot uses `inflight.startedAt` for assistant timestamp.
 
 5. [ ] Documentation update - `README.md` (if any user-facing behavior changes need to be called out):
    - Documentation to read (repeat):
@@ -834,7 +845,7 @@ Extend the WS transcript event mapping so usage/timing fields land on streaming 
 
 8. [ ] Run full linting:
    - Documentation to read (repeat):
-     - ESLint: https://eslint.org/docs/latest/
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/en/
    - Recap: run from repo root and fix issues before moving on.
    - `npm run lint --workspaces`
@@ -872,7 +883,7 @@ Render message header metadata for user/assistant bubbles in Chat and Agents: ti
 - MUI Tooltip (hover details for tokens/time when needed): https://llms.mui.com/material-ui/6.4.12/components/tooltips.md
 - `Intl.DateTimeFormat` (dateStyle/timeStyle formatting): https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/DateTimeFormat
 - React Testing Library (component tests + queries): https://testing-library.com/docs/react-testing-library/intro/
-- ESLint docs (lint commands referenced in this task): https://eslint.org/docs/latest/
+- ESLint CLI docs (lint command flags + usage): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier formatting options + CLI (format/check commands): https://prettier.io/docs/options
 - Markdown syntax (README/design updates): https://www.markdownguide.org/basic-syntax/
 
@@ -929,8 +940,12 @@ Render message header metadata for user/assistant bubbles in Chat and Agents: ti
    - Recap (acceptance criteria): verify timestamp + token usage render when provided.
    - Files to edit:
      - `client/src/test/chatPage.stream.test.tsx`
+     - `client/src/test/agentsPage.streaming.test.tsx`
    - Requirements:
      - Assert timestamp and token metadata appear for assistant turns when provided.
+     - Assert metadata rows are omitted for status/error bubbles.
+     - Assert “Step X of Y” appears only when command metadata includes both step index + total.
+     - Assert timing/rate rows are omitted when timing fields are missing or non-finite.
 
 5. [ ] Documentation update - `README.md` (if any user-facing changes need to be called out):
    - Documentation to read (repeat):
@@ -955,7 +970,7 @@ Render message header metadata for user/assistant bubbles in Chat and Agents: ti
 
 8. [ ] Run full linting:
    - Documentation to read (repeat):
-     - ESLint: https://eslint.org/docs/latest/
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/en/
    - Recap: run from repo root and fix issues before moving on.
    - `npm run lint --workspaces`

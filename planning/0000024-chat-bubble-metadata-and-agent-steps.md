@@ -86,6 +86,7 @@ We want each chat and agent message bubble header to show the message date and t
 - `server/src/chat/interfaces/ChatInterface.ts` currently emits `complete` without usage/timing metadata and `chatStreamBridge` publishes `turn_final` without usage/timing; both need extension to carry the new metadata.
 - `@lmstudio/sdk` exposes `PredictionResult.stats` on the `OngoingPrediction` result (via `prediction.result()`), which includes `tokensPerSecond`, `timeToFirstTokenSec`, `totalTimeSec`, and token counts.
 - `@lmstudio/sdk` defines `LLMPredictionStats` with `tokensPerSecond`, `totalTimeSec`, `promptTokensCount`, `predictedTokensCount`, and `totalTokensCount` (available on `PredictionResult.stats`).
+- Client has existing timestamp helpers: `formatTimestamp` in `client/src/components/chat/ConversationList.tsx` (guards missing values) and `client/src/pages/LogsPage.tsx` (uses `Intl.DateTimeFormat`). Reuse these patterns for bubble headers.
 
 ## Research Findings (external docs)
 
@@ -472,6 +473,9 @@ Render message header metadata for user/assistant bubbles in Chat and Agents: ti
    - Files to edit:
      - `client/src/pages/ChatPage.tsx`
      - `client/src/pages/AgentsPage.tsx`
+   - Files to reference:
+     - `client/src/components/chat/ConversationList.tsx` (guarded timestamp helper)
+     - `client/src/pages/LogsPage.tsx` (`Intl.DateTimeFormat` usage pattern)
    - Requirements:
      - Use `{ dateStyle: 'medium', timeStyle: 'short' }`.
      - For in-flight assistant bubbles, use `inflight.startedAt` until persisted turns arrive.

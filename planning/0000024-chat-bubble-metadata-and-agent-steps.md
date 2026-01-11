@@ -272,6 +272,11 @@ Extend the serverâ€™s stored turn shape to include optional usage and timing met
    - Description: Add/update tree entries for any new/changed files, including every file added or removed in this task.
    - Purpose: Keep the repository map current.
 
+12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier: https://prettier.io/docs/options
+
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -279,10 +284,7 @@ Extend the serverâ€™s stored turn shape to include optional usage and timing met
 3. [ ] `npm run compose:build`
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test --workspace server`
-6. [ ] `npm run lint --workspaces`
-7. [ ] `npm run format:check --workspaces`
-8. [ ] If either fails, run `npm run lint:fix` / `npm run format --workspaces` and resolve remaining issues.
-9. [ ] `npm run compose:down`
+6. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -408,6 +410,11 @@ Extend the core chat event pipeline so usage/timing metadata can flow from provi
    - Description: Update the tree if any files were added/removed, including every file added or removed in this task.
    - Purpose: Keep the repository map current.
 
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier: https://prettier.io/docs/options
+
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -415,10 +422,7 @@ Extend the core chat event pipeline so usage/timing metadata can flow from provi
 3. [ ] `npm run compose:build`
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test --workspace server`
-6. [ ] `npm run lint --workspaces`
-7. [ ] `npm run format:check --workspaces`
-8. [ ] If either fails, run `npm run lint:fix` / `npm run format --workspaces` and resolve remaining issues.
-9. [ ] `npm run compose:down`
+6. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -534,6 +538,11 @@ Capture usage metadata from Codex `turn.completed` events and feed it into the s
    - Description: Update tree entries for any new/changed files, including every file added or removed in this task.
    - Purpose: Keep the repository map current.
 
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier: https://prettier.io/docs/options
+
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -541,10 +550,7 @@ Capture usage metadata from Codex `turn.completed` events and feed it into the s
 3. [ ] `npm run compose:build`
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test --workspace server`
-6. [ ] `npm run lint --workspaces`
-7. [ ] `npm run format:check --workspaces`
-8. [ ] If either fails, run `npm run lint:fix` / `npm run format --workspaces` and resolve remaining issues.
-9. [ ] `npm run compose:down`
+6. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -650,6 +656,11 @@ Capture LM Studio prediction stats and feed them into the shared chat usage/timi
    - Description: Update tree entries for any new/changed files, including every file added or removed in this task.
    - Purpose: Keep the repository map current.
 
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier: https://prettier.io/docs/options
+
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -657,10 +668,7 @@ Capture LM Studio prediction stats and feed them into the shared chat usage/timi
 3. [ ] `npm run compose:build`
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test --workspace server`
-6. [ ] `npm run lint --workspaces`
-7. [ ] `npm run format:check --workspaces`
-8. [ ] If either fails, run `npm run lint:fix` / `npm run format --workspaces` and resolve remaining issues.
-9. [ ] `npm run compose:down`
+6. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -795,6 +803,11 @@ Expose command step metadata on inflight snapshots so agent bubbles can render â
    - Description: Update tree entries for any new/changed files, including every file added or removed in this task.
    - Purpose: Keep the repository map current.
 
+11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier: https://prettier.io/docs/options
+
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -802,10 +815,7 @@ Expose command step metadata on inflight snapshots so agent bubbles can render â
 3. [ ] `npm run compose:build`
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test --workspace server`
-6. [ ] `npm run lint --workspaces`
-7. [ ] `npm run format:check --workspaces`
-8. [ ] If either fails, run `npm run lint:fix` / `npm run format --workspaces` and resolve remaining issues.
-9. [ ] `npm run compose:down`
+6. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -903,6 +913,11 @@ Expose usage/timing metadata on the WS `turn_final` payload so clients can rende
    - Description: Update tree entries for any new/changed files, including every file added or removed in this task.
    - Purpose: Keep the repository map current.
 
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier: https://prettier.io/docs/options
+
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -910,10 +925,7 @@ Expose usage/timing metadata on the WS `turn_final` payload so clients can rende
 3. [ ] `npm run compose:build`
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test --workspace server`
-6. [ ] `npm run lint --workspaces`
-7. [ ] `npm run format:check --workspaces`
-8. [ ] If either fails, run `npm run lint:fix` / `npm run format --workspaces` and resolve remaining issues.
-9. [ ] `npm run compose:down`
+6. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1034,6 +1046,11 @@ Extend the REST turn snapshot mapping to include usage/timing fields in stored t
    - Description: Update tree entries for any new/changed files, including every file added or removed in this task.
    - Purpose: Keep the repository map current.
 
+11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier: https://prettier.io/docs/options
+
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -1041,10 +1058,7 @@ Extend the REST turn snapshot mapping to include usage/timing fields in stored t
 3. [ ] `npm run compose:build`
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test --workspace client`
-6. [ ] `npm run lint --workspaces`
-7. [ ] `npm run format:check --workspaces`
-8. [ ] If either fails, run `npm run lint:fix` / `npm run format --workspaces` and resolve remaining issues.
-9. [ ] `npm run compose:down`
+6. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1185,6 +1199,11 @@ Extend the WS transcript event mapping so usage/timing fields and inflight comma
    - Description: Update tree entries for any new/changed files, including every file added or removed in this task.
    - Purpose: Keep the repository map current.
 
+12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier: https://prettier.io/docs/options
+
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -1192,10 +1211,7 @@ Extend the WS transcript event mapping so usage/timing fields and inflight comma
 3. [ ] `npm run compose:build`
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test --workspace client`
-6. [ ] `npm run lint --workspaces`
-7. [ ] `npm run format:check --workspaces`
-8. [ ] If either fails, run `npm run lint:fix` / `npm run format --workspaces` and resolve remaining issues.
-9. [ ] `npm run compose:down`
+6. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1385,6 +1401,11 @@ Render message header metadata for user/assistant bubbles in Chat and Agents: ti
    - Description: Update tree entries for any new/changed files, including every file added or removed in this task.
    - Purpose: Keep the repository map current.
 
+17. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier: https://prettier.io/docs/options
+
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -1393,10 +1414,7 @@ Render message header metadata for user/assistant bubbles in Chat and Agents: ti
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test --workspace client`
 6. [ ] `npm run e2e`
-7. [ ] `npm run lint --workspaces`
-8. [ ] `npm run format:check --workspaces`
-9. [ ] If either fails, run `npm run lint:fix` / `npm run format --workspaces` and resolve remaining issues.
-10. [ ] `npm run compose:down`
+7. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1468,6 +1486,11 @@ Validate the full story against acceptance criteria, perform clean builds/tests,
    - Documentation to read (repeat):
      - Husky: Context7 `/typicode/husky`
    - Recap: summary must cover all tasks and mention any workflow changes.
+
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier: https://prettier.io/docs/options
 
 #### Testing
 

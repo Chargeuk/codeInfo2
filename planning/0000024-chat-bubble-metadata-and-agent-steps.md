@@ -23,7 +23,7 @@ We want each chat and agent message bubble header to show the message date and t
 
 ## Acceptance Criteria
 
-- **Timestamp on every bubble:** Chat and Agents pages show a date + time header on every user and assistant bubble.
+- **Timestamp on every user/assistant bubble:** Chat and Agents pages show a date + time header on every user and assistant bubble (status/error bubbles excluded).
 - **Timestamp formatting:** Use `Intl.DateTimeFormat` with `{ dateStyle: 'medium', timeStyle: 'short' }` (example output: “Jan 11, 2026, 2:05 PM”).
 - **UTC -> local conversion:** Timestamps are stored as UTC and rendered in the browser’s local time zone via `new Date(utc).toLocaleString(...)` or an equivalent conversion.
 - **Assistant token usage (when present):** Assistant bubbles show “Tokens: in <input> · out <output> · total <total>”. If cached input tokens are provided, append “(cached <cachedInput>)”.
@@ -65,14 +65,14 @@ We want each chat and agent message bubble header to show the message date and t
 
 - **Mongo Turn document (`server/src/mongo/turn.ts`):** add optional `usage` and `timing` objects on assistant turns; keep existing `command` for step metadata.
   - `usage`: `{ inputTokens?: number; outputTokens?: number; totalTokens?: number; cachedInputTokens?: number }`
-    - Map LM Studio `prompt_tokens` → `inputTokens`, `completion_tokens` → `outputTokens`, `total_tokens` → `totalTokens`.
+    - Map LM Studio SDK `promptTokensCount` → `inputTokens`, `predictedTokensCount` → `outputTokens`, `totalTokensCount` → `totalTokens` (REST uses `prompt_tokens`, `completion_tokens`, `total_tokens`).
     - Map Codex `input_tokens` → `inputTokens`, `output_tokens` → `outputTokens`, `cached_input_tokens` → `cachedInputTokens` (derive `totalTokens` when available).
   - `timing`: `{ totalTimeSec?: number; tokensPerSecond?: number; timeToFirstTokenSec?: number }`
-    - Map LM Studio `stats.generation_time` → `totalTimeSec`, `stats.tokens_per_second` → `tokensPerSecond`, `stats.time_to_first_token` → `timeToFirstTokenSec`.
+    - Map LM Studio SDK `totalTimeSec` → `totalTimeSec`, `tokensPerSecond` → `tokensPerSecond`, `timeToFirstTokenSec` → `timeToFirstTokenSec` (REST uses `generation_time`, `tokens_per_second`, `time_to_first_token`).
     - If provider does not supply timing, compute `totalTimeSec` using `inflight.startedAt` → assistant turn `createdAt`.
 - **REST append turn (`POST /conversations/:id/turns`):** extend request schema to accept optional `usage` + `timing` (no changes for user turns).
 - **REST turn snapshots (`GET /conversations/:id/turns`):** include `usage` + `timing` on returned assistant turn items when stored; continue returning `command` when present.
-- **WebSocket updates (`turn_final`):** optionally include `usage` + `timing` so live UI can render without waiting for a refresh; otherwise rely on persisted turns.
+- **WebSocket updates (`turn_final`):** include `usage` + `timing` so live UI can render without waiting for a refresh; continue relying on persisted turns for history.
 
 ---
 

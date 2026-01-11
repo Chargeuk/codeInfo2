@@ -759,6 +759,7 @@ Extend the REST turn snapshot mapping to include usage/timing fields in stored t
 
 - TypeScript handbook (object types + optional properties): https://www.typescriptlang.org/docs/handbook/2/objects.html
 - React Testing Library (hook tests + render utilities): https://testing-library.com/docs/react-testing-library/intro/
+- Jest docs (test runner + expect API): Context7 `/jestjs/jest`
 - ESLint CLI docs (lint command flags + usage): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier formatting options + CLI (format/check commands): https://prettier.io/docs/options
 - Markdown syntax (README/design updates): https://www.markdownguide.org/basic-syntax/
@@ -859,6 +860,7 @@ Extend the WS transcript event mapping so usage/timing fields land on streaming 
 - WebSocket browser API (message event + JSON handling): https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
 - TypeScript handbook (object types + optional properties): https://www.typescriptlang.org/docs/handbook/2/objects.html
 - React Testing Library (hook tests + render utilities): https://testing-library.com/docs/react-testing-library/intro/
+- Jest docs (test runner + expect API): Context7 `/jestjs/jest`
 - ESLint CLI docs (lint command flags + usage): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier formatting options + CLI (format/check commands): https://prettier.io/docs/options
 - Markdown syntax (README/design updates): https://www.markdownguide.org/basic-syntax/
@@ -984,6 +986,7 @@ Render message header metadata for user/assistant bubbles in Chat and Agents: ti
 - MUI Tooltip (hover details for tokens/time when needed): https://llms.mui.com/material-ui/6.4.12/components/tooltips.md
 - `Intl.DateTimeFormat` (dateStyle/timeStyle formatting): https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/DateTimeFormat
 - React Testing Library (component tests + queries): https://testing-library.com/docs/react-testing-library/intro/
+- Jest docs (test runner + expect API): Context7 `/jestjs/jest`
 - ESLint CLI docs (lint command flags + usage): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier formatting options + CLI (format/check commands): https://prettier.io/docs/options
 - Markdown syntax (README/design updates): https://www.markdownguide.org/basic-syntax/
@@ -1136,7 +1139,8 @@ Validate the full story against acceptance criteria, perform clean builds/tests,
 - Playwright Test docs (Node/TS setup + running tests): https://playwright.dev/docs/intro
 - Husky docs (git hook management + install): https://typicode.github.io/husky/
 - Mermaid docs (diagram syntax for design.md): https://mermaid.js.org/intro/syntax-reference.html
-- Jest docs (running unit tests): https://jestjs.io/docs/getting-started
+- Jest docs (test runner + expect API): Context7 `/jestjs/jest`
+- Cucumber guides (BDD + JavaScript workflow): https://cucumber.io/docs/guides/
 - Cucumber guide (JS 10-minute tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/
 - Markdown syntax (README/design updates): https://www.markdownguide.org/basic-syntax/
 

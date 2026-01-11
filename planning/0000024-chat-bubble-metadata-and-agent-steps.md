@@ -46,23 +46,32 @@ We want each chat and agent message bubble header to show the message date and t
 
 ## Questions
 
-- None.
+- Does the Codex CLI emit `turn.completed` usage for our configured models and MCP-enabled runs in this repo, or do we need additional CLI flags/config to surface usage reliably?
+- Does the current `@lmstudio/sdk` version used by the server expose token counts + timing stats for chat/tool runs, and are the field names consistent across tool-calling and non-tooling responses?
 
 ---
 
 ## Contracts & Storage Changes (explicit)
 
-- Add optional token usage metadata to assistant turns (input/output/total and cached input when available).
-- Add optional timing metadata to assistant turns (provider time taken + tokens/sec when available; calculated time when provider does not supply time).
-- Add optional agent step metadata (stepIndex/stepCount) on assistant turns originating from command lists.
+- Reuse existing `Turn.command` metadata (`name`, `stepIndex`, `totalSteps`) for agent step display (no new schema needed for steps).
+- Add optional usage metadata on assistant turns (input/output/total tokens plus cached input when supplied).
+- Add optional timing metadata on assistant turns (provider time taken + tokens/sec when available; calculate elapsed time when missing).
 - All new fields are optional and omitted when values are unavailable.
 
 ---
 
 ## Research Findings (code-confirmed)
 
-- Added server logging on Codex `turn.completed` events and on any Codex event containing `usage` to capture the full event structure (messages: `0000024 codex turn.completed event`, `0000024 codex usage event`).
-- Test run on **January 9, 2026** (conversation `0000024-codex-usage-1767920951`) did **not** emit any usage-bearing events in server logs; Codex usage availability still unconfirmed and must be validated before wiring persistence.
-- LM Studio SDK exposes timing + rate stats on `PredictionResult.stats` (`totalTimeSec`, `tokensPerSecond`) alongside token counts; these can be captured when using LM Studio.
+- `server/src/mongo/turn.ts` already stores `createdAt` timestamps and `command` metadata (`name`, `stepIndex`, `totalSteps`) for turns.
+- `server/src/mongo/repo.ts` accepts optional `createdAt` when appending turns, and updates `lastMessageAt` from that timestamp.
+- `server/src/chat/inflightRegistry.ts` tracks `userTurn.createdAt` and derives `assistantCreatedAt` for in-flight UI rendering.
+- `server/src/chat/interfaces/ChatInterfaceCodex.ts` logs any `usage` payloads found on Codex events and logs full `turn.completed` payloads, but does not persist usage yet.
+- `@lmstudio/sdk` defines `LLMPredictionStats` with `tokensPerSecond`, `totalTimeSec`, `promptTokensCount`, `predictedTokensCount`, and `totalTokensCount` (available on `PredictionResult.stats`).
+
+## Research Findings (external docs)
+
+- Codex CLI/SDK event streams expose `turn.completed` events that include a `usage` object with `input_tokens`, `output_tokens`, and `cached_input_tokens` when available.
+- LM Studio REST chat/completions responses include `usage` (`prompt_tokens`, `completion_tokens`, `total_tokens`) and `stats` (`tokens_per_second`, `generation_time`, `time_to_first_token`).
+- Deepwiki does not have an indexed page for this repository yet, so no deepwiki references are available.
 
 ---

@@ -76,7 +76,7 @@ services:
       - client/.env.local
     environment:
       - VITE_API_URL=http://host.docker.internal:5510
-      - API_PORT=5510
+      - SERVER_API_URL=http://host.docker.internal:5510
       - VITE_LOG_FORWARD_ENABLED=true
     depends_on:
       server:

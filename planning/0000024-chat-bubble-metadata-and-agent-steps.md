@@ -1316,7 +1316,31 @@ Render message header metadata for user/assistant bubbles in Chat and Agents: ti
    - Documentation to read (repeat):
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
 
-8. [ ] Component test (client): omit timing/rate when missing
+8. [ ] Component test (client): cached input token suffix
+   - Test type: Component test (React Testing Library)
+   - Location: `client/src/test/chatPage.stream.test.tsx`
+   - Description: Render an assistant turn with `cachedInputTokens` and verify the “(cached X)” suffix.
+   - Purpose: Ensure cached input tokens display when provided.
+   - Documentation to read (repeat):
+     - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+
+9. [ ] Component test (client): omit cached suffix when missing
+   - Test type: Component test (React Testing Library)
+   - Location: `client/src/test/chatPage.stream.test.tsx`
+   - Description: Render an assistant turn without `cachedInputTokens` and ensure the suffix is absent.
+   - Purpose: Ensure partial usage data does not render cached suffix.
+   - Documentation to read (repeat):
+     - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+
+10. [ ] Component test (client): omit token line when usage missing
+   - Test type: Component test (React Testing Library)
+   - Location: `client/src/test/chatPage.stream.test.tsx`
+   - Description: Render an assistant turn without usage fields and ensure the token line is not rendered.
+   - Purpose: Ensure token metadata is omitted when no usage exists.
+   - Documentation to read (repeat):
+     - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+
+11. [ ] Component test (client): omit timing/rate when missing
    - Test type: Component test (React Testing Library)
    - Location: `client/src/test/chatPage.stream.test.tsx`
    - Description: Provide assistant turns without timing/tokens-per-second fields.
@@ -1324,7 +1348,23 @@ Render message header metadata for user/assistant bubbles in Chat and Agents: ti
    - Documentation to read (repeat):
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
 
-9. [ ] Documentation update - `README.md` (if any user-facing changes need to be called out):
+12. [ ] Component test (client): invalid timestamp fallback
+   - Test type: Component test (React Testing Library)
+   - Location: `client/src/test/chatPage.stream.test.tsx`
+   - Description: Render a bubble with an invalid `createdAt` and assert a timestamp still renders.
+   - Purpose: Ensure invalid timestamps do not crash rendering and fall back to `new Date()`.
+   - Documentation to read (repeat):
+     - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+
+13. [ ] Component test (client): inflight step indicator
+   - Test type: Component test (React Testing Library)
+   - Location: `client/src/test/agentsPage.streaming.test.tsx`
+   - Description: Hydrate an inflight snapshot with command metadata and verify “Step X of Y” renders.
+   - Purpose: Ensure step indicators appear during streaming agent runs.
+   - Documentation to read (repeat):
+     - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+
+14. [ ] Documentation update - `README.md` (if any user-facing changes need to be called out):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: call out any new metadata visible to users.
@@ -1333,7 +1373,7 @@ Render message header metadata for user/assistant bubbles in Chat and Agents: ti
    - Description: Document bubble metadata display (timestamps/tokens/timing/steps) if user-visible.
    - Purpose: Keep README aligned with UI behavior.
 
-10. [ ] Documentation update - `design.md` (document bubble metadata UI behavior):
+15. [ ] Documentation update - `design.md` (document bubble metadata UI behavior):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: document UI rules for timestamps, tokens, timing, and steps.
@@ -1342,7 +1382,7 @@ Render message header metadata for user/assistant bubbles in Chat and Agents: ti
    - Description: Explain bubble header metadata UI rules and layout.
    - Purpose: Keep UI documentation accurate.
 
-11. [ ] Documentation update - `projectStructure.md` (only if files/paths change):
+16. [ ] Documentation update - `projectStructure.md` (only if files/paths change):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: update tree only if file paths change.
@@ -1352,7 +1392,7 @@ Render message header metadata for user/assistant bubbles in Chat and Agents: ti
    - Description: Update tree entries for any new/changed files.
    - Purpose: Keep the repository map current.
 
-12. [ ] Run full linting:
+17. [ ] Run full linting:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/en/

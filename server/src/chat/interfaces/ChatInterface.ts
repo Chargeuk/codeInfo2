@@ -12,6 +12,8 @@ import type {
   TurnCommandMetadata,
   TurnSource,
   TurnStatus,
+  TurnTimingMetadata,
+  TurnUsageMetadata,
 } from '../../mongo/turn.js';
 import { cleanupInflight, markInflightPersisted } from '../inflightRegistry.js';
 import {
@@ -342,6 +344,8 @@ export abstract class ChatInterface extends EventEmitter {
     provider: string;
     source: TurnSource;
     command?: TurnCommandMetadata;
+    usage?: TurnUsageMetadata;
+    timing?: TurnTimingMetadata;
     status: TurnStatus;
     toolCalls: ChatToolResultEvent[];
     skipPersistence: boolean;
@@ -353,6 +357,8 @@ export abstract class ChatInterface extends EventEmitter {
       provider,
       source,
       command,
+      usage,
+      timing,
       status,
       toolCalls,
       skipPersistence,
@@ -368,6 +374,8 @@ export abstract class ChatInterface extends EventEmitter {
       provider,
       source,
       command,
+      usage,
+      timing,
       toolCalls: toolCalls.length > 0 ? { calls: toolCalls } : null,
       status,
       createdAt: new Date(),

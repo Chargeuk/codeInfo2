@@ -565,6 +565,139 @@ test('appends turn when conversation active', async () => {
   assert.equal((payload as { source?: string }).source, 'REST');
 });
 
+test('accepts assistant usage/timing metadata on append', async () => {
+  const calls: unknown[] = [];
+  await request(
+    appWith({
+      findConversationById: async () => ({ _id: 'c1', archivedAt: null }),
+      appendTurn: async (payload) => {
+        calls.push(payload);
+        return payload as never;
+      },
+    }),
+  )
+    .post('/conversations/c1/turns')
+    .send({
+      role: 'assistant',
+      content: 'hi there',
+      model: 'llama',
+      provider: 'lmstudio',
+      status: 'ok',
+      usage: {
+        inputTokens: 12,
+        outputTokens: 6,
+        totalTokens: 18,
+        cachedInputTokens: 4,
+      },
+      timing: {
+        totalTimeSec: 1.5,
+        tokensPerSecond: 12.5,
+      },
+    })
+    .expect(201);
+
+  const payload = calls[0] as Record<string, unknown>;
+  assert.deepEqual(payload.usage, {
+    inputTokens: 12,
+    outputTokens: 6,
+    totalTokens: 18,
+    cachedInputTokens: 4,
+  });
+  assert.deepEqual(payload.timing, {
+    totalTimeSec: 1.5,
+    tokensPerSecond: 12.5,
+  });
+});
+
+test('rejects user usage/timing metadata on append', async () => {
+  const res = await request(
+    appWith({
+      findConversationById: async () => ({ _id: 'c1', archivedAt: null }),
+    }),
+  )
+    .post('/conversations/c1/turns')
+    .send({
+      role: 'user',
+      content: 'hello',
+      model: 'llama',
+      provider: 'lmstudio',
+      status: 'ok',
+      usage: { inputTokens: 2 },
+      timing: { totalTimeSec: 0.5 },
+    })
+    .expect(400);
+
+  assert.equal(res.body.error, 'validation_error');
+});
+
+test('returns usage/timing fields for assistant turns', async () => {
+  const turns: TurnSummary[] = [
+    {
+      turnId: 't2',
+      conversationId: 'c1',
+      role: 'assistant',
+      content: 'hi',
+      model: 'llama',
+      provider: 'lmstudio',
+      source: 'REST',
+      toolCalls: null,
+      status: 'ok',
+      usage: {
+        inputTokens: 10,
+        outputTokens: 5,
+        totalTokens: 15,
+      },
+      timing: { totalTimeSec: 0.4 },
+      createdAt: new Date('2025-01-01T10:00:00Z'),
+    },
+  ];
+
+  const res = await request(
+    appWith({
+      findConversationById: async () => ({ _id: 'c1', archivedAt: null }),
+      listAllTurns: async () => ({ items: turns }),
+    }),
+  )
+    .get('/conversations/c1/turns')
+    .expect(200);
+
+  assert.deepEqual(res.body.items[0].usage, {
+    inputTokens: 10,
+    outputTokens: 5,
+    totalTokens: 15,
+  });
+  assert.deepEqual(res.body.items[0].timing, { totalTimeSec: 0.4 });
+});
+
+test('omits usage/timing when assistant turn has no metadata', async () => {
+  const turns: TurnSummary[] = [
+    {
+      turnId: 't2',
+      conversationId: 'c1',
+      role: 'assistant',
+      content: 'hi',
+      model: 'llama',
+      provider: 'lmstudio',
+      source: 'REST',
+      toolCalls: null,
+      status: 'ok',
+      createdAt: new Date('2025-01-01T10:00:00Z'),
+    },
+  ];
+
+  const res = await request(
+    appWith({
+      findConversationById: async () => ({ _id: 'c1', archivedAt: null }),
+      listAllTurns: async () => ({ items: turns }),
+    }),
+  )
+    .get('/conversations/c1/turns')
+    .expect(200);
+
+  assert.equal('usage' in res.body.items[0], false);
+  assert.equal('timing' in res.body.items[0], false);
+});
+
 test('returns validation_error on bad body', async () => {
   const res = await request(
     appWith({

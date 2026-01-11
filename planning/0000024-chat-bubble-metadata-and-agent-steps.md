@@ -129,7 +129,7 @@ We want each chat and agent message bubble header to show the message date and t
 
 ### 1. Server: persist usage/timing metadata on assistant turns (REST + storage)
 
-- Task Status: **__in_progress__**
+- Task Status: **__done__**
 - Git Commits: **__to_do__**
 
 #### Overview
@@ -148,7 +148,7 @@ Extend the server’s stored turn shape to include optional usage and timing met
 
 #### Subtasks
 
-1. [ ] Review current turn persistence and REST payload shapes:
+1. [x] Review current turn persistence and REST payload shapes:
    - Documentation to read (repeat):
      - Mongoose 9.0.1 schema types: Context7 `/automattic/mongoose/9.0.1`
      - Zod v3 schema validation: Context7 `/websites/v3_zod_dev`
@@ -162,7 +162,7 @@ Extend the server’s stored turn shape to include optional usage and timing met
    - Goal:
      - Confirm how `createdAt` and `command` metadata are stored and returned today.
 
-2. [ ] Add usage/timing fields to the Turn schema + types:
+2. [x] Add usage/timing fields to the Turn schema + types:
    - Documentation to read (repeat):
      - Mongoose 9.0.1 schema types: Context7 `/automattic/mongoose/9.0.1`
      - Zod v3 schema validation: Context7 `/websites/v3_zod_dev`
@@ -179,7 +179,7 @@ Extend the server’s stored turn shape to include optional usage and timing met
        - `usage: { inputTokens: 120, outputTokens: 48, totalTokens: 168, cachedInputTokens: 32 }`
        - `timing: { totalTimeSec: 1.42, tokensPerSecond: 118 }`
 
-3. [ ] Thread usage/timing through repo types and append helpers:
+3. [x] Thread usage/timing through repo types and append helpers:
    - Documentation to read (repeat):
      - Mongoose 9.0.1 schema types: Context7 `/automattic/mongoose/9.0.1`
      - Zod v3 schema validation: Context7 `/websites/v3_zod_dev`
@@ -195,7 +195,7 @@ Extend the server’s stored turn shape to include optional usage and timing met
      - Example (assistant append payload):
        - `{ role: 'assistant', content: '...', usage: { inputTokens: 10, outputTokens: 5, totalTokens: 15 }, timing: { totalTimeSec: 0.4 } }`
 
-4. [ ] Extend REST turn schemas to accept usage/timing safely:
+4. [x] Extend REST turn schemas to accept usage/timing safely:
    - Documentation to read (repeat):
      - Zod v3 schema validation: Context7 `/websites/v3_zod_dev`
      - Express response basics: https://expressjs.com/en/api.html#res.json
@@ -208,7 +208,7 @@ Extend the server’s stored turn shape to include optional usage and timing met
      - Example (valid assistant request):
        - `{ role: 'assistant', content: 'Hi', usage: { inputTokens: 4, outputTokens: 6, totalTokens: 10 } }`
 
-5. [ ] Integration test (server): assistant POST accepts usage/timing
+5. [x] Integration test (server): assistant POST accepts usage/timing
    - Test type: Integration (`node:test`)
    - Location: `server/src/test/integration/conversations.turns.test.ts`
    - Description: Exercise `POST /conversations/:id/turns` with an assistant payload containing usage/timing.
@@ -217,7 +217,7 @@ Extend the server’s stored turn shape to include optional usage and timing met
      - Node.js test runner (node:test): https://nodejs.org/api/test.html
      - Express response basics: https://expressjs.com/en/api.html#res.json
 
-6. [ ] Integration test (server): GET returns usage/timing fields
+6. [x] Integration test (server): GET returns usage/timing fields
    - Test type: Integration (`node:test`)
    - Location: `server/src/test/integration/conversations.turns.test.ts`
    - Description: Fetch turns after persistence and inspect usage/timing fields on assistant items.
@@ -226,7 +226,7 @@ Extend the server’s stored turn shape to include optional usage and timing met
      - Node.js test runner (node:test): https://nodejs.org/api/test.html
      - Express response basics: https://expressjs.com/en/api.html#res.json
 
-7. [ ] Integration test (server): user POST rejects usage/timing
+7. [x] Integration test (server): user POST rejects usage/timing
    - Test type: Integration (`node:test`)
    - Location: `server/src/test/integration/conversations.turns.test.ts`
    - Description: Submit a user-role payload with usage/timing fields.
@@ -235,7 +235,7 @@ Extend the server’s stored turn shape to include optional usage and timing met
      - Node.js test runner (node:test): https://nodejs.org/api/test.html
      - Express response basics: https://expressjs.com/en/api.html#res.json
 
-8. [ ] Integration test (server): assistant without metadata omits fields
+8. [x] Integration test (server): assistant without metadata omits fields
    - Test type: Integration (`node:test`)
    - Location: `server/src/test/integration/conversations.turns.test.ts`
    - Description: Persist an assistant turn without usage/timing and verify response shape.
@@ -244,7 +244,7 @@ Extend the server’s stored turn shape to include optional usage and timing met
      - Node.js test runner (node:test): https://nodejs.org/api/test.html
      - Express response basics: https://expressjs.com/en/api.html#res.json
 
-9. [ ] Documentation update - `README.md` (if any user-facing changes need to be called out):
+9. [x] Documentation update - `README.md` (if any user-facing changes need to be called out):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap (acceptance criteria): note any user-visible metadata additions if surfaced.
@@ -253,7 +253,7 @@ Extend the server’s stored turn shape to include optional usage and timing met
    - Description: Note new metadata behavior (timestamps/tokens/timing) if it is user-visible.
    - Purpose: Keep onboarding docs aligned with UI changes.
 
-10. [ ] Documentation update - `design.md` (document new turn metadata fields):
+10. [x] Documentation update - `design.md` (document new turn metadata fields):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap (acceptance criteria): document assistant-only `usage`/`timing` fields and optionality.
@@ -262,7 +262,7 @@ Extend the server’s stored turn shape to include optional usage and timing met
    - Description: Describe new turn metadata fields and where they are persisted.
    - Purpose: Keep architecture documentation accurate.
 
-11. [ ] Documentation update - `projectStructure.md` (only if files/paths change):
+11. [x] Documentation update - `projectStructure.md` (only if files/paths change):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: update tree only if files move or new files added.
@@ -272,7 +272,7 @@ Extend the server’s stored turn shape to include optional usage and timing met
    - Description: Add/update tree entries for any new/changed files, including every file added or removed in this task.
    - Purpose: Keep the repository map current.
 
-12. [ ] Add manual-check log lines for REST usage/timing persistence and document expected output:
+12. [x] Add manual-check log lines for REST usage/timing persistence and document expected output:
    - Files to edit:
      - `server/src/routes/conversations.ts`
    - Requirements:
@@ -282,26 +282,41 @@ Extend the server’s stored turn shape to include optional usage and timing met
        - `DEV-0000024:T1:turns_snapshot_usage`
        - `DEV-0000024:T1:assistant_usage_accepted`
 
-13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+13. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/options
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open Chat + Agents, send a message, refresh history, and verify no console errors; confirm console/network logs include `DEV-0000024:T1:turns_snapshot_usage` and `DEV-0000024:T1:assistant_usage_accepted` with `hasUsage/hasTiming=true` when metadata is present.
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check: open Chat + Agents, send a message, refresh history, and verify no console errors; confirm console/network logs include `DEV-0000024:T1:turns_snapshot_usage` and `DEV-0000024:T1:assistant_usage_accepted` with `hasUsage/hasTiming=true` when metadata is present.
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- Notes added during implementation.
+- Reviewed current turn schema, repo helpers, REST turn routes, and turn integration tests to confirm createdAt/command handling and existing payload shapes.
+- Added optional `usage`/`timing` metadata types and subdocument schemas to the Turn model without defaults.
+- Extended repo append/list helpers and ChatInterface assistant persistence payloads to carry optional usage/timing metadata.
+- Added REST validation for usage/timing with assistant-only enforcement and logging for usage/timing snapshots and accepted metadata.
+- Added integration coverage for assistant usage/timing acceptance, GET return shape, user rejection, and omission when absent.
+- Updated design notes for assistant `usage`/`timing` fields; README and project structure required no changes.
+- Added DEV-0000024 logging tags on turn snapshot responses and assistant append acceptance when usage/timing is present.
+- Ran workspace lint/format checks; lint reported existing warnings but no errors, Prettier check passed.
+- `npm run build --workspace server` succeeded.
+- `npm run build --workspace client` succeeded (vite warning about chunk size).
+- `npm run test --workspace server` ran unit tests, but cucumber integration failed with ChromaConnectionError during compose-based ingest scenarios.
+- `npm run test --workspace client` succeeded with existing console warnings from React DOM nesting logs.
+- `npm run e2e` succeeded after rerun with longer timeout.
+- `npm run compose:build` and `npm run compose:up` succeeded.
+- Manual metadata log verification used `http://host.docker.internal:5010` REST calls and `/logs?text=DEV-0000024:T1` to confirm the expected log tags.
+- `npm run compose:down` completed successfully.
 
 ---
 

@@ -19,6 +19,8 @@ import {
   TurnRole,
   TurnStatus,
   TurnSource,
+  TurnTimingMetadata,
+  TurnUsageMetadata,
 } from './turn.js';
 
 append({
@@ -72,6 +74,8 @@ export interface AppendTurnInput {
   toolCalls?: Record<string, unknown> | null;
   status: TurnStatus;
   command?: TurnCommandMetadata;
+  usage?: TurnUsageMetadata;
+  timing?: TurnTimingMetadata;
   createdAt?: Date;
 }
 
@@ -185,6 +189,8 @@ export async function appendTurn(input: AppendTurnInput): Promise<Turn> {
     toolCalls: input.toolCalls ?? null,
     status: input.status,
     command: input.command,
+    usage: input.usage,
+    timing: input.timing,
     createdAt,
   });
 
@@ -277,6 +283,8 @@ export interface TurnSummary {
   toolCalls: Record<string, unknown> | null;
   status: TurnStatus;
   command?: TurnCommandMetadata;
+  usage?: TurnUsageMetadata;
+  timing?: TurnTimingMetadata;
   createdAt: Date;
 }
 
@@ -307,6 +315,8 @@ export async function listTurns(
     toolCalls: doc.toolCalls ?? null,
     status: doc.status,
     command: doc.command,
+    usage: doc.usage,
+    timing: doc.timing,
     createdAt: doc.createdAt,
   }));
 
@@ -331,6 +341,8 @@ export async function listAllTurns(
     toolCalls: doc.toolCalls ?? null,
     status: doc.status,
     command: doc.command,
+    usage: doc.usage,
+    timing: doc.timing,
     createdAt: doc.createdAt,
   }));
 

@@ -49,6 +49,22 @@ const archiveActionParamsSchema = z
   })
   .strict();
 
+const usageSchema = z
+  .object({
+    inputTokens: z.number().int().nonnegative().optional(),
+    outputTokens: z.number().int().nonnegative().optional(),
+    totalTokens: z.number().int().nonnegative().optional(),
+    cachedInputTokens: z.number().int().nonnegative().optional(),
+  })
+  .strict();
+
+const timingSchema = z
+  .object({
+    totalTimeSec: z.number().nonnegative().optional(),
+    tokensPerSecond: z.number().nonnegative().optional(),
+  })
+  .strict();
+
 const appendTurnSchema = z
   .object({
     role: z.enum(['user', 'assistant', 'system']),
@@ -65,9 +81,28 @@ const appendTurnSchema = z
       })
       .strict()
       .optional(),
+    usage: usageSchema.optional(),
+    timing: timingSchema.optional(),
     status: z.enum(['ok', 'stopped', 'failed']),
   })
-  .strict();
+  .strict()
+  .superRefine((data, ctx) => {
+    if (data.role === 'assistant') return;
+    if (data.usage) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'usage metadata is only allowed on assistant turns',
+        path: ['usage'],
+      });
+    }
+    if (data.timing) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'timing metadata is only allowed on assistant turns',
+        path: ['timing'],
+      });
+    }
+  });
 
 const bulkConversationIdsSchema = z
   .object({
@@ -566,6 +601,27 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
         return bStable.localeCompare(aStable);
       });
 
+      const hasUsage = items.some(
+        (item) => (item as { usage?: unknown }).usage !== undefined,
+      );
+      const hasTiming = items.some(
+        (item) => (item as { timing?: unknown }).timing !== undefined,
+      );
+
+      if (hasUsage || hasTiming) {
+        append({
+          level: 'info',
+          message: 'DEV-0000024:T1:turns_snapshot_usage',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          context: {
+            conversationId: parsedParams.data.id,
+            hasUsage,
+            hasTiming,
+          },
+        });
+      }
+
       const response: Record<string, unknown> = { items };
       const inflight = snapshotInflight(parsedParams.data.id);
       if (inflight) {
@@ -607,6 +663,22 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
     } satisfies AppendTurnInput;
 
     try {
+      if (
+        payload.role === 'assistant' &&
+        (payload.usage !== undefined || payload.timing !== undefined)
+      ) {
+        append({
+          level: 'info',
+          message: 'DEV-0000024:T1:assistant_usage_accepted',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          context: {
+            conversationId: parsedParams.data.id,
+            hasUsage: payload.usage !== undefined,
+            hasTiming: payload.timing !== undefined,
+          },
+        });
+      }
       await appendTurn(payload);
       res.status(201).json({ status: 'ok' });
     } catch (err) {

@@ -129,8 +129,8 @@ We want each chat and agent message bubble header to show the message date and t
 
 ### 1. Server: persist usage/timing metadata on assistant turns (REST + storage)
 
-- Task Status: **__in_progress__**
-- Git Commits: **03e756a, 378fe9b, 5f65561, 8fa48a0**
+- Task Status: **__done__**
+- Git Commits: **03e756a, 378fe9b, 5f65561, 8fa48a0, cc6a8b5**
 
 #### Overview
 

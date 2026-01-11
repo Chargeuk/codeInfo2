@@ -253,6 +253,7 @@ Extend the server’s stored turn shape to include optional usage and timing met
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: update tree only if files move or new files added.
+   - Ordering: complete this after any subtask that adds/removes files.
    - Document location:
      - `projectStructure.md`
 
@@ -382,6 +383,7 @@ Extend the core chat event pipeline so usage/timing metadata can flow from provi
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: update tree only if file paths change.
+   - Ordering: complete this after any subtask that adds/removes files.
    - Document location:
      - `projectStructure.md`
 
@@ -504,6 +506,7 @@ Capture usage metadata from Codex `turn.completed` events and feed it into the s
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: update tree only if file paths change.
+   - Ordering: complete this after any subtask that adds/removes files.
    - Document location:
      - `projectStructure.md`
 
@@ -616,6 +619,7 @@ Capture LM Studio prediction stats and feed them into the shared chat usage/timi
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: update tree only if file paths change.
+   - Ordering: complete this after any subtask that adds/removes files.
    - Document location:
      - `projectStructure.md`
 
@@ -719,6 +723,7 @@ Expose usage/timing metadata on the WS `turn_final` payload so clients can rende
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: update tree only if file paths change.
+   - Ordering: complete this after any subtask that adds/removes files.
    - Document location:
      - `projectStructure.md`
 
@@ -943,6 +948,7 @@ Extend the WS transcript event mapping so usage/timing fields land on streaming 
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: update tree only if file paths change.
+   - Ordering: complete this after any subtask that adds/removes files.
    - Document location:
      - `projectStructure.md`
 
@@ -1096,6 +1102,7 @@ Render message header metadata for user/assistant bubbles in Chat and Agents: ti
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: update tree only if file paths change.
+   - Ordering: complete this after any subtask that adds/removes files.
    - Document location:
      - `projectStructure.md`
 
@@ -1171,6 +1178,7 @@ Validate the full story against acceptance criteria, perform clean builds/tests,
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: update tree only if file paths changed.
+   - Ordering: complete this after any subtask that adds/removes files.
 7. [ ] Create a summary of all changes within this story and generate the pull request comment (must cover all tasks)
    - Documentation to read (repeat):
      - Husky: Context7 `/typicode/husky`

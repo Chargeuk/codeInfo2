@@ -83,6 +83,8 @@ We want each chat and agent message bubble header to show the message date and t
 - `server/src/mongo/repo.ts` accepts optional `createdAt` when appending turns, and updates `lastMessageAt` from that timestamp.
 - `server/src/chat/inflightRegistry.ts` tracks `userTurn.createdAt` and derives `assistantCreatedAt` for in-flight UI rendering.
 - `server/src/chat/interfaces/ChatInterfaceCodex.ts` logs any `usage` payloads found on Codex events and logs full `turn.completed` payloads, but does not persist usage yet.
+- `server/src/chat/interfaces/ChatInterface.ts` currently emits `complete` without usage/timing metadata and `chatStreamBridge` publishes `turn_final` without usage/timing; both need extension to carry the new metadata.
+- `@lmstudio/sdk` exposes `PredictionResult.stats` on the `OngoingPrediction` result (via `prediction.result()`), which includes `tokensPerSecond`, `timeToFirstTokenSec`, `totalTimeSec`, and token counts.
 - `@lmstudio/sdk` defines `LLMPredictionStats` with `tokensPerSecond`, `totalTimeSec`, `promptTokensCount`, `predictedTokensCount`, and `totalTokensCount` (available on `PredictionResult.stats`).
 
 ## Research Findings (external docs)
@@ -157,16 +159,24 @@ Extend the server’s stored turn shape to include optional usage and timing met
      - Keep `command` metadata unchanged for agent step display.
      - Ensure these fields are optional and safe for non-assistant turns.
 
-3. [ ] Thread usage/timing through repo types and REST routes:
+3. [ ] Thread usage/timing through repo types and append helpers:
    - Files to edit:
      - `server/src/mongo/repo.ts` (AppendTurnInput + TurnSummary)
-     - `server/src/routes/conversations.ts` (POST/GET turn schemas)
+     - `server/src/chat/interfaces/ChatInterface.ts` (persistAssistantTurn payload)
    - Requirements:
      - Accept optional `usage`/`timing` only for assistant turns in the append schema.
+     - Ensure `persistAssistantTurn` can pass usage/timing into `appendTurn` and memory persistence.
      - Return `usage`/`timing` in `GET /conversations/:id/turns` when stored.
      - Omit fields (not `null`) when values are missing.
 
-4. [ ] Add/extend server integration tests for usage/timing:
+4. [ ] Extend REST turn schemas to accept usage/timing safely:
+   - Files to edit:
+     - `server/src/routes/conversations.ts`
+   - Requirements:
+     - Add `usage` + `timing` to `appendTurnSchema`.
+     - Enforce that `usage`/`timing` is only accepted when `role === 'assistant'`.
+
+5. [ ] Add/extend server integration tests for usage/timing:
    - Documentation to read:
      - Node.js test runner (node:test): https://nodejs.org/api/test.html
    - Files to edit:
@@ -176,25 +186,25 @@ Extend the server’s stored turn shape to include optional usage and timing met
      - Assert `GET /conversations/:id/turns` returns the metadata fields intact.
      - Assert user turns ignore any usage/timing input.
 
-5. [ ] Documentation update - `README.md` (if any user-facing changes need to be called out):
+6. [ ] Documentation update - `README.md` (if any user-facing changes need to be called out):
    - Documentation to read:
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document location:
      - `README.md`
 
-6. [ ] Documentation update - `design.md` (document new turn metadata fields):
+7. [ ] Documentation update - `design.md` (document new turn metadata fields):
    - Documentation to read:
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document location:
      - `design.md`
 
-7. [ ] Documentation update - `projectStructure.md` (only if files/paths change):
+8. [ ] Documentation update - `projectStructure.md` (only if files/paths change):
    - Documentation to read:
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document location:
      - `projectStructure.md`
 
-8. [ ] Run full linting:
+9. [ ] Run full linting:
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
    - If either fails, run `npm run lint:fix` / `npm run format --workspaces` and resolve remaining issues.
@@ -246,7 +256,17 @@ Capture usage/timing metadata from Codex and LM Studio provider responses and pe
    - Goal:
      - Confirm where to capture provider usage/timing and how `turn_final` is emitted.
 
-2. [ ] Capture Codex usage payloads and persist them:
+2. [ ] Add usage/timing propagation to ChatInterface + stream bridge:
+   - Files to edit:
+     - `server/src/chat/interfaces/ChatInterface.ts`
+     - `server/src/chat/chatStreamBridge.ts`
+   - Requirements:
+     - Extend `ChatCompleteEvent` (or add a new event) to carry `usage` + `timing`.
+     - Track usage/timing in `run()` and pass into `persistAssistantTurn`.
+     - Capture a run start timestamp in `run()` so timing can fall back when providers omit stats.
+     - Ensure `publishTurnFinal` can include usage/timing metadata for WS clients.
+
+3. [ ] Capture Codex usage payloads and persist them:
    - Files to edit:
      - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
    - Requirements:
@@ -254,15 +274,16 @@ Capture usage/timing metadata from Codex and LM Studio provider responses and pe
      - Derive `totalTokens` from Codex usage when the provider omits it.
      - If elapsed time can be derived from run timing, populate `timing.totalTimeSec` accordingly.
 
-3. [ ] Capture LM Studio prediction stats and persist them:
+4. [ ] Capture LM Studio prediction stats and persist them:
    - Files to edit:
      - `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`
    - Requirements:
+     - Use `onPredictionCompleted` or `prediction.result()` to access `PredictionResult.stats`.
      - Map SDK stats (`promptTokensCount`, `predictedTokensCount`, `totalTokensCount`) into `usage` fields.
      - Map `totalTimeSec`, `tokensPerSecond`, and `timeToFirstTokenSec` into `timing` fields when present.
      - If timing is missing but run timing is available, calculate `timing.totalTimeSec`.
 
-4. [ ] Include usage/timing on WS `turn_final` events:
+5. [ ] Include usage/timing on WS `turn_final` events:
    - Documentation to read:
      - Zod schema validation: Context7 `/colinhacks/zod`
    - Files to edit:
@@ -272,36 +293,37 @@ Capture usage/timing metadata from Codex and LM Studio provider responses and pe
      - Add optional `usage` + `timing` to the `turn_final` payload shape.
      - Ensure WS events still validate with existing protocol versioning.
 
-5. [ ] Add/extend server tests for provider/WS metadata:
+6. [ ] Add/extend server tests for provider/WS metadata:
    - Documentation to read:
      - `ws` server API: Context7 `/websockets/ws/8_18_3`
    - Files to edit:
      - `server/src/test/unit/ws-server.test.ts`
      - `server/src/test/unit/chat-interface-codex.test.ts`
+     - `server/src/test/integration/chat-codex.test.ts`
      - `server/src/test/integration/chat-assistant-persistence.test.ts`
    - Requirements:
      - Assert `turn_final` includes usage/timing when provided by the provider.
      - Keep existing WS protocol expectations intact.
 
-6. [ ] Documentation update - `README.md` (if any user-facing behavior changes need to be called out):
+7. [ ] Documentation update - `README.md` (if any user-facing behavior changes need to be called out):
    - Documentation to read:
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document location:
      - `README.md`
 
-7. [ ] Documentation update - `design.md` (document provider usage/timing capture):
+8. [ ] Documentation update - `design.md` (document provider usage/timing capture):
    - Documentation to read:
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document location:
      - `design.md`
 
-8. [ ] Documentation update - `projectStructure.md` (only if files/paths change):
+9. [ ] Documentation update - `projectStructure.md` (only if files/paths change):
    - Documentation to read:
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document location:
      - `projectStructure.md`
 
-9. [ ] Run full linting:
+10. [ ] Run full linting:
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
    - If either fails, run `npm run lint:fix` / `npm run format --workspaces` and resolve remaining issues.
@@ -367,9 +389,11 @@ Extend client-side message models and hooks to carry usage/timing metadata from 
    - Files to edit:
      - `client/src/hooks/useChatWs.ts`
      - `client/src/hooks/useChatStream.ts`
+     - `client/src/test/support/mockChatWs.ts`
    - Requirements:
      - Include `usage` + `timing` in the `turn_final` event model.
      - Prefer WS metadata for in-flight bubbles until REST refresh replaces it.
+     - When hydrating an inflight snapshot, update the assistant bubble timestamp to `inflight.startedAt`.
 
 5. [ ] Update hook tests to cover new metadata fields:
    - Documentation to read:

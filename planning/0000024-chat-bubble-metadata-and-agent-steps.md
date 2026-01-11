@@ -312,6 +312,7 @@ Extend the server’s stored turn shape to include optional usage and timing met
 - Lint still reports pre-existing warnings; Prettier check passed.
 - `npm run build --workspace server` and `npm run build --workspace client` succeeded (client build warns about chunk size).
 - `npm run test --workspace server` failed in cucumber integration with `ChromaConnectionError` (Chroma container unhealthy), leaving step 3 incomplete.
+- Reran `npm run test --workspace server` after setting `LMSTUDIO_BASE_URL` in `ws-chat-stream.test.ts`; all unit + integration tests passed.
 - `npm run test --workspace client` succeeded with existing React DOM nesting console warnings.
 - `npm run e2e` (allow up to 5 minutes; e.g., `timeout 5m` or set `timeout_ms=300000` in the harness), `npm run compose:build`, `npm run compose:up`, and `npm run compose:down` succeeded.
 - Manual Playwright-MCP check blocked: Playwright MCP endpoint at `host.docker.internal:8931` rejects non-localhost access; localhost binding not reachable from this environment.

@@ -151,7 +151,9 @@ Extend the server’s stored turn shape to include optional usage and timing met
    - Files to edit:
      - `server/src/mongo/turn.ts`
    - Requirements:
-     - Add optional `usage` and `timing` objects with numeric fields (no schema defaults).
+     - Add optional `usage` object with `inputTokens`, `outputTokens`, `totalTokens`, `cachedInputTokens` numeric fields.
+     - Add optional `timing` object with `totalTimeSec`, `tokensPerSecond`, `timeToFirstTokenSec` numeric fields.
+     - Do not add defaults; store only when data exists.
      - Keep `command` metadata unchanged for agent step display.
      - Ensure these fields are optional and safe for non-assistant turns.
 
@@ -239,6 +241,8 @@ Capture usage/timing metadata from Codex and LM Studio provider responses and pe
      - `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`
      - `server/src/ws/types.ts`
      - `server/src/ws/server.ts`
+     - `server/src/test/unit/chat-interface-codex.test.ts`
+     - `server/src/test/integration/chat-assistant-persistence.test.ts`
    - Goal:
      - Confirm where to capture provider usage/timing and how `turn_final` is emitted.
 
@@ -247,6 +251,7 @@ Capture usage/timing metadata from Codex and LM Studio provider responses and pe
      - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
    - Requirements:
      - Map `turn.completed` usage fields (`input_tokens`, `output_tokens`, `cached_input_tokens`) into stored `usage` fields.
+     - Derive `totalTokens` from Codex usage when the provider omits it.
      - If elapsed time can be derived from run timing, populate `timing.totalTimeSec` accordingly.
 
 3. [ ] Capture LM Studio prediction stats and persist them:
@@ -254,7 +259,8 @@ Capture usage/timing metadata from Codex and LM Studio provider responses and pe
      - `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`
    - Requirements:
      - Map SDK stats (`promptTokensCount`, `predictedTokensCount`, `totalTokensCount`) into `usage` fields.
-     - Map `totalTimeSec` and `tokensPerSecond` into `timing` fields when present.
+     - Map `totalTimeSec`, `tokensPerSecond`, and `timeToFirstTokenSec` into `timing` fields when present.
+     - If timing is missing but run timing is available, calculate `timing.totalTimeSec`.
 
 4. [ ] Include usage/timing on WS `turn_final` events:
    - Documentation to read:
@@ -271,7 +277,8 @@ Capture usage/timing metadata from Codex and LM Studio provider responses and pe
      - `ws` server API: Context7 `/websockets/ws/8_18_3`
    - Files to edit:
      - `server/src/test/unit/ws-server.test.ts`
-     - `server/src/test/unit/chat-interface-codex.test.ts` (or nearest existing provider tests)
+     - `server/src/test/unit/chat-interface-codex.test.ts`
+     - `server/src/test/integration/chat-assistant-persistence.test.ts`
    - Requirements:
      - Assert `turn_final` includes usage/timing when provided by the provider.
      - Keep existing WS protocol expectations intact.
@@ -346,9 +353,17 @@ Extend client-side message models and hooks to carry usage/timing metadata from 
      - `client/src/hooks/useConversationTurns.ts`
    - Requirements:
      - Add optional `usage` + `timing` fields to `StoredTurn`.
+     - Include `cachedInputTokens` + `timeToFirstTokenSec` in the mapped shapes.
      - Map REST response fields into the new shape without breaking existing consumers.
 
-3. [ ] Extend WS event mapping to include usage/timing:
+3. [ ] Update shared chat fixtures for new metadata fields:
+   - Files to edit:
+     - `common/src/fixtures/chatStream.ts`
+   - Requirements:
+     - Add representative `usage` + `timing` fields to `chatWsTurnFinalFixture`.
+     - Keep existing fixture shapes backward-compatible with current tests.
+
+4. [ ] Extend WS event mapping to include usage/timing:
    - Files to edit:
      - `client/src/hooks/useChatWs.ts`
      - `client/src/hooks/useChatStream.ts`
@@ -356,7 +371,7 @@ Extend client-side message models and hooks to carry usage/timing metadata from 
      - Include `usage` + `timing` in the `turn_final` event model.
      - Prefer WS metadata for in-flight bubbles until REST refresh replaces it.
 
-4. [ ] Update hook tests to cover new metadata fields:
+5. [ ] Update hook tests to cover new metadata fields:
    - Documentation to read:
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
    - Files to edit:
@@ -365,25 +380,25 @@ Extend client-side message models and hooks to carry usage/timing metadata from 
    - Requirements:
      - Add assertions for `usage` + `timing` mapping.
 
-5. [ ] Documentation update - `README.md` (if any user-facing changes need to be called out):
+6. [ ] Documentation update - `README.md` (if any user-facing changes need to be called out):
    - Documentation to read:
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document location:
      - `README.md`
 
-6. [ ] Documentation update - `design.md` (document client state shape changes):
+7. [ ] Documentation update - `design.md` (document client state shape changes):
    - Documentation to read:
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document location:
      - `design.md`
 
-7. [ ] Documentation update - `projectStructure.md` (only if files/paths change):
+8. [ ] Documentation update - `projectStructure.md` (only if files/paths change):
    - Documentation to read:
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document location:
      - `projectStructure.md`
 
-8. [ ] Run full linting:
+9. [ ] Run full linting:
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
    - If either fails, run `npm run lint:fix` / `npm run format --workspaces` and resolve remaining issues.

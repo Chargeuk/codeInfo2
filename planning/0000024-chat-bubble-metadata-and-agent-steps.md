@@ -297,6 +297,7 @@ Extend the core chat event pipeline so usage/timing metadata can flow from provi
 - LM Studio npm README (install + API surface reference): https://www.npmjs.com/package/@lmstudio/sdk
 - Node.js EventEmitter (event emission/handling semantics): https://nodejs.org/api/events.html
 - Node.js test runner `node:test` (unit test structure): https://nodejs.org/api/test.html
+- Mermaid docs (sequence/flow diagrams for chat pipeline changes): Context7 `/mermaid-js/mermaid`
 - ESLint CLI docs (lint command flags + usage): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier formatting options + CLI (format/check commands): https://prettier.io/docs/options
 - Markdown syntax (README/design updates): https://www.markdownguide.org/basic-syntax/
@@ -372,10 +373,11 @@ Extend the core chat event pipeline so usage/timing metadata can flow from provi
    - Document location:
      - `README.md`
 
-8. [ ] Documentation update - `design.md` (document chat event metadata flow):
+8. [ ] Documentation update - `design.md` (document chat event metadata flow + diagrams):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-   - Recap: document where usage/timing flows through ChatInterface events.
+     - Mermaid docs: Context7 `/mermaid-js/mermaid`
+   - Recap: document where usage/timing flows through ChatInterface events and update any relevant mermaid flow/sequence diagrams.
    - Document location:
      - `design.md`
 
@@ -660,6 +662,7 @@ Expose usage/timing metadata on the WS `turn_final` payload so clients can rende
 
 - `ws` 8.18.3 server API (send/receive JSON payloads): Context7 `/websockets/ws/8_18_3`
 - Node.js test runner `node:test` (unit test structure): https://nodejs.org/api/test.html
+- Mermaid docs (sequence diagram updates for WS payloads): Context7 `/mermaid-js/mermaid`
 - ESLint CLI docs (lint command flags + usage): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier formatting options + CLI (format/check commands): https://prettier.io/docs/options
 - Markdown syntax (README/design updates): https://www.markdownguide.org/basic-syntax/
@@ -712,10 +715,11 @@ Expose usage/timing metadata on the WS `turn_final` payload so clients can rende
    - Document location:
      - `README.md`
 
-6. [ ] Documentation update - `design.md` (document WS payload changes):
+6. [ ] Documentation update - `design.md` (document WS payload changes + diagrams):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-   - Recap: document `turn_final` payload shape and usage/timing fields.
+     - Mermaid docs: Context7 `/mermaid-js/mermaid`
+   - Recap: document `turn_final` payload shape, usage/timing fields, and update any WS sequence diagrams.
    - Document location:
      - `design.md`
 
@@ -866,6 +870,7 @@ Extend the WS transcript event mapping so usage/timing fields land on streaming 
 - TypeScript handbook (object types + optional properties): https://www.typescriptlang.org/docs/handbook/2/objects.html
 - React Testing Library (hook tests + render utilities): https://testing-library.com/docs/react-testing-library/intro/
 - Jest docs (test runner + expect API): Context7 `/jestjs/jest`
+- Mermaid docs (client WS flow updates): Context7 `/mermaid-js/mermaid`
 - ESLint CLI docs (lint command flags + usage): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier formatting options + CLI (format/check commands): https://prettier.io/docs/options
 - Markdown syntax (README/design updates): https://www.markdownguide.org/basic-syntax/
@@ -937,10 +942,11 @@ Extend the WS transcript event mapping so usage/timing fields land on streaming 
    - Document location:
      - `README.md`
 
-8. [ ] Documentation update - `design.md` (document WS mapping changes):
+8. [ ] Documentation update - `design.md` (document WS mapping changes + diagrams):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-   - Recap: document client WS mapping of usage/timing.
+     - Mermaid docs: Context7 `/mermaid-js/mermaid`
+   - Recap: document client WS mapping of usage/timing and update any relevant mermaid sequence diagrams.
    - Document location:
      - `design.md`
 
@@ -1145,7 +1151,7 @@ Validate the full story against acceptance criteria, perform clean builds/tests,
 - Docker Compose guide (clean builds + compose up/down): https://docs.docker.com/guides/docker-compose/
 - Playwright Test docs (Node/TS setup + running tests): https://playwright.dev/docs/intro
 - Husky docs (git hook management + install): https://typicode.github.io/husky/
-- Mermaid docs (diagram syntax for design.md): https://mermaid.js.org/intro/syntax-reference.html
+- Mermaid docs (diagram syntax for design.md): Context7 `/mermaid-js/mermaid`
 - Jest docs (test runner + expect API): Context7 `/jestjs/jest`
 - Cucumber guides (BDD + JavaScript workflow): https://cucumber.io/docs/guides/
 - Cucumber guide (JS 10-minute tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/

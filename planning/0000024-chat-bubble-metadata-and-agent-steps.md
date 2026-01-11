@@ -291,7 +291,7 @@ Extend the server’s stored turn shape to include optional usage and timing met
 
 1. [x] `npm run build --workspace server`
 2. [x] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
 4. [x] `npm run test --workspace client`
 5. [x] `npm run e2e` (allow up to 5 minutes; e.g., `timeout 5m` or set `timeout_ms=300000` in the harness)
 6. [x] `npm run compose:build`

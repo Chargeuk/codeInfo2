@@ -29,7 +29,7 @@ We want each chat and agent message bubble header to show the message date and t
 - **Assistant token usage (when present):** Assistant bubbles show “Tokens: in <input> · out <output> · total <total>”. If cached input tokens are provided, append “(cached <cachedInput>)”.
 - **Timing + rate (when present):** Assistant bubbles show “Time: <seconds>s” when `totalTimeSec` is provided or calculated from run timing; show “Rate: <tokensPerSecond> tok/s” only when supplied by the provider.
 - **Omit when missing:** If a provider does not supply any token usage fields, do not render any token usage text. If no timing data exists, do not render time/rate text.
-- **Agent step indicator:** Agent assistant bubbles show “Step X of Y” when step metadata (`stepIndex` + `stepCount`) is present; otherwise no step indicator is shown.
+- **Agent step indicator:** Agent assistant bubbles show “Step X of Y” when step metadata (`stepIndex` + `totalSteps`) is present; otherwise no step indicator is shown.
 - **No regressions:** Existing chat/agent workflows, persistence, and streaming continue to function without UI layout regressions.
 
 ---
@@ -41,6 +41,7 @@ We want each chat and agent message bubble header to show the message date and t
 - Calculating tokens-per-second when a provider does not supply it.
 - Changing or expanding provider APIs beyond capturing existing usage metadata.
 - Redesigning chat/agent layouts outside of header metadata additions.
+- Adding headers to local-only status/error bubbles that do not have persisted timestamps.
 
 ---
 
@@ -54,8 +55,8 @@ We want each chat and agent message bubble header to show the message date and t
 ## Contracts & Storage Changes (explicit)
 
 - Reuse existing `Turn.command` metadata (`name`, `stepIndex`, `totalSteps`) for agent step display (no new schema needed for steps).
-- Add optional usage metadata on assistant turns (input/output/total tokens plus cached input when supplied).
-- Add optional timing metadata on assistant turns (provider time taken + tokens/sec when available; calculate elapsed time when missing).
+- Add optional usage metadata on assistant turns only (input/output/total tokens plus cached input when supplied).
+- Add optional timing metadata on assistant turns only (provider time taken + tokens/sec when available; calculate elapsed time when missing).
 - All new fields are optional and omitted when values are unavailable.
 
 ---
@@ -64,7 +65,11 @@ We want each chat and agent message bubble header to show the message date and t
 
 - **Mongo Turn document (`server/src/mongo/turn.ts`):** add optional `usage` and `timing` objects on assistant turns; keep existing `command` for step metadata.
   - `usage`: `{ inputTokens?: number; outputTokens?: number; totalTokens?: number; cachedInputTokens?: number }`
-  - `timing`: `{ totalTimeSec?: number; tokensPerSecond?: number; timeToFirstTokenSec?: number; generatedAt?: string }`
+    - Map LM Studio `prompt_tokens` → `inputTokens`, `completion_tokens` → `outputTokens`, `total_tokens` → `totalTokens`.
+    - Map Codex `input_tokens` → `inputTokens`, `output_tokens` → `outputTokens`, `cached_input_tokens` → `cachedInputTokens` (derive `totalTokens` when available).
+  - `timing`: `{ totalTimeSec?: number; tokensPerSecond?: number; timeToFirstTokenSec?: number }`
+    - Map LM Studio `stats.generation_time` → `totalTimeSec`, `stats.tokens_per_second` → `tokensPerSecond`, `stats.time_to_first_token` → `timeToFirstTokenSec`.
+    - If provider does not supply timing, compute `totalTimeSec` using `inflight.startedAt` → assistant turn `createdAt`.
 - **REST append turn (`POST /conversations/:id/turns`):** extend request schema to accept optional `usage` + `timing` (no changes for user turns).
 - **REST turn snapshots (`GET /conversations/:id/turns`):** include `usage` + `timing` on returned assistant turn items when stored; continue returning `command` when present.
 - **WebSocket updates (`turn_final`):** optionally include `usage` + `timing` so live UI can render without waiting for a refresh; otherwise rely on persisted turns.
@@ -91,7 +96,7 @@ We want each chat and agent message bubble header to show the message date and t
 
 - **Server turn metadata:** Extend `server/src/mongo/turn.ts` with optional `usage` and `timing` fields (keep existing `command` metadata for step display). Thread these fields through `server/src/mongo/repo.ts` (`AppendTurnInput`, `TurnSummary`) and `server/src/routes/conversations.ts` (append schema + REST response). Use `createdAt` + run start time to calculate elapsed time when providers omit timing.
 - **Provider capture:** In `server/src/chat/interfaces/ChatInterfaceCodex.ts`, capture `event.usage` from `turn.completed` and store it on the assistant turn. In `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`, read `PredictionResult.stats` (tokens per second, total time) and token counts to populate usage/timing; ensure the metadata is passed into `ChatInterface.persistAssistantTurn` so it persists.
-- **Inflight/WS updates:** Decide whether to surface usage/timing only on persisted turns (REST refresh) or also via WS. If live updates are needed, extend `server/src/ws/types.ts` (`turn_final` payload) and `client/src/hooks/useChatWs.ts` to carry usage/timing so the UI updates without a reload.
+- **Inflight/WS updates:** Extend `server/src/ws/types.ts` (`turn_final` payload) and `client/src/hooks/useChatWs.ts` to carry usage/timing so the UI updates immediately after a streamed response completes (no manual refresh needed).
 - **Client data flow:** Add usage/timing fields to `client/src/hooks/useConversationTurns.ts` (`StoredTurn`) and `client/src/hooks/useChatStream.ts` (`ChatMessage`), mapping REST and WS data into the message model. Ensure `command` is already mapped for step indicators.
 - **Bubble rendering:** Update `client/src/pages/ChatPage.tsx` and `client/src/pages/AgentsPage.tsx` bubble headers to render: (1) localized timestamp using `Intl.DateTimeFormat`, (2) token usage line only when available, (3) time + rate line when present, and (4) “Step X of Y” when `command` metadata exists. Use MUI `Stack`, `Typography`, and `Tooltip` as needed for layout and hover details.
 

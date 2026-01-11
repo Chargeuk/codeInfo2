@@ -272,7 +272,17 @@ Extend the server’s stored turn shape to include optional usage and timing met
    - Description: Add/update tree entries for any new/changed files, including every file added or removed in this task.
    - Purpose: Keep the repository map current.
 
-12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+12. [ ] Add manual-check log lines for REST usage/timing persistence and document expected output:
+   - Files to edit:
+     - `server/src/routes/conversations.ts`
+   - Requirements:
+     - Log before responding to `GET /conversations/:id/turns` when usage/timing is present (include `conversationId`, `hasUsage`, `hasTiming`).
+     - Log on `POST /conversations/:id/turns` when assistant usage/timing is accepted.
+     - Example log tags (must be exact):
+       - `DEV-0000024:T1:turns_snapshot_usage`
+       - `DEV-0000024:T1:assistant_usage_accepted`
+
+13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/options
@@ -286,7 +296,7 @@ Extend the server’s stored turn shape to include optional usage and timing met
 5. [ ] `npm run e2e`
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open Chat + Agents, send a message, refresh history, and verify no console errors; if `/conversations/:id/turns` responses include usage/timing fields, confirm they appear in the network payload.
+8. [ ] Manual Playwright-MCP check: open Chat + Agents, send a message, refresh history, and verify no console errors; confirm console/network logs include `DEV-0000024:T1:turns_snapshot_usage` and `DEV-0000024:T1:assistant_usage_accepted` with `hasUsage/hasTiming=true` when metadata is present.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -413,7 +423,17 @@ Extend the core chat event pipeline so usage/timing metadata can flow from provi
    - Description: Update the tree if any files were added/removed, including every file added or removed in this task.
    - Purpose: Keep the repository map current.
 
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+10. [ ] Add manual-check log lines for usage/timing flow through chat events:
+   - Files to edit:
+     - `server/src/chat/interfaces/ChatInterface.ts`
+     - `server/src/chat/chatStreamBridge.ts`
+   - Requirements:
+     - Log when a completion event carries usage/timing and when it is forwarded to persistence.
+     - Example log tags (must be exact):
+       - `DEV-0000024:T2:complete_usage_received`
+       - `DEV-0000024:T2:persist_usage_forwarded`
+
+11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/options
@@ -427,7 +447,7 @@ Extend the core chat event pipeline so usage/timing metadata can flow from provi
 5. [ ] `npm run e2e`
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: run a chat request and confirm streaming completes without console errors; inspect WS frames if possible to confirm `turn_final` payload contains usage/timing when emitted.
+8. [ ] Manual Playwright-MCP check: run a chat request and confirm streaming completes without console errors; verify console logs include `DEV-0000024:T2:complete_usage_received` and `DEV-0000024:T2:persist_usage_forwarded` when metadata is present; inspect WS frames if possible to confirm `turn_final` payload contains usage/timing.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -544,7 +564,15 @@ Capture usage metadata from Codex `turn.completed` events and feed it into the s
    - Description: Update tree entries for any new/changed files, including every file added or removed in this task.
    - Purpose: Keep the repository map current.
 
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+10. [ ] Add manual-check log lines for Codex usage capture:
+   - Files to edit:
+     - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
+   - Requirements:
+     - Log when a `turn.completed` event includes usage (include input/output/cached counts).
+     - Example log tag (must be exact):
+       - `DEV-0000024:T3:codex_usage_received`
+
+11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/options
@@ -558,7 +586,7 @@ Capture usage metadata from Codex `turn.completed` events and feed it into the s
 5. [ ] `npm run e2e`
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: if Codex is available, run a Codex chat or agent command and verify no console errors; confirm usage metadata appears in the response payload or UI when available.
+8. [ ] Manual Playwright-MCP check: if Codex is available, run a Codex chat or agent command and verify no console errors; confirm `DEV-0000024:T3:codex_usage_received` appears in logs and usage metadata appears in the response payload/UI when available.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -665,7 +693,15 @@ Capture LM Studio prediction stats and feed them into the shared chat usage/timi
    - Description: Update tree entries for any new/changed files, including every file added or removed in this task.
    - Purpose: Keep the repository map current.
 
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+9. [ ] Add manual-check log lines for LM Studio stats capture:
+   - Files to edit:
+     - `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`
+   - Requirements:
+     - Log when prediction stats are available and mapped to usage/timing.
+     - Example log tag (must be exact):
+       - `DEV-0000024:T4:lmstudio_stats_mapped`
+
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/options
@@ -679,7 +715,7 @@ Capture LM Studio prediction stats and feed them into the shared chat usage/timi
 5. [ ] `npm run e2e`
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: use LM Studio provider to send a chat message, confirm response renders, no console errors, and verify usage/timing metadata appears in payload/UI when available.
+8. [ ] Manual Playwright-MCP check: use LM Studio provider to send a chat message, confirm response renders, no console errors, and verify `DEV-0000024:T4:lmstudio_stats_mapped` appears in logs alongside usage/timing metadata in payload/UI when available.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -815,7 +851,16 @@ Expose command step metadata on inflight snapshots so agent bubbles can render �
    - Description: Update tree entries for any new/changed files, including every file added or removed in this task.
    - Purpose: Keep the repository map current.
 
-11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+11. [ ] Add manual-check log lines for inflight command metadata propagation:
+   - Files to edit:
+     - `server/src/chat/inflightRegistry.ts`
+     - `server/src/ws/server.ts`
+   - Requirements:
+     - Log when inflight snapshots include command metadata.
+     - Example log tag (must be exact):
+       - `DEV-0000024:T5:inflight_command_snapshot`
+
+12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/options
@@ -829,7 +874,7 @@ Expose command step metadata on inflight snapshots so agent bubbles can render �
 5. [ ] `npm run e2e`
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: run an agent command and confirm the “Step X of Y” indicator appears during streaming, with no console errors.
+8. [ ] Manual Playwright-MCP check: run an agent command and confirm the “Step X of Y” indicator appears during streaming, with no console errors, and verify `DEV-0000024:T5:inflight_command_snapshot` appears in logs.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -928,7 +973,15 @@ Expose usage/timing metadata on the WS `turn_final` payload so clients can rende
    - Description: Update tree entries for any new/changed files, including every file added or removed in this task.
    - Purpose: Keep the repository map current.
 
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+8. [ ] Add manual-check log lines for WS `turn_final` usage/timing emission:
+   - Files to edit:
+     - `server/src/ws/server.ts`
+   - Requirements:
+     - Log when `turn_final` includes usage/timing metadata.
+     - Example log tag (must be exact):
+       - `DEV-0000024:T6:turn_final_usage`
+
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/options
@@ -942,7 +995,7 @@ Expose usage/timing metadata on the WS `turn_final` payload so clients can rende
 5. [ ] `npm run e2e`
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: send a chat message and confirm token/time metadata appears immediately after completion (no refresh), with no console errors.
+8. [ ] Manual Playwright-MCP check: send a chat message and confirm token/time metadata appears immediately after completion (no refresh), with no console errors, and verify `DEV-0000024:T6:turn_final_usage` appears in logs.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -1064,7 +1117,16 @@ Extend the REST turn snapshot mapping to include usage/timing fields in stored t
    - Description: Update tree entries for any new/changed files, including every file added or removed in this task.
    - Purpose: Keep the repository map current.
 
-11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+11. [ ] Add manual-check log lines for REST stored-turn mapping:
+   - Files to edit:
+     - `client/src/hooks/useConversationTurns.ts`
+   - Requirements:
+     - Log when REST turns include usage/timing and when inflight command metadata is hydrated.
+     - Example log tags (must be exact):
+       - `DEV-0000024:T7:rest_usage_mapped`
+       - `DEV-0000024:T7:rest_inflight_command`
+
+12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/options
@@ -1078,7 +1140,7 @@ Extend the REST turn snapshot mapping to include usage/timing fields in stored t
 5. [ ] `npm run e2e`
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: send a message, refresh the page, and confirm usage/timing metadata persists in history; verify no console errors.
+8. [ ] Manual Playwright-MCP check: send a message, refresh the page, and confirm usage/timing metadata persists in history; verify no console errors and confirm `DEV-0000024:T7:rest_usage_mapped` + `DEV-0000024:T7:rest_inflight_command` appear in logs.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -1220,7 +1282,18 @@ Extend the WS transcript event mapping so usage/timing fields and inflight comma
    - Description: Update tree entries for any new/changed files, including every file added or removed in this task.
    - Purpose: Keep the repository map current.
 
-12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+12. [ ] Add manual-check log lines for WS transcript mapping:
+   - Files to edit:
+     - `client/src/hooks/useChatWs.ts`
+     - `client/src/hooks/useChatStream.ts`
+   - Requirements:
+     - Log when `turn_final` usage/timing is applied to the streaming assistant bubble.
+     - Log when inflight snapshots include command metadata.
+     - Example log tags (must be exact):
+       - `DEV-0000024:T8:ws_usage_applied`
+       - `DEV-0000024:T8:ws_inflight_command`
+
+13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/options
@@ -1234,7 +1307,7 @@ Extend the WS transcript event mapping so usage/timing fields and inflight comma
 5. [ ] `npm run e2e`
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open two tabs on the same conversation, verify WS updates show tokens/timing live, and confirm no console errors.
+8. [ ] Manual Playwright-MCP check: open two tabs on the same conversation, verify WS updates show tokens/timing live, and confirm no console errors; ensure logs include `DEV-0000024:T8:ws_usage_applied` and `DEV-0000024:T8:ws_inflight_command`.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -1425,7 +1498,18 @@ Render message header metadata for user/assistant bubbles in Chat and Agents: ti
    - Description: Update tree entries for any new/changed files, including every file added or removed in this task.
    - Purpose: Keep the repository map current.
 
-17. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+17. [ ] Add manual-check log lines for UI metadata rendering:
+   - Files to edit:
+     - `client/src/pages/ChatPage.tsx`
+     - `client/src/pages/AgentsPage.tsx`
+   - Requirements:
+     - Log when metadata header renders with timestamp, token line, and timing/rate.
+     - Log when step indicator renders for agent commands.
+     - Example log tags (must be exact):
+       - `DEV-0000024:T9:ui_metadata_rendered`
+       - `DEV-0000024:T9:ui_step_indicator`
+
+18. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/options
@@ -1439,7 +1523,7 @@ Render message header metadata for user/assistant bubbles in Chat and Agents: ti
 5. [ ] `npm run e2e`
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: verify timestamps, token lines (including cached suffix), timing/rate visibility, step indicator during agent runs, and no console errors.
+8. [ ] Manual Playwright-MCP check: verify timestamps, token lines (including cached suffix), timing/rate visibility, step indicator during agent runs, and no console errors; confirm logs include `DEV-0000024:T9:ui_metadata_rendered` and `DEV-0000024:T9:ui_step_indicator` when the UI renders those elements.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -1513,7 +1597,16 @@ Validate the full story against acceptance criteria, perform clean builds/tests,
      - Husky: Context7 `/typicode/husky`
    - Recap: summary must cover all tasks and mention any workflow changes.
 
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+8. [ ] Add manual-check log lines for final verification:
+   - Files to edit:
+     - `client/src/pages/ChatPage.tsx`
+     - `client/src/pages/AgentsPage.tsx`
+   - Requirements:
+     - Emit a summary log when manual checks are completed to confirm end-to-end validation.
+     - Example log tag (must be exact):
+       - `DEV-0000024:T10:manual_validation_complete`
+
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/options
@@ -1527,7 +1620,7 @@ Validate the full story against acceptance criteria, perform clean builds/tests,
 5. [ ] `npm run e2e`
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: validate chat/agents metadata UI end-to-end, capture screenshots to `./test-results/screenshots/` (name: `0000024-9-<short-name>.png`), and confirm no console errors.
+8. [ ] Manual Playwright-MCP check: validate chat/agents metadata UI end-to-end, capture screenshots to `./test-results/screenshots/` (name: `0000024-9-<short-name>.png`), confirm no console errors, and ensure `DEV-0000024:T10:manual_validation_complete` appears in logs.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes

@@ -296,7 +296,7 @@ Extend the server’s stored turn shape to include optional usage and timing met
 5. [x] `npm run e2e` (allow up to 5 minutes; e.g., `timeout 5m` or set `timeout_ms=300000` in the harness)
 6. [x] `npm run compose:build`
 7. [x] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open Chat + Agents, send a message, refresh history, and verify no console errors; confirm console/network logs include `DEV-0000024:T1:turns_snapshot_usage` and `DEV-0000024:T1:assistant_usage_accepted` with `hasUsage/hasTiming=true` when metadata is present.
+8. [x] Manual Playwright-MCP check: open Chat + Agents, send a message, refresh history, and verify no console errors; confirm console/network logs include `DEV-0000024:T1:turns_snapshot_usage` and `DEV-0000024:T1:assistant_usage_accepted` with `hasUsage/hasTiming=true` when metadata is present.
 9. [x] `npm run compose:down`
 
 #### Implementation notes
@@ -315,7 +315,9 @@ Extend the server’s stored turn shape to include optional usage and timing met
 - Reran `npm run test --workspace server` after setting `LMSTUDIO_BASE_URL` in `ws-chat-stream.test.ts`; all unit + integration tests passed.
 - `npm run test --workspace client` succeeded with existing React DOM nesting console warnings.
 - `npm run e2e` (allow up to 5 minutes; e.g., `timeout 5m` or set `timeout_ms=300000` in the harness), `npm run compose:build`, `npm run compose:up`, and `npm run compose:down` succeeded.
-- Manual Playwright-MCP check blocked: Playwright MCP endpoint at `host.docker.internal:8931` rejects non-localhost access; localhost binding not reachable from this environment.
+- Manual Playwright-MCP check completed using `http://host.docker.internal:5001`: sent a chat message, refreshed the conversation list, and verified no console errors on Chat/Agents pages.
+- Seeded a REST assistant turn with usage/timing metadata and confirmed `/logs?text=DEV-0000024:T1` reported `assistant_usage_accepted` + `turns_snapshot_usage` with `hasUsage/hasTiming=true`.
+- Brought the compose stack back down after completing the manual check.
 
 ---
 

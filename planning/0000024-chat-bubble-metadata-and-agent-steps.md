@@ -281,10 +281,13 @@ Extend the server’s stored turn shape to include optional usage and timing met
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run build --workspace client`
-3. [ ] `npm run compose:build`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test --workspace server`
-6. [ ] `npm run compose:down`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: open Chat + Agents, send a message, refresh history, and verify no console errors; if `/conversations/:id/turns` responses include usage/timing fields, confirm they appear in the network payload.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -419,10 +422,13 @@ Extend the core chat event pipeline so usage/timing metadata can flow from provi
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run build --workspace client`
-3. [ ] `npm run compose:build`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test --workspace server`
-6. [ ] `npm run compose:down`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: run a chat request and confirm streaming completes without console errors; inspect WS frames if possible to confirm `turn_final` payload contains usage/timing when emitted.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -547,10 +553,13 @@ Capture usage metadata from Codex `turn.completed` events and feed it into the s
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run build --workspace client`
-3. [ ] `npm run compose:build`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test --workspace server`
-6. [ ] `npm run compose:down`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: if Codex is available, run a Codex chat or agent command and verify no console errors; confirm usage metadata appears in the response payload or UI when available.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -665,10 +674,13 @@ Capture LM Studio prediction stats and feed them into the shared chat usage/timi
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run build --workspace client`
-3. [ ] `npm run compose:build`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test --workspace server`
-6. [ ] `npm run compose:down`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: use LM Studio provider to send a chat message, confirm response renders, no console errors, and verify usage/timing metadata appears in payload/UI when available.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -812,10 +824,13 @@ Expose command step metadata on inflight snapshots so agent bubbles can render �
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run build --workspace client`
-3. [ ] `npm run compose:build`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test --workspace server`
-6. [ ] `npm run compose:down`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: run an agent command and confirm the “Step X of Y” indicator appears during streaming, with no console errors.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -922,10 +937,13 @@ Expose usage/timing metadata on the WS `turn_final` payload so clients can rende
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run build --workspace client`
-3. [ ] `npm run compose:build`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test --workspace server`
-6. [ ] `npm run compose:down`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: send a chat message and confirm token/time metadata appears immediately after completion (no refresh), with no console errors.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1055,10 +1073,13 @@ Extend the REST turn snapshot mapping to include usage/timing fields in stored t
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run build --workspace client`
-3. [ ] `npm run compose:build`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test --workspace client`
-6. [ ] `npm run compose:down`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: send a message, refresh the page, and confirm usage/timing metadata persists in history; verify no console errors.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1208,10 +1229,13 @@ Extend the WS transcript event mapping so usage/timing fields and inflight comma
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run build --workspace client`
-3. [ ] `npm run compose:build`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test --workspace client`
-6. [ ] `npm run compose:down`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: open two tabs on the same conversation, verify WS updates show tokens/timing live, and confirm no console errors.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1410,11 +1434,13 @@ Render message header metadata for user/assistant bubbles in Chat and Agents: ti
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run build --workspace client`
-3. [ ] `npm run compose:build`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test --workspace client`
-6. [ ] `npm run e2e`
-7. [ ] `npm run compose:down`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: verify timestamps, token lines (including cached suffix), timing/rate visibility, step indicator during agent runs, and no console errors.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1494,11 +1520,15 @@ Validate the full story against acceptance criteria, perform clean builds/tests,
 
 #### Testing
 
-1. [ ] Run the client Jest tests
-2. [ ] Run the server Cucumber tests
-3. [ ] Restart the docker environment
-4. [ ] Run the e2e tests
-5. [ ] Use the Playwright MCP tool to manually check the application, saving screenshots to `./test-results/screenshots/` (name: `0000024-9-<short-name>.png`)
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: validate chat/agents metadata UI end-to-end, capture screenshots to `./test-results/screenshots/` (name: `0000024-9-<short-name>.png`), and confirm no console errors.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 

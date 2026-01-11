@@ -239,23 +239,29 @@ Extend the server’s stored turn shape to include optional usage and timing met
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap (acceptance criteria): note any user-visible metadata additions if surfaced.
-   - Document location:
-     - `README.md`
+   - Document: `README.md`
+   - Location: `README.md`
+   - Description: Note new metadata behavior (timestamps/tokens/timing) if it is user-visible.
+   - Purpose: Keep onboarding docs aligned with UI changes.
 
 10. [ ] Documentation update - `design.md` (document new turn metadata fields):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap (acceptance criteria): document assistant-only `usage`/`timing` fields and optionality.
-   - Document location:
-     - `design.md`
+   - Document: `design.md`
+   - Location: `design.md`
+   - Description: Describe new turn metadata fields and where they are persisted.
+   - Purpose: Keep architecture documentation accurate.
 
 11. [ ] Documentation update - `projectStructure.md` (only if files/paths change):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: update tree only if files move or new files added.
    - Ordering: complete this after any subtask that adds/removes files.
-   - Document location:
-     - `projectStructure.md`
+   - Document: `projectStructure.md`
+   - Location: `projectStructure.md`
+   - Description: Add/update tree entries for any new/changed files.
+   - Purpose: Keep the repository map current.
 
 12. [ ] Run full linting:
    - Documentation to read (repeat):
@@ -370,24 +376,30 @@ Extend the core chat event pipeline so usage/timing metadata can flow from provi
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: call out any new metadata behavior that affects users.
-   - Document location:
-     - `README.md`
+   - Document: `README.md`
+   - Location: `README.md`
+   - Description: Document any user-visible changes in chat metadata flow.
+   - Purpose: Keep README in sync with behavior.
 
 8. [ ] Documentation update - `design.md` (document chat event metadata flow + diagrams):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
      - Mermaid docs: Context7 `/mermaid-js/mermaid`
    - Recap: document where usage/timing flows through ChatInterface events and update any relevant mermaid flow/sequence diagrams.
-   - Document location:
-     - `design.md`
+   - Document: `design.md`
+   - Location: `design.md`
+   - Description: Add/update flow notes and mermaid diagrams for chat event metadata.
+   - Purpose: Keep architecture diagrams aligned with pipeline changes.
 
 9. [ ] Documentation update - `projectStructure.md` (only if files/paths change):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: update tree only if file paths change.
    - Ordering: complete this after any subtask that adds/removes files.
-   - Document location:
-     - `projectStructure.md`
+   - Document: `projectStructure.md`
+   - Location: `projectStructure.md`
+   - Description: Update the tree if any files were added/removed.
+   - Purpose: Keep the repository map current.
 
 10. [ ] Run full linting:
    - Documentation to read (repeat):
@@ -494,23 +506,29 @@ Capture usage metadata from Codex `turn.completed` events and feed it into the s
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: call out any user-visible token usage behavior if needed.
-   - Document location:
-     - `README.md`
+   - Document: `README.md`
+   - Location: `README.md`
+   - Description: Note Codex token usage display behavior if user-visible.
+   - Purpose: Keep README aligned with provider metadata.
 
 8. [ ] Documentation update - `design.md` (document Codex usage capture):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: document where Codex usage is captured and stored.
-   - Document location:
-     - `design.md`
+   - Document: `design.md`
+   - Location: `design.md`
+   - Description: Describe Codex usage capture points and storage fields.
+   - Purpose: Keep provider integration docs accurate.
 
 9. [ ] Documentation update - `projectStructure.md` (only if files/paths change):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: update tree only if file paths change.
    - Ordering: complete this after any subtask that adds/removes files.
-   - Document location:
-     - `projectStructure.md`
+   - Document: `projectStructure.md`
+   - Location: `projectStructure.md`
+   - Description: Update tree entries for any new/changed files.
+   - Purpose: Keep the repository map current.
 
 10. [ ] Run full linting:
    - Documentation to read (repeat):
@@ -607,23 +625,29 @@ Capture LM Studio prediction stats and feed them into the shared chat usage/timi
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: call out any user-visible metadata additions.
-   - Document location:
-     - `README.md`
+   - Document: `README.md`
+   - Location: `README.md`
+   - Description: Note LM Studio usage/timing display behavior if user-visible.
+   - Purpose: Keep README aligned with provider metadata.
 
 7. [ ] Documentation update - `design.md` (document LM Studio stats capture):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: document where LM Studio stats are read and stored.
-   - Document location:
-     - `design.md`
+   - Document: `design.md`
+   - Location: `design.md`
+   - Description: Describe LM Studio stats capture and mapping to turn metadata.
+   - Purpose: Keep provider integration docs accurate.
 
 8. [ ] Documentation update - `projectStructure.md` (only if files/paths change):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: update tree only if file paths change.
    - Ordering: complete this after any subtask that adds/removes files.
-   - Document location:
-     - `projectStructure.md`
+   - Document: `projectStructure.md`
+   - Location: `projectStructure.md`
+   - Description: Update tree entries for any new/changed files.
+   - Purpose: Keep the repository map current.
 
 9. [ ] Run full linting:
    - Documentation to read (repeat):
@@ -712,24 +736,30 @@ Expose usage/timing metadata on the WS `turn_final` payload so clients can rende
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: call out WS metadata if user-visible.
-   - Document location:
-     - `README.md`
+   - Document: `README.md`
+   - Location: `README.md`
+   - Description: Note WS metadata availability if user-visible.
+   - Purpose: Keep README aligned with real-time updates.
 
 6. [ ] Documentation update - `design.md` (document WS payload changes + diagrams):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
      - Mermaid docs: Context7 `/mermaid-js/mermaid`
    - Recap: document `turn_final` payload shape, usage/timing fields, and update any WS sequence diagrams.
-   - Document location:
-     - `design.md`
+   - Document: `design.md`
+   - Location: `design.md`
+   - Description: Update WS payload documentation and sequence diagrams.
+   - Purpose: Keep architecture docs accurate for WS flow changes.
 
 7. [ ] Documentation update - `projectStructure.md` (only if files/paths change):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: update tree only if file paths change.
    - Ordering: complete this after any subtask that adds/removes files.
-   - Document location:
-     - `projectStructure.md`
+   - Document: `projectStructure.md`
+   - Location: `projectStructure.md`
+   - Description: Update tree entries for any new/changed files.
+   - Purpose: Keep the repository map current.
 
 8. [ ] Run full linting:
    - Documentation to read (repeat):
@@ -814,22 +844,29 @@ Extend the REST turn snapshot mapping to include usage/timing fields in stored t
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: call out any user-visible metadata changes if needed.
-   - Document location:
-     - `README.md`
+   - Document: `README.md`
+   - Location: `README.md`
+   - Description: Note any REST metadata changes visible to users.
+   - Purpose: Keep README aligned with persisted data behavior.
 
 6. [ ] Documentation update - `design.md` (document REST turn mapping changes):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: document client mapping for usage/timing fields.
-   - Document location:
-     - `design.md`
+   - Document: `design.md`
+   - Location: `design.md`
+   - Description: Document REST turn mapping and client model updates.
+   - Purpose: Keep architecture docs accurate for REST data flow.
 
 7. [ ] Documentation update - `projectStructure.md` (only if files/paths change):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: update tree only if file paths change.
-   - Document location:
-     - `projectStructure.md`
+   - Ordering: complete this after any subtask that adds/removes files.
+   - Document: `projectStructure.md`
+   - Location: `projectStructure.md`
+   - Description: Update tree entries for any new/changed files.
+   - Purpose: Keep the repository map current.
 
 8. [ ] Run full linting:
    - Documentation to read (repeat):
@@ -939,24 +976,30 @@ Extend the WS transcript event mapping so usage/timing fields land on streaming 
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: call out any user-visible metadata changes if needed.
-   - Document location:
-     - `README.md`
+   - Document: `README.md`
+   - Location: `README.md`
+   - Description: Note WS metadata availability if user-visible.
+   - Purpose: Keep README aligned with live updates.
 
 8. [ ] Documentation update - `design.md` (document WS mapping changes + diagrams):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
      - Mermaid docs: Context7 `/mermaid-js/mermaid`
    - Recap: document client WS mapping of usage/timing and update any relevant mermaid sequence diagrams.
-   - Document location:
-     - `design.md`
+   - Document: `design.md`
+   - Location: `design.md`
+   - Description: Update client WS mapping notes and related diagrams.
+   - Purpose: Keep architecture docs accurate for WS flows.
 
 9. [ ] Documentation update - `projectStructure.md` (only if files/paths change):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: update tree only if file paths change.
    - Ordering: complete this after any subtask that adds/removes files.
-   - Document location:
-     - `projectStructure.md`
+   - Document: `projectStructure.md`
+   - Location: `projectStructure.md`
+   - Description: Update tree entries for any new/changed files.
+   - Purpose: Keep the repository map current.
 
 10. [ ] Run full linting:
    - Documentation to read (repeat):
@@ -1094,23 +1137,29 @@ Render message header metadata for user/assistant bubbles in Chat and Agents: ti
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: call out any new metadata visible to users.
-   - Document location:
-     - `README.md`
+   - Document: `README.md`
+   - Location: `README.md`
+   - Description: Document bubble metadata display (timestamps/tokens/timing/steps) if user-visible.
+   - Purpose: Keep README aligned with UI behavior.
 
 10. [ ] Documentation update - `design.md` (document bubble metadata UI behavior):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: document UI rules for timestamps, tokens, timing, and steps.
-   - Document location:
-     - `design.md`
+   - Document: `design.md`
+   - Location: `design.md`
+   - Description: Explain bubble header metadata UI rules and layout.
+   - Purpose: Keep UI documentation accurate.
 
 11. [ ] Documentation update - `projectStructure.md` (only if files/paths change):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: update tree only if file paths change.
    - Ordering: complete this after any subtask that adds/removes files.
-   - Document location:
-     - `projectStructure.md`
+   - Document: `projectStructure.md`
+   - Location: `projectStructure.md`
+   - Description: Update tree entries for any new/changed files.
+   - Purpose: Keep the repository map current.
 
 12. [ ] Run full linting:
    - Documentation to read (repeat):
@@ -1175,16 +1224,28 @@ Validate the full story against acceptance criteria, perform clean builds/tests,
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: document user-visible metadata changes and any new commands.
+   - Document: `README.md`
+   - Location: `README.md`
+   - Description: Update user-facing notes and any new commands introduced by this story.
+   - Purpose: Keep onboarding docs accurate.
 5. [ ] Ensure `design.md` is updated with any required description changes including Mermaid diagrams that have been added as part of this story
    - Documentation to read (repeat):
      - Mermaid: Context7 `/mermaid-js/mermaid`
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: ensure diagrams reflect new metadata flow if updated.
+   - Document: `design.md`
+   - Location: `design.md`
+   - Description: Update architecture notes and mermaid diagrams for new flows.
+   - Purpose: Keep design documentation accurate.
 6. [ ] Ensure `projectStructure.md` is updated with any updated, added or removed files & folders
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: update tree only if file paths changed.
    - Ordering: complete this after any subtask that adds/removes files.
+   - Document: `projectStructure.md`
+   - Location: `projectStructure.md`
+   - Description: Update the file tree for any additions/removals made in this story.
+   - Purpose: Keep repository map current.
 7. [ ] Create a summary of all changes within this story and generate the pull request comment (must cover all tasks)
    - Documentation to read (repeat):
      - Husky: Context7 `/typicode/husky`

@@ -67,8 +67,8 @@ We want each chat and agent message bubble header to show the message date and t
   - `usage`: `{ inputTokens?: number; outputTokens?: number; totalTokens?: number; cachedInputTokens?: number }`
     - Map LM Studio SDK `promptTokensCount` → `inputTokens`, `predictedTokensCount` → `outputTokens`, `totalTokensCount` → `totalTokens` (REST uses `prompt_tokens`, `completion_tokens`, `total_tokens`).
     - Map Codex `input_tokens` → `inputTokens`, `output_tokens` → `outputTokens`, `cached_input_tokens` → `cachedInputTokens` (derive `totalTokens` when available).
-  - `timing`: `{ totalTimeSec?: number; tokensPerSecond?: number; timeToFirstTokenSec?: number }`
-    - Map LM Studio SDK `totalTimeSec` → `totalTimeSec`, `tokensPerSecond` → `tokensPerSecond`, `timeToFirstTokenSec` → `timeToFirstTokenSec` (REST uses `generation_time`, `tokens_per_second`, `time_to_first_token`).
+  - `timing`: `{ totalTimeSec?: number; tokensPerSecond?: number }`
+    - Map LM Studio SDK `totalTimeSec` → `totalTimeSec`, `tokensPerSecond` → `tokensPerSecond` (REST uses `generation_time`, `tokens_per_second`).
     - If provider does not supply timing, compute `totalTimeSec` using `inflight.startedAt` → assistant turn `createdAt`.
 - **REST append turn (`POST /conversations/:id/turns`):** extend request schema to accept optional `usage` + `timing` (no changes for user turns).
 - **REST turn snapshots (`GET /conversations/:id/turns`):** include `usage` + `timing` on returned assistant turn items when stored; continue returning `command` when present.
@@ -84,7 +84,7 @@ We want each chat and agent message bubble header to show the message date and t
 - `server/src/chat/inflightRegistry.ts` tracks `userTurn.createdAt` and derives `assistantCreatedAt` for in-flight UI rendering.
 - `server/src/chat/interfaces/ChatInterfaceCodex.ts` logs any `usage` payloads found on Codex events and logs full `turn.completed` payloads, but does not persist usage yet.
 - `server/src/chat/interfaces/ChatInterface.ts` currently emits `complete` without usage/timing metadata and `chatStreamBridge` publishes `turn_final` without usage/timing; both need extension to carry the new metadata.
-- `@lmstudio/sdk` exposes `PredictionResult.stats` on the `OngoingPrediction` result (via `prediction.result()`), which includes `tokensPerSecond`, `timeToFirstTokenSec`, `totalTimeSec`, and token counts.
+- `@lmstudio/sdk` exposes `PredictionResult.stats` on the `OngoingPrediction` result (via `prediction.result()`), which includes `tokensPerSecond`, `totalTimeSec`, and token counts.
 - `@lmstudio/sdk` defines `LLMPredictionStats` with `tokensPerSecond`, `totalTimeSec`, `promptTokensCount`, `predictedTokensCount`, and `totalTokensCount` (available on `PredictionResult.stats`).
 - Client has existing timestamp helpers: `formatTimestamp` in `client/src/components/chat/ConversationList.tsx` (guards missing values) and `client/src/pages/LogsPage.tsx` (uses `Intl.DateTimeFormat`). Reuse these patterns for bubble headers.
 - Dependency versions in this repo: React `^19.2.0`, `@mui/material` `^6.4.1`, Zod `3.25.76`, Mongoose `9.0.1`, `ws` `8.18.3`, `@openai/codex-sdk` `0.64.0`, `@lmstudio/sdk` `1.5.0`.
@@ -160,7 +160,7 @@ Extend the server’s stored turn shape to include optional usage and timing met
      - `server/src/mongo/turn.ts`
    - Requirements:
      - Add optional `usage` object with `inputTokens`, `outputTokens`, `totalTokens`, `cachedInputTokens` numeric fields.
-     - Add optional `timing` object with `totalTimeSec`, `tokensPerSecond`, `timeToFirstTokenSec` numeric fields.
+     - Add optional `timing` object with `totalTimeSec`, `tokensPerSecond` numeric fields.
      - Do not add defaults; store only when data exists.
      - Keep `command` metadata unchanged for agent step display.
      - Ensure these fields are optional and safe for non-assistant turns.
@@ -416,7 +416,7 @@ Capture LM Studio prediction stats and feed them into the shared chat usage/timi
      - `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`
    - Requirements:
      - Use `prediction.result()` or `onPredictionCompleted` to access `PredictionResult.stats`.
-     - Map stats to usage/timing fields (prompt/predicted/total tokens; totalTimeSec/tokensPerSecond/timeToFirstTokenSec).
+     - Map stats to usage/timing fields (prompt/predicted/total tokens; totalTimeSec/tokensPerSecond).
      - Fall back to run timing when stats are missing.
 
 3. [ ] Update LM Studio persistence tests:
@@ -563,7 +563,7 @@ Extend the REST turn snapshot mapping to include usage/timing fields in stored t
    - Files to edit:
      - `client/src/hooks/useConversationTurns.ts`
    - Requirements:
-     - Add optional `usage` + `timing` fields, including `cachedInputTokens` + `timeToFirstTokenSec`.
+     - Add optional `usage` + `timing` fields, including `cachedInputTokens`.
      - Map REST response fields into the new shape without breaking existing consumers.
 
 3. [ ] Update REST turn hook tests:
@@ -652,7 +652,6 @@ Extend the WS transcript event mapping so usage/timing fields land on streaming 
 4. [ ] Update WS hook tests:
    - Files to edit:
      - `client/src/test/useChatStream.toolPayloads.test.tsx`
-     - `client/src/test/useChatStream.reasoning.test.tsx`
    - Requirements:
      - Assert usage/timing metadata is preserved on streamed assistant messages.
 
@@ -747,8 +746,7 @@ Render message header metadata for user/assistant bubbles in Chat and Agents: ti
    - Documentation to read:
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
    - Files to edit:
-     - `client/src/test/useChatStream.toolPayloads.test.tsx` (or add a dedicated ChatPage/AgentsPage test)
-     - `e2e/chat.spec.ts` (if adding e2e coverage for metadata)
+     - `client/src/test/chatPage.stream.test.tsx`
    - Requirements:
      - Assert timestamp and token metadata appear for assistant turns when provided.
 

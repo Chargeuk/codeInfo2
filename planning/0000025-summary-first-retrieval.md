@@ -539,6 +539,8 @@ Introduce distance-based cutoff logic for vector search results with an env-conf
      - When no entries pass, include the best `fallback` chunks (lowest distance, original-order tie-break).
      - Preserve the original ordering of retained results.
      - Treat missing/non-numeric distances as lowest priority for cutoff + fallback.
+     - Apply cutoff/fallback **before** payload caps so the caps only apply to eligible results.
+     - Ensure `files` summaries are rebuilt from the filtered results (not the pre-cutoff list).
    - Example (selection outline):
      ```ts
      const eligible = cutoffDisabled ? results : results.filter(r => typeof r.score === 'number' && r.score <= cutoff);
@@ -699,6 +701,8 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
      - Drop additional chunks once total size would exceed the max.
      - Preserve original ordering of the retained chunks.
      - Ensure zero chunks are returned if the total cap is too small to include any truncated chunk.
+     - Recompute `lineCount` for truncated chunks so the totals match the capped text.
+     - Build `files` summaries from the capped results to keep tool details consistent.
    - Example (cap loop outline):
      ```ts
      let used = 0;
@@ -962,6 +966,7 @@ Update Chat and Agents tool detail panels to explicitly label distance values an
     - Render per-match rows from tool payload `results` (not just file summaries), including the distance value and chunk preview.
     - Avoid introducing deprecated Accordion `TransitionProps`/`TransitionComponent`; use slots/slotProps if adjustments are needed per MUI 6.5.x API.
     - Skip or gracefully handle entries missing `repo` or `relPath` without breaking the tool panel.
+    - Render a placeholder (e.g., “—”) when `score` is missing and avoid crashing if `chunk` is empty/missing.
     - Keep formatting consistent with existing tool detail accordions.
    - Example (UI row outline):
      - `Distance: 0.532 · repo/path.ts` + preview text from `result.chunk`.
@@ -1002,7 +1007,25 @@ Update Chat and Agents tool detail panels to explicitly label distance values an
    - Description: Assert per-match rows render from tool payload `results` (distance + chunk preview).
    - Purpose: Ensure detailed results render in AgentsPage tool panels.
 
-7. [ ] Update AgentsPage tool details test for missing `repo`/`relPath`:
+7. [ ] Update ChatPage tool details test for missing distance/preview:
+   - Documentation to read (repeat):
+     - Testing Library React docs: https://testing-library.com/docs/react-testing-library/intro/
+     - Jest expect API: Context7 `/jestjs/jest` (ExpectAPI.md)
+   - Test type: Client unit (UI component)
+   - Location: `client/src/test/chatPage.toolDetails.test.tsx`
+   - Description: Provide a result with missing `score` or `chunk` and assert the UI renders a placeholder without crashing.
+   - Purpose: Ensure missing distance/preview values are handled safely.
+
+8. [ ] Update AgentsPage tool details test for missing distance/preview:
+   - Documentation to read (repeat):
+     - Testing Library React docs: https://testing-library.com/docs/react-testing-library/intro/
+     - Jest expect API: Context7 `/jestjs/jest` (ExpectAPI.md)
+   - Test type: Client unit (UI component)
+   - Location: `client/src/test/agentsPage.toolsUi.test.tsx`
+   - Description: Provide a result with missing `score` or `chunk` and assert the UI renders a placeholder without crashing.
+   - Purpose: Ensure missing distance/preview values are handled safely in Agents UI.
+
+9. [ ] Update AgentsPage tool details test for missing `repo`/`relPath`:
    - Documentation to read (repeat):
      - Testing Library React docs: https://testing-library.com/docs/react-testing-library/intro/
      - Jest expect API: Context7 `/jestjs/jest` (ExpectAPI.md)
@@ -1011,7 +1034,7 @@ Update Chat and Agents tool detail panels to explicitly label distance values an
    - Description: Include entries missing `repo`/`relPath` and assert the panel still renders available matches.
    - Purpose: Ensure tool panels tolerate malformed payload entries.
 
-8. [ ] Documentation update - `design.md` (tool details distance text):
+10. [ ] Documentation update - `design.md` (tool details distance text):
    - Documentation to read (repeat):
      - Mermaid: Context7 `/mermaid-js/mermaid`
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -1020,7 +1043,7 @@ Update Chat and Agents tool detail panels to explicitly label distance values an
    - Description: Document that tool details show raw distance values and that lower is better.
    - Purpose: Keep UI documentation accurate.
 
-9. [ ] Documentation update - `design.md` (tool details UI diagram):
+11. [ ] Documentation update - `design.md` (tool details UI diagram):
    - Documentation to read (repeat):
      - Mermaid: Context7 `/mermaid-js/mermaid`
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -1029,7 +1052,7 @@ Update Chat and Agents tool detail panels to explicitly label distance values an
    - Description: Update or add a Mermaid UI flow diagram if tool-details interactions are documented.
    - Purpose: Ensure UI flow diagrams reflect distance display updates.
 
-10. [ ] Run `npm run lint --workspace client` and `npm run format:check --workspace client`; fix issues before continuing.
+12. [ ] Run `npm run lint --workspace client` and `npm run format:check --workspace client`; fix issues before continuing.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/options

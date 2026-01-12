@@ -200,22 +200,47 @@ Return answer-only segments for MCP `codebase_question` responses while preservi
      - Before: “returns ordered thinking, vector summaries, and a final answer …”
      - After: “returns a final answer segment plus conversationId and modelId …”
 
-4. [ ] Update MCP tests/fixtures for the new response shape:
+4. [ ] Update unit test for answer-only segments (codebase_question happy path):
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
-   - Files to edit:
-     - `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`
-     - `server/src/test/integration/mcp-codex-wrapper.test.ts`
-     - `server/src/test/integration/mcp-lmstudio-wrapper.test.ts`
-   - Requirements:
-     - Assert that `segments` contains exactly one `answer` entry (where segments remain).
-     - Confirm no `thinking` or `vector_summary` segments appear.
-     - Add a corner-case test where no answer segment is emitted; assert a single empty `answer` segment is returned.
-     - Add an error-path assertion (invalid params or tool error) to confirm JSON-RPC error shapes are unchanged by the answer-only filter.
-   - Example (assertion target):
-     - `segments.map((s) => s.type)` should equal `['answer']`.
+   - Test type: Unit (MCP tool)
+   - Location: `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`
+   - Description: Update assertions so `segments` contains only `['answer']` while keeping `conversationId` and `modelId` expectations.
+   - Purpose: Validate the happy-path MCP tool response shape after answer-only filtering.
 
-5. [ ] Documentation update - `design.md` (only if response contracts are documented):
+5. [ ] Update integration test for answer-only segments (Codex wrapper):
+   - Documentation to read (repeat):
+     - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
+   - Test type: Integration (Codex MCP wrapper)
+   - Location: `server/src/test/integration/mcp-codex-wrapper.test.ts`
+   - Description: Assert the MCP wrapper payload includes only the `answer` segment.
+   - Purpose: Ensure Codex wrapper integrations return the answer-only payload.
+
+6. [ ] Update integration test for answer-only segments (LM Studio wrapper):
+   - Documentation to read (repeat):
+     - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
+   - Test type: Integration (LM Studio MCP wrapper)
+   - Location: `server/src/test/integration/mcp-lmstudio-wrapper.test.ts`
+   - Description: Assert the MCP wrapper payload includes only the `answer` segment.
+   - Purpose: Ensure LM Studio wrapper integrations return the answer-only payload.
+
+7. [ ] Add corner-case unit test for missing answer segments:
+   - Documentation to read (repeat):
+     - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
+   - Test type: Unit (MCP tool)
+   - Location: `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`
+   - Description: Simulate no answer segment emitted and assert the response returns a single empty `answer` segment.
+   - Purpose: Guarantee the answer-only filter always returns an `answer` segment.
+
+8. [ ] Add error-path test for JSON-RPC error stability:
+   - Documentation to read (repeat):
+     - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
+   - Test type: Integration (MCP JSON-RPC error path)
+   - Location: `server/src/test/integration/mcp-codex-wrapper.test.ts`
+   - Description: Trigger an invalid params or tool error and assert the JSON-RPC error shape is unchanged.
+   - Purpose: Ensure answer-only filtering does not alter error responses.
+
+9. [ ] Documentation update - `design.md` (only if response contracts are documented):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: add or adjust MCP response shape notes only if the design section currently mentions multi-segment MCP payloads.
@@ -224,7 +249,7 @@ Return answer-only segments for MCP `codebase_question` responses while preservi
    - Description: Note the answer-only MCP response shape for `codebase_question` and agents.
    - Purpose: Keep MCP contract documentation accurate.
 
-6. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`; fix issues before continuing.
+10. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`; fix issues before continuing.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/options
@@ -300,20 +325,31 @@ Return answer-only segments for MCP agent `run_agent_instruction` responses whil
      - Before: “ordered thinking/vector summaries/answer segments …”
      - After: “final answer segment plus conversationId and modelId …”
 
-4. [ ] Update MCP agent tests/fixtures for the new response shape:
+4. [ ] Update unit test for answer-only segments (agent tool response):
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
-   - Files to edit:
-     - `server/src/test/unit/mcp-agents-tools.test.ts`
-     - `server/src/test/unit/mcp-agents-router-run.test.ts`
-   - Requirements:
-     - Assert that `segments` contains exactly one `answer` entry (where segments remain).
-     - Confirm no `thinking` or `vector_summary` segments appear.
-     - Add a corner-case test where the agent emits no answer segment; assert the response includes a single empty `answer` segment.
-   - Example (assertion target):
-     - `segments.map((s) => s.type)` should equal `['answer']`.
+   - Test type: Unit (agent MCP tool)
+   - Location: `server/src/test/unit/mcp-agents-tools.test.ts`
+   - Description: Assert `segments` contains only `['answer']` in the tool result.
+   - Purpose: Verify answer-only filtering for agent tool responses.
 
-5. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`; fix issues before continuing.
+5. [ ] Update unit test for answer-only segments (router run response):
+   - Documentation to read (repeat):
+     - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
+   - Test type: Unit (router JSON-RPC response)
+   - Location: `server/src/test/unit/mcp-agents-router-run.test.ts`
+   - Description: Assert `tools/call` run_agent_instruction returns only the `answer` segment.
+   - Purpose: Confirm router wiring preserves the answer-only response shape.
+
+6. [ ] Add corner-case unit test for missing answer segments:
+   - Documentation to read (repeat):
+     - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
+   - Test type: Unit (agent MCP tool)
+   - Location: `server/src/test/unit/mcp-agents-tools.test.ts`
+   - Description: Simulate a response without an answer segment and assert a single empty `answer` segment is returned.
+   - Purpose: Ensure answer-only filtering always yields an `answer` segment for agents.
+
+7. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`; fix issues before continuing.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/options
@@ -383,19 +419,23 @@ Switch vector “best match” aggregation to use minimum distance values (lower
    - Example (target change):
      - `base.match = base.match === null ? item.score : Math.min(base.match, item.score);`
 
-4. [ ] Update server tests for min-distance semantics:
+4. [ ] Update unit test for tool aggregation min-distance:
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
-   - Files to edit:
-     - `server/src/test/unit/tools-vector-search.test.ts`
-     - `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`
-   - Requirements:
-     - Add/adjust assertions so the best match is the smallest distance.
-     - Cover mixed numeric + missing scores to ensure `null` remains when appropriate.
-   - Example (assertion target):
-     - `highestMatch` should equal the smallest numeric distance in the fixture.
+   - Test type: Unit (vector tool aggregation)
+   - Location: `server/src/test/unit/tools-vector-search.test.ts`
+   - Description: Assert `highestMatch` uses the smallest distance and remains `null` when no numeric distances exist.
+   - Purpose: Verify tool aggregation reports correct min-distance semantics.
 
-5. [ ] Documentation update - `design.md` (if it documents “highest match” semantics):
+5. [ ] Update MCP tool test for vector summary min-distance:
+   - Documentation to read (repeat):
+     - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
+   - Test type: Unit (MCP tool summary)
+   - Location: `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`
+   - Description: Assert the vector summary `match` reflects the lowest distance.
+   - Purpose: Ensure MCP summaries align with min-distance semantics.
+
+6. [ ] Documentation update - `design.md` (if it documents “highest match” semantics):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: clarify that “best match” reflects the lowest distance.
@@ -404,7 +444,7 @@ Switch vector “best match” aggregation to use minimum distance values (lower
    - Description: Update wording around vector “best match” aggregation.
    - Purpose: Keep retrieval semantics aligned with Chroma distance.
 
-6. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`; fix issues before continuing.
+7. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`; fix issues before continuing.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/options
@@ -484,20 +524,63 @@ Introduce distance-based cutoff logic for vector search results with an env-conf
      const picked = eligible.length ? eligible : pickLowest(results, fallback);
      ```
 
-4. [ ] Update unit tests for cutoff and fallback behavior:
+4. [ ] Add unit test for cutoff enabled filtering:
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
-   - Files to edit:
-     - `server/src/test/unit/tools-vector-search.test.ts`
-   - Requirements:
-     - Add cases for cutoff enabled, cutoff disabled, and fallback when none pass.
-     - Cover empty result sets and all-missing distance values.
-     - Cover missing distance handling and tie-break ordering.
-     - Add error-case coverage for invalid env values (non-numeric or negative) to confirm defaults are used.
-   - Example (assertion target):
-     - When cutoff excludes all, the first two lowest-distance items remain in original order.
+   - Test type: Unit (vector search filtering)
+   - Location: `server/src/test/unit/tools-vector-search.test.ts`
+   - Description: Assert results are filtered to distances `<= cutoff` when cutoff is enabled.
+   - Purpose: Validate the default happy-path cutoff behavior.
 
-5. [ ] Update server `.env` with retrieval cutoff defaults:
+5. [ ] Add unit test for cutoff disabled:
+   - Documentation to read (repeat):
+     - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
+   - Test type: Unit (vector search filtering)
+   - Location: `server/src/test/unit/tools-vector-search.test.ts`
+   - Description: Assert all results remain eligible when `CODEINFO_RETRIEVAL_CUTOFF_DISABLED=true`.
+   - Purpose: Verify the cutoff bypass flag works.
+
+6. [ ] Add unit test for fallback selection when none pass:
+   - Documentation to read (repeat):
+     - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
+   - Test type: Unit (vector search fallback)
+   - Location: `server/src/test/unit/tools-vector-search.test.ts`
+   - Description: Assert the best N (lowest distance) results are kept when cutoff filters all items.
+   - Purpose: Ensure fallback chunks are always provided.
+
+7. [ ] Add unit test for empty result sets:
+   - Documentation to read (repeat):
+     - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
+   - Test type: Unit (vector search edge case)
+   - Location: `server/src/test/unit/tools-vector-search.test.ts`
+   - Description: Assert empty inputs return an empty payload without errors.
+   - Purpose: Cover the no-results corner case.
+
+8. [ ] Add unit test for all-missing distance values:
+   - Documentation to read (repeat):
+     - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
+   - Test type: Unit (vector search edge case)
+   - Location: `server/src/test/unit/tools-vector-search.test.ts`
+   - Description: Assert missing/non-numeric distances are treated as lowest priority and only included via fallback.
+   - Purpose: Validate missing score handling.
+
+9. [ ] Add unit test for tie-break ordering:
+   - Documentation to read (repeat):
+     - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
+   - Test type: Unit (vector search ordering)
+   - Location: `server/src/test/unit/tools-vector-search.test.ts`
+   - Description: Assert equal-distance items preserve original order after filtering/fallback.
+   - Purpose: Confirm stable ordering requirements.
+
+10. [ ] Add unit test for invalid env values:
+   - Documentation to read (repeat):
+     - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
+   - Test type: Unit (env parsing edge case)
+   - Location: `server/src/test/unit/tools-vector-search.test.ts`
+   - Description: Provide non-numeric or negative env values and assert defaults are used.
+   - Purpose: Ensure env parsing guards apply.
+
+11. [ ] Update server `.env` with retrieval cutoff defaults:
    - Documentation to read (repeat):
      - Node.js `process.env`: https://nodejs.org/api/process.html#processenv
    - Recap: document cutoff, bypass flag, and fallback defaults for local runs.
@@ -507,7 +590,7 @@ Introduce distance-based cutoff logic for vector search results with an env-conf
      - Add commented defaults for `CODEINFO_RETRIEVAL_DISTANCE_CUTOFF`, `CODEINFO_RETRIEVAL_CUTOFF_DISABLED`, and `CODEINFO_RETRIEVAL_FALLBACK_CHUNKS`.
      - Keep existing env ordering and comment style.
 
-6. [ ] Documentation update - `design.md` (retrieval cutoff + fallback):
+12. [ ] Documentation update - `design.md` (retrieval cutoff + fallback):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: document cutoff, fallback defaults, and bypass flag.
@@ -516,7 +599,7 @@ Introduce distance-based cutoff logic for vector search results with an env-conf
    - Description: Add retrieval cutoff + fallback behavior to the retrieval section.
    - Purpose: Keep retrieval strategy documentation accurate.
 
-7. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`; fix issues before continuing.
+13. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`; fix issues before continuing.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/options
@@ -597,19 +680,39 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
      }
      ```
 
-4. [ ] Update unit tests for payload caps:
+4. [ ] Add unit test for per-chunk truncation:
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
-   - Files to edit:
-     - `server/src/test/unit/tools-vector-search.test.ts`
-   - Requirements:
-     - Add cases for per-chunk truncation and total cap enforcement.
-     - Include a case where the max cap is too small and results become empty.
-     - Add error-case coverage for invalid env values (non-numeric or negative) to confirm defaults are used.
-   - Example (assertion target):
-     - `results[0].chunk.length` equals per-chunk cap; `results.length` shrinks when total cap is hit.
+   - Test type: Unit (payload truncation)
+   - Location: `server/src/test/unit/tools-vector-search.test.ts`
+   - Description: Assert each chunk is truncated to `CODEINFO_TOOL_CHUNK_MAX_CHARS`.
+   - Purpose: Verify per-chunk truncation logic.
 
-5. [ ] Update server `.env` with tool cap defaults:
+5. [ ] Add unit test for total cap enforcement:
+   - Documentation to read (repeat):
+     - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
+   - Test type: Unit (payload cap)
+   - Location: `server/src/test/unit/tools-vector-search.test.ts`
+   - Description: Assert additional chunks are dropped once the total cap is reached.
+   - Purpose: Ensure total payload limits are enforced.
+
+6. [ ] Add unit test for caps too small to include any chunk:
+   - Documentation to read (repeat):
+     - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
+   - Test type: Unit (payload edge case)
+   - Location: `server/src/test/unit/tools-vector-search.test.ts`
+   - Description: Set the total cap below one truncated chunk and assert results are empty.
+   - Purpose: Cover the zero-results edge case for caps.
+
+7. [ ] Add unit test for invalid env values:
+   - Documentation to read (repeat):
+     - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
+   - Test type: Unit (env parsing edge case)
+   - Location: `server/src/test/unit/tools-vector-search.test.ts`
+   - Description: Provide non-numeric or negative cap values and assert defaults are used.
+   - Purpose: Ensure env parsing guards apply.
+
+8. [ ] Update server `.env` with tool cap defaults:
    - Documentation to read (repeat):
      - Node.js `process.env`: https://nodejs.org/api/process.html#processenv
    - Recap: document total and per-chunk cap defaults for local runs.
@@ -619,7 +722,7 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
      - Add commented defaults for `CODEINFO_TOOL_MAX_CHARS` and `CODEINFO_TOOL_CHUNK_MAX_CHARS`.
      - Keep existing env ordering and comment style.
 
-6. [ ] Documentation update - `design.md` (tool payload caps):
+9. [ ] Documentation update - `design.md` (tool payload caps):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: document total/per-chunk cap defaults and truncation behavior.
@@ -628,7 +731,7 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
    - Description: Add tool payload size caps to retrieval strategy notes.
    - Purpose: Keep tool payload documentation accurate.
 
-7. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`; fix issues before continuing.
+10. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`; fix issues before continuing.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/options
@@ -692,19 +795,47 @@ Deduplicate VectorSearch citations on the client by removing exact duplicates pe
      // de-dupe by chunkId OR chunk text within key, then sort by score.
      ```
 
-3. [ ] Update client tests for citation dedupe rules:
+3. [ ] Add unit test for duplicate chunk ids:
    - Documentation to read (repeat):
      - Jest expect API: Context7 `/jestjs/jest` (ExpectAPI.md)
-   - Files to edit:
-     - `client/src/test/useChatStream.toolPayloads.test.tsx`
-   - Requirements:
-     - Add cases for duplicate chunk ids, duplicate chunk text in same file, and duplicate text across different files (keep both files).
-     - Validate top-2 per file selection based on lowest distance with original-order tie-breaks.
-     - Add coverage for malformed citations missing `repo` or `relPath` (ignored without crashing).
-   - Example (assertion target):
-     - `expect(citations.filter(c => c.relPath === 'a').length).toBe(2);`
+   - Test type: Client unit (hook payload processing)
+   - Location: `client/src/test/useChatStream.toolPayloads.test.tsx`
+   - Description: Provide duplicate `chunkId` values within the same file and assert only one remains.
+   - Purpose: Verify stage-1 dedupe by chunk id.
 
-4. [ ] Documentation update - `design.md` (citation dedupe rules):
+4. [ ] Add unit test for duplicate chunk text within the same file:
+   - Documentation to read (repeat):
+     - Jest expect API: Context7 `/jestjs/jest` (ExpectAPI.md)
+   - Test type: Client unit (hook payload processing)
+   - Location: `client/src/test/useChatStream.toolPayloads.test.tsx`
+   - Description: Provide identical chunk text within the same file and assert only one remains.
+   - Purpose: Verify stage-1 dedupe by chunk text.
+
+5. [ ] Add unit test for duplicate chunk text across different files:
+   - Documentation to read (repeat):
+     - Jest expect API: Context7 `/jestjs/jest` (ExpectAPI.md)
+   - Test type: Client unit (hook payload processing)
+   - Location: `client/src/test/useChatStream.toolPayloads.test.tsx`
+   - Description: Provide identical chunk text in different `repo + relPath` buckets and assert both files remain.
+   - Purpose: Ensure dedupe does not remove cross-file citations.
+
+6. [ ] Add unit test for top-2 per file with distance tie-breaks:
+   - Documentation to read (repeat):
+     - Jest expect API: Context7 `/jestjs/jest` (ExpectAPI.md)
+   - Test type: Client unit (hook payload processing)
+   - Location: `client/src/test/useChatStream.toolPayloads.test.tsx`
+   - Description: Provide 3+ citations in one file and assert the two lowest distances remain in original order when tied.
+   - Purpose: Validate stage-2 per-file limiting and ordering rules.
+
+7. [ ] Add unit test for malformed citations missing `repo` or `relPath`:
+   - Documentation to read (repeat):
+     - Jest expect API: Context7 `/jestjs/jest` (ExpectAPI.md)
+   - Test type: Client unit (hook payload processing)
+   - Location: `client/src/test/useChatStream.toolPayloads.test.tsx`
+   - Description: Include citations with missing `repo`/`relPath` and assert they are ignored without crashing.
+   - Purpose: Cover malformed input handling.
+
+8. [ ] Documentation update - `design.md` (citation dedupe rules):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: document two-stage dedupe + top-2 per file rule.
@@ -713,7 +844,7 @@ Deduplicate VectorSearch citations on the client by removing exact duplicates pe
    - Description: Add citation dedupe rules to the retrieval strategy notes.
    - Purpose: Keep client citation behavior documented.
 
-5. [ ] Run `npm run lint --workspace client` and `npm run format:check --workspace client`; fix issues before continuing.
+9. [ ] Run `npm run lint --workspace client` and `npm run format:check --workspace client`; fix issues before continuing.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/options
@@ -784,22 +915,52 @@ Update Chat and Agents tool detail panels to explicitly label distance values an
    - Example (UI row outline):
      - `Distance: 0.532 · repo/path.ts` + preview text from `result.chunk`.
 
-3. [ ] Update client UI tests for distance label changes:
+3. [ ] Update ChatPage tool details test for distance labels:
    - Documentation to read (repeat):
      - Testing Library React docs: https://testing-library.com/docs/react-testing-library/intro/
      - Jest expect API: Context7 `/jestjs/jest` (ExpectAPI.md)
-   - Files to edit:
-     - `client/src/test/chatPage.toolDetails.test.tsx`
-     - `client/src/test/agentsPage.toolsUi.test.tsx`
-   - Requirements:
-     - Assert that labels explicitly mention “Distance”.
-     - Verify per-match distance values render when the tool details expand.
-     - Validate per-match rows render from tool payload `results`.
-     - Cover entries missing `repo` or `relPath` to ensure the panel still renders available items.
-   - Example (assertion target):
-     - `expect(screen.getByText(/Distance/i)).toBeInTheDocument();`
+   - Test type: Client unit (UI component)
+   - Location: `client/src/test/chatPage.toolDetails.test.tsx`
+   - Description: Assert the tool details display a “Distance” label and per-match distance values when expanded.
+   - Purpose: Confirm ChatPage tool details surface distance values.
 
-4. [ ] Documentation update - `design.md` (tool details distance labels):
+4. [ ] Update ChatPage tool details test for per-match rows:
+   - Documentation to read (repeat):
+     - Testing Library React docs: https://testing-library.com/docs/react-testing-library/intro/
+     - Jest expect API: Context7 `/jestjs/jest` (ExpectAPI.md)
+   - Test type: Client unit (UI component)
+   - Location: `client/src/test/chatPage.toolDetails.test.tsx`
+   - Description: Assert per-match rows are rendered from tool payload `results` (distance + chunk preview).
+   - Purpose: Ensure detailed results render in ChatPage tool panels.
+
+5. [ ] Update AgentsPage tool details test for distance labels:
+   - Documentation to read (repeat):
+     - Testing Library React docs: https://testing-library.com/docs/react-testing-library/intro/
+     - Jest expect API: Context7 `/jestjs/jest` (ExpectAPI.md)
+   - Test type: Client unit (UI component)
+   - Location: `client/src/test/agentsPage.toolsUi.test.tsx`
+   - Description: Assert the tool details display a “Distance” label and per-match distance values when expanded.
+   - Purpose: Confirm AgentsPage tool details surface distance values.
+
+6. [ ] Update AgentsPage tool details test for per-match rows:
+   - Documentation to read (repeat):
+     - Testing Library React docs: https://testing-library.com/docs/react-testing-library/intro/
+     - Jest expect API: Context7 `/jestjs/jest` (ExpectAPI.md)
+   - Test type: Client unit (UI component)
+   - Location: `client/src/test/agentsPage.toolsUi.test.tsx`
+   - Description: Assert per-match rows render from tool payload `results` (distance + chunk preview).
+   - Purpose: Ensure detailed results render in AgentsPage tool panels.
+
+7. [ ] Update AgentsPage tool details test for missing `repo`/`relPath`:
+   - Documentation to read (repeat):
+     - Testing Library React docs: https://testing-library.com/docs/react-testing-library/intro/
+     - Jest expect API: Context7 `/jestjs/jest` (ExpectAPI.md)
+   - Test type: Client unit (UI component)
+   - Location: `client/src/test/agentsPage.toolsUi.test.tsx`
+   - Description: Include entries missing `repo`/`relPath` and assert the panel still renders available matches.
+   - Purpose: Ensure tool panels tolerate malformed payload entries.
+
+8. [ ] Documentation update - `design.md` (tool details distance labels):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: document that tool details show raw distance values and that lower is better.
@@ -808,7 +969,7 @@ Update Chat and Agents tool detail panels to explicitly label distance values an
    - Description: Update tool UI notes to call out distance display.
    - Purpose: Keep UI documentation accurate.
 
-5. [ ] Run `npm run lint --workspace client` and `npm run format:check --workspace client`; fix issues before continuing.
+9. [ ] Run `npm run lint --workspace client` and `npm run format:check --workspace client`; fix issues before continuing.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/options

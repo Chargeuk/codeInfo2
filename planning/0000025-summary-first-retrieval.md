@@ -336,6 +336,7 @@ Introduce distance-based cutoff logic for vector search results with an env-conf
      - `server/src/lmstudio/toolService.ts`
    - Requirements:
      - Filter results using `distance <= cutoff` when cutoff is enabled.
+     - When cutoff is disabled, keep all results eligible for downstream caps.
      - When no entries pass, include the best `fallback` chunks (lowest distance, original-order tie-break).
      - Preserve the original ordering of retained results.
      - Treat missing/non-numeric distances as lowest priority for cutoff + fallback.
@@ -345,9 +346,20 @@ Introduce distance-based cutoff logic for vector search results with an env-conf
      - `server/src/test/unit/tools-vector-search.test.ts`
    - Requirements:
      - Add cases for cutoff enabled, cutoff disabled, and fallback when none pass.
+     - Cover empty result sets and all-missing distance values.
      - Cover missing distance handling and tie-break ordering.
 
-5. [ ] Documentation update - `design.md` (retrieval cutoff + fallback):
+5. [ ] Update server `.env` with retrieval cutoff defaults:
+   - Documentation to read (repeat):
+     - Node.js `process.env`: https://nodejs.org/api/process.html#processenv
+   - Recap: document cutoff, bypass flag, and fallback defaults for local runs.
+   - Files to edit:
+     - `server/.env`
+   - Requirements:
+     - Add commented defaults for `CODEINFO_RETRIEVAL_DISTANCE_CUTOFF`, `CODEINFO_RETRIEVAL_CUTOFF_DISABLED`, and `CODEINFO_RETRIEVAL_FALLBACK_CHUNKS`.
+     - Keep existing env ordering and comment style.
+
+6. [ ] Documentation update - `design.md` (retrieval cutoff + fallback):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: document cutoff, fallback defaults, and bypass flag.
@@ -356,7 +368,7 @@ Introduce distance-based cutoff logic for vector search results with an env-conf
    - Description: Add retrieval cutoff + fallback behavior to the retrieval section.
    - Purpose: Keep retrieval strategy documentation accurate.
 
-6. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`; fix issues before continuing.
+7. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`; fix issues before continuing.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/options
@@ -421,7 +433,17 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
      - Add cases for per-chunk truncation and total cap enforcement.
      - Include a case where the max cap is too small and results become empty.
 
-5. [ ] Documentation update - `design.md` (tool payload caps):
+5. [ ] Update server `.env` with tool cap defaults:
+   - Documentation to read (repeat):
+     - Node.js `process.env`: https://nodejs.org/api/process.html#processenv
+   - Recap: document total and per-chunk cap defaults for local runs.
+   - Files to edit:
+     - `server/.env`
+   - Requirements:
+     - Add commented defaults for `CODEINFO_TOOL_MAX_CHARS` and `CODEINFO_TOOL_CHUNK_MAX_CHARS`.
+     - Keep existing env ordering and comment style.
+
+6. [ ] Documentation update - `design.md` (tool payload caps):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: document total/per-chunk cap defaults and truncation behavior.
@@ -430,7 +452,7 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
    - Description: Add tool payload size caps to retrieval strategy notes.
    - Purpose: Keep tool payload documentation accurate.
 
-6. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`; fix issues before continuing.
+7. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`; fix issues before continuing.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/options
@@ -488,6 +510,7 @@ Deduplicate VectorSearch citations on the client by removing exact duplicates pe
    - Requirements:
      - Add cases for duplicate chunk ids, duplicate chunk text in same file, and duplicate text across different files (keep both files).
      - Validate top-2 per file selection based on lowest distance with original-order tie-breaks.
+     - Add coverage for malformed citations missing `repo` or `relPath` (ignored without crashing).
 
 4. [ ] Documentation update - `design.md` (citation dedupe rules):
    - Documentation to read (repeat):
@@ -551,6 +574,7 @@ Update Chat and Agents tool detail panels to explicitly label distance values an
    - Requirements:
      - Replace ambiguous “Match” labels with “Distance” or “Lowest distance.”
      - Display per-match distance values alongside each chunk in expanded tool details.
+     - Skip or gracefully handle entries missing `repo` or `relPath` without breaking the tool panel.
      - Keep formatting consistent with existing tool detail accordions.
 
 3. [ ] Update client UI tests for distance label changes:
@@ -560,6 +584,7 @@ Update Chat and Agents tool detail panels to explicitly label distance values an
    - Requirements:
      - Assert that labels explicitly mention “Distance”.
      - Verify per-match distance values render when the tool details expand.
+     - Cover entries missing `repo` or `relPath` to ensure the panel still renders available items.
 
 4. [ ] Documentation update - `design.md` (tool details distance labels):
    - Documentation to read (repeat):

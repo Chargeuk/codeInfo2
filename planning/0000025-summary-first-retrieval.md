@@ -1412,7 +1412,7 @@ Ensure the client renders VectorSearch citations exactly as the server returns t
 
 ### 7. Client: tool details show distance labels + per-match distances
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **to_do**
 
 #### Overview

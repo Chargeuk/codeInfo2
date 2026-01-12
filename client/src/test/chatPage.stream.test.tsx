@@ -5,6 +5,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
@@ -46,6 +47,25 @@ const routes = [
     ],
   },
 ];
+
+const formatTimestamp = (value: string) =>
+  new Intl.DateTimeFormat(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(value));
+
+const findBubbleByRole = async (role: string, kind: string = 'normal') => {
+  const bubbles = await screen.findAllByTestId('chat-bubble');
+  const match = bubbles.find(
+    (bubble) =>
+      bubble.getAttribute('data-role') === role &&
+      bubble.getAttribute('data-kind') === kind,
+  );
+  if (!match) {
+    throw new Error(`No chat bubble found for role=${role} kind=${kind}`);
+  }
+  return match;
+};
 
 describe('Chat WS streaming UI', () => {
   it('renders Processing then Complete as transcript events arrive', async () => {
@@ -1220,5 +1240,348 @@ describe('Chat WS streaming UI', () => {
     } finally {
       logSpy.mockRestore();
     }
+  });
+
+  it('renders timestamps and token metadata on assistant bubbles', async () => {
+    const harness = setupChatWsHarness({ mockFetch });
+    const user = userEvent.setup();
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const input = await screen.findByTestId('chat-input');
+    fireEvent.change(input, { target: { value: 'Hello' } });
+    const sendButton = await screen.findByTestId('chat-send');
+
+    await waitFor(() => expect(sendButton).toBeEnabled());
+    await act(async () => {
+      await user.click(sendButton);
+    });
+
+    await waitFor(() => expect(harness.chatBodies.length).toBe(1));
+
+    const conversationId = harness.getConversationId() ?? 'c1';
+    const inflightId = harness.getInflightId() ?? 'i1';
+    const startedAt = '2026-01-11T20:05:00.000Z';
+
+    harness.emitInflightSnapshot({
+      conversationId,
+      inflightId,
+      assistantText: '',
+      startedAt,
+    });
+    harness.emitAssistantDelta({
+      conversationId,
+      inflightId,
+      delta: 'Hello there',
+    });
+    harness.emitFinal({
+      conversationId,
+      inflightId,
+      status: 'ok',
+      usage: { inputTokens: 10, outputTokens: 5, totalTokens: 15 },
+      timing: { totalTimeSec: 1.2, tokensPerSecond: 12.5 },
+    });
+
+    const assistantBubble = await findBubbleByRole('assistant');
+    const scoped = within(assistantBubble);
+    expect(scoped.getByTestId('bubble-timestamp')).toHaveTextContent(
+      formatTimestamp(startedAt),
+    );
+    expect(scoped.getByTestId('bubble-tokens')).toHaveTextContent(
+      'Tokens: in 10 · out 5 · total 15',
+    );
+    expect(scoped.getByTestId('bubble-timing')).toHaveTextContent(
+      'Time: 1.2s · Rate: 12.5 tok/s',
+    );
+  });
+
+  it('renders cached input token suffix when provided', async () => {
+    const harness = setupChatWsHarness({ mockFetch });
+    const user = userEvent.setup();
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const input = await screen.findByTestId('chat-input');
+    fireEvent.change(input, { target: { value: 'Cache tokens' } });
+    const sendButton = await screen.findByTestId('chat-send');
+
+    await waitFor(() => expect(sendButton).toBeEnabled());
+    await act(async () => {
+      await user.click(sendButton);
+    });
+
+    await waitFor(() => expect(harness.chatBodies.length).toBe(1));
+
+    const conversationId = harness.getConversationId() ?? 'c1';
+    const inflightId = harness.getInflightId() ?? 'i1';
+    const startedAt = '2026-01-11T20:05:00.000Z';
+
+    harness.emitInflightSnapshot({
+      conversationId,
+      inflightId,
+      assistantText: '',
+      startedAt,
+    });
+    harness.emitAssistantDelta({
+      conversationId,
+      inflightId,
+      delta: 'Cache response',
+    });
+    harness.emitFinal({
+      conversationId,
+      inflightId,
+      status: 'ok',
+      usage: {
+        inputTokens: 10,
+        outputTokens: 5,
+        totalTokens: 15,
+        cachedInputTokens: 2,
+      },
+    });
+
+    const assistantBubble = await findBubbleByRole('assistant');
+    const tokensLine = within(assistantBubble).getByTestId('bubble-tokens');
+    expect(tokensLine).toHaveTextContent('(cached 2)');
+  });
+
+  it('omits cached suffix when cached input tokens are missing', async () => {
+    const harness = setupChatWsHarness({ mockFetch });
+    const user = userEvent.setup();
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const input = await screen.findByTestId('chat-input');
+    fireEvent.change(input, { target: { value: 'No cache' } });
+    const sendButton = await screen.findByTestId('chat-send');
+
+    await waitFor(() => expect(sendButton).toBeEnabled());
+    await act(async () => {
+      await user.click(sendButton);
+    });
+
+    await waitFor(() => expect(harness.chatBodies.length).toBe(1));
+
+    const conversationId = harness.getConversationId() ?? 'c1';
+    const inflightId = harness.getInflightId() ?? 'i1';
+
+    harness.emitInflightSnapshot({
+      conversationId,
+      inflightId,
+      assistantText: '',
+    });
+    harness.emitAssistantDelta({
+      conversationId,
+      inflightId,
+      delta: 'No cached tokens',
+    });
+    harness.emitFinal({
+      conversationId,
+      inflightId,
+      status: 'ok',
+      usage: { inputTokens: 10, outputTokens: 5, totalTokens: 15 },
+    });
+
+    const assistantBubble = await findBubbleByRole('assistant');
+    const tokensLine = within(assistantBubble).getByTestId('bubble-tokens');
+    expect(tokensLine).not.toHaveTextContent('cached');
+  });
+
+  it('omits token metadata when usage is missing', async () => {
+    const harness = setupChatWsHarness({ mockFetch });
+    const user = userEvent.setup();
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const input = await screen.findByTestId('chat-input');
+    fireEvent.change(input, { target: { value: 'No usage' } });
+    const sendButton = await screen.findByTestId('chat-send');
+
+    await waitFor(() => expect(sendButton).toBeEnabled());
+    await act(async () => {
+      await user.click(sendButton);
+    });
+
+    await waitFor(() => expect(harness.chatBodies.length).toBe(1));
+
+    const conversationId = harness.getConversationId() ?? 'c1';
+    const inflightId = harness.getInflightId() ?? 'i1';
+
+    harness.emitInflightSnapshot({
+      conversationId,
+      inflightId,
+      assistantText: '',
+    });
+    harness.emitAssistantDelta({
+      conversationId,
+      inflightId,
+      delta: 'No usage data',
+    });
+    harness.emitFinal({
+      conversationId,
+      inflightId,
+      status: 'ok',
+    });
+
+    const assistantBubble = await findBubbleByRole('assistant');
+    expect(within(assistantBubble).queryByTestId('bubble-tokens')).toBeNull();
+  });
+
+  it('omits timing metadata when timing fields are missing', async () => {
+    const harness = setupChatWsHarness({ mockFetch });
+    const user = userEvent.setup();
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const input = await screen.findByTestId('chat-input');
+    fireEvent.change(input, { target: { value: 'No timing' } });
+    const sendButton = await screen.findByTestId('chat-send');
+
+    await waitFor(() => expect(sendButton).toBeEnabled());
+    await act(async () => {
+      await user.click(sendButton);
+    });
+
+    await waitFor(() => expect(harness.chatBodies.length).toBe(1));
+
+    const conversationId = harness.getConversationId() ?? 'c1';
+    const inflightId = harness.getInflightId() ?? 'i1';
+
+    harness.emitInflightSnapshot({
+      conversationId,
+      inflightId,
+      assistantText: '',
+    });
+    harness.emitAssistantDelta({
+      conversationId,
+      inflightId,
+      delta: 'No timing data',
+    });
+    harness.emitFinal({
+      conversationId,
+      inflightId,
+      status: 'ok',
+      usage: { inputTokens: 1, outputTokens: 2, totalTokens: 3 },
+    });
+
+    const assistantBubble = await findBubbleByRole('assistant');
+    expect(within(assistantBubble).queryByTestId('bubble-timing')).toBeNull();
+  });
+
+  it('falls back to current time for invalid timestamps', async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-01-03T00:00:00.000Z'));
+
+    const conversationId = 'c1';
+    const harness = setupChatWsHarness({
+      mockFetch,
+      conversations: {
+        items: [
+          {
+            conversationId,
+            title: 'Existing chat',
+            provider: 'lmstudio',
+            model: 'm1',
+            lastMessageAt: '2026-01-03T00:00:00.000Z',
+            archived: false,
+          },
+        ],
+        nextCursor: null,
+      },
+      turns: {
+        items: [
+          {
+            id: 't1',
+            role: 'assistant',
+            content: 'Stored reply',
+            provider: 'lmstudio',
+            model: 'm1',
+            createdAt: 'not-a-date',
+          },
+        ],
+        nextCursor: null,
+      },
+    });
+    const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const row = await screen.findByTestId('conversation-row');
+    await act(async () => {
+      await user.click(row);
+    });
+
+    const assistantBubble = await findBubbleByRole('assistant');
+    const timestamp = within(assistantBubble).getByTestId('bubble-timestamp');
+    expect(timestamp).toHaveTextContent(
+      formatTimestamp('2026-01-03T00:00:00.000Z'),
+    );
+    expect(harness.chatBodies.length).toBe(0);
+  });
+
+  it('omits metadata rows for status and error bubbles', async () => {
+    const harness = setupChatWsHarness({ mockFetch });
+    const user = userEvent.setup();
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const input = await screen.findByTestId('chat-input');
+    fireEvent.change(input, { target: { value: 'Stop me' } });
+    const sendButton = await screen.findByTestId('chat-send');
+
+    await waitFor(() => expect(sendButton).toBeEnabled());
+    await act(async () => {
+      await user.click(sendButton);
+    });
+
+    await waitFor(() => expect(harness.chatBodies.length).toBe(1));
+
+    const conversationId = harness.getConversationId() ?? 'c1';
+    const inflightId = harness.getInflightId() ?? 'i1';
+
+    harness.emitInflightSnapshot({
+      conversationId,
+      inflightId,
+      assistantText: '',
+    });
+    harness.emitAssistantDelta({
+      conversationId,
+      inflightId,
+      delta: 'Stopping',
+    });
+
+    const stopButton = await screen.findByTestId('chat-stop');
+    await act(async () => {
+      await user.click(stopButton);
+    });
+
+    const statusBubble = await findBubbleByRole('assistant', 'status');
+    expect(within(statusBubble).queryByTestId('bubble-timestamp')).toBeNull();
+
+    fireEvent.change(input, { target: { value: 'Fail me' } });
+    await waitFor(() => expect(sendButton).toBeEnabled());
+    await act(async () => {
+      await user.click(sendButton);
+    });
+    await waitFor(() => expect(harness.chatBodies.length).toBe(2));
+
+    const inflightId2 = harness.getInflightId() ?? 'i2';
+    harness.emitInflightSnapshot({
+      conversationId,
+      inflightId: inflightId2,
+      assistantText: '',
+    });
+    harness.emitAssistantDelta({
+      conversationId,
+      inflightId: inflightId2,
+      delta: 'Failed response',
+    });
+    harness.emitFinal({
+      conversationId,
+      inflightId: inflightId2,
+      status: 'failed',
+    });
+
+    const errorBubble = await findBubbleByRole('assistant', 'error');
+    expect(within(errorBubble).queryByTestId('bubble-timestamp')).toBeNull();
   });
 });

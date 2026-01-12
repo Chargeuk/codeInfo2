@@ -248,6 +248,7 @@ sequenceDiagram
 - Bubbles render newest-first closest to the controls; user bubbles align right with the primary palette, assistant bubbles align left on the default surface, and error bubbles use the error palette with retry guidance.
 - The transcript panel is a flex child that fills the remaining viewport height beneath the controls (selectors/flags/input) and scrolls vertically within the panel.
 - User and assistant bubbles share a 14px border radius while keeping status chips, tool blocks, and citations aligned inside the container.
+- Bubble metadata headers render above content: every user/assistant bubble shows a timestamp formatted with `Intl.DateTimeFormat` `{ dateStyle: 'medium', timeStyle: 'short' }` in local time (invalid timestamps fall back to `new Date()`); assistant bubbles optionally show token usage, timing/rate, and agent step indicators when metadata exists, while status/error bubbles omit metadata entirely.
 - Send is disabled while `status === 'sending'`; a small "Responding..." helper appears under the controls; tool events are logged only (not shown in the transcript).
 - Thought process buffering is append-only: multiple `<think>`/Harmony analysis bursts are preserved even after tool events, and the spinner only stops once `turn_final` arrives and pending tools finish.
 - Inline errors append a red assistant bubble so failures are visible in the conversation; input is re-enabled after the stream ends or fails.

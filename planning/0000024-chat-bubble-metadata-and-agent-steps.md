@@ -1456,7 +1456,7 @@ Render message header metadata for user/assistant bubbles in Chat and Agents: ti
 
 #### Subtasks
 
-1. [ ] Review existing bubble rendering for Chat and Agents:
+1. [x] Review existing bubble rendering for Chat and Agents:
    - Documentation to read (repeat):
      - MUI Stack: https://llms.mui.com/material-ui/6.4.12/components/stack.md
      - MUI Typography: https://llms.mui.com/material-ui/6.4.12/components/typography.md
@@ -1468,7 +1468,7 @@ Render message header metadata for user/assistant bubbles in Chat and Agents: ti
      - `client/src/pages/AgentsPage.tsx`
      - `client/src/components/chat/ConversationList.tsx` (for style patterns, if needed)
 
-2. [ ] Add timestamp formatting helpers and fallback handling:
+2. [x] Add timestamp formatting helpers and fallback handling:
    - Documentation to read (repeat):
      - MUI Stack: https://llms.mui.com/material-ui/6.4.12/components/stack.md
      - MUI Typography: https://llms.mui.com/material-ui/6.4.12/components/typography.md
@@ -1488,7 +1488,7 @@ Render message header metadata for user/assistant bubbles in Chat and Agents: ti
      - Example (formatted timestamp):
        - Input: `2026-01-11T20:05:00Z` → Output: `Jan 11, 2026, 2:05 PM` (local)
 
-3. [ ] Render metadata rows for assistant bubbles:
+3. [x] Render metadata rows for assistant bubbles:
    - Documentation to read (repeat):
      - MUI Stack: https://llms.mui.com/material-ui/6.4.12/components/stack.md
      - MUI Typography: https://llms.mui.com/material-ui/6.4.12/components/typography.md
@@ -1507,7 +1507,7 @@ Render message header metadata for user/assistant bubbles in Chat and Agents: ti
        - `Time: 1.2s · Rate: 12.5 tok/s`
        - `Step 2 of 6`
 
-4. [ ] Component test (client): ChatPage shows timestamp + tokens
+4. [x] Component test (client): ChatPage shows timestamp + tokens
    - Test type: Component test (React Testing Library)
    - Location: `client/src/test/chatPage.stream.test.tsx`
    - Description: Render ChatPage with an assistant turn containing usage/timing metadata.
@@ -1515,7 +1515,7 @@ Render message header metadata for user/assistant bubbles in Chat and Agents: ti
    - Documentation to read (repeat):
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
 
-5. [ ] Component test (client): AgentsPage shows timestamp + tokens
+5. [x] Component test (client): AgentsPage shows timestamp + tokens
    - Test type: Component test (React Testing Library)
    - Location: `client/src/test/agentsPage.streaming.test.tsx`
    - Description: Render AgentsPage with an assistant turn containing usage/timing metadata.
@@ -1523,7 +1523,7 @@ Render message header metadata for user/assistant bubbles in Chat and Agents: ti
    - Documentation to read (repeat):
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
 
-6. [ ] Component test (client): omit metadata rows for status/error
+6. [x] Component test (client): omit metadata rows for status/error
    - Test type: Component test (React Testing Library)
    - Location: `client/src/test/chatPage.stream.test.tsx`
    - Description: Render status/error bubbles and assert metadata rows are absent.
@@ -1531,7 +1531,7 @@ Render message header metadata for user/assistant bubbles in Chat and Agents: ti
    - Documentation to read (repeat):
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
 
-7. [ ] Component test (client): step indicator conditional
+7. [x] Component test (client): step indicator conditional
    - Test type: Component test (React Testing Library)
    - Location: `client/src/test/agentsPage.streaming.test.tsx`
    - Description: Provide agent command metadata with and without step counts.
@@ -1539,7 +1539,7 @@ Render message header metadata for user/assistant bubbles in Chat and Agents: ti
    - Documentation to read (repeat):
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
 
-8. [ ] Component test (client): cached input token suffix
+8. [x] Component test (client): cached input token suffix
    - Test type: Component test (React Testing Library)
    - Location: `client/src/test/chatPage.stream.test.tsx`
    - Description: Render an assistant turn with `cachedInputTokens` and verify the “(cached X)” suffix.
@@ -1547,7 +1547,7 @@ Render message header metadata for user/assistant bubbles in Chat and Agents: ti
    - Documentation to read (repeat):
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
 
-9. [ ] Component test (client): omit cached suffix when missing
+9. [x] Component test (client): omit cached suffix when missing
    - Test type: Component test (React Testing Library)
    - Location: `client/src/test/chatPage.stream.test.tsx`
    - Description: Render an assistant turn without `cachedInputTokens` and ensure the suffix is absent.
@@ -1555,7 +1555,7 @@ Render message header metadata for user/assistant bubbles in Chat and Agents: ti
    - Documentation to read (repeat):
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
 
-10. [ ] Component test (client): omit token line when usage missing
+10. [x] Component test (client): omit token line when usage missing
    - Test type: Component test (React Testing Library)
    - Location: `client/src/test/chatPage.stream.test.tsx`
    - Description: Render an assistant turn without usage fields and ensure the token line is not rendered.
@@ -1563,7 +1563,7 @@ Render message header metadata for user/assistant bubbles in Chat and Agents: ti
    - Documentation to read (repeat):
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
 
-11. [ ] Component test (client): omit timing/rate when missing
+11. [x] Component test (client): omit timing/rate when missing
    - Test type: Component test (React Testing Library)
    - Location: `client/src/test/chatPage.stream.test.tsx`
    - Description: Provide assistant turns without timing/tokens-per-second fields.
@@ -1571,7 +1571,7 @@ Render message header metadata for user/assistant bubbles in Chat and Agents: ti
    - Documentation to read (repeat):
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
 
-12. [ ] Component test (client): invalid timestamp fallback
+12. [x] Component test (client): invalid timestamp fallback
    - Test type: Component test (React Testing Library)
    - Location: `client/src/test/chatPage.stream.test.tsx`
    - Description: Render a bubble with an invalid `createdAt` and assert a timestamp still renders.
@@ -1579,7 +1579,7 @@ Render message header metadata for user/assistant bubbles in Chat and Agents: ti
    - Documentation to read (repeat):
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
 
-13. [ ] Component test (client): inflight step indicator
+13. [x] Component test (client): inflight step indicator
    - Test type: Component test (React Testing Library)
    - Location: `client/src/test/agentsPage.streaming.test.tsx`
    - Description: Hydrate an inflight snapshot with command metadata and verify “Step X of Y” renders.
@@ -1587,7 +1587,7 @@ Render message header metadata for user/assistant bubbles in Chat and Agents: ti
    - Documentation to read (repeat):
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
 
-14. [ ] Documentation update - `README.md` (if any user-facing changes need to be called out):
+14. [x] Documentation update - `README.md` (if any user-facing changes need to be called out):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: call out any new metadata visible to users.
@@ -1596,7 +1596,7 @@ Render message header metadata for user/assistant bubbles in Chat and Agents: ti
    - Description: Document bubble metadata display (timestamps/tokens/timing/steps) if user-visible.
    - Purpose: Keep README aligned with UI behavior.
 
-15. [ ] Documentation update - `design.md` (document bubble metadata UI behavior):
+15. [x] Documentation update - `design.md` (document bubble metadata UI behavior):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: document UI rules for timestamps, tokens, timing, and steps.
@@ -1605,7 +1605,7 @@ Render message header metadata for user/assistant bubbles in Chat and Agents: ti
    - Description: Explain bubble header metadata UI rules and layout.
    - Purpose: Keep UI documentation accurate.
 
-16. [ ] Documentation update - `projectStructure.md` (only if files/paths change):
+16. [x] Documentation update - `projectStructure.md` (only if files/paths change):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: update tree only if file paths change.
@@ -1615,7 +1615,7 @@ Render message header metadata for user/assistant bubbles in Chat and Agents: ti
    - Description: Update tree entries for any new/changed files, including every file added or removed in this task.
    - Purpose: Keep the repository map current.
 
-17. [ ] Add manual-check log lines for UI metadata rendering:
+17. [x] Add manual-check log lines for UI metadata rendering:
    - Files to edit:
      - `client/src/pages/ChatPage.tsx`
      - `client/src/pages/AgentsPage.tsx`
@@ -1626,26 +1626,45 @@ Render message header metadata for user/assistant bubbles in Chat and Agents: ti
        - `DEV-0000024:T9:ui_metadata_rendered`
        - `DEV-0000024:T9:ui_step_indicator`
 
-18. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+18. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/options
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 5 minutes; e.g., `timeout 5m` or set `timeout_ms=300000` in the harness)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: verify timestamps, token lines (including cached suffix), timing/rate visibility, step indicator during agent runs, and no console errors; confirm logs include `DEV-0000024:T9:ui_metadata_rendered` and `DEV-0000024:T9:ui_step_indicator` when the UI renders those elements.
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 5 minutes; e.g., `timeout 5m` or set `timeout_ms=300000` in the harness)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check: verify timestamps, token lines (including cached suffix), timing/rate visibility, step indicator during agent runs, and no console errors; confirm logs include `DEV-0000024:T9:ui_metadata_rendered` and `DEV-0000024:T9:ui_step_indicator` when the UI renders those elements.
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
 - Notes added during implementation.
+- Reviewed current bubble rendering in `ChatPage.tsx` and `AgentsPage.tsx`, plus timestamp helpers in `ConversationList.tsx` and `LogsPage.tsx` for formatting patterns.
+- Added timestamp formatting helpers in Chat/Agents pages with `Intl.DateTimeFormat` dateStyle/timeStyle formatting and invalid-date fallbacks.
+- Rendered bubble header metadata rows (timestamp, tokens, timing/rate, step indicator) in Chat and Agents UI while skipping status/error bubbles.
+- Added ChatPage tests for token/timing metadata, cached suffix handling, status/error omission, and timestamp fallback coverage.
+- Added AgentsPage streaming tests for timestamp/token metadata and step indicator conditions (including inflight command steps).
+- Added `DEV-0000024:T9:ui_metadata_rendered` and `DEV-0000024:T9:ui_step_indicator` logs when metadata/step indicators render.
+- Updated `README.md` and `design.md` to document bubble header metadata behavior; `projectStructure.md` unchanged.
+- Ran `npm run lint --workspaces` (warnings only in server import order) and `npm run format --workspaces` to fix client Prettier issues; `npm run format:check --workspaces` now clean.
+- Server build passed via `npm run build --workspace server`.
+- Client build passed via `npm run build --workspace client` (Vite chunk size warnings only).
+- Server tests passed via `npm run test --workspace server` (required extended timeout after initial command timeouts).
+- Cleared inflight command metadata when absent so step indicators do not linger across runs and updated AgentsPage streaming test to assert against the bubble containing "No command metadata".
+- Client tests passed via `npm run test --workspace client` (Jest VM module warnings + expected console output).
+- `npm run e2e` passed with 33 tests (3 skipped ingest cases per suite defaults).
+- `npm run compose:build` completed (cached layers; client chunk-size warning only).
+- `npm run compose:up` started the stack successfully (containers healthy).
+- Mapped stored `usage`/`timing` into Chat/Agents transcript hydration and re-ran `npm run test --workspace client` successfully.
+- Manual Playwright MCP check on `http://host.docker.internal:5001` confirmed timestamp/tokens/timing (including cached suffix) on Chat and step indicator on Agents; Logs page search showed `DEV-0000024:T9:ui_metadata_rendered` and `DEV-0000024:T9:ui_step_indicator` entries.
+- `npm run compose:down` stopped the stack after the manual verification.
 
 ---
 

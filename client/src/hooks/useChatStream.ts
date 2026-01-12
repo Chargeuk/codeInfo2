@@ -830,7 +830,7 @@ export function useChatStream(
         {
           streamStatus: 'processing',
           ...(startedAt ? { createdAt: startedAt } : {}),
-          ...(normalizedCommand ? { command: normalizedCommand } : {}),
+          command: normalizedCommand ?? undefined,
         },
         { assistantId },
       );
@@ -1169,7 +1169,7 @@ export function useChatStream(
         const inflightUpdates: Partial<ChatMessage> = {
           streamStatus: 'processing',
           ...(startedAt ? { createdAt: startedAt } : {}),
-          ...(normalizedCommand ? { command: normalizedCommand } : {}),
+          command: normalizedCommand ?? undefined,
         };
 
         if (normalizedCommand) {

@@ -31,6 +31,77 @@ const routes = [
   },
 ];
 
+const formatTimestamp = (value: string) =>
+  new Intl.DateTimeFormat(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(value));
+
+const findBubbleByRole = async (role: string, kind: string = 'normal') => {
+  const bubbles = await screen.findAllByTestId('chat-bubble');
+  const match = bubbles.find(
+    (bubble) =>
+      bubble.getAttribute('data-role') === role &&
+      bubble.getAttribute('data-kind') === kind,
+  );
+  if (!match) {
+    throw new Error(`No chat bubble found for role=${role} kind=${kind}`);
+  }
+  return match;
+};
+
+function mockAgentsFetch(params?: {
+  conversations?: unknown;
+  turns?: unknown;
+  commands?: unknown;
+}) {
+  const conversationsPayload = params?.conversations ?? {
+    items: [
+      {
+        conversationId: 'c1',
+        title: 'Agent conversation',
+        provider: 'codex',
+        model: 'gpt-5.2',
+        lastMessageAt: '2025-01-01T00:00:00.000Z',
+        archived: false,
+      },
+    ],
+    nextCursor: null,
+  };
+  const turnsPayload = params?.turns ?? { items: [] };
+  const commandsPayload = params?.commands ?? { commands: [] };
+
+  mockFetch.mockImplementation((url: RequestInfo | URL, opts?: RequestInit) => {
+    const target = typeof url === 'string' ? url : url.toString();
+
+    if (target.includes('/health')) {
+      return mockJsonResponse({ mongoConnected: true });
+    }
+
+    if (target.includes('/agents') && !target.includes('/commands')) {
+      return mockJsonResponse({ agents: [{ name: 'a1' }] });
+    }
+
+    if (target.includes('/agents/a1/commands')) {
+      return mockJsonResponse(commandsPayload);
+    }
+
+    if (target.includes('/conversations') && target.includes('agentName=a1')) {
+      return mockJsonResponse(conversationsPayload);
+    }
+
+    if (target.includes('/conversations/') && target.includes('/turns')) {
+      return mockJsonResponse(turnsPayload);
+    }
+
+    if (target.includes('/agents/a1/run') && opts?.method === 'POST') {
+      return mockJsonResponse({ status: 'ok' });
+    }
+
+    return mockJsonResponse({});
+  });
+}
+
 function mockJsonResponse(payload: unknown, init?: { status?: number }) {
   return Promise.resolve({
     ok: (init?.status ?? 200) >= 200 && (init?.status ?? 200) < 300,
@@ -587,5 +658,172 @@ describe('AgentsPage live transcript (WS)', () => {
           msg?.conversationId === 'c1',
       ),
     ).toBe(true);
+  });
+
+  it('renders timestamp and token metadata for agent assistant bubbles', async () => {
+    const user = userEvent.setup();
+    mockAgentsFetch();
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    await screen.findByText('Agent conversation');
+    await user.click(screen.getByText('Agent conversation'));
+    await waitForSubscribe('c1');
+
+    const startedAt = '2026-01-11T20:05:00.000Z';
+
+    emitWsEvent({
+      protocolVersion: 'v1',
+      type: 'inflight_snapshot',
+      conversationId: 'c1',
+      seq: 1,
+      inflight: {
+        inflightId: 'i1',
+        assistantText: '',
+        assistantThink: '',
+        toolEvents: [],
+        startedAt,
+      },
+    });
+    emitWsEvent({
+      protocolVersion: 'v1',
+      type: 'assistant_delta',
+      conversationId: 'c1',
+      seq: 2,
+      inflightId: 'i1',
+      delta: 'Agent reply',
+    });
+    emitWsEvent({
+      protocolVersion: 'v1',
+      type: 'turn_final',
+      conversationId: 'c1',
+      seq: 3,
+      inflightId: 'i1',
+      status: 'ok',
+      usage: { inputTokens: 7, outputTokens: 3, totalTokens: 10 },
+      timing: { totalTimeSec: 1.4, tokensPerSecond: 9.1 },
+    });
+
+    const assistantBubble = await findBubbleByRole('assistant');
+    const scoped = within(assistantBubble);
+    expect(scoped.getByTestId('bubble-timestamp')).toHaveTextContent(
+      formatTimestamp(startedAt),
+    );
+    expect(scoped.getByTestId('bubble-tokens')).toHaveTextContent(
+      'Tokens: in 7 · out 3 · total 10',
+    );
+    expect(scoped.getByTestId('bubble-timing')).toHaveTextContent(
+      'Time: 1.4s · Rate: 9.1 tok/s',
+    );
+  });
+
+  it('renders step indicator only when command metadata exists', async () => {
+    const user = userEvent.setup();
+    mockAgentsFetch();
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    await screen.findByText('Agent conversation');
+    await user.click(screen.getByText('Agent conversation'));
+    await waitForSubscribe('c1');
+
+    emitWsEvent({
+      protocolVersion: 'v1',
+      type: 'inflight_snapshot',
+      conversationId: 'c1',
+      seq: 1,
+      inflight: {
+        inflightId: 'i1',
+        assistantText: '',
+        assistantThink: '',
+        toolEvents: [],
+        startedAt: '2026-01-11T20:05:00.000Z',
+        command: { name: 'improve_plan', stepIndex: 2, totalSteps: 6 },
+      },
+    });
+    emitWsEvent({
+      protocolVersion: 'v1',
+      type: 'assistant_delta',
+      conversationId: 'c1',
+      seq: 2,
+      inflightId: 'i1',
+      delta: 'Step content',
+    });
+
+    const assistantBubble = await findBubbleByRole('assistant');
+    expect(
+      within(assistantBubble).getByTestId('bubble-step'),
+    ).toHaveTextContent('Step 2 of 6');
+
+    emitWsEvent({
+      protocolVersion: 'v1',
+      type: 'inflight_snapshot',
+      conversationId: 'c1',
+      seq: 3,
+      inflight: {
+        inflightId: 'i2',
+        assistantText: '',
+        assistantThink: '',
+        toolEvents: [],
+        startedAt: '2026-01-11T20:06:00.000Z',
+      },
+    });
+    emitWsEvent({
+      protocolVersion: 'v1',
+      type: 'assistant_delta',
+      conversationId: 'c1',
+      seq: 4,
+      inflightId: 'i2',
+      delta: 'No command metadata',
+    });
+
+    const messageNode = await screen.findByText('No command metadata');
+    const bubble = messageNode.closest('[data-testid="chat-bubble"]');
+    expect(bubble).not.toBeNull();
+    if (bubble) {
+      expect(within(bubble).queryByTestId('bubble-step')).toBeNull();
+    }
+  });
+
+  it('shows inflight step indicator during agent streaming', async () => {
+    const user = userEvent.setup();
+    mockAgentsFetch();
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    await screen.findByText('Agent conversation');
+    await user.click(screen.getByText('Agent conversation'));
+    await waitForSubscribe('c1');
+
+    emitWsEvent({
+      protocolVersion: 'v1',
+      type: 'inflight_snapshot',
+      conversationId: 'c1',
+      seq: 1,
+      inflight: {
+        inflightId: 'i3',
+        assistantText: '',
+        assistantThink: '',
+        toolEvents: [],
+        startedAt: '2026-01-11T20:07:00.000Z',
+        command: { name: 'improve_plan', stepIndex: 1, totalSteps: 3 },
+      },
+    });
+    emitWsEvent({
+      protocolVersion: 'v1',
+      type: 'assistant_delta',
+      conversationId: 'c1',
+      seq: 2,
+      inflightId: 'i3',
+      delta: 'Streaming step',
+    });
+
+    const assistantBubble = await findBubbleByRole('assistant');
+    expect(
+      within(assistantBubble).getByTestId('bubble-step'),
+    ).toHaveTextContent('Step 1 of 3');
   });
 });

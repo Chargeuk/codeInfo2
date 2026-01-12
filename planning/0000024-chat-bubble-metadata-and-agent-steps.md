@@ -1253,7 +1253,7 @@ Extend the REST turn snapshot mapping to include usage/timing fields in stored t
 
 ### 8. Client: map WS usage/timing into stream state
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **__to_do__**
 
 #### Overview

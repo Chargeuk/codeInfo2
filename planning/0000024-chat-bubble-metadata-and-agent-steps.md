@@ -777,8 +777,8 @@ Capture LM Studio prediction stats and feed them into the shared chat usage/timi
 
 ### 5. Server: include command metadata in inflight snapshots (WS + REST)
 
-- Task Status: **__in_progress__**
-- Git Commits: **__to_do__**
+- Task Status: **__done__**
+- Git Commits: **7b91300**
 
 #### Overview
 

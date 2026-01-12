@@ -140,7 +140,7 @@ These instructions will be followed during implementation.
 ### 1. Server: MCP answer-only responses for codebase_question
 
 - Task Status: **__done__**
-- Git Commits: **to_do**
+- Git Commits: 566d444, 58d8c91
 
 #### Overview
 

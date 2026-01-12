@@ -129,10 +129,10 @@
         "2. [ ] `npm run build --workspace client`",
         "3. [ ] `npm run test --workspace server`",
         "4. [ ] `npm run test --workspace client`",
-        "5. [ ] `npm run e2e`",
+        "5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)",
         "6. [ ] `npm run compose:build`",
         "7. [ ] `npm run compose:up`",
-        "8. [ ] Manual Playwright-MCP check to manually confirm items within the story and general regressions checks that should be detailed based on the task being tested. This should include a check to ensure that there are no logged errors withing the debug console if possible",
+        "8. [ ] Manual Playwright-MCP check to manually confirm items within the story and general regressions checks that should be detailed based on the task being tested. This should include a check to ensure that there are no logged errors withing the debug console.",
         "9. [ ] `npm run compose:down`"
       ]
     },

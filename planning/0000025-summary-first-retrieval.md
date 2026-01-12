@@ -736,7 +736,7 @@ Switch vector “best match” aggregation to use minimum distance values (lower
 
 ### 4. Server: retrieval cutoff + fallback selection
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **to_do**
 
 #### Overview

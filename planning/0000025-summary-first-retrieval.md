@@ -1280,8 +1280,8 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
 
 ### 6. Client: render citations without dedupe (server-only)
 
-- Task Status: **__in_progress__**
-- Git Commits: **to_do**
+- Task Status: **__done__**
+- Git Commits: 4174f78
 
 #### Overview
 

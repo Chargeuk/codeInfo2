@@ -53,7 +53,7 @@ We also need to correct the current “best match” aggregation logic for vecto
 - Should MCP answer-only responses still include `conversationId`/`modelId`, or should they return just the answer text?
 - Do we need a backward-compatibility switch for existing MCP clients expecting `segments`?
 - Should we keep the score-source logging after rollout or remove it once the cutoff is tuned?
-- For dedupe: confirm whether “exact duplicate” should include identical chunk text even when chunk ids differ (default to yes).
+- Dedupe rule: treat identical chunk text as duplicates even when chunk ids differ.
 
 # Implementation Plan
 

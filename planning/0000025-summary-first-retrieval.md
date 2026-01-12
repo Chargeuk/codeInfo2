@@ -210,6 +210,8 @@ Return answer-only segments for MCP `codebase_question` responses while preservi
    - Requirements:
      - Assert that `segments` contains exactly one `answer` entry (where segments remain).
      - Confirm no `thinking` or `vector_summary` segments appear.
+     - Add a corner-case test where no answer segment is emitted; assert a single empty `answer` segment is returned.
+     - Add an error-path assertion (invalid params or tool error) to confirm JSON-RPC error shapes are unchanged by the answer-only filter.
    - Example (assertion target):
      - `segments.map((s) => s.type)` should equal `['answer']`.
 
@@ -307,6 +309,7 @@ Return answer-only segments for MCP agent `run_agent_instruction` responses whil
    - Requirements:
      - Assert that `segments` contains exactly one `answer` entry (where segments remain).
      - Confirm no `thinking` or `vector_summary` segments appear.
+     - Add a corner-case test where the agent emits no answer segment; assert the response includes a single empty `answer` segment.
    - Example (assertion target):
      - `segments.map((s) => s.type)` should equal `['answer']`.
 
@@ -490,6 +493,7 @@ Introduce distance-based cutoff logic for vector search results with an env-conf
      - Add cases for cutoff enabled, cutoff disabled, and fallback when none pass.
      - Cover empty result sets and all-missing distance values.
      - Cover missing distance handling and tie-break ordering.
+     - Add error-case coverage for invalid env values (non-numeric or negative) to confirm defaults are used.
    - Example (assertion target):
      - When cutoff excludes all, the first two lowest-distance items remain in original order.
 
@@ -601,6 +605,7 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
    - Requirements:
      - Add cases for per-chunk truncation and total cap enforcement.
      - Include a case where the max cap is too small and results become empty.
+     - Add error-case coverage for invalid env values (non-numeric or negative) to confirm defaults are used.
    - Example (assertion target):
      - `results[0].chunk.length` equals per-chunk cap; `results.length` shrinks when total cap is hit.
 

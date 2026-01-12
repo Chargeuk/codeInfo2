@@ -1088,8 +1088,8 @@ Expose usage/timing metadata on the WS `turn_final` payload so clients can rende
 
 ### 7. Client: map REST usage/timing into stored turns
 
-- Task Status: **__in_progress__**
-- Git Commits: **__to_do__**
+- Task Status: **__done__**
+- Git Commits: **199c801**
 
 #### Overview
 
@@ -1106,7 +1106,7 @@ Extend the REST turn snapshot mapping to include usage/timing fields in stored t
 
 #### Subtasks
 
-1. [ ] Review stored-turn mapping:
+1. [x] Review stored-turn mapping:
    - Documentation to read (repeat):
      - TypeScript handbook (object types): https://www.typescriptlang.org/docs/handbook/2/objects.html
      - React Testing Library (hook tests): https://testing-library.com/docs/react-testing-library/intro/
@@ -1115,7 +1115,7 @@ Extend the REST turn snapshot mapping to include usage/timing fields in stored t
      - `client/src/hooks/useConversationTurns.ts`
      - `client/src/test/useConversationTurns.commandMetadata.test.ts`
 
-2. [ ] Extend StoredTurn to include usage/timing:
+2. [x] Extend StoredTurn to include usage/timing:
    - Documentation to read (repeat):
      - TypeScript handbook (object types): https://www.typescriptlang.org/docs/handbook/2/objects.html
    - Recap (acceptance criteria): keep fields optional; assistant-only; omit when missing.
@@ -1127,7 +1127,7 @@ Extend the REST turn snapshot mapping to include usage/timing fields in stored t
      - Example (StoredTurn shape):
        - `{ usage: { inputTokens: 9, outputTokens: 3, totalTokens: 12, cachedInputTokens: 2 }, timing: { totalTimeSec: 0.4 } }`
 
-3. [ ] Extend InflightSnapshot to include command metadata:
+3. [x] Extend InflightSnapshot to include command metadata:
    - Documentation to read (repeat):
      - TypeScript handbook (object types): https://www.typescriptlang.org/docs/handbook/2/objects.html
    - Recap (acceptance criteria): REST inflight snapshots must include step metadata when present.
@@ -1139,7 +1139,7 @@ Extend the REST turn snapshot mapping to include usage/timing fields in stored t
      - Example (REST inflight payload):
        - `{ inflight: { inflightId: 'i1', startedAt: '...', command: { name: 'improve_plan', stepIndex: 1, totalSteps: 4 } } }`
 
-4. [ ] Hook test (client): REST turns retain usage/timing
+4. [x] Hook test (client): REST turns retain usage/timing
    - Test type: Hook test (React Testing Library)
    - Location: `client/src/test/useConversationTurns.commandMetadata.test.ts`
    - Description: Mock REST response with usage/timing and verify stored turn shape.
@@ -1147,7 +1147,7 @@ Extend the REST turn snapshot mapping to include usage/timing fields in stored t
    - Documentation to read (repeat):
      - React Testing Library (hook tests): https://testing-library.com/docs/react-testing-library/intro/
 
-5. [ ] Hook test (client): REST turns omit missing metadata
+5. [x] Hook test (client): REST turns omit missing metadata
    - Test type: Hook test (React Testing Library)
    - Location: `client/src/test/useConversationTurns.commandMetadata.test.ts`
    - Description: Mock REST response without usage/timing and verify no defaults.
@@ -1155,7 +1155,7 @@ Extend the REST turn snapshot mapping to include usage/timing fields in stored t
    - Documentation to read (repeat):
      - React Testing Library (hook tests): https://testing-library.com/docs/react-testing-library/intro/
 
-6. [ ] Hook test (client): REST inflight retains command metadata
+6. [x] Hook test (client): REST inflight retains command metadata
    - Test type: Hook test (React Testing Library)
    - Location: `client/src/test/useConversationTurns.commandMetadata.test.ts`
    - Description: Mock REST response with `inflight.command` metadata and verify hook state.
@@ -1163,7 +1163,7 @@ Extend the REST turn snapshot mapping to include usage/timing fields in stored t
    - Documentation to read (repeat):
      - React Testing Library (hook tests): https://testing-library.com/docs/react-testing-library/intro/
 
-7. [ ] Hook test (client): REST inflight omits command when missing
+7. [x] Hook test (client): REST inflight omits command when missing
    - Test type: Hook test (React Testing Library)
    - Location: `client/src/test/useConversationTurns.commandMetadata.test.ts`
    - Description: Mock REST response with inflight data but no command metadata.
@@ -1171,7 +1171,7 @@ Extend the REST turn snapshot mapping to include usage/timing fields in stored t
    - Documentation to read (repeat):
      - React Testing Library (hook tests): https://testing-library.com/docs/react-testing-library/intro/
 
-8. [ ] Documentation update - `README.md` (if any user-facing behavior changes need to be called out):
+8. [x] Documentation update - `README.md` (if any user-facing behavior changes need to be called out):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: call out any user-visible metadata changes if needed.
@@ -1180,7 +1180,7 @@ Extend the REST turn snapshot mapping to include usage/timing fields in stored t
    - Description: Note any REST metadata changes visible to users.
    - Purpose: Keep README aligned with persisted data behavior.
 
-9. [ ] Documentation update - `design.md` (document REST turn mapping changes):
+9. [x] Documentation update - `design.md` (document REST turn mapping changes):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: document client mapping for usage/timing fields.
@@ -1189,7 +1189,7 @@ Extend the REST turn snapshot mapping to include usage/timing fields in stored t
    - Description: Document REST turn mapping and client model updates.
    - Purpose: Keep architecture docs accurate for REST data flow.
 
-10. [ ] Documentation update - `projectStructure.md` (only if files/paths change):
+10. [x] Documentation update - `projectStructure.md` (only if files/paths change):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: update tree only if file paths change.
@@ -1199,7 +1199,7 @@ Extend the REST turn snapshot mapping to include usage/timing fields in stored t
    - Description: Update tree entries for any new/changed files, including every file added or removed in this task.
    - Purpose: Keep the repository map current.
 
-11. [ ] Add manual-check log lines for REST stored-turn mapping:
+11. [x] Add manual-check log lines for REST stored-turn mapping:
    - Files to edit:
      - `client/src/hooks/useConversationTurns.ts`
    - Requirements:
@@ -1208,26 +1208,46 @@ Extend the REST turn snapshot mapping to include usage/timing fields in stored t
        - `DEV-0000024:T7:rest_usage_mapped`
        - `DEV-0000024:T7:rest_inflight_command`
 
-12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+12. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/options
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 5 minutes; e.g., `timeout 5m` or set `timeout_ms=300000` in the harness)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: send a message, refresh the page, and confirm usage/timing metadata persists in history; verify no console errors and confirm `DEV-0000024:T7:rest_usage_mapped` + `DEV-0000024:T7:rest_inflight_command` appear in logs.
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 5 minutes; e.g., `timeout 5m` or set `timeout_ms=300000` in the harness)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check: send a message, refresh the page, and confirm usage/timing metadata persists in history; verify no console errors and confirm `DEV-0000024:T7:rest_usage_mapped` + `DEV-0000024:T7:rest_inflight_command` appear in logs.
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- Notes added during implementation.
+- Reviewed stored turn and inflight snapshot mapping in `useConversationTurns`, plus the existing hook test coverage for command metadata.
+- Added usage/timing types to StoredTurn and normalized assistant-only metadata during REST hydration.
+- Ran `npm run lint --workspaces` (existing server import-order warnings) and `npm run format:check --workspaces` (clean).
+- Added command metadata typing + normalization for REST inflight snapshots, keeping command undefined when invalid.
+- Re-ran `npm run lint --workspaces` and `npm run format:check --workspaces` with the same existing warnings.
+- Expanded `useConversationTurns` hook tests to cover REST usage/timing mapping and inflight command hydration/omission.
+- Re-ran `npm run lint --workspaces` (existing warnings) and `npm run format:check --workspaces` (clean) after test updates.
+- README update not required; REST metadata changes are internal to the UI mapping.
+- Updated design notes to mention REST usage/timing + inflight command hydration in `useConversationTurns`.
+- `projectStructure.md` unchanged (no new files or paths added).
+- Added `DEV-0000024:T7:rest_usage_mapped` and `DEV-0000024:T7:rest_inflight_command` logs when REST metadata is hydrated.
+- `npm run lint --workspaces` reports existing server import-order warnings; ran `npm run format --workspace client` and `npm run format:check --workspaces` clean.
+- `npm run build --workspace server` succeeded.
+- `npm run build --workspace client` succeeded with existing chunk size warnings.
+- `npm run test --workspace server` passed (reran after an initial non-reproducible failure).
+- `npm run test --workspace client` passed with existing console warnings.
+- `npm run e2e` completed successfully (33 passed, 3 skipped).
+- `npm run compose:build` succeeded.
+- `npm run compose:up` started the local stack successfully.
+- Manual Playwright MCP check: confirmed `DEV-0000024:T7:rest_usage_mapped` and `DEV-0000024:T7:rest_inflight_command` in Logs UI after selecting an active planning-agent conversation; no console errors observed, and usage/timing remained present after refresh in the existing chat history.
+- `npm run compose:down` stopped the local stack cleanly.
 
 ---
 

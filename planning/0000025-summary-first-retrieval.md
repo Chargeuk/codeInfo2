@@ -139,7 +139,7 @@ These instructions will be followed during implementation.
 
 ### 1. Server: MCP answer-only responses for codebase_question
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **to_do**
 
 #### Overview

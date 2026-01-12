@@ -595,7 +595,15 @@ Introduce distance-based cutoff logic for vector search results with an env-conf
    - Description: Assert equal-distance items preserve original order after filtering/fallback.
    - Purpose: Confirm stable ordering requirements.
 
-10. [ ] Add unit test for invalid env values:
+10. [ ] Add unit test for file summaries after filtering:
+   - Documentation to read (repeat):
+     - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
+   - Test type: Unit (vector file summaries)
+   - Location: `server/src/test/unit/tools-vector-search.test.ts`
+   - Description: Assert `files` summaries are rebuilt from filtered results (e.g., excluded file paths are absent and chunk counts match filtered results).
+   - Purpose: Ensure summary payloads reflect the cutoff-filtered result set.
+
+11. [ ] Add unit test for invalid env values:
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
    - Test type: Unit (env parsing edge case)
@@ -603,7 +611,7 @@ Introduce distance-based cutoff logic for vector search results with an env-conf
    - Description: Provide non-numeric or negative env values and assert defaults are used.
    - Purpose: Ensure env parsing guards apply.
 
-11. [ ] Update server `.env` with retrieval cutoff defaults:
+12. [ ] Update server `.env` with retrieval cutoff defaults:
    - Documentation to read (repeat):
      - Node.js `process.env`: https://nodejs.org/api/process.html#processenv
    - Recap: document cutoff, bypass flag, and fallback defaults for local runs.
@@ -613,7 +621,7 @@ Introduce distance-based cutoff logic for vector search results with an env-conf
      - Add commented defaults for `CODEINFO_RETRIEVAL_DISTANCE_CUTOFF`, `CODEINFO_RETRIEVAL_CUTOFF_DISABLED`, and `CODEINFO_RETRIEVAL_FALLBACK_CHUNKS`.
      - Keep existing env ordering and comment style.
 
-12. [ ] Documentation update - `design.md` (cutoff + fallback text):
+13. [ ] Documentation update - `design.md` (cutoff + fallback text):
    - Documentation to read (repeat):
      - Mermaid: Context7 `/mermaid-js/mermaid`
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -622,7 +630,7 @@ Introduce distance-based cutoff logic for vector search results with an env-conf
    - Description: Add retrieval cutoff, fallback defaults, and bypass flag text.
    - Purpose: Keep retrieval strategy documentation accurate.
 
-13. [ ] Documentation update - `design.md` (cutoff flow diagram):
+14. [ ] Documentation update - `design.md` (cutoff flow diagram):
    - Documentation to read (repeat):
      - Mermaid: Context7 `/mermaid-js/mermaid`
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -631,7 +639,7 @@ Introduce distance-based cutoff logic for vector search results with an env-conf
    - Description: Update or add a Mermaid retrieval flow diagram that includes cutoff + fallback steps.
    - Purpose: Ensure architecture diagrams reflect cutoff logic.
 
-14. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`; fix issues before continuing.
+15. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`; fix issues before continuing.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/options
@@ -739,7 +747,23 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
    - Description: Set the total cap below one truncated chunk and assert results are empty.
    - Purpose: Cover the zero-results edge case for caps.
 
-7. [ ] Add unit test for invalid env values:
+7. [ ] Add unit test for line counts after truncation:
+   - Documentation to read (repeat):
+     - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
+   - Test type: Unit (payload truncation)
+   - Location: `server/src/test/unit/tools-vector-search.test.ts`
+   - Description: Assert `lineCount` reflects the truncated chunk text rather than the original chunk.
+   - Purpose: Ensure line totals match capped payloads.
+
+8. [ ] Add unit test for file summaries after caps:
+   - Documentation to read (repeat):
+     - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
+   - Test type: Unit (vector file summaries)
+   - Location: `server/src/test/unit/tools-vector-search.test.ts`
+   - Description: Assert `files` summaries use the capped results (chunk counts/line counts align with truncated output).
+   - Purpose: Keep summary payloads consistent with capped results.
+
+9. [ ] Add unit test for invalid env values:
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
    - Test type: Unit (env parsing edge case)
@@ -747,7 +771,7 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
    - Description: Provide non-numeric or negative cap values and assert defaults are used.
    - Purpose: Ensure env parsing guards apply.
 
-8. [ ] Update server `.env` with tool cap defaults:
+10. [ ] Update server `.env` with tool cap defaults:
    - Documentation to read (repeat):
      - Node.js `process.env`: https://nodejs.org/api/process.html#processenv
    - Recap: document total and per-chunk cap defaults for local runs.
@@ -757,7 +781,7 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
      - Add commented defaults for `CODEINFO_TOOL_MAX_CHARS` and `CODEINFO_TOOL_CHUNK_MAX_CHARS`.
      - Keep existing env ordering and comment style.
 
-9. [ ] Documentation update - `design.md` (tool cap defaults text):
+11. [ ] Documentation update - `design.md` (tool cap defaults text):
    - Documentation to read (repeat):
      - Mermaid: Context7 `/mermaid-js/mermaid`
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -766,7 +790,7 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
    - Description: Document total/per-chunk cap defaults and truncation behavior in text.
    - Purpose: Keep tool payload documentation accurate.
 
-10. [ ] Documentation update - `design.md` (payload cap diagram):
+12. [ ] Documentation update - `design.md` (payload cap diagram):
     - Documentation to read (repeat):
       - Mermaid: Context7 `/mermaid-js/mermaid`
       - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -775,7 +799,7 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
     - Description: Update or add a Mermaid diagram covering payload capping/truncation steps.
     - Purpose: Ensure architecture diagrams reflect payload cap logic.
 
-11. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`; fix issues before continuing.
+13. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`; fix issues before continuing.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/options

@@ -259,18 +259,14 @@ Return answer-only segments for MCP `codebase_question` responses while preservi
     - Description: Update or add a Mermaid sequence diagram if MCP response flows are documented.
     - Purpose: Ensure architecture flow diagrams match the answer-only response format.
 
+11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+    - Documentation to read (repeat):
+      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+      - Prettier options: https://prettier.io/docs/options
+
 #### Testing
 
-1. [ ] Run server lint + format checks for MCP answer-only changes:
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier options: https://prettier.io/docs/options
-   - Commands:
-     - `npm run lint --workspace server`
-     - `npm run format:check --workspace server`
-   - Purpose: Ensure linting and formatting pass before running tests.
-
-2. [ ] Run server unit tests for MCP answer-only changes:
+1. [ ] Run server unit tests for MCP answer-only changes:
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
    - Command: `npm run test:unit --workspace server`
@@ -367,18 +363,14 @@ Return answer-only segments for MCP agent `run_agent_instruction` responses whil
    - Description: Simulate a response without an answer segment and assert a single empty `answer` segment is returned.
    - Purpose: Ensure answer-only filtering always yields an `answer` segment for agents.
 
-#### Testing
-
-1. [ ] Run server lint + format checks for MCP agent answer-only changes:
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier options: https://prettier.io/docs/options
-   - Commands:
-     - `npm run lint --workspace server`
-     - `npm run format:check --workspace server`
-   - Purpose: Ensure linting and formatting pass before running tests.
 
-2. [ ] Run server unit tests for MCP agent answer-only changes:
+#### Testing
+
+1. [ ] Run server unit tests for MCP agent answer-only changes:
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
    - Command: `npm run test:unit --workspace server`
@@ -480,18 +472,14 @@ Switch vector “best match” aggregation to use minimum distance values (lower
    - Description: Update any Mermaid retrieval flow diagrams that mention match scoring.
    - Purpose: Ensure architecture diagrams reflect min-distance aggregation.
 
-#### Testing
-
-1. [ ] Run server lint + format checks for min-distance changes:
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier options: https://prettier.io/docs/options
-   - Commands:
-     - `npm run lint --workspace server`
-     - `npm run format:check --workspace server`
-   - Purpose: Ensure linting and formatting pass before running tests.
 
-2. [ ] Run server unit tests for min-distance semantics:
+#### Testing
+
+1. [ ] Run server unit tests for min-distance semantics:
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
    - Command: `npm run test:unit --workspace server`
@@ -663,18 +651,14 @@ Introduce distance-based cutoff logic for vector search results with an env-conf
    - Description: Update or add a Mermaid retrieval flow diagram that includes cutoff + fallback steps.
    - Purpose: Ensure architecture diagrams reflect cutoff logic.
 
-#### Testing
-
-1. [ ] Run server lint + format checks for retrieval cutoff changes:
+15. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier options: https://prettier.io/docs/options
-   - Commands:
-     - `npm run lint --workspace server`
-     - `npm run format:check --workspace server`
-   - Purpose: Ensure linting and formatting pass before running tests.
 
-2. [ ] Run server unit tests for retrieval cutoff behavior:
+#### Testing
+
+1. [ ] Run server unit tests for retrieval cutoff behavior:
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
    - Command: `npm run test:unit --workspace server`
@@ -831,18 +815,14 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
     - Description: Update or add a Mermaid diagram covering payload capping/truncation steps.
     - Purpose: Ensure architecture diagrams reflect payload cap logic.
 
+13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+    - Documentation to read (repeat):
+      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+      - Prettier options: https://prettier.io/docs/options
+
 #### Testing
 
-1. [ ] Run server lint + format checks for payload cap changes:
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier options: https://prettier.io/docs/options
-   - Commands:
-     - `npm run lint --workspace server`
-     - `npm run format:check --workspace server`
-   - Purpose: Ensure linting and formatting pass before running tests.
-
-2. [ ] Run server unit tests for payload caps:
+1. [ ] Run server unit tests for payload caps:
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
    - Command: `npm run test:unit --workspace server`
@@ -962,18 +942,14 @@ Deduplicate VectorSearch citations on the client by removing exact duplicates pe
    - Description: Update or add a Mermaid diagram for citation filtering flow if a retrieval flow diagram exists.
    - Purpose: Ensure architecture diagrams reflect citation filtering.
 
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+    - Documentation to read (repeat):
+      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+      - Prettier options: https://prettier.io/docs/options
+
 #### Testing
 
-1. [ ] Run client lint + format checks for citation dedupe changes:
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier options: https://prettier.io/docs/options
-   - Commands:
-     - `npm run lint --workspace client`
-     - `npm run format:check --workspace client`
-   - Purpose: Ensure linting and formatting pass before running tests.
-
-2. [ ] Run client Jest tests for citation dedupe changes:
+1. [ ] Run client Jest tests for citation dedupe changes:
    - Documentation to read (repeat):
      - Jest docs: Context7 `/jestjs/jest`
    - Command: `npm run test --workspace client`
@@ -1124,18 +1100,14 @@ Update Chat and Agents tool detail panels to explicitly label distance values an
    - Description: Update or add a Mermaid UI flow diagram if tool-details interactions are documented.
    - Purpose: Ensure UI flow diagrams reflect distance display updates.
 
+12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+    - Documentation to read (repeat):
+      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+      - Prettier options: https://prettier.io/docs/options
+
 #### Testing
 
-1. [ ] Run client lint + format checks for tool details UI changes:
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier options: https://prettier.io/docs/options
-   - Commands:
-     - `npm run lint --workspace client`
-     - `npm run format:check --workspace client`
-   - Purpose: Ensure linting and formatting pass before running tests.
-
-2. [ ] Run client Jest tests for tool details UI changes:
+1. [ ] Run client Jest tests for tool details UI changes:
    - Documentation to read (repeat):
      - Jest docs: Context7 `/jestjs/jest`
    - Command: `npm run test --workspace client`
@@ -1201,6 +1173,11 @@ Validate the full story against acceptance criteria, perform clean builds/tests,
    - Requirements:
      - Summarize server and client changes separately.
      - Include test commands executed and any known follow-ups.
+
+5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier options: https://prettier.io/docs/options
 
 #### Testing
 

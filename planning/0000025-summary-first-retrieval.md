@@ -363,7 +363,7 @@ Return answer-only segments for MCP `codebase_question` responses while preservi
 
 ### 2. Server: MCP agents answer-only responses
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **to_do**
 
 #### Overview

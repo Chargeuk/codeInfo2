@@ -714,7 +714,6 @@ Update Chat and Agents tool detail panels to explicitly label distance values an
 
 #### Documentation Locations
 
-- MUI docs note: `package-lock.json` resolves `@mui/material` to 6.5.0; the closest available MCP docs are 6.4.12, so confirm props/slots match before coding.
 - MUI Accordion (expandable tool details): https://llms.mui.com/material-ui/6.4.12/components/accordion.md
 - MUI Typography (label text + value formatting): https://llms.mui.com/material-ui/6.4.12/components/typography.md
 - MUI Stack (layout + spacing): https://llms.mui.com/material-ui/6.4.12/components/stack.md
@@ -730,6 +729,7 @@ Update Chat and Agents tool detail panels to explicitly label distance values an
      - MUI Accordion: https://llms.mui.com/material-ui/6.4.12/components/accordion.md
    - Recap (acceptance criteria): show explicit “Distance” labels and per-match distance values when expanded.
    - Files to read:
+     - `package-lock.json` (confirm resolved `@mui/material` version)
      - `client/src/pages/ChatPage.tsx`
      - `client/src/pages/AgentsPage.tsx`
      - `client/src/hooks/useChatStream.ts`

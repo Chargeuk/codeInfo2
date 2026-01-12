@@ -950,8 +950,8 @@ Expose command step metadata on inflight snapshots so agent bubbles can render â
 
 ### 6. Server: extend WS `turn_final` payload with usage/timing
 
-- Task Status: **__in_progress__**
-- Git Commits: **__to_do__**
+- Task Status: **__done__**
+- Git Commits: **3f2c488**
 
 #### Overview
 

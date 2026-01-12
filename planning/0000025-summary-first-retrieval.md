@@ -363,7 +363,7 @@ Return answer-only segments for MCP `codebase_question` responses while preservi
 
 ### 2. Server: MCP agents answer-only responses
 
-- Task Status: **__in_progress__**
+- Task Status: **__done__**
 - Git Commits: **to_do**
 
 #### Overview
@@ -381,7 +381,7 @@ Return answer-only segments for MCP agent `run_agent_instruction` responses whil
 
 #### Subtasks
 
-1. [ ] Review current MCP agent response assembly:
+1. [x] Review current MCP agent response assembly:
    - Documentation to read (repeat):
      - JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification
    - Recap (acceptance criteria): return only the final answer segment while keeping `conversationId` and `modelId` unchanged.
@@ -393,7 +393,7 @@ Return answer-only segments for MCP agent `run_agent_instruction` responses whil
    - Goal:
      - Confirm where agent segments are assembled and passed through to MCP responses.
 
-2. [ ] Update agent MCP tooling to mirror answer-only responses:
+2. [x] Update agent MCP tooling to mirror answer-only responses:
    - Documentation to read (repeat):
      - JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification
      - JavaScript JSON serialization (`JSON.stringify`): https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON
@@ -410,7 +410,7 @@ Return answer-only segments for MCP agent `run_agent_instruction` responses whil
      return { ...result, segments: answerOnly.length ? answerOnly : [{ type: 'answer', text: '' }] };
      ```
 
-3. [ ] Update MCP tool definitions to reflect answer-only responses:
+3. [x] Update MCP tool definitions to reflect answer-only responses:
    - Documentation to read (repeat):
      - JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification
    - Files to edit:
@@ -422,7 +422,7 @@ Return answer-only segments for MCP agent `run_agent_instruction` responses whil
      - Before: “ordered thinking/vector summaries/answer segments …”
      - After: “final answer segment plus conversationId and modelId …”
 
-4. [ ] Update unit test for answer-only segments (agent tool response):
+4. [x] Update unit test for answer-only segments (agent tool response):
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
    - Test type: Unit (agent MCP tool)
@@ -430,7 +430,7 @@ Return answer-only segments for MCP agent `run_agent_instruction` responses whil
    - Description: Assert `segments` contains only `['answer']` in the tool result.
    - Purpose: Verify answer-only filtering for agent tool responses.
 
-5. [ ] Update unit test for answer-only segments (router run response):
+5. [x] Update unit test for answer-only segments (router run response):
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
    - Test type: Unit (router JSON-RPC response)
@@ -438,7 +438,7 @@ Return answer-only segments for MCP agent `run_agent_instruction` responses whil
    - Description: Assert `tools/call` run_agent_instruction returns only the `answer` segment.
    - Purpose: Confirm router wiring preserves the answer-only response shape.
 
-6. [ ] Add corner-case unit test for missing answer segments:
+6. [x] Add corner-case unit test for missing answer segments:
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
    - Test type: Unit (agent MCP tool)
@@ -446,64 +446,64 @@ Return answer-only segments for MCP agent `run_agent_instruction` responses whil
    - Description: Simulate a response without an answer segment and assert a single empty `answer` segment is returned.
    - Purpose: Ensure answer-only filtering always yields an `answer` segment for agents.
 
-7. [ ] Add server log line for agent MCP answer-only filtering:
+7. [x] Add server log line for agent MCP answer-only filtering:
    - Files to edit:
      - `server/src/mcpAgents/tools.ts`
    - Log line (exact message): `DEV-0000025:T2:agent_answer_only_filtered`
    - Log context: `{ conversationId, modelId, segmentTypes: segments.map((s) => s.type) }`.
    - Purpose: Provide a deterministic log marker for manual verification.
 
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+8. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier options: https://prettier.io/docs/options
 
 #### Testing
 
-1. [ ] Build the server (workspace build):
+1. [x] Build the server (workspace build):
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
    - Command: `npm run build --workspace server`
    - Purpose: Ensure server TypeScript build succeeds outside Docker.
 
-2. [ ] Build the client (workspace build):
+2. [x] Build the client (workspace build):
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
    - Command: `npm run build --workspace client`
    - Purpose: Ensure client production build succeeds outside Docker.
 
-3. [ ] Run server tests (Cucumber):
+3. [x] Run server tests (Cucumber):
    - Documentation to read (repeat):
      - Cucumber guides: https://cucumber.io/docs/guides/
    - Command: `npm run test --workspace server`
    - Purpose: Validate server BDD tests alongside agent MCP answer-only changes.
 
-4. [ ] Run client tests (Jest):
+4. [x] Run client tests (Jest):
    - Documentation to read (repeat):
      - Jest docs: Context7 `/jestjs/jest`
    - Command: `npm run test --workspace client`
    - Purpose: Validate client test coverage while agent MCP answer-only behavior is active.
 
-5. [ ] Run end-to-end tests:
+5. [x] Run end-to-end tests:
    - Documentation to read (repeat):
      - Playwright Test docs: https://playwright.dev/docs/intro
    - Command: `npm run e2e`
    - Timeout: allow up to 7 minutes (e.g., `timeout 7m npm run e2e` or `timeout_ms=420000`).
    - Purpose: Validate end-to-end flows with agent MCP answer-only responses.
 
-6. [ ] Perform a clean Docker Compose build:
+6. [x] Perform a clean Docker Compose build:
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
    - Command: `npm run compose:build`
    - Purpose: Validate Docker images build cleanly with MCP response changes.
 
-7. [ ] Start Docker Compose stack:
+7. [x] Start Docker Compose stack:
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
    - Command: `npm run compose:up`
    - Purpose: Ensure the full stack starts with agent MCP answer-only responses.
 
-8. [ ] Manual Playwright-MCP check (visual verification):
+8. [x] Manual Playwright-MCP check (visual verification):
    - Documentation to read (repeat):
      - Playwright Test docs: https://playwright.dev/docs/intro
    - Location: http://host.docker.internal:5001
@@ -512,13 +512,13 @@ Return answer-only segments for MCP agent `run_agent_instruction` responses whil
    - Regression check: confirm only the final answer is shown (no reasoning/vector summary) and verify there are no logged errors in the debug console.
    - Purpose: Manual verification of agent MCP answer-only behavior and UI stability.
 
-9. [ ] Shut down Docker Compose stack:
+9. [x] Shut down Docker Compose stack:
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
    - Command: `npm run compose:down`
    - Purpose: Cleanly stop the stack after verification.
 
-10. [ ] Run server unit tests for MCP agent answer-only changes:
+10. [x] Run server unit tests for MCP agent answer-only changes:
     - Documentation to read (repeat):
       - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
     - Command: `npm run test:unit --workspace server`
@@ -526,7 +526,20 @@ Return answer-only segments for MCP agent `run_agent_instruction` responses whil
 
 #### Implementation notes
 
-- Notes added during implementation.
+- Reviewed agent MCP tooling: `run_agent_instruction` returns `runAgentInstruction()` results (segments from `McpResponder`) directly via `mcpAgents/tools.ts` and the unit/router tests assert on the segments shape.
+- Filtered agent MCP responses to answer-only segments with fallback empty answer, updated the tool description, and added the `DEV-0000025:T2:agent_answer_only_filtered` log marker.
+- Updated agent MCP tool/unit/router tests to assert answer-only segments and cover the missing-answer fallback case.
+- Ran workspace lint + Prettier checks; lint reported pre-existing import-order warnings in server tests/routes.
+- Testing: `npm run build --workspace server` (fixed TS type inference for answer-only filter).
+- Testing: `npm run build --workspace client` (Vite chunk size warning only).
+- Testing: `npm run test --workspace server` (required extended timeout to finish).
+- Testing: `npm run test --workspace client` (Jest console warnings from existing tests).
+- Testing: `npm run e2e` (3 ingest specs skipped; rest passed).
+- Testing: `npm run compose:build`.
+- Testing: `npm run compose:up`.
+- Testing: Playwright MCP check confirmed `DEV-0000025:T2:agent_answer_only_filtered` logs with `segmentTypes: ['answer']` on `http://host.docker.internal:5001/logs`.
+- Testing: `npm run compose:down`.
+- Testing: `npm run test:unit --workspace server` (required extended timeout to finish).
 
 ---
 

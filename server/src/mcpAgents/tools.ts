@@ -6,6 +6,7 @@ import {
   runAgentCommand,
   runAgentInstruction,
 } from '../agents/service.js';
+import { append } from '../logStore.js';
 import {
   ArchivedConversationError,
   InvalidParamsError,
@@ -142,7 +143,7 @@ function runAgentInstructionDefinition() {
   return {
     name: RUN_AGENT_INSTRUCTION_TOOL_NAME,
     description:
-      'Run an instruction against a named Codex agent and return ordered thinking/vector summaries/answer segments plus a conversationId for continuation.',
+      'Run an instruction against a named Codex agent and return a final answer segment plus conversationId and modelId for continuation.',
     inputSchema: {
       type: 'object',
       additionalProperties: false,
@@ -380,8 +381,30 @@ async function runRunAgentInstruction(
       signal: deps.signal,
       source: 'MCP',
     });
+    const answerOnly = result.segments.filter(
+      (segment) => (segment as { type?: string }).type === 'answer',
+    ) as Array<{ type: 'answer'; text: string }>;
+    const segments: Array<{ type: 'answer'; text: string }> =
+      answerOnly.length > 0 ? answerOnly : [{ type: 'answer', text: '' }];
+
+    append({
+      level: 'info',
+      message: 'DEV-0000025:T2:agent_answer_only_filtered',
+      timestamp: new Date().toISOString(),
+      source: 'server',
+      context: {
+        conversationId: result.conversationId,
+        modelId: result.modelId,
+        segmentTypes: segments.map((segment) => segment.type),
+      },
+    });
     return {
-      content: [{ type: 'text', text: JSON.stringify(result) }],
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({ ...result, segments }),
+        },
+      ],
     } as const;
   } catch (err) {
     if (isAgentRunError(err)) {

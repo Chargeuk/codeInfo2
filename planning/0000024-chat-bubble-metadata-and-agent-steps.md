@@ -1690,19 +1690,19 @@ Validate the full story against acceptance criteria, perform clean builds/tests,
 
 #### Subtasks
 
-1. [ ] Build the server
+1. [x] Build the server
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
    - Recap: confirm server build works outside Docker before final verification.
-2. [ ] Build the client
+2. [x] Build the client
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
    - Recap: confirm client build works outside Docker before final verification.
-3. [ ] Perform a clean docker build
+3. [x] Perform a clean docker build
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
    - Recap: clean build must succeed to validate images.
-4. [ ] Ensure `README.md` is updated with any required description changes and with any new commands that have been added as part of this story
+4. [x] Ensure `README.md` is updated with any required description changes and with any new commands that have been added as part of this story
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: document user-visible metadata changes and any new commands.
@@ -1710,7 +1710,7 @@ Validate the full story against acceptance criteria, perform clean builds/tests,
    - Location: `README.md`
    - Description: Update user-facing notes and any new commands introduced by this story.
    - Purpose: Keep onboarding docs accurate.
-5. [ ] Ensure `design.md` is updated with any required description changes including Mermaid diagrams that have been added as part of this story
+5. [x] Ensure `design.md` is updated with any required description changes including Mermaid diagrams that have been added as part of this story
    - Documentation to read (repeat):
      - Mermaid: Context7 `/mermaid-js/mermaid`
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -1719,7 +1719,7 @@ Validate the full story against acceptance criteria, perform clean builds/tests,
    - Location: `design.md`
    - Description: Update architecture notes and mermaid diagrams for new flows.
    - Purpose: Keep design documentation accurate.
-6. [ ] Ensure `projectStructure.md` is updated with any updated, added or removed files & folders
+6. [x] Ensure `projectStructure.md` is updated with any updated, added or removed files & folders
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: update tree only if file paths changed.
@@ -1728,12 +1728,12 @@ Validate the full story against acceptance criteria, perform clean builds/tests,
    - Location: `projectStructure.md`
    - Description: Update the file tree for any additions/removals made in this story, including every file added or removed.
    - Purpose: Keep repository map current.
-7. [ ] Create a summary of all changes within this story and generate the pull request comment (must cover all tasks)
+7. [x] Create a summary of all changes within this story and generate the pull request comment (must cover all tasks)
    - Documentation to read (repeat):
      - Husky: Context7 `/typicode/husky`
    - Recap: summary must cover all tasks and mention any workflow changes.
 
-8. [ ] Add manual-check log lines for final verification:
+8. [x] Add manual-check log lines for final verification:
    - Files to edit:
      - `client/src/pages/ChatPage.tsx`
      - `client/src/pages/AgentsPage.tsx`
@@ -1742,25 +1742,49 @@ Validate the full story against acceptance criteria, perform clean builds/tests,
      - Example log tag (must be exact):
        - `DEV-0000024:T10:manual_validation_complete`
 
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+9. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/options
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 5 minutes; e.g., `timeout 5m` or set `timeout_ms=300000` in the harness)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: validate chat/agents metadata UI end-to-end, capture screenshots to `./test-results/screenshots/` (name: `0000024-9-<short-name>.png`), confirm no console errors, and ensure `DEV-0000024:T10:manual_validation_complete` appears in logs.
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 5 minutes; e.g., `timeout 5m` or set `timeout_ms=300000` in the harness)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check: validate chat/agents metadata UI end-to-end, capture screenshots to `./test-results/screenshots/` (name: `0000024-9-<short-name>.png`), confirm no console errors, and ensure `DEV-0000024:T10:manual_validation_complete` appears in logs.
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
 - Notes added during implementation.
+- Added `DEV-0000024:T10:manual_validation_complete` log listener hooks in Chat and Agents pages (triggered via `codeinfo:manual-validation-complete`).
+- Built the server workspace with `npm run build --workspace server`.
+- Built the client workspace with `npm run build --workspace client` (chunk size warning only).
+- Completed a clean Docker Compose build with `docker compose ... build --no-cache`.
+- Reviewed `README.md`, `design.md`, and `projectStructure.md`; no additional updates required for Task 10.
+- Drafted PR summary covering Tasks 1–9 (see below).
+- Lint ran with existing server import-order warnings; Prettier was applied and `format:check` passed.
+- Testing: server build succeeded via `npm run build --workspace server`.
+- Testing: client build succeeded via `npm run build --workspace client` (chunk size warning only).
+- Testing: server test suite passed via `npm run test --workspace server`.
+- Testing: client test suite passed via `npm run test --workspace client` (Jest VM module warnings only).
+- Testing: `npm run e2e` passed (36 tests).
+- Testing: `npm run compose:build` completed (cached layers; chunk size warning only).
+- Testing: `npm run compose:up` started the stack successfully.
+- Manual Playwright MCP check: verified Chat + Agents metadata on `http://host.docker.internal:5001`, dispatched `codeinfo:manual-validation-complete`, saw `DEV-0000024:T10:manual_validation_complete` in Logs, no console errors, and saved screenshots to `test-results/screenshots/0000024-9-chat-metadata.png`, `test-results/screenshots/0000024-9-agent-metadata.png`, and `test-results/screenshots/0000024-9-manual-log.png`.
+- Testing: `npm run compose:down` stopped the stack cleanly.
+
+PR summary draft:
+
+- Added assistant usage/timing persistence to Mongo turn storage and REST schemas, with server integration coverage for accept/return/validation.
+- Threaded usage/timing and command step metadata through chat events, Codex + LM Studio providers, inflight snapshots, and WS turn_final payloads with logging for observability.
+- Updated client stream and REST hydration to map usage/timing and command metadata, including inflight handling and agent step indicators.
+- Rendered bubble header metadata (timestamps, tokens, timing, steps) for Chat and Agents with tests, logging hooks, and updated README/design docs.
+- Verified full builds/tests/compose/e2e plus manual Playwright checks, capturing UI metadata logs and screenshots.
 
 ---

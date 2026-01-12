@@ -474,6 +474,21 @@ export default function ChatPage() {
   }, [log, orderedMessages]);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handler = () => {
+      log('info', 'DEV-0000024:T10:manual_validation_complete', {
+        page: 'chat',
+      });
+    };
+    window.addEventListener('codeinfo:manual-validation-complete', handler);
+    return () =>
+      window.removeEventListener(
+        'codeinfo:manual-validation-complete',
+        handler,
+      );
+  }, [log]);
+
+  useEffect(() => {
     inputRef.current?.focus();
   }, []);
 

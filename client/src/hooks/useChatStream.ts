@@ -37,6 +37,18 @@ export type ToolCitation = {
   modelId?: string;
 };
 
+export type TurnUsageMetadata = {
+  inputTokens?: number;
+  outputTokens?: number;
+  totalTokens?: number;
+  cachedInputTokens?: number;
+};
+
+export type TurnTimingMetadata = {
+  totalTimeSec?: number;
+  tokensPerSecond?: number;
+};
+
 export type ToolCall = {
   id: string;
   name?: string;
@@ -61,6 +73,8 @@ export type ChatMessage = {
   kind?: 'error' | 'status';
   think?: string;
   thinkStreaming?: boolean;
+  usage?: TurnUsageMetadata;
+  timing?: TurnTimingMetadata;
   citations?: ToolCitation[];
   tools?: ToolCall[];
   segments?: ChatSegment[];
@@ -87,6 +101,65 @@ const parseTimestamp = (value?: string) => {
   if (!value) return null;
   const parsed = Date.parse(value);
   return Number.isFinite(parsed) ? parsed : null;
+};
+
+const isFiniteNumber = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isFinite(value);
+
+const normalizeUsage = (
+  usage: TurnUsageMetadata | undefined,
+): TurnUsageMetadata | undefined => {
+  if (!usage) return undefined;
+  const cleaned: TurnUsageMetadata = {};
+  if (isFiniteNumber(usage.inputTokens) && usage.inputTokens >= 0) {
+    cleaned.inputTokens = usage.inputTokens;
+  }
+  if (isFiniteNumber(usage.outputTokens) && usage.outputTokens >= 0) {
+    cleaned.outputTokens = usage.outputTokens;
+  }
+  if (isFiniteNumber(usage.totalTokens) && usage.totalTokens >= 0) {
+    cleaned.totalTokens = usage.totalTokens;
+  }
+  if (isFiniteNumber(usage.cachedInputTokens) && usage.cachedInputTokens >= 0) {
+    cleaned.cachedInputTokens = usage.cachedInputTokens;
+  }
+  return Object.keys(cleaned).length > 0 ? cleaned : undefined;
+};
+
+const normalizeTiming = (
+  timing: TurnTimingMetadata | undefined,
+): TurnTimingMetadata | undefined => {
+  if (!timing) return undefined;
+  const cleaned: TurnTimingMetadata = {};
+  if (isFiniteNumber(timing.totalTimeSec) && timing.totalTimeSec >= 0) {
+    cleaned.totalTimeSec = timing.totalTimeSec;
+  }
+  if (isFiniteNumber(timing.tokensPerSecond) && timing.tokensPerSecond >= 0) {
+    cleaned.tokensPerSecond = timing.tokensPerSecond;
+  }
+  return Object.keys(cleaned).length > 0 ? cleaned : undefined;
+};
+
+const normalizeCommand = (
+  command:
+    | { name?: string; stepIndex?: number; totalSteps?: number }
+    | undefined,
+): ChatMessage['command'] | undefined => {
+  if (!command) return undefined;
+  if (typeof command.name !== 'string' || command.name.trim().length === 0) {
+    return undefined;
+  }
+  if (!isFiniteNumber(command.stepIndex) || command.stepIndex < 0) {
+    return undefined;
+  }
+  if (!isFiniteNumber(command.totalSteps) || command.totalSteps < 0) {
+    return undefined;
+  }
+  return {
+    name: command.name,
+    stepIndex: command.stepIndex,
+    totalSteps: command.totalSteps,
+  };
 };
 
 const makeId = () =>
@@ -729,6 +802,12 @@ export function useChatStream(
         inflightId: inflight.inflightId,
       });
 
+      const startedAt =
+        parseTimestamp(inflight.startedAt) !== null
+          ? inflight.startedAt
+          : undefined;
+      const normalizedCommand = normalizeCommand(inflight.command);
+
       inflightIdRef.current = inflight.inflightId;
       setInflightId(inflight.inflightId);
       assistantTextRef.current = inflight.assistantText;
@@ -747,7 +826,14 @@ export function useChatStream(
       }
 
       setIsStreaming(true);
-      syncAssistantMessage({ streamStatus: 'processing' }, { assistantId });
+      syncAssistantMessage(
+        {
+          streamStatus: 'processing',
+          ...(startedAt ? { createdAt: startedAt } : {}),
+          ...(normalizedCommand ? { command: normalizedCommand } : {}),
+        },
+        { assistantId },
+      );
     },
     [applyToolEvent, ensureAssistantMessage, syncAssistantMessage],
   );
@@ -1075,14 +1161,33 @@ export function useChatStream(
           inflightId: eventInflightId,
         });
 
+        const normalizedCommand = normalizeCommand(event.inflight.command);
+        const startedAt =
+          parseTimestamp(event.inflight.startedAt) !== null
+            ? event.inflight.startedAt
+            : undefined;
+        const inflightUpdates: Partial<ChatMessage> = {
+          streamStatus: 'processing',
+          ...(startedAt ? { createdAt: startedAt } : {}),
+          ...(normalizedCommand ? { command: normalizedCommand } : {}),
+        };
+
+        if (normalizedCommand) {
+          logWithChannel('info', 'DEV-0000024:T8:ws_inflight_command', {
+            conversationId: event.conversationId,
+            inflightId: eventInflightId,
+            command: normalizedCommand,
+          });
+        }
+
         const inflightMismatch =
           currentInflightId !== null && eventInflightId !== currentInflightId;
 
         if (inflightMismatch && status === 'sending') {
-          syncAssistantMessage(
-            { streamStatus: 'processing' },
-            { assistantId, useRefs: false },
-          );
+          syncAssistantMessage(inflightUpdates, {
+            assistantId,
+            useRefs: false,
+          });
           return;
         }
 
@@ -1104,7 +1209,7 @@ export function useChatStream(
           segmentsRef.current = [{ id: makeId(), kind: 'text', content: '' }];
         }
         setIsStreaming(true);
-        syncAssistantMessage({ streamStatus: 'processing' }, { assistantId });
+        syncAssistantMessage(inflightUpdates, { assistantId });
         return;
       }
 
@@ -1207,6 +1312,22 @@ export function useChatStream(
           threadIdRef.current = event.threadId ?? null;
         }
 
+        const usage = normalizeUsage(event.usage);
+        const timing = normalizeTiming(event.timing);
+        const metadataUpdates: Partial<ChatMessage> = {
+          ...(usage ? { usage } : {}),
+          ...(timing ? { timing } : {}),
+        };
+
+        if (usage || timing) {
+          logWithChannel('info', 'DEV-0000024:T8:ws_usage_applied', {
+            conversationId: event.conversationId,
+            inflightId: event.inflightId,
+            hasUsage: Boolean(usage),
+            hasTiming: Boolean(timing),
+          });
+        }
+
         const streamStatus: ChatMessage['streamStatus'] =
           event.status === 'failed' ? 'failed' : 'complete';
 
@@ -1231,6 +1352,7 @@ export function useChatStream(
               thinking: false,
               thinkStreaming: false,
               ...(event.status === 'failed' ? { kind: 'error' as const } : {}),
+              ...metadataUpdates,
             },
             { assistantId, useRefs: false },
           );
@@ -1261,6 +1383,7 @@ export function useChatStream(
             thinking: false,
             thinkStreaming: false,
             ...(event.status === 'failed' ? { kind: 'error' as const } : {}),
+            ...metadataUpdates,
           },
           { assistantId },
         );

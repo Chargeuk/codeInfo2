@@ -211,6 +211,7 @@ export function setupChatWsHarness(params: {
       assistantThink?: string;
       toolEvents?: unknown[];
       startedAt?: string;
+      command?: { name?: string; stepIndex?: number; totalSteps?: number };
     }) => {
       emit({
         type: 'inflight_snapshot',
@@ -222,6 +223,7 @@ export function setupChatWsHarness(params: {
           assistantThink: payload.assistantThink ?? '',
           toolEvents: payload.toolEvents ?? [],
           startedAt: payload.startedAt ?? '2025-01-01T00:00:00.000Z',
+          ...(payload.command ? { command: payload.command } : {}),
         },
       });
     },
@@ -298,6 +300,13 @@ export function setupChatWsHarness(params: {
       status?: 'ok' | 'stopped' | 'failed';
       threadId?: string | null;
       error?: { code?: string; message?: string } | null;
+      usage?: {
+        inputTokens?: number;
+        outputTokens?: number;
+        totalTokens?: number;
+        cachedInputTokens?: number;
+      };
+      timing?: { totalTimeSec?: number; tokensPerSecond?: number };
     }) => {
       emit({
         type: 'turn_final',
@@ -306,6 +315,8 @@ export function setupChatWsHarness(params: {
         inflightId: payload.inflightId,
         status: payload.status ?? 'ok',
         threadId: payload.threadId ?? null,
+        ...(payload.usage ? { usage: payload.usage } : {}),
+        ...(payload.timing ? { timing: payload.timing } : {}),
         ...(payload.error !== undefined ? { error: payload.error } : {}),
       });
     },

@@ -109,13 +109,15 @@ describe('ChatInterface.run persistence', () => {
       provider: 'codex',
       source: 'REST',
     });
-    assert.deepEqual(chat.persisted[1], {
-      role: 'assistant',
-      content: 'assistant-reply',
-      model: 'model-a',
-      provider: 'codex',
-      source: 'REST',
-    });
+    const assistant = chat.persisted[1];
+    assert.equal(assistant.role, 'assistant');
+    assert.equal(assistant.content, 'assistant-reply');
+    assert.equal(assistant.model, 'model-a');
+    assert.equal(assistant.provider, 'codex');
+    assert.equal(assistant.source, 'REST');
+    if (assistant.timing) {
+      assert.equal(typeof assistant.timing.totalTimeSec, 'number');
+    }
   });
 
   test('skips Mongo and does not call persistTurn when using memory fallback', async () => {

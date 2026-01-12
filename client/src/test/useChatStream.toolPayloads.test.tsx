@@ -214,4 +214,224 @@ describe('useChatStream tool payload handling (WS transcript events)', () => {
       expect(assistant?.tools?.[0].errorFull).toBeDefined();
     });
   });
+
+  it('preserves usage/timing metadata on turn_final', async () => {
+    const onUpdate = jest.fn();
+
+    const conversationId = 'c3';
+    const events: ChatWsTranscriptEvent[] = [
+      {
+        protocolVersion: 'v1',
+        type: 'inflight_snapshot',
+        conversationId,
+        seq: 1,
+        inflight: {
+          inflightId: 'i3',
+          assistantText: 'Hello',
+          assistantThink: '',
+          toolEvents: [],
+          startedAt: '2025-01-01T00:00:00.000Z',
+        },
+      },
+      {
+        protocolVersion: 'v1',
+        type: 'turn_final',
+        conversationId,
+        seq: 2,
+        inflightId: 'i3',
+        status: 'ok',
+        threadId: null,
+        usage: { inputTokens: 5, outputTokens: 3, totalTokens: 8 },
+        timing: { totalTimeSec: 0.7, tokensPerSecond: 11.5 },
+      },
+    ];
+
+    render(
+      <Wrapper
+        conversationId={conversationId}
+        events={events}
+        onUpdate={onUpdate}
+      />,
+    );
+
+    await waitFor(() => {
+      const latest = onUpdate.mock.calls.at(-1)?.[0] ?? [];
+      const assistant = (latest as ChatMessage[]).find(
+        (msg) => msg.role === 'assistant',
+      );
+      expect(assistant?.usage).toEqual({
+        inputTokens: 5,
+        outputTokens: 3,
+        totalTokens: 8,
+      });
+      expect(assistant?.timing).toEqual({
+        totalTimeSec: 0.7,
+        tokensPerSecond: 11.5,
+      });
+    });
+  });
+
+  it('omits usage/timing metadata when missing', async () => {
+    const onUpdate = jest.fn();
+
+    const conversationId = 'c4';
+    const events: ChatWsTranscriptEvent[] = [
+      {
+        protocolVersion: 'v1',
+        type: 'inflight_snapshot',
+        conversationId,
+        seq: 1,
+        inflight: {
+          inflightId: 'i4',
+          assistantText: 'Hello',
+          assistantThink: '',
+          toolEvents: [],
+          startedAt: '2025-01-01T00:00:00.000Z',
+        },
+      },
+      {
+        protocolVersion: 'v1',
+        type: 'turn_final',
+        conversationId,
+        seq: 2,
+        inflightId: 'i4',
+        status: 'ok',
+        threadId: null,
+      },
+    ];
+
+    render(
+      <Wrapper
+        conversationId={conversationId}
+        events={events}
+        onUpdate={onUpdate}
+      />,
+    );
+
+    await waitFor(() => {
+      const latest = onUpdate.mock.calls.at(-1)?.[0] ?? [];
+      const assistant = (latest as ChatMessage[]).find(
+        (msg) => msg.role === 'assistant',
+      );
+      expect(assistant?.usage).toBeUndefined();
+      expect(assistant?.timing).toBeUndefined();
+    });
+  });
+
+  it('uses inflight startedAt timestamp for assistant', async () => {
+    const onUpdate = jest.fn();
+
+    const conversationId = 'c5';
+    const startedAt = '2025-02-01T10:00:00.000Z';
+    const events: ChatWsTranscriptEvent[] = [
+      {
+        protocolVersion: 'v1',
+        type: 'inflight_snapshot',
+        conversationId,
+        seq: 1,
+        inflight: {
+          inflightId: 'i5',
+          assistantText: 'Hello',
+          assistantThink: '',
+          toolEvents: [],
+          startedAt,
+        },
+      },
+    ];
+
+    render(
+      <Wrapper
+        conversationId={conversationId}
+        events={events}
+        onUpdate={onUpdate}
+      />,
+    );
+
+    await waitFor(() => {
+      const latest = onUpdate.mock.calls.at(-1)?.[0] ?? [];
+      const assistant = (latest as ChatMessage[]).find(
+        (msg) => msg.role === 'assistant',
+      );
+      expect(assistant?.createdAt).toBe(startedAt);
+    });
+  });
+
+  it('preserves inflight command metadata from snapshot', async () => {
+    const onUpdate = jest.fn();
+
+    const conversationId = 'c6';
+    const events: ChatWsTranscriptEvent[] = [
+      {
+        protocolVersion: 'v1',
+        type: 'inflight_snapshot',
+        conversationId,
+        seq: 1,
+        inflight: {
+          inflightId: 'i6',
+          assistantText: 'Hello',
+          assistantThink: '',
+          toolEvents: [],
+          startedAt: '2025-01-01T00:00:00.000Z',
+          command: { name: 'improve_plan', stepIndex: 2, totalSteps: 4 },
+        },
+      },
+    ];
+
+    render(
+      <Wrapper
+        conversationId={conversationId}
+        events={events}
+        onUpdate={onUpdate}
+      />,
+    );
+
+    await waitFor(() => {
+      const latest = onUpdate.mock.calls.at(-1)?.[0] ?? [];
+      const assistant = (latest as ChatMessage[]).find(
+        (msg) => msg.role === 'assistant',
+      );
+      expect(assistant?.command).toEqual({
+        name: 'improve_plan',
+        stepIndex: 2,
+        totalSteps: 4,
+      });
+    });
+  });
+
+  it('omits inflight command metadata when missing', async () => {
+    const onUpdate = jest.fn();
+
+    const conversationId = 'c7';
+    const events: ChatWsTranscriptEvent[] = [
+      {
+        protocolVersion: 'v1',
+        type: 'inflight_snapshot',
+        conversationId,
+        seq: 1,
+        inflight: {
+          inflightId: 'i7',
+          assistantText: 'Hello',
+          assistantThink: '',
+          toolEvents: [],
+          startedAt: '2025-01-01T00:00:00.000Z',
+        },
+      },
+    ];
+
+    render(
+      <Wrapper
+        conversationId={conversationId}
+        events={events}
+        onUpdate={onUpdate}
+      />,
+    );
+
+    await waitFor(() => {
+      const latest = onUpdate.mock.calls.at(-1)?.[0] ?? [];
+      const assistant = (latest as ChatMessage[]).find(
+        (msg) => msg.role === 'assistant',
+      );
+      expect(assistant?.command).toBeUndefined();
+    });
+  });
 });

@@ -221,6 +221,7 @@ flowchart LR
 ### Chat page (streaming UI)
 
 - Sending a message triggers `POST /chat` (202 started). The visible transcript is driven by `/ws` events for the selected conversation (`subscribe_conversation` → `inflight_snapshot` catch-up → `assistant_delta`/`analysis_delta`/`tool_event` → `turn_final`). Stop uses `cancel_inflight`.
+- WebSocket `inflight_snapshot` events now hydrate `createdAt` from `startedAt` and attach any command step metadata; `turn_final` events apply usage/timing metadata to the active assistant bubble when supplied by the provider.
 - Persisted turn hydration merges into the current transcript without clearing active in-flight content; an empty replace snapshot is ignored while streaming.
 - `GET /conversations/:id/turns` snapshots always reflect the full conversation by merging persisted turns with the latest in-flight user/assistant turns until persistence completes (deduped to avoid duplicates).
 - Snapshot `items` now include a stable `turnId` (Mongo `_id` string) for persisted turns. Snapshots are ordered deterministically (newest-first) by `(createdAt, rolePriority, turnId)` so same-timestamp turns don’t flip or duplicate during in-flight merges.

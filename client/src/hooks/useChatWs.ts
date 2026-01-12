@@ -113,6 +113,7 @@ type WsInflightSnapshotEvent = WsServerEventBase & {
     assistantThink: string;
     toolEvents: WsToolEvent[];
     startedAt: string;
+    command?: TurnCommandMetadata;
   };
 };
 
@@ -146,6 +147,12 @@ type WsStreamWarningEvent = WsServerEventBase & {
   seq: number;
   inflightId: string;
   message: string;
+};
+
+type TurnCommandMetadata = {
+  name: string;
+  stepIndex: number;
+  totalSteps: number;
 };
 
 type TurnUsageMetadata = {

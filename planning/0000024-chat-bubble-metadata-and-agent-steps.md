@@ -1253,7 +1253,7 @@ Extend the REST turn snapshot mapping to include usage/timing fields in stored t
 
 ### 8. Client: map WS usage/timing into stream state
 
-- Task Status: **__in_progress__**
+- Task Status: **__done__**
 - Git Commits: **__to_do__**
 
 #### Overview
@@ -1273,7 +1273,7 @@ Extend the WS transcript event mapping so usage/timing fields and inflight comma
 
 #### Subtasks
 
-1. [ ] Review WS transcript mapping:
+1. [x] Review WS transcript mapping:
    - Documentation to read (repeat):
      - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
      - TypeScript handbook (object types): https://www.typescriptlang.org/docs/handbook/2/objects.html
@@ -1285,7 +1285,7 @@ Extend the WS transcript event mapping so usage/timing fields and inflight comma
      - `client/src/test/support/mockChatWs.ts`
      - `common/src/fixtures/chatStream.ts`
 
-2. [ ] Extend WS event types and message updates:
+2. [x] Extend WS event types and message updates:
    - Documentation to read (repeat):
      - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
      - TypeScript handbook (object types): https://www.typescriptlang.org/docs/handbook/2/objects.html
@@ -1301,7 +1301,7 @@ Extend the WS transcript event mapping so usage/timing fields and inflight comma
        - `turn_final` with usage: `{ type: 'turn_final', usage: { inputTokens: 8, outputTokens: 4, totalTokens: 12 }, timing: { totalTimeSec: 0.6 } }`
        - `inflight_snapshot` with command: `{ type: 'inflight_snapshot', inflight: { command: { name: 'improve_plan', stepIndex: 1, totalSteps: 4 } } }`
 
-3. [ ] Update fixtures + WS mocks:
+3. [x] Update fixtures + WS mocks:
    - Documentation to read (repeat):
      - WebSocket browser API: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket
    - Recap (acceptance criteria): fixtures should include usage/timing and inflight command metadata when present.
@@ -1315,7 +1315,7 @@ Extend the WS transcript event mapping so usage/timing fields and inflight comma
        - `chatWsTurnFinalFixture.usage = { inputTokens: 8, outputTokens: 4, totalTokens: 12 }`
        - `chatWsInflightSnapshotFixture.inflight.command = { name: 'improve_plan', stepIndex: 1, totalSteps: 4 }`
 
-4. [ ] Hook test (client): WS preserves usage/timing
+4. [x] Hook test (client): WS preserves usage/timing
    - Test type: Hook test (React Testing Library)
    - Location: `client/src/test/useChatStream.toolPayloads.test.tsx`
    - Description: Emit `turn_final` with usage/timing and inspect message state.
@@ -1323,7 +1323,7 @@ Extend the WS transcript event mapping so usage/timing fields and inflight comma
    - Documentation to read (repeat):
      - React Testing Library (hook tests): https://testing-library.com/docs/react-testing-library/intro/
 
-5. [ ] Hook test (client): WS omits missing metadata
+5. [x] Hook test (client): WS omits missing metadata
    - Test type: Hook test (React Testing Library)
    - Location: `client/src/test/useChatStream.toolPayloads.test.tsx`
    - Description: Emit `turn_final` without usage/timing and verify no empty fields.
@@ -1331,7 +1331,7 @@ Extend the WS transcript event mapping so usage/timing fields and inflight comma
    - Documentation to read (repeat):
      - React Testing Library (hook tests): https://testing-library.com/docs/react-testing-library/intro/
 
-6. [ ] Hook test (client): inflight uses startedAt timestamp
+6. [x] Hook test (client): inflight uses startedAt timestamp
    - Test type: Hook test (React Testing Library)
    - Location: `client/src/test/useChatStream.toolPayloads.test.tsx`
    - Description: Hydrate an inflight snapshot and confirm timestamp uses `inflight.startedAt`.
@@ -1339,7 +1339,7 @@ Extend the WS transcript event mapping so usage/timing fields and inflight comma
    - Documentation to read (repeat):
      - React Testing Library (hook tests): https://testing-library.com/docs/react-testing-library/intro/
 
-7. [ ] Hook test (client): inflight snapshot preserves command metadata
+7. [x] Hook test (client): inflight snapshot preserves command metadata
    - Test type: Hook test (React Testing Library)
    - Location: `client/src/test/useChatStream.toolPayloads.test.tsx`
    - Description: Hydrate an inflight snapshot with `command` metadata and assert the assistant message includes it.
@@ -1347,7 +1347,7 @@ Extend the WS transcript event mapping so usage/timing fields and inflight comma
    - Documentation to read (repeat):
      - React Testing Library (hook tests): https://testing-library.com/docs/react-testing-library/intro/
 
-8. [ ] Hook test (client): inflight snapshot omits command when missing
+8. [x] Hook test (client): inflight snapshot omits command when missing
    - Test type: Hook test (React Testing Library)
    - Location: `client/src/test/useChatStream.toolPayloads.test.tsx`
    - Description: Hydrate an inflight snapshot without `command` metadata and verify the assistant message omits it.
@@ -1355,7 +1355,7 @@ Extend the WS transcript event mapping so usage/timing fields and inflight comma
    - Documentation to read (repeat):
      - React Testing Library (hook tests): https://testing-library.com/docs/react-testing-library/intro/
 
-9. [ ] Documentation update - `README.md` (if any user-facing behavior changes need to be called out):
+9. [x] Documentation update - `README.md` (if any user-facing behavior changes need to be called out):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: call out any user-visible metadata changes if needed.
@@ -1364,7 +1364,7 @@ Extend the WS transcript event mapping so usage/timing fields and inflight comma
    - Description: Note WS metadata availability if user-visible.
    - Purpose: Keep README aligned with live updates.
 
-10. [ ] Documentation update - `design.md` (document WS mapping changes + diagrams):
+10. [x] Documentation update - `design.md` (document WS mapping changes + diagrams):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
      - Mermaid docs: Context7 `/mermaid-js/mermaid`
@@ -1374,7 +1374,7 @@ Extend the WS transcript event mapping so usage/timing fields and inflight comma
    - Description: Update client WS mapping notes and related diagrams.
    - Purpose: Keep architecture docs accurate for WS flows.
 
-11. [ ] Documentation update - `projectStructure.md` (only if files/paths change):
+11. [x] Documentation update - `projectStructure.md` (only if files/paths change):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: update tree only if file paths change.
@@ -1384,7 +1384,7 @@ Extend the WS transcript event mapping so usage/timing fields and inflight comma
    - Description: Update tree entries for any new/changed files, including every file added or removed in this task.
    - Purpose: Keep the repository map current.
 
-12. [ ] Add manual-check log lines for WS transcript mapping:
+12. [x] Add manual-check log lines for WS transcript mapping:
    - Files to edit:
      - `client/src/hooks/useChatWs.ts`
      - `client/src/hooks/useChatStream.ts`
@@ -1395,26 +1395,41 @@ Extend the WS transcript event mapping so usage/timing fields and inflight comma
        - `DEV-0000024:T8:ws_usage_applied`
        - `DEV-0000024:T8:ws_inflight_command`
 
-13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+13. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/options
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 5 minutes; e.g., `timeout 5m` or set `timeout_ms=300000` in the harness)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open two tabs on the same conversation, verify WS updates show tokens/timing live, and confirm no console errors; ensure logs include `DEV-0000024:T8:ws_usage_applied` and `DEV-0000024:T8:ws_inflight_command`.
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 5 minutes; e.g., `timeout 5m` or set `timeout_ms=300000` in the harness)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check: open two tabs on the same conversation, verify WS updates show tokens/timing live, and confirm no console errors; ensure logs include `DEV-0000024:T8:ws_usage_applied` and `DEV-0000024:T8:ws_inflight_command`.
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
 - Notes added during implementation.
+- Reviewed `useChatWs`/`useChatStream` transcript handling plus WS fixtures and mock harness to locate where to inject usage, timing, and command metadata.
+- Added WS inflight command metadata and startedAt timestamp hydration in `useChatStream`, plus normalized usage/timing mapping on `turn_final` events.
+- Updated WS fixtures/mocks to include usage/timing and command metadata fields where applicable.
+- Added hook tests covering WS usage/timing preservation, inflight startedAt timestamps, and command metadata presence/absence.
+- Added `DEV-0000024:T8:ws_usage_applied` and `DEV-0000024:T8:ws_inflight_command` logs for WS metadata hydration.
+- README update not required; WS metadata mapping does not alter user-facing commands.
+- Documented WS usage/timing + inflight command hydration in the streaming UI section of `design.md`.
+- `projectStructure.md` unchanged (no new files or paths added).
+- Ran `npm run lint --workspaces` (existing server import-order warnings) and `npm run format --workspace client` followed by `npm run format:check --workspaces` clean.
+- `npm run test --workspace client` passed (existing jsdom console logging + VM module warnings).
+- `npm run e2e` succeeded (compose build/up/test/down completed).
+- `npm run compose:build` completed (standard stack images built with existing chunk size warnings).
+- `npm run compose:up` started the local stack successfully.
+- Manual Playwright MCP check: opened two tabs on `/chat`, streamed a reply, and verified live WS updates; in Logs, confirmed `DEV-0000024:T8:ws_usage_applied` plus `DEV-0000024:T8:ws_inflight_command` after executing the `planning_agent` `improve_plan` command (no console errors observed).
+- `npm run compose:down` stopped the local stack cleanly.
 
 ---
 

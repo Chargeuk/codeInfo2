@@ -266,7 +266,11 @@ Return answer-only segments for MCP `codebase_question` responses while preservi
 
 #### Testing
 
-1. [ ] `npm run test:unit --workspace server`
+1. [ ] Run server unit tests for MCP answer-only changes:
+   - Documentation to read (repeat):
+     - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
+   - Command: `npm run test:unit --workspace server`
+   - Purpose: Ensure MCP answer-only response changes do not break existing server unit tests.
 
 #### Implementation notes
 
@@ -366,7 +370,11 @@ Return answer-only segments for MCP agent `run_agent_instruction` responses whil
 
 #### Testing
 
-1. [ ] `npm run test:unit --workspace server`
+1. [ ] Run server unit tests for MCP agent answer-only changes:
+   - Documentation to read (repeat):
+     - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
+   - Command: `npm run test:unit --workspace server`
+   - Purpose: Ensure agent MCP response changes do not break server unit tests.
 
 #### Implementation notes
 
@@ -471,7 +479,11 @@ Switch vector “best match” aggregation to use minimum distance values (lower
 
 #### Testing
 
-1. [ ] `npm run test:unit --workspace server`
+1. [ ] Run server unit tests for min-distance semantics:
+   - Documentation to read (repeat):
+     - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
+   - Command: `npm run test:unit --workspace server`
+   - Purpose: Validate updated aggregation behavior with the server unit test suite.
 
 #### Implementation notes
 
@@ -646,7 +658,11 @@ Introduce distance-based cutoff logic for vector search results with an env-conf
 
 #### Testing
 
-1. [ ] `npm run test:unit --workspace server`
+1. [ ] Run server unit tests for retrieval cutoff behavior:
+   - Documentation to read (repeat):
+     - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
+   - Command: `npm run test:unit --workspace server`
+   - Purpose: Validate cutoff/fallback logic against the server unit test suite.
 
 #### Implementation notes
 
@@ -806,7 +822,11 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
 
 #### Testing
 
-1. [ ] `npm run test:unit --workspace server`
+1. [ ] Run server unit tests for payload caps:
+   - Documentation to read (repeat):
+     - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
+   - Command: `npm run test:unit --workspace server`
+   - Purpose: Confirm truncation/cap logic passes the server unit test suite.
 
 #### Implementation notes
 
@@ -929,7 +949,11 @@ Deduplicate VectorSearch citations on the client by removing exact duplicates pe
 
 #### Testing
 
-1. [ ] `npm run test --workspace client`
+1. [ ] Run client Jest tests for citation dedupe changes:
+   - Documentation to read (repeat):
+     - Jest docs: Context7 `/jestjs/jest`
+   - Command: `npm run test --workspace client`
+   - Purpose: Validate citation dedupe logic with the client test suite.
 
 #### Implementation notes
 
@@ -1083,7 +1107,11 @@ Update Chat and Agents tool detail panels to explicitly label distance values an
 
 #### Testing
 
-1. [ ] `npm run test --workspace client`
+1. [ ] Run client Jest tests for tool details UI changes:
+   - Documentation to read (repeat):
+     - Jest docs: Context7 `/jestjs/jest`
+   - Command: `npm run test --workspace client`
+   - Purpose: Validate updated tool details rendering in the client test suite.
 
 #### Implementation notes
 
@@ -1107,6 +1135,7 @@ Validate the full story against acceptance criteria, perform clean builds/tests,
 - Husky docs (git hook management + install): https://typicode.github.io/husky/
 - Mermaid docs (diagram syntax for design.md): Context7 `/mermaid-js/mermaid`
 - Jest docs (test runner + expect API): Context7 `/jestjs/jest`
+- npm run-script reference (running workspace scripts): https://docs.npmjs.com/cli/v9/commands/npm-run-script
 - Cucumber guides (BDD + JavaScript workflow): https://cucumber.io/docs/guides/
 - Cucumber quick-start walkthrough (example reference): https://cucumber.io/docs/guides/10-minute-tutorial/
 - Markdown syntax (README/design updates): https://www.markdownguide.org/basic-syntax/
@@ -1159,15 +1188,59 @@ Validate the full story against acceptance criteria, perform clean builds/tests,
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run compose:build`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test --workspace client`
-6. [ ] `npm run test --workspace server`
-7. [ ] `npm run e2e`
-8. [ ] Manual Playwright-MCP check: verify tool details show distance labels/values, citations are deduped to top-2 per file, and no MCP answer-only regressions.
-9. [ ] `npm run compose:down`
+1. [ ] Build the server (workspace build):
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+   - Command: `npm run build --workspace server`
+   - Purpose: Ensure server TypeScript build succeeds outside Docker.
+
+2. [ ] Build the client (workspace build):
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+   - Command: `npm run build --workspace client`
+   - Purpose: Ensure client production build succeeds outside Docker.
+
+3. [ ] Perform a clean Docker Compose build:
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+   - Command: `npm run compose:build`
+   - Purpose: Validate Docker images build cleanly with the updated code.
+
+4. [ ] Start Docker Compose stack:
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+   - Command: `npm run compose:up`
+   - Purpose: Ensure the full stack starts with the new retrieval logic.
+
+5. [ ] Run client Jest tests:
+   - Documentation to read (repeat):
+     - Jest docs: Context7 `/jestjs/jest`
+   - Command: `npm run test --workspace client`
+   - Purpose: Validate citation dedupe + tool details UI tests.
+
+6. [ ] Run server Cucumber tests:
+   - Documentation to read (repeat):
+     - Cucumber guides: https://cucumber.io/docs/guides/
+   - Command: `npm run test --workspace server`
+   - Purpose: Confirm server BDD tests still pass with retrieval changes.
+
+7. [ ] Run end-to-end tests:
+   - Documentation to read (repeat):
+     - Playwright Test docs: https://playwright.dev/docs/intro
+   - Command: `npm run e2e`
+   - Purpose: Validate end-to-end tool/citation behavior in the UI.
+
+8. [ ] Manual Playwright-MCP check (visual verification):
+   - Documentation to read (repeat):
+     - Playwright Test docs: https://playwright.dev/docs/intro
+   - Description: Verify tool details show distance labels/values, citations are deduped to top-2 per file, and no MCP answer-only regressions.
+   - Purpose: Capture screenshots and confirm UI expectations beyond automated tests.
+
+9. [ ] Shut down Docker Compose stack:
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+   - Command: `npm run compose:down`
+   - Purpose: Cleanly stop the stack after verification.
 
 #### Implementation notes
 

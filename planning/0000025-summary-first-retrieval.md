@@ -45,7 +45,7 @@ We also need to correct the current “best match” aggregation logic for vecto
 ## Research Notes
 
 - Chroma query responses expose `distances` (and sometimes `scores`), where smaller numbers mean closer matches; we should preserve the ordering returned by the query response rather than re-sorting locally.
-- The distance metric depends on the collection configuration (`l2`, `cosine`, or `ip`), and the HNSW `hnsw:space` metadata sets it at collection creation, so the cutoff must be treated as a distance threshold rather than a similarity score.
+- The distance metric depends on the collection configuration (`l2`, `cosine`, or `ip`), and the HNSW `hnsw:space` metadata sets it at collection creation (cannot be changed after creation), so the cutoff must be treated as a distance threshold rather than a similarity score.
 - Chroma’s default distance metric is L2 (squared Euclidean distance) per the Chroma cookbook; cosine distance is defined as `1 - cosine_similarity` (so lower is still better). The existing ingest flow does not set `hnsw:space`, so L2 remains the assumed default unless a future ingest change overrides it.
 - Context7 snippets mention cosine as default in some examples; prefer the cookbook default (L2) and keep the cutoff configurable to handle metric differences.
 - Deepwiki is not indexed for `Chargeuk/codeInfo2` yet, so repo insights came from the codebase and external docs.

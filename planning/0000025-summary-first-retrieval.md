@@ -259,14 +259,18 @@ Return answer-only segments for MCP `codebase_question` responses while preservi
     - Description: Update or add a Mermaid sequence diagram if MCP response flows are documented.
     - Purpose: Ensure architecture flow diagrams match the answer-only response format.
 
-11. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`; fix issues before continuing.
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier: https://prettier.io/docs/options
-
 #### Testing
 
-1. [ ] Run server unit tests for MCP answer-only changes:
+1. [ ] Run server lint + format checks for MCP answer-only changes:
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier options: https://prettier.io/docs/options
+   - Commands:
+     - `npm run lint --workspace server`
+     - `npm run format:check --workspace server`
+   - Purpose: Ensure linting and formatting pass before running tests.
+
+2. [ ] Run server unit tests for MCP answer-only changes:
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
    - Command: `npm run test:unit --workspace server`
@@ -363,14 +367,18 @@ Return answer-only segments for MCP agent `run_agent_instruction` responses whil
    - Description: Simulate a response without an answer segment and assert a single empty `answer` segment is returned.
    - Purpose: Ensure answer-only filtering always yields an `answer` segment for agents.
 
-7. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`; fix issues before continuing.
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier: https://prettier.io/docs/options
-
 #### Testing
 
-1. [ ] Run server unit tests for MCP agent answer-only changes:
+1. [ ] Run server lint + format checks for MCP agent answer-only changes:
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier options: https://prettier.io/docs/options
+   - Commands:
+     - `npm run lint --workspace server`
+     - `npm run format:check --workspace server`
+   - Purpose: Ensure linting and formatting pass before running tests.
+
+2. [ ] Run server unit tests for MCP agent answer-only changes:
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
    - Command: `npm run test:unit --workspace server`
@@ -472,14 +480,18 @@ Switch vector “best match” aggregation to use minimum distance values (lower
    - Description: Update any Mermaid retrieval flow diagrams that mention match scoring.
    - Purpose: Ensure architecture diagrams reflect min-distance aggregation.
 
-8. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`; fix issues before continuing.
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier: https://prettier.io/docs/options
-
 #### Testing
 
-1. [ ] Run server unit tests for min-distance semantics:
+1. [ ] Run server lint + format checks for min-distance changes:
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier options: https://prettier.io/docs/options
+   - Commands:
+     - `npm run lint --workspace server`
+     - `npm run format:check --workspace server`
+   - Purpose: Ensure linting and formatting pass before running tests.
+
+2. [ ] Run server unit tests for min-distance semantics:
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
    - Command: `npm run test:unit --workspace server`
@@ -651,14 +663,18 @@ Introduce distance-based cutoff logic for vector search results with an env-conf
    - Description: Update or add a Mermaid retrieval flow diagram that includes cutoff + fallback steps.
    - Purpose: Ensure architecture diagrams reflect cutoff logic.
 
-15. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`; fix issues before continuing.
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier: https://prettier.io/docs/options
-
 #### Testing
 
-1. [ ] Run server unit tests for retrieval cutoff behavior:
+1. [ ] Run server lint + format checks for retrieval cutoff changes:
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier options: https://prettier.io/docs/options
+   - Commands:
+     - `npm run lint --workspace server`
+     - `npm run format:check --workspace server`
+   - Purpose: Ensure linting and formatting pass before running tests.
+
+2. [ ] Run server unit tests for retrieval cutoff behavior:
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
    - Command: `npm run test:unit --workspace server`
@@ -815,14 +831,18 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
     - Description: Update or add a Mermaid diagram covering payload capping/truncation steps.
     - Purpose: Ensure architecture diagrams reflect payload cap logic.
 
-13. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`; fix issues before continuing.
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier: https://prettier.io/docs/options
-
 #### Testing
 
-1. [ ] Run server unit tests for payload caps:
+1. [ ] Run server lint + format checks for payload cap changes:
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier options: https://prettier.io/docs/options
+   - Commands:
+     - `npm run lint --workspace server`
+     - `npm run format:check --workspace server`
+   - Purpose: Ensure linting and formatting pass before running tests.
+
+2. [ ] Run server unit tests for payload caps:
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
    - Command: `npm run test:unit --workspace server`
@@ -942,14 +962,18 @@ Deduplicate VectorSearch citations on the client by removing exact duplicates pe
    - Description: Update or add a Mermaid diagram for citation filtering flow if a retrieval flow diagram exists.
    - Purpose: Ensure architecture diagrams reflect citation filtering.
 
-10. [ ] Run `npm run lint --workspace client` and `npm run format:check --workspace client`; fix issues before continuing.
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier: https://prettier.io/docs/options
-
 #### Testing
 
-1. [ ] Run client Jest tests for citation dedupe changes:
+1. [ ] Run client lint + format checks for citation dedupe changes:
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier options: https://prettier.io/docs/options
+   - Commands:
+     - `npm run lint --workspace client`
+     - `npm run format:check --workspace client`
+   - Purpose: Ensure linting and formatting pass before running tests.
+
+2. [ ] Run client Jest tests for citation dedupe changes:
    - Documentation to read (repeat):
      - Jest docs: Context7 `/jestjs/jest`
    - Command: `npm run test --workspace client`
@@ -1100,14 +1124,18 @@ Update Chat and Agents tool detail panels to explicitly label distance values an
    - Description: Update or add a Mermaid UI flow diagram if tool-details interactions are documented.
    - Purpose: Ensure UI flow diagrams reflect distance display updates.
 
-12. [ ] Run `npm run lint --workspace client` and `npm run format:check --workspace client`; fix issues before continuing.
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier: https://prettier.io/docs/options
-
 #### Testing
 
-1. [ ] Run client Jest tests for tool details UI changes:
+1. [ ] Run client lint + format checks for tool details UI changes:
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier options: https://prettier.io/docs/options
+   - Commands:
+     - `npm run lint --workspace client`
+     - `npm run format:check --workspace client`
+   - Purpose: Ensure linting and formatting pass before running tests.
+
+2. [ ] Run client Jest tests for tool details UI changes:
    - Documentation to read (repeat):
      - Jest docs: Context7 `/jestjs/jest`
    - Command: `npm run test --workspace client`
@@ -1142,19 +1170,7 @@ Validate the full story against acceptance criteria, perform clean builds/tests,
 
 #### Subtasks
 
-1. [ ] Build the server
-   - Documentation to read (repeat):
-     - Docker/Compose: Context7 `/docker/docs`
-   - Recap: confirm server build works outside Docker before final verification.
-2. [ ] Build the client
-   - Documentation to read (repeat):
-     - Docker/Compose: Context7 `/docker/docs`
-   - Recap: confirm client build works outside Docker before final verification.
-3. [ ] Perform a clean docker build
-   - Documentation to read (repeat):
-     - Docker/Compose: Context7 `/docker/docs`
-   - Recap: clean build must succeed to validate images.
-4. [ ] Ensure `README.md` is updated with any required description changes and with any new commands that have been added as part of this story
+1. [ ] Ensure `README.md` is updated with any required description changes and with any new commands that have been added as part of this story
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: document user-visible retrieval changes and update the MCP `codebase_question` response example to answer-only segments.
@@ -1162,7 +1178,7 @@ Validate the full story against acceptance criteria, perform clean builds/tests,
    - Location: `README.md`
    - Description: Update user-facing notes and any new commands introduced by this story.
    - Purpose: Keep onboarding docs accurate.
-5. [ ] Ensure `design.md` is updated with any required description changes including Mermaid diagrams that have been added as part of this story
+2. [ ] Ensure `design.md` is updated with any required description changes including Mermaid diagrams that have been added as part of this story
    - Documentation to read (repeat):
      - Mermaid: Context7 `/mermaid-js/mermaid`
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -1171,7 +1187,7 @@ Validate the full story against acceptance criteria, perform clean builds/tests,
    - Location: `design.md`
    - Description: Update architecture notes and diagrams for retrieval + MCP response changes.
    - Purpose: Keep design documentation accurate.
-6. [ ] Ensure `projectStructure.md` is updated with any updated, added or removed files & folders **after all file additions/removals in this story**
+3. [ ] Ensure `projectStructure.md` is updated with any updated, added or removed files & folders **after all file additions/removals in this story**
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: update tree after any tracked file additions/removals (exclude `test-results/`, `dist/`, and other ignored build outputs).
@@ -1179,7 +1195,7 @@ Validate the full story against acceptance criteria, perform clean builds/tests,
    - Location: `projectStructure.md`
    - Description: Update tree entries for any new/changed files, including every file added or removed in this story.
    - Purpose: Keep the repository map current.
-7. [ ] Create a summary of all changes and draft the PR comment for this story
+4. [ ] Create a summary of all changes and draft the PR comment for this story
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Requirements:

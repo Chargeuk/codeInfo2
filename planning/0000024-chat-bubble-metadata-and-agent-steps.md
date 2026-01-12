@@ -659,7 +659,7 @@ Capture LM Studio prediction stats and feed them into the shared chat usage/timi
 
 #### Subtasks
 
-1. [ ] Review LM Studio prediction flow and SDK types:
+1. [x] Review LM Studio prediction flow and SDK types:
    - Documentation to read (repeat):
      - LM Studio SDK README (prediction stats): https://www.npmjs.com/package/@lmstudio/sdk
    - Recap (acceptance criteria): capture timing and usage when provided by the LM Studio SDK.
@@ -668,7 +668,7 @@ Capture LM Studio prediction stats and feed them into the shared chat usage/timi
      - `node_modules/@lmstudio/sdk/dist/index.d.ts`
      - `server/src/test/integration/chat-assistant-persistence.test.ts`
 
-2. [ ] Capture prediction stats and forward them:
+2. [x] Capture prediction stats and forward them:
    - Documentation to read (repeat):
      - LM Studio SDK README (prediction stats): https://www.npmjs.com/package/@lmstudio/sdk
    - Recap (acceptance criteria): map prompt/predicted/total tokens plus total time + tokens/sec when supplied.
@@ -682,7 +682,7 @@ Capture LM Studio prediction stats and feed them into the shared chat usage/timi
        - Stats: `{ promptTokensCount: 12, predictedTokensCount: 4, totalTokensCount: 16, totalTimeSec: 0.5, tokensPerSecond: 32 }`
        - Stored: `{ usage: { inputTokens: 12, outputTokens: 4, totalTokens: 16 }, timing: { totalTimeSec: 0.5, tokensPerSecond: 32 } }`
 
-3. [ ] Integration test (server): LM Studio usage/timing persisted
+3. [x] Integration test (server): LM Studio usage/timing persisted
    - Test type: Integration (`node:test`)
    - Location: `server/src/test/integration/chat-assistant-persistence.test.ts`
    - Description: Use an LM Studio completion with stats and verify stored metadata.
@@ -691,7 +691,7 @@ Capture LM Studio prediction stats and feed them into the shared chat usage/timi
      - LM Studio SDK README (prediction stats): https://www.npmjs.com/package/@lmstudio/sdk
      - Node.js test runner (node:test): https://nodejs.org/api/test.html
 
-4. [ ] Integration test (server): fallback total time when stats missing
+4. [x] Integration test (server): fallback total time when stats missing
    - Test type: Integration (`node:test`)
    - Location: `server/src/test/integration/chat-assistant-persistence.test.ts`
    - Description: Run an LM Studio completion without stats and inspect timing output.
@@ -700,7 +700,7 @@ Capture LM Studio prediction stats and feed them into the shared chat usage/timi
      - LM Studio SDK README (prediction stats): https://www.npmjs.com/package/@lmstudio/sdk
      - Node.js test runner (node:test): https://nodejs.org/api/test.html
 
-5. [ ] Integration test (server): omit tokensPerSecond when absent
+5. [x] Integration test (server): omit tokensPerSecond when absent
    - Test type: Integration (`node:test`)
    - Location: `server/src/test/integration/chat-assistant-persistence.test.ts`
    - Description: Provide stats lacking tokens/sec and verify omission.
@@ -709,7 +709,7 @@ Capture LM Studio prediction stats and feed them into the shared chat usage/timi
      - LM Studio SDK README (prediction stats): https://www.npmjs.com/package/@lmstudio/sdk
      - Node.js test runner (node:test): https://nodejs.org/api/test.html
 
-6. [ ] Documentation update - `README.md` (if any user-facing behavior changes need to be called out):
+6. [x] Documentation update - `README.md` (if any user-facing behavior changes need to be called out):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: call out any user-visible metadata additions.
@@ -718,7 +718,7 @@ Capture LM Studio prediction stats and feed them into the shared chat usage/timi
    - Description: Note LM Studio usage/timing display behavior if user-visible.
    - Purpose: Keep README aligned with provider metadata.
 
-7. [ ] Documentation update - `design.md` (document LM Studio stats capture):
+7. [x] Documentation update - `design.md` (document LM Studio stats capture):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: document where LM Studio stats are read and stored.
@@ -727,7 +727,7 @@ Capture LM Studio prediction stats and feed them into the shared chat usage/timi
    - Description: Describe LM Studio stats capture and mapping to turn metadata.
    - Purpose: Keep provider integration docs accurate.
 
-8. [ ] Documentation update - `projectStructure.md` (only if files/paths change):
+8. [x] Documentation update - `projectStructure.md` (only if files/paths change):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: update tree only if file paths change.
@@ -737,7 +737,7 @@ Capture LM Studio prediction stats and feed them into the shared chat usage/timi
    - Description: Update tree entries for any new/changed files, including every file added or removed in this task.
    - Purpose: Keep the repository map current.
 
-9. [ ] Add manual-check log lines for LM Studio stats capture:
+9. [x] Add manual-check log lines for LM Studio stats capture:
    - Files to edit:
      - `server/src/chat/interfaces/ChatInterfaceLMStudio.ts`
    - Requirements:
@@ -745,26 +745,33 @@ Capture LM Studio prediction stats and feed them into the shared chat usage/timi
      - Example log tag (must be exact):
        - `DEV-0000024:T4:lmstudio_stats_mapped`
 
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+10. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/options
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 5 minutes; e.g., `timeout 5m` or set `timeout_ms=300000` in the harness)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: use LM Studio provider to send a chat message, confirm response renders, no console errors, and verify `DEV-0000024:T4:lmstudio_stats_mapped` appears in logs alongside usage/timing metadata in payload/UI when available.
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 5 minutes; e.g., `timeout 5m` or set `timeout_ms=300000` in the harness)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check: use LM Studio provider to send a chat message, confirm response renders, no console errors, and verify `DEV-0000024:T4:lmstudio_stats_mapped` appears in logs alongside usage/timing metadata in payload/UI when available.
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- Notes added during implementation.
+- Mapped LM Studio `PredictionResult.stats` into usage/timing metadata and derived totals when missing; added `DEV-0000024:T4:lmstudio_stats_mapped` logging.
+- Added integration coverage for LM Studio stats persistence, fallback timing, and missing tokens/sec handling.
+- README and project structure updates were not required; design notes updated for LM Studio stats mapping.
+- `npm run lint --workspaces` reports existing import-order warnings; ran `npm run format --workspace server` and `npm run format:check --workspaces` clean.
+- `npm run e2e` timed out at 5 minutes on the first run; reran with a longer timeout and completed successfully.
+- `npm run compose:up` initially timed out at 10s while containers were starting; reran with a longer timeout to confirm services healthy.
+- Manual Playwright MCP check used `http://host.docker.internal:5001/chat` with LM Studio provider; response completed without console errors and `/logs` returned `DEV-0000024:T4:lmstudio_stats_mapped` with usage/timing stats.
+- `npm run compose:down` stopped the local stack cleanly after the manual check.
 
 ---
 

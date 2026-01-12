@@ -6,6 +6,7 @@ import {
   getVectorsCollection,
 } from '../ingest/chromaClient.js';
 import { mapIngestPath } from '../ingest/pathMap.js';
+import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
 
 export type ToolDeps = {
@@ -192,7 +193,7 @@ function aggregateVectorFiles(
     if (typeof item.score === 'number') {
       const prev = existing.highestMatch;
       existing.highestMatch =
-        prev === null ? item.score : Math.max(prev, item.score);
+        prev === null ? item.score : Math.min(prev, item.score);
     }
     if (typeof existing.lineCount === 'number' && nextLineCount !== null) {
       existing.lineCount += nextLineCount;
@@ -204,9 +205,26 @@ function aggregateVectorFiles(
     }
   });
 
-  return Array.from(byHostPath.values()).sort((a, b) =>
+  const files = Array.from(byHostPath.values()).sort((a, b) =>
     a.hostPath.localeCompare(b.hostPath),
   );
+  const numericMatches = files
+    .map((file) => file.highestMatch)
+    .filter((value): value is number => typeof value === 'number');
+  const bestMatch =
+    numericMatches.length > 0 ? Math.min(...numericMatches) : null;
+  append({
+    level: 'info',
+    message: 'DEV-0000025:T3:min_distance_aggregation_applied',
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      source: 'tool',
+      bestMatch,
+      fileCount: files.length,
+    },
+  });
+  return files;
 }
 
 export async function listIngestedRepositories(

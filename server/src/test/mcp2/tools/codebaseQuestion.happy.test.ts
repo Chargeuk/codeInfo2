@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import http from 'node:http';
 import { AddressInfo } from 'node:net';
 import test from 'node:test';
+import { McpResponder } from '../../../chat/responders/McpResponder.js';
 import { handleRpc } from '../../../mcp2/router.js';
 import { resetToolDeps, setToolDeps } from '../../../mcp2/tools.js';
 
@@ -230,4 +231,40 @@ test('codebase_question returns an empty answer segment when no answer emitted',
     process.env.MCP_FORCE_CODEX_AVAILABLE = original;
     server.close();
   }
+});
+
+test('vector summary match uses the lowest distance', () => {
+  const responder = new McpResponder();
+  responder.handle({
+    type: 'tool-result',
+    callId: 'tool-1',
+    result: {
+      results: [
+        {
+          repo: 'repo',
+          relPath: 'src/index.ts',
+          hostPath: '/host/repo/src/index.ts',
+          score: 0.33,
+          chunk: 'line1',
+          chunkId: 'c1',
+          modelId: 'embed-1',
+        },
+        {
+          repo: 'repo',
+          relPath: 'src/index.ts',
+          hostPath: '/host/repo/src/index.ts',
+          score: 0.12,
+          chunk: 'line2',
+          chunkId: 'c2',
+          modelId: 'embed-1',
+        },
+      ],
+      files: [],
+      modelId: 'embed-1',
+    },
+  });
+
+  const summaries = responder.getVectorSummaries();
+  assert.equal(summaries.length, 1);
+  assert.equal(summaries[0].files[0].match, 0.12);
 });

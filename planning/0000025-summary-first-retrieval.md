@@ -150,6 +150,7 @@ Return answer-only segments for MCP `codebase_question` responses while preservi
 - JavaScript JSON serialization (`JSON.stringify` reference): https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON
 - Node.js `AbortController` + error handling patterns (reference for existing patterns, no changes): https://nodejs.org/api/globals.html#class-abortcontroller
 - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
+- Mermaid docs (diagram syntax for design.md): Context7 `/mermaid-js/mermaid`
 - Markdown syntax (design notes updates): https://www.markdownguide.org/basic-syntax/
 - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier options (format check expectations): https://prettier.io/docs/options
@@ -242,8 +243,10 @@ Return answer-only segments for MCP `codebase_question` responses while preservi
 
 9. [ ] Documentation update - `design.md` (only if response contracts are documented):
    - Documentation to read (repeat):
+     - Mermaid: Context7 `/mermaid-js/mermaid`
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: add or adjust MCP response shape notes only if the design section currently mentions multi-segment MCP payloads.
+   - Diagram: update or add a Mermaid sequence diagram if MCP response flows are documented.
    - Document: `design.md`
    - Location: `design.md`
    - Description: Note the answer-only MCP response shape for `codebase_question` and agents.
@@ -378,6 +381,7 @@ Switch vector “best match” aggregation to use minimum distance values (lower
 - ChromaDB query API reference (query results + distances): https://docs.trychroma.com/reference/Collection
 - JavaScript `Math.min` behavior (null/undefined handling): https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Math/min
 - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
+- Mermaid docs (diagram syntax for design.md): Context7 `/mermaid-js/mermaid`
 - Markdown syntax (design notes updates): https://www.markdownguide.org/basic-syntax/
 - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier options (format check expectations): https://prettier.io/docs/options
@@ -437,8 +441,10 @@ Switch vector “best match” aggregation to use minimum distance values (lower
 
 6. [ ] Documentation update - `design.md` (if it documents “highest match” semantics):
    - Documentation to read (repeat):
+     - Mermaid: Context7 `/mermaid-js/mermaid`
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: clarify that “best match” reflects the lowest distance.
+   - Diagram: update any Mermaid retrieval flow diagrams that mention match scoring.
    - Document: `design.md`
    - Location: `design.md`
    - Description: Update wording around vector “best match” aggregation.
@@ -474,6 +480,7 @@ Introduce distance-based cutoff logic for vector search results with an env-conf
 - ChromaDB query API reference (query results + distances): https://docs.trychroma.com/reference/Collection
 - JavaScript array sort and stable ordering references: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/sort
 - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
+- Mermaid docs (diagram syntax for design.md): Context7 `/mermaid-js/mermaid`
 - Markdown syntax (design notes updates): https://www.markdownguide.org/basic-syntax/
 - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier options (format check expectations): https://prettier.io/docs/options
@@ -592,8 +599,10 @@ Introduce distance-based cutoff logic for vector search results with an env-conf
 
 12. [ ] Documentation update - `design.md` (retrieval cutoff + fallback):
    - Documentation to read (repeat):
+     - Mermaid: Context7 `/mermaid-js/mermaid`
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: document cutoff, fallback defaults, and bypass flag.
+   - Diagram: update or add a Mermaid retrieval flow diagram that includes cutoff + fallback steps.
    - Document: `design.md`
    - Location: `design.md`
    - Description: Add retrieval cutoff + fallback behavior to the retrieval section.
@@ -628,6 +637,7 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
 - Node.js `process.env` (environment variable defaults): https://nodejs.org/api/process.html#processenv
 - JavaScript `String.prototype.slice` (truncation behavior): https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/slice
 - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
+- Mermaid docs (diagram syntax for design.md): Context7 `/mermaid-js/mermaid`
 - Markdown syntax (design notes updates): https://www.markdownguide.org/basic-syntax/
 - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier options (format check expectations): https://prettier.io/docs/options
@@ -724,8 +734,10 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
 
 9. [ ] Documentation update - `design.md` (tool payload caps):
    - Documentation to read (repeat):
+     - Mermaid: Context7 `/mermaid-js/mermaid`
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: document total/per-chunk cap defaults and truncation behavior.
+   - Diagram: update or add a Mermaid diagram covering payload capping/truncation steps.
    - Document: `design.md`
    - Location: `design.md`
    - Description: Add tool payload size caps to retrieval strategy notes.
@@ -761,6 +773,7 @@ Deduplicate VectorSearch citations on the client by removing exact duplicates pe
 - MDN `Array.prototype.sort` (stable ordering and tie-breaks): https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/sort
 - Jest expect API (assertions for tool payloads): Context7 `/jestjs/jest` (ExpectAPI.md)
 - Testing Library React docs (component-level testing utilities): https://testing-library.com/docs/react-testing-library/intro/
+- Mermaid docs (diagram syntax for design.md): Context7 `/mermaid-js/mermaid`
 - Markdown syntax (design notes updates): https://www.markdownguide.org/basic-syntax/
 - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier options (format check expectations): https://prettier.io/docs/options
@@ -837,8 +850,10 @@ Deduplicate VectorSearch citations on the client by removing exact duplicates pe
 
 8. [ ] Documentation update - `design.md` (citation dedupe rules):
    - Documentation to read (repeat):
+     - Mermaid: Context7 `/mermaid-js/mermaid`
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: document two-stage dedupe + top-2 per file rule.
+   - Diagram: update or add a Mermaid diagram for citation filtering flow if a retrieval flow diagram exists.
    - Document: `design.md`
    - Location: `design.md`
    - Description: Add citation dedupe rules to the retrieval strategy notes.
@@ -877,6 +892,7 @@ Update Chat and Agents tool detail panels to explicitly label distance values an
 - MUI AccordionSummary API (slotProps/slots): https://llms.mui.com/material-ui/6.4.12/api/accordion-summary.md
 - Testing Library React docs (component testing patterns): https://testing-library.com/docs/react-testing-library/intro/
 - Jest expect API (assertions for UI output): Context7 `/jestjs/jest` (ExpectAPI.md)
+- Mermaid docs (diagram syntax for design.md): Context7 `/mermaid-js/mermaid`
 - Markdown syntax (design notes updates): https://www.markdownguide.org/basic-syntax/
 - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier options (format check expectations): https://prettier.io/docs/options
@@ -962,8 +978,10 @@ Update Chat and Agents tool detail panels to explicitly label distance values an
 
 8. [ ] Documentation update - `design.md` (tool details distance labels):
    - Documentation to read (repeat):
+     - Mermaid: Context7 `/mermaid-js/mermaid`
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: document that tool details show raw distance values and that lower is better.
+   - Diagram: update or add a Mermaid UI flow diagram if tool-details interactions are documented.
    - Document: `design.md`
    - Location: `design.md`
    - Description: Update tool UI notes to call out distance display.

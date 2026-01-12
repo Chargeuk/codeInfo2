@@ -14,7 +14,7 @@ type LogConfig = {
   rotate: boolean;
 };
 
-function parseNumber(value: string | undefined, fallback: number) {
+export function parseNumber(value: string | undefined, fallback: number) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
 }

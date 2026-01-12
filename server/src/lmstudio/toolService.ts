@@ -7,7 +7,7 @@ import {
 } from '../ingest/chromaClient.js';
 import { mapIngestPath } from '../ingest/pathMap.js';
 import { append } from '../logStore.js';
-import { baseLogger } from '../logger.js';
+import { baseLogger, parseNumber } from '../logger.js';
 
 export type ToolDeps = {
   getRootsCollection: typeof getRootsCollection;
@@ -166,6 +166,24 @@ function countLines(text: string | undefined): number | null {
   return text.split(/\r?\n/).length;
 }
 
+function resolveRetrievalConfig() {
+  const rawCutoff = parseNumber(
+    process.env.CODEINFO_RETRIEVAL_DISTANCE_CUTOFF,
+    1.4,
+  );
+  const cutoff = rawCutoff >= 0 ? rawCutoff : 1.4;
+  const cutoffDisabled =
+    (process.env.CODEINFO_RETRIEVAL_CUTOFF_DISABLED ?? '').toLowerCase() ===
+    'true';
+  const fallbackRaw = parseNumber(
+    process.env.CODEINFO_RETRIEVAL_FALLBACK_CHUNKS,
+    2,
+  );
+  const fallbackChunks = fallbackRaw >= 1 ? Math.floor(fallbackRaw) : 2;
+
+  return { cutoff, cutoffDisabled, fallbackChunks };
+}
+
 function aggregateVectorFiles(
   items: VectorSearchResult['results'],
 ): VectorSearchFile[] {
@@ -292,6 +310,7 @@ export async function vectorSearch(
 ): Promise<VectorSearchResult> {
   const { query, repository, limit } = params;
   const resolvedLimit = Math.min(Math.max(limit ?? 5, 1), 20);
+  const { cutoff, cutoffDisabled, fallbackChunks } = resolveRetrievalConfig();
   const {
     getRootsCollection: rootsCollection,
     getVectorsCollection,
@@ -434,7 +453,50 @@ export async function vectorSearch(
     };
   });
 
+  const indexedResults = results.map((item, index) => ({
+    item,
+    index,
+    score: item.score,
+  }));
+  const eligible = cutoffDisabled
+    ? indexedResults
+    : indexedResults.filter(
+        (entry) => typeof entry.score === 'number' && entry.score <= cutoff,
+      );
+  let kept = eligible;
+  let fallbackCount = 0;
+  if (!eligible.length && indexedResults.length > 0) {
+    const fallback = [...indexedResults]
+      .sort((a, b) => {
+        const aScore =
+          typeof a.score === 'number' ? a.score : Number.POSITIVE_INFINITY;
+        const bScore =
+          typeof b.score === 'number' ? b.score : Number.POSITIVE_INFINITY;
+        if (aScore !== bScore) return aScore - bScore;
+        return a.index - b.index;
+      })
+      .slice(0, fallbackChunks);
+    const fallbackIndices = new Set(fallback.map((entry) => entry.index));
+    kept = indexedResults.filter((entry) => fallbackIndices.has(entry.index));
+    fallbackCount = kept.length;
+  }
+
+  const filteredResults = kept.map((entry) => entry.item);
+  append({
+    level: 'info',
+    message: 'DEV-0000025:T4:cutoff_filter_applied',
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      cutoff,
+      cutoffDisabled,
+      fallbackCount,
+      originalCount: results.length,
+      keptCount: filteredResults.length,
+    },
+  });
+
   const modelId = lockedModelId ?? null;
-  const files = aggregateVectorFiles(results);
-  return { results, modelId, files };
+  const files = aggregateVectorFiles(filteredResults);
+  return { results: filteredResults, modelId, files };
 }

@@ -1088,7 +1088,7 @@ Expose usage/timing metadata on the WS `turn_final` payload so clients can rende
 
 ### 7. Client: map REST usage/timing into stored turns
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **__to_do__**
 
 #### Overview

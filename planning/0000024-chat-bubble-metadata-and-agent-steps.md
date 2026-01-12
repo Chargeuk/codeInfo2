@@ -1670,8 +1670,8 @@ Render message header metadata for user/assistant bubbles in Chat and Agents: ti
 
 ### 10. Final verification + documentation + PR summary
 
-- Task Status: **__in_progress__**
-- Git Commits: **__to_do__**
+- Task Status: **__done__**
+- Git Commits: 74d4092, a9f6576
 
 #### Overview
 

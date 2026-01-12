@@ -1541,7 +1541,7 @@ sequenceDiagram
 - Agents use the same WebSocket transcript merge logic as Chat:
   - `useChatWs` provides transport + subscription.
   - `useChatStream` owns transcript state and merges WS frames (`handleWsEvent`).
-  - `useConversationTurns` hydrates history (and REST inflight snapshot) when Mongo/persistence is available.
+  - `useConversationTurns` hydrates history (and REST inflight snapshot) when Mongo/persistence is available, mapping REST usage/timing fields and inflight command metadata when present.
 - Decision rule:
   - If `mongoConnected === false`, Agents fall back to rendering the REST response `segments` (single-instruction runs only).
   - Otherwise, Agents rely on WS transcript frames and treat the REST response as a completion signal (REST `segments` are ignored).

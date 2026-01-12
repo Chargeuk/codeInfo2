@@ -135,14 +135,14 @@ These instructions will be followed during implementation.
 
 # Tasks
 
-### 1. Server: MCP answer-only responses for codebase_question + agents
+### 1. Server: MCP answer-only responses for codebase_question
 
 - Task Status: **__to_do__**
 - Git Commits: **to_do**
 
 #### Overview
 
-Return answer-only segments for MCP `codebase_question` and agent `run_agent_instruction` responses while preserving `conversationId` and `modelId`. This keeps client parsing simple and ensures response payloads exclude reasoning and vector-summary segments without changing error handling.
+Return answer-only segments for MCP `codebase_question` responses while preserving `conversationId` and `modelId`. This keeps client parsing simple and ensures response payloads exclude reasoning and vector-summary segments without changing error handling.
 
 #### Documentation Locations
 
@@ -152,7 +152,7 @@ Return answer-only segments for MCP `codebase_question` and agent `run_agent_ins
 
 #### Subtasks
 
-1. [ ] Review current MCP response assembly for codebase_question and agents:
+1. [ ] Review current MCP response assembly for codebase_question:
    - Documentation to read (repeat):
      - JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification
    - Recap (acceptance criteria): return only the final answer segment while keeping `conversationId` and `modelId` unchanged.
@@ -160,11 +160,7 @@ Return answer-only segments for MCP `codebase_question` and agent `run_agent_ins
      - `server/src/chat/responders/McpResponder.ts`
      - `server/src/mcp2/tools/codebaseQuestion.ts`
      - `server/src/mcp2/server.ts`
-     - `server/src/mcpAgents/tools.ts`
-     - `server/src/agents/service.ts`
      - `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`
-     - `server/src/test/unit/mcp-agents-tools.test.ts`
-     - `server/src/test/unit/mcp-agents-router-run.test.ts`
      - `server/src/test/integration/mcp-codex-wrapper.test.ts`
      - `server/src/test/integration/mcp-lmstudio-wrapper.test.ts`
    - Goal:
@@ -188,30 +184,20 @@ Return answer-only segments for MCP `codebase_question` and agent `run_agent_ins
 4. [ ] Update MCP tool definitions to reflect answer-only responses:
    - Files to edit:
      - `server/src/mcp2/tools/codebaseQuestion.ts`
-     - `server/src/mcpAgents/tools.ts`
    - Requirements:
      - Update description strings to remove “thinking/vector_summary” language.
      - Keep input schemas unchanged.
 
-5. [ ] Update agent MCP tooling to mirror answer-only responses:
-   - Files to edit:
-     - `server/src/mcpAgents/tools.ts`
-   - Requirements:
-     - Ensure `run_agent_instruction` responses return only the final answer segment.
-     - Preserve `conversationId` + `modelId` fields and existing status/error codes.
-
-6. [ ] Update MCP tests/fixtures for the new response shape:
+5. [ ] Update MCP tests/fixtures for the new response shape:
    - Files to edit:
      - `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`
-     - `server/src/test/unit/mcp-agents-tools.test.ts`
-     - `server/src/test/unit/mcp-agents-router-run.test.ts`
      - `server/src/test/integration/mcp-codex-wrapper.test.ts`
      - `server/src/test/integration/mcp-lmstudio-wrapper.test.ts`
    - Requirements:
      - Assert that `segments` contains exactly one `answer` entry (where segments remain).
      - Confirm no `thinking` or `vector_summary` segments appear.
 
-7. [ ] Documentation update - `design.md` (only if response contracts are documented):
+6. [ ] Documentation update - `design.md` (only if response contracts are documented):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: add or adjust MCP response shape notes only if the design section currently mentions multi-segment MCP payloads.
@@ -220,7 +206,7 @@ Return answer-only segments for MCP `codebase_question` and agent `run_agent_ins
    - Description: Note the answer-only MCP response shape for `codebase_question` and agents.
    - Purpose: Keep MCP contract documentation accurate.
 
-8. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`; fix issues before continuing.
+7. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`; fix issues before continuing.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/options
@@ -235,7 +221,73 @@ Return answer-only segments for MCP `codebase_question` and agent `run_agent_ins
 
 ---
 
-### 2. Server: distance semantics for vector aggregations (min distance)
+### 2. Server: MCP agents answer-only responses
+
+- Task Status: **__to_do__**
+- Git Commits: **to_do**
+
+#### Overview
+
+Return answer-only segments for MCP agent `run_agent_instruction` responses while preserving `conversationId` and `modelId`. This keeps agent MCP payloads aligned with the new answer-only contract without altering error codes or run-lock behavior.
+
+#### Documentation Locations
+
+- JSON-RPC 2.0 specification (response shape + result object): https://www.jsonrpc.org/specification
+- Node.js JSON serialization basics (`JSON.stringify`, `res.json` expectations): https://nodejs.org/api/json.html
+- Node.js `AbortController` + error handling patterns (reference for existing patterns, no changes): https://nodejs.org/api/globals.html#class-abortcontroller
+
+#### Subtasks
+
+1. [ ] Review current MCP agent response assembly:
+   - Documentation to read (repeat):
+     - JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification
+   - Recap (acceptance criteria): return only the final answer segment while keeping `conversationId` and `modelId` unchanged.
+   - Files to read:
+     - `server/src/mcpAgents/tools.ts`
+     - `server/src/agents/service.ts`
+     - `server/src/test/unit/mcp-agents-tools.test.ts`
+     - `server/src/test/unit/mcp-agents-router-run.test.ts`
+   - Goal:
+     - Confirm where agent segments are assembled and passed through to MCP responses.
+
+2. [ ] Update agent MCP tooling to mirror answer-only responses:
+   - Files to edit:
+     - `server/src/mcpAgents/tools.ts`
+   - Requirements:
+     - Ensure `run_agent_instruction` responses return only the final answer segment.
+     - Preserve `conversationId` + `modelId` fields and existing status/error codes.
+
+3. [ ] Update MCP tool definitions to reflect answer-only responses:
+   - Files to edit:
+     - `server/src/mcpAgents/tools.ts`
+   - Requirements:
+     - Update description strings to remove “thinking/vector_summary” language.
+     - Keep input schemas unchanged.
+
+4. [ ] Update MCP agent tests/fixtures for the new response shape:
+   - Files to edit:
+     - `server/src/test/unit/mcp-agents-tools.test.ts`
+     - `server/src/test/unit/mcp-agents-router-run.test.ts`
+   - Requirements:
+     - Assert that `segments` contains exactly one `answer` entry (where segments remain).
+     - Confirm no `thinking` or `vector_summary` segments appear.
+
+5. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`; fix issues before continuing.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier: https://prettier.io/docs/options
+
+#### Testing
+
+1. [ ] `npm run test:unit --workspace server`
+
+#### Implementation notes
+
+- Notes added during implementation.
+
+---
+
+### 3. Server: distance semantics for vector aggregations (min distance)
 
 - Task Status: **__to_do__**
 - Git Commits: **to_do**
@@ -311,7 +363,7 @@ Switch vector “best match” aggregation to use minimum distance values (lower
 
 ---
 
-### 3. Server: retrieval cutoff + fallback selection
+### 4. Server: retrieval cutoff + fallback selection
 
 - Task Status: **__to_do__**
 - Git Commits: **to_do**
@@ -402,7 +454,7 @@ Introduce distance-based cutoff logic for vector search results with an env-conf
 
 ---
 
-### 4. Server: tool payload size caps (total + per-chunk)
+### 5. Server: tool payload size caps (total + per-chunk)
 
 - Task Status: **__to_do__**
 - Git Commits: **to_do**
@@ -489,7 +541,7 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
 
 ---
 
-### 5. Client: citation dedupe rules (two-stage + top-2 per file)
+### 6. Client: citation dedupe rules (two-stage + top-2 per file)
 
 - Task Status: **__to_do__**
 - Git Commits: **to_do**
@@ -558,7 +610,7 @@ Deduplicate VectorSearch citations on the client by removing exact duplicates pe
 
 ---
 
-### 6. Client: tool details show distance labels + per-match distances
+### 7. Client: tool details show distance labels + per-match distances
 
 - Task Status: **__to_do__**
 - Git Commits: **to_do**
@@ -639,7 +691,7 @@ Update Chat and Agents tool detail panels to explicitly label distance values an
 
 ---
 
-### 7. Final verification + documentation + PR summary
+### 8. Final verification + documentation + PR summary
 
 - Task Status: **__to_do__**
 - Git Commits: **to_do**

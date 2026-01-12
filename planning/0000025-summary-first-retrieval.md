@@ -12,7 +12,7 @@ Per request, this plan is created without tasks. Tasks will be added once the op
 
 Today, Codex input tokens are driven up by large vector-search payloads, especially when large files are chunked into big blocks and multiple chunks are returned. This makes Codex usage expensive even when the answer only needs a small slice of the repository.
 
-We want to reduce Codex input tokens by using smaller chunks for full-text retrieval and applying a relevance cutoff so low-value chunks are not sent to Codex. In addition, MCP responses for both chat and agents should return only the final answer (no reasoning or tool summaries) to avoid extra tokens. The goal is to preserve answer quality while lowering token usage for typical queries, without introducing summary generation in this story.
+We want to reduce Codex input tokens by applying a relevance cutoff so low-value chunks are not sent to Codex. In addition, MCP responses for both chat and agents should return only the final answer (no reasoning or tool summaries) to avoid extra tokens. The goal is to preserve answer quality while lowering token usage for typical queries, without introducing summary generation or embedding changes in this story.
 
 We also need to correct the current “best match” aggregation logic for vector search summaries. We confirmed Chroma returns distance values (lower is better), but the current logic uses `Math.max` to compute “highest match,” which is backwards for distances and will misreport the best match (and would break any cutoff derived from that value). The fix is to treat distances as “lower is better” and compute the best match using `Math.min` instead of `Math.max` wherever the aggregated “best match” is derived.
 
@@ -21,7 +21,6 @@ We also need to correct the current “best match” aggregation logic for vecto
 ## Acceptance Criteria
 
 - A relevance cutoff is applied to vector search results so low-score chunks are not sent to Codex.
-- Smaller full-text chunks are used for retrieval, with overlap tuned to avoid redundant token payloads.
 - Tool payloads sent to Codex have a clear size cap (character or token budget) to prevent large tool outputs.
 - MCP responses for `codebase_question` and agent `run_agent_instruction` return only the final answer text (no reasoning/summary segments).
 - Vector search score semantics are confirmed: Chroma returns distances and lower is better; cutoff logic uses `<=` on distance values and any “best match” aggregation uses min.
@@ -41,13 +40,13 @@ We also need to correct the current “best match” aggregation logic for vecto
 - Summary generation, summary storage, or summary-only retrieval workflows.
 - Adding a summariser provider/model selector to the ingest page.
 - Expanding MCP responses beyond a single answer payload (reasoning, vector summaries, or tool call details).
+- Any changes to embedding chunk size or overlap configuration.
 
 ---
 
 ## Questions
 
 - What relevance score cutoff should we apply for distance values (e.g., 1.4–1.6 based on observed ranges)?
-- What should be the default chunk size and overlap for full-text chunks after this change?
 - What is the maximum tool payload size we want to allow for Codex (chars/tokens), and should it be configurable?
 - Should we add a configurable toggle to bypass the relevance cutoff for debugging?
 - Should MCP answer-only responses still include `conversationId`/`modelId`, or should they return just the answer text?

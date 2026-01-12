@@ -492,7 +492,7 @@ Extend the core chat event pipeline so usage/timing metadata can flow from provi
 
 ### 3. Server: capture Codex usage metadata
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **__to_do__**
 
 #### Overview

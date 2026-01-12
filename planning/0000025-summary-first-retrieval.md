@@ -91,6 +91,19 @@ We also need to correct the current “best match” aggregation logic for vecto
 
 ---
 
+## Edge Cases and Failure Modes
+
+- **No vector results returned:** ensure cutoff logic still returns an empty `results` array without throwing, and the fallback does not fabricate data.
+- **All scores missing or non-numeric:** cutoff should be skipped (or treat all as ineligible) but still allow fallback to the best 1–2 chunks based on original order; `highestMatch` stays `null`.
+- **Scores present but cutoff excludes all:** fallback should still include the best `CODEINFO_RETRIEVAL_FALLBACK_CHUNKS` results in original order.
+- **Payload cap too small to include any chunk:** if `CODEINFO_TOOL_MAX_CHARS` is below the smallest chunk after per-chunk truncation, return zero chunks and log the existing vector score source line only (no new log tags).
+- **Missing `relPath` or `repo` in tool payload:** citation dedupe should ignore malformed items rather than crashing; tool details UI should still render available entries.
+- **Duplicate chunk text across different files:** dedupe step 1 should only collapse duplicates within the same `repo + relPath` bucket (so different files can still appear).
+- **MCP response shape mismatch:** MCP clients that still expect `thinking`/`vector_summary` should continue to parse the JSON but only see a single `answer` segment; ensure they don’t break on missing segment types.
+- **Archived conversations (MCP/agents):** keep existing error behavior when a conversation is archived; the answer-only change must not alter error codes or statuses.
+
+---
+
 ## Out Of Scope
 
 - Changes to LM Studio runtime behavior or pricing strategy.

@@ -186,4 +186,198 @@ describe('assistant persistence via ChatInterface base', () => {
     assert.equal(calls.length, 1);
     assert.equal(calls[0]?.callId, '1');
   });
+
+  test('LM Studio stats persist usage and timing metadata', async () => {
+    class MockModel {
+      async act(
+        _chat: unknown,
+        _tools: ReadonlyArray<unknown>,
+        opts: Record<string, unknown>,
+      ): Promise<void> {
+        const callbacks = opts as {
+          onPredictionCompleted?: (result: unknown) => void;
+          onPredictionFragment?: (fragment: { content?: string }) => void;
+          onMessage?: (message: unknown) => void;
+        };
+
+        callbacks.onPredictionCompleted?.({
+          stats: {
+            promptTokensCount: 12,
+            predictedTokensCount: 4,
+            totalTokensCount: 16,
+            totalTimeSec: 0.5,
+            tokensPerSecond: 32,
+          },
+        });
+        callbacks.onPredictionFragment?.({ content: 'Hello' });
+        callbacks.onMessage?.({
+          role: 'assistant',
+          content: [{ type: 'text', text: 'Hello world' }],
+        });
+      }
+    }
+
+    const model = new MockModel();
+    const mockClient: LMStudioClient = {
+      llm: {
+        model: () =>
+          ({
+            act: model.act.bind(model),
+          }) as unknown as ReturnType<LMStudioClient['llm']['model']>,
+      },
+    } as unknown as LMStudioClient;
+
+    const chat = new ChatInterfaceLMStudio(
+      () => mockClient,
+      () => ({
+        tools: [],
+      }),
+    );
+    const conversationId = 'persist-lm-stats';
+
+    await chat.run(
+      'Hello',
+      { provider: 'lmstudio', source: 'REST', baseUrl: 'http://localhost' },
+      conversationId,
+      'llama-3',
+    );
+
+    const turns = (memoryTurns.get(conversationId) ?? []) as Turn[];
+    const assistant = turns[1] as Turn;
+    assert.deepEqual(assistant.usage, {
+      inputTokens: 12,
+      outputTokens: 4,
+      totalTokens: 16,
+    });
+    assert.deepEqual(assistant.timing, {
+      totalTimeSec: 0.5,
+      tokensPerSecond: 32,
+    });
+  });
+
+  test('LM Studio fallback timing persists when stats missing', async () => {
+    let now = 1_000;
+    const originalNow = Date.now;
+    Date.now = () => now;
+
+    class MockModel {
+      async act(
+        _chat: unknown,
+        _tools: ReadonlyArray<unknown>,
+        opts: Record<string, unknown>,
+      ): Promise<void> {
+        const callbacks = opts as {
+          onPredictionFragment?: (fragment: { content?: string }) => void;
+          onMessage?: (message: unknown) => void;
+        };
+
+        callbacks.onPredictionFragment?.({ content: 'Hello' });
+        now = 2_500;
+        callbacks.onMessage?.({
+          role: 'assistant',
+          content: [{ type: 'text', text: 'Hello world' }],
+        });
+      }
+    }
+
+    const model = new MockModel();
+    const mockClient: LMStudioClient = {
+      llm: {
+        model: () =>
+          ({
+            act: model.act.bind(model),
+          }) as unknown as ReturnType<LMStudioClient['llm']['model']>,
+      },
+    } as unknown as LMStudioClient;
+
+    const chat = new ChatInterfaceLMStudio(
+      () => mockClient,
+      () => ({
+        tools: [],
+      }),
+    );
+    const conversationId = 'persist-lm-fallback';
+
+    try {
+      await chat.run(
+        'Hello',
+        { provider: 'lmstudio', source: 'REST', baseUrl: 'http://localhost' },
+        conversationId,
+        'llama-3',
+      );
+    } finally {
+      Date.now = originalNow;
+    }
+
+    const turns = (memoryTurns.get(conversationId) ?? []) as Turn[];
+    const assistant = turns[1] as Turn;
+    assert(assistant.timing?.totalTimeSec);
+    assert.equal(assistant.timing?.tokensPerSecond, undefined);
+    assert.equal(assistant.timing?.totalTimeSec, 1.5);
+  });
+
+  test('LM Studio omits tokensPerSecond when absent', async () => {
+    class MockModel {
+      async act(
+        _chat: unknown,
+        _tools: ReadonlyArray<unknown>,
+        opts: Record<string, unknown>,
+      ): Promise<void> {
+        const callbacks = opts as {
+          onPredictionCompleted?: (result: unknown) => void;
+          onPredictionFragment?: (fragment: { content?: string }) => void;
+          onMessage?: (message: unknown) => void;
+        };
+
+        callbacks.onPredictionCompleted?.({
+          stats: {
+            promptTokensCount: 5,
+            predictedTokensCount: 6,
+            totalTimeSec: 0.75,
+          },
+        });
+        callbacks.onPredictionFragment?.({ content: 'Hello' });
+        callbacks.onMessage?.({
+          role: 'assistant',
+          content: [{ type: 'text', text: 'Hello world' }],
+        });
+      }
+    }
+
+    const model = new MockModel();
+    const mockClient: LMStudioClient = {
+      llm: {
+        model: () =>
+          ({
+            act: model.act.bind(model),
+          }) as unknown as ReturnType<LMStudioClient['llm']['model']>,
+      },
+    } as unknown as LMStudioClient;
+
+    const chat = new ChatInterfaceLMStudio(
+      () => mockClient,
+      () => ({
+        tools: [],
+      }),
+    );
+    const conversationId = 'persist-lm-no-rate';
+
+    await chat.run(
+      'Hello',
+      { provider: 'lmstudio', source: 'REST', baseUrl: 'http://localhost' },
+      conversationId,
+      'llama-3',
+    );
+
+    const turns = (memoryTurns.get(conversationId) ?? []) as Turn[];
+    const assistant = turns[1] as Turn;
+    assert.deepEqual(assistant.usage, {
+      inputTokens: 5,
+      outputTokens: 6,
+      totalTokens: 11,
+    });
+    assert.deepEqual(assistant.timing, {
+      totalTimeSec: 0.75,
+    });
+  });
 });

@@ -1,4 +1,5 @@
 import { LogEntry } from '@codeinfo2/common';
+import { getApiBaseUrl } from '../api/baseUrl';
 
 const queue: LogEntry[] = [];
 const MAX_BATCH = 10;
@@ -31,7 +32,7 @@ export async function flushQueue() {
   const batch = queue.splice(0, MAX_BATCH);
   inFlight = true;
   try {
-    const res = await fetch(`${env.VITE_API_URL || ''}/logs`, {
+    const res = await fetch(new URL('/logs', getApiBaseUrl()).toString(), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(batch),

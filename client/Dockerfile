@@ -24,6 +24,8 @@ COPY --from=build /app/common /app/common
 COPY --from=build /app/client/dist ./dist
 COPY --from=build /app/client/vite.config.ts ./vite.config.ts
 COPY --from=build /app/client/package*.json ./
+COPY client/entrypoint.sh ./entrypoint.sh
+RUN chmod +x ./entrypoint.sh
 ENV PORT=5001
 EXPOSE 5001
-CMD ["npm", "run", "preview", "--", "--host", "--port", "5001"]
+ENTRYPOINT ["./entrypoint.sh"]

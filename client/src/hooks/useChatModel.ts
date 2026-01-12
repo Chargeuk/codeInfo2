@@ -4,13 +4,11 @@ import type {
   ChatProviderInfo,
 } from '@codeinfo2/common';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { getApiBaseUrl } from '../api/baseUrl';
 
 type Status = 'idle' | 'loading' | 'success' | 'error';
 
-const serverBase =
-  (typeof import.meta !== 'undefined' &&
-    (import.meta as ImportMeta).env?.VITE_API_URL) ??
-  'http://localhost:5010';
+const serverBase = getApiBaseUrl();
 
 export function useChatModel() {
   const providerControllerRef = useRef<AbortController | null>(null);

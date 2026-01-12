@@ -5,23 +5,23 @@ import test from 'node:test';
 import express from 'express';
 import WebSocket, { type RawData } from 'ws';
 
-import { query, resetStore } from '../../logStore.js';
 import {
   __resetIngestJobsForTest,
   __setStatusAndPublishForTest,
   __setStatusForTest,
 } from '../../ingest/ingestJob.js';
+import { query, resetStore } from '../../logStore.js';
 import {
   emitConversationUpsert,
   type ConversationEventSummary,
 } from '../../mongo/events.js';
+import { attachWs, publishTurnFinal } from '../../ws/server.js';
 import {
   closeWs,
   connectWs,
   sendJson,
   waitForEvent,
 } from '../support/wsClient.js';
-import { attachWs } from '../../ws/server.js';
 
 const ORIGINAL_ENV = process.env.NODE_ENV;
 
@@ -276,6 +276,42 @@ test('WS subscribe_conversation missing conversationId is rejected', async () =>
     const closed = await waitForClose(ws);
     assert.equal(closed.code, 1008);
   } finally {
+    await stopServer(server);
+  }
+});
+
+test('publishTurnFinal omits usage/timing when not provided', async () => {
+  const server = await startServer();
+  const baseUrl = `http://127.0.0.1:${server.port}`;
+  const ws = await connectWs({ baseUrl });
+  const conversationId = 'ws-turn-final-omit-1';
+  const inflightId = 'inflight-omit-1';
+
+  try {
+    sendJson(ws, { type: 'subscribe_conversation', conversationId });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    publishTurnFinal({
+      conversationId,
+      inflightId,
+      status: 'ok',
+    });
+
+    const event = await waitForEvent({
+      ws,
+      predicate: (payload): payload is Record<string, unknown> =>
+        typeof payload === 'object' &&
+        payload !== null &&
+        (payload as { type?: string; conversationId?: string }).type ===
+          'turn_final' &&
+        (payload as { conversationId?: string }).conversationId ===
+          conversationId,
+    });
+
+    assert.ok(!('usage' in event));
+    assert.ok(!('timing' in event));
+  } finally {
+    await closeWs(ws);
     await stopServer(server);
   }
 });

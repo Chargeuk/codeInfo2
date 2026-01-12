@@ -15,6 +15,7 @@ import {
   Typography,
 } from '@mui/material';
 import { useMemo, useState } from 'react';
+import { getApiBaseUrl } from '../../api/baseUrl';
 import type { IngestRoot } from '../../hooks/useIngestRoots';
 
 export type RootsTableProps = {
@@ -371,10 +372,7 @@ export default function RootsTable({
   );
 }
 
-const serverBase =
-  (typeof import.meta !== 'undefined' &&
-    (import.meta as ImportMeta).env?.VITE_API_URL) ??
-  'http://localhost:5010';
+const serverBase = getApiBaseUrl();
 
 function Counts({ label, value }: { label: string; value?: number }) {
   return (

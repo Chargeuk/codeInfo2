@@ -4,6 +4,7 @@ import {
   type LmStudioStatusResponse,
 } from '@codeinfo2/common';
 import { useCallback, useMemo, useState } from 'react';
+import { getApiBaseUrl } from '../api/baseUrl';
 
 const LS_KEY = 'lmstudio.baseUrl';
 const DEFAULT_LM_URL = 'http://host.docker.internal:1234';
@@ -12,10 +13,7 @@ const envLmUrl =
   (typeof import.meta !== 'undefined' &&
     (import.meta as ImportMeta)?.env?.VITE_LMSTUDIO_URL) ??
   undefined;
-const serverBase =
-  (typeof import.meta !== 'undefined' &&
-    (import.meta as ImportMeta)?.env?.VITE_API_URL) ??
-  'http://localhost:5010';
+const serverBase = getApiBaseUrl();
 
 type HookState =
   | { status: 'idle' }

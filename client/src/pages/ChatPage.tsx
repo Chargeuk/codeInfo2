@@ -57,6 +57,66 @@ import useConversations from '../hooks/useConversations';
 import usePersistenceStatus from '../hooks/usePersistenceStatus';
 import { createLogger } from '../logging/logger';
 
+const bubbleTimestampFormatter = new Intl.DateTimeFormat(undefined, {
+  dateStyle: 'medium',
+  timeStyle: 'short',
+});
+
+const formatBubbleTimestamp = (value?: string) => {
+  const candidate = value ? new Date(value) : new Date();
+  if (Number.isNaN(candidate.getTime())) {
+    return bubbleTimestampFormatter.format(new Date());
+  }
+  return bubbleTimestampFormatter.format(candidate);
+};
+
+const formatDecimal = (value: number) =>
+  value.toFixed(2).replace(/\.?(0+)$/, '');
+
+const buildUsageLine = (usage: ChatMessage['usage']) => {
+  if (!usage) return null;
+  const hasUsage =
+    usage.inputTokens !== undefined ||
+    usage.outputTokens !== undefined ||
+    usage.totalTokens !== undefined ||
+    usage.cachedInputTokens !== undefined;
+  if (!hasUsage) return null;
+  const cachedSuffix =
+    usage.cachedInputTokens !== undefined
+      ? ` (cached ${usage.cachedInputTokens})`
+      : '';
+  return (
+    `Tokens: in ${usage.inputTokens ?? 0} · out ${usage.outputTokens ?? 0} · total ` +
+    `${usage.totalTokens ?? 0}${cachedSuffix}`
+  );
+};
+
+const buildTimingLine = (timing: ChatMessage['timing']) => {
+  if (!timing) return null;
+  const hasTiming =
+    timing.totalTimeSec !== undefined || timing.tokensPerSecond !== undefined;
+  if (!hasTiming) return null;
+  const parts: string[] = [];
+  if (timing.totalTimeSec !== undefined) {
+    parts.push(`Time: ${formatDecimal(timing.totalTimeSec)}s`);
+  }
+  if (timing.tokensPerSecond !== undefined) {
+    parts.push(`Rate: ${formatDecimal(timing.tokensPerSecond)} tok/s`);
+  }
+  return parts.length > 0 ? parts.join(' · ') : null;
+};
+
+const buildStepLine = (command: ChatMessage['command']) => {
+  if (!command) return null;
+  if (
+    !Number.isFinite(command.stepIndex) ||
+    !Number.isFinite(command.totalSteps)
+  ) {
+    return null;
+  }
+  return `Step ${command.stepIndex} of ${command.totalSteps}`;
+};
+
 export default function ChatPage() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -170,6 +230,8 @@ export default function ChatPage() {
   const [toolErrorOpen, setToolErrorOpen] = useState<Record<string, boolean>>(
     {},
   );
+  const metadataLoggedRef = useRef(new Set<string>());
+  const stepLoggedRef = useRef(new Set<string>());
   const transcriptRef = useRef<HTMLDivElement | null>(null);
   const knownConversationIds = useMemo(
     () => new Set(conversations.map((c) => c.conversationId)),
@@ -367,6 +429,64 @@ export default function ChatPage() {
     () => [...messages].reverse(),
     [messages],
   );
+
+  useEffect(() => {
+    orderedMessages.forEach((message) => {
+      const isErrorBubble = message.kind === 'error';
+      const isStatusBubble = message.kind === 'status';
+      const showMetadata = !isErrorBubble && !isStatusBubble;
+      if (!showMetadata) return;
+
+      const timestampLabel = formatBubbleTimestamp(message.createdAt);
+      const usageLine =
+        message.role === 'assistant' ? buildUsageLine(message.usage) : null;
+      const timingLine =
+        message.role === 'assistant' ? buildTimingLine(message.timing) : null;
+      const stepLine =
+        message.role === 'assistant' ? buildStepLine(message.command) : null;
+
+      if (
+        message.role === 'assistant' &&
+        timestampLabel &&
+        (usageLine || timingLine) &&
+        !metadataLoggedRef.current.has(message.id)
+      ) {
+        metadataLoggedRef.current.add(message.id);
+        log('info', 'DEV-0000024:T9:ui_metadata_rendered', {
+          messageId: message.id,
+          role: message.role,
+          hasTokenLine: Boolean(usageLine),
+          hasTimingLine: Boolean(timingLine),
+          hasTimestamp: true,
+        });
+      }
+
+      if (stepLine && !stepLoggedRef.current.has(message.id)) {
+        stepLoggedRef.current.add(message.id);
+        log('info', 'DEV-0000024:T9:ui_step_indicator', {
+          messageId: message.id,
+          role: message.role,
+          stepIndex: message.command?.stepIndex,
+          totalSteps: message.command?.totalSteps,
+        });
+      }
+    });
+  }, [log, orderedMessages]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handler = () => {
+      log('info', 'DEV-0000024:T10:manual_validation_complete', {
+        page: 'chat',
+      });
+    };
+    window.addEventListener('codeinfo:manual-validation-complete', handler);
+    return () =>
+      window.removeEventListener(
+        'codeinfo:manual-validation-complete',
+        handler,
+      );
+  }, [log]);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -597,6 +717,8 @@ export default function ChatPage() {
             content: turn.content,
             tools: mapToolCalls(turn.toolCalls ?? null),
             streamStatus: turn.status === 'failed' ? 'failed' : 'complete',
+            usage: turn.usage,
+            timing: turn.timing,
             createdAt: turn.createdAt,
           }) satisfies ChatMessage,
       ),
@@ -1381,6 +1503,25 @@ export default function ChatPage() {
                         const isErrorBubble = message.kind === 'error';
                         const isStatusBubble = message.kind === 'status';
                         const isUser = message.role === 'user';
+                        const showMetadata = !isErrorBubble && !isStatusBubble;
+                        const timestampLabel = showMetadata
+                          ? formatBubbleTimestamp(message.createdAt)
+                          : null;
+                        const usageLine =
+                          message.role === 'assistant'
+                            ? buildUsageLine(message.usage)
+                            : null;
+                        const timingLine =
+                          message.role === 'assistant'
+                            ? buildTimingLine(message.timing)
+                            : null;
+                        const stepLine =
+                          message.role === 'assistant'
+                            ? buildStepLine(message.command)
+                            : null;
+                        const metadataColor = isUser
+                          ? 'inherit'
+                          : 'text.secondary';
                         const hasCitations =
                           activeToolsAvailable && !!message.citations?.length;
                         const baseSegments = message.segments?.length
@@ -1449,6 +1590,44 @@ export default function ChatPage() {
                                 }}
                               >
                                 <Stack spacing={1}>
+                                  {showMetadata && timestampLabel && (
+                                    <Stack spacing={0.25}>
+                                      <Typography
+                                        variant="caption"
+                                        color={metadataColor}
+                                        data-testid="bubble-timestamp"
+                                      >
+                                        {timestampLabel}
+                                      </Typography>
+                                      {usageLine && (
+                                        <Typography
+                                          variant="caption"
+                                          color={metadataColor}
+                                          data-testid="bubble-tokens"
+                                        >
+                                          {usageLine}
+                                        </Typography>
+                                      )}
+                                      {timingLine && (
+                                        <Typography
+                                          variant="caption"
+                                          color={metadataColor}
+                                          data-testid="bubble-timing"
+                                        >
+                                          {timingLine}
+                                        </Typography>
+                                      )}
+                                      {stepLine && (
+                                        <Typography
+                                          variant="caption"
+                                          color={metadataColor}
+                                          data-testid="bubble-step"
+                                        >
+                                          {stepLine}
+                                        </Typography>
+                                      )}
+                                    </Stack>
+                                  )}
                                   {message.role === 'assistant' &&
                                     message.streamStatus && (
                                       <Chip

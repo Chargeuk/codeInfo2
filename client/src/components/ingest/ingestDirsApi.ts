@@ -1,7 +1,6 @@
-const serverBase =
-  (typeof import.meta !== 'undefined' &&
-    (import.meta as ImportMeta).env?.VITE_API_URL) ??
-  'http://localhost:5010';
+import { getApiBaseUrl } from '../../api/baseUrl';
+
+const serverBase = getApiBaseUrl();
 
 export type IngestDirsSuccess = {
   base: string;

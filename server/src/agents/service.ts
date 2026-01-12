@@ -607,6 +607,7 @@ export async function runAgentInstructionUnlocked(params: {
     provider: 'codex',
     model: modelId,
     source: params.source,
+    command: params.command,
     userTurn: { content: params.instruction, createdAt: nowIso },
     externalSignal: params.signal,
   });

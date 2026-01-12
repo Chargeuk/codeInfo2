@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { getApiBaseUrl } from '../api/baseUrl';
 
-const serverBase =
-  (typeof import.meta !== 'undefined' &&
-    (import.meta as ImportMeta).env?.VITE_API_URL) ??
-  'http://localhost:5010';
+const serverBase = getApiBaseUrl();
 
 type State = {
   mongoConnected: boolean | null;

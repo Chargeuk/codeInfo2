@@ -30,7 +30,7 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 
 ## Conversation persistence (MongoDB)
 
-- MongoDB (default URI `mongodb://host.docker.internal:27517/db?directConnection=true`) stores conversations and turns via Mongoose. `server/src/mongo/conversation.ts` tracks `_id` (conversationId/Codex thread id), `provider`, `model`, `title`, optional `agentName` (when a conversation belongs to an agent), `flags`, `lastMessageAt`, timestamps, and `archivedAt`; `server/src/mongo/turn.ts` stores `conversationId`, `role`, `content`, `provider`, `model`, optional `toolCalls`, `status`, and `createdAt`.
+- MongoDB (default URI `mongodb://host.docker.internal:27517/db?directConnection=true`) stores conversations and turns via Mongoose. `server/src/mongo/conversation.ts` tracks `_id` (conversationId/Codex thread id), `provider`, `model`, `title`, optional `agentName` (when a conversation belongs to an agent), `flags`, `lastMessageAt`, timestamps, and `archivedAt`; `server/src/mongo/turn.ts` stores `conversationId`, `role`, `content`, `provider`, `model`, optional `toolCalls`, `status`, optional assistant-only `usage`/`timing` metadata, and `createdAt`.
 - Both collections include a `source` enum (`REST` | `MCP`, default `REST`) so the UI can surface where a conversation/turn originated; repo helpers normalise missing `source` values to `REST` for backwards compatibility.
 - Repository helpers in `server/src/mongo/repo.ts` handle create/update/archive/restore, append turns, and cursor pagination for conversation listings (newest-first by `lastMessageAt`). Turn snapshots now return the full newest-first history (no pagination) and merge in-flight turns when present.
 - Conversations can be tagged with `agentName` so the normal Chat history stays clean (no `agentName`) while agent UIs filter to a specific `agentName` value.
@@ -38,6 +38,9 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - Bulk conversation endpoints (`POST /conversations/bulk/archive|restore|delete`) use validate-first semantics: if any ids are missing (or if delete includes non-archived conversations), the server returns `409 BATCH_CONFLICT` and performs no writes. Hard delete is archived-only and deletes turns first to avoid orphaned turn documents.
 - MCP tool `codebase_question` mirrors the same persistence, storing MCP-sourced conversations/turns (including tool calls and reasoning summaries) unless the conversation is archived. Codex uses a persisted `threadId` flag for follow-ups; LM Studio uses stored turns for the `conversationId`.
 - `/health` reports `mongoConnected` from the live Mongoose state; the client shows a banner and disables archive controls when `mongoConnected === false` while allowing stateless chat.
+- Chat completion events can carry optional `usage`/`timing` metadata; the stream bridge forwards these on `turn_final` events (with fallback `totalTimeSec` derived from run start when missing) so the UI can hydrate metadata before REST persistence lands.
+- Codex `turn.completed` events map `input_tokens`, `cached_input_tokens`, and `output_tokens` into assistant `usage` metadata; `totalTokens` is derived from input + output when omitted, and `DEV-0000024:T3:codex_usage_received` logs when usage is captured.
+- LM Studio `PredictionResult.stats` maps `promptTokensCount`, `predictedTokensCount`, and `totalTokensCount` into assistant `usage` plus `totalTimeSec`/`tokensPerSecond` into timing; missing totals are derived from input + output, and `DEV-0000024:T4:lmstudio_stats_mapped` logs when stats are captured.
 
 Legacy note: the REST polling flow below remains for status snapshots, but the ingest UI now relies on WS-only updates.
 
@@ -126,7 +129,7 @@ sequenceDiagram
   end
 
   Server-->>Viewer: assistant_delta / analysis_delta / tool_event ...
-  Server-->>Viewer: turn_final (ok|stopped|failed, threadId?)
+  Server-->>Viewer: turn_final (ok|stopped|failed, threadId?, usage?, timing?)
 
   Viewer->>Server: WS cancel_inflight(conversationId, inflightId)
   Note over Server: AbortController aborts provider run
@@ -218,10 +221,11 @@ flowchart LR
 ### Chat page (streaming UI)
 
 - Sending a message triggers `POST /chat` (202 started). The visible transcript is driven by `/ws` events for the selected conversation (`subscribe_conversation` → `inflight_snapshot` catch-up → `assistant_delta`/`analysis_delta`/`tool_event` → `turn_final`). Stop uses `cancel_inflight`.
+- WebSocket `inflight_snapshot` events now hydrate `createdAt` from `startedAt` and attach any command step metadata; `turn_final` events apply usage/timing metadata to the active assistant bubble when supplied by the provider.
 - Persisted turn hydration merges into the current transcript without clearing active in-flight content; an empty replace snapshot is ignored while streaming.
 - `GET /conversations/:id/turns` snapshots always reflect the full conversation by merging persisted turns with the latest in-flight user/assistant turns until persistence completes (deduped to avoid duplicates).
 - Snapshot `items` now include a stable `turnId` (Mongo `_id` string) for persisted turns. Snapshots are ordered deterministically (newest-first) by `(createdAt, rolePriority, turnId)` so same-timestamp turns don’t flip or duplicate during in-flight merges.
-- `GET /conversations/:id/turns` returns `{ items, inflight? }` where `items` always include the full persisted conversation plus any in-flight user/assistant turns (deduped) and `inflight` is included whenever a run is in progress for detailed tool/thinking hydration (`{ inflightId, assistantText, assistantThink, toolEvents, startedAt, seq }`).
+- `GET /conversations/:id/turns` returns `{ items, inflight? }` where `items` always include the full persisted conversation plus any in-flight user/assistant turns (deduped) and `inflight` is included whenever a run is in progress for detailed tool/thinking hydration (`{ inflightId, assistantText, assistantThink, toolEvents, startedAt, seq, command? }`).
 - Snapshot hydration flow (replace-only, full history every time):
 
 ```mermaid
@@ -233,6 +237,7 @@ sequenceDiagram
   Client->>Server: GET /conversations/:id/turns
   Server->>Mongo: load all persisted turns
   Server-->>Client: { items: full history + inflight turns, inflight?: snapshot }
+  Note over Server,Client: inflight snapshot includes command? when provided
   Client->>Client: hydrateHistory(replace)
   opt inflight present
     Client->>Client: hydrateInflightSnapshot(inflight)
@@ -243,6 +248,7 @@ sequenceDiagram
 - Bubbles render newest-first closest to the controls; user bubbles align right with the primary palette, assistant bubbles align left on the default surface, and error bubbles use the error palette with retry guidance.
 - The transcript panel is a flex child that fills the remaining viewport height beneath the controls (selectors/flags/input) and scrolls vertically within the panel.
 - User and assistant bubbles share a 14px border radius while keeping status chips, tool blocks, and citations aligned inside the container.
+- Bubble metadata headers render above content: every user/assistant bubble shows a timestamp formatted with `Intl.DateTimeFormat` `{ dateStyle: 'medium', timeStyle: 'short' }` in local time (invalid timestamps fall back to `new Date()`); assistant bubbles optionally show token usage, timing/rate, and agent step indicators when metadata exists, while status/error bubbles omit metadata entirely.
 - Send is disabled while `status === 'sending'`; a small "Responding..." helper appears under the controls; tool events are logged only (not shown in the transcript).
 - Thought process buffering is append-only: multiple `<think>`/Harmony analysis bursts are preserved even after tool events, and the spinner only stops once `turn_final` arrives and pending tools finish.
 - Inline errors append a red assistant bubble so failures are visible in the conversation; input is re-enabled after the stream ends or fails.
@@ -1255,7 +1261,7 @@ sequenceDiagram
     Server-->>Viewer: inflight_snapshot (catch-up)
   end
   Server-->>Viewer: assistant_delta / analysis_delta / tool_event ...
-  Server-->>Viewer: turn_final (ok|stopped|failed, threadId?)
+  Server-->>Viewer: turn_final (ok|stopped|failed, threadId?, usage?, timing?)
 ```
 
 ### Stop control
@@ -1537,7 +1543,7 @@ sequenceDiagram
 - Agents use the same WebSocket transcript merge logic as Chat:
   - `useChatWs` provides transport + subscription.
   - `useChatStream` owns transcript state and merges WS frames (`handleWsEvent`).
-  - `useConversationTurns` hydrates history (and REST inflight snapshot) when Mongo/persistence is available.
+  - `useConversationTurns` hydrates history (and REST inflight snapshot) when Mongo/persistence is available, mapping REST usage/timing fields and inflight command metadata when present.
 - Decision rule:
   - If `mongoConnected === false`, Agents fall back to rendering the REST response `segments` (single-instruction runs only).
   - Otherwise, Agents rely on WS transcript frames and treat the REST response as a completion signal (REST `segments` are ignored).
@@ -1590,6 +1596,7 @@ Required log names and key fields:
     - `chat.ws.server_publish_user_turn` (`conversationId`, `inflightId`, `seq`, `contentLen`)
     - `chat.ws.server_publish_assistant_delta` (`conversationId`, `inflightId`, `seq`, `deltaLen`)
     - `chat.ws.server_publish_turn_final` (`conversationId`, `inflightId`, `seq`, `status`, `errorCode?`)
+    - `DEV-0000024:T6:turn_final_usage` (`conversationId`, `inflightId`, `seq`, `status`, `usage?`, `timing?`)
 
 Assistant bubble binding invariant (Task 30):
 

@@ -18,6 +18,7 @@ import {
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import { useEffect, useMemo, useState } from 'react';
+import { getApiBaseUrl } from '../api/baseUrl';
 import useLogs from '../hooks/useLogs';
 import { createLogger } from '../logging';
 
@@ -62,10 +63,7 @@ export default function LogsPage() {
     });
   }, [logger]);
 
-  const apiBase =
-    (typeof import.meta !== 'undefined' &&
-      (import.meta as ImportMeta).env?.VITE_API_URL) ??
-    'http://localhost:5010';
+  const apiBase = getApiBaseUrl();
   const { logs, loading, error, refreshQuery } = useLogs(
     { level: levelFilters, source: sourceFilters, text },
     live,

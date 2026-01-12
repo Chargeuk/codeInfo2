@@ -107,6 +107,7 @@ export const chatWsInflightSnapshotFixture = {
     assistantThink: '',
     toolEvents: [],
     startedAt: '2025-01-01T00:00:00.000Z',
+    command: { name: 'improve_plan', stepIndex: 1, totalSteps: 4 },
   },
 } as const;
 
@@ -150,4 +151,6 @@ export const chatWsTurnFinalFixture = {
   inflightId: 'i1',
   status: 'ok',
   threadId: null,
+  usage: { inputTokens: 8, outputTokens: 4, totalTokens: 12 },
+  timing: { totalTimeSec: 0.6, tokensPerSecond: 20 },
 } as const;

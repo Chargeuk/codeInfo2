@@ -1,3 +1,5 @@
+import { getApiBaseUrl } from './baseUrl';
+
 type AgentSummary = {
   name: string;
   description?: string;
@@ -76,10 +78,7 @@ async function throwAgentApiError(
   });
 }
 
-const serverBase =
-  (typeof import.meta !== 'undefined' &&
-    (import.meta as ImportMeta).env?.VITE_API_URL) ??
-  'http://localhost:5010';
+const serverBase = getApiBaseUrl();
 
 export async function listAgents(): Promise<{ agents: AgentSummary[] }> {
   const res = await fetch(new URL('/agents', serverBase).toString());

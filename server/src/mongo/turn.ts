@@ -12,6 +12,18 @@ export interface TurnCommandMetadata {
   totalSteps: number;
 }
 
+export interface TurnUsageMetadata {
+  inputTokens?: number;
+  outputTokens?: number;
+  totalTokens?: number;
+  cachedInputTokens?: number;
+}
+
+export interface TurnTimingMetadata {
+  totalTimeSec?: number;
+  tokensPerSecond?: number;
+}
+
 export interface Turn {
   conversationId: string;
   role: TurnRole;
@@ -22,6 +34,8 @@ export interface Turn {
   status: TurnStatus;
   source: TurnSource;
   command?: TurnCommandMetadata;
+  usage?: TurnUsageMetadata;
+  timing?: TurnTimingMetadata;
   createdAt: Date;
 }
 
@@ -32,6 +46,24 @@ const turnCommandSchema = new Schema<TurnCommandMetadata>(
     name: { type: String, required: true },
     stepIndex: { type: Number, required: true },
     totalSteps: { type: Number, required: true },
+  },
+  { _id: false },
+);
+
+const turnUsageSchema = new Schema<TurnUsageMetadata>(
+  {
+    inputTokens: { type: Number, required: false },
+    outputTokens: { type: Number, required: false },
+    totalTokens: { type: Number, required: false },
+    cachedInputTokens: { type: Number, required: false },
+  },
+  { _id: false },
+);
+
+const turnTimingSchema = new Schema<TurnTimingMetadata>(
+  {
+    totalTimeSec: { type: Number, required: false },
+    tokensPerSecond: { type: Number, required: false },
   },
   { _id: false },
 );
@@ -51,6 +83,8 @@ const turnSchema = new Schema<Turn>(
     status: { type: String, enum: ['ok', 'stopped', 'failed'], required: true },
     source: { type: String, enum: ['REST', 'MCP'], default: 'REST' },
     command: { type: turnCommandSchema, required: false },
+    usage: { type: turnUsageSchema, required: false },
+    timing: { type: turnTimingSchema, required: false },
     createdAt: { type: Date, required: true, default: () => new Date() },
   },
   { timestamps: false },

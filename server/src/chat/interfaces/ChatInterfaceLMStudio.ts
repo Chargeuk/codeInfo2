@@ -8,6 +8,10 @@ import {
 import { createLmStudioTools } from '../../lmstudio/tools.js';
 import { append } from '../../logStore.js';
 import { baseLogger } from '../../logger.js';
+import type {
+  TurnTimingMetadata,
+  TurnUsageMetadata,
+} from '../../mongo/turn.js';
 import { toWebSocketUrl } from '../../routes/lmstudioUrl.js';
 import { shouldUseMemoryPersistence } from '../memoryPersistence.js';
 import {
@@ -43,6 +47,64 @@ const isVectorPayload = (entry: unknown): boolean => {
 const countLines = (text: unknown): number | null => {
   if (typeof text !== 'string') return null;
   return text.split(/\n/).length;
+};
+
+type LmStudioPredictionStats = {
+  promptTokensCount?: number;
+  predictedTokensCount?: number;
+  totalTokensCount?: number;
+  totalTimeSec?: number;
+  tokensPerSecond?: number;
+};
+
+const isFiniteNumber = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isFinite(value);
+
+const mapLmStudioStats = (
+  stats: unknown,
+): { usage?: TurnUsageMetadata; timing?: TurnTimingMetadata } => {
+  if (!stats || typeof stats !== 'object') return {};
+  const payload = stats as LmStudioPredictionStats;
+  const usage: TurnUsageMetadata = {};
+  const timing: TurnTimingMetadata = {};
+
+  if (
+    isFiniteNumber(payload.promptTokensCount) &&
+    payload.promptTokensCount >= 0
+  ) {
+    usage.inputTokens = payload.promptTokensCount;
+  }
+  if (
+    isFiniteNumber(payload.predictedTokensCount) &&
+    payload.predictedTokensCount >= 0
+  ) {
+    usage.outputTokens = payload.predictedTokensCount;
+  }
+  if (
+    isFiniteNumber(payload.totalTokensCount) &&
+    payload.totalTokensCount >= 0
+  ) {
+    usage.totalTokens = payload.totalTokensCount;
+  }
+  if (
+    !isFiniteNumber(usage.totalTokens) &&
+    isFiniteNumber(usage.inputTokens) &&
+    isFiniteNumber(usage.outputTokens)
+  ) {
+    usage.totalTokens = usage.inputTokens + usage.outputTokens;
+  }
+
+  if (isFiniteNumber(payload.totalTimeSec) && payload.totalTimeSec > 0) {
+    timing.totalTimeSec = payload.totalTimeSec;
+  }
+  if (isFiniteNumber(payload.tokensPerSecond) && payload.tokensPerSecond > 0) {
+    timing.tokensPerSecond = payload.tokensPerSecond;
+  }
+
+  return {
+    usage: Object.keys(usage).length > 0 ? usage : undefined,
+    timing: Object.keys(timing).length > 0 ? timing : undefined,
+  };
 };
 
 type LMContentItem =
@@ -150,6 +212,9 @@ export class ChatInterfaceLMStudio extends ChatInterface {
       string,
       { payload?: unknown; error?: unknown }
     >();
+    let latestUsage: TurnUsageMetadata | undefined;
+    let latestTiming: TurnTimingMetadata | undefined;
+    let loggedStats = false;
 
     const toCallId = (value: string | number | undefined | null) =>
       String(value ?? 'assistant-tool');
@@ -421,6 +486,37 @@ export class ChatInterfaceLMStudio extends ChatInterface {
         > = {
         allowParallelToolExecution: false,
         signal: controller.signal,
+        onPredictionCompleted: (predictionResult) => {
+          const mapped = mapLmStudioStats(
+            (predictionResult as { stats?: unknown } | undefined)?.stats,
+          );
+          if (mapped.usage) {
+            latestUsage = mapped.usage;
+          }
+          if (mapped.timing) {
+            latestTiming = mapped.timing;
+          }
+          if (!loggedStats && (mapped.usage || mapped.timing)) {
+            loggedStats = true;
+            append({
+              level: 'info',
+              message: 'DEV-0000024:T4:lmstudio_stats_mapped',
+              timestamp: new Date().toISOString(),
+              source: 'server',
+              requestId,
+              context: {
+                conversationId,
+                hasUsage: Boolean(mapped.usage),
+                hasTiming: Boolean(mapped.timing),
+                inputTokens: mapped.usage?.inputTokens,
+                outputTokens: mapped.usage?.outputTokens,
+                totalTokens: mapped.usage?.totalTokens,
+                totalTimeSec: mapped.timing?.totalTimeSec,
+                tokensPerSecond: mapped.timing?.tokensPerSecond,
+              },
+            });
+          }
+        },
         onPredictionFragment: (fragment: {
           content?: string;
           roundIndex?: number;
@@ -706,7 +802,11 @@ export class ChatInterfaceLMStudio extends ChatInterface {
 
       await prediction;
 
-      const completeEvent: ChatCompleteEvent = { type: 'complete' };
+      const completeEvent: ChatCompleteEvent = {
+        type: 'complete',
+        ...(latestUsage ? { usage: latestUsage } : {}),
+        ...(latestTiming ? { timing: latestTiming } : {}),
+      };
       // Always emit a terminal event so WS clients receive `turn_final` even
       // when the run is cancelled via `cancel_inflight`.
       emitTerminal(completeEvent);

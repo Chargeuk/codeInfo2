@@ -75,8 +75,7 @@ services:
       - client/.env
       - client/.env.local
     environment:
-      - VITE_API_URL=http://host.docker.internal:5510
-      - VITE_LOG_FORWARD_ENABLED=true
+      - SERVER_API_URL=http://host.docker.internal:5510
     depends_on:
       server:
         condition: service_healthy
@@ -162,7 +161,7 @@ services:
     container_name: codeinfo2-playwright-mcp-local
     image: mcr.microsoft.com/playwright/mcp:latest
     entrypoint: ['node', 'cli.js']
-    command: ['--host', '0.0.0.0', '--headless', '--browser', 'chromium', '--no-sandbox', '--port', '8931']
+    command: ['--host', '0.0.0.0', '--headless', '--browser', 'chromium', '--no-sandbox', '--isolated', '--port', '8931', '--allowed-hosts', '*']
     ports:
       - '8931:8931'
     volumes:

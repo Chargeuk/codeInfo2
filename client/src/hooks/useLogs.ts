@@ -1,5 +1,6 @@
 import { LogEntry } from '@codeinfo2/common';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { getApiBaseUrl } from '../api/baseUrl';
 
 type Filters = {
   level: string[];
@@ -9,10 +10,7 @@ type Filters = {
   until?: number;
 };
 
-const API_BASE =
-  (typeof import.meta !== 'undefined' &&
-    (import.meta as ImportMeta).env?.VITE_API_URL) ??
-  'http://localhost:5010';
+const API_BASE = getApiBaseUrl();
 
 function buildUrl(path: string, queryString: string) {
   const base = API_BASE || window.location.origin;

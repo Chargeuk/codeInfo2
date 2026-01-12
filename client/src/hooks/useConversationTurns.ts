@@ -1,9 +1,26 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { getApiBaseUrl } from '../api/baseUrl';
+import { createLogger } from '../logging/logger';
 
-const serverBase =
-  (typeof import.meta !== 'undefined' &&
-    (import.meta as ImportMeta).env?.VITE_API_URL) ??
-  'http://localhost:5010';
+const serverBase = getApiBaseUrl();
+
+export type TurnUsageMetadata = {
+  inputTokens?: number;
+  outputTokens?: number;
+  totalTokens?: number;
+  cachedInputTokens?: number;
+};
+
+export type TurnTimingMetadata = {
+  totalTimeSec?: number;
+  tokensPerSecond?: number;
+};
+
+export type TurnCommandMetadata = {
+  name: string;
+  stepIndex: number;
+  totalSteps: number;
+};
 
 export type StoredTurn = {
   turnId?: string;
@@ -14,7 +31,9 @@ export type StoredTurn = {
   provider: string;
   toolCalls?: Record<string, unknown> | null;
   status: 'ok' | 'stopped' | 'failed';
-  command?: { name: string; stepIndex: number; totalSteps: number };
+  command?: TurnCommandMetadata;
+  usage?: TurnUsageMetadata;
+  timing?: TurnTimingMetadata;
   createdAt: string;
 };
 
@@ -44,6 +63,63 @@ export type InflightSnapshot = {
   toolEvents: InflightToolEvent[];
   startedAt: string;
   seq: number;
+  command?: TurnCommandMetadata;
+};
+
+const isFiniteNumber = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isFinite(value);
+
+const normalizeUsage = (
+  usage: TurnUsageMetadata | undefined,
+): TurnUsageMetadata | undefined => {
+  if (!usage) return undefined;
+  const cleaned: TurnUsageMetadata = {};
+  if (isFiniteNumber(usage.inputTokens) && usage.inputTokens >= 0) {
+    cleaned.inputTokens = usage.inputTokens;
+  }
+  if (isFiniteNumber(usage.outputTokens) && usage.outputTokens >= 0) {
+    cleaned.outputTokens = usage.outputTokens;
+  }
+  if (isFiniteNumber(usage.totalTokens) && usage.totalTokens >= 0) {
+    cleaned.totalTokens = usage.totalTokens;
+  }
+  if (isFiniteNumber(usage.cachedInputTokens) && usage.cachedInputTokens >= 0) {
+    cleaned.cachedInputTokens = usage.cachedInputTokens;
+  }
+  return Object.keys(cleaned).length > 0 ? cleaned : undefined;
+};
+
+const normalizeTiming = (
+  timing: TurnTimingMetadata | undefined,
+): TurnTimingMetadata | undefined => {
+  if (!timing) return undefined;
+  const cleaned: TurnTimingMetadata = {};
+  if (isFiniteNumber(timing.totalTimeSec) && timing.totalTimeSec > 0) {
+    cleaned.totalTimeSec = timing.totalTimeSec;
+  }
+  if (isFiniteNumber(timing.tokensPerSecond) && timing.tokensPerSecond > 0) {
+    cleaned.tokensPerSecond = timing.tokensPerSecond;
+  }
+  return Object.keys(cleaned).length > 0 ? cleaned : undefined;
+};
+
+const normalizeCommand = (
+  command: TurnCommandMetadata | undefined,
+): TurnCommandMetadata | undefined => {
+  if (!command) return undefined;
+  const name = typeof command.name === 'string' ? command.name.trim() : '';
+  if (!name) return undefined;
+  if (!isFiniteNumber(command.stepIndex) || command.stepIndex < 0) {
+    return undefined;
+  }
+  if (!isFiniteNumber(command.totalSteps) || command.totalSteps <= 0) {
+    return undefined;
+  }
+  return {
+    name,
+    stepIndex: command.stepIndex,
+    totalSteps: command.totalSteps,
+  };
 };
 
 type ApiResponse = {
@@ -71,6 +147,7 @@ export function useConversationTurns(
   const [isError, setIsError] = useState(false);
   const [error, setError] = useState<string | undefined>();
   const controllerRef = useRef<AbortController | null>(null);
+  const log = useRef(createLogger('client')).current;
   const autoFetch = options?.autoFetch !== false;
 
   const dedupeTurns = useCallback((items: StoredTurn[]) => {
@@ -147,9 +224,52 @@ export function useConversationTurns(
       }
       const data = (await res.json()) as ApiResponse;
       const items = Array.isArray(data.items) ? data.items : [];
-      const chronological = sortChronological(items.slice().reverse());
-      setInflight(data.inflight ?? null);
+      const hydrated = items.map((item) => {
+        if (item.role !== 'assistant') {
+          const { usage: _usage, timing: _timing, ...rest } = item;
+          void _usage;
+          void _timing;
+          return rest;
+        }
+
+        const usage = normalizeUsage(item.usage);
+        const timing = normalizeTiming(item.timing);
+        return {
+          ...item,
+          ...(usage ? { usage } : {}),
+          ...(timing ? { timing } : {}),
+        };
+      });
+      const chronological = sortChronological(hydrated.slice().reverse());
+      const inflight = data.inflight
+        ? (() => {
+            const { command, ...rest } = data.inflight;
+            const normalizedCommand = normalizeCommand(command);
+            return normalizedCommand
+              ? { ...rest, command: normalizedCommand }
+              : rest;
+          })()
+        : null;
+      setInflight(inflight);
       setTurns(dedupeTurns(chronological));
+      const turnsWithMetadata = chronological.filter(
+        (turn) =>
+          turn.role === 'assistant' &&
+          (turn.usage !== undefined || turn.timing),
+      );
+      if (turnsWithMetadata.length > 0) {
+        log('info', 'DEV-0000024:T7:rest_usage_mapped', {
+          conversationId,
+          count: turnsWithMetadata.length,
+        });
+      }
+      if (inflight?.command) {
+        log('info', 'DEV-0000024:T7:rest_inflight_command', {
+          conversationId,
+          inflightId: inflight.inflightId,
+          command: inflight.command,
+        });
+      }
       console.info('[turns] fetch success', {
         conversationId,
         count: chronological.length,
@@ -172,7 +292,7 @@ export function useConversationTurns(
       }
       setIsLoading(false);
     }
-  }, [conversationId, dedupeTurns, sortChronological]);
+  }, [conversationId, dedupeTurns, log, sortChronological]);
 
   useEffect(() => {
     setTurns([]);

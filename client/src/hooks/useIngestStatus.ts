@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { getApiBaseUrl } from '../api/baseUrl';
 import { createLogger } from '../logging/logger';
 import {
   useChatWs,
@@ -6,10 +7,7 @@ import {
   type ChatWsIngestStatus,
 } from './useChatWs';
 
-const serverBase =
-  (typeof import.meta !== 'undefined' &&
-    (import.meta as ImportMeta).env?.VITE_API_URL) ??
-  'http://localhost:5010';
+const serverBase = getApiBaseUrl();
 
 type Status = {
   status: ChatWsIngestStatus | null;

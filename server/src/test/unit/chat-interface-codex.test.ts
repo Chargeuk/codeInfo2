@@ -6,6 +6,11 @@ import type {
   ChatToolResultEvent,
 } from '../../chat/interfaces/ChatInterface.js';
 import { ChatInterfaceCodex } from '../../chat/interfaces/ChatInterfaceCodex.js';
+import {
+  getMemoryTurns,
+  memoryConversations,
+  memoryTurns,
+} from '../../chat/memoryPersistence.js';
 import { ConversationModel } from '../../mongo/conversation.js';
 import { updateConversationThreadId } from '../../mongo/repo.js';
 import type { TurnSummary } from '../../mongo/repo.js';
@@ -49,8 +54,14 @@ class TestChatInterfaceCodex extends ChatInterfaceCodex {
   }
 }
 
+const resetMemory = () => {
+  memoryConversations.clear();
+  memoryTurns.clear();
+};
+
 describe('ChatInterfaceCodex', () => {
   it('emits thread -> tool-request -> tool-result -> token -> final -> complete in order', async () => {
+    resetMemory();
     setCodexDetection({
       available: true,
       authPresent: true,
@@ -124,6 +135,134 @@ describe('ChatInterfaceCodex', () => {
     assert.equal(toolResult.callId, 'call-1');
     assert.equal(toolResult.stage, 'success');
     assert.deepEqual(toolResult.result, { ok: true });
+  });
+
+  it('persists usage metadata from turn.completed', async () => {
+    resetMemory();
+    setCodexDetection({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+    });
+
+    const events = async function* () {
+      yield { type: 'thread.started', thread_id: 'tid-usage' };
+      yield {
+        type: 'item.completed',
+        item: { type: 'agent_message', text: 'Hello' },
+      };
+      yield {
+        type: 'turn.completed',
+        usage: { input_tokens: 10, cached_input_tokens: 2, output_tokens: 6 },
+      };
+    };
+
+    const thread = {
+      id: 'tid-usage',
+      runStreamed: async () => ({ events: events() }),
+    };
+    const codexFactory = () => ({
+      startThread: () => thread,
+      resumeThread: () => thread,
+    });
+    const chat = new TestChatInterfaceCodex(codexFactory);
+
+    await chat.run('Hello', { threadId: null }, 'conv-usage', 'gpt-5');
+
+    const turns = getMemoryTurns('conv-usage');
+    const assistant = turns.find((turn) => turn.role === 'assistant');
+    assert(assistant?.usage);
+    assert.deepEqual(assistant.usage, {
+      inputTokens: 10,
+      outputTokens: 6,
+      cachedInputTokens: 2,
+      totalTokens: 16,
+    });
+  });
+
+  it('handles missing cached input tokens', async () => {
+    resetMemory();
+    setCodexDetection({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+    });
+
+    const events = async function* () {
+      yield { type: 'thread.started', thread_id: 'tid-nocache' };
+      yield {
+        type: 'item.completed',
+        item: { type: 'agent_message', text: 'Hi' },
+      };
+      yield {
+        type: 'turn.completed',
+        usage: { input_tokens: 4, output_tokens: 5 },
+      };
+    };
+
+    const thread = {
+      id: 'tid-nocache',
+      runStreamed: async () => ({ events: events() }),
+    };
+    const codexFactory = () => ({
+      startThread: () => thread,
+      resumeThread: () => thread,
+    });
+    const chat = new TestChatInterfaceCodex(codexFactory);
+
+    await chat.run('Hello', { threadId: null }, 'conv-nocache', 'gpt-5');
+
+    const turns = getMemoryTurns('conv-nocache');
+    const assistant = turns.find((turn) => turn.role === 'assistant');
+    assert(assistant?.usage);
+    assert.deepEqual(assistant.usage, {
+      inputTokens: 4,
+      outputTokens: 5,
+      totalTokens: 9,
+    });
+  });
+
+  it('derives totalTokens when omitted', async () => {
+    resetMemory();
+    setCodexDetection({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+    });
+
+    const events = async function* () {
+      yield { type: 'thread.started', thread_id: 'tid-total' };
+      yield {
+        type: 'item.completed',
+        item: { type: 'agent_message', text: 'Hi' },
+      };
+      yield {
+        type: 'turn.completed',
+        usage: { input_tokens: 7, cached_input_tokens: 3, output_tokens: 9 },
+      };
+    };
+
+    const thread = {
+      id: 'tid-total',
+      runStreamed: async () => ({ events: events() }),
+    };
+    const codexFactory = () => ({
+      startThread: () => thread,
+      resumeThread: () => thread,
+    });
+    const chat = new TestChatInterfaceCodex(codexFactory);
+
+    await chat.run('Hello', { threadId: null }, 'conv-total', 'gpt-5');
+
+    const turns = getMemoryTurns('conv-total');
+    const assistant = turns.find((turn) => turn.role === 'assistant');
+    assert(assistant?.usage);
+    assert.deepEqual(assistant.usage, {
+      inputTokens: 7,
+      outputTokens: 9,
+      cachedInputTokens: 3,
+      totalTokens: 16,
+    });
   });
 
   it('updates flags.threadId without overwriting other flags keys', async () => {

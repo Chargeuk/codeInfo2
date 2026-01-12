@@ -1,5 +1,6 @@
 import { EventEmitter } from 'node:events';
 import { isTransientReconnect } from '../../agents/transientReconnect.js';
+import { append } from '../../logStore.js';
 import {
   appendTurn,
   listTurns,
@@ -12,6 +13,8 @@ import type {
   TurnCommandMetadata,
   TurnSource,
   TurnStatus,
+  TurnTimingMetadata,
+  TurnUsageMetadata,
 } from '../../mongo/turn.js';
 import { cleanupInflight, markInflightPersisted } from '../inflightRegistry.js';
 import {
@@ -33,6 +36,59 @@ const parseCommandMetadata = (
   if (typeof totalSteps !== 'number' || !Number.isFinite(totalSteps))
     return undefined;
   return { name, stepIndex, totalSteps };
+};
+
+const isFiniteNumber = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isFinite(value);
+
+const normalizeUsage = (
+  usage: TurnUsageMetadata | undefined,
+): TurnUsageMetadata | undefined => {
+  if (!usage) return undefined;
+  const cleaned: TurnUsageMetadata = {};
+  if (isFiniteNumber(usage.inputTokens) && usage.inputTokens >= 0) {
+    cleaned.inputTokens = usage.inputTokens;
+  }
+  if (isFiniteNumber(usage.outputTokens) && usage.outputTokens >= 0) {
+    cleaned.outputTokens = usage.outputTokens;
+  }
+  if (isFiniteNumber(usage.totalTokens) && usage.totalTokens >= 0) {
+    cleaned.totalTokens = usage.totalTokens;
+  }
+  if (isFiniteNumber(usage.cachedInputTokens) && usage.cachedInputTokens >= 0) {
+    cleaned.cachedInputTokens = usage.cachedInputTokens;
+  }
+  return Object.keys(cleaned).length > 0 ? cleaned : undefined;
+};
+
+const normalizeTiming = (
+  timing: TurnTimingMetadata | undefined,
+): TurnTimingMetadata | undefined => {
+  if (!timing) return undefined;
+  const cleaned: TurnTimingMetadata = {};
+  if (isFiniteNumber(timing.totalTimeSec) && timing.totalTimeSec > 0) {
+    cleaned.totalTimeSec = timing.totalTimeSec;
+  }
+  if (isFiniteNumber(timing.tokensPerSecond) && timing.tokensPerSecond > 0) {
+    cleaned.tokensPerSecond = timing.tokensPerSecond;
+  }
+  return Object.keys(cleaned).length > 0 ? cleaned : undefined;
+};
+
+const deriveTiming = (params: {
+  timing?: TurnTimingMetadata;
+  startedAtMs: number;
+  finishedAtMs: number;
+}): TurnTimingMetadata | undefined => {
+  const cleaned = normalizeTiming(params.timing) ?? {};
+  const hasTotal = isFiniteNumber(cleaned.totalTimeSec);
+  if (!hasTotal) {
+    const elapsedSec = (params.finishedAtMs - params.startedAtMs) / 1000;
+    if (isFiniteNumber(elapsedSec) && elapsedSec > 0) {
+      cleaned.totalTimeSec = elapsedSec;
+    }
+  }
+  return Object.keys(cleaned).length > 0 ? cleaned : undefined;
 };
 
 export interface ChatTokenEvent {
@@ -66,6 +122,8 @@ export interface ChatFinalEvent {
 export interface ChatCompleteEvent {
   type: 'complete';
   threadId?: string | null;
+  usage?: TurnUsageMetadata;
+  timing?: TurnTimingMetadata;
 }
 
 export interface ChatErrorEvent {
@@ -125,6 +183,10 @@ export abstract class ChatInterface extends EventEmitter {
     const source = ((flags ?? {}) as { source?: TurnSource }).source ?? 'REST';
     const provider =
       ((flags ?? {}) as { provider?: string }).provider ?? 'unknown';
+    const requestId =
+      typeof (flags as { requestId?: unknown })?.requestId === 'string'
+        ? ((flags as { requestId?: string }).requestId as string)
+        : undefined;
     const skipPersistence = Boolean(
       (flags ?? {}) && (flags as { skipPersistence?: boolean }).skipPersistence,
     );
@@ -142,6 +204,10 @@ export abstract class ChatInterface extends EventEmitter {
     const toolResults = new Map<string, ChatToolResultEvent>();
     let status: TurnStatus = 'ok';
     let sawComplete = false;
+    const runStartedAtMs = Date.now();
+    let latestUsage: TurnUsageMetadata | undefined;
+    let latestTiming: TurnTimingMetadata | undefined;
+    let loggedPersistUsage = false;
     const externalSignal = (flags as { signal?: AbortSignal })?.signal;
     let executionError: unknown;
     let lastErrorMessage: string | undefined;
@@ -177,8 +243,14 @@ export abstract class ChatInterface extends EventEmitter {
       deriveStatusFromError(event.message);
     };
 
-    const onComplete: Listener<'complete'> = () => {
+    const onComplete: Listener<'complete'> = (event) => {
       sawComplete = true;
+      if (event.usage) {
+        latestUsage = normalizeUsage(event.usage);
+      }
+      if (event.timing) {
+        latestTiming = normalizeTiming(event.timing);
+      }
       if (status === 'ok') status = 'ok';
     };
 
@@ -271,6 +343,30 @@ export abstract class ChatInterface extends EventEmitter {
           (status === 'stopped' ? 'Stopped' : 'Request failed');
       }
 
+      const runFinishedAtMs = Date.now();
+      const usage = normalizeUsage(latestUsage);
+      const timing = deriveTiming({
+        timing: latestTiming,
+        startedAtMs: runStartedAtMs,
+        finishedAtMs: runFinishedAtMs,
+      });
+
+      if (!loggedPersistUsage && (usage || timing)) {
+        loggedPersistUsage = true;
+        append({
+          level: 'info',
+          message: 'DEV-0000024:T2:persist_usage_forwarded',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          requestId,
+          context: {
+            conversationId,
+            hasUsage: Boolean(usage),
+            hasTiming: Boolean(timing),
+          },
+        });
+      }
+
       const persistedAssistantTurnId = await this.persistAssistantTurn({
         conversationId,
         content,
@@ -278,6 +374,8 @@ export abstract class ChatInterface extends EventEmitter {
         provider,
         source,
         command,
+        usage,
+        timing,
         status,
         toolCalls,
         skipPersistence,
@@ -342,6 +440,8 @@ export abstract class ChatInterface extends EventEmitter {
     provider: string;
     source: TurnSource;
     command?: TurnCommandMetadata;
+    usage?: TurnUsageMetadata;
+    timing?: TurnTimingMetadata;
     status: TurnStatus;
     toolCalls: ChatToolResultEvent[];
     skipPersistence: boolean;
@@ -353,6 +453,8 @@ export abstract class ChatInterface extends EventEmitter {
       provider,
       source,
       command,
+      usage,
+      timing,
       status,
       toolCalls,
       skipPersistence,
@@ -368,6 +470,8 @@ export abstract class ChatInterface extends EventEmitter {
       provider,
       source,
       command,
+      usage,
+      timing,
       toolCalls: toolCalls.length > 0 ? { calls: toolCalls } : null,
       status,
       createdAt: new Date(),

@@ -9,6 +9,7 @@ import { buildCodexOptions } from '../../config/codexConfig.js';
 import { append } from '../../logStore.js';
 import { baseLogger } from '../../logger.js';
 import { updateConversationThreadId } from '../../mongo/repo.js';
+import type { TurnUsageMetadata } from '../../mongo/turn.js';
 import { detectCodexForHome } from '../../providers/codexDetection.js';
 import { getCodexDetection } from '../../providers/codexRegistry.js';
 import { ChatInterface, type ChatToolResultEvent } from './ChatInterface.js';
@@ -41,6 +42,48 @@ type CodexToolCallItem = {
   arguments?: unknown;
   status?: string;
   result?: { content?: unknown; error?: unknown };
+};
+
+type CodexUsagePayload = {
+  input_tokens?: number;
+  cached_input_tokens?: number;
+  output_tokens?: number;
+  total_tokens?: number;
+};
+
+const isFiniteNumber = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isFinite(value);
+
+const mapCodexUsage = (usage: unknown): TurnUsageMetadata | undefined => {
+  if (!usage || typeof usage !== 'object') return undefined;
+  const payload = usage as CodexUsagePayload;
+  const cleaned: TurnUsageMetadata = {};
+
+  if (isFiniteNumber(payload.input_tokens) && payload.input_tokens >= 0) {
+    cleaned.inputTokens = payload.input_tokens;
+  }
+  if (isFiniteNumber(payload.output_tokens) && payload.output_tokens >= 0) {
+    cleaned.outputTokens = payload.output_tokens;
+  }
+  if (
+    isFiniteNumber(payload.cached_input_tokens) &&
+    payload.cached_input_tokens >= 0
+  ) {
+    cleaned.cachedInputTokens = payload.cached_input_tokens;
+  }
+  if (isFiniteNumber(payload.total_tokens) && payload.total_tokens >= 0) {
+    cleaned.totalTokens = payload.total_tokens;
+  }
+
+  if (
+    !isFiniteNumber(cleaned.totalTokens) &&
+    isFiniteNumber(cleaned.inputTokens) &&
+    isFiniteNumber(cleaned.outputTokens)
+  ) {
+    cleaned.totalTokens = cleaned.inputTokens + cleaned.outputTokens;
+  }
+
+  return Object.keys(cleaned).length > 0 ? cleaned : undefined;
 };
 
 export interface CodexLikeThread {
@@ -410,7 +453,30 @@ export class ChatInterfaceCodex extends ChatInterface {
           }
           case 'turn.completed':
             await emitThreadId(activeThreadId);
-            this.emitEvent({ type: 'complete', threadId: activeThreadId });
+            const usage = mapCodexUsage(
+              (event as { usage?: unknown } | undefined)?.usage,
+            );
+            if (usage) {
+              append({
+                level: 'info',
+                message: 'DEV-0000024:T3:codex_usage_received',
+                timestamp: new Date().toISOString(),
+                source: 'server',
+                requestId,
+                context: {
+                  conversationId,
+                  inputTokens: usage.inputTokens,
+                  outputTokens: usage.outputTokens,
+                  cachedInputTokens: usage.cachedInputTokens,
+                  totalTokens: usage.totalTokens,
+                },
+              });
+            }
+            this.emitEvent({
+              type: 'complete',
+              threadId: activeThreadId,
+              ...(usage ? { usage } : {}),
+            });
             break;
           default:
             break;

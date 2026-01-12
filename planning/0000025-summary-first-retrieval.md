@@ -157,7 +157,7 @@ Return answer-only segments for MCP `codebase_question` responses while preservi
      - JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification
    - Recap (acceptance criteria): return only the final answer segment while keeping `conversationId` and `modelId` unchanged.
    - Files to read:
-     - `server/src/chat/responders/McpResponder.ts`
+     - `server/src/chat/responders/McpResponder.ts` (segment source for awareness)
      - `server/src/mcp2/tools/codebaseQuestion.ts`
      - `server/src/mcp2/server.ts`
      - `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`
@@ -172,23 +172,17 @@ Return answer-only segments for MCP `codebase_question` responses while preservi
    - Requirements:
      - Keep `conversationId` and `modelId` in the JSON response payload.
      - Replace multi-segment payloads with a single `answer` segment (final answer text only).
+     - Filter segments in the `runCodebaseQuestion` payload without changing `McpResponder`.
      - Preserve error handling for archived conversations and tool failures.
 
-3. [ ] Update MCP responder to emit answer-only segments:
-   - Files to edit:
-     - `server/src/chat/responders/McpResponder.ts`
-   - Requirements:
-     - Ensure `buildVectorSummary()` output is not included in MCP responses.
-     - Keep the segment structure consistent (type + text) but only for the final answer.
-
-4. [ ] Update MCP tool definitions to reflect answer-only responses:
+3. [ ] Update MCP tool definitions to reflect answer-only responses:
    - Files to edit:
      - `server/src/mcp2/tools/codebaseQuestion.ts`
    - Requirements:
      - Update description strings to remove “thinking/vector_summary” language.
      - Keep input schemas unchanged.
 
-5. [ ] Update MCP tests/fixtures for the new response shape:
+4. [ ] Update MCP tests/fixtures for the new response shape:
    - Files to edit:
      - `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`
      - `server/src/test/integration/mcp-codex-wrapper.test.ts`
@@ -197,7 +191,7 @@ Return answer-only segments for MCP `codebase_question` responses while preservi
      - Assert that `segments` contains exactly one `answer` entry (where segments remain).
      - Confirm no `thinking` or `vector_summary` segments appear.
 
-6. [ ] Documentation update - `design.md` (only if response contracts are documented):
+5. [ ] Documentation update - `design.md` (only if response contracts are documented):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: add or adjust MCP response shape notes only if the design section currently mentions multi-segment MCP payloads.
@@ -206,7 +200,7 @@ Return answer-only segments for MCP `codebase_question` responses while preservi
    - Description: Note the answer-only MCP response shape for `codebase_question` and agents.
    - Purpose: Keep MCP contract documentation accurate.
 
-7. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`; fix issues before continuing.
+6. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`; fix issues before continuing.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/options
@@ -244,7 +238,7 @@ Return answer-only segments for MCP agent `run_agent_instruction` responses whil
    - Recap (acceptance criteria): return only the final answer segment while keeping `conversationId` and `modelId` unchanged.
    - Files to read:
      - `server/src/mcpAgents/tools.ts`
-     - `server/src/agents/service.ts`
+     - `server/src/agents/service.ts` (segment source for awareness)
      - `server/src/test/unit/mcp-agents-tools.test.ts`
      - `server/src/test/unit/mcp-agents-router-run.test.ts`
    - Goal:
@@ -255,6 +249,7 @@ Return answer-only segments for MCP agent `run_agent_instruction` responses whil
      - `server/src/mcpAgents/tools.ts`
    - Requirements:
      - Ensure `run_agent_instruction` responses return only the final answer segment.
+     - Filter segments in the MCP tool response without changing `agents/service` or `McpResponder`.
      - Preserve `conversationId` + `modelId` fields and existing status/error codes.
 
 3. [ ] Update MCP tool definitions to reflect answer-only responses:

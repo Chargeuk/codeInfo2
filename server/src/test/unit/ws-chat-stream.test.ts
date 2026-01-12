@@ -42,6 +42,16 @@ type WsTranscriptEvent = {
   status?: string;
   threadId?: string | null;
   error?: { code?: string; message?: string };
+  usage?: {
+    inputTokens?: number;
+    outputTokens?: number;
+    totalTokens?: number;
+    cachedInputTokens?: number;
+  };
+  timing?: {
+    totalTimeSec?: number;
+    tokensPerSecond?: number;
+  };
 };
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -237,6 +247,62 @@ test('transcript seq increases monotonically per conversation stream', async () 
       lastSeq = event.seq ?? lastSeq;
       if (event.type === 'turn_final') sawFinal = true;
     }
+  } finally {
+    await closeWs(ws);
+    await stopServer(server);
+  }
+});
+
+test('turn_final includes usage/timing when supplied by completion event', async () => {
+  const usage = {
+    inputTokens: 10,
+    outputTokens: 6,
+    totalTokens: 16,
+    cachedInputTokens: 2,
+  };
+  const timing = { totalTimeSec: 1.25, tokensPerSecond: 33 };
+  const server = await startServer({
+    chatFactory: () =>
+      new ScriptedChat(async (chat) => {
+        chat.emit('token', { type: 'token', content: 'Hello' });
+        chat.emit('final', { type: 'final', content: 'Hello world' });
+        chat.emit('complete', {
+          type: 'complete',
+          threadId: 'thread',
+          usage,
+          timing,
+        });
+      }),
+  });
+  const conversationId = 'ws-turn-final-usage-1';
+
+  const ws = await connectWs({ baseUrl: server.baseUrl });
+  try {
+    sendJson(ws, { type: 'subscribe_conversation', conversationId });
+
+    const res = await request(server.httpServer)
+      .post('/chat')
+      .send({ provider: 'lmstudio', model: 'm', conversationId, message: 'hi' })
+      .expect(202);
+
+    const inflightId = res.body.inflightId as string;
+
+    const final = await waitForEvent({
+      ws,
+      predicate: (candidate: unknown): candidate is WsTranscriptEvent => {
+        const e = candidate as WsTranscriptEvent;
+        return (
+          e.protocolVersion === 'v1' &&
+          e.type === 'turn_final' &&
+          e.conversationId === conversationId &&
+          e.inflightId === inflightId
+        );
+      },
+      timeoutMs: 5000,
+    });
+
+    assert.deepEqual(final.usage, usage);
+    assert.deepEqual(final.timing, timing);
   } finally {
     await closeWs(ws);
     await stopServer(server);

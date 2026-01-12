@@ -1259,7 +1259,7 @@ sequenceDiagram
     Server-->>Viewer: inflight_snapshot (catch-up)
   end
   Server-->>Viewer: assistant_delta / analysis_delta / tool_event ...
-  Server-->>Viewer: turn_final (ok|stopped|failed, threadId?)
+  Server-->>Viewer: turn_final (ok|stopped|failed, threadId?, usage?, timing?)
 ```
 
 ### Stop control
@@ -1594,6 +1594,7 @@ Required log names and key fields:
     - `chat.ws.server_publish_user_turn` (`conversationId`, `inflightId`, `seq`, `contentLen`)
     - `chat.ws.server_publish_assistant_delta` (`conversationId`, `inflightId`, `seq`, `deltaLen`)
     - `chat.ws.server_publish_turn_final` (`conversationId`, `inflightId`, `seq`, `status`, `errorCode?`)
+    - `DEV-0000024:T6:turn_final_usage` (`conversationId`, `inflightId`, `seq`, `status`, `usage?`, `timing?`)
 
 Assistant bubble binding invariant (Task 30):
 

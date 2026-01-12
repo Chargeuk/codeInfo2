@@ -281,6 +281,17 @@ export function publishTurnFinal(params: {
     hasTiming: Boolean(params.timing),
   });
 
+  if (params.usage || params.timing) {
+    logPublish('DEV-0000024:T6:turn_final_usage', {
+      conversationId: params.conversationId,
+      inflightId: params.inflightId,
+      seq,
+      status: params.status,
+      usage: params.usage ?? null,
+      timing: params.timing ?? null,
+    });
+  }
+
   broadcastConversation(params.conversationId, event);
 }
 

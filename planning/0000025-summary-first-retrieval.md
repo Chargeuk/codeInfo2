@@ -994,8 +994,8 @@ Introduce distance-based cutoff logic for vector search results with an env-conf
 
 ### 5. Server: tool payload size caps + server-side dedupe
 
-- Task Status: **__in_progress__**
-- Git Commits: **to_do**
+- Task Status: **__done__**
+- Git Commits: 72a98af
 
 #### Overview
 

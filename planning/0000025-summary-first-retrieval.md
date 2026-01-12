@@ -159,9 +159,14 @@ Return answer-only segments for MCP `codebase_question` and agent `run_agent_ins
    - Files to read:
      - `server/src/chat/responders/McpResponder.ts`
      - `server/src/mcp2/tools/codebaseQuestion.ts`
+     - `server/src/mcp2/server.ts`
      - `server/src/mcpAgents/tools.ts`
+     - `server/src/agents/service.ts`
      - `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`
      - `server/src/test/unit/mcp-agents-tools.test.ts`
+     - `server/src/test/unit/mcp-agents-router-run.test.ts`
+     - `server/src/test/integration/mcp-codex-wrapper.test.ts`
+     - `server/src/test/integration/mcp-lmstudio-wrapper.test.ts`
    - Goal:
      - Identify where `segments` arrays are built and how answer content is extracted.
 
@@ -180,22 +185,33 @@ Return answer-only segments for MCP `codebase_question` and agent `run_agent_ins
      - Ensure `buildVectorSummary()` output is not included in MCP responses.
      - Keep the segment structure consistent (type + text) but only for the final answer.
 
-4. [ ] Update agent MCP tooling to mirror answer-only responses:
+4. [ ] Update MCP tool definitions to reflect answer-only responses:
+   - Files to edit:
+     - `server/src/mcp2/tools/codebaseQuestion.ts`
+     - `server/src/mcpAgents/tools.ts`
+   - Requirements:
+     - Update description strings to remove “thinking/vector_summary” language.
+     - Keep input schemas unchanged.
+
+5. [ ] Update agent MCP tooling to mirror answer-only responses:
    - Files to edit:
      - `server/src/mcpAgents/tools.ts`
    - Requirements:
      - Ensure `run_agent_instruction` responses return only the final answer segment.
      - Preserve `conversationId` + `modelId` fields and existing status/error codes.
 
-5. [ ] Update MCP tests/fixtures for the new response shape:
+6. [ ] Update MCP tests/fixtures for the new response shape:
    - Files to edit:
      - `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`
      - `server/src/test/unit/mcp-agents-tools.test.ts`
+     - `server/src/test/unit/mcp-agents-router-run.test.ts`
+     - `server/src/test/integration/mcp-codex-wrapper.test.ts`
+     - `server/src/test/integration/mcp-lmstudio-wrapper.test.ts`
    - Requirements:
-     - Assert that `segments` contains exactly one `answer` entry.
+     - Assert that `segments` contains exactly one `answer` entry (where segments remain).
      - Confirm no `thinking` or `vector_summary` segments appear.
 
-6. [ ] Documentation update - `design.md` (only if response contracts are documented):
+7. [ ] Documentation update - `design.md` (only if response contracts are documented):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: add or adjust MCP response shape notes only if the design section currently mentions multi-segment MCP payloads.
@@ -204,7 +220,7 @@ Return answer-only segments for MCP `codebase_question` and agent `run_agent_ins
    - Description: Note the answer-only MCP response shape for `codebase_question` and agents.
    - Purpose: Keep MCP contract documentation accurate.
 
-7. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`; fix issues before continuing.
+8. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`; fix issues before continuing.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/options
@@ -562,10 +578,11 @@ Update Chat and Agents tool detail panels to explicitly label distance values an
    - Files to read:
      - `client/src/pages/ChatPage.tsx`
      - `client/src/pages/AgentsPage.tsx`
+     - `client/src/hooks/useChatStream.ts`
      - `client/src/test/chatPage.toolDetails.test.tsx`
      - `client/src/test/agentsPage.toolsUi.test.tsx`
    - Goal:
-     - Identify the vector tool detail blocks and distance display points.
+     - Identify the vector tool detail blocks and where tool payload `results` are available for per-match display.
 
 2. [ ] Update tool detail UI labels for distance values:
    - Files to edit:
@@ -574,6 +591,7 @@ Update Chat and Agents tool detail panels to explicitly label distance values an
    - Requirements:
      - Replace ambiguous “Match” labels with “Distance” or “Lowest distance.”
      - Display per-match distance values alongside each chunk in expanded tool details.
+     - Render per-match rows from tool payload `results` (not just file summaries), including the distance value and chunk preview.
      - Skip or gracefully handle entries missing `repo` or `relPath` without breaking the tool panel.
      - Keep formatting consistent with existing tool detail accordions.
 
@@ -584,6 +602,7 @@ Update Chat and Agents tool detail panels to explicitly label distance values an
    - Requirements:
      - Assert that labels explicitly mention “Distance”.
      - Verify per-match distance values render when the tool details expand.
+     - Validate per-match rows render from tool payload `results`.
      - Cover entries missing `repo` or `relPath` to ensure the panel still renders available items.
 
 4. [ ] Documentation update - `design.md` (tool details distance labels):
@@ -646,7 +665,7 @@ Validate the full story against acceptance criteria, perform clean builds/tests,
 4. [ ] Ensure `README.md` is updated with any required description changes and with any new commands that have been added as part of this story
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-   - Recap: document user-visible retrieval changes and any new commands.
+   - Recap: document user-visible retrieval changes and update the MCP `codebase_question` response example to answer-only segments.
    - Document: `README.md`
    - Location: `README.md`
    - Description: Update user-facing notes and any new commands introduced by this story.

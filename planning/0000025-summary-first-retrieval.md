@@ -17,7 +17,7 @@ Story convention (important for this repo’s planning style):
 
 Today, Codex input tokens are driven up by large vector-search payloads, especially when large files are chunked into big blocks and multiple chunks are returned. This makes Codex usage expensive even when the answer only needs a small slice of the repository.
 
-We want to reduce Codex input tokens by applying a relevance cutoff so low-value chunks are not sent to Codex. The cutoff should default to distance <= 1.4 (lower is better), be overridable via environment variable, and still include the best 1–2 chunks even if nothing passes the cutoff. In addition, MCP responses for both chat and agents should return only the final answer (no reasoning or tool summaries) while preserving `conversationId` and `modelId`. The goal is to preserve answer quality while lowering token usage for typical queries, without introducing summary generation or embedding changes in this story.
+We want to reduce Codex input tokens by applying a relevance cutoff so low-value chunks are not sent to Codex. The cutoff should default to distance <= 1.4 (lower is better), be overridable via environment variable, and still include the best 1–2 chunks even if nothing passes the cutoff. Tool payload dedupe and size caps must be enforced server-side before the VectorSearch payload is passed into Codex. In addition, MCP responses for both chat and agents should return only the final answer (no reasoning or tool summaries) while preserving `conversationId` and `modelId`. The goal is to preserve answer quality while lowering token usage for typical queries, without introducing summary generation or embedding changes in this story.
 
 We also need to correct the current “best match” aggregation logic for vector search summaries. We confirmed Chroma returns distance values (lower is better), but the current logic uses `Math.max` to compute “highest match,” which is backwards for distances and will misreport the best match (and would break any cutoff derived from that value). The fix is to treat distances as “lower is better” and compute the best match using `Math.min` instead of `Math.max` wherever the aggregated “best match” is derived.
 
@@ -30,8 +30,9 @@ We also need to correct the current “best match” aggregation logic for vecto
 - Tool payloads sent to Codex have a clear size cap: total tool output capped at ~40k characters via `CODEINFO_TOOL_MAX_CHARS` (default 40000) and each chunk capped by `CODEINFO_TOOL_CHUNK_MAX_CHARS` (default 5000). The limits apply to the `chunk` text length only; total size is computed as the sum of per-chunk text lengths after truncation. Content beyond these limits is truncated or dropped so the cap is never exceeded, and the original ordering of the remaining chunks is preserved.
 - MCP responses for `codebase_question` and agent `run_agent_instruction` return only the final answer text (no reasoning/summary segments) while still including `conversationId` and `modelId` in the JSON response payload.
 - Vector search score semantics are confirmed: Chroma returns distances (lower is better, 0 is identical); cutoff logic uses `<=` on distance values and any “best match” aggregation uses the minimum distance, while preserving the order returned by Chroma.
-- The vector search UI/tool details surface the distance value explicitly for each match entry when expanded (so users can see raw distance for each match).
+- The vector search UI/tool details surface the distance value explicitly for each match entry and label it as “Distance” (not “Score”) when expanded.
 - VectorSearch citations are deduplicated in two stages before being stored/displayed: (1) remove exact duplicates (same chunk id or identical chunk text), then (2) limit to the top 2 chunks per file by best distance (lowest) when more than 2 remain. File identity should be `repo + relPath`, ties keep the earliest item in the original results order, and entries with missing distances are treated as lowest priority (only included via fallback if needed).
+- Citation dedupe and payload caps are applied server-side before the VectorSearch payload is passed into Codex (the UI should not be the only place where dedupe occurs).
 - Score-source logging remains enabled with the same tag/shape as today; additional `DEV-0000025:*` log markers are added for manual verification only.
 - Documentation reflects the new retrieval strategy (cutoff, caps, answer-only MCP) in `design.md`, and `README.md` is updated only if any user-facing behavior or commands change.
 
@@ -53,7 +54,7 @@ We also need to correct the current “best match” aggregation logic for vecto
 - **MCP v2 `codebase_question` response:** currently returns JSON `{ conversationId, modelId, segments[] }` (segments include `thinking`, `vector_summary`, `answer`). This story narrows MCP output to **answer-only** by returning `segments: [{ type: 'answer', text }]` while still including `conversationId` and `modelId`.
 - **Agents MCP `run_agent_instruction` response:** currently returns JSON `{ agentName, conversationId, modelId, segments[] }` (segments include thinking/summary/answer). For MCP only, return the same wrapper but restrict `segments` to a single `{ type: 'answer', text }` entry.
 - **MCP v1 (`/mcp`)** has no `codebase_question` tool today and does not need contract changes for this story.
-- **Storage shapes:** no Mongo schema changes are required; ingest metadata, turns, tool payloads, and citations keep their existing schemas. Citation dedupe happens client-side before rendering and is not persisted.
+- **Storage shapes:** no Mongo schema changes are required; ingest metadata, turns, tool payloads, and citations keep their existing schemas. Citation dedupe is applied server-side to the VectorSearch tool payload before it reaches Codex; the client may still run the same dedupe for display as a safety net, but should receive already-deduped payloads. No deduped citation state is persisted.
 
 ---
 
@@ -77,8 +78,9 @@ We also need to correct the current “best match” aggregation logic for vecto
 - **Vector summary aggregation (MCP responder):**
   - `server/src/chat/responders/McpResponder.ts` → `buildVectorSummary()` should also use `Math.min` for `match` so the summary reflects the best (lowest) distance when aggregating result entries.
 
-- **Citation dedupe rules (client):**
-  - `client/src/hooks/useChatStream.ts` → after `extractCitations`, dedupe by chunk id or identical chunk text, then keep the top 2 chunks per file by lowest distance. Apply before assigning `assistantCitationsRef.current` so Chat + Agents UIs share the same deduped data.
+- **Citation dedupe rules (server + client):**
+  - `server/src/lmstudio/toolService.ts` → apply the two-stage dedupe (exact duplicates, then top-2-per-file) on VectorSearch results **before** returning the tool payload so Codex never sees duplicate chunks.
+  - `client/src/hooks/useChatStream.ts` → apply the same dedupe after `extractCitations` as a safety net for UI rendering and to keep Chat + Agents consistent if any duplicate payloads slip through.
 
 - **Tool details UI (distance display):**
   - `client/src/pages/ChatPage.tsx` and `client/src/pages/AgentsPage.tsx` render vector file summaries using `highestMatch`. Update labels to explicitly say “Distance” (or “Lowest distance”) so it is clear lower values are better; keep formatting consistent with existing tool detail accordions.
@@ -931,14 +933,14 @@ Introduce distance-based cutoff logic for vector search results with an env-conf
 
 ---
 
-### 5. Server: tool payload size caps (total + per-chunk)
+### 5. Server: tool payload size caps + server-side dedupe
 
 - Task Status: **__to_do__**
 - Git Commits: **to_do**
 
 #### Overview
 
-Enforce tool payload caps for Codex retrieval by limiting per-chunk text length and total tool output size. This ensures the tool payload never exceeds configured character limits while keeping result order intact.
+Enforce tool payload caps for Codex retrieval by limiting per-chunk text length and total tool output size, and dedupe VectorSearch results server-side before the payload is returned. This ensures the tool payload sent to Codex never exceeds configured character limits and does not include duplicate chunks, while keeping the result order intact.
 
 #### Documentation Locations
 
@@ -976,7 +978,25 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
    - Example (expected defaults):
      - total cap `40000`, per-chunk cap `5000`.
 
-3. [ ] Apply per-chunk truncation and total payload cap:
+3. [ ] Apply server-side VectorSearch dedupe before caps:
+   - Documentation to read (repeat):
+     - MDN `Map`: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map
+     - MDN `Array.prototype.sort`: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/sort
+   - Files to edit:
+     - `server/src/lmstudio/toolService.ts`
+   - Requirements:
+     - Stage 1: remove duplicates by chunk id or identical chunk text **within the same `repo + relPath` bucket**.
+     - Stage 2: if more than 2 remain per file, keep the 2 with lowest distance (tie-break by original order).
+     - Treat missing/non-numeric distances as lowest priority (only included via fallback if needed).
+     - Apply dedupe **before** payload caps so truncation works on the final, deduped set.
+     - Preserve original ordering of retained results.
+   - Example (bucketing outline):
+     ```ts
+     const key = `${repo}:${relPath}`;
+     // de-dupe by chunkId OR chunk text within key, then pick top 2 by lowest distance.
+     ```
+
+4. [ ] Apply per-chunk truncation and total payload cap:
    - Documentation to read (repeat):
      - JavaScript `String.prototype.slice`: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/slice
    - Files to edit:
@@ -1000,14 +1020,14 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
      }
      ```
 
-4. [ ] Add server log line for payload caps:
+5. [ ] Add server log line for payload caps:
    - Files to edit:
      - `server/src/lmstudio/toolService.ts`
    - Log line (exact message): `DEV-0000025:T5:payload_cap_applied`
    - Log context: `{ totalCap, chunkCap, keptChars, keptChunks }`.
    - Purpose: Provide a deterministic log marker for manual verification.
 
-5. [ ] Add unit test for per-chunk truncation:
+6. [ ] Add unit test for per-chunk truncation:
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
    - Test type: Unit (payload truncation)
@@ -1015,7 +1035,7 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
    - Description: Assert each chunk is truncated to `CODEINFO_TOOL_CHUNK_MAX_CHARS`.
    - Purpose: Verify per-chunk truncation logic.
 
-6. [ ] Add unit test for total cap enforcement:
+7. [ ] Add unit test for total cap enforcement:
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
    - Test type: Unit (payload cap)
@@ -1023,7 +1043,7 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
    - Description: Assert additional chunks are dropped once the total cap is reached.
    - Purpose: Ensure total payload limits are enforced.
 
-7. [ ] Add unit test for caps too small to include any chunk:
+8. [ ] Add unit test for caps too small to include any chunk:
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
    - Test type: Unit (payload edge case)
@@ -1031,7 +1051,7 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
    - Description: Set the total cap below one truncated chunk and assert results are empty.
    - Purpose: Cover the zero-results edge case for caps.
 
-8. [ ] Add unit test for line counts after truncation:
+9. [ ] Add unit test for line counts after truncation:
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
    - Test type: Unit (payload truncation)
@@ -1039,7 +1059,7 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
    - Description: Assert `lineCount` reflects the truncated chunk text rather than the original chunk.
    - Purpose: Ensure line totals match capped payloads.
 
-9. [ ] Add unit test for file summaries after caps:
+10. [ ] Add unit test for file summaries after caps:
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
    - Test type: Unit (vector file summaries)
@@ -1047,7 +1067,7 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
    - Description: Assert `files` summaries use the capped results (chunk counts/line counts align with truncated output).
    - Purpose: Keep summary payloads consistent with capped results.
 
-10. [ ] Add unit test for invalid env values:
+11. [ ] Add unit test for invalid env values:
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
    - Test type: Unit (env parsing edge case)
@@ -1055,7 +1075,23 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
    - Description: Provide non-numeric or negative cap values and assert defaults are used.
    - Purpose: Ensure env parsing guards apply.
 
-11. [ ] Update server `.env` with tool cap defaults:
+12. [ ] Add unit test for server-side dedupe (duplicate chunk ids + top-2 per file):
+   - Documentation to read (repeat):
+     - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
+   - Test type: Unit (payload dedupe)
+   - Location: `server/src/test/unit/tools-vector-search.test.ts`
+   - Description: Provide duplicate `chunkId` values and >2 chunks per file, assert only the two lowest distances remain.
+   - Purpose: Verify stage-1 dedupe + stage-2 top-2 selection.
+
+13. [ ] Add unit test for server-side dedupe (identical chunk text):
+   - Documentation to read (repeat):
+     - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
+   - Test type: Unit (payload dedupe)
+   - Location: `server/src/test/unit/tools-vector-search.test.ts`
+   - Description: Provide identical chunk text within the same file and assert only one remains.
+   - Purpose: Verify dedupe by identical chunk text.
+
+14. [ ] Update server `.env` with tool cap defaults:
    - Documentation to read (repeat):
      - Node.js `process.env`: https://nodejs.org/api/process.html#processenv
    - Recap: document total and per-chunk cap defaults for local runs.
@@ -1065,7 +1101,7 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
      - Add commented defaults for `CODEINFO_TOOL_MAX_CHARS` and `CODEINFO_TOOL_CHUNK_MAX_CHARS`.
      - Keep existing env ordering and comment style.
 
-12. [ ] Documentation update - `design.md` (tool cap defaults text):
+15. [ ] Documentation update - `design.md` (tool cap defaults text):
    - Documentation to read (repeat):
      - Mermaid: Context7 `/mermaid-js/mermaid`
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -1074,7 +1110,7 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
    - Description: Document total/per-chunk cap defaults and truncation behavior in text.
    - Purpose: Keep tool payload documentation accurate.
 
-13. [ ] Documentation update - `design.md` (payload cap diagram):
+16. [ ] Documentation update - `design.md` (payload cap diagram):
     - Documentation to read (repeat):
       - Mermaid: Context7 `/mermaid-js/mermaid`
       - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -1083,7 +1119,7 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
     - Description: Update or add a Mermaid diagram covering payload capping/truncation steps.
     - Purpose: Ensure architecture diagrams reflect payload cap logic.
 
-14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+17. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
     - Documentation to read (repeat):
       - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
       - Prettier options: https://prettier.io/docs/options
@@ -1167,7 +1203,7 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
 
 #### Overview
 
-Deduplicate VectorSearch citations on the client by removing exact duplicates per file and limiting to the top 2 chunks per file by lowest distance. This keeps citation displays concise and consistent with the retrieval strategy.
+Deduplicate VectorSearch citations on the client by removing exact duplicates per file and limiting to the top 2 chunks per file by lowest distance. This mirrors the server-side dedupe so the UI is consistent even if any duplicate payloads slip through.
 
 #### Documentation Locations
 
@@ -1202,7 +1238,7 @@ Deduplicate VectorSearch citations on the client by removing exact duplicates pe
      - Stage 1: remove duplicates by chunk id or identical chunk text **within the same `repo + relPath` bucket**.
      - Stage 2: if more than 2 remain per file, keep the 2 with lowest distance (tie-break by original order).
      - Treat missing/non-numeric distances as lowest priority (only included when needed for fallback).
-     - Apply before assigning `assistantCitationsRef.current` so Chat + Agents share the same data.
+     - Apply before assigning `assistantCitationsRef.current` so Chat + Agents share the same data; if server-side dedupe already ran, this should be a no-op.
    - Example (bucketing outline):
      ```ts
      const key = `${repo}:${relPath}`;
@@ -1394,7 +1430,7 @@ Update Chat and Agents tool detail panels to explicitly label distance values an
      - `client/src/pages/ChatPage.tsx`
      - `client/src/pages/AgentsPage.tsx`
    - Requirements:
-    - Replace ambiguous “Match” labels with “Distance” or “Lowest distance.”
+    - Replace ambiguous “Match” labels with explicit “Distance” labels (avoid the word “Score”).
     - Display per-match distance values alongside each chunk in expanded tool details.
     - Render per-match rows from tool payload `results` (not just file summaries), including the distance value and chunk preview.
     - Avoid introducing deprecated Accordion `TransitionProps`/`TransitionComponent`; use slots/slotProps if adjustments are needed per MUI 6.5.x API.

@@ -106,7 +106,7 @@ async function postJson(port: number, body: unknown) {
   return response.json();
 }
 
-test('codebase_question streams thinking -> vector_summary -> answer and preserves conversationId', async () => {
+test('codebase_question returns answer-only payloads and preserves conversationId', async () => {
   const original = process.env.MCP_FORCE_CODEX_AVAILABLE;
   process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
   const mockCodex = new MockCodex('thread-abc');
@@ -134,13 +134,9 @@ test('codebase_question streams thinking -> vector_summary -> answer and preserv
     assert.equal(firstPayload.modelId, 'gpt-5.1-codex-max');
     assert.deepEqual(
       firstPayload.segments.map((s: { type: string }) => s.type),
-      ['thinking', 'vector_summary', 'answer'],
+      ['answer'],
     );
-
-    const summary = firstPayload.segments[1];
-    assert.equal(summary.files[0].relPath, 'src/index.ts');
-    assert.equal(summary.files[0].chunks, 1);
-    assert.equal(summary.files[0].lines, 2);
+    assert.equal(firstPayload.segments[0].text, 'Here you go');
 
     const secondCall = await postJson(port, {
       jsonrpc: '2.0',
@@ -158,6 +154,77 @@ test('codebase_question streams thinking -> vector_summary -> answer and preserv
     const secondPayload = JSON.parse(secondCall.result.content[0].text);
     assert.equal(secondPayload.conversationId, 'thread-abc');
     assert.equal(mockCodex.lastResumeId, 'thread-abc');
+  } finally {
+    resetToolDeps();
+    process.env.MCP_FORCE_CODEX_AVAILABLE = original;
+    server.close();
+  }
+});
+
+class MockThreadNoAnswer {
+  id: string;
+
+  constructor(id: string) {
+    this.id = id;
+  }
+
+  async runStreamed() {
+    const threadId = this.id;
+    async function* generator(): AsyncGenerator<ThreadEvent> {
+      yield { type: 'thread.started', thread_id: threadId };
+      yield {
+        type: 'item.updated',
+        item: { type: 'reasoning', text: 'Thinking about the repo' },
+      };
+      yield { type: 'turn.completed', thread_id: threadId };
+    }
+
+    return { events: generator() };
+  }
+}
+
+class MockCodexNoAnswer {
+  threadId: string;
+
+  constructor(id = 'thread-empty') {
+    this.threadId = id;
+  }
+
+  startThread() {
+    return new MockThreadNoAnswer(this.threadId);
+  }
+
+  resumeThread(threadId: string) {
+    return new MockThreadNoAnswer(threadId);
+  }
+}
+
+test('codebase_question returns an empty answer segment when no answer emitted', async () => {
+  const original = process.env.MCP_FORCE_CODEX_AVAILABLE;
+  process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
+  setToolDeps({ codexFactory: () => new MockCodexNoAnswer() });
+
+  const server = http.createServer(handleRpc);
+  server.listen(0);
+  const { port } = server.address() as AddressInfo;
+
+  try {
+    const response = await postJson(port, {
+      jsonrpc: '2.0',
+      id: 10,
+      method: 'tools/call',
+      params: {
+        name: 'codebase_question',
+        arguments: { question: 'What is up?' },
+      },
+    });
+
+    const payload = JSON.parse(response.result.content[0].text);
+    assert.deepEqual(
+      payload.segments.map((s: { type: string }) => s.type),
+      ['answer'],
+    );
+    assert.equal(payload.segments[0].text, '');
   } finally {
     resetToolDeps();
     process.env.MCP_FORCE_CODEX_AVAILABLE = original;

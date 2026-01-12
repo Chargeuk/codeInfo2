@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import http from 'node:http';
+import { AddressInfo } from 'node:net';
 import test from 'node:test';
 import type {
   ThreadEvent,
@@ -7,6 +9,7 @@ import type {
 } from '@openai/codex-sdk';
 
 import { runCodebaseQuestion } from '../../mcp2/tools/codebaseQuestion.js';
+import { handleRpc } from '../../mcp2/router.js';
 import {
   getCodexDetection,
   setCodexDetection,
@@ -107,7 +110,7 @@ class MockCodex {
   }
 }
 
-test('MCP responder builds snapshot-compatible segments', async () => {
+test('MCP responder returns answer-only segments', async () => {
   const prev = getCodexDetection();
   setCodexDetection({
     available: true,
@@ -126,18 +129,15 @@ test('MCP responder builds snapshot-compatible segments', async () => {
     assert.equal(payload.modelId, 'gpt-5.1-codex-max');
     assert.deepEqual(
       payload.segments.map((s: { type: string }) => s.type),
-      ['thinking', 'vector_summary', 'answer'],
+      ['answer'],
     );
-    const summary = payload.segments[1];
-    assert.equal(summary.files[0].relPath, 'src/index.ts');
-    assert.equal(summary.files[0].chunks, 1);
-    assert.equal(summary.files[0].lines, 2);
+    assert.equal(payload.segments[0].text, 'Here you go');
   } finally {
     setCodexDetection(prev);
   }
 });
 
-test('MCP responder keeps segment order and omits extras', async () => {
+test('MCP responder only returns the final answer segment', async () => {
   const prev = getCodexDetection();
   setCodexDetection({
     available: true,
@@ -157,12 +157,48 @@ test('MCP responder keeps segment order and omits extras', async () => {
     }>;
     assert.deepEqual(
       segments.map((s) => s.type),
-      ['thinking', 'vector_summary', 'answer'],
+      ['answer'],
     );
-    // ensure vector_summary only has expected keys
-    const summary = segments[1];
-    assert.deepEqual(Object.keys(summary).sort(), ['files', 'type']);
+    assert.deepEqual(Object.keys(segments[0]).sort(), ['text', 'type']);
   } finally {
     setCodexDetection(prev);
+  }
+});
+
+async function postJson(port: number, body: unknown) {
+  const response = await fetch(`http://127.0.0.1:${port}`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return response.json();
+}
+
+test('MCP JSON-RPC error shape remains stable for invalid params', async () => {
+  const original = process.env.MCP_FORCE_CODEX_AVAILABLE;
+  process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
+
+  const server = http.createServer(handleRpc);
+  server.listen(0);
+  const { port } = server.address() as AddressInfo;
+
+  try {
+    const response = await postJson(port, {
+      jsonrpc: '2.0',
+      id: 99,
+      method: 'tools/call',
+      params: {
+        name: 'codebase_question',
+        arguments: { question: '' },
+      },
+    });
+
+    assert.equal(response.jsonrpc, '2.0');
+    assert.equal(response.id, 99);
+    assert.equal(response.error.code, -32602);
+    assert.equal(response.error.message, 'Invalid params');
+  } finally {
+    process.env.MCP_FORCE_CODEX_AVAILABLE = original;
+    server.close();
   }
 });

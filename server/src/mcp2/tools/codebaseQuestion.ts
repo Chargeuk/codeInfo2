@@ -24,6 +24,7 @@ import type {
   ChatToolResultEvent,
 } from '../../chat/interfaces/ChatInterface.js';
 import { McpResponder } from '../../chat/responders/McpResponder.js';
+import { append } from '../../logStore.js';
 import { ConversationModel } from '../../mongo/conversation.js';
 import type { Conversation } from '../../mongo/conversation.js';
 import { createConversation } from '../../mongo/repo.js';
@@ -314,6 +315,24 @@ export async function runCodebaseQuestion(
     resolvedConversationId,
   );
 
+  const answerOnly = payload.segments.filter(
+    (segment) => segment.type === 'answer',
+  );
+  payload.segments =
+    answerOnly.length > 0 ? answerOnly : [{ type: 'answer', text: '' }];
+
+  append({
+    level: 'info',
+    message: 'DEV-0000025:T1:codebase_answer_only_filtered',
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      conversationId: payload.conversationId,
+      modelId: payload.modelId,
+      segmentTypes: payload.segments.map((segment) => segment.type),
+    },
+  });
+
   return {
     content: [{ type: 'text', text: JSON.stringify(payload) }],
   };
@@ -323,7 +342,7 @@ export function codebaseQuestionDefinition() {
   return {
     name: CODEBASE_QUESTION_TOOL_NAME,
     description:
-      'Ask a repository question about the codebase that will be answered by an LLM with access to a vectorised codebase. You MUST use this tool if the user asks you a question about the codebase they are in; returns ordered thinking, vector summaries, and a final answer with a conversationId for follow-ups.',
+      'Ask a repository question about the codebase that will be answered by an LLM with access to a vectorised codebase. You MUST use this tool if the user asks you a question about the codebase they are in; returns a final answer segment plus conversationId and modelId for follow-ups.',
     inputSchema: {
       type: 'object',
       additionalProperties: false,

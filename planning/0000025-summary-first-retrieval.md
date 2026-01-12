@@ -139,7 +139,7 @@ These instructions will be followed during implementation.
 
 ### 1. Server: MCP answer-only responses for codebase_question
 
-- Task Status: **__in_progress__**
+- Task Status: **__done__**
 - Git Commits: **to_do**
 
 #### Overview
@@ -159,7 +159,7 @@ Return answer-only segments for MCP `codebase_question` responses while preservi
 
 #### Subtasks
 
-1. [ ] Review current MCP response assembly for codebase_question:
+1. [x] Review current MCP response assembly for codebase_question:
    - Documentation to read (repeat):
      - JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification
    - Recap (acceptance criteria): return only the final answer segment while keeping `conversationId` and `modelId` unchanged.
@@ -173,7 +173,7 @@ Return answer-only segments for MCP `codebase_question` responses while preservi
    - Goal:
      - Identify where `segments` arrays are built and how answer content is extracted.
 
-2. [ ] Update `codebase_question` tool response to return only the answer segment:
+2. [x] Update `codebase_question` tool response to return only the answer segment:
    - Documentation to read (repeat):
      - JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification
      - JavaScript JSON serialization (`JSON.stringify`): https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON
@@ -191,7 +191,7 @@ Return answer-only segments for MCP `codebase_question` responses while preservi
      payload.segments = answerOnly.length > 0 ? answerOnly : [{ type: 'answer', text: '' }];
      ```
 
-3. [ ] Update MCP tool definitions to reflect answer-only responses:
+3. [x] Update MCP tool definitions to reflect answer-only responses:
    - Documentation to read (repeat):
      - JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification
    - Files to edit:
@@ -203,7 +203,7 @@ Return answer-only segments for MCP `codebase_question` responses while preservi
      - Before: “returns ordered thinking, vector summaries, and a final answer …”
      - After: “returns a final answer segment plus conversationId and modelId …”
 
-4. [ ] Update unit test for answer-only segments (codebase_question happy path):
+4. [x] Update unit test for answer-only segments (codebase_question happy path):
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
    - Test type: Unit (MCP tool)
@@ -211,7 +211,7 @@ Return answer-only segments for MCP `codebase_question` responses while preservi
    - Description: Update assertions so `segments` contains only `['answer']` while keeping `conversationId` and `modelId` expectations.
    - Purpose: Validate the happy-path MCP tool response shape after answer-only filtering.
 
-5. [ ] Update integration test for answer-only segments (Codex wrapper):
+5. [x] Update integration test for answer-only segments (Codex wrapper):
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
    - Test type: Integration (Codex MCP wrapper)
@@ -219,7 +219,7 @@ Return answer-only segments for MCP `codebase_question` responses while preservi
    - Description: Assert the MCP wrapper payload includes only the `answer` segment.
    - Purpose: Ensure Codex wrapper integrations return the answer-only payload.
 
-6. [ ] Update integration test for answer-only segments (LM Studio wrapper):
+6. [x] Update integration test for answer-only segments (LM Studio wrapper):
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
    - Test type: Integration (LM Studio MCP wrapper)
@@ -227,7 +227,7 @@ Return answer-only segments for MCP `codebase_question` responses while preservi
    - Description: Assert the MCP wrapper payload includes only the `answer` segment.
    - Purpose: Ensure LM Studio wrapper integrations return the answer-only payload.
 
-7. [ ] Add corner-case unit test for missing answer segments:
+7. [x] Add corner-case unit test for missing answer segments:
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
    - Test type: Unit (MCP tool)
@@ -235,7 +235,7 @@ Return answer-only segments for MCP `codebase_question` responses while preservi
    - Description: Simulate no answer segment emitted and assert the response returns a single empty `answer` segment.
    - Purpose: Guarantee the answer-only filter always returns an `answer` segment.
 
-8. [ ] Add error-path test for JSON-RPC error stability:
+8. [x] Add error-path test for JSON-RPC error stability:
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
    - Test type: Integration (MCP JSON-RPC error path)
@@ -243,14 +243,14 @@ Return answer-only segments for MCP `codebase_question` responses while preservi
    - Description: Trigger an invalid params or tool error and assert the JSON-RPC error shape is unchanged.
    - Purpose: Ensure answer-only filtering does not alter error responses.
 
-9. [ ] Add server log line for MCP answer-only filtering:
+9. [x] Add server log line for MCP answer-only filtering:
    - Files to edit:
      - `server/src/mcp2/tools/codebaseQuestion.ts`
    - Log line (exact message): `DEV-0000025:T1:codebase_answer_only_filtered`
    - Log context: `{ conversationId, modelId, segmentTypes: segments.map((s) => s.type) }`.
    - Purpose: Provide a deterministic log marker for manual verification.
 
-10. [ ] Documentation update - `design.md` (MCP answer-only contract):
+10. [x] Documentation update - `design.md` (MCP answer-only contract):
    - Documentation to read (repeat):
      - Mermaid: Context7 `/mermaid-js/mermaid`
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -259,7 +259,7 @@ Return answer-only segments for MCP `codebase_question` responses while preservi
    - Description: Update MCP response shape notes to reflect answer-only segments for `codebase_question` and agents.
    - Purpose: Keep MCP contract documentation accurate.
 
-11. [ ] Documentation update - `design.md` (MCP response flow diagram):
+11. [x] Documentation update - `design.md` (MCP response flow diagram):
     - Documentation to read (repeat):
       - Mermaid: Context7 `/mermaid-js/mermaid`
       - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -268,57 +268,57 @@ Return answer-only segments for MCP `codebase_question` responses while preservi
     - Description: Update or add a Mermaid sequence diagram if MCP response flows are documented.
     - Purpose: Ensure architecture flow diagrams match the answer-only response format.
 
-12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+12. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
     - Documentation to read (repeat):
       - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
       - Prettier options: https://prettier.io/docs/options
 
 #### Testing
 
-1. [ ] Build the server (workspace build):
+1. [x] Build the server (workspace build):
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
    - Command: `npm run build --workspace server`
    - Purpose: Ensure server TypeScript build succeeds outside Docker.
 
-2. [ ] Build the client (workspace build):
+2. [x] Build the client (workspace build):
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
    - Command: `npm run build --workspace client`
    - Purpose: Ensure client production build succeeds outside Docker.
 
-3. [ ] Run server tests (Cucumber):
+3. [x] Run server tests (Cucumber):
    - Documentation to read (repeat):
      - Cucumber guides: https://cucumber.io/docs/guides/
    - Command: `npm run test --workspace server`
    - Purpose: Validate server BDD tests alongside MCP answer-only changes.
 
-4. [ ] Run client tests (Jest):
+4. [x] Run client tests (Jest):
    - Documentation to read (repeat):
      - Jest docs: Context7 `/jestjs/jest`
    - Command: `npm run test --workspace client`
    - Purpose: Validate client test coverage while MCP answer-only behavior is active.
 
-5. [ ] Run end-to-end tests:
+5. [x] Run end-to-end tests:
    - Documentation to read (repeat):
      - Playwright Test docs: https://playwright.dev/docs/intro
    - Command: `npm run e2e`
    - Timeout: allow up to 7 minutes (e.g., `timeout 7m npm run e2e` or `timeout_ms=420000`).
    - Purpose: Validate end-to-end chat/tool flows with MCP answer-only responses.
 
-6. [ ] Perform a clean Docker Compose build:
+6. [x] Perform a clean Docker Compose build:
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
    - Command: `npm run compose:build`
    - Purpose: Validate Docker images build cleanly with MCP response changes.
 
-7. [ ] Start Docker Compose stack:
+7. [x] Start Docker Compose stack:
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
    - Command: `npm run compose:up`
    - Purpose: Ensure the full stack starts with MCP answer-only responses.
 
-8. [ ] Manual Playwright-MCP check (visual verification):
+8. [x] Manual Playwright-MCP check (visual verification):
    - Documentation to read (repeat):
      - Playwright Test docs: https://playwright.dev/docs/intro
    - Location: http://host.docker.internal:5001
@@ -327,13 +327,13 @@ Return answer-only segments for MCP `codebase_question` responses while preservi
    - Regression check: confirm MCP responses only surface the final answer (no reasoning/vector summary) and verify there are no logged errors in the debug console.
    - Purpose: Manual verification of MCP answer-only behavior and UI stability.
 
-9. [ ] Shut down Docker Compose stack:
+9. [x] Shut down Docker Compose stack:
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
    - Command: `npm run compose:down`
    - Purpose: Cleanly stop the stack after verification.
 
-10. [ ] Run server unit tests for MCP answer-only changes:
+10. [x] Run server unit tests for MCP answer-only changes:
     - Documentation to read (repeat):
       - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
     - Command: `npm run test:unit --workspace server`
@@ -341,7 +341,23 @@ Return answer-only segments for MCP `codebase_question` responses while preservi
 
 #### Implementation notes
 
-- Notes added during implementation.
+- Reviewed MCP responder/tool/test flow: `McpResponder` emits `thinking`, `vector_summary`, `answer` segments and `runCodebaseQuestion` returns `responder.toResult(...)` directly for MCP payloads.
+- Filtered `codebase_question` responses down to answer-only segments while preserving `conversationId`/`modelId` and added the required `DEV-0000025:T1:codebase_answer_only_filtered` log entry.
+- Updated the `codebase_question` tool description to describe answer-only payloads.
+- Updated the MCP tool happy-path unit test to assert answer-only segments and added a no-answer case that expects a single empty `answer` segment.
+- Updated Codex + LM Studio MCP integration tests to expect answer-only segments and added a JSON-RPC invalid-params error-shape assertion.
+- Updated `design.md` MCP documentation and sequence diagram to describe answer-only segments for `codebase_question` and Agents MCP responses.
+- Ran workspace lint + Prettier checks; lint reported pre-existing import-order warnings in server tests/routes.
+- Testing: `npm run build --workspace server`.
+- Testing: `npm run build --workspace client` (Vite chunk size warning only).
+- Testing: `npm run test --workspace server` (required timeout increase to finish).
+- Testing: `npm run test --workspace client` (Jest console warnings from existing tests).
+- Testing: `npm run e2e` (3 ingest specs skipped; rest passed).
+- Testing: `npm run compose:build`.
+- Testing: `npm run compose:up`.
+- Testing: Playwright MCP check confirmed `DEV-0000025:T1:codebase_answer_only_filtered` logs with `segmentTypes: ['answer']` on `http://host.docker.internal:5001/logs`.
+- Testing: `npm run compose:down`.
+- Testing: `npm run test:unit --workspace server` (required timeout increase to finish).
 
 ---
 

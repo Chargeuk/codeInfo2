@@ -84,7 +84,7 @@ const makeMockClientFactory = () => (baseUrl: string) => {
 
 const makeToolFactory = () => () => ({ tools: [] });
 
-test('MCP LM Studio responder builds snapshot-compatible segments', async () => {
+test('MCP LM Studio responder returns answer-only segments', async () => {
   const result = await runCodebaseQuestion(
     { question: 'What is up?', provider: 'lmstudio', model: 'mock-model' },
     {
@@ -99,15 +99,12 @@ test('MCP LM Studio responder builds snapshot-compatible segments', async () => 
   assert.equal(payload.modelId, 'mock-model');
   assert.deepEqual(
     payload.segments.map((s: { type: string }) => s.type),
-    ['vector_summary', 'answer'],
+    ['answer'],
   );
-  const summary = payload.segments[0];
-  assert.equal(summary.files[0].relPath, 'src/index.ts');
-  assert.equal(summary.files[0].chunks, 1);
-  assert.equal(summary.files[0].lines, 2);
+  assert.equal(payload.segments[0].text, 'Here you go');
 });
 
-test('MCP LM Studio responder keeps segment order and omits extras', async () => {
+test('MCP LM Studio responder only returns the final answer segment', async () => {
   const result = await runCodebaseQuestion(
     { question: 'Second run', provider: 'lmstudio', model: 'mock-model' },
     {
@@ -120,8 +117,8 @@ test('MCP LM Studio responder keeps segment order and omits extras', async () =>
   const segments = payload.segments as Array<{ type: string }>;
   assert.deepEqual(
     segments.map((s) => s.type),
-    ['vector_summary', 'answer'],
+    ['answer'],
   );
-  const summary = segments[0] as { [key: string]: unknown };
-  assert.deepEqual(Object.keys(summary).sort(), ['files', 'type']);
+  const answer = segments[0] as { [key: string]: unknown };
+  assert.deepEqual(Object.keys(answer).sort(), ['text', 'type']);
 });

@@ -22,9 +22,9 @@ We also need to correct the current “best match” aggregation logic for vecto
 
 - A relevance cutoff is applied to vector search results so low-score chunks are not sent to Codex; default cutoff is distance <= 1.4 (lower is better), overridable via `CODEINFO_RETRIEVAL_DISTANCE_CUTOFF`, and the best `CODEINFO_RETRIEVAL_FALLBACK_CHUNKS` results (default 2) are still included even if none pass the cutoff.
 - Cutoff bypass is supported: when `CODEINFO_RETRIEVAL_CUTOFF_DISABLED=true`, the cutoff is ignored and all results are eligible (still subject to payload caps).
-- Tool payloads sent to Codex have a clear size cap: total tool output capped at ~40k characters via `CODEINFO_TOOL_MAX_CHARS` (default 40000) and each chunk capped by `CODEINFO_TOOL_CHUNK_MAX_CHARS` (default 5000); content beyond these limits is truncated or dropped so the cap is never exceeded.
+- Tool payloads sent to Codex have a clear size cap: total tool output capped at ~40k characters via `CODEINFO_TOOL_MAX_CHARS` (default 40000) and each chunk capped by `CODEINFO_TOOL_CHUNK_MAX_CHARS` (default 5000); content beyond these limits is truncated or dropped so the cap is never exceeded, and the original ordering of the remaining chunks is preserved.
 - MCP responses for `codebase_question` and agent `run_agent_instruction` return only the final answer text (no reasoning/summary segments) while still including `conversationId` and `modelId` in the JSON response payload.
-- Vector search score semantics are confirmed: Chroma returns distances and lower is better; cutoff logic uses `<=` on distance values and any “best match” aggregation uses min.
+- Vector search score semantics are confirmed: Chroma returns distances (lower is better, 0 is identical); cutoff logic uses `<=` on distance values and any “best match” aggregation uses the minimum distance, while preserving the order returned by Chroma.
 - The vector search UI/tool details surface the distance value explicitly for each match entry when expanded (so users can see raw distance for each match).
 - VectorSearch citations are deduplicated in two stages before being stored/displayed: (1) remove exact duplicates (same chunk id or identical chunk text), then (2) limit to the top 2 chunks per file by best distance (lowest) when more than 2 remain.
 - Score-source logging remains enabled with the same tag/shape as today (no logging changes in this story).
@@ -39,6 +39,15 @@ We also need to correct the current “best match” aggregation logic for vecto
 - `CODEINFO_RETRIEVAL_FALLBACK_CHUNKS=2` (best 1–2 chunks included even if none pass the cutoff).
 - `CODEINFO_TOOL_MAX_CHARS=40000` (total tool output cap).
 - `CODEINFO_TOOL_CHUNK_MAX_CHARS=5000` (per-chunk cap; within the 4–6k range).
+
+---
+
+## Research Notes
+
+- Chroma query responses expose `distances` (and sometimes `scores`), where smaller numbers mean closer matches; we should preserve the ordering returned by the query response rather than re-sorting locally.
+- The distance metric depends on the collection configuration (`l2`, `cosine`, or `ip`), and the HNSW `hnsw:space` metadata sets it at collection creation, so the cutoff must be treated as a distance threshold rather than a similarity score.
+- Chroma’s default metric is L2 (squared Euclidean distance), while cosine distance is defined as `1 - cosine_similarity` (so lower is still better). These details justify keeping the cutoff configurable.
+- The current repo does not set `hnsw:space` during ingest, so we should assume the default L2 distance unless a future ingest change overrides it.
 
 ---
 

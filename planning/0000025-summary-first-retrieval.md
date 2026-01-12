@@ -42,6 +42,15 @@ We also need to correct the current “best match” aggregation logic for vecto
 
 ---
 
+## Message Contracts & Storage Shapes (planned)
+
+- **VectorSearch tool response (HTTP + LM Studio tool):** no new fields; same shape as today (`results[]` with `repo`, `relPath`, `containerPath`, `hostPath`, `score`, `chunk`, `chunkId`, `modelId`, `lineCount`; plus `modelId` and `files[]` with `highestMatch`, `chunkCount`, `lineCount`). Changes are semantic only: results may be filtered by cutoff, truncated by size caps, and `highestMatch` represents the **lowest** distance after aggregation.
+- **MCP v2 `codebase_question` response:** currently returns JSON `{ conversationId, modelId, segments[] }` (segments include `thinking`, `vector_summary`, `answer`). This story narrows MCP output to **answer-only** by returning `segments: [{ type: 'answer', text }]` while still including `conversationId` and `modelId`.
+- **Agents MCP `run_agent_instruction` response:** currently returns JSON `{ agentName, conversationId, modelId, segments[] }` (segments include thinking/summary/answer). For MCP only, return the same wrapper but restrict `segments` to a single `{ type: 'answer', text }` entry.
+- **Storage shapes:** no Mongo schema changes are required; ingest metadata, turns, tool payloads, and citations keep their existing schemas. Citation dedupe happens client-side before rendering and is not persisted.
+
+---
+
 ## Research Notes
 
 - Chroma query responses expose `distances` (and sometimes `scores`), where smaller numbers mean closer matches; we should preserve the ordering returned by the query response rather than re-sorting locally.

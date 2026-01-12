@@ -1,6 +1,10 @@
 import type { ToolEvent } from '../chat/inflightRegistry.js';
 import type { IngestJobStatus } from '../ingest/ingestJob.js';
-import type { TurnTimingMetadata, TurnUsageMetadata } from '../mongo/turn.js';
+import type {
+  TurnCommandMetadata,
+  TurnTimingMetadata,
+  TurnUsageMetadata,
+} from '../mongo/turn.js';
 
 export const WS_PROTOCOL_VERSION = 'v1' as const;
 
@@ -282,6 +286,7 @@ export type WsInflightSnapshotEvent = {
     assistantThink: string;
     toolEvents: ToolEvent[];
     startedAt: string;
+    command?: TurnCommandMetadata;
   };
 };
 

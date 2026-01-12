@@ -138,6 +138,71 @@ test('inflight-only snapshot returns inflight items and inflight payload', async
   }
 });
 
+test('inflight snapshot returns command metadata when present', async () => {
+  createInflight({
+    conversationId: 'c1',
+    inflightId: 'i1',
+    provider: 'codex',
+    model: 'gpt-5.1-codex-max',
+    source: 'REST',
+    command: { name: 'improve_plan', stepIndex: 2, totalSteps: 6 },
+    userTurn: {
+      content: 'run command',
+      createdAt: new Date('2025-01-02T00:00:00.000Z').toISOString(),
+    },
+  });
+
+  try {
+    const res = await request(
+      appWith({
+        findConversationById: async () => ({ _id: 'c1', archivedAt: null }),
+        listAllTurns: async () => ({ items: [] }),
+      }),
+    )
+      .get('/conversations/c1/turns')
+      .expect(200);
+
+    assert.equal(res.body.inflight?.inflightId, 'i1');
+    assert.deepEqual(res.body.inflight.command, {
+      name: 'improve_plan',
+      stepIndex: 2,
+      totalSteps: 6,
+    });
+  } finally {
+    cleanupInflight({ conversationId: 'c1', inflightId: 'i1' });
+  }
+});
+
+test('inflight snapshot omits command metadata when absent', async () => {
+  createInflight({
+    conversationId: 'c1',
+    inflightId: 'i1',
+    provider: 'codex',
+    model: 'gpt-5.1-codex-max',
+    source: 'REST',
+    userTurn: {
+      content: 'run command',
+      createdAt: new Date('2025-01-03T00:00:00.000Z').toISOString(),
+    },
+  });
+
+  try {
+    const res = await request(
+      appWith({
+        findConversationById: async () => ({ _id: 'c1', archivedAt: null }),
+        listAllTurns: async () => ({ items: [] }),
+      }),
+    )
+      .get('/conversations/c1/turns')
+      .expect(200);
+
+    assert.equal(res.body.inflight?.inflightId, 'i1');
+    assert.equal('command' in res.body.inflight, false);
+  } finally {
+    cleanupInflight({ conversationId: 'c1', inflightId: 'i1' });
+  }
+});
+
 test('returns full history when no inflight exists', async () => {
   const turns: TurnSummary[] = [
     {

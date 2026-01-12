@@ -224,7 +224,7 @@ flowchart LR
 - Persisted turn hydration merges into the current transcript without clearing active in-flight content; an empty replace snapshot is ignored while streaming.
 - `GET /conversations/:id/turns` snapshots always reflect the full conversation by merging persisted turns with the latest in-flight user/assistant turns until persistence completes (deduped to avoid duplicates).
 - Snapshot `items` now include a stable `turnId` (Mongo `_id` string) for persisted turns. Snapshots are ordered deterministically (newest-first) by `(createdAt, rolePriority, turnId)` so same-timestamp turns don’t flip or duplicate during in-flight merges.
-- `GET /conversations/:id/turns` returns `{ items, inflight? }` where `items` always include the full persisted conversation plus any in-flight user/assistant turns (deduped) and `inflight` is included whenever a run is in progress for detailed tool/thinking hydration (`{ inflightId, assistantText, assistantThink, toolEvents, startedAt, seq }`).
+- `GET /conversations/:id/turns` returns `{ items, inflight? }` where `items` always include the full persisted conversation plus any in-flight user/assistant turns (deduped) and `inflight` is included whenever a run is in progress for detailed tool/thinking hydration (`{ inflightId, assistantText, assistantThink, toolEvents, startedAt, seq, command? }`).
 - Snapshot hydration flow (replace-only, full history every time):
 
 ```mermaid
@@ -236,6 +236,7 @@ sequenceDiagram
   Client->>Server: GET /conversations/:id/turns
   Server->>Mongo: load all persisted turns
   Server-->>Client: { items: full history + inflight turns, inflight?: snapshot }
+  Note over Server,Client: inflight snapshot includes command? when provided
   Client->>Client: hydrateHistory(replace)
   opt inflight present
     Client->>Client: hydrateInflightSnapshot(inflight)

@@ -1,5 +1,6 @@
 import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
+import type { TurnCommandMetadata } from '../mongo/turn.js';
 
 export type ToolEvent =
   | {
@@ -25,6 +26,7 @@ export type InflightState = {
   provider?: string;
   model?: string;
   source?: 'REST' | 'MCP';
+  command?: TurnCommandMetadata;
   userTurn?: { content: string; createdAt: string };
   assistantCreatedAt?: string;
   finalStatus?: 'ok' | 'stopped' | 'failed';
@@ -54,6 +56,7 @@ export function createInflight(params: {
   provider?: string;
   model?: string;
   source?: 'REST' | 'MCP';
+  command?: TurnCommandMetadata;
   userTurn?: { content: string; createdAt: string };
   externalSignal?: AbortSignal;
 }): InflightState {
@@ -63,6 +66,7 @@ export function createInflight(params: {
     provider: params.provider,
     model: params.model,
     source: params.source,
+    command: params.command,
     userTurn: params.userTurn,
     assistantCreatedAt: params.userTurn?.createdAt
       ? new Date(Date.parse(params.userTurn.createdAt) + 1).toISOString()
@@ -266,6 +270,7 @@ export type InflightMergedTurn = {
   model: string;
   provider: string;
   source: 'REST' | 'MCP';
+  command?: TurnCommandMetadata;
   toolCalls: Record<string, unknown> | null;
   status: 'ok' | 'stopped' | 'failed';
   createdAt: Date;
@@ -315,6 +320,7 @@ export function snapshotInflightTurns(
       model,
       provider,
       source,
+      command: state.command,
       toolCalls: null,
       status: assistantStatus,
       createdAt: new Date(assistantCreatedAt),
@@ -365,9 +371,28 @@ export function snapshotInflight(conversationId: string): {
   toolEvents: ToolEvent[];
   startedAt: string;
   seq: number;
+  command?: TurnCommandMetadata;
 } | null {
   const state = inflightByConversationId.get(conversationId);
   if (!state) return null;
+  if (state.command) {
+    append({
+      level: 'info',
+      message: 'DEV-0000024:T5:inflight_command_snapshot',
+      timestamp: new Date().toISOString(),
+      source: 'server',
+      context: {
+        conversationId,
+        inflightId: state.inflightId,
+        command: state.command,
+        source: 'registry',
+      },
+    });
+    baseLogger.info(
+      { conversationId, inflightId: state.inflightId, command: state.command },
+      'DEV-0000024:T5:inflight_command_snapshot',
+    );
+  }
   return {
     inflightId: state.inflightId,
     assistantText: state.assistantText,
@@ -375,5 +400,6 @@ export function snapshotInflight(conversationId: string): {
     toolEvents: [...state.toolEvents],
     startedAt: state.startedAt,
     seq: state.seq,
+    command: state.command,
   };
 }

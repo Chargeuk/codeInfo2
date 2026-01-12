@@ -796,7 +796,7 @@ Expose command step metadata on inflight snapshots so agent bubbles can render ‚
 
 #### Subtasks
 
-1. [ ] Review inflight state and snapshot publishing:
+1. [x] Review inflight state and snapshot publishing:
    - Documentation to read (repeat):
      - `ws` 8.18.3 server API: Context7 `/websockets/ws/8_18_3`
      - TypeScript handbook (object types): https://www.typescriptlang.org/docs/handbook/2/objects.html
@@ -811,7 +811,7 @@ Expose command step metadata on inflight snapshots so agent bubbles can render ‚
      - `server/src/test/integration/conversations.turns.test.ts`
      - `server/src/test/integration/agents-run-ws-stream.test.ts`
 
-2. [ ] Extend inflight state to store command metadata:
+2. [x] Extend inflight state to store command metadata:
    - Documentation to read (repeat):
      - TypeScript handbook (object types): https://www.typescriptlang.org/docs/handbook/2/objects.html
    - Recap (acceptance criteria): store command metadata only when provided; keep optional.
@@ -823,7 +823,7 @@ Expose command step metadata on inflight snapshots so agent bubbles can render ‚
      - Example (inflight state):
        - `command: { name: 'improve_plan', stepIndex: 2, totalSteps: 6 }`
 
-3. [ ] Pass command metadata into inflight creation for agent runs:
+3. [x] Pass command metadata into inflight creation for agent runs:
    - Documentation to read (repeat):
      - TypeScript handbook (object types): https://www.typescriptlang.org/docs/handbook/2/objects.html
    - Recap (acceptance criteria): inflight snapshots for command runs include step metadata.
@@ -835,7 +835,7 @@ Expose command step metadata on inflight snapshots so agent bubbles can render ‚
      - Example (createInflight params):
        - `{ command: { name: 'improve_plan', stepIndex: 2, totalSteps: 6 } }`
 
-4. [ ] Extend WS inflight snapshot payload to include command metadata:
+4. [x] Extend WS inflight snapshot payload to include command metadata:
    - Documentation to read (repeat):
      - `ws` 8.18.3 server API: Context7 `/websockets/ws/8_18_3`
    - Recap (acceptance criteria): include `command` only when present.
@@ -848,7 +848,7 @@ Expose command step metadata on inflight snapshots so agent bubbles can render ‚
      - Example (WS inflight payload):
        - `{ inflight: { inflightId: 'i1', startedAt: '...', command: { name: 'improve_plan', stepIndex: 2, totalSteps: 6 } } }`
 
-5. [ ] Integration test (server): REST inflight includes command metadata
+5. [x] Integration test (server): REST inflight includes command metadata
    - Test type: Integration (`node:test`)
    - Location: `server/src/test/integration/conversations.turns.test.ts`
    - Description: Create an inflight state with command metadata and assert REST `inflight.command` fields.
@@ -856,7 +856,7 @@ Expose command step metadata on inflight snapshots so agent bubbles can render ‚
    - Documentation to read (repeat):
      - Node.js test runner (node:test): https://nodejs.org/api/test.html
 
-6. [ ] Integration test (server): REST inflight omits command when missing
+6. [x] Integration test (server): REST inflight omits command when missing
    - Test type: Integration (`node:test`)
    - Location: `server/src/test/integration/conversations.turns.test.ts`
    - Description: Create an inflight state without command metadata and verify `inflight.command` is absent.
@@ -864,7 +864,7 @@ Expose command step metadata on inflight snapshots so agent bubbles can render ‚
    - Documentation to read (repeat):
      - Node.js test runner (node:test): https://nodejs.org/api/test.html
 
-7. [ ] Integration test (server): WS inflight_snapshot includes command metadata
+7. [x] Integration test (server): WS inflight_snapshot includes command metadata
    - Test type: Integration (`node:test`)
    - Location: `server/src/test/integration/agents-run-ws-stream.test.ts`
    - Description: Run an agent instruction with command metadata and assert `inflight_snapshot.inflight.command` fields.
@@ -873,7 +873,7 @@ Expose command step metadata on inflight snapshots so agent bubbles can render ‚
      - `ws` 8.18.3 server API: Context7 `/websockets/ws/8_18_3`
      - Node.js test runner (node:test): https://nodejs.org/api/test.html
 
-8. [ ] Documentation update - `README.md` (if any user-facing behavior changes need to be called out):
+8. [x] Documentation update - `README.md` (if any user-facing behavior changes need to be called out):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: call out inflight step metadata availability if user-visible.
@@ -882,7 +882,7 @@ Expose command step metadata on inflight snapshots so agent bubbles can render ‚
    - Description: Note streaming step indicator metadata if user-visible.
    - Purpose: Keep README aligned with live metadata behavior.
 
-9. [ ] Documentation update - `design.md` (document inflight payload changes + diagrams):
+9. [x] Documentation update - `design.md` (document inflight payload changes + diagrams):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
      - Mermaid docs: Context7 `/mermaid-js/mermaid`
@@ -892,7 +892,7 @@ Expose command step metadata on inflight snapshots so agent bubbles can render ‚
    - Description: Update inflight snapshot payload docs and diagrams to include `command` metadata.
    - Purpose: Keep WS flow docs accurate.
 
-10. [ ] Documentation update - `projectStructure.md` (only if files/paths change):
+10. [x] Documentation update - `projectStructure.md` (only if files/paths change):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: update tree only if file paths change.
@@ -902,7 +902,7 @@ Expose command step metadata on inflight snapshots so agent bubbles can render ‚
    - Description: Update tree entries for any new/changed files, including every file added or removed in this task.
    - Purpose: Keep the repository map current.
 
-11. [ ] Add manual-check log lines for inflight command metadata propagation:
+11. [x] Add manual-check log lines for inflight command metadata propagation:
    - Files to edit:
      - `server/src/chat/inflightRegistry.ts`
      - `server/src/ws/server.ts`
@@ -911,26 +911,40 @@ Expose command step metadata on inflight snapshots so agent bubbles can render ‚
      - Example log tag (must be exact):
        - `DEV-0000024:T5:inflight_command_snapshot`
 
-12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+12. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/options
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 5 minutes; e.g., `timeout 5m` or set `timeout_ms=300000` in the harness)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: run an agent command and confirm the ‚ÄúStep X of Y‚Äù indicator appears during streaming, with no console errors, and verify `DEV-0000024:T5:inflight_command_snapshot` appears in logs.
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 5 minutes; e.g., `timeout 5m` or set `timeout_ms=300000` in the harness)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check: run an agent command and confirm the ‚ÄúStep X of Y‚Äù indicator appears during streaming, with no console errors, and verify `DEV-0000024:T5:inflight_command_snapshot` appears in logs.
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- Notes added during implementation.
+- Added optional `command` metadata to inflight state/snapshots (REST + WS) and wired agent runs to pass command step metadata at inflight creation.
+- WS inflight snapshots now emit `DEV-0000024:T5:inflight_command_snapshot` logs when command metadata is present (registry + WS publisher).
+- Added REST/WS integration coverage for inflight command metadata inclusion and omission.
+- README and project structure updates were not required for this task; design notes updated with inflight snapshot changes.
+- `npm run lint --workspaces` reports existing import-order warnings; `npm run format:check --workspaces` passes.
+- `npm run build --workspace server` succeeded.
+- `npm run build --workspace client` succeeded with chunk size warnings.
+- `npm run test --workspace server` timed out at 2 minutes on first run; reran with a longer timeout and completed successfully.
+- `npm run test --workspace client` passed with existing DOM nesting console warnings.
+- `npm run e2e` completed with 33 passed and 3 skipped tests.
+- `npm run compose:build` succeeded.
+- `npm run compose:up` started the local stack successfully.
+- Manual Playwright MCP check ran `planning_agent` ‚Üí `improve plan`; no console errors and `/logs` showed `DEV-0000024:T5:inflight_command_snapshot` with command metadata.
+- `npm run compose:down` stopped the local stack cleanly.
+- Step indicator text was not visible in the Agents UI during the manual run even though inflight command metadata logged correctly.
 
 ---
 

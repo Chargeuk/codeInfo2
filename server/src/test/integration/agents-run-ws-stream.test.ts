@@ -103,8 +103,18 @@ test('Agents runs publish WS transcript events while the run is in progress', as
 
     const snapshotPromise = waitForEvent({
       ws,
-      predicate: (event: unknown): event is { type: string } => {
-        const e = event as { type?: string; conversationId?: string };
+      predicate: (
+        event: unknown,
+      ): event is {
+        type: 'inflight_snapshot';
+        conversationId: string;
+        inflight: { command?: { name: string; stepIndex: number } };
+      } => {
+        const e = event as {
+          type?: string;
+          conversationId?: string;
+          inflight?: { command?: { name?: string } };
+        };
         return (
           e.type === 'inflight_snapshot' && e.conversationId === conversationId
         );
@@ -157,6 +167,7 @@ test('Agents runs publish WS transcript events while the run is in progress', as
       instruction: 'Hello',
       conversationId,
       mustExist: false,
+      command: { name: 'improve_plan', stepIndex: 1, totalSteps: 3 },
       source: 'REST',
       inflightId,
       chatFactory: () => new StreamingChat(),
@@ -167,7 +178,12 @@ test('Agents runs publish WS transcript events while the run is in progress', as
     assert.equal(typeof userTurn.createdAt, 'string');
     assert.ok(userTurn.createdAt.length > 0);
 
-    await snapshotPromise;
+    const snapshot = await snapshotPromise;
+    assert.deepEqual(snapshot.inflight.command, {
+      name: 'improve_plan',
+      stepIndex: 1,
+      totalSteps: 3,
+    });
     const delta = await deltaPromise;
     assert(
       userTurn.seq < delta.seq,

@@ -132,8 +132,18 @@ export function publishInflightSnapshot(conversationId: string) {
       assistantThink: snapshot.assistantThink,
       toolEvents: snapshot.toolEvents,
       startedAt: snapshot.startedAt,
+      ...(snapshot.command ? { command: snapshot.command } : {}),
     },
   };
+
+  if (snapshot.command) {
+    logPublish('DEV-0000024:T5:inflight_command_snapshot', {
+      conversationId,
+      inflightId: snapshot.inflightId,
+      command: snapshot.command,
+      source: 'ws',
+    });
+  }
 
   broadcastConversation(conversationId, event);
 }

@@ -147,8 +147,12 @@ Return answer-only segments for MCP `codebase_question` responses while preservi
 #### Documentation Locations
 
 - JSON-RPC 2.0 specification (response shape + result object): https://www.jsonrpc.org/specification
-- Node.js JSON serialization basics (`JSON.stringify`, `res.json` expectations): https://nodejs.org/api/json.html
+- JavaScript JSON serialization (`JSON.stringify` reference): https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON
 - Node.js `AbortController` + error handling patterns (reference for existing patterns, no changes): https://nodejs.org/api/globals.html#class-abortcontroller
+- Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
+- Markdown syntax (design notes updates): https://www.markdownguide.org/basic-syntax/
+- ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
+- Prettier options (format check expectations): https://prettier.io/docs/options
 
 #### Subtasks
 
@@ -169,7 +173,7 @@ Return answer-only segments for MCP `codebase_question` responses while preservi
 2. [ ] Update `codebase_question` tool response to return only the answer segment:
    - Documentation to read (repeat):
      - JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification
-     - Node.js JSON serialization basics: https://nodejs.org/api/json.html
+     - JavaScript JSON serialization (`JSON.stringify`): https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON
    - Files to edit:
      - `server/src/mcp2/tools/codebaseQuestion.ts`
    - Requirements:
@@ -245,8 +249,11 @@ Return answer-only segments for MCP agent `run_agent_instruction` responses whil
 #### Documentation Locations
 
 - JSON-RPC 2.0 specification (response shape + result object): https://www.jsonrpc.org/specification
-- Node.js JSON serialization basics (`JSON.stringify`, `res.json` expectations): https://nodejs.org/api/json.html
+- JavaScript JSON serialization (`JSON.stringify` reference): https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON
 - Node.js `AbortController` + error handling patterns (reference for existing patterns, no changes): https://nodejs.org/api/globals.html#class-abortcontroller
+- Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
+- ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
+- Prettier options (format check expectations): https://prettier.io/docs/options
 
 #### Subtasks
 
@@ -265,7 +272,7 @@ Return answer-only segments for MCP agent `run_agent_instruction` responses whil
 2. [ ] Update agent MCP tooling to mirror answer-only responses:
    - Documentation to read (repeat):
      - JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification
-     - Node.js JSON serialization basics: https://nodejs.org/api/json.html
+     - JavaScript JSON serialization (`JSON.stringify`): https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON
    - Files to edit:
      - `server/src/mcpAgents/tools.ts`
    - Requirements:
@@ -329,15 +336,18 @@ Switch vector “best match” aggregation to use minimum distance values (lower
 
 #### Documentation Locations
 
-- ChromaDB query result semantics (distance is lower-is-better): https://docs.trychroma.com/
+- ChromaDB query API reference (query results + distances): https://docs.trychroma.com/reference/Collection
 - JavaScript `Math.min` behavior (null/undefined handling): https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Math/min
 - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
+- Markdown syntax (design notes updates): https://www.markdownguide.org/basic-syntax/
+- ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
+- Prettier options (format check expectations): https://prettier.io/docs/options
 
 #### Subtasks
 
 1. [ ] Review current vector aggregation logic and tests:
    - Documentation to read (repeat):
-     - ChromaDB docs: https://docs.trychroma.com/
+     - ChromaDB docs: https://docs.trychroma.com/reference/Collection
    - Recap (acceptance criteria): “best match” must be the minimum distance, and ordering stays as returned by Chroma.
    - Files to read:
      - `server/src/lmstudio/toolService.ts`
@@ -418,8 +428,12 @@ Introduce distance-based cutoff logic for vector search results with an env-conf
 #### Documentation Locations
 
 - Node.js `process.env` (environment variable defaults): https://nodejs.org/api/process.html#processenv
-- ChromaDB query result semantics (distance is lower-is-better): https://docs.trychroma.com/
+- ChromaDB query API reference (query results + distances): https://docs.trychroma.com/reference/Collection
 - JavaScript array sort and stable ordering references: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/sort
+- Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
+- Markdown syntax (design notes updates): https://www.markdownguide.org/basic-syntax/
+- ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
+- Prettier options (format check expectations): https://prettier.io/docs/options
 
 #### Subtasks
 
@@ -451,7 +465,7 @@ Introduce distance-based cutoff logic for vector search results with an env-conf
 
 3. [ ] Apply cutoff and fallback selection in vectorSearch:
    - Documentation to read (repeat):
-     - ChromaDB query result semantics: https://docs.trychroma.com/
+     - ChromaDB query result semantics: https://docs.trychroma.com/reference/Collection
      - JavaScript array sort: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/sort
    - Files to edit:
      - `server/src/lmstudio/toolService.ts`
@@ -527,6 +541,9 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
 - Node.js `process.env` (environment variable defaults): https://nodejs.org/api/process.html#processenv
 - JavaScript `String.prototype.slice` (truncation behavior): https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/slice
 - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
+- Markdown syntax (design notes updates): https://www.markdownguide.org/basic-syntax/
+- ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
+- Prettier options (format check expectations): https://prettier.io/docs/options
 
 #### Subtasks
 
@@ -634,8 +651,11 @@ Deduplicate VectorSearch citations on the client by removing exact duplicates pe
 
 - MDN `Map` (keyed grouping for file buckets): https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map
 - MDN `Array.prototype.sort` (stable ordering and tie-breaks): https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/sort
-- Jest expect API (assertions for tool payloads): https://jestjs.io/docs/expect
+- Jest expect API (assertions for tool payloads): Context7 `/jestjs/jest` (ExpectAPI.md)
 - Testing Library React docs (component-level testing utilities): https://testing-library.com/docs/react-testing-library/intro/
+- Markdown syntax (design notes updates): https://www.markdownguide.org/basic-syntax/
+- ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
+- Prettier options (format check expectations): https://prettier.io/docs/options
 
 #### Subtasks
 
@@ -669,7 +689,7 @@ Deduplicate VectorSearch citations on the client by removing exact duplicates pe
 
 3. [ ] Update client tests for citation dedupe rules:
    - Documentation to read (repeat):
-     - Jest expect API: https://jestjs.io/docs/expect
+     - Jest expect API: Context7 `/jestjs/jest` (ExpectAPI.md)
    - Files to edit:
      - `client/src/test/useChatStream.toolPayloads.test.tsx`
    - Requirements:
@@ -717,10 +737,13 @@ Update Chat and Agents tool detail panels to explicitly label distance values an
 - MUI Accordion (expandable tool details): https://llms.mui.com/material-ui/6.4.12/components/accordion.md
 - MUI Typography (label text + value formatting): https://llms.mui.com/material-ui/6.4.12/components/typography.md
 - MUI Stack (layout + spacing): https://llms.mui.com/material-ui/6.4.12/components/stack.md
-- MUI Accordion API (slotProps/slots, TransitionProps deprecations): https://mui.com/material-ui/api/accordion/
-- MUI AccordionSummary API (slotProps/slots): https://mui.com/material-ui/api/accordion-summary/
+- MUI Accordion API (slotProps/slots, TransitionProps deprecations): https://llms.mui.com/material-ui/6.4.12/api/accordion.md
+- MUI AccordionSummary API (slotProps/slots): https://llms.mui.com/material-ui/6.4.12/api/accordion-summary.md
 - Testing Library React docs (component testing patterns): https://testing-library.com/docs/react-testing-library/intro/
-- Jest expect API (assertions for UI output): https://jestjs.io/docs/expect
+- Jest expect API (assertions for UI output): Context7 `/jestjs/jest` (ExpectAPI.md)
+- Markdown syntax (design notes updates): https://www.markdownguide.org/basic-syntax/
+- ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
+- Prettier options (format check expectations): https://prettier.io/docs/options
 
 #### Subtasks
 
@@ -759,7 +782,7 @@ Update Chat and Agents tool detail panels to explicitly label distance values an
 3. [ ] Update client UI tests for distance label changes:
    - Documentation to read (repeat):
      - Testing Library React docs: https://testing-library.com/docs/react-testing-library/intro/
-     - Jest expect API: https://jestjs.io/docs/expect
+     - Jest expect API: Context7 `/jestjs/jest` (ExpectAPI.md)
    - Files to edit:
      - `client/src/test/chatPage.toolDetails.test.tsx`
      - `client/src/test/agentsPage.toolsUi.test.tsx`
@@ -806,12 +829,12 @@ Validate the full story against acceptance criteria, perform clean builds/tests,
 
 #### Documentation Locations
 
-- Docker Compose guide (clean builds + compose up/down): https://docs.docker.com/guides/docker-compose/
+- Docker Compose guide (clean builds + compose up/down): Context7 `/docker/docs`
 - Playwright Test docs (Node/TS setup + running tests): https://playwright.dev/docs/intro
 - Husky docs (git hook management + install): https://typicode.github.io/husky/
 - Mermaid docs (diagram syntax for design.md): Context7 `/mermaid-js/mermaid`
 - Jest docs (test runner + expect API): Context7 `/jestjs/jest`
-- Cucumber guides (BDD + JavaScript workflow): https://cucumber.io/docs/guides/
+- Cucumber guides (BDD + JavaScript workflow): https://cucumber.io/docs/guides/10-minute-tutorial/
 - Markdown syntax (README/design updates): https://www.markdownguide.org/basic-syntax/
 
 #### Subtasks

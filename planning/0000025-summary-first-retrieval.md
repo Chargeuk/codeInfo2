@@ -31,7 +31,7 @@ We also need to correct the current “best match” aggregation logic for vecto
 - MCP responses for `codebase_question` and agent `run_agent_instruction` return only the final answer text (no reasoning/summary segments) while still including `conversationId` and `modelId` in the JSON response payload.
 - Vector search score semantics are confirmed: Chroma returns distances (lower is better, 0 is identical); cutoff logic uses `<=` on distance values and any “best match” aggregation uses the minimum distance, while preserving the order returned by Chroma.
 - The vector search UI/tool details surface the distance value explicitly for each match entry and label it as “Distance” (not “Score”) when expanded.
-- VectorSearch citations are deduplicated in two stages before being stored/displayed: (1) remove exact duplicates (same chunk id or identical chunk text), then (2) limit to the top 2 chunks per file by best distance (lowest) when more than 2 remain. File identity should be `repo + relPath`, ties keep the earliest item in the original results order, and entries with missing distances are treated as lowest priority (only included via fallback if needed).
+- VectorSearch citations are deduplicated in two stages before being stored/displayed: (1) remove exact duplicates (same chunk id or identical chunk text) **within the same file (`repo + relPath`)**, then (2) limit to the top 2 chunks per file by best distance (lowest) when more than 2 remain. File identity should be `repo + relPath`, ties keep the earliest item in the original results order, and entries with missing distances are treated as lowest priority (only included via fallback if needed).
 - Citation dedupe and payload caps are applied server-side before the VectorSearch payload is passed into Codex (the UI should not be the only place where dedupe occurs).
 - Score-source logging remains enabled with the same tag/shape as today; additional `DEV-0000025:*` log markers are added for manual verification only.
 - Documentation reflects the new retrieval strategy (cutoff, caps, answer-only MCP) in `design.md`, and `README.md` is updated only if any user-facing behavior or commands change.
@@ -1083,7 +1083,7 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
    - Description: Provide duplicate `chunkId` values and >2 chunks per file, assert only the two lowest distances remain.
    - Purpose: Verify stage-1 dedupe + stage-2 top-2 selection.
 
-13. [ ] Add unit test for server-side dedupe (identical chunk text):
+13. [ ] Add unit test for server-side dedupe (identical chunk text within same file):
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
    - Test type: Unit (payload dedupe)
@@ -1091,7 +1091,15 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
    - Description: Provide identical chunk text within the same file and assert only one remains.
    - Purpose: Verify dedupe by identical chunk text.
 
-14. [ ] Update server `.env` with tool cap defaults:
+14. [ ] Add unit test for server-side dedupe (identical chunk text across different files):
+   - Documentation to read (repeat):
+     - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
+   - Test type: Unit (payload dedupe)
+   - Location: `server/src/test/unit/tools-vector-search.test.ts`
+   - Description: Provide identical chunk text in different `repo + relPath` buckets and assert both files remain.
+   - Purpose: Ensure dedupe does not remove cross-file citations.
+
+15. [ ] Update server `.env` with tool cap defaults:
    - Documentation to read (repeat):
      - Node.js `process.env`: https://nodejs.org/api/process.html#processenv
    - Recap: document total and per-chunk cap defaults for local runs.
@@ -1101,7 +1109,7 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
      - Add commented defaults for `CODEINFO_TOOL_MAX_CHARS` and `CODEINFO_TOOL_CHUNK_MAX_CHARS`.
      - Keep existing env ordering and comment style.
 
-15. [ ] Documentation update - `design.md` (tool cap defaults text):
+16. [ ] Documentation update - `design.md` (tool cap defaults text):
    - Documentation to read (repeat):
      - Mermaid: Context7 `/mermaid-js/mermaid`
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -1110,7 +1118,7 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
    - Description: Document total/per-chunk cap defaults and truncation behavior in text.
    - Purpose: Keep tool payload documentation accurate.
 
-16. [ ] Documentation update - `design.md` (payload cap diagram):
+17. [ ] Documentation update - `design.md` (payload cap diagram):
     - Documentation to read (repeat):
       - Mermaid: Context7 `/mermaid-js/mermaid`
       - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -1119,7 +1127,7 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
     - Description: Update or add a Mermaid diagram covering payload capping/truncation steps.
     - Purpose: Ensure architecture diagrams reflect payload cap logic.
 
-17. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+18. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
     - Documentation to read (repeat):
       - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
       - Prettier options: https://prettier.io/docs/options

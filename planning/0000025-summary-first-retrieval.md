@@ -569,9 +569,12 @@ Update Chat and Agents tool detail panels to explicitly label distance values an
 
 #### Documentation Locations
 
+- MUI docs note: `package-lock.json` resolves `@mui/material` to 6.5.0; the closest available MCP docs are 6.4.12, so confirm props/slots match before coding.
 - MUI Accordion (expandable tool details): https://llms.mui.com/material-ui/6.4.12/components/accordion.md
 - MUI Typography (label text + value formatting): https://llms.mui.com/material-ui/6.4.12/components/typography.md
 - MUI Stack (layout + spacing): https://llms.mui.com/material-ui/6.4.12/components/stack.md
+- MUI Accordion API (slotProps/slots, TransitionProps deprecations): https://mui.com/material-ui/api/accordion/
+- MUI AccordionSummary API (slotProps/slots): https://mui.com/material-ui/api/accordion-summary/
 - Testing Library React docs (component testing patterns): https://testing-library.com/docs/react-testing-library/intro/
 - Jest expect API (assertions for UI output): https://jestjs.io/docs/expect
 
@@ -595,11 +598,12 @@ Update Chat and Agents tool detail panels to explicitly label distance values an
      - `client/src/pages/ChatPage.tsx`
      - `client/src/pages/AgentsPage.tsx`
    - Requirements:
-     - Replace ambiguous “Match” labels with “Distance” or “Lowest distance.”
-     - Display per-match distance values alongside each chunk in expanded tool details.
-     - Render per-match rows from tool payload `results` (not just file summaries), including the distance value and chunk preview.
-     - Skip or gracefully handle entries missing `repo` or `relPath` without breaking the tool panel.
-     - Keep formatting consistent with existing tool detail accordions.
+    - Replace ambiguous “Match” labels with “Distance” or “Lowest distance.”
+    - Display per-match distance values alongside each chunk in expanded tool details.
+    - Render per-match rows from tool payload `results` (not just file summaries), including the distance value and chunk preview.
+    - Avoid introducing deprecated Accordion `TransitionProps`/`TransitionComponent`; use slots/slotProps if adjustments are needed per MUI 6.5.x API.
+    - Skip or gracefully handle entries missing `repo` or `relPath` without breaking the tool panel.
+    - Keep formatting consistent with existing tool detail accordions.
 
 3. [ ] Update client UI tests for distance label changes:
    - Files to edit:

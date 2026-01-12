@@ -32,7 +32,7 @@ We also need to correct the current “best match” aggregation logic for vecto
 - Vector search score semantics are confirmed: Chroma returns distances (lower is better, 0 is identical); cutoff logic uses `<=` on distance values and any “best match” aggregation uses the minimum distance, while preserving the order returned by Chroma.
 - The vector search UI/tool details surface the distance value explicitly for each match entry when expanded (so users can see raw distance for each match).
 - VectorSearch citations are deduplicated in two stages before being stored/displayed: (1) remove exact duplicates (same chunk id or identical chunk text), then (2) limit to the top 2 chunks per file by best distance (lowest) when more than 2 remain. File identity should be `repo + relPath`, ties keep the earliest item in the original results order, and entries with missing distances are treated as lowest priority (only included via fallback if needed).
-- Score-source logging remains enabled with the same tag/shape as today (no logging changes in this story).
+- Score-source logging remains enabled with the same tag/shape as today; additional `DEV-0000025:*` log markers are added for manual verification only.
 - Documentation reflects the new retrieval strategy (cutoff, caps, answer-only MCP) in `design.md`, and `README.md` is updated only if any user-facing behavior or commands change.
 
 ---
@@ -72,7 +72,7 @@ We also need to correct the current “best match” aggregation logic for vecto
 - **Vector search cutoff + caps (server):**
   - `server/src/lmstudio/toolService.ts` → `vectorSearch()` should read the new env vars, apply the cutoff against `scores` (prefer `distances` when present), enforce the fallback count when no hits pass, and truncate or drop chunks to respect `CODEINFO_TOOL_MAX_CHARS` + `CODEINFO_TOOL_CHUNK_MAX_CHARS` while preserving the original result order.
   - `server/src/lmstudio/toolService.ts` → `aggregateVectorFiles()` should switch from `Math.max` to `Math.min` for `highestMatch` because lower distance is better.
-  - Preserve existing score-source logging; do not add new log tags for cutoff/caps in this story.
+  - Preserve existing score-source logging tags and add task-scoped `DEV-0000025:*` log markers only for manual verification.
 
 - **Vector summary aggregation (MCP responder):**
   - `server/src/chat/responders/McpResponder.ts` → `buildVectorSummary()` should also use `Math.min` for `match` so the summary reflects the best (lowest) distance when aggregating result entries.
@@ -241,7 +241,14 @@ Return answer-only segments for MCP `codebase_question` responses while preservi
    - Description: Trigger an invalid params or tool error and assert the JSON-RPC error shape is unchanged.
    - Purpose: Ensure answer-only filtering does not alter error responses.
 
-9. [ ] Documentation update - `design.md` (MCP answer-only contract):
+9. [ ] Add server log line for MCP answer-only filtering:
+   - Files to edit:
+     - `server/src/mcp2/tools/codebaseQuestion.ts`
+   - Log line (exact message): `DEV-0000025:T1:codebase_answer_only_filtered`
+   - Log context: `{ conversationId, modelId, segmentTypes: segments.map((s) => s.type) }`.
+   - Purpose: Provide a deterministic log marker for manual verification.
+
+10. [ ] Documentation update - `design.md` (MCP answer-only contract):
    - Documentation to read (repeat):
      - Mermaid: Context7 `/mermaid-js/mermaid`
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -250,7 +257,7 @@ Return answer-only segments for MCP `codebase_question` responses while preservi
    - Description: Update MCP response shape notes to reflect answer-only segments for `codebase_question` and agents.
    - Purpose: Keep MCP contract documentation accurate.
 
-10. [ ] Documentation update - `design.md` (MCP response flow diagram):
+11. [ ] Documentation update - `design.md` (MCP response flow diagram):
     - Documentation to read (repeat):
       - Mermaid: Context7 `/mermaid-js/mermaid`
       - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -259,7 +266,7 @@ Return answer-only segments for MCP `codebase_question` responses while preservi
     - Description: Update or add a Mermaid sequence diagram if MCP response flows are documented.
     - Purpose: Ensure architecture flow diagrams match the answer-only response format.
 
-11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
     - Documentation to read (repeat):
       - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
       - Prettier options: https://prettier.io/docs/options
@@ -313,7 +320,9 @@ Return answer-only segments for MCP `codebase_question` responses while preservi
    - Documentation to read (repeat):
      - Playwright Test docs: https://playwright.dev/docs/intro
    - Location: http://host.docker.internal:5001
-   - Description: Navigate to Chat and Agents flows, confirm MCP responses only surface the final answer (no reasoning/vector summary), and verify there are no logged errors in the debug console.
+   - Description: Trigger a `codebase_question` MCP call, then open Logs and filter for `DEV-0000025:T1:codebase_answer_only_filtered`.
+   - Expected log outcome: one entry with `segmentTypes` containing only `['answer']`, plus non-empty `conversationId` and `modelId`.
+   - Regression check: confirm MCP responses only surface the final answer (no reasoning/vector summary) and verify there are no logged errors in the debug console.
    - Purpose: Manual verification of MCP answer-only behavior and UI stability.
 
 9. [ ] Shut down Docker Compose stack:
@@ -419,7 +428,14 @@ Return answer-only segments for MCP agent `run_agent_instruction` responses whil
    - Description: Simulate a response without an answer segment and assert a single empty `answer` segment is returned.
    - Purpose: Ensure answer-only filtering always yields an `answer` segment for agents.
 
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+7. [ ] Add server log line for agent MCP answer-only filtering:
+   - Files to edit:
+     - `server/src/mcpAgents/tools.ts`
+   - Log line (exact message): `DEV-0000025:T2:agent_answer_only_filtered`
+   - Log context: `{ conversationId, modelId, segmentTypes: segments.map((s) => s.type) }`.
+   - Purpose: Provide a deterministic log marker for manual verification.
+
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier options: https://prettier.io/docs/options
@@ -473,7 +489,9 @@ Return answer-only segments for MCP agent `run_agent_instruction` responses whil
    - Documentation to read (repeat):
      - Playwright Test docs: https://playwright.dev/docs/intro
    - Location: http://host.docker.internal:5001
-   - Description: Navigate to Agents UI, run an agent instruction, confirm only the final answer is shown (no reasoning/vector summary), and verify there are no logged errors in the debug console.
+   - Description: Run an agent instruction, then open Logs and filter for `DEV-0000025:T2:agent_answer_only_filtered`.
+   - Expected log outcome: one entry with `segmentTypes` containing only `['answer']`, plus non-empty `conversationId` and `modelId`.
+   - Regression check: confirm only the final answer is shown (no reasoning/vector summary) and verify there are no logged errors in the debug console.
    - Purpose: Manual verification of agent MCP answer-only behavior and UI stability.
 
 9. [ ] Shut down Docker Compose stack:
@@ -550,7 +568,15 @@ Switch vector “best match” aggregation to use minimum distance values (lower
    - Example (target change):
      - `base.match = base.match === null ? item.score : Math.min(base.match, item.score);`
 
-4. [ ] Update unit test for tool aggregation min-distance:
+4. [ ] Add server log line for min-distance aggregation:
+   - Files to edit:
+     - `server/src/lmstudio/toolService.ts`
+     - `server/src/chat/responders/McpResponder.ts`
+   - Log line (exact message): `DEV-0000025:T3:min_distance_aggregation_applied`
+   - Log context: `{ source: 'tool' | 'mcp', bestMatch, fileCount }`.
+   - Purpose: Provide a deterministic log marker for manual verification.
+
+5. [ ] Update unit test for tool aggregation min-distance:
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
    - Test type: Unit (vector tool aggregation)
@@ -558,7 +584,7 @@ Switch vector “best match” aggregation to use minimum distance values (lower
    - Description: Assert `highestMatch` uses the smallest distance and remains `null` when no numeric distances exist.
    - Purpose: Verify tool aggregation reports correct min-distance semantics.
 
-5. [ ] Update MCP tool test for vector summary min-distance:
+6. [ ] Update MCP tool test for vector summary min-distance:
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
    - Test type: Unit (MCP tool summary)
@@ -566,7 +592,7 @@ Switch vector “best match” aggregation to use minimum distance values (lower
    - Description: Assert the vector summary `match` reflects the lowest distance.
    - Purpose: Ensure MCP summaries align with min-distance semantics.
 
-6. [ ] Documentation update - `design.md` (min-distance wording):
+7. [ ] Documentation update - `design.md` (min-distance wording):
    - Documentation to read (repeat):
      - Mermaid: Context7 `/mermaid-js/mermaid`
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -575,7 +601,7 @@ Switch vector “best match” aggregation to use minimum distance values (lower
    - Description: Update wording around vector “best match” aggregation to reflect min-distance semantics.
    - Purpose: Keep retrieval semantics aligned with Chroma distance.
 
-7. [ ] Documentation update - `design.md` (match scoring diagram updates):
+8. [ ] Documentation update - `design.md` (match scoring diagram updates):
    - Documentation to read (repeat):
      - Mermaid: Context7 `/mermaid-js/mermaid`
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -584,7 +610,7 @@ Switch vector “best match” aggregation to use minimum distance values (lower
    - Description: Update any Mermaid retrieval flow diagrams that mention match scoring.
    - Purpose: Ensure architecture diagrams reflect min-distance aggregation.
 
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier options: https://prettier.io/docs/options
@@ -638,7 +664,9 @@ Switch vector “best match” aggregation to use minimum distance values (lower
    - Documentation to read (repeat):
      - Playwright Test docs: https://playwright.dev/docs/intro
    - Location: http://host.docker.internal:5001
-   - Description: Use tool detail panels to confirm best-match distances align with “lower is better” expectations and verify there are no logged errors in the debug console.
+   - Description: Run a vector search flow, then open Logs and filter for `DEV-0000025:T3:min_distance_aggregation_applied`.
+   - Expected log outcome: entries for `source: 'tool'` and `source: 'mcp'` with `bestMatch` matching the smallest distance observed.
+   - Regression check: confirm best-match distances align with “lower is better” expectations and verify there are no logged errors in the debug console.
    - Purpose: Manual validation of distance semantics and UI stability.
 
 9. [ ] Shut down Docker Compose stack:
@@ -727,7 +755,14 @@ Introduce distance-based cutoff logic for vector search results with an env-conf
      const picked = eligible.length ? eligible : pickLowest(results, fallback);
      ```
 
-4. [ ] Add unit test for cutoff enabled filtering:
+4. [ ] Add server log line for cutoff + fallback filtering:
+   - Files to edit:
+     - `server/src/lmstudio/toolService.ts`
+   - Log line (exact message): `DEV-0000025:T4:cutoff_filter_applied`
+   - Log context: `{ cutoff, cutoffDisabled, fallbackCount, originalCount, keptCount }`.
+   - Purpose: Provide a deterministic log marker for manual verification.
+
+5. [ ] Add unit test for cutoff enabled filtering:
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
    - Test type: Unit (vector search filtering)
@@ -735,7 +770,7 @@ Introduce distance-based cutoff logic for vector search results with an env-conf
    - Description: Assert results are filtered to distances `<= cutoff` when cutoff is enabled.
    - Purpose: Validate the default happy-path cutoff behavior.
 
-5. [ ] Add unit test for cutoff disabled:
+6. [ ] Add unit test for cutoff disabled:
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
    - Test type: Unit (vector search filtering)
@@ -743,7 +778,7 @@ Introduce distance-based cutoff logic for vector search results with an env-conf
    - Description: Assert all results remain eligible when `CODEINFO_RETRIEVAL_CUTOFF_DISABLED=true`.
    - Purpose: Verify the cutoff bypass flag works.
 
-6. [ ] Add unit test for fallback selection when none pass:
+7. [ ] Add unit test for fallback selection when none pass:
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
    - Test type: Unit (vector search fallback)
@@ -751,7 +786,7 @@ Introduce distance-based cutoff logic for vector search results with an env-conf
    - Description: Assert the best N (lowest distance) results are kept when cutoff filters all items.
    - Purpose: Ensure fallback chunks are always provided.
 
-7. [ ] Add unit test for empty result sets:
+8. [ ] Add unit test for empty result sets:
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
    - Test type: Unit (vector search edge case)
@@ -759,7 +794,7 @@ Introduce distance-based cutoff logic for vector search results with an env-conf
    - Description: Assert empty inputs return an empty payload without errors.
    - Purpose: Cover the no-results corner case.
 
-8. [ ] Add unit test for all-missing distance values:
+9. [ ] Add unit test for all-missing distance values:
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
    - Test type: Unit (vector search edge case)
@@ -767,7 +802,7 @@ Introduce distance-based cutoff logic for vector search results with an env-conf
    - Description: Assert missing/non-numeric distances are treated as lowest priority and only included via fallback.
    - Purpose: Validate missing score handling.
 
-9. [ ] Add unit test for tie-break ordering:
+10. [ ] Add unit test for tie-break ordering:
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
    - Test type: Unit (vector search ordering)
@@ -775,7 +810,7 @@ Introduce distance-based cutoff logic for vector search results with an env-conf
    - Description: Assert equal-distance items preserve original order after filtering/fallback.
    - Purpose: Confirm stable ordering requirements.
 
-10. [ ] Add unit test for file summaries after filtering:
+11. [ ] Add unit test for file summaries after filtering:
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
    - Test type: Unit (vector file summaries)
@@ -783,7 +818,7 @@ Introduce distance-based cutoff logic for vector search results with an env-conf
    - Description: Assert `files` summaries are rebuilt from filtered results (e.g., excluded file paths are absent and chunk counts match filtered results).
    - Purpose: Ensure summary payloads reflect the cutoff-filtered result set.
 
-11. [ ] Add unit test for invalid env values:
+12. [ ] Add unit test for invalid env values:
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
    - Test type: Unit (env parsing edge case)
@@ -791,7 +826,7 @@ Introduce distance-based cutoff logic for vector search results with an env-conf
    - Description: Provide non-numeric or negative env values and assert defaults are used.
    - Purpose: Ensure env parsing guards apply.
 
-12. [ ] Update server `.env` with retrieval cutoff defaults:
+13. [ ] Update server `.env` with retrieval cutoff defaults:
    - Documentation to read (repeat):
      - Node.js `process.env`: https://nodejs.org/api/process.html#processenv
    - Recap: document cutoff, bypass flag, and fallback defaults for local runs.
@@ -801,7 +836,7 @@ Introduce distance-based cutoff logic for vector search results with an env-conf
      - Add commented defaults for `CODEINFO_RETRIEVAL_DISTANCE_CUTOFF`, `CODEINFO_RETRIEVAL_CUTOFF_DISABLED`, and `CODEINFO_RETRIEVAL_FALLBACK_CHUNKS`.
      - Keep existing env ordering and comment style.
 
-13. [ ] Documentation update - `design.md` (cutoff + fallback text):
+14. [ ] Documentation update - `design.md` (cutoff + fallback text):
    - Documentation to read (repeat):
      - Mermaid: Context7 `/mermaid-js/mermaid`
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -810,7 +845,7 @@ Introduce distance-based cutoff logic for vector search results with an env-conf
    - Description: Add retrieval cutoff, fallback defaults, and bypass flag text.
    - Purpose: Keep retrieval strategy documentation accurate.
 
-14. [ ] Documentation update - `design.md` (cutoff flow diagram):
+15. [ ] Documentation update - `design.md` (cutoff flow diagram):
    - Documentation to read (repeat):
      - Mermaid: Context7 `/mermaid-js/mermaid`
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -819,7 +854,7 @@ Introduce distance-based cutoff logic for vector search results with an env-conf
    - Description: Update or add a Mermaid retrieval flow diagram that includes cutoff + fallback steps.
    - Purpose: Ensure architecture diagrams reflect cutoff logic.
 
-15. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+16. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier options: https://prettier.io/docs/options
@@ -873,7 +908,9 @@ Introduce distance-based cutoff logic for vector search results with an env-conf
    - Documentation to read (repeat):
      - Playwright Test docs: https://playwright.dev/docs/intro
    - Location: http://host.docker.internal:5001
-   - Description: Trigger a vector search, confirm low-relevance chunks are trimmed with fallback still present when needed, and verify there are no logged errors in the debug console.
+   - Description: Trigger a vector search, then open Logs and filter for `DEV-0000025:T4:cutoff_filter_applied`.
+   - Expected log outcome: one entry with `cutoffDisabled` matching env, `originalCount` > `keptCount`, and `fallbackCount` > 0 when no items pass.
+   - Regression check: confirm low-relevance chunks are trimmed with fallback still present when needed and verify there are no logged errors in the debug console.
    - Purpose: Manual verification of cutoff/fallback behavior and UI stability.
 
 9. [ ] Shut down Docker Compose stack:
@@ -963,7 +1000,14 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
      }
      ```
 
-4. [ ] Add unit test for per-chunk truncation:
+4. [ ] Add server log line for payload caps:
+   - Files to edit:
+     - `server/src/lmstudio/toolService.ts`
+   - Log line (exact message): `DEV-0000025:T5:payload_cap_applied`
+   - Log context: `{ totalCap, chunkCap, keptChars, keptChunks }`.
+   - Purpose: Provide a deterministic log marker for manual verification.
+
+5. [ ] Add unit test for per-chunk truncation:
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
    - Test type: Unit (payload truncation)
@@ -971,7 +1015,7 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
    - Description: Assert each chunk is truncated to `CODEINFO_TOOL_CHUNK_MAX_CHARS`.
    - Purpose: Verify per-chunk truncation logic.
 
-5. [ ] Add unit test for total cap enforcement:
+6. [ ] Add unit test for total cap enforcement:
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
    - Test type: Unit (payload cap)
@@ -979,7 +1023,7 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
    - Description: Assert additional chunks are dropped once the total cap is reached.
    - Purpose: Ensure total payload limits are enforced.
 
-6. [ ] Add unit test for caps too small to include any chunk:
+7. [ ] Add unit test for caps too small to include any chunk:
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
    - Test type: Unit (payload edge case)
@@ -987,7 +1031,7 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
    - Description: Set the total cap below one truncated chunk and assert results are empty.
    - Purpose: Cover the zero-results edge case for caps.
 
-7. [ ] Add unit test for line counts after truncation:
+8. [ ] Add unit test for line counts after truncation:
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
    - Test type: Unit (payload truncation)
@@ -995,7 +1039,7 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
    - Description: Assert `lineCount` reflects the truncated chunk text rather than the original chunk.
    - Purpose: Ensure line totals match capped payloads.
 
-8. [ ] Add unit test for file summaries after caps:
+9. [ ] Add unit test for file summaries after caps:
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
    - Test type: Unit (vector file summaries)
@@ -1003,7 +1047,7 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
    - Description: Assert `files` summaries use the capped results (chunk counts/line counts align with truncated output).
    - Purpose: Keep summary payloads consistent with capped results.
 
-9. [ ] Add unit test for invalid env values:
+10. [ ] Add unit test for invalid env values:
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
    - Test type: Unit (env parsing edge case)
@@ -1011,7 +1055,7 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
    - Description: Provide non-numeric or negative cap values and assert defaults are used.
    - Purpose: Ensure env parsing guards apply.
 
-10. [ ] Update server `.env` with tool cap defaults:
+11. [ ] Update server `.env` with tool cap defaults:
    - Documentation to read (repeat):
      - Node.js `process.env`: https://nodejs.org/api/process.html#processenv
    - Recap: document total and per-chunk cap defaults for local runs.
@@ -1021,7 +1065,7 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
      - Add commented defaults for `CODEINFO_TOOL_MAX_CHARS` and `CODEINFO_TOOL_CHUNK_MAX_CHARS`.
      - Keep existing env ordering and comment style.
 
-11. [ ] Documentation update - `design.md` (tool cap defaults text):
+12. [ ] Documentation update - `design.md` (tool cap defaults text):
    - Documentation to read (repeat):
      - Mermaid: Context7 `/mermaid-js/mermaid`
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -1030,7 +1074,7 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
    - Description: Document total/per-chunk cap defaults and truncation behavior in text.
    - Purpose: Keep tool payload documentation accurate.
 
-12. [ ] Documentation update - `design.md` (payload cap diagram):
+13. [ ] Documentation update - `design.md` (payload cap diagram):
     - Documentation to read (repeat):
       - Mermaid: Context7 `/mermaid-js/mermaid`
       - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -1039,7 +1083,7 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
     - Description: Update or add a Mermaid diagram covering payload capping/truncation steps.
     - Purpose: Ensure architecture diagrams reflect payload cap logic.
 
-13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
     - Documentation to read (repeat):
       - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
       - Prettier options: https://prettier.io/docs/options
@@ -1093,7 +1137,9 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
    - Documentation to read (repeat):
      - Playwright Test docs: https://playwright.dev/docs/intro
    - Location: http://host.docker.internal:5001
-   - Description: Trigger a large vector search payload, confirm tool output truncates without UI failures, and verify there are no logged errors in the debug console.
+   - Description: Trigger a large vector search payload, then open Logs and filter for `DEV-0000025:T5:payload_cap_applied`.
+   - Expected log outcome: `keptChars <= totalCap` and `keptChunks` reflects the capped list size.
+   - Regression check: confirm tool output truncates without UI failures and verify there are no logged errors in the debug console.
    - Purpose: Manual verification of payload cap behavior and UI stability.
 
 9. [ ] Shut down Docker Compose stack:
@@ -1164,7 +1210,14 @@ Deduplicate VectorSearch citations on the client by removing exact duplicates pe
      // de-dupe by chunkId OR chunk text within key, then sort by score.
      ```
 
-3. [ ] Add unit test for duplicate chunk ids:
+3. [ ] Add client log line for citation dedupe:
+   - Files to edit:
+     - `client/src/hooks/useChatStream.ts`
+   - Log line (exact message): `DEV-0000025:T6:citations_deduped`
+   - Log context: `{ beforeCount, afterCount, fileCount }`.
+   - Purpose: Provide a deterministic log marker for manual verification.
+
+4. [ ] Add unit test for duplicate chunk ids:
    - Documentation to read (repeat):
      - Jest expect API: Context7 `/jestjs/jest` (ExpectAPI.md)
    - Test type: Client unit (hook payload processing)
@@ -1172,7 +1225,7 @@ Deduplicate VectorSearch citations on the client by removing exact duplicates pe
    - Description: Provide duplicate `chunkId` values within the same file and assert only one remains.
    - Purpose: Verify stage-1 dedupe by chunk id.
 
-4. [ ] Add unit test for duplicate chunk text within the same file:
+5. [ ] Add unit test for duplicate chunk text within the same file:
    - Documentation to read (repeat):
      - Jest expect API: Context7 `/jestjs/jest` (ExpectAPI.md)
    - Test type: Client unit (hook payload processing)
@@ -1180,7 +1233,7 @@ Deduplicate VectorSearch citations on the client by removing exact duplicates pe
    - Description: Provide identical chunk text within the same file and assert only one remains.
    - Purpose: Verify stage-1 dedupe by chunk text.
 
-5. [ ] Add unit test for duplicate chunk text across different files:
+6. [ ] Add unit test for duplicate chunk text across different files:
    - Documentation to read (repeat):
      - Jest expect API: Context7 `/jestjs/jest` (ExpectAPI.md)
    - Test type: Client unit (hook payload processing)
@@ -1188,7 +1241,7 @@ Deduplicate VectorSearch citations on the client by removing exact duplicates pe
    - Description: Provide identical chunk text in different `repo + relPath` buckets and assert both files remain.
    - Purpose: Ensure dedupe does not remove cross-file citations.
 
-6. [ ] Add unit test for top-2 per file with distance tie-breaks:
+7. [ ] Add unit test for top-2 per file with distance tie-breaks:
    - Documentation to read (repeat):
      - Jest expect API: Context7 `/jestjs/jest` (ExpectAPI.md)
    - Test type: Client unit (hook payload processing)
@@ -1196,7 +1249,7 @@ Deduplicate VectorSearch citations on the client by removing exact duplicates pe
    - Description: Provide 3+ citations in one file and assert the two lowest distances remain in original order when tied.
    - Purpose: Validate stage-2 per-file limiting and ordering rules.
 
-7. [ ] Add unit test for malformed citations missing `repo` or `relPath`:
+8. [ ] Add unit test for malformed citations missing `repo` or `relPath`:
    - Documentation to read (repeat):
      - Jest expect API: Context7 `/jestjs/jest` (ExpectAPI.md)
    - Test type: Client unit (hook payload processing)
@@ -1204,7 +1257,7 @@ Deduplicate VectorSearch citations on the client by removing exact duplicates pe
    - Description: Include citations with missing `repo`/`relPath` and assert they are ignored without crashing.
    - Purpose: Cover malformed input handling.
 
-8. [ ] Documentation update - `design.md` (citation dedupe text):
+9. [ ] Documentation update - `design.md` (citation dedupe text):
    - Documentation to read (repeat):
      - Mermaid: Context7 `/mermaid-js/mermaid`
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -1213,7 +1266,7 @@ Deduplicate VectorSearch citations on the client by removing exact duplicates pe
    - Description: Add citation dedupe rules (two-stage + top-2 per file) to retrieval strategy notes.
    - Purpose: Keep client citation behavior documented.
 
-9. [ ] Documentation update - `design.md` (citation filtering diagram):
+10. [ ] Documentation update - `design.md` (citation filtering diagram):
    - Documentation to read (repeat):
      - Mermaid: Context7 `/mermaid-js/mermaid`
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -1222,7 +1275,7 @@ Deduplicate VectorSearch citations on the client by removing exact duplicates pe
    - Description: Update or add a Mermaid diagram for citation filtering flow if a retrieval flow diagram exists.
    - Purpose: Ensure architecture diagrams reflect citation filtering.
 
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
     - Documentation to read (repeat):
       - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
       - Prettier options: https://prettier.io/docs/options
@@ -1276,7 +1329,9 @@ Deduplicate VectorSearch citations on the client by removing exact duplicates pe
    - Documentation to read (repeat):
      - Playwright Test docs: https://playwright.dev/docs/intro
    - Location: http://host.docker.internal:5001
-   - Description: Inspect citations in Chat/Agents to confirm dedupe rules (top-2 per file) and verify there are no logged errors in the debug console.
+   - Description: Inspect citations in Chat/Agents, then open Logs and filter for `DEV-0000025:T6:citations_deduped`.
+   - Expected log outcome: `afterCount` <= `beforeCount` and `fileCount` matches the number of files shown in the UI.
+   - Regression check: confirm dedupe rules (top-2 per file) and verify there are no logged errors in the debug console.
    - Purpose: Manual verification of citation dedupe behavior and UI stability.
 
 9. [ ] Shut down Docker Compose stack:
@@ -1349,7 +1404,15 @@ Update Chat and Agents tool detail panels to explicitly label distance values an
    - Example (UI row outline):
      - `Distance: 0.532 · repo/path.ts` + preview text from `result.chunk`.
 
-3. [ ] Update ChatPage tool details test for distance labels:
+3. [ ] Add client log line for tool-detail distance rendering:
+   - Files to edit:
+     - `client/src/pages/ChatPage.tsx`
+     - `client/src/pages/AgentsPage.tsx`
+   - Log line (exact message): `DEV-0000025:T7:tool_details_distance_rendered`
+   - Log context: `{ page: 'chat' | 'agents', matchCount }`.
+   - Purpose: Provide a deterministic log marker for manual verification.
+
+4. [ ] Update ChatPage tool details test for distance labels:
    - Documentation to read (repeat):
      - Testing Library React docs: https://testing-library.com/docs/react-testing-library/intro/
      - Jest expect API: Context7 `/jestjs/jest` (ExpectAPI.md)
@@ -1358,7 +1421,7 @@ Update Chat and Agents tool detail panels to explicitly label distance values an
    - Description: Assert the tool details display a “Distance” label and per-match distance values when expanded.
    - Purpose: Confirm ChatPage tool details surface distance values.
 
-4. [ ] Update ChatPage tool details test for per-match rows:
+5. [ ] Update ChatPage tool details test for per-match rows:
    - Documentation to read (repeat):
      - Testing Library React docs: https://testing-library.com/docs/react-testing-library/intro/
      - Jest expect API: Context7 `/jestjs/jest` (ExpectAPI.md)
@@ -1367,7 +1430,7 @@ Update Chat and Agents tool detail panels to explicitly label distance values an
    - Description: Assert per-match rows are rendered from tool payload `results` (distance + chunk preview).
    - Purpose: Ensure detailed results render in ChatPage tool panels.
 
-5. [ ] Update AgentsPage tool details test for distance labels:
+6. [ ] Update AgentsPage tool details test for distance labels:
    - Documentation to read (repeat):
      - Testing Library React docs: https://testing-library.com/docs/react-testing-library/intro/
      - Jest expect API: Context7 `/jestjs/jest` (ExpectAPI.md)
@@ -1376,7 +1439,7 @@ Update Chat and Agents tool detail panels to explicitly label distance values an
    - Description: Assert the tool details display a “Distance” label and per-match distance values when expanded.
    - Purpose: Confirm AgentsPage tool details surface distance values.
 
-6. [ ] Update AgentsPage tool details test for per-match rows:
+7. [ ] Update AgentsPage tool details test for per-match rows:
    - Documentation to read (repeat):
      - Testing Library React docs: https://testing-library.com/docs/react-testing-library/intro/
      - Jest expect API: Context7 `/jestjs/jest` (ExpectAPI.md)
@@ -1385,7 +1448,7 @@ Update Chat and Agents tool detail panels to explicitly label distance values an
    - Description: Assert per-match rows render from tool payload `results` (distance + chunk preview).
    - Purpose: Ensure detailed results render in AgentsPage tool panels.
 
-7. [ ] Update ChatPage tool details test for missing distance/preview:
+8. [ ] Update ChatPage tool details test for missing distance/preview:
    - Documentation to read (repeat):
      - Testing Library React docs: https://testing-library.com/docs/react-testing-library/intro/
      - Jest expect API: Context7 `/jestjs/jest` (ExpectAPI.md)
@@ -1394,7 +1457,7 @@ Update Chat and Agents tool detail panels to explicitly label distance values an
    - Description: Provide a result with missing `score` or `chunk` and assert the UI renders a placeholder without crashing.
    - Purpose: Ensure missing distance/preview values are handled safely.
 
-8. [ ] Update AgentsPage tool details test for missing distance/preview:
+9. [ ] Update AgentsPage tool details test for missing distance/preview:
    - Documentation to read (repeat):
      - Testing Library React docs: https://testing-library.com/docs/react-testing-library/intro/
      - Jest expect API: Context7 `/jestjs/jest` (ExpectAPI.md)
@@ -1403,7 +1466,7 @@ Update Chat and Agents tool detail panels to explicitly label distance values an
    - Description: Provide a result with missing `score` or `chunk` and assert the UI renders a placeholder without crashing.
    - Purpose: Ensure missing distance/preview values are handled safely in Agents UI.
 
-9. [ ] Update AgentsPage tool details test for missing `repo`/`relPath`:
+10. [ ] Update AgentsPage tool details test for missing `repo`/`relPath`:
    - Documentation to read (repeat):
      - Testing Library React docs: https://testing-library.com/docs/react-testing-library/intro/
      - Jest expect API: Context7 `/jestjs/jest` (ExpectAPI.md)
@@ -1412,7 +1475,7 @@ Update Chat and Agents tool detail panels to explicitly label distance values an
    - Description: Include entries missing `repo`/`relPath` and assert the panel still renders available matches.
    - Purpose: Ensure tool panels tolerate malformed payload entries.
 
-10. [ ] Documentation update - `design.md` (tool details distance text):
+11. [ ] Documentation update - `design.md` (tool details distance text):
    - Documentation to read (repeat):
      - Mermaid: Context7 `/mermaid-js/mermaid`
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -1421,7 +1484,7 @@ Update Chat and Agents tool detail panels to explicitly label distance values an
    - Description: Document that tool details show raw distance values and that lower is better.
    - Purpose: Keep UI documentation accurate.
 
-11. [ ] Documentation update - `design.md` (tool details UI diagram):
+12. [ ] Documentation update - `design.md` (tool details UI diagram):
    - Documentation to read (repeat):
      - Mermaid: Context7 `/mermaid-js/mermaid`
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -1430,7 +1493,7 @@ Update Chat and Agents tool detail panels to explicitly label distance values an
    - Description: Update or add a Mermaid UI flow diagram if tool-details interactions are documented.
    - Purpose: Ensure UI flow diagrams reflect distance display updates.
 
-12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
     - Documentation to read (repeat):
       - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
       - Prettier options: https://prettier.io/docs/options
@@ -1484,7 +1547,9 @@ Update Chat and Agents tool detail panels to explicitly label distance values an
    - Documentation to read (repeat):
      - Playwright Test docs: https://playwright.dev/docs/intro
    - Location: http://host.docker.internal:5001
-   - Description: Inspect tool details in Chat/Agents for “Distance” labels and per-match values, and verify there are no logged errors in the debug console.
+   - Description: Inspect tool details in Chat/Agents, then open Logs and filter for `DEV-0000025:T7:tool_details_distance_rendered`.
+   - Expected log outcome: entries for `page: 'chat'` and `page: 'agents'` with `matchCount` matching the number of rendered rows.
+   - Regression check: confirm “Distance” labels and per-match values render correctly and verify there are no logged errors in the debug console.
    - Purpose: Manual verification of tool details UI and regression coverage.
 
 9. [ ] Shut down Docker Compose stack:
@@ -1554,7 +1619,14 @@ Validate the full story against acceptance criteria, perform clean builds/tests,
      - Summarize server and client changes separately.
      - Include test commands executed and any known follow-ups.
 
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+5. [ ] Add LogsPage verification log line for story completion:
+   - Files to edit:
+     - `client/src/pages/LogsPage.tsx`
+   - Log line (exact message): `DEV-0000025:T8:verification_logs_reviewed`
+   - Log context: `{ story: '0000025', logChecksComplete: true }`.
+   - Purpose: Provide a deterministic log marker for final manual verification.
+
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier options: https://prettier.io/docs/options
@@ -1608,7 +1680,9 @@ Validate the full story against acceptance criteria, perform clean builds/tests,
    - Documentation to read (repeat):
      - Playwright Test docs: https://playwright.dev/docs/intro
    - Location: http://host.docker.internal:5001
-   - Description: Verify tool details show distance labels/values, citations are deduped to top-2 per file, MCP responses are answer-only, and confirm there are no logged errors in the debug console.
+   - Description: Open the Logs page, filter for `DEV-0000025:T8:verification_logs_reviewed`, then complete story-level checks.
+   - Expected log outcome: one entry with `{ story: '0000025', logChecksComplete: true }`.
+   - Regression check: verify tool details show distance labels/values, citations are deduped to top-2 per file, MCP responses are answer-only, and confirm there are no logged errors in the debug console.
    - Purpose: Capture screenshots and confirm UI expectations beyond automated tests.
 
 9. [ ] Shut down Docker Compose stack:

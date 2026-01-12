@@ -241,18 +241,25 @@ Return answer-only segments for MCP `codebase_question` responses while preservi
    - Description: Trigger an invalid params or tool error and assert the JSON-RPC error shape is unchanged.
    - Purpose: Ensure answer-only filtering does not alter error responses.
 
-9. [ ] Documentation update - `design.md` (only if response contracts are documented):
+9. [ ] Documentation update - `design.md` (MCP answer-only contract):
    - Documentation to read (repeat):
      - Mermaid: Context7 `/mermaid-js/mermaid`
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-   - Recap: add or adjust MCP response shape notes only if the design section currently mentions multi-segment MCP payloads.
-   - Diagram: update or add a Mermaid sequence diagram if MCP response flows are documented.
    - Document: `design.md`
    - Location: `design.md`
-   - Description: Note the answer-only MCP response shape for `codebase_question` and agents.
+   - Description: Update MCP response shape notes to reflect answer-only segments for `codebase_question` and agents.
    - Purpose: Keep MCP contract documentation accurate.
 
-10. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`; fix issues before continuing.
+10. [ ] Documentation update - `design.md` (MCP response flow diagram):
+    - Documentation to read (repeat):
+      - Mermaid: Context7 `/mermaid-js/mermaid`
+      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+    - Document: `design.md`
+    - Location: `design.md`
+    - Description: Update or add a Mermaid sequence diagram if MCP response flows are documented.
+    - Purpose: Ensure architecture flow diagrams match the answer-only response format.
+
+11. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`; fix issues before continuing.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/options
@@ -439,18 +446,25 @@ Switch vector “best match” aggregation to use minimum distance values (lower
    - Description: Assert the vector summary `match` reflects the lowest distance.
    - Purpose: Ensure MCP summaries align with min-distance semantics.
 
-6. [ ] Documentation update - `design.md` (if it documents “highest match” semantics):
+6. [ ] Documentation update - `design.md` (min-distance wording):
    - Documentation to read (repeat):
      - Mermaid: Context7 `/mermaid-js/mermaid`
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-   - Recap: clarify that “best match” reflects the lowest distance.
-   - Diagram: update any Mermaid retrieval flow diagrams that mention match scoring.
    - Document: `design.md`
    - Location: `design.md`
-   - Description: Update wording around vector “best match” aggregation.
+   - Description: Update wording around vector “best match” aggregation to reflect min-distance semantics.
    - Purpose: Keep retrieval semantics aligned with Chroma distance.
 
-7. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`; fix issues before continuing.
+7. [ ] Documentation update - `design.md` (match scoring diagram updates):
+   - Documentation to read (repeat):
+     - Mermaid: Context7 `/mermaid-js/mermaid`
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Document: `design.md`
+   - Location: `design.md`
+   - Description: Update any Mermaid retrieval flow diagrams that mention match scoring.
+   - Purpose: Ensure architecture diagrams reflect min-distance aggregation.
+
+8. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`; fix issues before continuing.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/options
@@ -597,18 +611,25 @@ Introduce distance-based cutoff logic for vector search results with an env-conf
      - Add commented defaults for `CODEINFO_RETRIEVAL_DISTANCE_CUTOFF`, `CODEINFO_RETRIEVAL_CUTOFF_DISABLED`, and `CODEINFO_RETRIEVAL_FALLBACK_CHUNKS`.
      - Keep existing env ordering and comment style.
 
-12. [ ] Documentation update - `design.md` (retrieval cutoff + fallback):
+12. [ ] Documentation update - `design.md` (cutoff + fallback text):
    - Documentation to read (repeat):
      - Mermaid: Context7 `/mermaid-js/mermaid`
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-   - Recap: document cutoff, fallback defaults, and bypass flag.
-   - Diagram: update or add a Mermaid retrieval flow diagram that includes cutoff + fallback steps.
    - Document: `design.md`
    - Location: `design.md`
-   - Description: Add retrieval cutoff + fallback behavior to the retrieval section.
+   - Description: Add retrieval cutoff, fallback defaults, and bypass flag text.
    - Purpose: Keep retrieval strategy documentation accurate.
 
-13. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`; fix issues before continuing.
+13. [ ] Documentation update - `design.md` (cutoff flow diagram):
+   - Documentation to read (repeat):
+     - Mermaid: Context7 `/mermaid-js/mermaid`
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Document: `design.md`
+   - Location: `design.md`
+   - Description: Update or add a Mermaid retrieval flow diagram that includes cutoff + fallback steps.
+   - Purpose: Ensure architecture diagrams reflect cutoff logic.
+
+14. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`; fix issues before continuing.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/options
@@ -732,18 +753,25 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
      - Add commented defaults for `CODEINFO_TOOL_MAX_CHARS` and `CODEINFO_TOOL_CHUNK_MAX_CHARS`.
      - Keep existing env ordering and comment style.
 
-9. [ ] Documentation update - `design.md` (tool payload caps):
+9. [ ] Documentation update - `design.md` (tool cap defaults text):
    - Documentation to read (repeat):
      - Mermaid: Context7 `/mermaid-js/mermaid`
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-   - Recap: document total/per-chunk cap defaults and truncation behavior.
-   - Diagram: update or add a Mermaid diagram covering payload capping/truncation steps.
    - Document: `design.md`
    - Location: `design.md`
-   - Description: Add tool payload size caps to retrieval strategy notes.
+   - Description: Document total/per-chunk cap defaults and truncation behavior in text.
    - Purpose: Keep tool payload documentation accurate.
 
-10. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`; fix issues before continuing.
+10. [ ] Documentation update - `design.md` (payload cap diagram):
+    - Documentation to read (repeat):
+      - Mermaid: Context7 `/mermaid-js/mermaid`
+      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+    - Document: `design.md`
+    - Location: `design.md`
+    - Description: Update or add a Mermaid diagram covering payload capping/truncation steps.
+    - Purpose: Ensure architecture diagrams reflect payload cap logic.
+
+11. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`; fix issues before continuing.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/options
@@ -848,18 +876,25 @@ Deduplicate VectorSearch citations on the client by removing exact duplicates pe
    - Description: Include citations with missing `repo`/`relPath` and assert they are ignored without crashing.
    - Purpose: Cover malformed input handling.
 
-8. [ ] Documentation update - `design.md` (citation dedupe rules):
+8. [ ] Documentation update - `design.md` (citation dedupe text):
    - Documentation to read (repeat):
      - Mermaid: Context7 `/mermaid-js/mermaid`
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-   - Recap: document two-stage dedupe + top-2 per file rule.
-   - Diagram: update or add a Mermaid diagram for citation filtering flow if a retrieval flow diagram exists.
    - Document: `design.md`
    - Location: `design.md`
-   - Description: Add citation dedupe rules to the retrieval strategy notes.
+   - Description: Add citation dedupe rules (two-stage + top-2 per file) to retrieval strategy notes.
    - Purpose: Keep client citation behavior documented.
 
-9. [ ] Run `npm run lint --workspace client` and `npm run format:check --workspace client`; fix issues before continuing.
+9. [ ] Documentation update - `design.md` (citation filtering diagram):
+   - Documentation to read (repeat):
+     - Mermaid: Context7 `/mermaid-js/mermaid`
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Document: `design.md`
+   - Location: `design.md`
+   - Description: Update or add a Mermaid diagram for citation filtering flow if a retrieval flow diagram exists.
+   - Purpose: Ensure architecture diagrams reflect citation filtering.
+
+10. [ ] Run `npm run lint --workspace client` and `npm run format:check --workspace client`; fix issues before continuing.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/options
@@ -976,18 +1011,25 @@ Update Chat and Agents tool detail panels to explicitly label distance values an
    - Description: Include entries missing `repo`/`relPath` and assert the panel still renders available matches.
    - Purpose: Ensure tool panels tolerate malformed payload entries.
 
-8. [ ] Documentation update - `design.md` (tool details distance labels):
+8. [ ] Documentation update - `design.md` (tool details distance text):
    - Documentation to read (repeat):
      - Mermaid: Context7 `/mermaid-js/mermaid`
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-   - Recap: document that tool details show raw distance values and that lower is better.
-   - Diagram: update or add a Mermaid UI flow diagram if tool-details interactions are documented.
    - Document: `design.md`
    - Location: `design.md`
-   - Description: Update tool UI notes to call out distance display.
+   - Description: Document that tool details show raw distance values and that lower is better.
    - Purpose: Keep UI documentation accurate.
 
-9. [ ] Run `npm run lint --workspace client` and `npm run format:check --workspace client`; fix issues before continuing.
+9. [ ] Documentation update - `design.md` (tool details UI diagram):
+   - Documentation to read (repeat):
+     - Mermaid: Context7 `/mermaid-js/mermaid`
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Document: `design.md`
+   - Location: `design.md`
+   - Description: Update or add a Mermaid UI flow diagram if tool-details interactions are documented.
+   - Purpose: Ensure UI flow diagrams reflect distance display updates.
+
+10. [ ] Run `npm run lint --workspace client` and `npm run format:check --workspace client`; fix issues before continuing.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/options

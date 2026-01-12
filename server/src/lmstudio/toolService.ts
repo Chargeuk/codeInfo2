@@ -335,16 +335,16 @@ export async function vectorSearch(
   const metas = Array.isArray(queryResult.metadatas?.[0])
     ? queryResult.metadatas[0]
     : [];
-  const hasDistances = Array.isArray(queryResult.distances?.[0]);
-  const hasScores = Array.isArray(queryResult.scores?.[0]);
-  const scores = hasDistances
-    ? queryResult.distances[0]
-    : hasScores
-      ? queryResult.scores[0]
-      : [];
-  const scoreSource = hasDistances
+  const distanceValues = Array.isArray(queryResult.distances?.[0])
+    ? queryResult.distances?.[0]
+    : undefined;
+  const scoreValues = Array.isArray(queryResult.scores?.[0])
+    ? queryResult.scores?.[0]
+    : undefined;
+  const scores = distanceValues ?? scoreValues ?? [];
+  const scoreSource = distanceValues
     ? 'distances'
-    : hasScores
+    : scoreValues
       ? 'scores'
       : 'none';
   const numericScores = scores.filter(

@@ -22,13 +22,13 @@ We also need to correct the current “best match” aggregation logic for vecto
 
 - A relevance cutoff is applied to vector search results so low-score chunks are not sent to Codex; default cutoff is distance <= 1.4 (lower is better), overridable via `CODEINFO_RETRIEVAL_DISTANCE_CUTOFF`, and the best `CODEINFO_RETRIEVAL_FALLBACK_CHUNKS` results (default 2) are still included even if none pass the cutoff.
 - Cutoff bypass is supported: when `CODEINFO_RETRIEVAL_CUTOFF_DISABLED=true`, the cutoff is ignored and all results are eligible (still subject to payload caps).
-- Tool payloads sent to Codex have a clear size cap: total tool output capped at ~40k characters via `CODEINFO_TOOL_MAX_CHARS` (default 40000) and each chunk capped by `CODEINFO_TOOL_CHUNK_MAX_CHARS` (default 5000); content beyond these limits is truncated or dropped so the cap is never exceeded, and the original ordering of the remaining chunks is preserved.
+- Tool payloads sent to Codex have a clear size cap: total tool output capped at ~40k characters via `CODEINFO_TOOL_MAX_CHARS` (default 40000) and each chunk capped by `CODEINFO_TOOL_CHUNK_MAX_CHARS` (default 5000). The limits apply to the `chunk` text length only; content beyond these limits is truncated or dropped so the cap is never exceeded, and the original ordering of the remaining chunks is preserved.
 - MCP responses for `codebase_question` and agent `run_agent_instruction` return only the final answer text (no reasoning/summary segments) while still including `conversationId` and `modelId` in the JSON response payload.
 - Vector search score semantics are confirmed: Chroma returns distances (lower is better, 0 is identical); cutoff logic uses `<=` on distance values and any “best match” aggregation uses the minimum distance, while preserving the order returned by Chroma.
 - The vector search UI/tool details surface the distance value explicitly for each match entry when expanded (so users can see raw distance for each match).
-- VectorSearch citations are deduplicated in two stages before being stored/displayed: (1) remove exact duplicates (same chunk id or identical chunk text), then (2) limit to the top 2 chunks per file by best distance (lowest) when more than 2 remain.
+- VectorSearch citations are deduplicated in two stages before being stored/displayed: (1) remove exact duplicates (same chunk id or identical chunk text), then (2) limit to the top 2 chunks per file by best distance (lowest) when more than 2 remain. File identity should be `repo + relPath`, and ties should keep the earliest item in the original results order.
 - Score-source logging remains enabled with the same tag/shape as today (no logging changes in this story).
-- Documentation reflects the new retrieval strategy and any updated ingest behavior.
+- Documentation reflects the new retrieval strategy (cutoff, caps, answer-only MCP) in `design.md`, and `README.md` is updated only if any user-facing behavior or commands change.
 
 ---
 

@@ -641,7 +641,7 @@ Capture usage metadata from Codex `turn.completed` events and feed it into the s
 
 ### 4. Server: capture LM Studio prediction stats
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **__to_do__**
 
 #### Overview

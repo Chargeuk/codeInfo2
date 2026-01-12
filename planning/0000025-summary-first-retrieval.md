@@ -334,6 +334,8 @@ Introduce distance-based cutoff logic for vector search results with an env-conf
    - Recap (acceptance criteria): default cutoff `<= 1.4`, cutoff bypass flag, fallback to best 1–2 chunks when no items pass.
    - Files to read:
      - `server/src/lmstudio/toolService.ts`
+     - `server/src/logger.ts` (existing numeric env parser)
+     - `server/src/ingest/config.ts` (numeric clamp patterns)
      - `server/src/config.ts`
      - `server/src/test/unit/tools-vector-search.test.ts`
    - Goal:
@@ -343,6 +345,7 @@ Introduce distance-based cutoff logic for vector search results with an env-conf
    - Files to edit:
      - `server/src/lmstudio/toolService.ts`
    - Requirements:
+     - Reuse the existing `parseNumber` helper in `server/src/logger.ts` (or extract it to a shared utility) for numeric env defaults; avoid new ad-hoc parsing.
      - Read `CODEINFO_RETRIEVAL_DISTANCE_CUTOFF`, `CODEINFO_RETRIEVAL_CUTOFF_DISABLED`, and `CODEINFO_RETRIEVAL_FALLBACK_CHUNKS` with defaults.
      - Parse numeric values safely; treat invalid values as default.
      - Keep existing score-source logging unchanged.
@@ -422,6 +425,8 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
    - Recap (acceptance criteria): total tool output capped at `CODEINFO_TOOL_MAX_CHARS`, per-chunk capped at `CODEINFO_TOOL_CHUNK_MAX_CHARS`.
    - Files to read:
      - `server/src/lmstudio/toolService.ts`
+     - `server/src/logger.ts` (existing numeric env parser)
+     - `server/src/ingest/config.ts` (numeric clamp patterns)
      - `server/src/test/unit/tools-vector-search.test.ts`
    - Goal:
      - Locate where chunks are assembled and where size counting can be applied.
@@ -430,6 +435,7 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
    - Files to edit:
      - `server/src/lmstudio/toolService.ts`
    - Requirements:
+     - Reuse the existing `parseNumber` helper in `server/src/logger.ts` (or extract it to a shared utility) for numeric env defaults; avoid new ad-hoc parsing.
      - Read `CODEINFO_TOOL_MAX_CHARS` and `CODEINFO_TOOL_CHUNK_MAX_CHARS` with defaults.
      - Parse numeric values safely; treat invalid values as defaults.
 

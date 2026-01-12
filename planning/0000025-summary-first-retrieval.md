@@ -167,6 +167,9 @@ Return answer-only segments for MCP `codebase_question` responses while preservi
      - Identify where `segments` arrays are built and how answer content is extracted.
 
 2. [ ] Update `codebase_question` tool response to return only the answer segment:
+   - Documentation to read (repeat):
+     - JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification
+     - Node.js JSON serialization basics: https://nodejs.org/api/json.html
    - Files to edit:
      - `server/src/mcp2/tools/codebaseQuestion.ts`
    - Requirements:
@@ -174,15 +177,28 @@ Return answer-only segments for MCP `codebase_question` responses while preservi
      - Replace multi-segment payloads with a single `answer` segment (final answer text only).
      - Filter segments in the `runCodebaseQuestion` payload without changing `McpResponder`.
      - Preserve error handling for archived conversations and tool failures.
+   - Example (intentional pseudo-code):
+     ```ts
+     const payload = responder.toResult(modelId, conversationId);
+     const answerOnly = payload.segments.filter((s) => s.type === 'answer');
+     payload.segments = answerOnly.length > 0 ? answerOnly : [{ type: 'answer', text: '' }];
+     ```
 
 3. [ ] Update MCP tool definitions to reflect answer-only responses:
+   - Documentation to read (repeat):
+     - JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification
    - Files to edit:
      - `server/src/mcp2/tools/codebaseQuestion.ts`
    - Requirements:
      - Update description strings to remove “thinking/vector_summary” language.
      - Keep input schemas unchanged.
+   - Example (description update snippet):
+     - Before: “returns ordered thinking, vector summaries, and a final answer …”
+     - After: “returns a final answer segment plus conversationId and modelId …”
 
 4. [ ] Update MCP tests/fixtures for the new response shape:
+   - Documentation to read (repeat):
+     - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
    - Files to edit:
      - `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`
      - `server/src/test/integration/mcp-codex-wrapper.test.ts`
@@ -190,6 +206,8 @@ Return answer-only segments for MCP `codebase_question` responses while preservi
    - Requirements:
      - Assert that `segments` contains exactly one `answer` entry (where segments remain).
      - Confirm no `thinking` or `vector_summary` segments appear.
+   - Example (assertion target):
+     - `segments.map((s) => s.type)` should equal `['answer']`.
 
 5. [ ] Documentation update - `design.md` (only if response contracts are documented):
    - Documentation to read (repeat):
@@ -245,27 +263,45 @@ Return answer-only segments for MCP agent `run_agent_instruction` responses whil
      - Confirm where agent segments are assembled and passed through to MCP responses.
 
 2. [ ] Update agent MCP tooling to mirror answer-only responses:
+   - Documentation to read (repeat):
+     - JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification
+     - Node.js JSON serialization basics: https://nodejs.org/api/json.html
    - Files to edit:
      - `server/src/mcpAgents/tools.ts`
    - Requirements:
      - Ensure `run_agent_instruction` responses return only the final answer segment.
      - Filter segments in the MCP tool response without changing `agents/service` or `McpResponder`.
      - Preserve `conversationId` + `modelId` fields and existing status/error codes.
+   - Example (intentional pseudo-code):
+     ```ts
+     const result = await runAgentInstruction(...);
+     const answerOnly = result.segments.filter((s) => s.type === 'answer');
+     return { ...result, segments: answerOnly.length ? answerOnly : [{ type: 'answer', text: '' }] };
+     ```
 
 3. [ ] Update MCP tool definitions to reflect answer-only responses:
+   - Documentation to read (repeat):
+     - JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification
    - Files to edit:
      - `server/src/mcpAgents/tools.ts`
    - Requirements:
      - Update description strings to remove “thinking/vector_summary” language.
      - Keep input schemas unchanged.
+   - Example (description update snippet):
+     - Before: “ordered thinking/vector summaries/answer segments …”
+     - After: “final answer segment plus conversationId and modelId …”
 
 4. [ ] Update MCP agent tests/fixtures for the new response shape:
+   - Documentation to read (repeat):
+     - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
    - Files to edit:
      - `server/src/test/unit/mcp-agents-tools.test.ts`
      - `server/src/test/unit/mcp-agents-router-run.test.ts`
    - Requirements:
      - Assert that `segments` contains exactly one `answer` entry (where segments remain).
      - Confirm no `thinking` or `vector_summary` segments appear.
+   - Example (assertion target):
+     - `segments.map((s) => s.type)` should equal `['answer']`.
 
 5. [ ] Run `npm run lint --workspace server` and `npm run format:check --workspace server`; fix issues before continuing.
    - Documentation to read (repeat):
@@ -312,27 +348,39 @@ Switch vector “best match” aggregation to use minimum distance values (lower
      - Locate `Math.max` usage and determine how `highestMatch` is reported.
 
 2. [ ] Update vector file aggregation to use minimum distance:
+   - Documentation to read (repeat):
+     - JavaScript `Math.min`: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Math/min
    - Files to edit:
      - `server/src/lmstudio/toolService.ts`
    - Requirements:
      - Replace `Math.max` with `Math.min` when computing `highestMatch` for each file.
      - Keep `highestMatch` `null` if no numeric distances exist.
      - Preserve result ordering and existing score-source logging.
+   - Example (target change):
+     - `existing.highestMatch = prev === null ? item.score : Math.min(prev, item.score);`
 
 3. [ ] Update MCP vector summary aggregation to use minimum distance:
+   - Documentation to read (repeat):
+     - JavaScript `Math.min`: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Math/min
    - Files to edit:
      - `server/src/chat/responders/McpResponder.ts`
    - Requirements:
      - Ensure summary `match` uses the lowest distance across entries.
      - Preserve current summary ordering and shape.
+   - Example (target change):
+     - `base.match = base.match === null ? item.score : Math.min(base.match, item.score);`
 
 4. [ ] Update server tests for min-distance semantics:
+   - Documentation to read (repeat):
+     - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
    - Files to edit:
      - `server/src/test/unit/tools-vector-search.test.ts`
      - `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`
    - Requirements:
      - Add/adjust assertions so the best match is the smallest distance.
      - Cover mixed numeric + missing scores to ensure `null` remains when appropriate.
+   - Example (assertion target):
+     - `highestMatch` should equal the smallest numeric distance in the fixture.
 
 5. [ ] Documentation update - `design.md` (if it documents “highest match” semantics):
    - Documentation to read (repeat):
@@ -389,6 +437,8 @@ Introduce distance-based cutoff logic for vector search results with an env-conf
      - Identify where scores/distances are read and how tool output is assembled.
 
 2. [ ] Add env-driven cutoff configuration:
+   - Documentation to read (repeat):
+     - Node.js `process.env`: https://nodejs.org/api/process.html#processenv
    - Files to edit:
      - `server/src/lmstudio/toolService.ts`
    - Requirements:
@@ -396,8 +446,13 @@ Introduce distance-based cutoff logic for vector search results with an env-conf
      - Read `CODEINFO_RETRIEVAL_DISTANCE_CUTOFF`, `CODEINFO_RETRIEVAL_CUTOFF_DISABLED`, and `CODEINFO_RETRIEVAL_FALLBACK_CHUNKS` with defaults.
      - Parse numeric values safely; treat invalid values as default.
      - Keep existing score-source logging unchanged.
+   - Example (expected defaults):
+     - cutoff `1.4`, cutoffDisabled `false`, fallback `2`.
 
 3. [ ] Apply cutoff and fallback selection in vectorSearch:
+   - Documentation to read (repeat):
+     - ChromaDB query result semantics: https://docs.trychroma.com/
+     - JavaScript array sort: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/sort
    - Files to edit:
      - `server/src/lmstudio/toolService.ts`
    - Requirements:
@@ -406,14 +461,23 @@ Introduce distance-based cutoff logic for vector search results with an env-conf
      - When no entries pass, include the best `fallback` chunks (lowest distance, original-order tie-break).
      - Preserve the original ordering of retained results.
      - Treat missing/non-numeric distances as lowest priority for cutoff + fallback.
+   - Example (selection outline):
+     ```ts
+     const eligible = cutoffDisabled ? results : results.filter(r => typeof r.score === 'number' && r.score <= cutoff);
+     const picked = eligible.length ? eligible : pickLowest(results, fallback);
+     ```
 
 4. [ ] Update unit tests for cutoff and fallback behavior:
+   - Documentation to read (repeat):
+     - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
    - Files to edit:
      - `server/src/test/unit/tools-vector-search.test.ts`
    - Requirements:
      - Add cases for cutoff enabled, cutoff disabled, and fallback when none pass.
      - Cover empty result sets and all-missing distance values.
      - Cover missing distance handling and tie-break ordering.
+   - Example (assertion target):
+     - When cutoff excludes all, the first two lowest-distance items remain in original order.
 
 5. [ ] Update server `.env` with retrieval cutoff defaults:
    - Documentation to read (repeat):
@@ -479,14 +543,20 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
      - Locate where chunks are assembled and where size counting can be applied.
 
 2. [ ] Add env-driven cap configuration:
+   - Documentation to read (repeat):
+     - Node.js `process.env`: https://nodejs.org/api/process.html#processenv
    - Files to edit:
      - `server/src/lmstudio/toolService.ts`
    - Requirements:
      - Reuse the existing `parseNumber` helper in `server/src/logger.ts` (or extract it to a shared utility) for numeric env defaults; avoid new ad-hoc parsing.
      - Read `CODEINFO_TOOL_MAX_CHARS` and `CODEINFO_TOOL_CHUNK_MAX_CHARS` with defaults.
      - Parse numeric values safely; treat invalid values as defaults.
+   - Example (expected defaults):
+     - total cap `40000`, per-chunk cap `5000`.
 
 3. [ ] Apply per-chunk truncation and total payload cap:
+   - Documentation to read (repeat):
+     - JavaScript `String.prototype.slice`: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/slice
    - Files to edit:
      - `server/src/lmstudio/toolService.ts`
    - Requirements:
@@ -494,13 +564,28 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
      - Drop additional chunks once total size would exceed the max.
      - Preserve original ordering of the retained chunks.
      - Ensure zero chunks are returned if the total cap is too small to include any truncated chunk.
+   - Example (cap loop outline):
+     ```ts
+     let used = 0;
+     const capped = [];
+     for (const item of results) {
+       const chunk = item.chunk.slice(0, chunkCap);
+       if (used + chunk.length > totalCap) break;
+       used += chunk.length;
+       capped.push({ ...item, chunk });
+     }
+     ```
 
 4. [ ] Update unit tests for payload caps:
+   - Documentation to read (repeat):
+     - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
    - Files to edit:
      - `server/src/test/unit/tools-vector-search.test.ts`
    - Requirements:
      - Add cases for per-chunk truncation and total cap enforcement.
      - Include a case where the max cap is too small and results become empty.
+   - Example (assertion target):
+     - `results[0].chunk.length` equals per-chunk cap; `results.length` shrinks when total cap is hit.
 
 5. [ ] Update server `.env` with tool cap defaults:
    - Documentation to read (repeat):
@@ -565,6 +650,9 @@ Deduplicate VectorSearch citations on the client by removing exact duplicates pe
      - Identify where `extractCitations` output is assigned to `assistantCitationsRef`.
 
 2. [ ] Implement two-stage citation dedupe and per-file top-2 filtering:
+   - Documentation to read (repeat):
+     - MDN `Map`: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map
+     - MDN `Array.prototype.sort`: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/sort
    - Files to edit:
      - `client/src/hooks/useChatStream.ts`
    - Requirements:
@@ -572,14 +660,24 @@ Deduplicate VectorSearch citations on the client by removing exact duplicates pe
      - Stage 2: if more than 2 remain per file, keep the 2 with lowest distance (tie-break by original order).
      - Treat missing/non-numeric distances as lowest priority (only included when needed for fallback).
      - Apply before assigning `assistantCitationsRef.current` so Chat + Agents share the same data.
+   - Example (bucketing outline):
+     ```ts
+     const key = `${repo}:${relPath}`;
+     const byFile = new Map<string, ToolCitation[]>();
+     // de-dupe by chunkId OR chunk text within key, then sort by score.
+     ```
 
 3. [ ] Update client tests for citation dedupe rules:
+   - Documentation to read (repeat):
+     - Jest expect API: https://jestjs.io/docs/expect
    - Files to edit:
      - `client/src/test/useChatStream.toolPayloads.test.tsx`
    - Requirements:
      - Add cases for duplicate chunk ids, duplicate chunk text in same file, and duplicate text across different files (keep both files).
      - Validate top-2 per file selection based on lowest distance with original-order tie-breaks.
      - Add coverage for malformed citations missing `repo` or `relPath` (ignored without crashing).
+   - Example (assertion target):
+     - `expect(citations.filter(c => c.relPath === 'a').length).toBe(2);`
 
 4. [ ] Documentation update - `design.md` (citation dedupe rules):
    - Documentation to read (repeat):
@@ -641,6 +739,10 @@ Update Chat and Agents tool detail panels to explicitly label distance values an
      - Identify the vector tool detail blocks and where tool payload `results` are available for per-match display.
 
 2. [ ] Update tool detail UI labels for distance values:
+   - Documentation to read (repeat):
+     - MUI Accordion: https://llms.mui.com/material-ui/6.4.12/components/accordion.md
+     - MUI Typography: https://llms.mui.com/material-ui/6.4.12/components/typography.md
+     - MUI Stack: https://llms.mui.com/material-ui/6.4.12/components/stack.md
    - Files to edit:
      - `client/src/pages/ChatPage.tsx`
      - `client/src/pages/AgentsPage.tsx`
@@ -651,8 +753,13 @@ Update Chat and Agents tool detail panels to explicitly label distance values an
     - Avoid introducing deprecated Accordion `TransitionProps`/`TransitionComponent`; use slots/slotProps if adjustments are needed per MUI 6.5.x API.
     - Skip or gracefully handle entries missing `repo` or `relPath` without breaking the tool panel.
     - Keep formatting consistent with existing tool detail accordions.
+   - Example (UI row outline):
+     - `Distance: 0.532 · repo/path.ts` + preview text from `result.chunk`.
 
 3. [ ] Update client UI tests for distance label changes:
+   - Documentation to read (repeat):
+     - Testing Library React docs: https://testing-library.com/docs/react-testing-library/intro/
+     - Jest expect API: https://jestjs.io/docs/expect
    - Files to edit:
      - `client/src/test/chatPage.toolDetails.test.tsx`
      - `client/src/test/agentsPage.toolsUi.test.tsx`
@@ -661,6 +768,8 @@ Update Chat and Agents tool detail panels to explicitly label distance values an
      - Verify per-match distance values render when the tool details expand.
      - Validate per-match rows render from tool payload `results`.
      - Cover entries missing `repo` or `relPath` to ensure the panel still renders available items.
+   - Example (assertion target):
+     - `expect(screen.getByText(/Distance/i)).toBeInTheDocument();`
 
 4. [ ] Documentation update - `design.md` (tool details distance labels):
    - Documentation to read (repeat):
@@ -745,6 +854,8 @@ Validate the full story against acceptance criteria, perform clean builds/tests,
    - Description: Update tree entries for any new/changed files, including every file added or removed in this story.
    - Purpose: Keep the repository map current.
 7. [ ] Create a summary of all changes and draft the PR comment for this story
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Requirements:
      - Summarize server and client changes separately.
      - Include test commands executed and any known follow-ups.

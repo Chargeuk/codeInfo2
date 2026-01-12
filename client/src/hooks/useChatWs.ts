@@ -148,6 +148,18 @@ type WsStreamWarningEvent = WsServerEventBase & {
   message: string;
 };
 
+type TurnUsageMetadata = {
+  inputTokens?: number;
+  outputTokens?: number;
+  totalTokens?: number;
+  cachedInputTokens?: number;
+};
+
+type TurnTimingMetadata = {
+  totalTimeSec?: number;
+  tokensPerSecond?: number;
+};
+
 type WsTurnFinalEvent = WsServerEventBase & {
   type: 'turn_final';
   conversationId: string;
@@ -156,6 +168,8 @@ type WsTurnFinalEvent = WsServerEventBase & {
   status: 'ok' | 'stopped' | 'failed';
   threadId?: string | null;
   error?: { code?: string; message?: string } | null;
+  usage?: TurnUsageMetadata;
+  timing?: TurnTimingMetadata;
 };
 
 type WsServerEvent =

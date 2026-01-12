@@ -38,6 +38,7 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - Bulk conversation endpoints (`POST /conversations/bulk/archive|restore|delete`) use validate-first semantics: if any ids are missing (or if delete includes non-archived conversations), the server returns `409 BATCH_CONFLICT` and performs no writes. Hard delete is archived-only and deletes turns first to avoid orphaned turn documents.
 - MCP tool `codebase_question` mirrors the same persistence, storing MCP-sourced conversations/turns (including tool calls and reasoning summaries) unless the conversation is archived. Codex uses a persisted `threadId` flag for follow-ups; LM Studio uses stored turns for the `conversationId`.
 - `/health` reports `mongoConnected` from the live Mongoose state; the client shows a banner and disables archive controls when `mongoConnected === false` while allowing stateless chat.
+- Chat completion events can carry optional `usage`/`timing` metadata; the stream bridge forwards these on `turn_final` events (with fallback `totalTimeSec` derived from run start when missing) so the UI can hydrate metadata before REST persistence lands.
 
 Legacy note: the REST polling flow below remains for status snapshots, but the ingest UI now relies on WS-only updates.
 
@@ -126,7 +127,7 @@ sequenceDiagram
   end
 
   Server-->>Viewer: assistant_delta / analysis_delta / tool_event ...
-  Server-->>Viewer: turn_final (ok|stopped|failed, threadId?)
+  Server-->>Viewer: turn_final (ok|stopped|failed, threadId?, usage?, timing?)
 
   Viewer->>Server: WS cancel_inflight(conversationId, inflightId)
   Note over Server: AbortController aborts provider run

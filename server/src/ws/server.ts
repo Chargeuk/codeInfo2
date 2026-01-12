@@ -5,12 +5,12 @@ import WebSocket, { type RawData, WebSocketServer } from 'ws';
 
 import { abortAgentCommandRun } from '../agents/commandsRunner.js';
 
-import { getActiveStatus, type IngestJobStatus } from '../ingest/ingestJob.js';
 import {
   abortInflight,
   bumpSeq,
   snapshotInflight,
 } from '../chat/inflightRegistry.js';
+import { getActiveStatus, type IngestJobStatus } from '../ingest/ingestJob.js';
 import { append } from '../logStore.js';
 import { baseLogger, resolveLogConfig } from '../logger.js';
 import {
@@ -242,6 +242,8 @@ export function publishTurnFinal(params: {
   status: WsTurnFinalEvent['status'];
   threadId?: string | null;
   error?: WsTurnFinalEvent['error'];
+  usage?: WsTurnFinalEvent['usage'];
+  timing?: WsTurnFinalEvent['timing'];
   seq?: number;
 }) {
   const seq = params.seq ?? (bumpSeq(params.conversationId) || 1);
@@ -255,6 +257,8 @@ export function publishTurnFinal(params: {
     status: params.status,
     ...(params.threadId !== undefined ? { threadId: params.threadId } : {}),
     ...(params.error !== undefined ? { error: params.error } : {}),
+    ...(params.usage !== undefined ? { usage: params.usage } : {}),
+    ...(params.timing !== undefined ? { timing: params.timing } : {}),
   };
 
   logPublish('chat.ws.server_publish_turn_final', {
@@ -263,6 +267,8 @@ export function publishTurnFinal(params: {
     seq,
     status: params.status,
     errorCode: params.error?.code,
+    hasUsage: Boolean(params.usage),
+    hasTiming: Boolean(params.timing),
   });
 
   broadcastConversation(params.conversationId, event);

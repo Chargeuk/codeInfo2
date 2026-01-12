@@ -4,6 +4,7 @@ import {
 } from '../agents/transientReconnect.js';
 import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
+import type { TurnTimingMetadata, TurnUsageMetadata } from '../mongo/turn.js';
 import {
   publishAnalysisDelta,
   publishAssistantDelta,
@@ -38,6 +39,62 @@ function deriveStatusFromError(message: string): 'stopped' | 'failed' {
   if (text.includes('abort') || text.includes('stop')) return 'stopped';
   return 'failed';
 }
+
+const isFiniteNumber = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isFinite(value);
+
+const normalizeUsage = (
+  usage: TurnUsageMetadata | undefined,
+): TurnUsageMetadata | undefined => {
+  if (!usage) return undefined;
+  const cleaned: TurnUsageMetadata = {};
+  if (isFiniteNumber(usage.inputTokens) && usage.inputTokens >= 0) {
+    cleaned.inputTokens = usage.inputTokens;
+  }
+  if (isFiniteNumber(usage.outputTokens) && usage.outputTokens >= 0) {
+    cleaned.outputTokens = usage.outputTokens;
+  }
+  if (isFiniteNumber(usage.totalTokens) && usage.totalTokens >= 0) {
+    cleaned.totalTokens = usage.totalTokens;
+  }
+  if (isFiniteNumber(usage.cachedInputTokens) && usage.cachedInputTokens >= 0) {
+    cleaned.cachedInputTokens = usage.cachedInputTokens;
+  }
+  return Object.keys(cleaned).length > 0 ? cleaned : undefined;
+};
+
+const normalizeTiming = (
+  timing: TurnTimingMetadata | undefined,
+): TurnTimingMetadata | undefined => {
+  if (!timing) return undefined;
+  const cleaned: TurnTimingMetadata = {};
+  if (isFiniteNumber(timing.totalTimeSec) && timing.totalTimeSec > 0) {
+    cleaned.totalTimeSec = timing.totalTimeSec;
+  }
+  if (isFiniteNumber(timing.tokensPerSecond) && timing.tokensPerSecond > 0) {
+    cleaned.tokensPerSecond = timing.tokensPerSecond;
+  }
+  return Object.keys(cleaned).length > 0 ? cleaned : undefined;
+};
+
+const deriveTiming = (params: {
+  timing?: TurnTimingMetadata;
+  startedAt?: string;
+  finishedAtMs: number;
+}): TurnTimingMetadata | undefined => {
+  const cleaned = normalizeTiming(params.timing) ?? {};
+  const hasTotal = isFiniteNumber(cleaned.totalTimeSec);
+  if (!hasTotal && params.startedAt) {
+    const startedMs = Date.parse(params.startedAt);
+    if (isFiniteNumber(startedMs)) {
+      const elapsedSec = (params.finishedAtMs - startedMs) / 1000;
+      if (isFiniteNumber(elapsedSec) && elapsedSec > 0) {
+        cleaned.totalTimeSec = elapsedSec;
+      }
+    }
+  }
+  return Object.keys(cleaned).length > 0 ? cleaned : undefined;
+};
 
 export function attachChatStreamBridge(params: {
   conversationId: string;
@@ -96,6 +153,8 @@ export function attachChatStreamBridge(params: {
     status: 'ok' | 'stopped' | 'failed';
     threadId?: string | null;
     error?: { code?: string; message?: string } | null;
+    usage?: TurnUsageMetadata;
+    timing?: TurnTimingMetadata;
   }) => {
     if (finalPublished) return;
     finalPublished = true;
@@ -106,6 +165,8 @@ export function attachChatStreamBridge(params: {
       status: params.status,
       ...(params.threadId !== undefined ? { threadId: params.threadId } : {}),
       ...(params.error !== undefined ? { error: params.error } : {}),
+      ...(params.usage !== undefined ? { usage: params.usage } : {}),
+      ...(params.timing !== undefined ? { timing: params.timing } : {}),
     });
 
     const level = params.status === 'failed' ? 'error' : 'info';
@@ -263,10 +324,25 @@ export function attachChatStreamBridge(params: {
     const inflightState = getInflight(conversationId);
     const cancelled = Boolean(inflightState?.abortController.signal.aborted);
     const threadId = ev.threadId ?? activeThreadId;
+    const usage = normalizeUsage(ev.usage);
+    const timing = deriveTiming({
+      timing: ev.timing,
+      startedAt: inflightState?.startedAt,
+      finishedAtMs: Date.now(),
+    });
+
+    if (usage || timing) {
+      log('info', 'DEV-0000024:T2:complete_usage_received', {
+        hasUsage: Boolean(usage),
+        hasTiming: Boolean(timing),
+      });
+    }
 
     publishFinalOnce({
       status: cancelled ? 'stopped' : 'ok',
       threadId: threadId ?? null,
+      usage,
+      timing,
     });
   };
 

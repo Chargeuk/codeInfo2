@@ -344,7 +344,7 @@ Extend the core chat event pipeline so usage/timing metadata can flow from provi
 
 #### Subtasks
 
-1. [ ] Review ChatInterface + stream bridge event flow:
+1. [x] Review ChatInterface + stream bridge event flow:
    - Documentation to read (repeat):
      - OpenAI Codex SDK overview: https://developers.openai.com/codex/sdk
      - LM Studio SDK README (prediction stats): https://www.npmjs.com/package/@lmstudio/sdk
@@ -357,7 +357,7 @@ Extend the core chat event pipeline so usage/timing metadata can flow from provi
      - `node_modules/@openai/codex-sdk/dist/index.d.ts`
      - `node_modules/@lmstudio/sdk/dist/index.d.ts`
 
-2. [ ] Extend chat event types to include usage/timing:
+2. [x] Extend chat event types to include usage/timing:
    - Documentation to read (repeat):
      - Node.js EventEmitter: https://nodejs.org/api/events.html
      - OpenAI Codex SDK overview: https://developers.openai.com/codex/sdk
@@ -371,7 +371,7 @@ Extend the core chat event pipeline so usage/timing metadata can flow from provi
      - Example (completion event payload):
        - `{ type: 'complete', threadId: 't1', usage: { inputTokens: 12, outputTokens: 8, totalTokens: 20 }, timing: { totalTimeSec: 0.9, tokensPerSecond: 22 } }`
 
-3. [ ] Pass usage/timing into assistant persistence:
+3. [x] Pass usage/timing into assistant persistence:
    - Documentation to read (repeat):
      - Node.js EventEmitter: https://nodejs.org/api/events.html
    - Recap (acceptance criteria): stored turns must include usage/timing when present.
@@ -383,7 +383,7 @@ Extend the core chat event pipeline so usage/timing metadata can flow from provi
      - Example (persistAssistantTurn params):
        - `{ content: '...', usage: { inputTokens: 12, outputTokens: 8, totalTokens: 20 }, timing: { totalTimeSec: 0.9 } }`
 
-4. [ ] Unit test (server): persist usage/timing when provided
+4. [x] Unit test (server): persist usage/timing when provided
    - Test type: Unit (`node:test`)
    - Location: `server/src/test/unit/chat-interface-run-persistence.test.ts`
    - Description: Simulate a completion event with usage/timing and verify persisted turn data.
@@ -392,7 +392,7 @@ Extend the core chat event pipeline so usage/timing metadata can flow from provi
      - Node.js test runner (node:test): https://nodejs.org/api/test.html
      - Node.js EventEmitter: https://nodejs.org/api/events.html
 
-5. [ ] Unit test (server): omit usage/timing when missing
+5. [x] Unit test (server): omit usage/timing when missing
    - Test type: Unit (`node:test`)
    - Location: `server/src/test/unit/chat-interface-run-persistence.test.ts`
    - Description: Simulate a completion event without usage/timing metadata.
@@ -401,7 +401,7 @@ Extend the core chat event pipeline so usage/timing metadata can flow from provi
      - Node.js test runner (node:test): https://nodejs.org/api/test.html
      - Node.js EventEmitter: https://nodejs.org/api/events.html
 
-6. [ ] Unit test (server): fallback timing uses run start
+6. [x] Unit test (server): fallback timing uses run start
    - Test type: Unit (`node:test`)
    - Location: `server/src/test/unit/chat-interface-run-persistence.test.ts`
    - Description: Run a completion path without provider timing and inspect elapsed time.
@@ -410,7 +410,7 @@ Extend the core chat event pipeline so usage/timing metadata can flow from provi
      - Node.js test runner (node:test): https://nodejs.org/api/test.html
      - Node.js EventEmitter: https://nodejs.org/api/events.html
 
-7. [ ] Documentation update - `README.md` (if any user-facing behavior changes need to be called out):
+7. [x] Documentation update - `README.md` (if any user-facing behavior changes need to be called out):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: call out any new metadata behavior that affects users.
@@ -419,7 +419,7 @@ Extend the core chat event pipeline so usage/timing metadata can flow from provi
    - Description: Document any user-visible changes in chat metadata flow.
    - Purpose: Keep README in sync with behavior.
 
-8. [ ] Documentation update - `design.md` (document chat event metadata flow + diagrams):
+8. [x] Documentation update - `design.md` (document chat event metadata flow + diagrams):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
      - Mermaid docs: Context7 `/mermaid-js/mermaid`
@@ -429,7 +429,7 @@ Extend the core chat event pipeline so usage/timing metadata can flow from provi
    - Description: Add/update flow notes and mermaid diagrams for chat event metadata.
    - Purpose: Keep architecture diagrams aligned with pipeline changes.
 
-9. [ ] Documentation update - `projectStructure.md` (only if files/paths change):
+9. [x] Documentation update - `projectStructure.md` (only if files/paths change):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: update tree only if file paths change.
@@ -439,7 +439,7 @@ Extend the core chat event pipeline so usage/timing metadata can flow from provi
    - Description: Update the tree if any files were added/removed, including every file added or removed in this task.
    - Purpose: Keep the repository map current.
 
-10. [ ] Add manual-check log lines for usage/timing flow through chat events:
+10. [x] Add manual-check log lines for usage/timing flow through chat events:
    - Files to edit:
      - `server/src/chat/interfaces/ChatInterface.ts`
      - `server/src/chat/chatStreamBridge.ts`
@@ -449,26 +449,44 @@ Extend the core chat event pipeline so usage/timing metadata can flow from provi
        - `DEV-0000024:T2:complete_usage_received`
        - `DEV-0000024:T2:persist_usage_forwarded`
 
-11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+11. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/options
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 5 minutes; e.g., `timeout 5m` or set `timeout_ms=300000` in the harness)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: run a chat request and confirm streaming completes without console errors; verify console logs include `DEV-0000024:T2:complete_usage_received` and `DEV-0000024:T2:persist_usage_forwarded` when metadata is present; inspect WS frames if possible to confirm `turn_final` payload contains usage/timing.
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 5 minutes; e.g., `timeout 5m` or set `timeout_ms=300000` in the harness)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check: run a chat request and confirm streaming completes without console errors; verify console logs include `DEV-0000024:T2:complete_usage_received` and `DEV-0000024:T2:persist_usage_forwarded` when metadata is present; inspect WS frames if possible to confirm `turn_final` payload contains usage/timing.
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- Notes added during implementation.
+- Added usage/timing fields to chat completion events, plus shared normalization and fallback timing derivation in `ChatInterface`.
+- Forwarded normalized usage/timing into assistant persistence and WS `turn_final`, with server-side logging for WS completion metadata.
+- Added unit coverage for usage/timing persistence, omission, and fallback timing derived from run start.
+- README update not required because usage/timing remains a backend-only change in this task.
+- Updated design notes and the chat sequence diagram to call out usage/timing on `turn_final` events and fallback timing behavior.
+- Project structure update not required because no files or paths were added/removed.
+- Added `DEV-0000024:T2:complete_usage_received` and `DEV-0000024:T2:persist_usage_forwarded` logs for completion metadata and persistence forwarding.
+- `npm run lint --workspaces` still reports pre-existing import-order warnings; `npm run format:check --workspaces` passed after running `npm run format --workspace server`.
+- `npm run build --workspace server` succeeded.
+- `npm run build --workspace client` succeeded (Vite chunk size warnings).
+- `npm run test --workspace server` succeeded after rerunning with a longer timeout.
+- `npm run test --workspace client` succeeded with existing React DOM nesting warnings.
+- `npm run e2e` succeeded; Docker build emitted existing npm deprecation warnings.
+- `npm run compose:build` succeeded (client chunk size warnings remain).
+- `npm run compose:up` succeeded.
+- Manual Playwright-MCP check used `http://host.docker.internal:5001/chat` to run a short LM Studio request, waited for `turn_final`, and saw no console errors.
+- Verified `/logs` on `http://host.docker.internal:5010` contained `DEV-0000024:T2:complete_usage_received` and `DEV-0000024:T2:persist_usage_forwarded` with `hasTiming=true`.
+- Confirmed `chat.ws.server_publish_turn_final` logs show `hasTiming=true`, indicating `turn_final` payload included timing metadata.
+- `npm run compose:down` completed successfully after the manual validation.
 
 ---
 

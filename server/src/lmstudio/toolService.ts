@@ -6,6 +6,7 @@ import {
   getVectorsCollection,
 } from '../ingest/chromaClient.js';
 import { mapIngestPath } from '../ingest/pathMap.js';
+import { baseLogger } from '../logger.js';
 
 export type ToolDeps = {
   getRootsCollection: typeof getRootsCollection;
@@ -334,11 +335,40 @@ export async function vectorSearch(
   const metas = Array.isArray(queryResult.metadatas?.[0])
     ? queryResult.metadatas[0]
     : [];
-  const scores = Array.isArray(queryResult.distances?.[0])
+  const hasDistances = Array.isArray(queryResult.distances?.[0]);
+  const hasScores = Array.isArray(queryResult.scores?.[0]);
+  const scores = hasDistances
     ? queryResult.distances[0]
-    : Array.isArray(queryResult.scores?.[0])
+    : hasScores
       ? queryResult.scores[0]
       : [];
+  const scoreSource = hasDistances
+    ? 'distances'
+    : hasScores
+      ? 'scores'
+      : 'none';
+  const numericScores = scores.filter(
+    (value): value is number => typeof value === 'number',
+  );
+  if (numericScores.length > 0) {
+    const scoreMin = Math.min(...numericScores);
+    const scoreMax = Math.max(...numericScores);
+    baseLogger.info(
+      {
+        tool: 'VectorSearch',
+        scoreSource,
+        scoreCount: numericScores.length,
+        scoreMin,
+        scoreMax,
+      },
+      'vector search score source',
+    );
+  } else {
+    baseLogger.info(
+      { tool: 'VectorSearch', scoreSource, scoreCount: 0 },
+      'vector search score source',
+    );
+  }
   const resultIds = Array.isArray(queryResult.ids?.[0])
     ? queryResult.ids[0]
     : [];

@@ -26,6 +26,7 @@ We also need to correct the current “best match” aggregation logic for vecto
 - MCP responses for `codebase_question` and agent `run_agent_instruction` return only the final answer text (no reasoning/summary segments).
 - Vector search score semantics are confirmed: Chroma returns distances and lower is better; cutoff logic uses `<=` on distance values and any “best match” aggregation uses min.
 - The vector search UI/tool details surface the distance value explicitly when expanded (so users can see raw distance for each match).
+- VectorSearch citations are deduplicated (by chunk id or by best chunk per file) before being stored and displayed, to avoid repeated chunks and reduce tokens.
 - Documentation reflects the new retrieval strategy and any updated ingest behavior.
 
 ---
@@ -52,6 +53,7 @@ We also need to correct the current “best match” aggregation logic for vecto
 - Should MCP answer-only responses still include `conversationId`/`modelId`, or should they return just the answer text?
 - Do we need a backward-compatibility switch for existing MCP clients expecting `segments`?
 - Should we keep the score-source logging after rollout or remove it once the cutoff is tuned?
+- For dedupe: should we keep only the best chunk per file, or dedupe strictly by `chunkId` while keeping multiple chunks per file when scores differ?
 
 # Implementation Plan
 

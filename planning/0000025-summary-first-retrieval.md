@@ -46,8 +46,36 @@ We also need to correct the current “best match” aggregation logic for vecto
 
 - Chroma query responses expose `distances` (and sometimes `scores`), where smaller numbers mean closer matches; we should preserve the ordering returned by the query response rather than re-sorting locally.
 - The distance metric depends on the collection configuration (`l2`, `cosine`, or `ip`), and the HNSW `hnsw:space` metadata sets it at collection creation, so the cutoff must be treated as a distance threshold rather than a similarity score.
-- Chroma’s default metric is L2 (squared Euclidean distance), while cosine distance is defined as `1 - cosine_similarity` (so lower is still better). These details justify keeping the cutoff configurable.
-- The current repo does not set `hnsw:space` during ingest, so we should assume the default L2 distance unless a future ingest change overrides it.
+- Chroma’s default distance metric is L2 (squared Euclidean distance) per the Chroma cookbook; cosine distance is defined as `1 - cosine_similarity` (so lower is still better). The existing ingest flow does not set `hnsw:space`, so L2 remains the assumed default unless a future ingest change overrides it.
+- Context7 snippets mention cosine as default in some examples; prefer the cookbook default (L2) and keep the cutoff configurable to handle metric differences.
+- Deepwiki is not indexed for `Chargeuk/codeInfo2` yet, so repo insights came from the codebase and external docs.
+
+---
+
+## Implementation Ideas
+
+- **Vector search cutoff + caps (server):**
+  - `server/src/lmstudio/toolService.ts` → `vectorSearch()` should read the new env vars, apply the cutoff against `scores` (prefer `distances` when present), enforce the fallback count when no hits pass, and truncate or drop chunks to respect `CODEINFO_TOOL_MAX_CHARS` + `CODEINFO_TOOL_CHUNK_MAX_CHARS` while preserving the original result order.
+  - `server/src/lmstudio/toolService.ts` → `aggregateVectorFiles()` should switch from `Math.max` to `Math.min` for `highestMatch` because lower distance is better.
+  - `server/src/routes/toolsVectorSearch.ts` should log the effective cutoff/cap config for observability (or reuse existing vector score logging unchanged if that’s already sufficient).
+
+- **Vector summary aggregation (MCP responder):**
+  - `server/src/chat/responders/McpResponder.ts` → `buildVectorSummary()` should also use `Math.min` for `match` so the summary reflects the best (lowest) distance when aggregating result entries.
+
+- **Citation dedupe rules (client):**
+  - `client/src/hooks/useChatStream.ts` → after `extractCitations`, dedupe by chunk id or identical chunk text, then keep the top 2 chunks per file by lowest distance. Apply before assigning `assistantCitationsRef.current` so Chat + Agents UIs share the same deduped data.
+
+- **Tool details UI (distance display):**
+  - `client/src/pages/ChatPage.tsx` and `client/src/pages/AgentsPage.tsx` render vector file summaries using `highestMatch`. Update labels to explicitly say “Distance” (or “Lowest distance”) so it is clear lower values are better; keep formatting consistent with existing tool detail accordions.
+
+- **MCP answer-only responses:**
+  - `server/src/chat/responders/McpResponder.ts` + `server/src/mcp2/tools/codebaseQuestion.ts` should return only the final answer segment while still including `conversationId` + `modelId` in the JSON response. The MCP v1 router (`server/src/mcp/server.ts`) and Agents MCP (`server/src/mcpAgents/tools.ts`) should follow the same answer-only shape.
+
+- **Tests/fixtures to update once tasks exist:**
+  - `server/src/test/unit/tools-vector-search.test.ts` for cutoff/cap behavior and min-distance aggregation.
+  - `client/src/test/chatPage.toolDetails.test.tsx` and `client/src/test/agentsPage.toolsUi.test.tsx` for distance label changes.
+  - `client/src/test/useChatStream.toolPayloads.test.tsx` for citation dedupe (two-stage and top-2 per file).
+  - `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` and Agents MCP tests for answer-only response shape.
 
 ---
 

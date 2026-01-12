@@ -1035,10 +1035,10 @@ Validate the full story against acceptance criteria, perform clean builds/tests,
    - Location: `design.md`
    - Description: Update architecture notes and diagrams for retrieval + MCP response changes.
    - Purpose: Keep design documentation accurate.
-6. [ ] Ensure `projectStructure.md` is updated with any updated, added or removed files & folders
+6. [ ] Ensure `projectStructure.md` is updated with any updated, added or removed files & folders **after all file additions/removals in this story**
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-   - Recap: update tree only if file paths change.
+   - Recap: update tree after any tracked file additions/removals (exclude `test-results/`, `dist/`, and other ignored build outputs).
    - Document: `projectStructure.md`
    - Location: `projectStructure.md`
    - Description: Update tree entries for any new/changed files, including every file added or removed in this story.

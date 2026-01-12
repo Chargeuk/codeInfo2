@@ -39,6 +39,7 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - MCP tool `codebase_question` mirrors the same persistence, storing MCP-sourced conversations/turns (including tool calls and reasoning summaries) unless the conversation is archived. Codex uses a persisted `threadId` flag for follow-ups; LM Studio uses stored turns for the `conversationId`.
 - `/health` reports `mongoConnected` from the live Mongoose state; the client shows a banner and disables archive controls when `mongoConnected === false` while allowing stateless chat.
 - Chat completion events can carry optional `usage`/`timing` metadata; the stream bridge forwards these on `turn_final` events (with fallback `totalTimeSec` derived from run start when missing) so the UI can hydrate metadata before REST persistence lands.
+- Codex `turn.completed` events map `input_tokens`, `cached_input_tokens`, and `output_tokens` into assistant `usage` metadata; `totalTokens` is derived from input + output when omitted, and `DEV-0000024:T3:codex_usage_received` logs when usage is captured.
 
 Legacy note: the REST polling flow below remains for status snapshots, but the ingest UI now relies on WS-only updates.
 

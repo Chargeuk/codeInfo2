@@ -249,6 +249,16 @@ test('codex chat streams token/final/complete with thread id', async () => {
 
     assert.equal(final.status, 'ok');
     assert.equal(final.threadId, 'thread-abc');
+
+    const turns = getMemoryTurns('thread-abc');
+    const assistant = turns.find((turn) => turn.role === 'assistant');
+    assert(assistant?.usage);
+    assert.deepEqual(assistant.usage, {
+      inputTokens: 1,
+      outputTokens: 2,
+      cachedInputTokens: 0,
+      totalTokens: 3,
+    });
   } finally {
     await closeWs(ws);
     await wsHandle.close();

@@ -510,7 +510,7 @@ Capture usage metadata from Codex `turn.completed` events and feed it into the s
 
 #### Subtasks
 
-1. [ ] Review Codex event handling and SDK types:
+1. [x] Review Codex event handling and SDK types:
    - Documentation to read (repeat):
      - OpenAI Codex non-interactive event docs (turn.completed usage): https://developers.openai.com/codex/noninteractive/
      - OpenAI Codex SDK overview: https://developers.openai.com/codex/sdk
@@ -520,7 +520,7 @@ Capture usage metadata from Codex `turn.completed` events and feed it into the s
      - `node_modules/@openai/codex-sdk/dist/index.d.ts`
      - `server/src/test/unit/chat-interface-codex.test.ts`
 
-2. [ ] Capture `turn.completed` usage and forward it:
+2. [x] Capture `turn.completed` usage and forward it:
    - Documentation to read (repeat):
      - OpenAI Codex non-interactive event docs (turn.completed usage): https://developers.openai.com/codex/noninteractive/
      - OpenAI Codex SDK overview: https://developers.openai.com/codex/sdk
@@ -534,7 +534,7 @@ Capture usage metadata from Codex `turn.completed` events and feed it into the s
        - Input: `{ usage: { input_tokens: 10, cached_input_tokens: 2, output_tokens: 6 } }`
        - Stored: `{ usage: { inputTokens: 10, cachedInputTokens: 2, outputTokens: 6, totalTokens: 16 } }`
 
-3. [ ] Unit test (server): Codex usage persisted
+3. [x] Unit test (server): Codex usage persisted
    - Test type: Unit (`node:test`)
    - Location: `server/src/test/unit/chat-interface-codex.test.ts`
    - Description: Feed a Codex `turn.completed` event with usage payload into the adapter.
@@ -543,7 +543,7 @@ Capture usage metadata from Codex `turn.completed` events and feed it into the s
      - OpenAI Codex SDK overview: https://developers.openai.com/codex/sdk
      - Node.js test runner (node:test): https://nodejs.org/api/test.html
 
-4. [ ] Unit test (server): missing cached input tokens handled
+4. [x] Unit test (server): missing cached input tokens handled
    - Test type: Unit (`node:test`)
    - Location: `server/src/test/unit/chat-interface-codex.test.ts`
    - Description: Provide usage without `cached_input_tokens` and verify mapping.
@@ -552,7 +552,7 @@ Capture usage metadata from Codex `turn.completed` events and feed it into the s
      - OpenAI Codex SDK overview: https://developers.openai.com/codex/sdk
      - Node.js test runner (node:test): https://nodejs.org/api/test.html
 
-5. [ ] Unit test (server): derive totalTokens when omitted
+5. [x] Unit test (server): derive totalTokens when omitted
    - Test type: Unit (`node:test`)
    - Location: `server/src/test/unit/chat-interface-codex.test.ts`
    - Description: Provide usage with input/output only and verify derived total.
@@ -561,7 +561,7 @@ Capture usage metadata from Codex `turn.completed` events and feed it into the s
      - OpenAI Codex SDK overview: https://developers.openai.com/codex/sdk
      - Node.js test runner (node:test): https://nodejs.org/api/test.html
 
-6. [ ] Integration test (server): Codex usage persists end-to-end
+6. [x] Integration test (server): Codex usage persists end-to-end
    - Test type: Integration (`node:test`)
    - Location: `server/src/test/integration/chat-codex.test.ts`
    - Description: Run a Codex chat flow and inspect persisted assistant turns.
@@ -570,7 +570,7 @@ Capture usage metadata from Codex `turn.completed` events and feed it into the s
      - OpenAI Codex SDK overview: https://developers.openai.com/codex/sdk
      - Node.js test runner (node:test): https://nodejs.org/api/test.html
 
-7. [ ] Documentation update - `README.md` (if any user-facing behavior changes need to be called out):
+7. [x] Documentation update - `README.md` (if any user-facing behavior changes need to be called out):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: call out any user-visible token usage behavior if needed.
@@ -579,7 +579,7 @@ Capture usage metadata from Codex `turn.completed` events and feed it into the s
    - Description: Note Codex token usage display behavior if user-visible.
    - Purpose: Keep README aligned with provider metadata.
 
-8. [ ] Documentation update - `design.md` (document Codex usage capture):
+8. [x] Documentation update - `design.md` (document Codex usage capture):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: document where Codex usage is captured and stored.
@@ -588,7 +588,7 @@ Capture usage metadata from Codex `turn.completed` events and feed it into the s
    - Description: Describe Codex usage capture points and storage fields.
    - Purpose: Keep provider integration docs accurate.
 
-9. [ ] Documentation update - `projectStructure.md` (only if files/paths change):
+9. [x] Documentation update - `projectStructure.md` (only if files/paths change):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: update tree only if file paths change.
@@ -598,7 +598,7 @@ Capture usage metadata from Codex `turn.completed` events and feed it into the s
    - Description: Update tree entries for any new/changed files, including every file added or removed in this task.
    - Purpose: Keep the repository map current.
 
-10. [ ] Add manual-check log lines for Codex usage capture:
+10. [x] Add manual-check log lines for Codex usage capture:
    - Files to edit:
      - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
    - Requirements:
@@ -606,26 +606,36 @@ Capture usage metadata from Codex `turn.completed` events and feed it into the s
      - Example log tag (must be exact):
        - `DEV-0000024:T3:codex_usage_received`
 
-11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+11. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/options
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 5 minutes; e.g., `timeout 5m` or set `timeout_ms=300000` in the harness)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: if Codex is available, run a Codex chat or agent command and verify no console errors; confirm `DEV-0000024:T3:codex_usage_received` appears in logs and usage metadata appears in the response payload/UI when available.
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 5 minutes; e.g., `timeout 5m` or set `timeout_ms=300000` in the harness)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check: if Codex is available, run a Codex chat or agent command and verify no console errors; confirm `DEV-0000024:T3:codex_usage_received` appears in logs and usage metadata appears in the response payload/UI when available.
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- Notes added during implementation.
+- Added Codex usage mapping for `turn.completed` events, deriving `totalTokens` and emitting `DEV-0000024:T3:codex_usage_received` logs.
+- Added unit coverage for Codex usage persistence, missing cached token handling, and total token derivation.
+- Extended the Codex integration test to assert usage metadata persists in memory turns.
+- README needed no update for this task; project structure unchanged.
+- Updated design notes with Codex usage capture details and log tag reference.
+- `npm run lint --workspaces` reports existing import-order warnings (no new errors); `npm run format:check --workspaces` passes.
+- `npm run build --workspace server` and `npm run build --workspace client` succeeded (client build warns about chunk size).
+- `npm run test --workspace server` succeeded after rerunning with a longer timeout; `npm run test --workspace client` passed with existing DOM nesting warnings.
+- `npm run e2e` succeeded after restarting the stack; initial 5-minute run timed out while tests were still running.
+- `npm run compose:build`, `npm run compose:up`, and `npm run compose:down` succeeded for the local stack.
+- Manual Playwright-MCP check used `http://host.docker.internal:5001/chat` with Codex provider; no console errors and `/logs` showed `DEV-0000024:T3:codex_usage_received` with usage counts.
 
 ---
 

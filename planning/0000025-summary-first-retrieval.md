@@ -1013,7 +1013,7 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
 
 #### Subtasks
 
-1. [ ] Review vector search payload construction and existing test coverage:
+1. [x] Review vector search payload construction and existing test coverage:
    - Documentation to read (repeat):
      - Node.js `process.env`: https://nodejs.org/api/process.html#processenv
    - Recap (acceptance criteria): total tool output capped at `CODEINFO_TOOL_MAX_CHARS`, per-chunk capped at `CODEINFO_TOOL_CHUNK_MAX_CHARS`.
@@ -1025,7 +1025,7 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
    - Goal:
      - Locate where chunks are assembled and where size counting can be applied.
 
-2. [ ] Add env-driven cap configuration:
+2. [x] Add env-driven cap configuration:
    - Documentation to read (repeat):
      - Node.js `process.env`: https://nodejs.org/api/process.html#processenv
    - Files to edit:
@@ -1037,7 +1037,7 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
    - Example (expected defaults):
      - total cap `40000`, per-chunk cap `5000`.
 
-3. [ ] Apply server-side VectorSearch dedupe before caps:
+3. [x] Apply server-side VectorSearch dedupe before caps:
    - Documentation to read (repeat):
      - MDN `Map`: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map
      - MDN `Array.prototype.sort`: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/sort
@@ -1055,7 +1055,7 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
      // de-dupe by chunkId OR chunk text within key, then pick top 2 by lowest distance.
      ```
 
-4. [ ] Apply per-chunk truncation and total payload cap:
+4. [x] Apply per-chunk truncation and total payload cap:
    - Documentation to read (repeat):
      - JavaScript `String.prototype.slice`: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/slice
    - Files to edit:
@@ -1079,14 +1079,14 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
      }
      ```
 
-5. [ ] Add server log line for payload caps:
+5. [x] Add server log line for payload caps:
    - Files to edit:
      - `server/src/lmstudio/toolService.ts`
    - Log line (exact message): `DEV-0000025:T5:payload_cap_applied`
    - Log context: `{ totalCap, chunkCap, keptChars, keptChunks }`.
    - Purpose: Provide a deterministic log marker for manual verification.
 
-6. [ ] Add unit test for per-chunk truncation:
+6. [x] Add unit test for per-chunk truncation:
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
    - Test type: Unit (payload truncation)
@@ -1094,7 +1094,7 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
    - Description: Assert each chunk is truncated to `CODEINFO_TOOL_CHUNK_MAX_CHARS`.
    - Purpose: Verify per-chunk truncation logic.
 
-7. [ ] Add unit test for total cap enforcement:
+7. [x] Add unit test for total cap enforcement:
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
    - Test type: Unit (payload cap)
@@ -1102,7 +1102,7 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
    - Description: Assert additional chunks are dropped once the total cap is reached.
    - Purpose: Ensure total payload limits are enforced.
 
-8. [ ] Add unit test for caps too small to include any chunk:
+8. [x] Add unit test for caps too small to include any chunk:
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
    - Test type: Unit (payload edge case)
@@ -1110,7 +1110,7 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
    - Description: Set the total cap below one truncated chunk and assert results are empty.
    - Purpose: Cover the zero-results edge case for caps.
 
-9. [ ] Add unit test for line counts after truncation:
+9. [x] Add unit test for line counts after truncation:
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
    - Test type: Unit (payload truncation)
@@ -1118,7 +1118,7 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
    - Description: Assert `lineCount` reflects the truncated chunk text rather than the original chunk.
    - Purpose: Ensure line totals match capped payloads.
 
-10. [ ] Add unit test for file summaries after caps:
+10. [x] Add unit test for file summaries after caps:
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
    - Test type: Unit (vector file summaries)
@@ -1126,7 +1126,7 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
    - Description: Assert `files` summaries use the capped results (chunk counts/line counts align with truncated output).
    - Purpose: Keep summary payloads consistent with capped results.
 
-11. [ ] Add unit test for invalid env values:
+11. [x] Add unit test for invalid env values:
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
    - Test type: Unit (env parsing edge case)
@@ -1134,7 +1134,7 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
    - Description: Provide non-numeric or negative cap values and assert defaults are used.
    - Purpose: Ensure env parsing guards apply.
 
-12. [ ] Add unit test for server-side dedupe (duplicate chunk ids + top-2 per file):
+12. [x] Add unit test for server-side dedupe (duplicate chunk ids + top-2 per file):
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
    - Test type: Unit (payload dedupe)
@@ -1142,7 +1142,7 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
    - Description: Provide duplicate `chunkId` values and >2 chunks per file, assert only the two lowest distances remain.
    - Purpose: Verify stage-1 dedupe + stage-2 top-2 selection.
 
-13. [ ] Add unit test for server-side dedupe (identical chunk text within same file):
+13. [x] Add unit test for server-side dedupe (identical chunk text within same file):
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
    - Test type: Unit (payload dedupe)
@@ -1150,7 +1150,7 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
    - Description: Provide identical chunk text within the same file and assert only one remains.
    - Purpose: Verify dedupe by identical chunk text.
 
-14. [ ] Add unit test for server-side dedupe (identical chunk text across different files):
+14. [x] Add unit test for server-side dedupe (identical chunk text across different files):
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
    - Test type: Unit (payload dedupe)
@@ -1158,7 +1158,7 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
    - Description: Provide identical chunk text in different `repo + relPath` buckets and assert both files remain.
    - Purpose: Ensure dedupe does not remove cross-file citations.
 
-15. [ ] Update server `.env` with tool cap defaults:
+15. [x] Update server `.env` with tool cap defaults:
    - Documentation to read (repeat):
      - Node.js `process.env`: https://nodejs.org/api/process.html#processenv
    - Recap: document total and per-chunk cap defaults for local runs.
@@ -1168,7 +1168,7 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
      - Add commented defaults for `CODEINFO_TOOL_MAX_CHARS` and `CODEINFO_TOOL_CHUNK_MAX_CHARS`.
      - Keep existing env ordering and comment style.
 
-16. [ ] Documentation update - `design.md` (tool cap defaults text):
+16. [x] Documentation update - `design.md` (tool cap defaults text):
    - Documentation to read (repeat):
      - Mermaid: Context7 `/mermaid-js/mermaid`
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -1177,7 +1177,7 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
    - Description: Document total/per-chunk cap defaults and truncation behavior in text.
    - Purpose: Keep tool payload documentation accurate.
 
-17. [ ] Documentation update - `design.md` (payload cap diagram):
+17. [x] Documentation update - `design.md` (payload cap diagram):
     - Documentation to read (repeat):
       - Mermaid: Context7 `/mermaid-js/mermaid`
       - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -1186,57 +1186,57 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
     - Description: Update or add a Mermaid diagram covering payload capping/truncation steps.
     - Purpose: Ensure architecture diagrams reflect payload cap logic.
 
-18. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+18. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
     - Documentation to read (repeat):
       - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
       - Prettier options: https://prettier.io/docs/options
 
 #### Testing
 
-1. [ ] Build the server (workspace build):
+1. [x] Build the server (workspace build):
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
    - Command: `npm run build --workspace server`
    - Purpose: Ensure server TypeScript build succeeds outside Docker.
 
-2. [ ] Build the client (workspace build):
+2. [x] Build the client (workspace build):
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
    - Command: `npm run build --workspace client`
    - Purpose: Ensure client production build succeeds outside Docker.
 
-3. [ ] Run server tests (Cucumber):
+3. [x] Run server tests (Cucumber):
    - Documentation to read (repeat):
      - Cucumber guides: https://cucumber.io/docs/guides/
    - Command: `npm run test --workspace server`
    - Purpose: Validate server BDD tests alongside payload cap changes.
 
-4. [ ] Run client tests (Jest):
+4. [x] Run client tests (Jest):
    - Documentation to read (repeat):
      - Jest docs: Context7 `/jestjs/jest`
    - Command: `npm run test --workspace client`
    - Purpose: Validate client test coverage while payload caps are active.
 
-5. [ ] Run end-to-end tests:
+5. [x] Run end-to-end tests:
    - Documentation to read (repeat):
      - Playwright Test docs: https://playwright.dev/docs/intro
    - Command: `npm run e2e`
    - Timeout: allow up to 7 minutes (e.g., `timeout 7m npm run e2e` or `timeout_ms=420000`).
    - Purpose: Validate end-to-end retrieval flows with payload caps.
 
-6. [ ] Perform a clean Docker Compose build:
+6. [x] Perform a clean Docker Compose build:
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
    - Command: `npm run compose:build`
    - Purpose: Validate Docker images build cleanly with payload cap changes.
 
-7. [ ] Start Docker Compose stack:
+7. [x] Start Docker Compose stack:
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
    - Command: `npm run compose:up`
    - Purpose: Ensure the full stack starts with payload cap logic applied.
 
-8. [ ] Manual Playwright-MCP check (visual verification):
+8. [x] Manual Playwright-MCP check (visual verification):
    - Documentation to read (repeat):
      - Playwright Test docs: https://playwright.dev/docs/intro
    - Location: http://host.docker.internal:5001
@@ -1245,13 +1245,13 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
    - Regression check: confirm tool output truncates without UI failures and verify there are no logged errors in the debug console.
    - Purpose: Manual verification of payload cap behavior and UI stability.
 
-9. [ ] Shut down Docker Compose stack:
+9. [x] Shut down Docker Compose stack:
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
    - Command: `npm run compose:down`
    - Purpose: Cleanly stop the stack after verification.
 
-10. [ ] Run server unit tests for payload caps:
+10. [x] Run server unit tests for payload caps:
     - Documentation to read (repeat):
       - Node.js test runner (`node:test`) basics: https://nodejs.org/api/test.html
     - Command: `npm run test:unit --workspace server`
@@ -1259,7 +1259,22 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
 
 #### Implementation notes
 
-- Notes added during implementation.
+- Reviewed `vectorSearch` assembly in `lmstudio/toolService.ts` plus env parsing in `logger.ts`/`ingest/config.ts` to plan dedupe and payload cap insertion points.
+- Added payload cap env parsing, dedupe-by-file, and truncation/total cap application with `DEV-0000025:T5:payload_cap_applied` logging.
+- Added unit coverage for truncation, total caps, line counts, summary consistency, invalid cap env values, and dedupe behavior (chunk ids/text, cross-file, missing distances).
+- Documented tool cap defaults in `server/.env` and updated design notes with payload cap/dedupe text plus a flowchart.
+- Lint reported pre-existing import-order warnings; Prettier required `npm run format --workspace server`.
+- Testing: `npm run build --workspace server`.
+- Testing: `npm run build --workspace client` (Vite chunk size warning only).
+- Testing: `npm run test --workspace server` (needed longer timeout; passed).
+- Testing: `npm run test --workspace client` (passes; verbose console logs + experimental VM warning).
+- Testing: `npm run e2e` (compose e2e build/up/test/down succeeded).
+- Testing: `npm run compose:build`.
+- Testing: `npm run compose:up`.
+- Testing: Playwright MCP logs filter confirmed `DEV-0000025:T5:payload_cap_applied` with keptChars/keptChunks context.
+- Testing: `npm run compose:down`.
+- Testing: `npm run test:unit --workspace server` (needed longer timeout; passed).
+- Manual log check required hitting the Compose server via `host.docker.internal:5010` to surface the payload cap marker in Logs.
 
 ---
 

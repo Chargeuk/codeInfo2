@@ -184,6 +184,108 @@ function resolveRetrievalConfig() {
   return { cutoff, cutoffDisabled, fallbackChunks };
 }
 
+function resolvePayloadCaps() {
+  const rawTotal = parseNumber(process.env.CODEINFO_TOOL_MAX_CHARS, 40_000);
+  const rawChunk = parseNumber(
+    process.env.CODEINFO_TOOL_CHUNK_MAX_CHARS,
+    5_000,
+  );
+  const totalCap = rawTotal > 0 ? Math.floor(rawTotal) : 40_000;
+  const chunkCap = rawChunk > 0 ? Math.floor(rawChunk) : 5_000;
+
+  return { totalCap, chunkCap };
+}
+
+type IndexedResult = {
+  item: VectorSearchResult['results'][number];
+  index: number;
+  score: number | null;
+};
+
+function dedupeVectorResults(items: VectorSearchResult['results']) {
+  const indexed = items.map((item, index) => ({
+    item,
+    index,
+    score: item.score,
+  }));
+  const deduped: IndexedResult[] = [];
+  const bucketState = new Map<
+    string,
+    { chunkIds: Set<string>; chunks: Set<string> }
+  >();
+
+  indexed.forEach((entry) => {
+    const key = `${entry.item.repo}:${entry.item.relPath}`;
+    const state = bucketState.get(key) ?? {
+      chunkIds: new Set(),
+      chunks: new Set(),
+    };
+    const chunkId = entry.item.chunkId;
+    const chunkText = entry.item.chunk;
+    if (state.chunkIds.has(chunkId) || state.chunks.has(chunkText)) {
+      bucketState.set(key, state);
+      return;
+    }
+    state.chunkIds.add(chunkId);
+    state.chunks.add(chunkText);
+    bucketState.set(key, state);
+    deduped.push(entry);
+  });
+
+  const grouped = new Map<string, IndexedResult[]>();
+  deduped.forEach((entry) => {
+    const key = `${entry.item.repo}:${entry.item.relPath}`;
+    const existing = grouped.get(key) ?? [];
+    existing.push(entry);
+    grouped.set(key, existing);
+  });
+
+  const keepIndices = new Set<number>();
+  grouped.forEach((entries) => {
+    if (entries.length <= 2) {
+      entries.forEach((entry) => keepIndices.add(entry.index));
+      return;
+    }
+    const top = [...entries]
+      .sort((a, b) => {
+        const aScore =
+          typeof a.score === 'number' ? a.score : Number.POSITIVE_INFINITY;
+        const bScore =
+          typeof b.score === 'number' ? b.score : Number.POSITIVE_INFINITY;
+        if (aScore !== bScore) return aScore - bScore;
+        return a.index - b.index;
+      })
+      .slice(0, 2);
+    top.forEach((entry) => keepIndices.add(entry.index));
+  });
+
+  return deduped
+    .filter((entry) => keepIndices.has(entry.index))
+    .map((entry) => entry.item);
+}
+
+function applyPayloadCaps(
+  items: VectorSearchResult['results'],
+  totalCap: number,
+  chunkCap: number,
+) {
+  let used = 0;
+  const capped: VectorSearchResult['results'] = [];
+
+  for (const item of items) {
+    const chunk = item.chunk.slice(0, chunkCap);
+    if (used + chunk.length > totalCap) break;
+    used += chunk.length;
+    capped.push({
+      ...item,
+      chunk,
+      lineCount: countLines(chunk),
+    });
+  }
+
+  return { capped, used };
+}
+
 function aggregateVectorFiles(
   items: VectorSearchResult['results'],
 ): VectorSearchFile[] {
@@ -311,6 +413,7 @@ export async function vectorSearch(
   const { query, repository, limit } = params;
   const resolvedLimit = Math.min(Math.max(limit ?? 5, 1), 20);
   const { cutoff, cutoffDisabled, fallbackChunks } = resolveRetrievalConfig();
+  const { totalCap, chunkCap } = resolvePayloadCaps();
   const {
     getRootsCollection: rootsCollection,
     getVectorsCollection,
@@ -482,6 +585,8 @@ export async function vectorSearch(
   }
 
   const filteredResults = kept.map((entry) => entry.item);
+  const dedupedResults = dedupeVectorResults(filteredResults);
+  const { capped, used } = applyPayloadCaps(dedupedResults, totalCap, chunkCap);
   append({
     level: 'info',
     message: 'DEV-0000025:T4:cutoff_filter_applied',
@@ -495,8 +600,20 @@ export async function vectorSearch(
       keptCount: filteredResults.length,
     },
   });
+  append({
+    level: 'info',
+    message: 'DEV-0000025:T5:payload_cap_applied',
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      totalCap,
+      chunkCap,
+      keptChars: used,
+      keptChunks: capped.length,
+    },
+  });
 
   const modelId = lockedModelId ?? null;
-  const files = aggregateVectorFiles(filteredResults);
-  return { results: filteredResults, modelId, files };
+  const files = aggregateVectorFiles(capped);
+  return { results: capped, modelId, files };
 }

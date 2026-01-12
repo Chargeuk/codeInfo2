@@ -8,12 +8,16 @@ const ORIGINAL_HOST = process.env.HOST_INGEST_DIR;
 const ORIGINAL_CUTOFF = process.env.CODEINFO_RETRIEVAL_DISTANCE_CUTOFF;
 const ORIGINAL_CUTOFF_DISABLED = process.env.CODEINFO_RETRIEVAL_CUTOFF_DISABLED;
 const ORIGINAL_FALLBACK = process.env.CODEINFO_RETRIEVAL_FALLBACK_CHUNKS;
+const ORIGINAL_TOOL_MAX = process.env.CODEINFO_TOOL_MAX_CHARS;
+const ORIGINAL_TOOL_CHUNK = process.env.CODEINFO_TOOL_CHUNK_MAX_CHARS;
 
 beforeEach(() => {
   delete process.env.HOST_INGEST_DIR;
   delete process.env.CODEINFO_RETRIEVAL_DISTANCE_CUTOFF;
   delete process.env.CODEINFO_RETRIEVAL_CUTOFF_DISABLED;
   delete process.env.CODEINFO_RETRIEVAL_FALLBACK_CHUNKS;
+  delete process.env.CODEINFO_TOOL_MAX_CHARS;
+  delete process.env.CODEINFO_TOOL_CHUNK_MAX_CHARS;
 });
 
 afterEach(() => {
@@ -36,6 +40,16 @@ afterEach(() => {
     delete process.env.CODEINFO_RETRIEVAL_FALLBACK_CHUNKS;
   } else {
     process.env.CODEINFO_RETRIEVAL_FALLBACK_CHUNKS = ORIGINAL_FALLBACK;
+  }
+  if (ORIGINAL_TOOL_MAX === undefined) {
+    delete process.env.CODEINFO_TOOL_MAX_CHARS;
+  } else {
+    process.env.CODEINFO_TOOL_MAX_CHARS = ORIGINAL_TOOL_MAX;
+  }
+  if (ORIGINAL_TOOL_CHUNK === undefined) {
+    delete process.env.CODEINFO_TOOL_CHUNK_MAX_CHARS;
+  } else {
+    process.env.CODEINFO_TOOL_CHUNK_MAX_CHARS = ORIGINAL_TOOL_CHUNK;
   }
 });
 
@@ -544,6 +558,390 @@ test('invalid env values fall back to defaults', async () => {
   assert.equal(res.status, 200);
   assert.equal(res.body.results.length, 1);
   assert.equal(res.body.results[0].score, 1.2);
+});
+
+test('truncates each chunk to the per-chunk cap', async () => {
+  process.env.HOST_INGEST_DIR = '/host/base';
+  process.env.CODEINFO_TOOL_CHUNK_MAX_CHARS = '4';
+  process.env.CODEINFO_TOOL_MAX_CHARS = '100';
+  const res = await request(
+    buildApp({
+      roots: defaultRoots,
+      lockedModelId: 'text-embed',
+      vectorsQuery: async () => ({
+        ids: [['hash-1']],
+        documents: [['abcdefgh']],
+        metadatas: [
+          [
+            {
+              root: '/data/repo-one',
+              relPath: 'docs/readme.md',
+              model: 'text-embed',
+              chunkHash: 'hash-1',
+            },
+          ],
+        ],
+        distances: [[0.12]],
+      }),
+    }),
+  )
+    .post('/tools/vector-search')
+    .send({ query: 'hello world', limit: 5 });
+
+  assert.equal(res.status, 200);
+  assert.equal(res.body.results[0].chunk, 'abcd');
+});
+
+test('drops additional chunks once total cap is reached', async () => {
+  process.env.HOST_INGEST_DIR = '/host/base';
+  process.env.CODEINFO_TOOL_CHUNK_MAX_CHARS = '10';
+  process.env.CODEINFO_TOOL_MAX_CHARS = '5';
+  const res = await request(
+    buildApp({
+      roots: defaultRoots,
+      lockedModelId: 'text-embed',
+      vectorsQuery: async () => ({
+        ids: [['hash-1', 'hash-2']],
+        documents: [['hello', 'world']],
+        metadatas: [
+          [
+            {
+              root: '/data/repo-one',
+              relPath: 'docs/readme.md',
+              model: 'text-embed',
+              chunkHash: 'hash-1',
+            },
+            {
+              root: '/data/repo-one',
+              relPath: 'docs/readme.md',
+              model: 'text-embed',
+              chunkHash: 'hash-2',
+            },
+          ],
+        ],
+        distances: [[0.12, 0.33]],
+      }),
+    }),
+  )
+    .post('/tools/vector-search')
+    .send({ query: 'hello world', limit: 5 });
+
+  assert.equal(res.status, 200);
+  assert.equal(res.body.results.length, 1);
+  assert.equal(res.body.results[0].chunkId, 'hash-1');
+});
+
+test('returns no chunks when total cap is too small', async () => {
+  process.env.HOST_INGEST_DIR = '/host/base';
+  process.env.CODEINFO_TOOL_CHUNK_MAX_CHARS = '10';
+  process.env.CODEINFO_TOOL_MAX_CHARS = '3';
+  const res = await request(
+    buildApp({
+      roots: defaultRoots,
+      lockedModelId: 'text-embed',
+      vectorsQuery: async () => ({
+        ids: [['hash-1']],
+        documents: [['hello']],
+        metadatas: [
+          [
+            {
+              root: '/data/repo-one',
+              relPath: 'docs/readme.md',
+              model: 'text-embed',
+              chunkHash: 'hash-1',
+            },
+          ],
+        ],
+        distances: [[0.12]],
+      }),
+    }),
+  )
+    .post('/tools/vector-search')
+    .send({ query: 'hello world', limit: 5 });
+
+  assert.equal(res.status, 200);
+  assert.equal(res.body.results.length, 0);
+  assert.equal(res.body.files.length, 0);
+});
+
+test('lineCount reflects truncated chunks', async () => {
+  process.env.HOST_INGEST_DIR = '/host/base';
+  process.env.CODEINFO_TOOL_CHUNK_MAX_CHARS = '7';
+  process.env.CODEINFO_TOOL_MAX_CHARS = '100';
+  const res = await request(
+    buildApp({
+      roots: defaultRoots,
+      lockedModelId: 'text-embed',
+      vectorsQuery: async () => ({
+        ids: [['hash-1']],
+        documents: [['one\ntwo\nthree']],
+        metadatas: [
+          [
+            {
+              root: '/data/repo-one',
+              relPath: 'docs/readme.md',
+              model: 'text-embed',
+              chunkHash: 'hash-1',
+            },
+          ],
+        ],
+        distances: [[0.12]],
+      }),
+    }),
+  )
+    .post('/tools/vector-search')
+    .send({ query: 'hello world', limit: 5 });
+
+  assert.equal(res.status, 200);
+  assert.equal(res.body.results[0].lineCount, 2);
+});
+
+test('files summaries reflect capped results', async () => {
+  process.env.HOST_INGEST_DIR = '/host/base';
+  process.env.CODEINFO_TOOL_CHUNK_MAX_CHARS = '10';
+  process.env.CODEINFO_TOOL_MAX_CHARS = '5';
+  const res = await request(
+    buildApp({
+      roots: defaultRoots,
+      lockedModelId: 'text-embed',
+      vectorsQuery: async () => ({
+        ids: [['hash-1', 'hash-2']],
+        documents: [['hello', 'world']],
+        metadatas: [
+          [
+            {
+              root: '/data/repo-one',
+              relPath: 'docs/readme.md',
+              model: 'text-embed',
+              chunkHash: 'hash-1',
+            },
+            {
+              root: '/data/repo-one',
+              relPath: 'docs/readme.md',
+              model: 'text-embed',
+              chunkHash: 'hash-2',
+            },
+          ],
+        ],
+        distances: [[0.12, 0.33]],
+      }),
+    }),
+  )
+    .post('/tools/vector-search')
+    .send({ query: 'hello world', limit: 5 });
+
+  assert.equal(res.status, 200);
+  assert.equal(res.body.files[0].chunkCount, 1);
+  assert.equal(res.body.files[0].lineCount, 1);
+});
+
+test('invalid cap env values fall back to defaults', async () => {
+  process.env.HOST_INGEST_DIR = '/host/base';
+  process.env.CODEINFO_TOOL_MAX_CHARS = 'nope';
+  process.env.CODEINFO_TOOL_CHUNK_MAX_CHARS = '-2';
+  const chunk = 'a'.repeat(6000);
+  const chunk2 = 'b'.repeat(6000);
+  const res = await request(
+    buildApp({
+      roots: defaultRoots,
+      lockedModelId: 'text-embed',
+      vectorsQuery: async () => ({
+        ids: [['hash-1', 'hash-2']],
+        documents: [[chunk, chunk2]],
+        metadatas: [
+          [
+            {
+              root: '/data/repo-one',
+              relPath: 'docs/readme.md',
+              model: 'text-embed',
+              chunkHash: 'hash-1',
+            },
+            {
+              root: '/data/repo-one',
+              relPath: 'docs/readme.md',
+              model: 'text-embed',
+              chunkHash: 'hash-2',
+            },
+          ],
+        ],
+        distances: [[0.12, 0.33]],
+      }),
+    }),
+  )
+    .post('/tools/vector-search')
+    .send({ query: 'hello world', limit: 5 });
+
+  assert.equal(res.status, 200);
+  assert.equal(res.body.results.length, 2);
+  assert.equal(res.body.results[0].chunk.length, 5000);
+});
+
+test('dedupes duplicate chunk ids and keeps top 2 per file', async () => {
+  process.env.HOST_INGEST_DIR = '/host/base';
+  const res = await request(
+    buildApp({
+      roots: defaultRoots,
+      lockedModelId: 'text-embed',
+      vectorsQuery: async () => ({
+        ids: [['hash-1', 'hash-dup', 'hash-2', 'hash-3']],
+        documents: [['first', 'second', 'third', 'fourth']],
+        metadatas: [
+          [
+            {
+              root: '/data/repo-one',
+              relPath: 'docs/readme.md',
+              model: 'text-embed',
+              chunkHash: 'hash-1',
+            },
+            {
+              root: '/data/repo-one',
+              relPath: 'docs/readme.md',
+              model: 'text-embed',
+              chunkHash: 'hash-1',
+            },
+            {
+              root: '/data/repo-one',
+              relPath: 'docs/readme.md',
+              model: 'text-embed',
+              chunkHash: 'hash-2',
+            },
+            {
+              root: '/data/repo-one',
+              relPath: 'docs/readme.md',
+              model: 'text-embed',
+              chunkHash: 'hash-3',
+            },
+          ],
+        ],
+        distances: [[0.3, 0.2, 0.1, 0.4]],
+      }),
+    }),
+  )
+    .post('/tools/vector-search')
+    .send({ query: 'hello world', limit: 5 });
+
+  assert.equal(res.status, 200);
+  assert.deepEqual(
+    res.body.results.map((result: { chunkId: string }) => result.chunkId),
+    ['hash-1', 'hash-2'],
+  );
+});
+
+test('dedupes identical chunk text within the same file', async () => {
+  process.env.HOST_INGEST_DIR = '/host/base';
+  const res = await request(
+    buildApp({
+      roots: defaultRoots,
+      lockedModelId: 'text-embed',
+      vectorsQuery: async () => ({
+        ids: [['hash-1', 'hash-2']],
+        documents: [['repeat', 'repeat']],
+        metadatas: [
+          [
+            {
+              root: '/data/repo-one',
+              relPath: 'docs/readme.md',
+              model: 'text-embed',
+              chunkHash: 'hash-1',
+            },
+            {
+              root: '/data/repo-one',
+              relPath: 'docs/readme.md',
+              model: 'text-embed',
+              chunkHash: 'hash-2',
+            },
+          ],
+        ],
+        distances: [[0.1, 0.2]],
+      }),
+    }),
+  )
+    .post('/tools/vector-search')
+    .send({ query: 'hello world', limit: 5 });
+
+  assert.equal(res.status, 200);
+  assert.equal(res.body.results.length, 1);
+});
+
+test('does not dedupe identical chunk text across files', async () => {
+  process.env.HOST_INGEST_DIR = '/host/base';
+  const res = await request(
+    buildApp({
+      roots: defaultRoots,
+      lockedModelId: 'text-embed',
+      vectorsQuery: async () => ({
+        ids: [['hash-1', 'hash-2']],
+        documents: [['repeat', 'repeat']],
+        metadatas: [
+          [
+            {
+              root: '/data/repo-one',
+              relPath: 'docs/readme.md',
+              model: 'text-embed',
+              chunkHash: 'hash-1',
+            },
+            {
+              root: '/data/repo-one',
+              relPath: 'docs/other.md',
+              model: 'text-embed',
+              chunkHash: 'hash-2',
+            },
+          ],
+        ],
+        distances: [[0.1, 0.2]],
+      }),
+    }),
+  )
+    .post('/tools/vector-search')
+    .send({ query: 'hello world', limit: 5 });
+
+  assert.equal(res.status, 200);
+  assert.equal(res.body.results.length, 2);
+});
+
+test('missing distances are lowest priority in dedupe ranking', async () => {
+  process.env.HOST_INGEST_DIR = '/host/base';
+  const res = await request(
+    buildApp({
+      roots: defaultRoots,
+      lockedModelId: 'text-embed',
+      vectorsQuery: async () => ({
+        ids: [['hash-1', 'hash-2', 'hash-3']],
+        documents: [['first', 'second', 'third']],
+        metadatas: [
+          [
+            {
+              root: '/data/repo-one',
+              relPath: 'docs/readme.md',
+              model: 'text-embed',
+              chunkHash: 'hash-1',
+            },
+            {
+              root: '/data/repo-one',
+              relPath: 'docs/readme.md',
+              model: 'text-embed',
+              chunkHash: 'hash-2',
+            },
+            {
+              root: '/data/repo-one',
+              relPath: 'docs/readme.md',
+              model: 'text-embed',
+              chunkHash: 'hash-3',
+            },
+          ],
+        ],
+        distances: [[0.1, null, 0.2]],
+      }),
+    }),
+  )
+    .post('/tools/vector-search')
+    .send({ query: 'hello world', limit: 5 });
+
+  assert.equal(res.status, 200);
+  assert.deepEqual(
+    res.body.results.map((result: { score: number | null }) => result.score),
+    [0.1, 0.2],
+  );
 });
 
 test('caps limit to 20 and applies repository filter when provided', async () => {

@@ -32,7 +32,7 @@ We also need to correct the current “best match” aggregation logic for vecto
 - Vector search score semantics are confirmed: Chroma returns distances (lower is better, 0 is identical); cutoff logic uses `<=` on distance values and any “best match” aggregation uses the minimum distance, while preserving the order returned by Chroma.
 - The vector search UI/tool details surface the distance value explicitly for each match entry and label it as “Distance” (not “Score”) when expanded.
 - VectorSearch citations are deduplicated in two stages before being stored/displayed: (1) remove exact duplicates (same chunk id or identical chunk text) **within the same file (`repo + relPath`)**, then (2) limit to the top 2 chunks per file by best distance (lowest) when more than 2 remain. File identity should be `repo + relPath`, ties keep the earliest item in the original results order, and entries with missing distances are treated as lowest priority (only included via fallback if needed).
-- Citation dedupe and payload caps are applied server-side before the VectorSearch payload is passed into Codex (the UI should not be the only place where dedupe occurs).
+- Citation dedupe and payload caps are applied server-side before the VectorSearch payload is passed into Codex; the UI should not perform dedupe so we can manually confirm server-side behavior.
 - Score-source logging remains enabled with the same tag/shape as today; additional `DEV-0000025:*` log markers are added for manual verification only.
 - Documentation reflects the new retrieval strategy (cutoff, caps, answer-only MCP) in `design.md`, and `README.md` is updated only if any user-facing behavior or commands change.
 
@@ -54,7 +54,7 @@ We also need to correct the current “best match” aggregation logic for vecto
 - **MCP v2 `codebase_question` response:** currently returns JSON `{ conversationId, modelId, segments[] }` (segments include `thinking`, `vector_summary`, `answer`). This story narrows MCP output to **answer-only** by returning `segments: [{ type: 'answer', text }]` while still including `conversationId` and `modelId`.
 - **Agents MCP `run_agent_instruction` response:** currently returns JSON `{ agentName, conversationId, modelId, segments[] }` (segments include thinking/summary/answer). For MCP only, return the same wrapper but restrict `segments` to a single `{ type: 'answer', text }` entry.
 - **MCP v1 (`/mcp`)** has no `codebase_question` tool today and does not need contract changes for this story.
-- **Storage shapes:** no Mongo schema changes are required; ingest metadata, turns, tool payloads, and citations keep their existing schemas. Citation dedupe is applied server-side to the VectorSearch tool payload before it reaches Codex; the client may still run the same dedupe for display as a safety net, but should receive already-deduped payloads. No deduped citation state is persisted.
+- **Storage shapes:** no Mongo schema changes are required; ingest metadata, turns, tool payloads, and citations keep their existing schemas. Citation dedupe is applied server-side to the VectorSearch tool payload before it reaches Codex; the client should render citations as-is without applying dedupe. No deduped citation state is persisted.
 
 ---
 
@@ -78,9 +78,9 @@ We also need to correct the current “best match” aggregation logic for vecto
 - **Vector summary aggregation (MCP responder):**
   - `server/src/chat/responders/McpResponder.ts` → `buildVectorSummary()` should also use `Math.min` for `match` so the summary reflects the best (lowest) distance when aggregating result entries.
 
-- **Citation dedupe rules (server + client):**
+- **Citation dedupe rules (server-only):**
   - `server/src/lmstudio/toolService.ts` → apply the two-stage dedupe (exact duplicates, then top-2-per-file) on VectorSearch results **before** returning the tool payload so Codex never sees duplicate chunks.
-  - `client/src/hooks/useChatStream.ts` → apply the same dedupe after `extractCitations` as a safety net for UI rendering and to keep Chat + Agents consistent if any duplicate payloads slip through.
+  - `client/src/hooks/useChatStream.ts` → do not apply dedupe; render citations exactly as returned from the server for manual verification.
 
 - **Tool details UI (distance display):**
   - `client/src/pages/ChatPage.tsx` and `client/src/pages/AgentsPage.tsx` render vector file summaries using `highestMatch`. Update labels to explicitly say “Distance” (or “Lowest distance”) so it is clear lower values are better; keep formatting consistent with existing tool detail accordions.
@@ -93,7 +93,7 @@ We also need to correct the current “best match” aggregation logic for vecto
 - **Tests/fixtures to update once tasks exist:**
   - `server/src/test/unit/tools-vector-search.test.ts` for cutoff/cap behavior and min-distance aggregation.
   - `client/src/test/chatPage.toolDetails.test.tsx` and `client/src/test/agentsPage.toolsUi.test.tsx` for distance label changes.
-  - `client/src/test/useChatStream.toolPayloads.test.tsx` for citation dedupe (two-stage and top-2 per file).
+  - No client dedupe tests (server-only behavior for this story).
   - `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` and Agents MCP tests for answer-only response shape.
 
 ---
@@ -104,7 +104,7 @@ We also need to correct the current “best match” aggregation logic for vecto
 - **All scores missing or non-numeric:** cutoff should be skipped (or treat all as ineligible) but still allow fallback to the best 1–2 chunks based on original order; `highestMatch` stays `null`.
 - **Scores present but cutoff excludes all:** fallback should still include the best `CODEINFO_RETRIEVAL_FALLBACK_CHUNKS` results in original order.
 - **Payload cap too small to include any chunk:** if `CODEINFO_TOOL_MAX_CHARS` is below the smallest chunk after per-chunk truncation, return zero chunks and log the existing vector score source line only (no new log tags).
-- **Missing `relPath` or `repo` in tool payload:** citation dedupe should ignore malformed items rather than crashing; tool details UI should still render available entries.
+- **Missing `relPath` or `repo` in tool payload:** server-side citation dedupe should ignore malformed items rather than crashing; tool details UI should still render available entries.
 - **Duplicate chunk text across different files:** dedupe step 1 should only collapse duplicates within the same `repo + relPath` bucket (so different files can still appear).
 - **MCP response shape mismatch:** MCP clients that still expect `thinking`/`vector_summary` should continue to parse the JSON but only see a single `answer` segment; ensure they don’t break on missing segment types.
 - **Archived conversations (MCP/agents):** keep existing error behavior when a conversation is archived; the answer-only change must not alter error codes or statuses.
@@ -1204,20 +1204,18 @@ Enforce tool payload caps for Codex retrieval by limiting per-chunk text length 
 
 ---
 
-### 6. Client: citation dedupe rules (two-stage + top-2 per file)
+### 6. Client: render citations without dedupe (server-only)
 
 - Task Status: **__to_do__**
 - Git Commits: **to_do**
 
 #### Overview
 
-Deduplicate VectorSearch citations on the client by removing exact duplicates per file and limiting to the top 2 chunks per file by lowest distance. This mirrors the server-side dedupe so the UI is consistent even if any duplicate payloads slip through.
+Ensure the client renders VectorSearch citations exactly as the server returns them. No client-side dedupe or filtering should run so we can manually verify that the server-side dedupe is working.
 
 #### Documentation Locations
 
-- MDN `Map` (keyed grouping for file buckets): https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map
-- MDN `Array.prototype.sort` (stable ordering and tie-breaks): https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/sort
-- Jest expect API (assertions for tool payloads): Context7 `/jestjs/jest` (ExpectAPI.md)
+- MDN `Map` (review only; confirm no client bucketing/dedupe remains): https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map
 - Testing Library React docs (component-level testing utilities): https://testing-library.com/docs/react-testing-library/intro/
 - Mermaid docs (diagram syntax for design.md): Context7 `/mermaid-js/mermaid`
 - Markdown syntax (design notes updates): https://www.markdownguide.org/basic-syntax/
@@ -1226,103 +1224,39 @@ Deduplicate VectorSearch citations on the client by removing exact duplicates pe
 
 #### Subtasks
 
-1. [ ] Review citation extraction flow and existing tests:
-   - Documentation to read (repeat):
-     - MDN `Map`: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map
-   - Recap (acceptance criteria): dedupe exact duplicates (same chunk id or identical chunk text) per file, then keep top 2 per file by lowest distance.
+1. [ ] Review citation extraction flow and remove any client-side filtering:
    - Files to read:
      - `client/src/hooks/useChatStream.ts`
-     - `client/src/test/useChatStream.toolPayloads.test.tsx`
    - Goal:
-     - Identify where `extractCitations` output is assigned to `assistantCitationsRef`.
+     - Confirm `extractCitations` output is assigned directly to `assistantCitationsRef` without dedupe or filtering.
 
-2. [ ] Implement two-stage citation dedupe and per-file top-2 filtering:
-   - Documentation to read (repeat):
-     - MDN `Map`: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Map
-     - MDN `Array.prototype.sort`: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/sort
-   - Files to edit:
+2. [ ] Ensure no client-side dedupe logging:
+   - Files to read:
      - `client/src/hooks/useChatStream.ts`
-   - Requirements:
-     - Stage 1: remove duplicates by chunk id or identical chunk text **within the same `repo + relPath` bucket**.
-     - Stage 2: if more than 2 remain per file, keep the 2 with lowest distance (tie-break by original order).
-     - Treat missing/non-numeric distances as lowest priority (only included when needed for fallback).
-     - Apply before assigning `assistantCitationsRef.current` so Chat + Agents share the same data; if server-side dedupe already ran, this should be a no-op.
-   - Example (bucketing outline):
-     ```ts
-     const key = `${repo}:${relPath}`;
-     const byFile = new Map<string, ToolCitation[]>();
-     // de-dupe by chunkId OR chunk text within key, then sort by score.
-     ```
+   - Requirement:
+     - Do not add `DEV-0000025:*` logs for citation dedupe on the client.
 
-3. [ ] Add client log line for citation dedupe:
-   - Files to edit:
-     - `client/src/hooks/useChatStream.ts`
-   - Log line (exact message): `DEV-0000025:T6:citations_deduped`
-   - Log context: `{ beforeCount, afterCount, fileCount }`.
-   - Purpose: Provide a deterministic log marker for manual verification.
-
-4. [ ] Add unit test for duplicate chunk ids:
-   - Documentation to read (repeat):
-     - Jest expect API: Context7 `/jestjs/jest` (ExpectAPI.md)
-   - Test type: Client unit (hook payload processing)
-   - Location: `client/src/test/useChatStream.toolPayloads.test.tsx`
-   - Description: Provide duplicate `chunkId` values within the same file and assert only one remains.
-   - Purpose: Verify stage-1 dedupe by chunk id.
-
-5. [ ] Add unit test for duplicate chunk text within the same file:
-   - Documentation to read (repeat):
-     - Jest expect API: Context7 `/jestjs/jest` (ExpectAPI.md)
-   - Test type: Client unit (hook payload processing)
-   - Location: `client/src/test/useChatStream.toolPayloads.test.tsx`
-   - Description: Provide identical chunk text within the same file and assert only one remains.
-   - Purpose: Verify stage-1 dedupe by chunk text.
-
-6. [ ] Add unit test for duplicate chunk text across different files:
-   - Documentation to read (repeat):
-     - Jest expect API: Context7 `/jestjs/jest` (ExpectAPI.md)
-   - Test type: Client unit (hook payload processing)
-   - Location: `client/src/test/useChatStream.toolPayloads.test.tsx`
-   - Description: Provide identical chunk text in different `repo + relPath` buckets and assert both files remain.
-   - Purpose: Ensure dedupe does not remove cross-file citations.
-
-7. [ ] Add unit test for top-2 per file with distance tie-breaks:
-   - Documentation to read (repeat):
-     - Jest expect API: Context7 `/jestjs/jest` (ExpectAPI.md)
-   - Test type: Client unit (hook payload processing)
-   - Location: `client/src/test/useChatStream.toolPayloads.test.tsx`
-   - Description: Provide 3+ citations in one file and assert the two lowest distances remain in original order when tied.
-   - Purpose: Validate stage-2 per-file limiting and ordering rules.
-
-8. [ ] Add unit test for malformed citations missing `repo` or `relPath`:
-   - Documentation to read (repeat):
-     - Jest expect API: Context7 `/jestjs/jest` (ExpectAPI.md)
-   - Test type: Client unit (hook payload processing)
-   - Location: `client/src/test/useChatStream.toolPayloads.test.tsx`
-   - Description: Include citations with missing `repo`/`relPath` and assert they are ignored without crashing.
-   - Purpose: Cover malformed input handling.
-
-9. [ ] Documentation update - `design.md` (citation dedupe text):
+3. [ ] Documentation update - `design.md` (server-only dedupe note):
    - Documentation to read (repeat):
      - Mermaid: Context7 `/mermaid-js/mermaid`
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document: `design.md`
    - Location: `design.md`
-   - Description: Add citation dedupe rules (two-stage + top-2 per file) to retrieval strategy notes.
-   - Purpose: Keep client citation behavior documented.
+   - Description: Note that citation dedupe is server-only for this story; update any retrieval diagrams accordingly.
+   - Purpose: Keep retrieval strategy documentation in sync.
 
-10. [ ] Documentation update - `design.md` (citation filtering diagram):
+4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces` (only if files changed); if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
-     - Mermaid: Context7 `/mermaid-js/mermaid`
-     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-   - Document: `design.md`
-   - Location: `design.md`
-   - Description: Update or add a Mermaid diagram for citation filtering flow if a retrieval flow diagram exists.
-   - Purpose: Ensure architecture diagrams reflect citation filtering.
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier options: https://prettier.io/docs/options
 
-11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-    - Documentation to read (repeat):
-      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-      - Prettier options: https://prettier.io/docs/options
+5. [ ] Manual UI verification (Chat + Agents citations):
+   - Documentation to read (repeat):
+     - Testing Library React docs: https://testing-library.com/docs/react-testing-library/intro/
+   - Location: http://host.docker.internal:5001
+   - Description: Inspect citations in Chat/Agents and confirm duplicates are only removed when the server-side dedupe is active.
+   - Regression check: verify citations render without client-side filtering and there are no logged errors in the debug console.
+   - Purpose: Manual verification of server-side dedupe behavior and UI stability.
 
 #### Testing
 
@@ -1348,7 +1282,7 @@ Deduplicate VectorSearch citations on the client by removing exact duplicates pe
    - Documentation to read (repeat):
      - Jest docs: Context7 `/jestjs/jest`
    - Command: `npm run test --workspace client`
-   - Purpose: Validate citation dedupe logic with the client test suite.
+   - Purpose: Validate client test coverage while server-side dedupe is active (no client-side dedupe).
 
 5. [ ] Run end-to-end tests:
    - Documentation to read (repeat):
@@ -1373,8 +1307,7 @@ Deduplicate VectorSearch citations on the client by removing exact duplicates pe
    - Documentation to read (repeat):
      - Playwright Test docs: https://playwright.dev/docs/intro
    - Location: http://host.docker.internal:5001
-   - Description: Inspect citations in Chat/Agents, then open Logs and filter for `DEV-0000025:T6:citations_deduped`.
-   - Expected log outcome: `afterCount` <= `beforeCount` and `fileCount` matches the number of files shown in the UI.
+   - Description: Inspect citations in Chat/Agents and confirm duplicates are only removed when server-side dedupe is active.
    - Regression check: confirm dedupe rules (top-2 per file) and verify there are no logged errors in the debug console.
    - Purpose: Manual verification of citation dedupe behavior and UI stability.
 

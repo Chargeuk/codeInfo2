@@ -1000,7 +1000,8 @@ Validate the full story against acceptance criteria, perform clean builds/tests,
 - Husky docs (git hook management + install): https://typicode.github.io/husky/
 - Mermaid docs (diagram syntax for design.md): Context7 `/mermaid-js/mermaid`
 - Jest docs (test runner + expect API): Context7 `/jestjs/jest`
-- Cucumber guides (BDD + JavaScript workflow): https://cucumber.io/docs/guides/10-minute-tutorial/
+- Cucumber guides (BDD + JavaScript workflow): https://cucumber.io/docs/guides/
+- Cucumber quick-start walkthrough (example reference): https://cucumber.io/docs/guides/10-minute-tutorial/
 - Markdown syntax (README/design updates): https://www.markdownguide.org/basic-syntax/
 
 #### Subtasks

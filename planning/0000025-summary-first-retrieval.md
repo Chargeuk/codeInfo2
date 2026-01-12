@@ -14,6 +14,8 @@ Today, Codex input tokens are driven up by large vector-search payloads, especia
 
 We want to reduce Codex input tokens by using smaller chunks for full-text retrieval and applying a relevance cutoff so low-value chunks are not sent to Codex. In addition, MCP responses for both chat and agents should return only the final answer (no reasoning or tool summaries) to avoid extra tokens. The goal is to preserve answer quality while lowering token usage for typical queries, without introducing summary generation in this story.
 
+We also need to correct the current “best match” aggregation logic for vector search summaries. We confirmed Chroma returns distance values (lower is better), but the current logic uses `Math.max` to compute “highest match,” which is backwards for distances and will misreport the best match (and would break any cutoff derived from that value). The fix is to treat distances as “lower is better” and compute the best match using `Math.min` instead of `Math.max` wherever the aggregated “best match” is derived.
+
 ---
 
 ## Acceptance Criteria
@@ -23,6 +25,7 @@ We want to reduce Codex input tokens by using smaller chunks for full-text retri
 - Tool payloads sent to Codex have a clear size cap (character or token budget) to prevent large tool outputs.
 - MCP responses for `codebase_question` and agent `run_agent_instruction` return only the final answer text (no reasoning/summary segments).
 - Vector search score semantics are confirmed: Chroma returns distances and lower is better; cutoff logic uses `<=` on distance values and any “best match” aggregation uses min.
+- The vector search UI/tool details surface the distance value explicitly when expanded (so users can see raw distance for each match).
 - Documentation reflects the new retrieval strategy and any updated ingest behavior.
 
 ---

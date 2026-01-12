@@ -545,7 +545,7 @@ Return answer-only segments for MCP agent `run_agent_instruction` responses whil
 
 ### 3. Server: distance semantics for vector aggregations (min distance)
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **to_do**
 
 #### Overview

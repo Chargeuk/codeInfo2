@@ -4,7 +4,7 @@
 
 This story follows `planning/plan_format.md`.
 
-Per request, this plan is created without tasks. Tasks will be added once the open questions are answered and the scope is confirmed.
+Per request, this plan is created without tasks. Tasks will be added once we have explicit approval to task up the story.
 
 ---
 
@@ -47,6 +47,7 @@ We also need to correct the current “best match” aggregation logic for vecto
 - **VectorSearch tool response (HTTP + LM Studio tool):** no new fields; same shape as today (`results[]` with `repo`, `relPath`, `containerPath`, `hostPath`, `score`, `chunk`, `chunkId`, `modelId`, `lineCount`; plus `modelId` and `files[]` with `highestMatch`, `chunkCount`, `lineCount`). Changes are semantic only: results may be filtered by cutoff, truncated by size caps, and `highestMatch` represents the **lowest** distance after aggregation.
 - **MCP v2 `codebase_question` response:** currently returns JSON `{ conversationId, modelId, segments[] }` (segments include `thinking`, `vector_summary`, `answer`). This story narrows MCP output to **answer-only** by returning `segments: [{ type: 'answer', text }]` while still including `conversationId` and `modelId`.
 - **Agents MCP `run_agent_instruction` response:** currently returns JSON `{ agentName, conversationId, modelId, segments[] }` (segments include thinking/summary/answer). For MCP only, return the same wrapper but restrict `segments` to a single `{ type: 'answer', text }` entry.
+- **MCP v1 (`/mcp`)** has no `codebase_question` tool today and does not need contract changes for this story.
 - **Storage shapes:** no Mongo schema changes are required; ingest metadata, turns, tool payloads, and citations keep their existing schemas. Citation dedupe happens client-side before rendering and is not persisted.
 
 ---
@@ -78,7 +79,9 @@ We also need to correct the current “best match” aggregation logic for vecto
   - `client/src/pages/ChatPage.tsx` and `client/src/pages/AgentsPage.tsx` render vector file summaries using `highestMatch`. Update labels to explicitly say “Distance” (or “Lowest distance”) so it is clear lower values are better; keep formatting consistent with existing tool detail accordions.
 
 - **MCP answer-only responses:**
-  - `server/src/chat/responders/McpResponder.ts` + `server/src/mcp2/tools/codebaseQuestion.ts` should return only the final answer segment while still including `conversationId` + `modelId` in the JSON response. The MCP v1 router (`server/src/mcp/server.ts`) and Agents MCP (`server/src/mcpAgents/tools.ts`) should follow the same answer-only shape.
+  - `server/src/chat/responders/McpResponder.ts` + `server/src/mcp2/tools/codebaseQuestion.ts` should return only the final answer segment while still including `conversationId` + `modelId` in the JSON response.
+  - `server/src/mcpAgents/tools.ts` should restrict `run_agent_instruction` responses to the same answer-only `segments` shape.
+  - MCP v1 (`server/src/mcp/server.ts`) does not expose `codebase_question`, so it should not be touched for this change.
 
 - **Tests/fixtures to update once tasks exist:**
   - `server/src/test/unit/tools-vector-search.test.ts` for cutoff/cap behavior and min-distance aggregation.

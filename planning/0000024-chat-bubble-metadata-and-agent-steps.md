@@ -1435,7 +1435,7 @@ Extend the WS transcript event mapping so usage/timing fields and inflight comma
 
 ### 9. Client: render bubble header metadata (Chat + Agents)
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **__to_do__**
 
 #### Overview

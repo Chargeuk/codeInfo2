@@ -1,4 +1,5 @@
 import { isTransientReconnect } from '../../agents/transientReconnect.js';
+import { append } from '../../logStore.js';
 
 import type {
   ChatAnalysisEvent,
@@ -189,7 +190,7 @@ function buildVectorSummary(
     base.chunks += 1;
     if (typeof item.score === 'number') {
       base.match =
-        base.match === null ? item.score : Math.max(base.match, item.score);
+        base.match === null ? item.score : Math.min(base.match, item.score);
     }
     const lineCount =
       typeof item.lineCount === 'number'
@@ -240,8 +241,26 @@ function buildVectorSummary(
 
   if (!summaries.size) return null;
 
+  const summaryFiles = Array.from(summaries.values());
+  const numericMatches = summaryFiles
+    .map((file) => file.match)
+    .filter((value): value is number => typeof value === 'number');
+  const bestMatch =
+    numericMatches.length > 0 ? Math.min(...numericMatches) : null;
+  append({
+    level: 'info',
+    message: 'DEV-0000025:T3:min_distance_aggregation_applied',
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      source: 'mcp',
+      bestMatch,
+      fileCount: summaryFiles.length,
+    },
+  });
+
   return {
     type: 'vector_summary',
-    files: Array.from(summaries.values()),
+    files: summaryFiles,
   };
 }

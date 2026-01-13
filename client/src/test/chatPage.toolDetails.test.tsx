@@ -93,7 +93,15 @@ describe('Chat tool details rendering (WS transcript events)', () => {
               lineCount: 20,
             },
           ],
-          results: [],
+          results: [
+            {
+              repo: 'repo-one',
+              relPath: 'src/a.ts',
+              hostPath: '/repo/a.txt',
+              score: 0.12,
+              chunk: 'const value = 1;',
+            },
+          ],
           modelId: 'm1',
         },
       },
@@ -115,6 +123,11 @@ describe('Chat tool details rendering (WS transcript events)', () => {
     const files = await screen.findAllByTestId('tool-file-item');
     expect(files.length).toBeGreaterThan(0);
     expect(files[0].textContent ?? '').toContain('/repo/a.txt');
+
+    const matches = await screen.findAllByTestId('tool-match-item');
+    expect(matches.length).toBeGreaterThan(0);
+    expect(matches[0].textContent ?? '').toContain('Distance');
+    expect(matches[0].textContent ?? '').toContain('0.120');
   });
 
   it('renders trimmed tool errors', async () => {
@@ -176,5 +189,77 @@ describe('Chat tool details rendering (WS transcript events)', () => {
 
     const trimmed = await screen.findByTestId('tool-error-trimmed');
     expect(trimmed.textContent ?? '').toContain('missing model');
+  });
+
+  it('renders placeholders when distance or preview is missing', async () => {
+    const harness = setupChatWsHarness({ mockFetch });
+    const user = userEvent.setup();
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const input = await screen.findByTestId('chat-input');
+    fireEvent.change(input, { target: { value: 'Search' } });
+    const sendButton = await screen.findByTestId('chat-send');
+    await waitFor(() => expect(sendButton).toBeEnabled());
+
+    await act(async () => {
+      await user.click(sendButton);
+    });
+
+    await waitFor(() => expect(harness.chatBodies.length).toBe(1));
+
+    const conversationId = harness.getConversationId();
+    const inflightId = harness.getInflightId() ?? 'i1';
+    expect(conversationId).toBeTruthy();
+
+    harness.emitInflightSnapshot({
+      conversationId: conversationId!,
+      inflightId,
+    });
+    harness.emitToolEvent({
+      conversationId: conversationId!,
+      inflightId,
+      event: {
+        type: 'tool-request',
+        callId: 't3',
+        name: 'VectorSearch',
+        parameters: { query: 'hello', limit: 5 },
+      },
+    });
+    harness.emitToolEvent({
+      conversationId: conversationId!,
+      inflightId,
+      event: {
+        type: 'tool-result',
+        callId: 't3',
+        name: 'VectorSearch',
+        stage: 'success',
+        parameters: { query: 'hello', limit: 5 },
+        result: {
+          files: [],
+          results: [{ repo: 'repo-one', relPath: 'src/a.ts' }],
+          modelId: 'm1',
+        },
+      },
+    });
+    harness.emitAssistantDelta({
+      conversationId: conversationId!,
+      inflightId,
+      delta: 'Answer',
+    });
+    harness.emitFinal({
+      conversationId: conversationId!,
+      inflightId,
+      status: 'ok',
+    });
+
+    const toolToggle = await screen.findByTestId('tool-toggle');
+    await user.click(toolToggle);
+
+    const matches = await screen.findAllByTestId('tool-match-item');
+    expect(matches).toHaveLength(1);
+    expect(matches[0].textContent ?? '').toContain('Distance: —');
+    expect(matches[0].textContent ?? '').toContain('Preview: —');
   });
 });

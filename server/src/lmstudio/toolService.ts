@@ -6,6 +6,8 @@ import {
   getVectorsCollection,
 } from '../ingest/chromaClient.js';
 import { mapIngestPath } from '../ingest/pathMap.js';
+import { append } from '../logStore.js';
+import { baseLogger, parseNumber } from '../logger.js';
 
 export type ToolDeps = {
   getRootsCollection: typeof getRootsCollection;
@@ -164,6 +166,126 @@ function countLines(text: string | undefined): number | null {
   return text.split(/\r?\n/).length;
 }
 
+function resolveRetrievalConfig() {
+  const rawCutoff = parseNumber(
+    process.env.CODEINFO_RETRIEVAL_DISTANCE_CUTOFF,
+    1.4,
+  );
+  const cutoff = rawCutoff >= 0 ? rawCutoff : 1.4;
+  const cutoffDisabled =
+    (process.env.CODEINFO_RETRIEVAL_CUTOFF_DISABLED ?? '').toLowerCase() ===
+    'true';
+  const fallbackRaw = parseNumber(
+    process.env.CODEINFO_RETRIEVAL_FALLBACK_CHUNKS,
+    2,
+  );
+  const fallbackChunks = fallbackRaw >= 1 ? Math.floor(fallbackRaw) : 2;
+
+  return { cutoff, cutoffDisabled, fallbackChunks };
+}
+
+function resolvePayloadCaps() {
+  const rawTotal = parseNumber(process.env.CODEINFO_TOOL_MAX_CHARS, 40_000);
+  const rawChunk = parseNumber(
+    process.env.CODEINFO_TOOL_CHUNK_MAX_CHARS,
+    5_000,
+  );
+  const totalCap = rawTotal > 0 ? Math.floor(rawTotal) : 40_000;
+  const chunkCap = rawChunk > 0 ? Math.floor(rawChunk) : 5_000;
+
+  return { totalCap, chunkCap };
+}
+
+type IndexedResult = {
+  item: VectorSearchResult['results'][number];
+  index: number;
+  score: number | null;
+};
+
+function dedupeVectorResults(items: VectorSearchResult['results']) {
+  const indexed = items.map((item, index) => ({
+    item,
+    index,
+    score: item.score,
+  }));
+  const deduped: IndexedResult[] = [];
+  const bucketState = new Map<
+    string,
+    { chunkIds: Set<string>; chunks: Set<string> }
+  >();
+
+  indexed.forEach((entry) => {
+    const key = `${entry.item.repo}:${entry.item.relPath}`;
+    const state = bucketState.get(key) ?? {
+      chunkIds: new Set(),
+      chunks: new Set(),
+    };
+    const chunkId = entry.item.chunkId;
+    const chunkText = entry.item.chunk;
+    if (state.chunkIds.has(chunkId) || state.chunks.has(chunkText)) {
+      bucketState.set(key, state);
+      return;
+    }
+    state.chunkIds.add(chunkId);
+    state.chunks.add(chunkText);
+    bucketState.set(key, state);
+    deduped.push(entry);
+  });
+
+  const grouped = new Map<string, IndexedResult[]>();
+  deduped.forEach((entry) => {
+    const key = `${entry.item.repo}:${entry.item.relPath}`;
+    const existing = grouped.get(key) ?? [];
+    existing.push(entry);
+    grouped.set(key, existing);
+  });
+
+  const keepIndices = new Set<number>();
+  grouped.forEach((entries) => {
+    if (entries.length <= 2) {
+      entries.forEach((entry) => keepIndices.add(entry.index));
+      return;
+    }
+    const top = [...entries]
+      .sort((a, b) => {
+        const aScore =
+          typeof a.score === 'number' ? a.score : Number.POSITIVE_INFINITY;
+        const bScore =
+          typeof b.score === 'number' ? b.score : Number.POSITIVE_INFINITY;
+        if (aScore !== bScore) return aScore - bScore;
+        return a.index - b.index;
+      })
+      .slice(0, 2);
+    top.forEach((entry) => keepIndices.add(entry.index));
+  });
+
+  return deduped
+    .filter((entry) => keepIndices.has(entry.index))
+    .map((entry) => entry.item);
+}
+
+function applyPayloadCaps(
+  items: VectorSearchResult['results'],
+  totalCap: number,
+  chunkCap: number,
+) {
+  let used = 0;
+  const capped: VectorSearchResult['results'] = [];
+
+  for (const item of items) {
+    const chunk = item.chunk.slice(0, chunkCap);
+    if (used + chunk.length > totalCap) break;
+    used += chunk.length;
+    capped.push({
+      ...item,
+      chunk,
+      lineCount: countLines(chunk),
+    });
+  }
+
+  return { capped, used };
+}
+
 function aggregateVectorFiles(
   items: VectorSearchResult['results'],
 ): VectorSearchFile[] {
@@ -191,7 +313,7 @@ function aggregateVectorFiles(
     if (typeof item.score === 'number') {
       const prev = existing.highestMatch;
       existing.highestMatch =
-        prev === null ? item.score : Math.max(prev, item.score);
+        prev === null ? item.score : Math.min(prev, item.score);
     }
     if (typeof existing.lineCount === 'number' && nextLineCount !== null) {
       existing.lineCount += nextLineCount;
@@ -203,9 +325,26 @@ function aggregateVectorFiles(
     }
   });
 
-  return Array.from(byHostPath.values()).sort((a, b) =>
+  const files = Array.from(byHostPath.values()).sort((a, b) =>
     a.hostPath.localeCompare(b.hostPath),
   );
+  const numericMatches = files
+    .map((file) => file.highestMatch)
+    .filter((value): value is number => typeof value === 'number');
+  const bestMatch =
+    numericMatches.length > 0 ? Math.min(...numericMatches) : null;
+  append({
+    level: 'info',
+    message: 'DEV-0000025:T3:min_distance_aggregation_applied',
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      source: 'tool',
+      bestMatch,
+      fileCount: files.length,
+    },
+  });
+  return files;
 }
 
 export async function listIngestedRepositories(
@@ -273,6 +412,8 @@ export async function vectorSearch(
 ): Promise<VectorSearchResult> {
   const { query, repository, limit } = params;
   const resolvedLimit = Math.min(Math.max(limit ?? 5, 1), 20);
+  const { cutoff, cutoffDisabled, fallbackChunks } = resolveRetrievalConfig();
+  const { totalCap, chunkCap } = resolvePayloadCaps();
   const {
     getRootsCollection: rootsCollection,
     getVectorsCollection,
@@ -334,11 +475,40 @@ export async function vectorSearch(
   const metas = Array.isArray(queryResult.metadatas?.[0])
     ? queryResult.metadatas[0]
     : [];
-  const scores = Array.isArray(queryResult.distances?.[0])
-    ? queryResult.distances[0]
-    : Array.isArray(queryResult.scores?.[0])
-      ? queryResult.scores[0]
-      : [];
+  const distanceValues = Array.isArray(queryResult.distances?.[0])
+    ? queryResult.distances?.[0]
+    : undefined;
+  const scoreValues = Array.isArray(queryResult.scores?.[0])
+    ? queryResult.scores?.[0]
+    : undefined;
+  const scores = distanceValues ?? scoreValues ?? [];
+  const scoreSource = distanceValues
+    ? 'distances'
+    : scoreValues
+      ? 'scores'
+      : 'none';
+  const numericScores = scores.filter(
+    (value): value is number => typeof value === 'number',
+  );
+  if (numericScores.length > 0) {
+    const scoreMin = Math.min(...numericScores);
+    const scoreMax = Math.max(...numericScores);
+    baseLogger.info(
+      {
+        tool: 'VectorSearch',
+        scoreSource,
+        scoreCount: numericScores.length,
+        scoreMin,
+        scoreMax,
+      },
+      'vector search score source',
+    );
+  } else {
+    baseLogger.info(
+      { tool: 'VectorSearch', scoreSource, scoreCount: 0 },
+      'vector search score source',
+    );
+  }
   const resultIds = Array.isArray(queryResult.ids?.[0])
     ? queryResult.ids[0]
     : [];
@@ -386,7 +556,64 @@ export async function vectorSearch(
     };
   });
 
+  const indexedResults = results.map((item, index) => ({
+    item,
+    index,
+    score: item.score,
+  }));
+  const eligible = cutoffDisabled
+    ? indexedResults
+    : indexedResults.filter(
+        (entry) => typeof entry.score === 'number' && entry.score <= cutoff,
+      );
+  let kept = eligible;
+  let fallbackCount = 0;
+  if (!eligible.length && indexedResults.length > 0) {
+    const fallback = [...indexedResults]
+      .sort((a, b) => {
+        const aScore =
+          typeof a.score === 'number' ? a.score : Number.POSITIVE_INFINITY;
+        const bScore =
+          typeof b.score === 'number' ? b.score : Number.POSITIVE_INFINITY;
+        if (aScore !== bScore) return aScore - bScore;
+        return a.index - b.index;
+      })
+      .slice(0, fallbackChunks);
+    const fallbackIndices = new Set(fallback.map((entry) => entry.index));
+    kept = indexedResults.filter((entry) => fallbackIndices.has(entry.index));
+    fallbackCount = kept.length;
+  }
+
+  const filteredResults = kept.map((entry) => entry.item);
+  const dedupedResults = dedupeVectorResults(filteredResults);
+  const { capped, used } = applyPayloadCaps(dedupedResults, totalCap, chunkCap);
+  append({
+    level: 'info',
+    message: 'DEV-0000025:T4:cutoff_filter_applied',
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      cutoff,
+      cutoffDisabled,
+      fallbackCount,
+      originalCount: results.length,
+      keptCount: filteredResults.length,
+    },
+  });
+  append({
+    level: 'info',
+    message: 'DEV-0000025:T5:payload_cap_applied',
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      totalCap,
+      chunkCap,
+      keptChars: used,
+      keptChunks: capped.length,
+    },
+  });
+
   const modelId = lockedModelId ?? null;
-  const files = aggregateVectorFiles(results);
-  return { results, modelId, files };
+  const files = aggregateVectorFiles(capped);
+  return { results: capped, modelId, files };
 }

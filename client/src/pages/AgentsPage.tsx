@@ -172,6 +172,36 @@ export default function AgentsPage() {
     [messages],
   );
 
+  const toolMatchCountByKey = useMemo(() => {
+    const map = new Map<string, number>();
+    messages.forEach((message) => {
+      message.tools?.forEach((tool) => {
+        if (tool.name !== 'VectorSearch') return;
+        if (!tool.payload || typeof tool.payload !== 'object') return;
+        const payload = tool.payload as Record<string, unknown>;
+        const results = Array.isArray(
+          (payload as { results?: unknown }).results,
+        )
+          ? ((payload as { results: unknown[] }).results as unknown[])
+          : [];
+        const count = results.reduce((total, item) => {
+          if (!item || typeof item !== 'object') return total;
+          const record = item as Record<string, unknown>;
+          const repo =
+            typeof record.repo === 'string' ? record.repo : undefined;
+          const relPath =
+            typeof record.relPath === 'string' ? record.relPath : undefined;
+          if (!repo || !relPath) return total;
+          return total + 1;
+        }, 0);
+        if (count > 0) {
+          map.set(`${message.id}-${tool.id}`, count);
+        }
+      });
+    });
+    return map;
+  }, [messages]);
+
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [workingFolder, setWorkingFolder] = useState('');
   const [input, setInput] = useState('');
@@ -187,6 +217,7 @@ export default function AgentsPage() {
   );
   const metadataLoggedRef = useRef(new Set<string>());
   const stepLoggedRef = useRef(new Set<string>());
+  const toolDistanceLoggedRef = useRef(new Set<string>());
 
   const citationsReadyLoggedRef = useRef<string | null>(null);
   const transcriptRef = useRef<HTMLDivElement | null>(null);
@@ -661,7 +692,20 @@ export default function AgentsPage() {
   };
 
   const toggleTool = (id: string) => {
-    setToolOpen((prev) => ({ ...prev, [id]: !prev[id] }));
+    setToolOpen((prev) => {
+      const nextOpen = !prev[id];
+      if (nextOpen) {
+        const matchCount = toolMatchCountByKey.get(id) ?? 0;
+        if (!toolDistanceLoggedRef.current.has(id)) {
+          toolDistanceLoggedRef.current.add(id);
+          log('info', 'DEV-0000025:T7:tool_details_distance_rendered', {
+            page: 'agents',
+            matchCount,
+          });
+        }
+      }
+      return { ...prev, [id]: nextOpen };
+    });
   };
 
   const toggleToolError = (id: string) => {
@@ -1119,6 +1163,17 @@ export default function AgentsPage() {
     modelId?: string;
   };
 
+  type VectorMatch = {
+    id: string;
+    repo: string;
+    relPath: string;
+    hostPath?: string;
+    containerPath?: string;
+    score: number | null;
+    chunk?: string;
+    modelId?: string;
+  };
+
   const renderRepoList = (repos: RepoEntry[]) => (
     <Stack spacing={1} data-testid="tool-repo-list">
       {repos.map((repo) => (
@@ -1193,7 +1248,7 @@ export default function AgentsPage() {
         {sorted.map((file) => {
           const summaryParts = [
             file.hostPath,
-            `match ${file.highestMatch === null ? '—' : file.highestMatch.toFixed(2)}`,
+            `distance ${file.highestMatch === null ? '—' : file.highestMatch.toFixed(2)}`,
             `chunks ${file.chunkCount}`,
             `lines ${file.lineCount === null ? '—' : file.lineCount}`,
           ];
@@ -1222,7 +1277,7 @@ export default function AgentsPage() {
               <AccordionDetails>
                 <Stack spacing={0.5}>
                   <Typography variant="caption" color="text.secondary">
-                    Highest match:{' '}
+                    Best distance:{' '}
                     {file.highestMatch === null
                       ? '—'
                       : file.highestMatch.toFixed(3)}
@@ -1258,6 +1313,49 @@ export default function AgentsPage() {
     );
   };
 
+  const renderVectorMatches = (matches: VectorMatch[]) => (
+    <Stack spacing={1} data-testid="tool-match-list">
+      {matches.map((match) => (
+        <Box
+          key={match.id}
+          data-testid="tool-match-item"
+          sx={{
+            border: '1px solid',
+            borderColor: 'divider',
+            borderRadius: 1,
+            px: 1,
+            py: 0.75,
+          }}
+        >
+          <Stack spacing={0.25}>
+            <Typography
+              variant="body2"
+              fontWeight={600}
+              sx={{ wordBreak: 'break-all' }}
+            >
+              {match.repo} · {match.relPath}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              Distance: {match.score === null ? '—' : match.score.toFixed(3)}
+            </Typography>
+            {match.hostPath && (
+              <Typography variant="caption" color="text.secondary">
+                Host path: {match.hostPath}
+              </Typography>
+            )}
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+            >
+              Preview: {match.chunk ?? '—'}
+            </Typography>
+          </Stack>
+        </Box>
+      ))}
+    </Stack>
+  );
+
   const renderToolContent = (tool: ToolCall, toggleKey: string) => {
     const payload = (tool.payload ?? {}) as Record<string, unknown>;
     const repos = Array.isArray((payload as { repos?: unknown }).repos)
@@ -1268,10 +1366,49 @@ export default function AgentsPage() {
       ? ((payload as { files: VectorFile[] }).files as VectorFile[])
       : [];
 
+    const vectorMatches = Array.isArray(
+      (payload as { results?: unknown }).results,
+    )
+      ? (((payload as { results: unknown[] }).results as unknown[])
+          .map((item, index) => {
+            if (!item || typeof item !== 'object') return null;
+            const record = item as Record<string, unknown>;
+            const repo =
+              typeof record.repo === 'string' ? record.repo : undefined;
+            const relPath =
+              typeof record.relPath === 'string' ? record.relPath : undefined;
+            if (!repo || !relPath) return null;
+            return {
+              id:
+                typeof record.chunkId === 'string'
+                  ? record.chunkId
+                  : `${repo}:${relPath}:${index}`,
+              repo,
+              relPath,
+              hostPath:
+                typeof record.hostPath === 'string'
+                  ? record.hostPath
+                  : undefined,
+              containerPath:
+                typeof record.containerPath === 'string'
+                  ? record.containerPath
+                  : undefined,
+              score: typeof record.score === 'number' ? record.score : null,
+              chunk:
+                typeof record.chunk === 'string' ? record.chunk : undefined,
+              modelId:
+                typeof record.modelId === 'string' ? record.modelId : undefined,
+            } satisfies VectorMatch;
+          })
+          .filter(Boolean) as VectorMatch[])
+      : [];
+
     const trimmedError = tool.errorTrimmed ?? null;
     const fullError = tool.errorFull;
 
     const hasVectorFiles = tool.name === 'VectorSearch' && files.length > 0;
+    const hasVectorMatches =
+      tool.name === 'VectorSearch' && vectorMatches.length > 0;
     const hasRepos =
       tool.name === 'ListIngestedRepositories' && repos.length > 0;
 
@@ -1337,8 +1474,9 @@ export default function AgentsPage() {
 
         {hasRepos && renderRepoList(repos)}
         {hasVectorFiles && renderVectorFiles(files)}
+        {hasVectorMatches && renderVectorMatches(vectorMatches)}
 
-        {!hasRepos && !hasVectorFiles && tool.payload && (
+        {!hasRepos && !hasVectorFiles && !hasVectorMatches && tool.payload && (
           <Typography
             variant="caption"
             color="text.secondary"

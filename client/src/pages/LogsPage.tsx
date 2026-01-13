@@ -61,6 +61,10 @@ export default function LogsPage() {
       story: '0000023',
       logChecksComplete: true,
     });
+    logger('info', 'DEV-0000025:T8:verification_logs_reviewed', {
+      story: '0000025',
+      logChecksComplete: true,
+    });
   }, [logger]);
 
   const apiBase = getApiBaseUrl();

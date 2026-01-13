@@ -18,7 +18,7 @@ async function postJson(port: number, body: unknown) {
   return response.json();
 }
 
-test('tools/call run_agent_instruction returns JSON text content with segments', async () => {
+test('tools/call run_agent_instruction returns JSON text content with answer-only segments', async () => {
   const original = process.env.MCP_FORCE_CODEX_AVAILABLE;
   process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
 
@@ -72,6 +72,10 @@ test('tools/call run_agent_instruction returns JSON text content with segments',
     assert.equal(typeof parsed.modelId, 'string');
     assert.equal(parsed.modelId.length > 0, true);
     assert.equal(Array.isArray(parsed.segments), true);
+    assert.deepEqual(
+      parsed.segments.map((segment) => (segment as { type: string }).type),
+      ['answer'],
+    );
     assert.equal(receivedWorkingFolder, '/host/base/repo');
   } finally {
     process.env.MCP_FORCE_CODEX_AVAILABLE = original;

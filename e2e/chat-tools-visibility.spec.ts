@@ -307,7 +307,7 @@ test.describe('Chat tool visibility details', () => {
     await expect(fileItems.first()).toContainText(
       '/data/repo/alpha/file-a.txt',
     );
-    await expect(fileItems.first()).toContainText('match 0.90');
+    await expect(fileItems.first()).toContainText('distance 0.90');
     await expect(fileItems.first()).toContainText('chunks 3');
     await expect(fileItems.first()).toContainText('lines 20');
 

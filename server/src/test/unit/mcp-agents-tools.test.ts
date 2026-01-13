@@ -14,7 +14,9 @@ import {
 test('callTool run_agent_instruction forwards working_folder to agents service', async () => {
   let received: unknown;
 
-  await callTool(
+  let segments: Array<{ type: string }> = [];
+
+  const response = await callTool(
     'run_agent_instruction',
     {
       agentName: 'coding_agent',
@@ -28,18 +30,60 @@ test('callTool run_agent_instruction forwards working_folder to agents service',
           agentName: 'coding_agent',
           conversationId: 'c1',
           modelId: 'm1',
-          segments: [{ type: 'answer', text: 'ok' }],
+          segments: [
+            { type: 'thinking', text: 't' },
+            { type: 'answer', text: 'ok' },
+          ],
         };
       },
       listAgents: async () => ({ agents: [] }),
     },
   );
 
+  const payload = JSON.parse(response.content[0].text) as {
+    segments: Array<{ type: string }>;
+  };
+  segments = payload.segments;
+
   assert.equal(typeof received, 'object');
   assert.equal(
     (received as { working_folder?: unknown }).working_folder,
     '/host/base/repo',
   );
+  assert.deepEqual(
+    segments.map((segment) => segment.type),
+    ['answer'],
+  );
+});
+
+test('callTool run_agent_instruction returns empty answer segment when missing', async () => {
+  const response = await callTool(
+    'run_agent_instruction',
+    {
+      agentName: 'coding_agent',
+      instruction: 'Say hello',
+    },
+    {
+      runAgentInstruction: async () => {
+        return {
+          agentName: 'coding_agent',
+          conversationId: 'c1',
+          modelId: 'm1',
+          segments: [{ type: 'thinking', text: 't' }],
+        };
+      },
+      listAgents: async () => ({ agents: [] }),
+    },
+  );
+
+  const payload = JSON.parse(response.content[0].text) as {
+    segments: Array<{ type: string; text?: string }>;
+  };
+  assert.deepEqual(
+    payload.segments.map((segment) => segment.type),
+    ['answer'],
+  );
+  assert.equal(payload.segments[0].text, '');
 });
 
 test('callTool maps WORKING_FOLDER_* errors to InvalidParamsError', async () => {

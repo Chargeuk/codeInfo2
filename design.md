@@ -36,7 +36,7 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - Conversations can be tagged with `agentName` so the normal Chat history stays clean (no `agentName`) while agent UIs filter to a specific `agentName` value.
 - HTTP endpoints (`server/src/routes/conversations.ts`) expose list/create/archive/restore and turn append/list. `GET /conversations` supports a 3-state filter via `state=active|archived|all` (default `active`); legacy `archived=true` remains supported and maps to `state=all`. Chat POST now requires `{ conversationId, message, provider, model, flags? }`; the server loads stored turns, streams to LM Studio or Codex, then appends user/assistant/tool turns and updates `lastMessageAt`. Archived conversations return 410 on append.
 - Bulk conversation endpoints (`POST /conversations/bulk/archive|restore|delete`) use validate-first semantics: if any ids are missing (or if delete includes non-archived conversations), the server returns `409 BATCH_CONFLICT` and performs no writes. Hard delete is archived-only and deletes turns first to avoid orphaned turn documents.
-- MCP tool `codebase_question` mirrors the same persistence, storing MCP-sourced conversations/turns (including tool calls and reasoning summaries) unless the conversation is archived. Codex uses a persisted `threadId` flag for follow-ups; LM Studio uses stored turns for the `conversationId`.
+- MCP tool `codebase_question` mirrors the same persistence, storing MCP-sourced conversations/turns (including tool calls) unless the conversation is archived. MCP response payloads return answer-only segments (no reasoning/vector-summary data). Codex uses a persisted `threadId` flag for follow-ups; LM Studio uses stored turns for the `conversationId`.
 - `/health` reports `mongoConnected` from the live Mongoose state; the client shows a banner and disables archive controls when `mongoConnected === false` while allowing stateless chat.
 - Chat completion events can carry optional `usage`/`timing` metadata; the stream bridge forwards these on `turn_final` events (with fallback `totalTimeSec` derived from run start when missing) so the UI can hydrate metadata before REST persistence lands.
 - Codex `turn.completed` events map `input_tokens`, `cached_input_tokens`, and `output_tokens` into assistant `usage` metadata; `totalTokens` is derived from input + output when omitted, and `DEV-0000024:T3:codex_usage_received` logs when usage is captured.
@@ -270,7 +270,15 @@ sequenceDiagram
 - Tool calls render closed by default with name + status (Success/Failed/Running) and no lingering spinner after a result or error arrives.
 - Each tool has a default-closed Parameters accordion that pretty-prints the arguments sent to the tool.
 - ListIngestedRepositories: renders all repositories with expandable metadata (paths, counts, last ingest, model lock, warnings/errors).
-- VectorSearch: renders an alphabetical, host-path-only file list. Each file shows highest match value, summed chunk count, and total line count of returned chunks; expand to see model/repo metadata and host path warnings.
+- VectorSearch: renders an alphabetical file list plus per-match rows. Files show the lowest distance (min), summed chunk count, and total line count of returned chunks; per-match rows show repo/relPath, “Distance” (lower is better), and a chunk preview with placeholders when values are missing.
+
+```mermaid
+flowchart LR
+  A[VectorSearch results] --> B[Group by file]
+  B --> C[Best distance = min]
+  A --> D[Render match rows\nDistance + preview]
+  C --> E[Render file list]
+```
 - Errors show a trimmed code/message plus a toggle to reveal the full error payload (including stack/metadata) inside the expanded block.
 - Tool-result delivery: if a provider omits explicit tool completion callbacks, the server synthesizes a completion `tool_event` from the tool resolver output (success or error) and dedupes when native events do arrive. This ensures parameters and payloads always reach the client without duplicate tool rows.
 
@@ -360,7 +368,7 @@ sequenceDiagram
   else resolved
     Svc->>Codex: runStreamed(... workingDirectoryOverride)
     Codex-->>Svc: streamed events + thread id
-    Svc-->>Tools: { agentName, conversationId, modelId, segments }
+    Svc-->>Tools: { agentName, conversationId, modelId, segments (answer-only) }
     Tools-->>MCP: tool result (JSON text payload)
     MCP-->>Client: JSON-RPC result
   end
@@ -1285,7 +1293,32 @@ sequenceDiagram
 ### Agent tooling (Chroma list + search)
 
 - `/tools/ingested-repos` reads the roots collection, maps stored `/data/<repo>/...` paths to host paths using `HOST_INGEST_DIR` (default `/data`), and returns repo ids, counts, descriptions, last ingest timestamps, last errors, and `lockedModelId`. A `hostPathWarning` surfaces when the env var is missing so agents know to fall back.
-- `/tools/vector-search` validates `{ query, repository?, limit? }` (query required, limit default 5/max 20, repository must match a known repo id from roots), builds a repo->root map, and queries the vectors collection with an optional `root` filter. Results carry `repo`, `relPath`, `containerPath`, `hostPath`, `chunk`, `chunkId`, `score`, and `modelId`; the response also returns the current `lockedModelId`. Errors: 400 validation, 404 unknown repo, 502 Chroma unavailable.
+- `/tools/vector-search` validates `{ query, repository?, limit? }` (query required, limit default 5/max 20, repository must match a known repo id from roots), builds a repo->root map, and queries the vectors collection with an optional `root` filter. Results carry `repo`, `relPath`, `containerPath`, `hostPath`, `chunk`, `chunkId`, `score` (distance), and `modelId`; file summaries report the lowest distance per file. The response also returns the current `lockedModelId`. Errors: 400 validation, 404 unknown repo, 502 Chroma unavailable.
+- Retrieval cutoff: results are filtered to distance `<= CODEINFO_RETRIEVAL_DISTANCE_CUTOFF` (default `1.4`, lower is better) unless `CODEINFO_RETRIEVAL_CUTOFF_DISABLED=true`. If nothing passes the cutoff, the server falls back to the best `CODEINFO_RETRIEVAL_FALLBACK_CHUNKS` results (default `2`, lowest distance with original-order tie-breaks). Summaries are rebuilt from the filtered set so file counts align with what the tool returns.
+- Payload caps + dedupe: the server de-dupes VectorSearch results per `repo + relPath` (duplicate `chunkId` or identical chunk text), keeps the 2 lowest-distance chunks per file, then truncates chunk text to `CODEINFO_TOOL_CHUNK_MAX_CHARS` (default `5000`) and enforces total payload size `CODEINFO_TOOL_MAX_CHARS` (default `40000`). Summaries reflect the capped results.
+- Citation rendering: the client renders citations exactly as returned by the server; there is no client-side dedupe in this story.
+
+```mermaid
+flowchart LR
+  Q[VectorSearch results] --> C{Cutoff enabled?}
+  C -->|yes| F[Keep distance <= cutoff]
+  C -->|no| A[Keep all results]
+  F --> P{Any kept?}
+  P -->|yes| K[Use filtered]
+  P -->|no| B[Fallback: lowest N distances]
+  K --> O[Return results + summaries]
+  A --> O
+  B --> O
+```
+
+```mermaid
+flowchart LR
+  R[Filtered results] --> D[Dedupe per file]
+  D --> T[Top 2 by distance]
+  T --> X[Truncate chunks]
+  X --> M[Apply total cap]
+  M --> O[Return capped results]
+```
 
 ### ChatInterface event buffering & persistence
 
@@ -1337,7 +1370,7 @@ flowchart LR
 ### MCP v2 `codebase_question` flow (Codex + optional LM Studio)
 
 - Tool: `codebase_question(question, conversationId?, provider?, model?)` exposed on the MCP v2 server (port 5011). `provider` defaults to `codex` when omitted; `model` defaults per provider.
-- Behaviour: runs the selected `ChatInterface` and buffers normalized events into ordered MCP `segments` via `McpResponder` (`thinking`, `vector_summary`, `answer`), returning a single `content` item of type `text` containing JSON `{ conversationId, modelId, segments }`. The MCP transport remains single-response (not streaming).
+- Behaviour: runs the selected `ChatInterface` and buffers normalized events via `McpResponder`, then filters the MCP response to answer-only segments (no thinking/vector-summary data). The MCP transport remains single-response (not streaming) and returns JSON `{ conversationId, modelId, segments: [{ type: 'answer', text }] }` inside the single `content` text payload.
 - Provider specifics:
   - `provider=codex`: uses Codex thread options (workingDirectory, sandbox, web search, reasoning effort) and relies on Codex thread history (only the latest message is submitted per turn).
   - `provider=lmstudio`: uses `LMSTUDIO_BASE_URL` and the requested/default LM Studio model; history comes from stored turns for `conversationId`.
@@ -1358,7 +1391,7 @@ sequenceDiagram
   Tools-->>Provider: repo list + chunks
   Provider-->>Chat: analysis/tool/final/complete/thread events
   Chat-->>MCP2: normalized events
-  MCP2-->>Agent: JSON-RPC result with text content {conversationId, modelId, segments[]}
+  MCP2-->>Agent: JSON-RPC result with text content {conversationId, modelId, segments:[{type:'answer', text}]}
   Note over MCP2: if Codex unavailable → error -32001 CODE_INFO_LLM_UNAVAILABLE
 ```
 

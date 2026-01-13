@@ -1645,7 +1645,7 @@ Update Chat and Agents tool detail panels to explicitly label distance values an
 ### 8. Final verification + documentation + PR summary
 
 - Task Status: **__done__**
-- Git Commits: **to_do**
+- Git Commits: 6a5246d
 
 #### Overview
 

@@ -1644,7 +1644,7 @@ Update Chat and Agents tool detail panels to explicitly label distance values an
 
 ### 8. Final verification + documentation + PR summary
 
-- Task Status: **__in_progress__**
+- Task Status: **__done__**
 - Git Commits: **to_do**
 
 #### Overview
@@ -1665,7 +1665,7 @@ Validate the full story against acceptance criteria, perform clean builds/tests,
 
 #### Subtasks
 
-1. [ ] Ensure `README.md` is updated with any required description changes and with any new commands that have been added as part of this story
+1. [x] Ensure `README.md` is updated with any required description changes and with any new commands that have been added as part of this story
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: document user-visible retrieval changes and update the MCP `codebase_question` response example to answer-only segments.
@@ -1673,7 +1673,7 @@ Validate the full story against acceptance criteria, perform clean builds/tests,
    - Location: `README.md`
    - Description: Update user-facing notes and any new commands introduced by this story.
    - Purpose: Keep onboarding docs accurate.
-2. [ ] Ensure `design.md` is updated with any required description changes including Mermaid diagrams that have been added as part of this story
+2. [x] Ensure `design.md` is updated with any required description changes including Mermaid diagrams that have been added as part of this story
    - Documentation to read (repeat):
      - Mermaid: Context7 `/mermaid-js/mermaid`
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -1682,7 +1682,7 @@ Validate the full story against acceptance criteria, perform clean builds/tests,
    - Location: `design.md`
    - Description: Update architecture notes and diagrams for retrieval + MCP response changes.
    - Purpose: Keep design documentation accurate.
-3. [ ] Ensure `projectStructure.md` is updated with any updated, added or removed files & folders **after all file additions/removals in this story**
+3. [x] Ensure `projectStructure.md` is updated with any updated, added or removed files & folders **after all file additions/removals in this story**
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Recap: update tree after any tracked file additions/removals (exclude `test-results/`, `dist/`, and other ignored build outputs).
@@ -1690,71 +1690,71 @@ Validate the full story against acceptance criteria, perform clean builds/tests,
    - Location: `projectStructure.md`
    - Description: Update tree entries for any new/changed files, including every file added or removed in this story.
    - Purpose: Keep the repository map current.
-4. [ ] Create a summary of all changes and draft the PR comment for this story
+4. [x] Create a summary of all changes and draft the PR comment for this story
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Requirements:
      - Summarize server and client changes separately.
      - Include test commands executed and any known follow-ups.
 
-5. [ ] Add LogsPage verification log line for story completion:
+5. [x] Add LogsPage verification log line for story completion:
    - Files to edit:
      - `client/src/pages/LogsPage.tsx`
    - Log line (exact message): `DEV-0000025:T8:verification_logs_reviewed`
    - Log context: `{ story: '0000025', logChecksComplete: true }`.
    - Purpose: Provide a deterministic log marker for final manual verification.
 
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+6. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier options: https://prettier.io/docs/options
 
 #### Testing
 
-1. [ ] Build the server (workspace build):
+1. [x] Build the server (workspace build):
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
    - Command: `npm run build --workspace server`
    - Purpose: Ensure server TypeScript build succeeds outside Docker.
 
-2. [ ] Build the client (workspace build):
+2. [x] Build the client (workspace build):
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
    - Command: `npm run build --workspace client`
    - Purpose: Ensure client production build succeeds outside Docker.
 
-3. [ ] Run server tests (Cucumber):
+3. [x] Run server tests (Cucumber):
    - Documentation to read (repeat):
      - Cucumber guides: https://cucumber.io/docs/guides/
    - Command: `npm run test --workspace server`
    - Purpose: Confirm server BDD tests still pass with retrieval changes.
 
-4. [ ] Run client tests (Jest):
+4. [x] Run client tests (Jest):
    - Documentation to read (repeat):
      - Jest docs: Context7 `/jestjs/jest`
    - Command: `npm run test --workspace client`
    - Purpose: Validate citation dedupe + tool details UI tests.
 
-5. [ ] Run end-to-end tests:
+5. [x] Run end-to-end tests:
    - Documentation to read (repeat):
      - Playwright Test docs: https://playwright.dev/docs/intro
    - Command: `npm run e2e`
    - Timeout: allow up to 7 minutes (e.g., `timeout 7m npm run e2e` or `timeout_ms=420000`).
    - Purpose: Validate end-to-end tool/citation behavior in the UI.
 
-6. [ ] Perform a clean Docker Compose build:
+6. [x] Perform a clean Docker Compose build:
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
    - Command: `npm run compose:build`
    - Purpose: Validate Docker images build cleanly with the updated code.
 
-7. [ ] Start Docker Compose stack:
+7. [x] Start Docker Compose stack:
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
    - Command: `npm run compose:up`
    - Purpose: Ensure the full stack starts with the new retrieval logic.
 
-8. [ ] Manual Playwright-MCP check (visual verification):
+8. [x] Manual Playwright-MCP check (visual verification):
    - Documentation to read (repeat):
      - Playwright Test docs: https://playwright.dev/docs/intro
    - Location: http://host.docker.internal:5001
@@ -1763,7 +1763,7 @@ Validate the full story against acceptance criteria, perform clean builds/tests,
    - Regression check: verify tool details show distance labels/values, citations are deduped to top-2 per file, MCP responses are answer-only, and confirm there are no logged errors in the debug console.
    - Purpose: Capture screenshots and confirm UI expectations beyond automated tests.
 
-9. [ ] Shut down Docker Compose stack:
+9. [x] Shut down Docker Compose stack:
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
    - Command: `npm run compose:down`
@@ -1771,4 +1771,18 @@ Validate the full story against acceptance criteria, perform clean builds/tests,
 
 #### Implementation notes
 
-- Notes added during implementation.
+- Updated `README.md` with retrieval tuning env defaults and the answer-only MCP `codebase_question` response example.
+- Verified `design.md` already documents retrieval cutoff/caps, answer-only MCP behavior, and distance-label diagrams; no additional changes required.
+- Confirmed no tracked file additions/removals for this task; `projectStructure.md` stays current.
+- PR summary draft: Server—answer-only MCP responses, retrieval cutoff/fallback, payload caps/dedupe, distance aggregation fixes, and logging markers. Client—distance-labelled tool details with per-match rows, server-only citation dedupe, and new verification logs. Tests—server/client builds, server/client tests, e2e, compose build/up/down, and manual Playwright MCP checks.
+- Added `DEV-0000025:T8:verification_logs_reviewed` log entry in `LogsPage` for final manual verification.
+- Lint reported pre-existing import-order warnings in server files; `npm run format:check --workspaces` passed.
+- Testing: `npm run build --workspace server`.
+- Testing: `npm run build --workspace client` (chunk size warning only).
+- Testing: `npm run test --workspace server` (required longer timeout; completed successfully).
+- Testing: `npm run test --workspace client` (passes with verbose console output + experimental VM warnings).
+- Testing: `npm run e2e` (36 passed).
+- Testing: `npm run compose:build`.
+- Testing: `npm run compose:up`.
+- Manual check: Chat VectorSearch tool details show Distance labels and per-match rows (2 matches for the file, matching top-2 dedupe); Logs filter returned `DEV-0000025:T8:verification_logs_reviewed` with `logChecksComplete: true`. MCP answer-only behavior verified via server tests. Screenshots: `test-results/screenshots/0000025-08-chat-tool-details.png`, `test-results/screenshots/0000025-08-logs-verification.png`.
+- Testing: `npm run compose:down`.

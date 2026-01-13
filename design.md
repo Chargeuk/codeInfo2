@@ -270,12 +270,14 @@ sequenceDiagram
 - Tool calls render closed by default with name + status (Success/Failed/Running) and no lingering spinner after a result or error arrives.
 - Each tool has a default-closed Parameters accordion that pretty-prints the arguments sent to the tool.
 - ListIngestedRepositories: renders all repositories with expandable metadata (paths, counts, last ingest, model lock, warnings/errors).
-- VectorSearch: renders an alphabetical, host-path-only file list. Each file shows the lowest distance (min) from its chunks, summed chunk count, and total line count of returned chunks; expand to see model/repo metadata and host path warnings.
+- VectorSearch: renders an alphabetical file list plus per-match rows. Files show the lowest distance (min), summed chunk count, and total line count of returned chunks; per-match rows show repo/relPath, “Distance” (lower is better), and a chunk preview with placeholders when values are missing.
 
 ```mermaid
 flowchart LR
   A[VectorSearch results] --> B[Group by file]
-  B --> C[Best match = min distance]
+  B --> C[Best distance = min]
+  A --> D[Render match rows\nDistance + preview]
+  C --> E[Render file list]
 ```
 - Errors show a trimmed code/message plus a toggle to reveal the full error payload (including stack/metadata) inside the expanded block.
 - Tool-result delivery: if a provider omits explicit tool completion callbacks, the server synthesizes a completion `tool_event` from the tool resolver output (success or error) and dedupes when native events do arrive. This ensures parameters and payloads always reach the client without duplicate tool rows.

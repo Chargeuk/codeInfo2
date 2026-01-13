@@ -1412,7 +1412,7 @@ Ensure the client renders VectorSearch citations exactly as the server returns t
 
 ### 7. Client: tool details show distance labels + per-match distances
 
-- Task Status: **__in_progress__**
+- Task Status: **__done__**
 - Git Commits: **to_do**
 
 #### Overview
@@ -1435,7 +1435,7 @@ Update Chat and Agents tool detail panels to explicitly label distance values an
 
 #### Subtasks
 
-1. [ ] Review current tool detail rendering for vector search entries:
+1. [x] Review current tool detail rendering for vector search entries:
    - Documentation to read (repeat):
      - MUI Accordion: https://llms.mui.com/material-ui/6.4.12/components/accordion.md
    - Recap (acceptance criteria): show explicit “Distance” labels and per-match distance values when expanded.
@@ -1449,7 +1449,7 @@ Update Chat and Agents tool detail panels to explicitly label distance values an
    - Goal:
      - Identify the vector tool detail blocks and where tool payload `results` are available for per-match display.
 
-2. [ ] Update tool detail UI labels for distance values:
+2. [x] Update tool detail UI labels for distance values:
    - Documentation to read (repeat):
      - MUI Accordion: https://llms.mui.com/material-ui/6.4.12/components/accordion.md
      - MUI Typography: https://llms.mui.com/material-ui/6.4.12/components/typography.md
@@ -1468,7 +1468,7 @@ Update Chat and Agents tool detail panels to explicitly label distance values an
    - Example (UI row outline):
      - `Distance: 0.532 · repo/path.ts` + preview text from `result.chunk`.
 
-3. [ ] Add client log line for tool-detail distance rendering:
+3. [x] Add client log line for tool-detail distance rendering:
    - Files to edit:
      - `client/src/pages/ChatPage.tsx`
      - `client/src/pages/AgentsPage.tsx`
@@ -1476,7 +1476,7 @@ Update Chat and Agents tool detail panels to explicitly label distance values an
    - Log context: `{ page: 'chat' | 'agents', matchCount }`.
    - Purpose: Provide a deterministic log marker for manual verification.
 
-4. [ ] Update ChatPage tool details test for distance labels:
+4. [x] Update ChatPage tool details test for distance labels:
    - Documentation to read (repeat):
      - Testing Library React docs: https://testing-library.com/docs/react-testing-library/intro/
      - Jest expect API: Context7 `/jestjs/jest` (ExpectAPI.md)
@@ -1485,7 +1485,7 @@ Update Chat and Agents tool detail panels to explicitly label distance values an
    - Description: Assert the tool details display a “Distance” label and per-match distance values when expanded.
    - Purpose: Confirm ChatPage tool details surface distance values.
 
-5. [ ] Update ChatPage tool details test for per-match rows:
+5. [x] Update ChatPage tool details test for per-match rows:
    - Documentation to read (repeat):
      - Testing Library React docs: https://testing-library.com/docs/react-testing-library/intro/
      - Jest expect API: Context7 `/jestjs/jest` (ExpectAPI.md)
@@ -1494,7 +1494,7 @@ Update Chat and Agents tool detail panels to explicitly label distance values an
    - Description: Assert per-match rows are rendered from tool payload `results` (distance + chunk preview).
    - Purpose: Ensure detailed results render in ChatPage tool panels.
 
-6. [ ] Update AgentsPage tool details test for distance labels:
+6. [x] Update AgentsPage tool details test for distance labels:
    - Documentation to read (repeat):
      - Testing Library React docs: https://testing-library.com/docs/react-testing-library/intro/
      - Jest expect API: Context7 `/jestjs/jest` (ExpectAPI.md)
@@ -1503,7 +1503,7 @@ Update Chat and Agents tool detail panels to explicitly label distance values an
    - Description: Assert the tool details display a “Distance” label and per-match distance values when expanded.
    - Purpose: Confirm AgentsPage tool details surface distance values.
 
-7. [ ] Update AgentsPage tool details test for per-match rows:
+7. [x] Update AgentsPage tool details test for per-match rows:
    - Documentation to read (repeat):
      - Testing Library React docs: https://testing-library.com/docs/react-testing-library/intro/
      - Jest expect API: Context7 `/jestjs/jest` (ExpectAPI.md)
@@ -1512,7 +1512,7 @@ Update Chat and Agents tool detail panels to explicitly label distance values an
    - Description: Assert per-match rows render from tool payload `results` (distance + chunk preview).
    - Purpose: Ensure detailed results render in AgentsPage tool panels.
 
-8. [ ] Update ChatPage tool details test for missing distance/preview:
+8. [x] Update ChatPage tool details test for missing distance/preview:
    - Documentation to read (repeat):
      - Testing Library React docs: https://testing-library.com/docs/react-testing-library/intro/
      - Jest expect API: Context7 `/jestjs/jest` (ExpectAPI.md)
@@ -1521,7 +1521,7 @@ Update Chat and Agents tool detail panels to explicitly label distance values an
    - Description: Provide a result with missing `score` or `chunk` and assert the UI renders a placeholder without crashing.
    - Purpose: Ensure missing distance/preview values are handled safely.
 
-9. [ ] Update AgentsPage tool details test for missing distance/preview:
+9. [x] Update AgentsPage tool details test for missing distance/preview:
    - Documentation to read (repeat):
      - Testing Library React docs: https://testing-library.com/docs/react-testing-library/intro/
      - Jest expect API: Context7 `/jestjs/jest` (ExpectAPI.md)
@@ -1530,7 +1530,7 @@ Update Chat and Agents tool detail panels to explicitly label distance values an
    - Description: Provide a result with missing `score` or `chunk` and assert the UI renders a placeholder without crashing.
    - Purpose: Ensure missing distance/preview values are handled safely in Agents UI.
 
-10. [ ] Update AgentsPage tool details test for missing `repo`/`relPath`:
+10. [x] Update AgentsPage tool details test for missing `repo`/`relPath`:
    - Documentation to read (repeat):
      - Testing Library React docs: https://testing-library.com/docs/react-testing-library/intro/
      - Jest expect API: Context7 `/jestjs/jest` (ExpectAPI.md)
@@ -1539,7 +1539,7 @@ Update Chat and Agents tool detail panels to explicitly label distance values an
    - Description: Include entries missing `repo`/`relPath` and assert the panel still renders available matches.
    - Purpose: Ensure tool panels tolerate malformed payload entries.
 
-11. [ ] Documentation update - `design.md` (tool details distance text):
+11. [x] Documentation update - `design.md` (tool details distance text):
    - Documentation to read (repeat):
      - Mermaid: Context7 `/mermaid-js/mermaid`
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -1548,7 +1548,7 @@ Update Chat and Agents tool detail panels to explicitly label distance values an
    - Description: Document that tool details show raw distance values and that lower is better.
    - Purpose: Keep UI documentation accurate.
 
-12. [ ] Documentation update - `design.md` (tool details UI diagram):
+12. [x] Documentation update - `design.md` (tool details UI diagram):
    - Documentation to read (repeat):
      - Mermaid: Context7 `/mermaid-js/mermaid`
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -1557,57 +1557,57 @@ Update Chat and Agents tool detail panels to explicitly label distance values an
    - Description: Update or add a Mermaid UI flow diagram if tool-details interactions are documented.
    - Purpose: Ensure UI flow diagrams reflect distance display updates.
 
-13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+13. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
     - Documentation to read (repeat):
       - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
       - Prettier options: https://prettier.io/docs/options
 
 #### Testing
 
-1. [ ] Build the server (workspace build):
+1. [x] Build the server (workspace build):
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
    - Command: `npm run build --workspace server`
    - Purpose: Ensure server TypeScript build succeeds outside Docker.
 
-2. [ ] Build the client (workspace build):
+2. [x] Build the client (workspace build):
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
    - Command: `npm run build --workspace client`
    - Purpose: Ensure client production build succeeds outside Docker.
 
-3. [ ] Run server tests (Cucumber):
+3. [x] Run server tests (Cucumber):
    - Documentation to read (repeat):
      - Cucumber guides: https://cucumber.io/docs/guides/
    - Command: `npm run test --workspace server`
    - Purpose: Validate server BDD tests alongside tool details UI changes.
 
-4. [ ] Run client tests (Jest):
+4. [x] Run client tests (Jest):
    - Documentation to read (repeat):
      - Jest docs: Context7 `/jestjs/jest`
    - Command: `npm run test --workspace client`
    - Purpose: Validate updated tool detail rendering in the client test suite.
 
-5. [ ] Run end-to-end tests:
+5. [x] Run end-to-end tests:
    - Documentation to read (repeat):
      - Playwright Test docs: https://playwright.dev/docs/intro
    - Command: `npm run e2e`
    - Timeout: allow up to 7 minutes (e.g., `timeout 7m npm run e2e` or `timeout_ms=420000`).
    - Purpose: Validate end-to-end tool detail rendering and distance labels.
 
-6. [ ] Perform a clean Docker Compose build:
+6. [x] Perform a clean Docker Compose build:
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
    - Command: `npm run compose:build`
    - Purpose: Validate Docker images build cleanly with tool details UI updates.
 
-7. [ ] Start Docker Compose stack:
+7. [x] Start Docker Compose stack:
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
    - Command: `npm run compose:up`
    - Purpose: Ensure the full stack starts with tool details UI changes.
 
-8. [ ] Manual Playwright-MCP check (visual verification):
+8. [x] Manual Playwright-MCP check (visual verification):
    - Documentation to read (repeat):
      - Playwright Test docs: https://playwright.dev/docs/intro
    - Location: http://host.docker.internal:5001
@@ -1616,7 +1616,7 @@ Update Chat and Agents tool detail panels to explicitly label distance values an
    - Regression check: confirm “Distance” labels and per-match values render correctly and verify there are no logged errors in the debug console.
    - Purpose: Manual verification of tool details UI and regression coverage.
 
-9. [ ] Shut down Docker Compose stack:
+9. [x] Shut down Docker Compose stack:
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
    - Command: `npm run compose:down`
@@ -1624,7 +1624,21 @@ Update Chat and Agents tool detail panels to explicitly label distance values an
 
 #### Implementation notes
 
-- Notes added during implementation.
+- Reviewed tool detail rendering in ChatPage/AgentsPage and confirmed payload `results` are available for per-match rows.
+- Replaced “Match” labels with “Distance” labels, added per-match rows (distance + preview), and added log marker `DEV-0000025:T7:tool_details_distance_rendered` for chat/agents.
+- Updated ChatPage/AgentsPage tests to cover distance labels, per-match rows, placeholders for missing score/preview, and skipped entries missing repo/relPath.
+- Documented per-match distance display and updated the tool detail diagram in `design.md`.
+- Lint returned pre-existing import-order warnings; ran `npm run format --workspace client` and `npm run format:check --workspaces` to resolve formatting.
+- Testing: `npm run build --workspace server`.
+- Testing: `npm run build --workspace client` (chunk size warning only).
+- Testing: `npm run test --workspace server`.
+- Testing: `npm run test --workspace client` (passes with verbose console output + experimental VM warnings).
+- Updated `e2e/chat-tools-visibility.spec.ts` to assert "distance" labels instead of "match" and reran `npm run e2e` (passes).
+- Adjusted tool detail logging to emit `DEV-0000025:T7:tool_details_distance_rendered` even when matchCount is zero and rebuilt the client for manual verification.
+- Testing: `npm run compose:build`.
+- Testing: `npm run compose:up`.
+- Manual check: opened Chat VectorSearch details showing Distance + Preview rows; Logs filter returned `DEV-0000025:T7:tool_details_distance_rendered` for chat (matchCount 2) and agents (matchCount 0).
+- Testing: `npm run compose:down`.
 
 ---
 

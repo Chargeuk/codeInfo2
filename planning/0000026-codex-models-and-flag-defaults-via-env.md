@@ -282,7 +282,15 @@ Create a reusable helper that reads Codex default flag values from environment v
    - Description: List every file added or removed in this task (paths) and update the tree entries.
    - Purpose: Keep the repo tree map accurate after file additions/removals.
 
-12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+12. [ ] Add server log line for env defaults resolution:
+   - Files to edit:
+     - `server/src/config/codexEnvDefaults.ts`
+   - Log line to add:
+     - `baseLogger.info('[codex-env-defaults] resolved', { defaults, warningsCount: warnings.length })`
+   - Expected outcome:
+     - Logs once per `/chat/models` fetch and shows `warningsCount: 0` when env values are valid.
+
+13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier options: https://prettier.io/docs/options
@@ -317,7 +325,7 @@ Create a reusable helper that reads Codex default flag values from environment v
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
-8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001): verify the Chat page loads, Codex flags panel still renders with defaults, and there are no errors in the browser debug console.
+8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001): verify the Chat page loads, Codex flags panel still renders with defaults, and the server logs include `[codex-env-defaults] resolved` with `warningsCount: 0`; confirm no errors appear in the browser debug console.
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
 
@@ -427,7 +435,15 @@ Wire the new Codex env defaults helper into `validateChatRequest` so Codex reque
    - Description: List every file added or removed in this task (paths) and update the tree entries.
    - Purpose: Keep the repo tree map accurate after file additions/removals.
 
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+10. [ ] Add server log line when env defaults are applied during validation:
+   - Files to edit:
+     - `server/src/routes/chatValidators.ts`
+   - Log line to add:
+     - `baseLogger.info('[codex-validate] applied env defaults', { defaultedFlags })`
+   - Expected outcome:
+     - `defaultedFlags` lists every flag filled in from env when the request omits Codex flags.
+
+11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier options: https://prettier.io/docs/options
@@ -462,7 +478,7 @@ Wire the new Codex env defaults helper into `validateChatRequest` so Codex reque
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
-8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001): send a Codex message without changing flags, confirm the request succeeds, and verify no errors appear in the browser debug console.
+8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001): send a Codex message without changing flags, confirm the request succeeds, and verify the server logs include `[codex-validate] applied env defaults` with all five Codex flags listed; confirm no errors appear in the browser debug console.
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
 
@@ -554,7 +570,15 @@ Remove hard-coded Codex defaults from the provider interface so `ChatInterfaceCo
    - Description: List every file added or removed in this task (paths) and update the tree entries.
    - Purpose: Keep the repo tree map accurate after file additions/removals.
 
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+8. [ ] Add server log line for prepared Codex thread options:
+   - Files to edit:
+     - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
+   - Log line to add:
+     - `baseLogger.info('[codex-thread-options] prepared', { threadOptions, undefinedFlags })`
+   - Expected outcome:
+     - `undefinedFlags` lists any flags intentionally left undefined so Codex env/config defaults apply.
+
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier options: https://prettier.io/docs/options
@@ -589,7 +613,7 @@ Remove hard-coded Codex defaults from the provider interface so `ChatInterfaceCo
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
-8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001): start a Codex chat with flags untouched, confirm it succeeds, and verify no errors in the browser debug console.
+8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001): start a Codex chat with flags untouched, confirm it succeeds, and verify the server logs include `[codex-thread-options] prepared` with expected `undefinedFlags`; confirm no errors in the browser debug console.
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
 
@@ -680,7 +704,15 @@ Add shared types and fixtures for the new `/chat/models` Codex response fields s
    - Description: List every file added or removed in this task (paths) and update the tree entries.
    - Purpose: Keep the repo tree map accurate after file additions/removals.
 
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+8. [ ] Add client log line when `/chat/models` includes Codex defaults:
+   - Files to edit:
+     - `client/src/hooks/useChatModel.ts`
+   - Log line to add:
+     - `console.info('[codex-models-response] codexDefaults received', { hasWarnings, codexDefaults })`
+   - Expected outcome:
+     - Appears once after models load; `hasWarnings` reflects whether `codexWarnings` is non-empty.
+
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier options: https://prettier.io/docs/options
@@ -715,7 +747,7 @@ Add shared types and fixtures for the new `/chat/models` Codex response fields s
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
-8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001): open the Chat page, confirm the models list loads without errors, and verify no errors in the browser debug console.
+8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001): open the Chat page, confirm the models list loads, verify the browser debug console includes `[codex-models-response] codexDefaults received` with `hasWarnings: false` (unless warnings are expected), and ensure no console errors appear.
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
 
@@ -878,7 +910,15 @@ Drive the Codex model list from `Codex_model_list`, extend `/chat/models?provide
    - Description: List every file added or removed in this task (paths) and update the tree entries.
    - Purpose: Keep the repo tree map accurate after file additions/removals.
 
-16. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+16. [ ] Add server log line for Codex model list selection:
+   - Files to edit:
+     - `server/src/routes/chatModels.ts`
+   - Log line to add:
+     - `baseLogger.info('[codex-model-list] using env list', { modelCount, fallbackUsed, warningsCount })`
+   - Expected outcome:
+     - Logs whenever `/chat/models?provider=codex` is called; `fallbackUsed` is `false` when env CSV is valid.
+
+17. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier options: https://prettier.io/docs/options
@@ -913,7 +953,7 @@ Drive the Codex model list from `Codex_model_list`, extend `/chat/models?provide
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
-8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001): verify the Codex model list reflects the env-driven entries and confirm no errors in the browser debug console.
+8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001): verify the Codex model list reflects the env-driven entries, confirm server logs include `[codex-model-list] using env list` with `fallbackUsed: false` and the expected `modelCount`, and ensure no console errors appear.
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
 
@@ -1053,7 +1093,16 @@ Consume `codexDefaults` from `/chat/models` and use them to initialize Codex fla
    - Description: List every file added or removed in this task (paths) and update the tree entries.
    - Purpose: Keep the repo tree map accurate after file additions/removals.
 
-12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+12. [ ] Add client log lines for default initialization/reset:
+   - Files to edit:
+     - `client/src/pages/ChatPage.tsx`
+   - Log lines to add:
+     - `console.info('[codex-ui-defaults] initialized', { codexDefaults })`
+     - `console.info('[codex-ui-defaults] reset', { reason, codexDefaults })`
+   - Expected outcome:
+     - One `initialized` log on first Codex load, plus `reset` logs on provider change and new conversation.
+
+13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier options: https://prettier.io/docs/options
@@ -1088,7 +1137,7 @@ Consume `codexDefaults` from `/chat/models` and use them to initialize Codex fla
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
-8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001): confirm Codex defaults load from `/chat/models`, resets occur on provider switch and **New conversation**, and no errors appear in the browser debug console.
+8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001): confirm Codex defaults load from `/chat/models`, resets occur on provider switch and **New conversation**, and the browser console includes `[codex-ui-defaults] initialized` plus `reset` logs with reasons `provider-change` and `new-conversation`; ensure no console errors appear.
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
 
@@ -1228,7 +1277,17 @@ Omit unchanged Codex flags from `/chat` payloads and surface `codexWarnings` nea
    - Description: List every file added or removed in this task (paths) and update the tree entries.
    - Purpose: Keep the repo tree map accurate after file additions/removals.
 
-13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+13. [ ] Add client log lines for payload omission + warnings banner:
+   - Files to edit:
+     - `client/src/hooks/useChatStream.ts`
+     - `client/src/pages/ChatPage.tsx`
+   - Log lines to add:
+     - `console.info('[codex-payload] omitted flags', { omittedFlags })`
+     - `console.info('[codex-warnings] rendered', { warnings })`
+   - Expected outcome:
+     - `omittedFlags` lists all flags excluded when unchanged; `warnings` matches `codexWarnings` when the banner is shown.
+
+14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier options: https://prettier.io/docs/options
@@ -1263,7 +1322,7 @@ Omit unchanged Codex flags from `/chat` payloads and surface `codexWarnings` nea
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
-8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001): verify Codex warnings render above the flags panel when present, payloads still send successfully, and no errors appear in the browser debug console.
+8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001): send a Codex message with unchanged flags and confirm the console logs `[codex-payload] omitted flags` listing all omitted flags; if `codexWarnings` is non-empty (set an invalid env like `Codex_reasoning_effort=invalid` before compose up), verify the banner renders and `[codex-warnings] rendered` logs with the warning text; ensure no console errors appear.
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
 
@@ -1319,7 +1378,15 @@ Update user-facing documentation to describe env-driven Codex models and default
    - Description: List every file added or removed in this story (paths) and update the tree entries.
    - Purpose: Keep the repo tree map accurate.
 
-4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+4. [ ] Add dev-only client log line to confirm docs sync:
+   - Files to edit:
+     - `client/src/pages/ChatPage.tsx`
+   - Log line to add:
+     - `if (import.meta.env.DEV) console.info('[codex-docs] docs synced', { source: '/chat/models' })`
+   - Expected outcome:
+     - Appears once on initial Chat page load in dev/test environments.
+
+5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier options: https://prettier.io/docs/options
@@ -1354,7 +1421,7 @@ Update user-facing documentation to describe env-driven Codex models and default
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
-8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001): confirm the Chat page still loads with no console errors after doc-only changes.
+8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001): confirm the Chat page still loads, verify the console includes `[codex-docs] docs synced`, and ensure no console errors appear.
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
 
@@ -1412,7 +1479,15 @@ The final task must always check against the acceptance criteria of the story. I
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
 
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+5. [ ] Add final dev-only client log line confirming manual verification state:
+   - Files to edit:
+     - `client/src/App.tsx`
+   - Log line to add:
+     - `if (import.meta.env.DEV) console.info('[codex-final-check] smoke ready', { story: '0000026' })`
+   - Expected outcome:
+     - Appears once on app load in dev/test environments before screenshots are captured.
+
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier options: https://prettier.io/docs/options
@@ -1447,7 +1522,7 @@ The final task must always check against the acceptance criteria of the story. I
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
-8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001): verify Codex model list/defaults/warnings behavior end-to-end, confirm no errors in the browser debug console, and capture screenshots in `test-results/screenshots` named `<planIndex>-<taskNumber>-<description>`.
+8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001): verify Codex model list/defaults/warnings behavior end-to-end, confirm the console includes `[codex-final-check] smoke ready`, ensure no errors in the browser debug console, and capture screenshots in `test-results/screenshots` named `<planIndex>-<taskNumber>-<description>`.
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
 

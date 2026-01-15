@@ -321,6 +321,7 @@ Wire the new Codex env defaults helper into `validateChatRequest` so Codex reque
 - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 - Docker/Compose: Context7 `/docker/docs`
 - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+- Mermaid docs (diagram updates): Context7 `/mermaid-js/mermaid`
 - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier options (format check expectations): https://prettier.io/docs/options
 
@@ -371,9 +372,9 @@ Wire the new Codex env defaults helper into `validateChatRequest` so Codex reque
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document: `README.md`
 
-7. [ ] Documentation check - `design.md` (update only if needed):
+7. [ ] Update `design.md` with architecture/flow changes + mermaid diagrams:
    - Documentation to read (repeat):
-     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+     - Mermaid docs: Context7 `/mermaid-js/mermaid`
    - Document: `design.md`
 
 8. [ ] Update `projectStructure.md` after adding/removing files in this task:
@@ -440,6 +441,7 @@ Remove hard-coded Codex defaults from the provider interface so `ChatInterfaceCo
 - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 - Docker/Compose: Context7 `/docker/docs`
 - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+- Mermaid docs (diagram updates): Context7 `/mermaid-js/mermaid`
 - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier options (format check expectations): https://prettier.io/docs/options
 
@@ -482,9 +484,9 @@ Remove hard-coded Codex defaults from the provider interface so `ChatInterfaceCo
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document: `README.md`
 
-6. [ ] Documentation check - `design.md` (update only if needed):
+6. [ ] Update `design.md` with architecture/flow changes + mermaid diagrams:
    - Documentation to read (repeat):
-     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+     - Mermaid docs: Context7 `/mermaid-js/mermaid`
    - Document: `design.md`
 
 7. [ ] Update `projectStructure.md` after adding/removing files in this task:
@@ -650,6 +652,7 @@ Drive the Codex model list from `Codex_model_list`, extend `/chat/models?provide
 - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 - Docker/Compose: Context7 `/docker/docs`
 - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+- Mermaid docs (diagram updates): Context7 `/mermaid-js/mermaid`
 - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier options (format check expectations): https://prettier.io/docs/options
 
@@ -733,9 +736,9 @@ Drive the Codex model list from `Codex_model_list`, extend `/chat/models?provide
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document: `README.md`
 
-11. [ ] Documentation check - `design.md` (update only if needed):
+11. [ ] Update `design.md` with architecture/flow changes + mermaid diagrams:
    - Documentation to read (repeat):
-     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+     - Mermaid docs: Context7 `/mermaid-js/mermaid`
    - Document: `design.md`
 
 12. [ ] Update `projectStructure.md` after adding/removing files in this task:
@@ -804,6 +807,7 @@ Consume `codexDefaults` from `/chat/models` and use them to initialize Codex fla
 - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 - Docker/Compose: Context7 `/docker/docs`
 - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+- Mermaid docs (diagram updates): Context7 `/mermaid-js/mermaid`
 - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier options (format check expectations): https://prettier.io/docs/options
 
@@ -882,9 +886,9 @@ Consume `codexDefaults` from `/chat/models` and use them to initialize Codex fla
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document: `README.md`
 
-10. [ ] Documentation check - `design.md` (update only if needed):
+10. [ ] Update `design.md` with architecture/flow changes + mermaid diagrams:
    - Documentation to read (repeat):
-     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+     - Mermaid docs: Context7 `/mermaid-js/mermaid`
    - Document: `design.md`
 
 11. [ ] Update `projectStructure.md` after adding/removing files in this task:
@@ -948,6 +952,7 @@ Omit unchanged Codex flags from `/chat` payloads and surface `codexWarnings` nea
 - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 - Docker/Compose: Context7 `/docker/docs`
 - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+- Mermaid docs (diagram updates): Context7 `/mermaid-js/mermaid`
 - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier options (format check expectations): https://prettier.io/docs/options
 
@@ -1012,9 +1017,9 @@ Omit unchanged Codex flags from `/chat` payloads and surface `codexWarnings` nea
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document: `README.md`
 
-9. [ ] Documentation check - `design.md` (update only if needed):
+9. [ ] Update `design.md` with architecture/flow changes + mermaid diagrams:
    - Documentation to read (repeat):
-     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+     - Mermaid docs: Context7 `/mermaid-js/mermaid`
    - Document: `design.md`
 
 10. [ ] Update `projectStructure.md` after adding/removing files in this task:
@@ -1098,6 +1103,7 @@ Update user-facing documentation to describe env-driven Codex models and default
    - Requirements:
      - Update Codex flags panel description to mention server defaults.
      - Update `/chat/models` response documentation to mention `codexDefaults` and `codexWarnings`.
+     - Add/update Mermaid diagrams for any new or updated flow.
 
 3. [ ] Update `projectStructure.md` if new files were introduced:
    - Documentation to read (repeat):

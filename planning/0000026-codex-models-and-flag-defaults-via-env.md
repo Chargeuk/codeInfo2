@@ -194,6 +194,7 @@ Add a single, reusable server helper that reads Codex default flags from environ
    - Requirements:
      - Read `Codex_sandbox_mode`, `Codex_approval_policy`, `Codex_reasoning_effort`, `Codex_network_access_enabled`, `Codex_web_search_enabled`.
      - Validate each value against the existing enums/boolean shapes.
+     - Parse boolean env values from trimmed, case-insensitive `true`/`false` strings.
      - Return `{ defaults, warnings }`, where warnings contain human-readable messages for invalid env values.
      - If an env value is invalid, fall back to the built-in default from the acceptance criteria.
      - Add a warning when `networkAccessEnabled === true` and `sandboxMode !== 'workspace-write'` (flag still passes through).
@@ -221,6 +222,7 @@ Add a single, reusable server helper that reads Codex default flags from environ
    - Tests to add/update:
      - New or updated unit tests under `server/src/test/unit/` to cover valid/invalid env values and fallback defaults.
      - Include a test for the `networkAccessEnabled` + non-`workspace-write` warning.
+     - Include tests for boolean parsing (`true`/`false`) and invalid boolean strings.
 
 6. [ ] Update server defaults in `server/.env`:
    - Files to edit:
@@ -329,6 +331,7 @@ Drive the Codex model list from a CSV environment variable and extend the Codex 
      - Use the env model list from the helper.
      - Include `codexDefaults` and `codexWarnings` in the Codex response only.
      - Log warnings when present using the existing server logging patterns.
+     - Return `codexDefaults`/`codexWarnings` even when Codex is unavailable so the UI can still display env warnings.
 
 4. [ ] Add runtime warnings to the Codex warnings list:
    - Files to read:
@@ -344,6 +347,7 @@ Drive the Codex model list from a CSV environment variable and extend the Codex 
      - `common/src/fixtures/mockModels.ts`
    - Requirements:
      - Add optional `codexDefaults`/`codexWarnings` fields to the models response type.
+     - Add a shared `CodexDefaults` type for `sandboxMode`, `approvalPolicy`, `modelReasoningEffort`, `networkAccessEnabled`, `webSearchEnabled`.
      - Ensure fixtures include these fields for Codex provider mocks.
 
 6. [ ] Add/update tests for the Codex models response shape:
@@ -352,6 +356,7 @@ Drive the Codex model list from a CSV environment variable and extend the Codex 
    - Tests to add/update:
      - Server unit tests under `server/src/test/unit/` that assert env list parsing and response fields.
      - Include a test that the runtime warning is appended when tools are unavailable.
+     - Add coverage for duplicate/unknown CSV entries and empty CSV fallback.
 
 7. [ ] Update server defaults in `server/.env` with `Codex_model_list`:
    - Files to edit:
@@ -448,7 +453,7 @@ Update the client to consume `codexDefaults` and `codexWarnings` from the server
      - TypeScript narrowing: https://www.typescriptlang.org/docs/handbook/2/narrowing.html
    - Files to edit:
      - `common/src/lmstudio.ts`
-     - `client/src/hooks/useChatModels.ts` (or equivalent)
+     - `client/src/hooks/useChatModel.ts`
    - Requirements:
      - Plumb the optional fields through to the hook result so the UI can access them.
 
@@ -462,6 +467,8 @@ Update the client to consume `codexDefaults` and `codexWarnings` from the server
      - Use `codexDefaults` from the server response as the source of truth.
      - When provider switches away and back to Codex, rehydrate defaults from the latest server response.
      - While `codexDefaults` is missing, keep Codex flag controls disabled and do not send defaults.
+     - Ensure **New conversation** resets flags to `codexDefaults` instead of hard-coded values.
+     - Update default labels in `CodexFlagsPanel` to reflect the server-provided defaults (or remove hard-coded “(default)” labels).
 
 4. [ ] Omit unchanged Codex flags from `/chat` payloads:
    - Files to edit:
@@ -471,6 +478,7 @@ Update the client to consume `codexDefaults` and `codexWarnings` from the server
      - Only include flags in the request body when they differ from defaults.
      - Preserve current behavior for LM Studio.
      - If defaults are not loaded, omit all Codex flags from the payload.
+     - Remove `useChatStream` hard-coded DEFAULT_* values and rely on passed defaults.
 
 5. [ ] Surface `codexWarnings` in the chat controls:
    - Documentation to read (repeat):
@@ -488,6 +496,7 @@ Update the client to consume `codexDefaults` and `codexWarnings` from the server
    - Tests to add/update:
      - Chat page tests to assert defaults are sourced from the server response.
      - Hook or API tests to assert unchanged flags are omitted from payloads.
+     - Update `client/src/test/setupTests.ts` and Codex flag tests to include `codexDefaults`/`codexWarnings` in mock `/chat/models` responses.
 
 7. [ ] Documentation check - `README.md`:
    - Document: `README.md`

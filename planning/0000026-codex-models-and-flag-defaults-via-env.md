@@ -64,7 +64,21 @@ Implementation Ideas (rough, not tasked):
 - Tests/docs:
   - Update Codex flag tests (`client/src/test/chatPage.flags.*`) to assert defaults come from server responses.
   - Update server integration tests (`server/src/test/integration/chat-codex-mcp.test.ts`) to cover env parsing and defaults.
-  - Refresh `design.md` / `README.md` to describe env-driven defaults and the new Codex model list.
+- Refresh `design.md` / `README.md` to describe env-driven defaults and the new Codex model list.
+
+Message Contracts & Storage Shapes (define up front):
+
+- `GET /chat/models?provider=codex` response contract (`common/src/lmstudio.ts`):
+  - Extend `ChatModelsResponse` with two optional fields used only when `provider=codex`:
+    - `codexDefaults`: `{ sandboxMode, approvalPolicy, modelReasoningEffort, networkAccessEnabled, webSearchEnabled }`.
+    - `codexWarnings`: `string[]` for invalid env/default parsing warnings.
+  - No new endpoint; this is an additive response change consumed by the client.
+- `POST /chat` request contract remains unchanged; the client will omit unchanged flags so the server applies env defaults.
+- WebSocket contracts remain unchanged; reuse existing `stream_warning` events to display any runtime/default warnings in the chat transcript (no new WS event types).
+- Storage schema impact:
+  - No Mongo schema changes required; `Conversation.flags` already stores a flexible object for Codex flags and can carry the applied defaults.
+  - `Turn` schema does not require any additions.
+- DeepWiki note: repo is not indexed in DeepWiki yet, so contract verification relied on code inspection + Context7 docs.
 
 ---
 

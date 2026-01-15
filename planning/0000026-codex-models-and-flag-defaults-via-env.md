@@ -359,7 +359,7 @@ Create a reusable helper that reads Codex default flag values from environment v
 
 ### 2. Server: Apply env defaults in chat validation
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: 
 
 #### Overview

@@ -202,48 +202,56 @@ Create a reusable helper that reads Codex default flag values from environment v
    - Documentation to read (repeat):
      - Zod schema validation: Context7 `/colinhacks/zod`
    - Files to edit:
-     - `server/src/config/` (new helper module)
+     - `server/src/config/codexEnvDefaults.ts` (new helper module)
    - Requirements:
+     - Export `getCodexEnvDefaults()` returning `{ defaults, warnings }`.
+     - Define `CodexDefaults` shape in this module (or import from `@codeinfo2/common` once added).
      - Read `Codex_sandbox_mode`, `Codex_approval_policy`, `Codex_reasoning_effort`, `Codex_network_access_enabled`, `Codex_web_search_enabled`.
      - Validate each value against the existing enums/boolean shapes.
      - Parse booleans using the same `toLowerCase() === 'true'` pattern used in `server/src/lmstudio/toolService.ts`.
      - Return `{ defaults, warnings }`, where warnings are user-facing strings for invalid env values.
      - Add a warning when `networkAccessEnabled === true` and `sandboxMode !== 'workspace-write'`.
+     - Reference enums from `server/src/routes/chatValidators.ts` for allowed values.
 
 3. [ ] Add unit test: valid env values map into defaults
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
    - Test type: server unit test
-   - Location: `server/src/test/unit/` (new test file for the env helper)
+   - Location: `server/src/test/unit/codexEnvDefaults.test.ts` (new test file)
    - Purpose: Ensure valid env values are parsed and reflected in the returned defaults object.
+   - Reference pattern: `server/src/test/unit/ws-chat-stream.test.ts` (node:test style).
 
 4. [ ] Add unit test: missing env values use built-in defaults (no warnings)
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
    - Test type: server unit test
-   - Location: `server/src/test/unit/` (env helper test file)
+   - Location: `server/src/test/unit/codexEnvDefaults.test.ts`
    - Purpose: Confirm unset env values fall back to built-in defaults without emitting warnings.
+   - Reference pattern: `server/src/test/unit/ws-chat-stream.test.ts` (node:test style).
 
 5. [ ] Add unit test: invalid enum values and empty strings warn + fall back
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
    - Test type: server unit test
-   - Location: `server/src/test/unit/` (env helper test file)
+   - Location: `server/src/test/unit/codexEnvDefaults.test.ts`
    - Purpose: Confirm invalid enum values or empty-string envs emit warnings and fall back to built-in defaults.
+   - Reference pattern: `server/src/test/unit/ws-chat-stream.test.ts` (node:test style).
 
 6. [ ] Add unit test: boolean parsing + invalid boolean handling
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
    - Test type: server unit test
-   - Location: `server/src/test/unit/` (env helper test file)
+   - Location: `server/src/test/unit/codexEnvDefaults.test.ts`
    - Purpose: Verify case-insensitive `true`/`false` parsing and warning/fallback on invalid boolean strings.
+   - Reference pattern: `server/src/test/unit/ws-chat-stream.test.ts` (node:test style).
 
 7. [ ] Add unit test: network access warning outside workspace-write
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
    - Test type: server unit test
-   - Location: `server/src/test/unit/` (env helper test file)
+   - Location: `server/src/test/unit/codexEnvDefaults.test.ts`
    - Purpose: Emit a warning when `networkAccessEnabled === true` and `sandboxMode` is not `workspace-write`.
+   - Reference pattern: `server/src/test/unit/ws-chat-stream.test.ts` (node:test style).
 
 8. [ ] Update server defaults in `server/.env` (flags only):
    - Documentation to read (repeat):
@@ -355,6 +363,7 @@ Wire the new Codex env defaults helper into `validateChatRequest` so Codex reque
    - Files to edit:
      - `server/src/routes/chatValidators.ts`
    - Requirements:
+     - Import `getCodexEnvDefaults()` from `server/src/config/codexEnvDefaults.ts`.
      - Pull defaults from the new helper when provider is `codex` and a flag is missing.
      - Preserve explicit request overrides.
      - Keep LM Studio warning behavior unchanged.
@@ -363,29 +372,33 @@ Wire the new Codex env defaults helper into `validateChatRequest` so Codex reque
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
    - Test type: server unit test
-   - Location: `server/src/test/unit/` (validation tests)
+   - Location: `server/src/test/unit/chatValidators.test.ts` (new test file)
    - Purpose: Ensure env defaults are injected only when Codex flags are missing.
+   - Reference pattern: `server/src/test/unit/ws-chat-stream.test.ts` (node:test style).
 
 4. [ ] Add unit test: explicit request flags override env defaults
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
    - Test type: server unit test
-   - Location: `server/src/test/unit/` (validation tests)
+   - Location: `server/src/test/unit/chatValidators.test.ts`
    - Purpose: Confirm explicit request values override env defaults for Codex flags.
+   - Reference pattern: `server/src/test/unit/ws-chat-stream.test.ts` (node:test style).
 
 5. [ ] Add unit test: non-Codex validation unchanged
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
    - Test type: server unit test
-   - Location: `server/src/test/unit/` (validation tests)
+   - Location: `server/src/test/unit/chatValidators.test.ts`
    - Purpose: Verify non-Codex requests ignore Codex defaults and preserve existing warning behavior.
+   - Reference pattern: `server/src/test/unit/ws-chat-stream.test.ts` (node:test style).
 
 6. [ ] Add unit test: non-Codex provider with Codex flags emits warnings
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
    - Test type: server unit test
-   - Location: `server/src/test/unit/` (validation tests)
+   - Location: `server/src/test/unit/chatValidators.test.ts`
    - Purpose: Ensure Codex-only flags are ignored and warnings are emitted when provider is not Codex.
+   - Reference pattern: `server/src/test/unit/ws-chat-stream.test.ts` (node:test style).
 
 7. [ ] Update `README.md` if validation behavior changes are user-facing:
    - Documentation to read (repeat):
@@ -488,6 +501,7 @@ Remove hard-coded Codex defaults from the provider interface so `ChatInterfaceCo
    - Files to edit:
      - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
    - Requirements:
+     - Remove inline fallbacks like `?? 'workspace-write'` / `?? true` / `?? 'high'`.
      - Use provided `codexFlags` values directly.
      - Leave fields undefined when missing so env defaults from validation are respected.
 
@@ -495,15 +509,17 @@ Remove hard-coded Codex defaults from the provider interface so `ChatInterfaceCo
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
    - Test type: server integration/unit test
-   - Location: `server/src/test/integration/chat-codex.test.ts` or `server/src/test/unit/`
+   - Location: `server/src/test/integration/chat-codex.test.ts` (prefer) or new `server/src/test/unit/chatCodexFlags.test.ts`
    - Purpose: Confirm thread options use validated flags and do not inject old defaults.
+   - Reference pattern: existing Codex integration tests in `server/src/test/integration/chat-codex.test.ts`.
 
 4. [ ] Add test: missing flags stay undefined in thread options
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
    - Test type: server integration/unit test
-   - Location: `server/src/test/integration/chat-codex.test.ts` or `server/src/test/unit/`
+   - Location: `server/src/test/integration/chat-codex.test.ts` (prefer) or new `server/src/test/unit/chatCodexFlags.test.ts`
    - Purpose: Ensure omitted flags remain `undefined` so Codex config/env defaults apply.
+   - Reference pattern: existing Codex integration tests in `server/src/test/integration/chat-codex.test.ts`.
 
 5. [ ] Update `README.md` if Codex thread option behavior changes are documented:
    - Documentation to read (repeat):
@@ -601,6 +617,7 @@ Add shared types and fixtures for the new `/chat/models` Codex response fields s
      - `common/src/lmstudio.ts`
    - Requirements:
      - Add a `CodexDefaults` type and optional `codexDefaults`/`codexWarnings` fields to `ChatModelsResponse`.
+     - Keep Codex fields optional so non-codex providers can omit them.
 
 3. [ ] Update fixtures and shared mocks:
    - Documentation to read (repeat):
@@ -613,10 +630,11 @@ Add shared types and fixtures for the new `/chat/models` Codex response fields s
 4. [ ] Update tests that consume the shared fixtures:
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
-   - Files to edit:
-     - `server/src/test/steps/chat_models.steps.ts`
+   - Test type: server Cucumber step update
+   - Location: `server/src/test/steps/chat_models.steps.ts`
    - Description: Update the Cucumber expectation to include `codexDefaults`/`codexWarnings` fields.
    - Purpose: Keep shared-fixture tests aligned with the new response shape (no client usages found).
+   - Reference pattern: other Cucumber step assertions in `server/src/test/steps/`.
 
 5. [ ] Update `README.md` if shared response fields are documented:
    - Documentation to read (repeat):
@@ -710,8 +728,9 @@ Drive the Codex model list from `Codex_model_list`, extend `/chat/models?provide
    - Files to read:
      - `server/src/ingest/config.ts` (CSV split/trim + Set de-duplication pattern)
    - Files to edit:
-     - Codex env helper module from Task 1
+     - `server/src/config/codexEnvDefaults.ts`
    - Requirements:
+     - Export `getCodexModelList()` (or extend `getCodexEnvDefaults()` to return `{ models, warnings }`).
      - Parse `Codex_model_list` as CSV, trim, drop empties, de-duplicate.
      - Warn and fall back to the built-in list if the parsed list is empty.
 
@@ -724,6 +743,7 @@ Drive the Codex model list from `Codex_model_list`, extend `/chat/models?provide
      - Use the env-driven model list.
      - Include `codexDefaults` and `codexWarnings` even when Codex is unavailable.
      - Log warnings using existing server logging patterns.
+     - Keep existing response fields (`provider`, `available`, `toolsAvailable`, `models`, `reason`) intact.
 
 4. [ ] Append runtime warnings when tools are unavailable:
    - Documentation to read (repeat):
@@ -746,50 +766,57 @@ Drive the Codex model list from `Codex_model_list`, extend `/chat/models?provide
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
    - Test type: server unit test
-   - Location: `server/src/test/unit/` (models response tests)
+   - Location: `server/src/test/unit/chatModels.codex.test.ts` (new test file)
    - Purpose: Assert env model list parsing is applied and response includes `codexDefaults`/`codexWarnings`.
+   - Reference pattern: `server/src/test/unit/ws-chat-stream.test.ts` (node:test style).
 
 7. [ ] Add unit test: codexDefaults/codexWarnings included when Codex unavailable
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
    - Test type: server unit test
-   - Location: `server/src/test/unit/` (models response tests)
+   - Location: `server/src/test/unit/chatModels.codex.test.ts`
    - Purpose: Ensure `/chat/models?provider=codex` still returns defaults/warnings even when Codex is unavailable.
+   - Reference pattern: `server/src/test/unit/ws-chat-stream.test.ts` (node:test style).
 
 8. [ ] Add unit test: defaults warnings propagate into codexWarnings
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
    - Test type: server unit test
-   - Location: `server/src/test/unit/` (models response tests)
+   - Location: `server/src/test/unit/chatModels.codex.test.ts`
    - Purpose: Confirm warnings from invalid env defaults are merged into `codexWarnings`.
+   - Reference pattern: `server/src/test/unit/ws-chat-stream.test.ts` (node:test style).
 
 9. [ ] Add unit test: CSV trims, drops empties, de-duplicates
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
    - Test type: server unit test
-   - Location: `server/src/test/unit/` (models response tests)
+   - Location: `server/src/test/unit/chatModels.codex.test.ts`
    - Purpose: Ensure whitespace trimming, empty entry removal, and de-duplication are enforced.
+   - Reference pattern: `server/src/test/unit/ws-chat-stream.test.ts` (node:test style).
 
 10. [ ] Add unit test: empty CSV fallback + warning
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
    - Test type: server unit test
-   - Location: `server/src/test/unit/` (models response tests)
+   - Location: `server/src/test/unit/chatModels.codex.test.ts`
    - Purpose: Warn and fall back to the built-in model list when the CSV yields no valid entries.
+   - Reference pattern: `server/src/test/unit/ws-chat-stream.test.ts` (node:test style).
 
 11. [ ] Add unit test: runtime warning when web search enabled but tools unavailable
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
    - Test type: server unit test
-   - Location: `server/src/test/unit/` (models response tests)
+   - Location: `server/src/test/unit/chatModels.codex.test.ts`
    - Purpose: Append a warning if `webSearchEnabled` is true while tools are unavailable.
+   - Reference pattern: `server/src/test/unit/ws-chat-stream.test.ts` (node:test style).
 
 12. [ ] Add unit test: non-Codex provider omits codexDefaults/codexWarnings
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
    - Test type: server unit test
-   - Location: `server/src/test/unit/` (models response tests)
+   - Location: `server/src/test/unit/chatModels.codex.test.ts`
    - Purpose: Ensure `/chat/models?provider=lmstudio` response does not include Codex-only fields.
+   - Reference pattern: `server/src/test/unit/ws-chat-stream.test.ts` (node:test style).
 
 13. [ ] Update `README.md` with model list env details if changed:
    - Documentation to read (repeat):
@@ -894,8 +921,10 @@ Consume `codexDefaults` from `/chat/models` and use them to initialize Codex fla
      - TypeScript discriminated unions (model/provider typing): https://www.typescriptlang.org/docs/handbook/2/narrowing.html
    - Files to edit:
      - `client/src/hooks/useChatModel.ts`
+     - `common/src/lmstudio.ts` (for updated `ChatModelsResponse` fields from Task 4)
    - Requirements:
      - Store the optional `codexDefaults`/`codexWarnings` from the response and expose them to the UI.
+     - When provider is not `codex`, ensure `codexDefaults`/`codexWarnings` are `undefined` (do not carry stale data).
 
 3. [ ] Initialize Codex flag state from server defaults:
    - Documentation to read (repeat):
@@ -906,6 +935,7 @@ Consume `codexDefaults` from `/chat/models` and use them to initialize Codex fla
      - Set initial flag state from `codexDefaults` when provider is Codex.
      - Reset flags to `codexDefaults` on provider switch and **New conversation**.
      - Disable Codex flags panel while defaults are missing.
+     - Pass `codexDefaults` into `useChatStream` so payload-diffing can omit unchanged flags (Task 7).
 
 4. [ ] Update Codex flags labels to avoid hard-coded “default” text:
    - Documentation to read (repeat):
@@ -917,35 +947,40 @@ Consume `codexDefaults` from `/chat/models` and use them to initialize Codex fla
    - Files to edit:
      - `client/src/components/chat/CodexFlagsPanel.tsx`
    - Requirements:
-     - Remove hard-coded “(default)” labels or accept default indicators from the parent.
+     - Remove hard-coded “(default)” labels in `sandboxOptions`, `approvalOptions`, and `reasoningOptions`.
+     - If needed, accept a `defaultLabelSuffix` prop from the parent for optional labeling.
 
 5. [ ] Add client test: defaults sourced from server response
    - Documentation to read (repeat):
      - Jest docs: Context7 `/jestjs/jest`
    - Test type: client Jest/RTL test
-   - Location: `client/src/test/` (chat page tests)
+   - Location: `client/src/test/chatPage.codexDefaults.test.tsx` (new test file)
    - Purpose: Ensure Codex defaults are initialized from `codexDefaults` in `/chat/models`.
+   - Reference pattern: `client/src/test/chatPage.flags.sandbox.default.test.tsx`.
 
 6. [ ] Add client test: defaults re-apply on provider switch
    - Documentation to read (repeat):
      - Jest docs: Context7 `/jestjs/jest`
    - Test type: client Jest/RTL test
-   - Location: `client/src/test/` (chat page tests)
+   - Location: `client/src/test/chatPage.codexDefaults.test.tsx`
    - Purpose: Verify Codex defaults re-apply when switching back to the Codex provider.
+   - Reference pattern: `client/src/test/chatPage.flags.sandbox.default.test.tsx`.
 
 7. [ ] Add client test: defaults re-apply on new conversation
    - Documentation to read (repeat):
      - Jest docs: Context7 `/jestjs/jest`
    - Test type: client Jest/RTL test
-   - Location: `client/src/test/` (chat page tests)
+   - Location: `client/src/test/chatPage.codexDefaults.test.tsx`
    - Purpose: Confirm **New conversation** resets flags to server defaults.
+   - Reference pattern: `client/src/test/chatPage.flags.sandbox.default.test.tsx`.
 
 8. [ ] Add client test: Codex flags panel disabled without defaults
    - Documentation to read (repeat):
      - Jest docs: Context7 `/jestjs/jest`
    - Test type: client Jest/RTL test
-   - Location: `client/src/test/` (chat page tests)
+   - Location: `client/src/test/chatPage.codexDefaults.test.tsx`
    - Purpose: Ensure the Codex flags panel is disabled when `codexDefaults` are missing.
+   - Reference pattern: `client/src/test/chatPage.flags.sandbox.default.test.tsx`.
 
 9. [ ] Update `README.md` if client defaults behavior is documented:
    - Documentation to read (repeat):
@@ -1042,10 +1077,12 @@ Omit unchanged Codex flags from `/chat` payloads and surface `codexWarnings` nea
      - TypeScript discriminated unions (model/provider typing): https://www.typescriptlang.org/docs/handbook/2/narrowing.html
    - Files to edit:
      - `client/src/hooks/useChatStream.ts`
+     - `client/src/pages/ChatPage.tsx` (pass `codexDefaults` into hook)
    - Requirements:
      - Compare user-selected flags against `codexDefaults`.
      - Remove hard-coded DEFAULT_* values and rely on passed defaults.
      - If defaults are missing, omit all Codex flags from the payload.
+     - Update the `useChatStream` options signature to accept `codexDefaults` and use it for comparison.
 
 3. [ ] Render `codexWarnings` near chat controls:
    - Documentation to read (repeat):
@@ -1055,48 +1092,59 @@ Omit unchanged Codex flags from `/chat` payloads and surface `codexWarnings` nea
    - Requirements:
      - Reuse existing `Alert` layout patterns already used for Codex availability/tooling banners.
      - Clear warnings when the provider is not Codex.
+     - Render the banner directly above the Codex flags panel for visibility.
 
 4. [ ] Update client test fixtures: include `codexDefaults` + `codexWarnings`
    - Documentation to read (repeat):
      - Jest docs: Context7 `/jestjs/jest`
    - Test type: client Jest/RTL test support update
-   - Location: `client/src/test/` (mock `/chat/models` responses)
+   - Location: update mock `/chat/models` responses in these files:
+     - `client/src/test/chatPage.flags.sandbox.default.test.tsx`
+     - `client/src/test/chatPage.flags.network.default.test.tsx`
+     - `client/src/test/chatPage.flags.sandbox.payload.test.tsx`
+     - `client/src/test/chatPage.flags.network.payload.test.tsx`
+     - `client/src/test/chatPage.codexBanners.test.tsx`
    - Purpose: Ensure test fixtures mirror the updated server response shape.
 
 5. [ ] Add client test: unchanged flags omitted from `/chat` payload
    - Documentation to read (repeat):
      - Jest docs: Context7 `/jestjs/jest`
    - Test type: client Jest/RTL test
-   - Location: `client/src/test/` (chat stream/payload tests)
+   - Location: `client/src/test/chatPage.flags.sandbox.payload.test.tsx`
    - Purpose: Assert unchanged Codex flags are omitted so server defaults apply.
+   - Reference pattern: existing payload assertions in `chatPage.flags.sandbox.payload.test.tsx`.
 
 6. [ ] Add client test: changed flags included in `/chat` payload
    - Documentation to read (repeat):
      - Jest docs: Context7 `/jestjs/jest`
    - Test type: client Jest/RTL test
-   - Location: `client/src/test/` (chat stream/payload tests)
+   - Location: `client/src/test/chatPage.flags.network.payload.test.tsx`
    - Purpose: Ensure only user-changed Codex flags are included in the payload.
+   - Reference pattern: existing payload assertions in `chatPage.flags.network.payload.test.tsx`.
 
 7. [ ] Add client test: omit all flags when defaults missing
    - Documentation to read (repeat):
      - Jest docs: Context7 `/jestjs/jest`
    - Test type: client Jest/RTL test
-   - Location: `client/src/test/` (chat stream/payload tests)
+   - Location: `client/src/test/chatPage.flags.sandbox.payload.test.tsx`
    - Purpose: When `codexDefaults` is absent, omit all Codex flags from the payload.
+   - Reference pattern: existing payload assertions in `chatPage.flags.sandbox.payload.test.tsx`.
 
 8. [ ] Add client test: render codex warnings only for Codex provider
    - Documentation to read (repeat):
      - Jest docs: Context7 `/jestjs/jest`
    - Test type: client Jest/RTL test
-   - Location: `client/src/test/` (chat page alert tests)
+   - Location: `client/src/test/chatPage.codexBanners.test.tsx`
    - Purpose: Show warnings when provider is Codex and clear warnings when provider changes.
+   - Reference pattern: existing banner assertions in `chatPage.codexBanners.test.tsx`.
 
 9. [ ] Add client test: no warnings banner when codexWarnings empty
    - Documentation to read (repeat):
      - Jest docs: Context7 `/jestjs/jest`
    - Test type: client Jest/RTL test
-   - Location: `client/src/test/` (chat page alert tests)
+   - Location: `client/src/test/chatPage.codexBanners.test.tsx`
    - Purpose: Ensure the warning banner is not shown when `codexWarnings` is empty.
+   - Reference pattern: existing banner assertions in `chatPage.codexBanners.test.tsx`.
 
 10. [ ] Update `README.md` if payload omission behavior is documented:
    - Documentation to read (repeat):

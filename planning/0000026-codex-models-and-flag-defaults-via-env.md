@@ -289,35 +289,41 @@ Create a reusable helper that reads Codex default flag values from environment v
 
 #### Testing
 
-1. [ ] Build the server (workspace build):
+1. [ ] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-   - Command: `npm run build --workspace server`
-   - Purpose: Ensure server TypeScript build succeeds outside Docker.
 
-2. [ ] Build the client (workspace build):
+2. [ ] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-   - Command: `npm run build --workspace client`
-   - Purpose: Ensure client production build succeeds outside Docker.
 
-3. [ ] Perform a clean Docker Compose build:
-   - Documentation to read (repeat):
-     - Docker/Compose: Context7 `/docker/docs`
-   - Command: `npm run compose:build`
-   - Purpose: Validate Docker images build cleanly with env defaults helper changes.
-
-4. [ ] Start Docker Compose stack:
-   - Documentation to read (repeat):
-     - Docker/Compose: Context7 `/docker/docs`
-   - Command: `npm run compose:up`
-   - Purpose: Ensure the full stack starts with env defaults helper changes.
-
-5. [ ] Run server unit tests (targeted if available):
+3. [ ] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
-   - Command: `npm run test:unit --workspace server`
-   - Purpose: Validate Codex env defaults helper behavior.
+
+4. [ ] `npm run test --workspace client`
+   - Documentation to read (repeat):
+     - Jest docs: Context7 `/jestjs/jest`
+
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
+
+6. [ ] `npm run compose:build`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+
+7. [ ] `npm run compose:up`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+
+8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001): verify the Chat page loads, Codex flags panel still renders with defaults, and there are no errors in the browser debug console.
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
+
+9. [ ] `npm run compose:down`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
 
 #### Implementation notes
 
@@ -428,35 +434,41 @@ Wire the new Codex env defaults helper into `validateChatRequest` so Codex reque
 
 #### Testing
 
-1. [ ] Build the server (workspace build):
+1. [ ] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-   - Command: `npm run build --workspace server`
-   - Purpose: Ensure server TypeScript build succeeds outside Docker.
 
-2. [ ] Build the client (workspace build):
+2. [ ] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-   - Command: `npm run build --workspace client`
-   - Purpose: Ensure client production build succeeds outside Docker.
 
-3. [ ] Perform a clean Docker Compose build:
-   - Documentation to read (repeat):
-     - Docker/Compose: Context7 `/docker/docs`
-   - Command: `npm run compose:build`
-   - Purpose: Validate Docker images build cleanly after validation updates.
-
-4. [ ] Start Docker Compose stack:
-   - Documentation to read (repeat):
-     - Docker/Compose: Context7 `/docker/docs`
-   - Command: `npm run compose:up`
-   - Purpose: Ensure the full stack starts after validation updates.
-
-5. [ ] Run server unit tests (targeted if available):
+3. [ ] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
-   - Command: `npm run test:unit --workspace server`
-   - Purpose: Validate Codex env defaults in request validation.
+
+4. [ ] `npm run test --workspace client`
+   - Documentation to read (repeat):
+     - Jest docs: Context7 `/jestjs/jest`
+
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
+
+6. [ ] `npm run compose:build`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+
+7. [ ] `npm run compose:up`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+
+8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001): send a Codex message without changing flags, confirm the request succeeds, and verify no errors appear in the browser debug console.
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
+
+9. [ ] `npm run compose:down`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
 
 #### Implementation notes
 
@@ -549,30 +561,41 @@ Remove hard-coded Codex defaults from the provider interface so `ChatInterfaceCo
 
 #### Testing
 
-1. [ ] Build the server (workspace build):
+1. [ ] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-   - Command: `npm run build --workspace server`
 
-2. [ ] Build the client (workspace build):
+2. [ ] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-   - Command: `npm run build --workspace client`
 
-3. [ ] Perform a clean Docker Compose build:
-   - Documentation to read (repeat):
-     - Docker/Compose: Context7 `/docker/docs`
-   - Command: `npm run compose:build`
-
-4. [ ] Start Docker Compose stack:
-   - Documentation to read (repeat):
-     - Docker/Compose: Context7 `/docker/docs`
-   - Command: `npm run compose:up`
-
-5. [ ] Run server unit tests (targeted if available):
+3. [ ] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
-   - Command: `npm run test:unit --workspace server`
+
+4. [ ] `npm run test --workspace client`
+   - Documentation to read (repeat):
+     - Jest docs: Context7 `/jestjs/jest`
+
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
+
+6. [ ] `npm run compose:build`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+
+7. [ ] `npm run compose:up`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+
+8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001): start a Codex chat with flags untouched, confirm it succeeds, and verify no errors in the browser debug console.
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
+
+9. [ ] `npm run compose:down`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
 
 #### Implementation notes
 
@@ -664,25 +687,41 @@ Add shared types and fixtures for the new `/chat/models` Codex response fields s
 
 #### Testing
 
-1. [ ] Build the server (workspace build):
+1. [ ] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-   - Command: `npm run build --workspace server`
 
-2. [ ] Build the client (workspace build):
+2. [ ] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-   - Command: `npm run build --workspace client`
 
-3. [ ] Perform a clean Docker Compose build:
+3. [ ] `npm run test --workspace server`
+   - Documentation to read (repeat):
+     - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
+
+4. [ ] `npm run test --workspace client`
+   - Documentation to read (repeat):
+     - Jest docs: Context7 `/jestjs/jest`
+
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
+
+6. [ ] `npm run compose:build`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-   - Command: `npm run compose:build`
 
-4. [ ] Start Docker Compose stack:
+7. [ ] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-   - Command: `npm run compose:up`
+
+8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001): open the Chat page, confirm the models list loads without errors, and verify no errors in the browser debug console.
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
+
+9. [ ] `npm run compose:down`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
 
 #### Implementation notes
 
@@ -846,30 +885,41 @@ Drive the Codex model list from `Codex_model_list`, extend `/chat/models?provide
 
 #### Testing
 
-1. [ ] Build the server (workspace build):
+1. [ ] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-   - Command: `npm run build --workspace server`
 
-2. [ ] Build the client (workspace build):
+2. [ ] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-   - Command: `npm run build --workspace client`
 
-3. [ ] Perform a clean Docker Compose build:
-   - Documentation to read (repeat):
-     - Docker/Compose: Context7 `/docker/docs`
-   - Command: `npm run compose:build`
-
-4. [ ] Start Docker Compose stack:
-   - Documentation to read (repeat):
-     - Docker/Compose: Context7 `/docker/docs`
-   - Command: `npm run compose:up`
-
-5. [ ] Run server unit tests (targeted if available):
+3. [ ] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
-   - Command: `npm run test:unit --workspace server`
+
+4. [ ] `npm run test --workspace client`
+   - Documentation to read (repeat):
+     - Jest docs: Context7 `/jestjs/jest`
+
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
+
+6. [ ] `npm run compose:build`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+
+7. [ ] `npm run compose:up`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+
+8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001): verify the Codex model list reflects the env-driven entries and confirm no errors in the browser debug console.
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
+
+9. [ ] `npm run compose:down`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
 
 #### Implementation notes
 
@@ -1010,30 +1060,41 @@ Consume `codexDefaults` from `/chat/models` and use them to initialize Codex fla
 
 #### Testing
 
-1. [ ] Build the server (workspace build):
+1. [ ] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-   - Command: `npm run build --workspace server`
 
-2. [ ] Build the client (workspace build):
+2. [ ] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-   - Command: `npm run build --workspace client`
 
-3. [ ] Perform a clean Docker Compose build:
+3. [ ] `npm run test --workspace server`
    - Documentation to read (repeat):
-     - Docker/Compose: Context7 `/docker/docs`
-   - Command: `npm run compose:build`
+     - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
 
-4. [ ] Start Docker Compose stack:
-   - Documentation to read (repeat):
-     - Docker/Compose: Context7 `/docker/docs`
-   - Command: `npm run compose:up`
-
-5. [ ] Run client tests (Jest):
+4. [ ] `npm run test --workspace client`
    - Documentation to read (repeat):
      - Jest docs: Context7 `/jestjs/jest`
-   - Command: `npm run test --workspace client`
+
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
+
+6. [ ] `npm run compose:build`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+
+7. [ ] `npm run compose:up`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+
+8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001): confirm Codex defaults load from `/chat/models`, resets occur on provider switch and **New conversation**, and no errors appear in the browser debug console.
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
+
+9. [ ] `npm run compose:down`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
 
 #### Implementation notes
 
@@ -1174,30 +1235,41 @@ Omit unchanged Codex flags from `/chat` payloads and surface `codexWarnings` nea
 
 #### Testing
 
-1. [ ] Build the server (workspace build):
+1. [ ] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-   - Command: `npm run build --workspace server`
 
-2. [ ] Build the client (workspace build):
+2. [ ] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-   - Command: `npm run build --workspace client`
 
-3. [ ] Perform a clean Docker Compose build:
+3. [ ] `npm run test --workspace server`
    - Documentation to read (repeat):
-     - Docker/Compose: Context7 `/docker/docs`
-   - Command: `npm run compose:build`
+     - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
 
-4. [ ] Start Docker Compose stack:
-   - Documentation to read (repeat):
-     - Docker/Compose: Context7 `/docker/docs`
-   - Command: `npm run compose:up`
-
-5. [ ] Run client tests (Jest):
+4. [ ] `npm run test --workspace client`
    - Documentation to read (repeat):
      - Jest docs: Context7 `/jestjs/jest`
-   - Command: `npm run test --workspace client`
+
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
+
+6. [ ] `npm run compose:build`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+
+7. [ ] `npm run compose:up`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+
+8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001): verify Codex warnings render above the flags panel when present, payloads still send successfully, and no errors appear in the browser debug console.
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
+
+9. [ ] `npm run compose:down`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
 
 #### Implementation notes
 
@@ -1254,25 +1326,41 @@ Update user-facing documentation to describe env-driven Codex models and default
 
 #### Testing
 
-1. [ ] Build the server (workspace build):
+1. [ ] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-   - Command: `npm run build --workspace server`
 
-2. [ ] Build the client (workspace build):
+2. [ ] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-   - Command: `npm run build --workspace client`
 
-3. [ ] Perform a clean Docker Compose build:
+3. [ ] `npm run test --workspace server`
+   - Documentation to read (repeat):
+     - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
+
+4. [ ] `npm run test --workspace client`
+   - Documentation to read (repeat):
+     - Jest docs: Context7 `/jestjs/jest`
+
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
+
+6. [ ] `npm run compose:build`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-   - Command: `npm run compose:build`
 
-4. [ ] Start Docker Compose stack:
+7. [ ] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-   - Command: `npm run compose:up`
+
+8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001): confirm the Chat page still loads with no console errors after doc-only changes.
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
+
+9. [ ] `npm run compose:down`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
 
 #### Implementation notes
 
@@ -1331,37 +1419,41 @@ The final task must always check against the acceptance criteria of the story. I
 
 #### Testing
 
-1. [ ] Build the server
+1. [ ] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-   - Command: `npm run build --workspace server`
-2. [ ] Build the client
+
+2. [ ] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-   - Command: `npm run build --workspace client`
-3. [ ] perform a clean docker build
+
+3. [ ] `npm run test --workspace server`
    - Documentation to read (repeat):
-     - Docker/Compose: Context7 `/docker/docs`
-   - Command: `npm run compose:build`
-4. [ ] run the client jest tests
+     - Cucumber guides: https://cucumber.io/docs/guides/
+
+4. [ ] `npm run test --workspace client`
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
-   - Command: `npm run test --workspace client`
-5. [ ] run the server cucumber tests
+
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
    - Documentation to read (repeat):
-     - Cucumber guides https://cucumber.io/docs/guides/
-   - Command: `npm run test --workspace server`
-6. [ ] restart the docker environment
+     - Playwright: Context7 `/microsoft/playwright`
+
+6. [ ] `npm run compose:build`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-   - Commands: `npm run compose:down` then `npm run compose:up`
-7. [ ] run the e2e tests
+
+7. [ ] `npm run compose:up`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+
+8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001): verify Codex model list/defaults/warnings behavior end-to-end, confirm no errors in the browser debug console, and capture screenshots in `test-results/screenshots` named `<planIndex>-<taskNumber>-<description>`.
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
-   - Command: `npm run e2e`
-8. [ ] use the playwright mcp tool to ensure manually check the application, saving screenshots to ./test-results/screenshots/ - Each screenshot should be named with the plan index including the preceding seroes, then a dash, and then the task number, then a dash and the name of the screenshot
+
+9. [ ] `npm run compose:down`
    - Documentation to read (repeat):
-     - Playwright: Context7 `/microsoft/playwright`
+     - Docker/Compose: Context7 `/docker/docs`
 
 #### Implementation notes
 

@@ -582,7 +582,7 @@ Drive the Codex model list from `Codex_model_list`, extend `/chat/models?provide
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
    - Tests to add/update:
      - Unit tests asserting env list parsing, warnings, and response fields.
-     - Coverage for duplicate/unknown CSV entries and empty CSV fallback.
+     - Coverage for empty CSV fallback and warning emission (duplicate/unknown entries can be exercised opportunistically).
 
 7. [ ] Documentation check - `README.md` (update only if needed):
    - Document: `README.md`

@@ -32,6 +32,7 @@ Decisions from Q&A:
 - Invalid env values must warn + fall back (log + visible warning on the chat page).
 - The client should not own defaults; defaults must be driven by the server.
 - Server defaults + warnings should be exposed by extending existing endpoints (no new endpoints).
+- Defaults/warnings are exposed via `GET /chat/models?provider=codex` as explicit fields: `codexDefaults` (object with `sandboxMode`, `approvalPolicy`, `modelReasoningEffort`, `networkAccessEnabled`, `webSearchEnabled`) and `codexWarnings` (array of strings).
 
 ---
 
@@ -45,7 +46,9 @@ Decisions from Q&A:
 - Any validation/logging for invalid env values is explicit and uses existing server logging patterns (no silent misconfiguration), and warnings are surfaced on the chat page UI.
 - CSV parsing trims whitespace and ignores empty entries; invalid entries trigger warning + fallback to built-in defaults.
 - User-facing docs that describe Codex defaults are updated if the defaults change (e.g., `design.md`, `README.md` as appropriate).
-- Client defaults are removed; Codex flags UI is driven by server-provided defaults (documented approach; ensure UI behavior stays consistent).
+- `GET /chat/models?provider=codex` returns `codexDefaults` + `codexWarnings`, and the client uses these to initialize the Codex flags panel (no client-side hard-coded defaults).
+- If the user never changes a Codex flag, the client omits that flag from the `/chat` payload so the server applies env defaults; only user overrides are sent.
+- Invalid env values produce a visible warning on the chat page (e.g., an Alert near the chat controls), in addition to server logs.
 
 ---
 

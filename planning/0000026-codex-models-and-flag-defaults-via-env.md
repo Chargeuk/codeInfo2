@@ -86,11 +86,17 @@ Message Contracts & Storage Shapes (define up front):
 
 - `server/.env` defines `Codex_model_list` (CSV) containing every currently hard-coded Codex model plus the new `gpt-5.2-codex` entry.
 - The Codex model list returned by `GET /chat/models?provider=codex` is driven by a CSV server env value (with safe fallback to a built-in default list when the env value is missing or invalid).
+- Built-in fallback model list is explicitly: `gpt-5.1-codex-max`, `gpt-5.1-codex-mini`, `gpt-5.1`, `gpt-5.2`, `gpt-5.2-codex`.
 - `server/.env` defines default Codex flags via environment variables: `Codex_sandbox_mode`, `Codex_approval_policy`, `Codex_reasoning_effort`, `Codex_network_access_enabled`, `Codex_web_search_enabled`.
 - The server uses these env defaults when Codex requests omit flags, and preserves per-request overrides when they are supplied.
-- The env values in `server/.env` match the current hard-coded defaults **except** sandbox mode, which defaults to `danger-full-access`.
+- The env values in `server/.env` match these explicit defaults:
+  - `Codex_sandbox_mode=danger-full-access`
+  - `Codex_approval_policy=on-failure`
+  - `Codex_reasoning_effort=high`
+  - `Codex_network_access_enabled=true`
+  - `Codex_web_search_enabled=true`
 - Any validation/logging for invalid env values is explicit and uses existing server logging patterns (no silent misconfiguration), and warnings are surfaced on the chat page UI.
-- CSV parsing trims whitespace and ignores empty entries; invalid entries trigger warning + fallback to built-in defaults.
+- CSV parsing trims whitespace and ignores empty entries; if no valid model keys remain after trimming, warn and fall back to the built-in list.
 - User-facing docs that describe Codex defaults are updated if the defaults change (e.g., `design.md`, `README.md` as appropriate).
 - `GET /chat/models?provider=codex` returns `codexDefaults` + `codexWarnings`, and the client uses these to initialize the Codex flags panel (no client-side hard-coded defaults).
 - If the user never changes a Codex flag, the client omits that flag from the `/chat` payload so the server applies env defaults; only user overrides are sent.

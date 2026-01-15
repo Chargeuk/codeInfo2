@@ -39,6 +39,7 @@ Research notes:
 - Codex CLI documents sandbox modes (`read-only`, `workspace-write`, `danger-full-access`) and approval policies (`untrusted`, `on-request`, `on-failure`, `never`) via `--sandbox` and `--ask-for-approval`, and config keys `sandbox_mode` + `approval_policy`.
 - Network access is only configurable inside workspace-write mode via `[sandbox_workspace_write] network_access = true` in `config.toml`.
 - Web search is enabled either via `--search` or `config.toml` (`[features] web_search_request = true`).
+- Upstream docs note a discrepancy about `tools.web_search` vs `features.web_search_request` (Codex CLI warns that `tools.web_search` is deprecated). Treat `--search` / `features.web_search_request` as the canonical path and log if upstream guidance changes.
 - Reasoning effort is documented in Codex config as `model_reasoning_effort` with values that include `low`, `medium`, `high` (plus `xhigh` in Codex CLI docs). We keep the app’s existing allowed set unless requirements change.
 - For UI warnings: existing WS `stream_warning` events already surface warnings through `useChatStream`, so invalid env warnings can reuse this path rather than inventing a new client state channel.
 

@@ -183,6 +183,7 @@ Add a single, reusable server helper that reads Codex default flags from environ
      - `server/src/routes/chatValidators.ts`
      - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
      - `server/.env`
+     - `server/src/lmstudio/toolService.ts` (boolean env parsing pattern)
    - Goal:
      - Identify current hard-coded defaults and where flags are re-applied.
 
@@ -194,7 +195,7 @@ Add a single, reusable server helper that reads Codex default flags from environ
    - Requirements:
      - Read `Codex_sandbox_mode`, `Codex_approval_policy`, `Codex_reasoning_effort`, `Codex_network_access_enabled`, `Codex_web_search_enabled`.
      - Validate each value against the existing enums/boolean shapes.
-     - Parse boolean env values from trimmed, case-insensitive `true`/`false` strings.
+     - Parse boolean env values using the same `toLowerCase() === 'true'` pattern used in `server/src/lmstudio/toolService.ts`.
      - Return `{ defaults, warnings }`, where warnings contain human-readable messages for invalid env values.
      - If an env value is invalid, fall back to the built-in default from the acceptance criteria.
      - Add a warning when `networkAccessEnabled === true` and `sandboxMode !== 'workspace-write'` (flag still passes through).
@@ -318,10 +319,13 @@ Drive the Codex model list from a CSV environment variable and extend the Codex 
 2. [ ] Add env-driven Codex model list parsing (CSV + fallback):
    - Documentation to read (repeat):
      - CSV parsing basics: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/split
+   - Files to read:
+     - `server/src/ingest/config.ts` (CSV split/trim + Set de-duplication pattern)
    - Files to edit:
      - Codex env helper module added in Task 1
    - Requirements:
      - Read `Codex_model_list` as a CSV, trim whitespace, drop empty entries, and de-duplicate in first-seen order.
+     - Mirror the CSV split/trim/filter + `Set` de-duplication pattern in `server/src/ingest/config.ts` for consistency.
      - If the final list is empty, add a warning and fall back to the built-in list from Acceptance Criteria.
 
 3. [ ] Extend `/chat/models?provider=codex` response:
@@ -486,6 +490,7 @@ Update the client to consume `codexDefaults` and `codexWarnings` from the server
    - Files to edit:
      - `client/src/pages/ChatPage.tsx`
    - Requirements:
+     - Reuse the existing `Alert` layout patterns already used for Codex availability/tooling banners.
      - Render warnings near the provider/model controls when `codexWarnings` is non-empty.
      - Use existing warning banner styling patterns.
      - Clear warnings when the provider is not Codex.

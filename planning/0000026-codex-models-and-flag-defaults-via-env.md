@@ -158,7 +158,7 @@ These instructions will be followed during implementation.
 
 ### 1. Server: Codex env defaults helper
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: 
 
 #### Overview

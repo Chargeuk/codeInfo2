@@ -169,7 +169,10 @@ Add a single, reusable server helper that reads Codex default flags from environ
 
 - Node.js `process.env` reference: https://nodejs.org/api/process.html#processenv
 - Zod schema validation (if used by existing validators): Context7 `/colinhacks/zod`
+- @openai/codex-sdk 0.64.0 (ThreadOptions fields used by the server): https://www.npmjs.com/package/@openai/codex-sdk
 - TypeScript `as const` + union patterns (reference for enums): https://www.typescriptlang.org/docs/handbook/2/everyday-types.html#literal-types
+- Express 5 migration guide (confirm no breaking changes affect routes): https://expressjs.com/en/guide/migrating-5.html
+- Mongoose 9 migration guide (confirm no schema/connection changes needed): https://mongoosejs.com/docs/migrating_to_9.html
 - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier options (format check expectations): https://prettier.io/docs/options
 - Markdown syntax (doc updates): https://www.markdownguide.org/basic-syntax/
@@ -183,6 +186,7 @@ Add a single, reusable server helper that reads Codex default flags from environ
      - `server/src/routes/chatValidators.ts`
      - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
      - `server/.env`
+     - `server/package.json` (confirm `@openai/codex-sdk` 0.64.0 and `@lmstudio/sdk` 1.5.0)
      - `server/src/lmstudio/toolService.ts` (boolean env parsing pattern)
    - Goal:
      - Identify current hard-coded defaults and where flags are re-applied.
@@ -435,7 +439,8 @@ Update the client to consume `codexDefaults` and `codexWarnings` from the server
 #### Documentation Locations
 
 - React state + effects (reference): https://react.dev/reference/react
-- MUI MCP docs: Alert, Accordion, Switch, Select (for warning and flags UI)
+- React 19 release notes (confirm hook behavior stability): https://react.dev/blog/2024/12/05/react-19
+- MUI MCP docs (v6.4.x): Alert, Accordion, Switch, Select (for warning and flags UI)
 - TypeScript discriminated unions (model/provider typing): https://www.typescriptlang.org/docs/handbook/2/narrowing.html
 - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier options (format check expectations): https://prettier.io/docs/options
@@ -447,8 +452,9 @@ Update the client to consume `codexDefaults` and `codexWarnings` from the server
    - Files to read:
      - `client/src/pages/ChatPage.tsx`
      - `client/src/hooks/useChatStream.ts`
-     - `client/src/hooks/useChatModels.ts` (or equivalent models hook)
+     - `client/src/hooks/useChatModel.ts`
      - `common/src/lmstudio.ts`
+     - `client/package.json` (confirm React 19.2.0 + MUI 6.4.x)
    - Goal:
      - Identify where hard-coded defaults and Codex payload flags are applied.
 

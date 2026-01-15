@@ -256,7 +256,7 @@ Create a reusable helper that reads Codex default flag values from environment v
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document: `design.md`
 
-10. [ ] Documentation check - `projectStructure.md` (update only if needed):
+10. [ ] Update `projectStructure.md` after adding/removing files in this task:
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document: `projectStructure.md`
@@ -376,7 +376,7 @@ Wire the new Codex env defaults helper into `validateChatRequest` so Codex reque
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document: `design.md`
 
-8. [ ] Documentation check - `projectStructure.md` (update only if needed):
+8. [ ] Update `projectStructure.md` after adding/removing files in this task:
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document: `projectStructure.md`
@@ -487,7 +487,7 @@ Remove hard-coded Codex defaults from the provider interface so `ChatInterfaceCo
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document: `design.md`
 
-7. [ ] Documentation check - `projectStructure.md` (update only if needed):
+7. [ ] Update `projectStructure.md` after adding/removing files in this task:
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document: `projectStructure.md`
@@ -593,7 +593,7 @@ Add shared types and fixtures for the new `/chat/models` Codex response fields s
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document: `design.md`
 
-7. [ ] Documentation check - `projectStructure.md` (update only if needed):
+7. [ ] Update `projectStructure.md` after adding/removing files in this task:
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document: `projectStructure.md`
@@ -738,7 +738,7 @@ Drive the Codex model list from `Codex_model_list`, extend `/chat/models?provide
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document: `design.md`
 
-12. [ ] Documentation check - `projectStructure.md` (update only if needed):
+12. [ ] Update `projectStructure.md` after adding/removing files in this task:
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document: `projectStructure.md`
@@ -887,7 +887,7 @@ Consume `codexDefaults` from `/chat/models` and use them to initialize Codex fla
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document: `design.md`
 
-11. [ ] Documentation check - `projectStructure.md` (update only if needed):
+11. [ ] Update `projectStructure.md` after adding/removing files in this task:
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document: `projectStructure.md`
@@ -1017,7 +1017,7 @@ Omit unchanged Codex flags from `/chat` payloads and surface `codexWarnings` nea
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document: `design.md`
 
-10. [ ] Documentation check - `projectStructure.md` (update only if needed):
+10. [ ] Update `projectStructure.md` after adding/removing files in this task:
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document: `projectStructure.md`

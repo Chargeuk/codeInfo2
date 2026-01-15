@@ -73,6 +73,24 @@ Message Contracts & Storage Shapes (define up front):
     - `codexDefaults`: `{ sandboxMode, approvalPolicy, modelReasoningEffort, networkAccessEnabled, webSearchEnabled }`.
     - `codexWarnings`: `string[]` for invalid env/default parsing warnings.
   - No new endpoint; this is an additive response change consumed by the client.
+  - `codexWarnings` should be an empty array when there are no warnings; omit `codexDefaults`/`codexWarnings` entirely for non-codex providers.
+  - Example (codex provider):
+    ```json
+    {
+      "provider": "codex",
+      "available": true,
+      "toolsAvailable": true,
+      "models": ["..."],
+      "codexDefaults": {
+        "sandboxMode": "danger-full-access",
+        "approvalPolicy": "on-failure",
+        "modelReasoningEffort": "high",
+        "networkAccessEnabled": true,
+        "webSearchEnabled": true
+      },
+      "codexWarnings": []
+    }
+    ```
 - `POST /chat` request contract remains unchanged; the client will omit unchanged flags so the server applies env defaults.
 - WebSocket contracts remain unchanged; reuse existing `stream_warning` events to display any runtime/default warnings in the chat transcript (no new WS event types).
 - Storage schema impact:

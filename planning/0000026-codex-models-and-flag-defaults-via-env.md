@@ -41,7 +41,7 @@ Research notes:
 - Web search is enabled either via `--search` or `config.toml` (`[features] web_search_request = true`).
 - Upstream docs note a discrepancy about `tools.web_search` vs `features.web_search_request` (Codex CLI warns that `tools.web_search` is deprecated). Treat `--search` / `features.web_search_request` as the canonical path and log if upstream guidance changes.
 - Reasoning effort is documented in Codex config as `model_reasoning_effort` with values that include `low`, `medium`, `high` (plus `xhigh` in Codex CLI docs). We keep the app’s existing allowed set unless requirements change.
-- For UI warnings: existing WS `stream_warning` events already surface warnings through `useChatStream`, so invalid env warnings can reuse this path rather than inventing a new client state channel.
+- For UI warnings: `stream_warning` is used only for runtime warnings during active chat streams; env/config warnings should be surfaced via `codexWarnings` on `/chat/models` and shown near the chat controls.
 
 Implementation Ideas (rough, not tasked):
 
@@ -54,13 +54,13 @@ Implementation Ideas (rough, not tasked):
   - Update shared types in `common/src/lmstudio.ts` and any fixtures in `common/src/fixtures/mockModels.ts` to include the new fields.
 - `/chat` validation and execution:
   - Update `server/src/routes/chatValidators.ts` to use the helper defaults when request flags are missing; continue to respect explicit overrides.
-  - If env defaults are invalid, attach warning messages and emit a `stream_warning` (via `publishStreamWarning` in `server/src/ws/server.ts`) so the chat UI shows the issue immediately.
+  - If env defaults are invalid, attach warning messages to `codexWarnings` in `/chat/models` and log them; do not emit `stream_warning` because these are pre-run configuration issues.
   - Ensure `server/src/chat/interfaces/ChatInterfaceCodex.ts` does not re-apply stale hard-coded defaults; it should rely on validated flags.
 - Client defaults and UI:
   - Update `client/src/hooks/useChatModel.ts` to capture `codexDefaults` + `codexWarnings` from `/chat/models` and expose them to `ChatPage`.
   - Remove hard-coded defaults from `client/src/pages/ChatPage.tsx` and `client/src/hooks/useChatStream.ts` so the panel initializes from `codexDefaults` instead.
   - Track whether a user changed each flag; only include changed flags in the `/chat` payload so the server can apply env defaults.
-  - Render `codexWarnings` near the chat controls as an Alert; `stream_warning` remains in the transcript (optional secondary display if desired).
+  - Render `codexWarnings` near the chat controls as an Alert; `stream_warning` continues to surface runtime warnings only.
 - Tests/docs:
   - Update Codex flag tests (`client/src/test/chatPage.flags.*`) to assert defaults come from server responses.
   - Update server integration tests (`server/src/test/integration/chat-codex-mcp.test.ts`) to cover env parsing and defaults.
@@ -103,7 +103,7 @@ Edge Cases and Failure Modes:
 - Client loads before `/chat/models` completes → keep controls disabled/placeholder defaults until `codexDefaults` arrives; avoid sending default flags until user explicitly changes values.
 - User switches provider away from Codex and back → rehydrate defaults from latest `codexDefaults` response; discard stale local overrides.
 - `POST /chat` request contract remains unchanged; the client will omit unchanged flags so the server applies env defaults.
-- WebSocket contracts remain unchanged; reuse existing `stream_warning` events to display any runtime/default warnings in the chat transcript (no new WS event types).
+- WebSocket contracts remain unchanged; `stream_warning` stays reserved for runtime stream warnings while config warnings remain on `/chat/models`.
 - Storage schema impact:
   - No Mongo schema changes required; `Conversation.flags` already stores a flexible object for Codex flags and can carry the applied defaults.
   - `Turn` schema does not require any additions.
@@ -601,7 +601,8 @@ Add shared types and fixtures for the new `/chat/models` Codex response fields s
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
    - Files to edit:
      - `server/src/test/steps/chat_models.steps.ts`
-     - Any client tests relying on `mockModelsResponse`.
+   - Description: Update the Cucumber expectation to include `codexDefaults`/`codexWarnings` fields.
+   - Purpose: Keep shared-fixture tests aligned with the new response shape (no client usages found).
 
 5. [ ] Update `README.md` if shared response fields are documented:
    - Documentation to read (repeat):

@@ -217,28 +217,35 @@ Create a reusable helper that reads Codex default flag values from environment v
    - Location: `server/src/test/unit/` (new test file for the env helper)
    - Purpose: Ensure valid env values are parsed and reflected in the returned defaults object.
 
-4. [ ] Add unit test: invalid enum values and empty strings warn + fall back
+4. [ ] Add unit test: missing env values use built-in defaults (no warnings)
+   - Documentation to read (repeat):
+     - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
+   - Test type: server unit test
+   - Location: `server/src/test/unit/` (env helper test file)
+   - Purpose: Confirm unset env values fall back to built-in defaults without emitting warnings.
+
+5. [ ] Add unit test: invalid enum values and empty strings warn + fall back
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
    - Test type: server unit test
    - Location: `server/src/test/unit/` (env helper test file)
    - Purpose: Confirm invalid enum values or empty-string envs emit warnings and fall back to built-in defaults.
 
-5. [ ] Add unit test: boolean parsing + invalid boolean handling
+6. [ ] Add unit test: boolean parsing + invalid boolean handling
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
    - Test type: server unit test
    - Location: `server/src/test/unit/` (env helper test file)
    - Purpose: Verify case-insensitive `true`/`false` parsing and warning/fallback on invalid boolean strings.
 
-6. [ ] Add unit test: network access warning outside workspace-write
+7. [ ] Add unit test: network access warning outside workspace-write
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
    - Test type: server unit test
    - Location: `server/src/test/unit/` (env helper test file)
    - Purpose: Emit a warning when `networkAccessEnabled === true` and `sandboxMode` is not `workspace-write`.
 
-7. [ ] Update server defaults in `server/.env` (flags only):
+8. [ ] Update server defaults in `server/.env` (flags only):
    - Documentation to read (repeat):
      - Environment variable docs (reference format): https://12factor.net/config
    - Files to edit:
@@ -246,28 +253,28 @@ Create a reusable helper that reads Codex default flag values from environment v
    - Requirements:
      - Add the Codex flag defaults with the values from Acceptance Criteria.
 
-8. [ ] Update `README.md` if env-default details changed:
+9. [ ] Update `README.md` if env-default details changed:
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location: `README.md`
    - Description: Add or adjust Codex flag env defaults and usage notes if this task changes them.
    - Purpose: Keep setup documentation aligned with the env defaults helper behavior.
 
-9. [ ] Update `design.md` for env-default architecture changes:
+10. [ ] Update `design.md` for env-default architecture changes:
    - Documentation to read (repeat):
      - Mermaid docs: Context7 `/mermaid-js/mermaid`
    - Location: `design.md`
    - Description: Document the new env defaults helper and warning flow; add/update diagrams as needed.
    - Purpose: Ensure architectural notes and diagrams reflect the new defaults layer.
 
-10. [ ] Update `projectStructure.md` after adding/removing files in this task:
+11. [ ] Update `projectStructure.md` after adding/removing files in this task:
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location: `projectStructure.md`
    - Description: Add any new helper module or test file entries introduced by this task.
    - Purpose: Keep the repo tree map accurate after file additions.
 
-11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier options: https://prettier.io/docs/options
@@ -373,28 +380,35 @@ Wire the new Codex env defaults helper into `validateChatRequest` so Codex reque
    - Location: `server/src/test/unit/` (validation tests)
    - Purpose: Verify non-Codex requests ignore Codex defaults and preserve existing warning behavior.
 
-6. [ ] Update `README.md` if validation behavior changes are user-facing:
+6. [ ] Add unit test: non-Codex provider with Codex flags emits warnings
+   - Documentation to read (repeat):
+     - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
+   - Test type: server unit test
+   - Location: `server/src/test/unit/` (validation tests)
+   - Purpose: Ensure Codex-only flags are ignored and warnings are emitted when provider is not Codex.
+
+7. [ ] Update `README.md` if validation behavior changes are user-facing:
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location: `README.md`
    - Description: Note that Codex request flags default from server env when omitted.
    - Purpose: Keep user-facing docs aligned with request validation behavior.
 
-7. [ ] Update `design.md` with validation flow changes + mermaid diagrams:
+8. [ ] Update `design.md` with validation flow changes + mermaid diagrams:
    - Documentation to read (repeat):
      - Mermaid docs: Context7 `/mermaid-js/mermaid`
    - Location: `design.md`
    - Description: Update validation flow to show env defaults injection and warning behavior.
    - Purpose: Ensure architecture docs reflect the server-side defaulting logic.
 
-8. [ ] Update `projectStructure.md` after adding/removing files in this task:
+9. [ ] Update `projectStructure.md` after adding/removing files in this task:
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location: `projectStructure.md`
    - Description: Add any new validation test files introduced in this task.
    - Purpose: Keep the repo tree map accurate after file additions.
 
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier options: https://prettier.io/docs/options
@@ -735,49 +749,70 @@ Drive the Codex model list from `Codex_model_list`, extend `/chat/models?provide
    - Location: `server/src/test/unit/` (models response tests)
    - Purpose: Assert env model list parsing is applied and response includes `codexDefaults`/`codexWarnings`.
 
-7. [ ] Add unit test: CSV trims, drops empties, de-duplicates
+7. [ ] Add unit test: codexDefaults/codexWarnings included when Codex unavailable
+   - Documentation to read (repeat):
+     - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
+   - Test type: server unit test
+   - Location: `server/src/test/unit/` (models response tests)
+   - Purpose: Ensure `/chat/models?provider=codex` still returns defaults/warnings even when Codex is unavailable.
+
+8. [ ] Add unit test: defaults warnings propagate into codexWarnings
+   - Documentation to read (repeat):
+     - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
+   - Test type: server unit test
+   - Location: `server/src/test/unit/` (models response tests)
+   - Purpose: Confirm warnings from invalid env defaults are merged into `codexWarnings`.
+
+9. [ ] Add unit test: CSV trims, drops empties, de-duplicates
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
    - Test type: server unit test
    - Location: `server/src/test/unit/` (models response tests)
    - Purpose: Ensure whitespace trimming, empty entry removal, and de-duplication are enforced.
 
-8. [ ] Add unit test: empty CSV fallback + warning
+10. [ ] Add unit test: empty CSV fallback + warning
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
    - Test type: server unit test
    - Location: `server/src/test/unit/` (models response tests)
    - Purpose: Warn and fall back to the built-in model list when the CSV yields no valid entries.
 
-9. [ ] Add unit test: runtime warning when web search enabled but tools unavailable
+11. [ ] Add unit test: runtime warning when web search enabled but tools unavailable
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
    - Test type: server unit test
    - Location: `server/src/test/unit/` (models response tests)
    - Purpose: Append a warning if `webSearchEnabled` is true while tools are unavailable.
 
-10. [ ] Update `README.md` with model list env details if changed:
+12. [ ] Add unit test: non-Codex provider omits codexDefaults/codexWarnings
+   - Documentation to read (repeat):
+     - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
+   - Test type: server unit test
+   - Location: `server/src/test/unit/` (models response tests)
+   - Purpose: Ensure `/chat/models?provider=lmstudio` response does not include Codex-only fields.
+
+13. [ ] Update `README.md` with model list env details if changed:
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location: `README.md`
    - Description: Document `Codex_model_list` CSV format and default list updates.
    - Purpose: Keep environment configuration docs aligned with model list behavior.
 
-11. [ ] Update `design.md` with model list response flow + mermaid diagrams:
+14. [ ] Update `design.md` with model list response flow + mermaid diagrams:
    - Documentation to read (repeat):
      - Mermaid docs: Context7 `/mermaid-js/mermaid`
    - Location: `design.md`
    - Description: Add/update response-contract diagrams showing `codexDefaults`/`codexWarnings`.
    - Purpose: Ensure architecture docs reflect the updated `/chat/models` response.
 
-12. [ ] Update `projectStructure.md` after adding/removing files in this task:
+15. [ ] Update `projectStructure.md` after adding/removing files in this task:
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location: `projectStructure.md`
    - Description: Add any new models-response test files created in this task.
    - Purpose: Keep the repo tree map accurate after file additions.
 
-13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+16. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier options: https://prettier.io/docs/options
@@ -1035,42 +1070,56 @@ Omit unchanged Codex flags from `/chat` payloads and surface `codexWarnings` nea
    - Location: `client/src/test/` (chat stream/payload tests)
    - Purpose: Assert unchanged Codex flags are omitted so server defaults apply.
 
-6. [ ] Add client test: omit all flags when defaults missing
+6. [ ] Add client test: changed flags included in `/chat` payload
+   - Documentation to read (repeat):
+     - Jest docs: Context7 `/jestjs/jest`
+   - Test type: client Jest/RTL test
+   - Location: `client/src/test/` (chat stream/payload tests)
+   - Purpose: Ensure only user-changed Codex flags are included in the payload.
+
+7. [ ] Add client test: omit all flags when defaults missing
    - Documentation to read (repeat):
      - Jest docs: Context7 `/jestjs/jest`
    - Test type: client Jest/RTL test
    - Location: `client/src/test/` (chat stream/payload tests)
    - Purpose: When `codexDefaults` is absent, omit all Codex flags from the payload.
 
-7. [ ] Add client test: render codex warnings only for Codex provider
+8. [ ] Add client test: render codex warnings only for Codex provider
    - Documentation to read (repeat):
      - Jest docs: Context7 `/jestjs/jest`
    - Test type: client Jest/RTL test
    - Location: `client/src/test/` (chat page alert tests)
    - Purpose: Show warnings when provider is Codex and clear warnings when provider changes.
 
-8. [ ] Update `README.md` if payload omission behavior is documented:
+9. [ ] Add client test: no warnings banner when codexWarnings empty
+   - Documentation to read (repeat):
+     - Jest docs: Context7 `/jestjs/jest`
+   - Test type: client Jest/RTL test
+   - Location: `client/src/test/` (chat page alert tests)
+   - Purpose: Ensure the warning banner is not shown when `codexWarnings` is empty.
+
+10. [ ] Update `README.md` if payload omission behavior is documented:
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location: `README.md`
    - Description: Mention that Codex flags are omitted when unchanged so env defaults apply.
    - Purpose: Keep usage docs aligned with payload behavior.
 
-9. [ ] Update `design.md` with warning/banner flow + mermaid diagrams:
+11. [ ] Update `design.md` with warning/banner flow + mermaid diagrams:
    - Documentation to read (repeat):
      - Mermaid docs: Context7 `/mermaid-js/mermaid`
    - Location: `design.md`
    - Description: Document the `codexWarnings` banner flow and any UI/response updates.
    - Purpose: Keep architecture/flow diagrams current.
 
-10. [ ] Update `projectStructure.md` after adding/removing files in this task:
+12. [ ] Update `projectStructure.md` after adding/removing files in this task:
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location: `projectStructure.md`
    - Description: Add any new client test files or UI components introduced in this task.
    - Purpose: Keep the repo tree map accurate after file additions.
 
-11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier options: https://prettier.io/docs/options

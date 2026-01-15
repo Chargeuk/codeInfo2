@@ -43,6 +43,29 @@ Research notes:
 - Reasoning effort is documented in Codex config as `model_reasoning_effort` with values that include `low`, `medium`, `high` (plus `xhigh` in Codex CLI docs). We keep the app’s existing allowed set unless requirements change.
 - For UI warnings: existing WS `stream_warning` events already surface warnings through `useChatStream`, so invalid env warnings can reuse this path rather than inventing a new client state channel.
 
+Implementation Ideas (rough, not tasked):
+
+- Server config parsing:
+  - Add a small helper (new module under `server/src/config/` or `server/src/utils/`) that reads `Codex_model_list` and the five `Codex_*` flag env vars, trims CSV items, filters empties, and validates against the same enums in `chatValidators.ts`.
+  - Return `{ models, defaults, warnings }` where `warnings` covers invalid env values or empty/invalid CSV entries. Reuse this helper in both `chatModels.ts` and `chatValidators.ts` to avoid drift.
+- `GET /chat/models?provider=codex`:
+  - Replace the hard-coded Codex model array in `server/src/routes/chatModels.ts` with the helper output (fallback to built-in defaults if env is missing/invalid).
+  - Extend the response with `codexDefaults` and `codexWarnings` fields, sourced from the helper, and log warnings via `baseLogger` + `logStore.append`.
+  - Update shared types in `common/src/lmstudio.ts` and any fixtures in `common/src/fixtures/mockModels.ts` to include the new fields.
+- `/chat` validation and execution:
+  - Update `server/src/routes/chatValidators.ts` to use the helper defaults when request flags are missing; continue to respect explicit overrides.
+  - If env defaults are invalid, attach warning messages and emit a `stream_warning` (via `publishStreamWarning` in `server/src/ws/server.ts`) so the chat UI shows the issue immediately.
+  - Ensure `server/src/chat/interfaces/ChatInterfaceCodex.ts` does not re-apply stale hard-coded defaults; it should rely on validated flags.
+- Client defaults and UI:
+  - Update `client/src/hooks/useChatModel.ts` to capture `codexDefaults` + `codexWarnings` from `/chat/models` and expose them to `ChatPage`.
+  - Remove hard-coded defaults from `client/src/pages/ChatPage.tsx` and `client/src/hooks/useChatStream.ts` so the panel initializes from `codexDefaults` instead.
+  - Track whether a user changed each flag; only include changed flags in the `/chat` payload so the server can apply env defaults.
+  - Render `codexWarnings` (and any `stream_warning` messages) near the chat controls as an Alert.
+- Tests/docs:
+  - Update Codex flag tests (`client/src/test/chatPage.flags.*`) to assert defaults come from server responses.
+  - Update server integration tests (`server/src/test/integration/chat-codex-mcp.test.ts`) to cover env parsing and defaults.
+  - Refresh `design.md` / `README.md` to describe env-driven defaults and the new Codex model list.
+
 ---
 
 ## Acceptance Criteria

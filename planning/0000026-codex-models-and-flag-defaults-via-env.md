@@ -282,11 +282,6 @@ Create a reusable helper that reads Codex default flag values from environment v
    - Description: List every file added or removed in this task (paths) and update the tree entries.
    - Purpose: Keep the repo tree map accurate after file additions/removals.
 
-12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier options: https://prettier.io/docs/options
-
 #### Testing
 
 1. [ ] Build the server (workspace build):
@@ -318,6 +313,13 @@ Create a reusable helper that reads Codex default flag values from environment v
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
    - Command: `npm run test:unit --workspace server`
    - Purpose: Validate Codex env defaults helper behavior.
+
+6. [ ] Run lint + format checks:
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier options: https://prettier.io/docs/options
+   - Commands: `npm run lint --workspaces`, `npm run format:check --workspaces`
+   - Purpose: Ensure linting and formatting pass after env defaults changes.
 
 #### Implementation notes
 
@@ -421,11 +423,6 @@ Wire the new Codex env defaults helper into `validateChatRequest` so Codex reque
    - Description: List every file added or removed in this task (paths) and update the tree entries.
    - Purpose: Keep the repo tree map accurate after file additions/removals.
 
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier options: https://prettier.io/docs/options
-
 #### Testing
 
 1. [ ] Build the server (workspace build):
@@ -457,6 +454,13 @@ Wire the new Codex env defaults helper into `validateChatRequest` so Codex reque
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
    - Command: `npm run test:unit --workspace server`
    - Purpose: Validate Codex env defaults in request validation.
+
+6. [ ] Run lint + format checks:
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier options: https://prettier.io/docs/options
+   - Commands: `npm run lint --workspaces`, `npm run format:check --workspaces`
+   - Purpose: Ensure linting and formatting pass after validation updates.
 
 #### Implementation notes
 
@@ -542,11 +546,6 @@ Remove hard-coded Codex defaults from the provider interface so `ChatInterfaceCo
    - Description: List every file added or removed in this task (paths) and update the tree entries.
    - Purpose: Keep the repo tree map accurate after file additions/removals.
 
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier options: https://prettier.io/docs/options
-
 #### Testing
 
 1. [ ] Build the server (workspace build):
@@ -573,6 +572,13 @@ Remove hard-coded Codex defaults from the provider interface so `ChatInterfaceCo
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
    - Command: `npm run test:unit --workspace server`
+
+6. [ ] Run lint + format checks:
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier options: https://prettier.io/docs/options
+   - Commands: `npm run lint --workspaces`, `npm run format:check --workspaces`
+   - Purpose: Ensure linting and formatting pass after Codex interface changes.
 
 #### Implementation notes
 
@@ -657,11 +663,6 @@ Add shared types and fixtures for the new `/chat/models` Codex response fields s
    - Description: List every file added or removed in this task (paths) and update the tree entries.
    - Purpose: Keep the repo tree map accurate after file additions/removals.
 
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier options: https://prettier.io/docs/options
-
 #### Testing
 
 1. [ ] Build the server (workspace build):
@@ -683,6 +684,13 @@ Add shared types and fixtures for the new `/chat/models` Codex response fields s
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
    - Command: `npm run compose:up`
+
+5. [ ] Run lint + format checks:
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier options: https://prettier.io/docs/options
+   - Commands: `npm run lint --workspaces`, `npm run format:check --workspaces`
+   - Purpose: Ensure shared type/fixture updates lint and format cleanly.
 
 #### Implementation notes
 
@@ -839,11 +847,6 @@ Drive the Codex model list from `Codex_model_list`, extend `/chat/models?provide
    - Description: List every file added or removed in this task (paths) and update the tree entries.
    - Purpose: Keep the repo tree map accurate after file additions/removals.
 
-16. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier options: https://prettier.io/docs/options
-
 #### Testing
 
 1. [ ] Build the server (workspace build):
@@ -865,6 +868,13 @@ Drive the Codex model list from `Codex_model_list`, extend `/chat/models?provide
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
    - Command: `npm run compose:up`
+
+5. [ ] Run lint + format checks:
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier options: https://prettier.io/docs/options
+   - Commands: `npm run lint --workspaces`, `npm run format:check --workspaces`
+   - Purpose: Ensure server route changes lint/format cleanly.
 
 5. [ ] Run server unit tests (targeted if available):
    - Documentation to read (repeat):
@@ -1003,11 +1013,6 @@ Consume `codexDefaults` from `/chat/models` and use them to initialize Codex fla
    - Description: List every file added or removed in this task (paths) and update the tree entries.
    - Purpose: Keep the repo tree map accurate after file additions/removals.
 
-12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier options: https://prettier.io/docs/options
-
 #### Testing
 
 1. [ ] Build the server (workspace build):
@@ -1034,6 +1039,13 @@ Consume `codexDefaults` from `/chat/models` and use them to initialize Codex fla
    - Documentation to read (repeat):
      - Jest docs: Context7 `/jestjs/jest`
    - Command: `npm run test --workspace client`
+
+6. [ ] Run lint + format checks:
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier options: https://prettier.io/docs/options
+   - Commands: `npm run lint --workspaces`, `npm run format:check --workspaces`
+   - Purpose: Ensure client defaults changes lint and format cleanly.
 
 #### Implementation notes
 
@@ -1167,11 +1179,6 @@ Omit unchanged Codex flags from `/chat` payloads and surface `codexWarnings` nea
    - Description: List every file added or removed in this task (paths) and update the tree entries.
    - Purpose: Keep the repo tree map accurate after file additions/removals.
 
-13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier options: https://prettier.io/docs/options
-
 #### Testing
 
 1. [ ] Build the server (workspace build):
@@ -1198,6 +1205,13 @@ Omit unchanged Codex flags from `/chat` payloads and surface `codexWarnings` nea
    - Documentation to read (repeat):
      - Jest docs: Context7 `/jestjs/jest`
    - Command: `npm run test --workspace client`
+
+6. [ ] Run lint + format checks:
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier options: https://prettier.io/docs/options
+   - Commands: `npm run lint --workspaces`, `npm run format:check --workspaces`
+   - Purpose: Ensure payload omission and warning UI changes lint/format cleanly.
 
 #### Implementation notes
 
@@ -1247,11 +1261,6 @@ Update user-facing documentation to describe env-driven Codex models and default
    - Description: List every file added or removed in this story (paths) and update the tree entries.
    - Purpose: Keep the repo tree map accurate.
 
-4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier options: https://prettier.io/docs/options
-
 #### Testing
 
 1. [ ] Build the server (workspace build):
@@ -1273,6 +1282,13 @@ Update user-facing documentation to describe env-driven Codex models and default
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
    - Command: `npm run compose:up`
+
+5. [ ] Run lint + format checks:
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier options: https://prettier.io/docs/options
+   - Commands: `npm run lint --workspaces`, `npm run format:check --workspaces`
+   - Purpose: Ensure documentation updates preserve lint/format expectations.
 
 #### Implementation notes
 
@@ -1302,6 +1318,30 @@ The final task must always check against the acceptance criteria of the story. I
 
 #### Subtasks
 
+1. [ ] Update `README.md` with any story-related usage changes
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Location: `README.md`
+   - Description: Capture new env defaults, model list config, or command changes from this story.
+   - Purpose: Ensure user-facing instructions are accurate post-implementation.
+2. [ ] Update `design.md` with architecture/flow changes + mermaid diagrams
+   - Documentation to read (repeat):
+     - Mermaid: Context7 `/mermaid-js/mermaid`
+   - Location: `design.md`
+   - Description: Record any architecture or flow updates and add any new diagrams required.
+   - Purpose: Keep architectural documentation synchronized with delivered changes.
+3. [ ] Update `projectStructure.md` for any file/folder changes
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Location: `projectStructure.md`
+   - Description: List every file added or removed in this story (paths) and update the tree entries.
+   - Purpose: Maintain an accurate repository structure map.
+4. [ ] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+
+#### Testing
+
 1. [ ] Build the server
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
@@ -1314,47 +1354,23 @@ The final task must always check against the acceptance criteria of the story. I
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
    - Command: `npm run compose:build`
-4. [ ] Update `README.md` with any story-related usage changes
-   - Documentation to read (repeat):
-     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-   - Location: `README.md`
-   - Description: Capture new env defaults, model list config, or command changes from this story.
-   - Purpose: Ensure user-facing instructions are accurate post-implementation.
-5. [ ] Update `design.md` with architecture/flow changes + mermaid diagrams
-   - Documentation to read (repeat):
-     - Mermaid: Context7 `/mermaid-js/mermaid`
-   - Location: `design.md`
-   - Description: Record any architecture or flow updates and add any new diagrams required.
-   - Purpose: Keep architectural documentation synchronized with delivered changes.
-6. [ ] Update `projectStructure.md` for any file/folder changes
-   - Documentation to read (repeat):
-     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-   - Location: `projectStructure.md`
-   - Description: List every file added or removed in this story (paths) and update the tree entries.
-   - Purpose: Maintain an accurate repository structure map.
-7. [ ] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
-   - Documentation to read (repeat):
-     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-
-#### Testing
-
-1. [ ] run the client jest tests
+4. [ ] run the client jest tests
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Command: `npm run test --workspace client`
-2. [ ] run the server cucumber tests
+5. [ ] run the server cucumber tests
    - Documentation to read (repeat):
      - Cucumber guides https://cucumber.io/docs/guides/
    - Command: `npm run test --workspace server`
-3. [ ] restart the docker environment
+6. [ ] restart the docker environment
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
    - Commands: `npm run compose:down` then `npm run compose:up`
-4. [ ] run the e2e tests
+7. [ ] run the e2e tests
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
    - Command: `npm run e2e`
-5. [ ] use the playwright mcp tool to ensure manually check the application, saving screenshots to ./test-results/screenshots/ - Each screenshot should be named with the plan index including the preceding seroes, then a dash, and then the task number, then a dash and the name of the screenshot
+8. [ ] use the playwright mcp tool to ensure manually check the application, saving screenshots to ./test-results/screenshots/ - Each screenshot should be named with the plan index including the preceding seroes, then a dash, and then the task number, then a dash and the name of the screenshot
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
 

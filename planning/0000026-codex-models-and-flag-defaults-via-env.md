@@ -60,7 +60,7 @@ Implementation Ideas (rough, not tasked):
   - Update `client/src/hooks/useChatModel.ts` to capture `codexDefaults` + `codexWarnings` from `/chat/models` and expose them to `ChatPage`.
   - Remove hard-coded defaults from `client/src/pages/ChatPage.tsx` and `client/src/hooks/useChatStream.ts` so the panel initializes from `codexDefaults` instead.
   - Track whether a user changed each flag; only include changed flags in the `/chat` payload so the server can apply env defaults.
-  - Render `codexWarnings` (and any `stream_warning` messages) near the chat controls as an Alert.
+  - Render `codexWarnings` near the chat controls as an Alert; `stream_warning` remains in the transcript (optional secondary display if desired).
 - Tests/docs:
   - Update Codex flag tests (`client/src/test/chatPage.flags.*`) to assert defaults come from server responses.
   - Update server integration tests (`server/src/test/integration/chat-codex-mcp.test.ts`) to cover env parsing and defaults.

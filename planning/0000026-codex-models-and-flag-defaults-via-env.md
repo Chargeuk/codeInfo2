@@ -168,8 +168,14 @@ Create a reusable helper that reads Codex default flag values from environment v
 #### Documentation Locations
 
 - Node.js `process.env` reference: https://nodejs.org/api/process.html#processenv
+- Node.js test runner (`node:test`): https://nodejs.org/api/test.html
+- Environment variable format (12-factor): https://12factor.net/config
+- npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+- Docker/Compose: Context7 `/docker/docs`
 - Zod schema validation (if used by existing validators): Context7 `/colinhacks/zod`
 - @openai/codex-sdk 0.64.0 (ThreadOptions fields used by the server): https://www.npmjs.com/package/@openai/codex-sdk
+- @lmstudio/sdk package reference: https://www.npmjs.com/package/@lmstudio/sdk
+- LM Studio JS SDK docs: https://lmstudio.ai/docs/api/sdk
 - TypeScript `as const` + union patterns (reference for enums): https://www.typescriptlang.org/docs/handbook/2/everyday-types.html#literal-types
 - Express 5 migration guide (confirm no breaking changes affect routes): https://expressjs.com/en/guide/migrating-5.html
 - Mongoose 9 migration guide (confirm no schema/connection changes needed): https://mongoosejs.com/docs/migrating_to_9.html
@@ -190,6 +196,7 @@ Create a reusable helper that reads Codex default flag values from environment v
      - `server/src/lmstudio/toolService.ts` (boolean env parsing pattern)
    - Goal:
      - Document the current defaults, enums, and parsing patterns before adding the helper.
+     - Note that `@lmstudio/sdk` is present only in `server/package.json` (no direct imports), so version confirmation is informational.
 
 2. [ ] Implement a Codex env defaults helper:
    - Documentation to read (repeat):
@@ -288,6 +295,10 @@ Wire the new Codex env defaults helper into `validateChatRequest` so Codex reque
 
 - Node.js `process.env` reference: https://nodejs.org/api/process.html#processenv
 - TypeScript literal unions: https://www.typescriptlang.org/docs/handbook/2/everyday-types.html#literal-types
+- Node.js test runner (`node:test`): https://nodejs.org/api/test.html
+- npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+- Docker/Compose: Context7 `/docker/docs`
+- Markdown syntax: https://www.markdownguide.org/basic-syntax/
 - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier options (format check expectations): https://prettier.io/docs/options
 
@@ -388,6 +399,10 @@ Remove hard-coded Codex defaults from the provider interface so `ChatInterfaceCo
 #### Documentation Locations
 
 - @openai/codex-sdk 0.64.0 (ThreadOptions fields used by the server): https://www.npmjs.com/package/@openai/codex-sdk
+- Node.js test runner (`node:test`): https://nodejs.org/api/test.html
+- npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+- Docker/Compose: Context7 `/docker/docs`
+- Markdown syntax: https://www.markdownguide.org/basic-syntax/
 - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier options (format check expectations): https://prettier.io/docs/options
 
@@ -482,6 +497,11 @@ Add shared types and fixtures for the new `/chat/models` Codex response fields s
 #### Documentation Locations
 
 - TypeScript type system reference: https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
+- Node.js test runner (`node:test`): https://nodejs.org/api/test.html
+- Cucumber guides: https://cucumber.io/docs/guides/
+- npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+- Docker/Compose: Context7 `/docker/docs`
+- Markdown syntax: https://www.markdownguide.org/basic-syntax/
 - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier options (format check expectations): https://prettier.io/docs/options
 
@@ -577,8 +597,13 @@ Drive the Codex model list from `Codex_model_list`, extend `/chat/models?provide
 #### Documentation Locations
 
 - Node.js `process.env` reference: https://nodejs.org/api/process.html#processenv
+- Environment variable format (12-factor): https://12factor.net/config
 - CSV parsing basics (string split/trim patterns): https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/split
 - JSON schema shape guidance (response contracts): https://www.jsonrpc.org/specification
+- Node.js test runner (`node:test`): https://nodejs.org/api/test.html
+- npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+- Docker/Compose: Context7 `/docker/docs`
+- Markdown syntax: https://www.markdownguide.org/basic-syntax/
 - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier options (format check expectations): https://prettier.io/docs/options
 
@@ -708,6 +733,10 @@ Consume `codexDefaults` from `/chat/models` and use them to initialize Codex fla
   - Switch https://llms.mui.com/material-ui/6.4.12/api/switch.md
   - Select https://llms.mui.com/material-ui/6.4.12/api/select.md
 - TypeScript discriminated unions (model/provider typing): https://www.typescriptlang.org/docs/handbook/2/narrowing.html
+- Jest docs: Context7 `/jestjs/jest`
+- npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+- Docker/Compose: Context7 `/docker/docs`
+- Markdown syntax: https://www.markdownguide.org/basic-syntax/
 - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier options (format check expectations): https://prettier.io/docs/options
 
@@ -826,6 +855,10 @@ Omit unchanged Codex flags from `/chat` payloads and surface `codexWarnings` nea
 - React state + effects (reference): https://react.dev/reference/react
 - MUI MCP docs (v6.4.12): Alert https://llms.mui.com/material-ui/6.4.12/components/alert.md
 - TypeScript discriminated unions (model/provider typing): https://www.typescriptlang.org/docs/handbook/2/narrowing.html
+- Jest docs: Context7 `/jestjs/jest`
+- npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+- Docker/Compose: Context7 `/docker/docs`
+- Markdown syntax: https://www.markdownguide.org/basic-syntax/
 - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier options (format check expectations): https://prettier.io/docs/options
 
@@ -931,6 +964,8 @@ Update user-facing documentation to describe env-driven Codex models and default
 - Markdown syntax: https://www.markdownguide.org/basic-syntax/
 - Mermaid docs (if diagrams change): Context7 `/mermaid-js/mermaid`
 - Environment variable docs (reference format): https://12factor.net/config
+- npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+- Docker/Compose: Context7 `/docker/docs`
 - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier options (format check expectations): https://prettier.io/docs/options
 
@@ -1010,6 +1045,8 @@ The final task must always check against the acceptance criteria of the story. I
 - Mermaid: Context7 `/mermaid-js/mermaid`
 - Jest: Context7 `/jestjs/jest`
 - Cucumber guides https://cucumber.io/docs/guides/
+- npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+- Markdown syntax: https://www.markdownguide.org/basic-syntax/
 
 #### Subtasks
 

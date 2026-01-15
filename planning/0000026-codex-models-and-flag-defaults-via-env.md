@@ -246,20 +246,26 @@ Create a reusable helper that reads Codex default flag values from environment v
    - Requirements:
      - Add the Codex flag defaults with the values from Acceptance Criteria.
 
-8. [ ] Documentation check - `README.md` (update only if needed):
+8. [ ] Update `README.md` if env-default details changed:
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-   - Document: `README.md`
+   - Location: `README.md`
+   - Description: Add or adjust Codex flag env defaults and usage notes if this task changes them.
+   - Purpose: Keep setup documentation aligned with the env defaults helper behavior.
 
-9. [ ] Documentation check - `design.md` (update only if needed):
+9. [ ] Update `design.md` for env-default architecture changes:
    - Documentation to read (repeat):
-     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-   - Document: `design.md`
+     - Mermaid docs: Context7 `/mermaid-js/mermaid`
+   - Location: `design.md`
+   - Description: Document the new env defaults helper and warning flow; add/update diagrams as needed.
+   - Purpose: Ensure architectural notes and diagrams reflect the new defaults layer.
 
 10. [ ] Update `projectStructure.md` after adding/removing files in this task:
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-   - Document: `projectStructure.md`
+   - Location: `projectStructure.md`
+   - Description: Add any new helper module or test file entries introduced by this task.
+   - Purpose: Keep the repo tree map accurate after file additions.
 
 11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
@@ -367,20 +373,26 @@ Wire the new Codex env defaults helper into `validateChatRequest` so Codex reque
    - Location: `server/src/test/unit/` (validation tests)
    - Purpose: Verify non-Codex requests ignore Codex defaults and preserve existing warning behavior.
 
-6. [ ] Documentation check - `README.md` (update only if needed):
+6. [ ] Update `README.md` if validation behavior changes are user-facing:
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-   - Document: `README.md`
+   - Location: `README.md`
+   - Description: Note that Codex request flags default from server env when omitted.
+   - Purpose: Keep user-facing docs aligned with request validation behavior.
 
-7. [ ] Update `design.md` with architecture/flow changes + mermaid diagrams:
+7. [ ] Update `design.md` with validation flow changes + mermaid diagrams:
    - Documentation to read (repeat):
      - Mermaid docs: Context7 `/mermaid-js/mermaid`
-   - Document: `design.md`
+   - Location: `design.md`
+   - Description: Update validation flow to show env defaults injection and warning behavior.
+   - Purpose: Ensure architecture docs reflect the server-side defaulting logic.
 
 8. [ ] Update `projectStructure.md` after adding/removing files in this task:
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-   - Document: `projectStructure.md`
+   - Location: `projectStructure.md`
+   - Description: Add any new validation test files introduced in this task.
+   - Purpose: Keep the repo tree map accurate after file additions.
 
 9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
@@ -479,20 +491,26 @@ Remove hard-coded Codex defaults from the provider interface so `ChatInterfaceCo
    - Location: `server/src/test/integration/chat-codex.test.ts` or `server/src/test/unit/`
    - Purpose: Ensure omitted flags remain `undefined` so Codex config/env defaults apply.
 
-5. [ ] Documentation check - `README.md` (update only if needed):
+5. [ ] Update `README.md` if Codex thread option behavior changes are documented:
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-   - Document: `README.md`
+   - Location: `README.md`
+   - Description: Clarify that Codex flags come from validated inputs without extra fallback defaults.
+   - Purpose: Keep usage notes aligned with Codex execution behavior.
 
-6. [ ] Update `design.md` with architecture/flow changes + mermaid diagrams:
+6. [ ] Update `design.md` with thread option flow + mermaid diagrams:
    - Documentation to read (repeat):
      - Mermaid docs: Context7 `/mermaid-js/mermaid`
-   - Document: `design.md`
+   - Location: `design.md`
+   - Description: Update Codex flow diagrams to remove hard-coded defaults and show validated flags.
+   - Purpose: Maintain accurate architecture documentation for Codex execution.
 
 7. [ ] Update `projectStructure.md` after adding/removing files in this task:
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-   - Document: `projectStructure.md`
+   - Location: `projectStructure.md`
+   - Description: Add any new test files created for Codex thread options.
+   - Purpose: Keep the repo tree map accurate after file additions.
 
 8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
@@ -585,20 +603,26 @@ Add shared types and fixtures for the new `/chat/models` Codex response fields s
      - `server/src/test/steps/chat_models.steps.ts`
      - Any client tests relying on `mockModelsResponse`.
 
-5. [ ] Documentation check - `README.md` (update only if needed):
+5. [ ] Update `README.md` if shared response fields are documented:
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-   - Document: `README.md`
+   - Location: `README.md`
+   - Description: Add or update `/chat/models` response field documentation for `codexDefaults`/`codexWarnings`.
+   - Purpose: Keep API usage docs aligned with shared DTOs.
 
-6. [ ] Documentation check - `design.md` (update only if needed):
+6. [ ] Update `design.md` if response contract diagrams change:
    - Documentation to read (repeat):
-     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-   - Document: `design.md`
+     - Mermaid docs: Context7 `/mermaid-js/mermaid`
+   - Location: `design.md`
+   - Description: Update response contract notes/diagrams to include new Codex fields.
+   - Purpose: Ensure architecture docs match shared contract changes.
 
 7. [ ] Update `projectStructure.md` after adding/removing files in this task:
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-   - Document: `projectStructure.md`
+   - Location: `projectStructure.md`
+   - Description: Add any new fixture or test files introduced in this task.
+   - Purpose: Keep the repo tree map accurate after file additions.
 
 8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
@@ -731,20 +755,26 @@ Drive the Codex model list from `Codex_model_list`, extend `/chat/models?provide
    - Location: `server/src/test/unit/` (models response tests)
    - Purpose: Append a warning if `webSearchEnabled` is true while tools are unavailable.
 
-10. [ ] Documentation check - `README.md` (update only if needed):
+10. [ ] Update `README.md` with model list env details if changed:
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-   - Document: `README.md`
+   - Location: `README.md`
+   - Description: Document `Codex_model_list` CSV format and default list updates.
+   - Purpose: Keep environment configuration docs aligned with model list behavior.
 
-11. [ ] Update `design.md` with architecture/flow changes + mermaid diagrams:
+11. [ ] Update `design.md` with model list response flow + mermaid diagrams:
    - Documentation to read (repeat):
      - Mermaid docs: Context7 `/mermaid-js/mermaid`
-   - Document: `design.md`
+   - Location: `design.md`
+   - Description: Add/update response-contract diagrams showing `codexDefaults`/`codexWarnings`.
+   - Purpose: Ensure architecture docs reflect the updated `/chat/models` response.
 
 12. [ ] Update `projectStructure.md` after adding/removing files in this task:
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-   - Document: `projectStructure.md`
+   - Location: `projectStructure.md`
+   - Description: Add any new models-response test files created in this task.
+   - Purpose: Keep the repo tree map accurate after file additions.
 
 13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
@@ -881,20 +911,26 @@ Consume `codexDefaults` from `/chat/models` and use them to initialize Codex fla
    - Location: `client/src/test/` (chat page tests)
    - Purpose: Ensure the Codex flags panel is disabled when `codexDefaults` are missing.
 
-9. [ ] Documentation check - `README.md` (update only if needed):
+9. [ ] Update `README.md` if client defaults behavior is documented:
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-   - Document: `README.md`
+   - Location: `README.md`
+   - Description: Note that Codex defaults now come from `/chat/models` rather than hard-coded client values.
+   - Purpose: Keep user-facing usage docs aligned with server-driven defaults.
 
-10. [ ] Update `design.md` with architecture/flow changes + mermaid diagrams:
+10. [ ] Update `design.md` with client defaults flow + mermaid diagrams:
    - Documentation to read (repeat):
      - Mermaid docs: Context7 `/mermaid-js/mermaid`
-   - Document: `design.md`
+   - Location: `design.md`
+   - Description: Update UI flow diagrams to show defaults coming from `/chat/models`.
+   - Purpose: Keep architecture notes aligned with the new client initialization flow.
 
 11. [ ] Update `projectStructure.md` after adding/removing files in this task:
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-   - Document: `projectStructure.md`
+   - Location: `projectStructure.md`
+   - Description: Add any new client test files or UI components introduced in this task.
+   - Purpose: Keep the repo tree map accurate after file additions.
 
 12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
@@ -1012,20 +1048,26 @@ Omit unchanged Codex flags from `/chat` payloads and surface `codexWarnings` nea
    - Location: `client/src/test/` (chat page alert tests)
    - Purpose: Show warnings when provider is Codex and clear warnings when provider changes.
 
-8. [ ] Documentation check - `README.md` (update only if needed):
+8. [ ] Update `README.md` if payload omission behavior is documented:
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-   - Document: `README.md`
+   - Location: `README.md`
+   - Description: Mention that Codex flags are omitted when unchanged so env defaults apply.
+   - Purpose: Keep usage docs aligned with payload behavior.
 
-9. [ ] Update `design.md` with architecture/flow changes + mermaid diagrams:
+9. [ ] Update `design.md` with warning/banner flow + mermaid diagrams:
    - Documentation to read (repeat):
      - Mermaid docs: Context7 `/mermaid-js/mermaid`
-   - Document: `design.md`
+   - Location: `design.md`
+   - Description: Document the `codexWarnings` banner flow and any UI/response updates.
+   - Purpose: Keep architecture/flow diagrams current.
 
 10. [ ] Update `projectStructure.md` after adding/removing files in this task:
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-   - Document: `projectStructure.md`
+   - Location: `projectStructure.md`
+   - Description: Add any new client test files or UI components introduced in this task.
+   - Purpose: Keep the repo tree map accurate after file additions.
 
 11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
@@ -1089,27 +1131,23 @@ Update user-facing documentation to describe env-driven Codex models and default
 1. [ ] Update `README.md` with new Codex env defaults and model list:
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-   - Files to edit:
-     - `README.md`
-   - Requirements:
-     - Document `Codex_model_list` CSV usage.
-     - Update Codex default flag values to match env defaults.
+   - Location: `README.md`
+   - Description: Document `Codex_model_list` CSV usage and default flag values.
+   - Purpose: Keep user-facing configuration guidance in sync with server env defaults.
 
 2. [ ] Update `design.md` to reflect server-driven defaults and warnings:
    - Documentation to read (repeat):
      - Mermaid docs: Context7 `/mermaid-js/mermaid`
-   - Files to edit:
-     - `design.md`
-   - Requirements:
-     - Update Codex flags panel description to mention server defaults.
-     - Update `/chat/models` response documentation to mention `codexDefaults` and `codexWarnings`.
-     - Add/update Mermaid diagrams for any new or updated flow.
+   - Location: `design.md`
+   - Description: Update Codex flags panel notes, `/chat/models` response fields, and related flow diagrams.
+   - Purpose: Ensure architecture docs and mermaid diagrams match the new defaults/warnings flow.
 
 3. [ ] Update `projectStructure.md` if new files were introduced:
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-   - Files to edit:
-     - `projectStructure.md`
+   - Location: `projectStructure.md`
+   - Description: Add any new helpers/tests added by this story.
+   - Purpose: Keep the repo tree map accurate.
 
 4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
@@ -1178,18 +1216,24 @@ The final task must always check against the acceptance criteria of the story. I
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
    - Command: `npm run compose:build`
-4. [ ] Ensure Readme.md is updated with any required description changes and with any new commands that have been added as part of this story
+4. [ ] Update `README.md` with any story-related usage changes
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-   - Document: `README.md`
-5. [ ] Ensure Design.md is updated with any required description changes including mermaid diagrams that have been added as part of this story
+   - Location: `README.md`
+   - Description: Capture new env defaults, model list config, or command changes from this story.
+   - Purpose: Ensure user-facing instructions are accurate post-implementation.
+5. [ ] Update `design.md` with architecture/flow changes + mermaid diagrams
    - Documentation to read (repeat):
      - Mermaid: Context7 `/mermaid-js/mermaid`
-   - Document: `design.md`
-6. [ ] Ensure projectStructure.md is updated with any updated, added or removed files & folders
+   - Location: `design.md`
+   - Description: Record any architecture or flow updates and add any new diagrams required.
+   - Purpose: Keep architectural documentation synchronized with delivered changes.
+6. [ ] Update `projectStructure.md` for any file/folder changes
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-   - Document: `projectStructure.md`
+   - Location: `projectStructure.md`
+   - Description: Add/remove any files or directories introduced by this story.
+   - Purpose: Maintain an accurate repository structure map.
 7. [ ] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/

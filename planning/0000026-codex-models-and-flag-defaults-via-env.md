@@ -196,6 +196,7 @@ Add a single, reusable server helper that reads Codex default flags from environ
      - Validate each value against the existing enums/boolean shapes.
      - Return `{ defaults, warnings }`, where warnings contain human-readable messages for invalid env values.
      - If an env value is invalid, fall back to the built-in default from the acceptance criteria.
+     - Add a warning when `networkAccessEnabled === true` and `sandboxMode !== 'workspace-write'` (flag still passes through).
 
 3. [ ] Apply env defaults during chat request validation (Codex only):
    - Documentation to read (repeat):
@@ -207,31 +208,39 @@ Add a single, reusable server helper that reads Codex default flags from environ
      - When the request includes a flag, preserve the request value as-is.
      - Keep non-Codex providers unchanged.
 
-4. [ ] Add/update unit tests for env defaults and fallback behavior:
+4. [ ] Remove or align Codex defaults inside the Codex chat interface:
+   - Files to edit:
+     - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
+   - Requirements:
+     - Stop re-applying hard-coded defaults in the interface layer.
+     - Ensure the interface trusts `chatValidators` outputs (including env defaults).
+
+5. [ ] Add/update unit tests for env defaults and fallback behavior:
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
    - Tests to add/update:
      - New or updated unit tests under `server/src/test/unit/` to cover valid/invalid env values and fallback defaults.
+     - Include a test for the `networkAccessEnabled` + non-`workspace-write` warning.
 
-5. [ ] Update server defaults in `server/.env`:
+6. [ ] Update server defaults in `server/.env`:
    - Files to edit:
      - `server/.env`
    - Requirements:
      - Add the Codex flag defaults with the values from Acceptance Criteria.
 
-6. [ ] Documentation check - `README.md`:
+7. [ ] Documentation check - `README.md`:
    - Document: `README.md`
    - Requirement: Confirm whether any Codex defaults listed in the README need to be updated; update if required.
 
-7. [ ] Documentation check - `design.md`:
+8. [ ] Documentation check - `design.md`:
    - Document: `design.md`
    - Requirement: Confirm whether Codex defaults or environment configuration notes need updating; update if required.
 
-8. [ ] Documentation check - `projectStructure.md`:
+9. [ ] Documentation check - `projectStructure.md`:
    - Document: `projectStructure.md`
    - Requirement: Confirm whether any new config/helper files require structure updates.
 
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier options: https://prettier.io/docs/options
@@ -321,7 +330,15 @@ Drive the Codex model list from a CSV environment variable and extend the Codex 
      - Include `codexDefaults` and `codexWarnings` in the Codex response only.
      - Log warnings when present using the existing server logging patterns.
 
-4. [ ] Update shared types and fixtures for the new response shape:
+4. [ ] Add runtime warnings to the Codex warnings list:
+   - Files to read:
+     - `server/src/routes/chatModels.ts`
+     - `server/src/routes/chatProviders.ts`
+   - Requirements:
+     - If `webSearchEnabled === true` while Codex tools are unavailable, append a warning (keep the flag unchanged).
+     - Ensure `codexWarnings` merges model-list warnings and default-flag warnings with any runtime warnings.
+
+5. [ ] Update shared types and fixtures for the new response shape:
    - Files to edit:
      - `common/src/lmstudio.ts`
      - `common/src/fixtures/mockModels.ts`
@@ -329,31 +346,32 @@ Drive the Codex model list from a CSV environment variable and extend the Codex 
      - Add optional `codexDefaults`/`codexWarnings` fields to the models response type.
      - Ensure fixtures include these fields for Codex provider mocks.
 
-5. [ ] Add/update tests for the Codex models response shape:
+6. [ ] Add/update tests for the Codex models response shape:
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
    - Tests to add/update:
      - Server unit tests under `server/src/test/unit/` that assert env list parsing and response fields.
+     - Include a test that the runtime warning is appended when tools are unavailable.
 
-6. [ ] Update server defaults in `server/.env` with `Codex_model_list`:
+7. [ ] Update server defaults in `server/.env` with `Codex_model_list`:
    - Files to edit:
      - `server/.env`
    - Requirements:
      - Include the CSV model list with the fallback entries plus `gpt-5.2-codex`.
 
-7. [ ] Documentation check - `README.md`:
+8. [ ] Documentation check - `README.md`:
    - Document: `README.md`
    - Requirement: Confirm whether the Codex model list or defaults need updates; update if required.
 
-8. [ ] Documentation check - `design.md`:
+9. [ ] Documentation check - `design.md`:
    - Document: `design.md`
    - Requirement: Confirm whether `/chat/models` response docs need updating; update if required.
 
-9. [ ] Documentation check - `projectStructure.md`:
+10. [ ] Documentation check - `projectStructure.md`:
    - Document: `projectStructure.md`
    - Requirement: Confirm whether any new files need to be listed.
 
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier options: https://prettier.io/docs/options
@@ -443,6 +461,7 @@ Update the client to consume `codexDefaults` and `codexWarnings` from the server
    - Requirements:
      - Use `codexDefaults` from the server response as the source of truth.
      - When provider switches away and back to Codex, rehydrate defaults from the latest server response.
+     - While `codexDefaults` is missing, keep Codex flag controls disabled and do not send defaults.
 
 4. [ ] Omit unchanged Codex flags from `/chat` payloads:
    - Files to edit:
@@ -451,6 +470,7 @@ Update the client to consume `codexDefaults` and `codexWarnings` from the server
      - Compare user-selected flags against `codexDefaults`.
      - Only include flags in the request body when they differ from defaults.
      - Preserve current behavior for LM Studio.
+     - If defaults are not loaded, omit all Codex flags from the payload.
 
 5. [ ] Surface `codexWarnings` in the chat controls:
    - Documentation to read (repeat):
@@ -460,6 +480,7 @@ Update the client to consume `codexDefaults` and `codexWarnings` from the server
    - Requirements:
      - Render warnings near the provider/model controls when `codexWarnings` is non-empty.
      - Use existing warning banner styling patterns.
+     - Clear warnings when the provider is not Codex.
 
 6. [ ] Add/update client tests for defaults and payload omission:
    - Documentation to read (repeat):

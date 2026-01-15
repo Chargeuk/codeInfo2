@@ -156,14 +156,14 @@ These instructions will be followed during implementation.
 
 # Tasks
 
-### 1. Server: Codex env defaults parsing + request defaulting
+### 1. Server: Codex env defaults helper
 
 - Task Status: **__to_do__**
 - Git Commits: 
 
 #### Overview
 
-Add a single, reusable server helper that reads Codex default flags from environment variables, validates them against existing enums, and provides a warning list for invalid values. Wire the helper into chat request validation so Codex requests without flags inherit the env defaults while explicit request overrides continue to win.
+Create a reusable helper that reads Codex default flag values from environment variables, validates them against the existing enums, and produces warnings for invalid values. This task establishes the defaults layer without changing request validation yet.
 
 #### Documentation Locations
 
@@ -179,7 +179,7 @@ Add a single, reusable server helper that reads Codex default flags from environ
 
 #### Subtasks
 
-1. [ ] Review existing Codex defaults and validation flow:
+1. [ ] Review existing Codex defaults and env parsing patterns:
    - Documentation to read (repeat):
      - Node.js `process.env` reference: https://nodejs.org/api/process.html#processenv
    - Files to read:
@@ -189,9 +189,9 @@ Add a single, reusable server helper that reads Codex default flags from environ
      - `server/package.json` (confirm `@openai/codex-sdk` 0.64.0 and `@lmstudio/sdk` 1.5.0)
      - `server/src/lmstudio/toolService.ts` (boolean env parsing pattern)
    - Goal:
-     - Identify current hard-coded defaults and where flags are re-applied.
+     - Document the current defaults, enums, and parsing patterns before adding the helper.
 
-2. [ ] Add a Codex env defaults helper with validation and warnings:
+2. [ ] Implement a Codex env defaults helper:
    - Documentation to read (repeat):
      - Zod schema validation: Context7 `/colinhacks/zod`
    - Files to edit:
@@ -199,53 +199,399 @@ Add a single, reusable server helper that reads Codex default flags from environ
    - Requirements:
      - Read `Codex_sandbox_mode`, `Codex_approval_policy`, `Codex_reasoning_effort`, `Codex_network_access_enabled`, `Codex_web_search_enabled`.
      - Validate each value against the existing enums/boolean shapes.
-     - Parse boolean env values using the same `toLowerCase() === 'true'` pattern used in `server/src/lmstudio/toolService.ts`.
-     - Return `{ defaults, warnings }`, where warnings contain human-readable messages for invalid env values.
-     - If an env value is invalid, fall back to the built-in default from the acceptance criteria.
-     - Add a warning when `networkAccessEnabled === true` and `sandboxMode !== 'workspace-write'` (flag still passes through).
+     - Parse booleans using the same `toLowerCase() === 'true'` pattern used in `server/src/lmstudio/toolService.ts`.
+     - Return `{ defaults, warnings }`, where warnings are user-facing strings for invalid env values.
+     - Add a warning when `networkAccessEnabled === true` and `sandboxMode !== 'workspace-write'`.
 
-3. [ ] Apply env defaults during chat request validation (Codex only):
-   - Documentation to read (repeat):
-     - TypeScript literal unions: https://www.typescriptlang.org/docs/handbook/2/everyday-types.html#literal-types
-   - Files to edit:
-     - `server/src/routes/chatValidators.ts`
-   - Requirements:
-     - When a Codex request omits a flag, inject the env default from the helper.
-     - When the request includes a flag, preserve the request value as-is.
-     - Keep non-Codex providers unchanged.
-
-4. [ ] Remove or align Codex defaults inside the Codex chat interface:
-   - Files to edit:
-     - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
-   - Requirements:
-     - Stop re-applying hard-coded defaults in the interface layer.
-     - Ensure the interface trusts `chatValidators` outputs (including env defaults).
-
-5. [ ] Add/update unit tests for env defaults and fallback behavior:
+3. [ ] Add unit tests for the helper:
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
    - Tests to add/update:
-     - New or updated unit tests under `server/src/test/unit/` to cover valid/invalid env values and fallback defaults.
-     - Include a test for the `networkAccessEnabled` + non-`workspace-write` warning.
-     - Include tests for boolean parsing (`true`/`false`) and invalid boolean strings.
+     - New unit tests under `server/src/test/unit/` covering valid/invalid values, boolean parsing, and the network/sandbox warning.
 
-6. [ ] Update server defaults in `server/.env`:
+4. [ ] Update server defaults in `server/.env` (flags only):
    - Files to edit:
      - `server/.env`
    - Requirements:
      - Add the Codex flag defaults with the values from Acceptance Criteria.
 
-7. [ ] Documentation check - `README.md`:
+5. [ ] Documentation check - `README.md` (update only if needed):
    - Document: `README.md`
-   - Requirement: Confirm whether any Codex defaults listed in the README need to be updated; update if required.
 
-8. [ ] Documentation check - `design.md`:
+6. [ ] Documentation check - `design.md` (update only if needed):
    - Document: `design.md`
-   - Requirement: Confirm whether Codex defaults or environment configuration notes need updating; update if required.
 
-9. [ ] Documentation check - `projectStructure.md`:
+7. [ ] Documentation check - `projectStructure.md` (update only if needed):
    - Document: `projectStructure.md`
-   - Requirement: Confirm whether any new config/helper files require structure updates.
+
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier options: https://prettier.io/docs/options
+
+#### Testing
+
+1. [ ] Build the server (workspace build):
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+   - Command: `npm run build --workspace server`
+   - Purpose: Ensure server TypeScript build succeeds outside Docker.
+
+2. [ ] Build the client (workspace build):
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+   - Command: `npm run build --workspace client`
+   - Purpose: Ensure client production build succeeds outside Docker.
+
+3. [ ] Perform a clean Docker Compose build:
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+   - Command: `npm run compose:build`
+   - Purpose: Validate Docker images build cleanly with env defaults helper changes.
+
+4. [ ] Start Docker Compose stack:
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+   - Command: `npm run compose:up`
+   - Purpose: Ensure the full stack starts with env defaults helper changes.
+
+5. [ ] Run server unit tests (targeted if available):
+   - Documentation to read (repeat):
+     - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
+   - Command: `npm run test:unit --workspace server`
+   - Purpose: Validate Codex env defaults helper behavior.
+
+#### Implementation notes
+
+- 
+
+---
+
+### 2. Server: Apply env defaults in chat validation
+
+- Task Status: **__to_do__**
+- Git Commits: 
+
+#### Overview
+
+Wire the new Codex env defaults helper into `validateChatRequest` so Codex requests inherit environment defaults when flags are omitted, while preserving explicit request overrides and existing non-Codex warnings.
+
+#### Documentation Locations
+
+- Node.js `process.env` reference: https://nodejs.org/api/process.html#processenv
+- TypeScript literal unions: https://www.typescriptlang.org/docs/handbook/2/everyday-types.html#literal-types
+- ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
+- Prettier options (format check expectations): https://prettier.io/docs/options
+
+#### Subtasks
+
+1. [ ] Review current validation behavior:
+   - Files to read:
+     - `server/src/routes/chatValidators.ts`
+     - `server/src/test/unit/` (existing validation tests, if any)
+   - Goal:
+     - Confirm where defaults are injected and where warnings are produced.
+
+2. [ ] Update `validateChatRequest` to use env defaults:
+   - Files to edit:
+     - `server/src/routes/chatValidators.ts`
+   - Requirements:
+     - Pull defaults from the new helper when provider is `codex` and a flag is missing.
+     - Preserve explicit request overrides.
+     - Keep LM Studio warning behavior unchanged.
+
+3. [ ] Update validation tests:
+   - Documentation to read (repeat):
+     - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
+   - Tests to add/update:
+     - Unit tests asserting env defaults are applied only when flags are omitted.
+
+4. [ ] Documentation check - `README.md` (update only if needed):
+   - Document: `README.md`
+
+5. [ ] Documentation check - `design.md` (update only if needed):
+   - Document: `design.md`
+
+6. [ ] Documentation check - `projectStructure.md` (update only if needed):
+   - Document: `projectStructure.md`
+
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier options: https://prettier.io/docs/options
+
+#### Testing
+
+1. [ ] Build the server (workspace build):
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+   - Command: `npm run build --workspace server`
+   - Purpose: Ensure server TypeScript build succeeds outside Docker.
+
+2. [ ] Build the client (workspace build):
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+   - Command: `npm run build --workspace client`
+   - Purpose: Ensure client production build succeeds outside Docker.
+
+3. [ ] Perform a clean Docker Compose build:
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+   - Command: `npm run compose:build`
+   - Purpose: Validate Docker images build cleanly after validation updates.
+
+4. [ ] Start Docker Compose stack:
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+   - Command: `npm run compose:up`
+   - Purpose: Ensure the full stack starts after validation updates.
+
+5. [ ] Run server unit tests (targeted if available):
+   - Documentation to read (repeat):
+     - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
+   - Command: `npm run test:unit --workspace server`
+   - Purpose: Validate Codex env defaults in request validation.
+
+#### Implementation notes
+
+- 
+
+---
+
+### 3. Server: Align ChatInterfaceCodex defaults
+
+- Task Status: **__to_do__**
+- Git Commits: 
+
+#### Overview
+
+Remove hard-coded Codex defaults from the provider interface so `ChatInterfaceCodex` trusts the validated request flags (or Codex config defaults) without overriding env-driven defaults.
+
+#### Documentation Locations
+
+- @openai/codex-sdk 0.64.0 (ThreadOptions fields used by the server): https://www.npmjs.com/package/@openai/codex-sdk
+- ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
+- Prettier options (format check expectations): https://prettier.io/docs/options
+
+#### Subtasks
+
+1. [ ] Review current thread options assembly:
+   - Files to read:
+     - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
+     - `server/src/test/integration/chat-codex.test.ts`
+   - Goal:
+     - Identify where defaults are injected before the Codex SDK call.
+
+2. [ ] Remove hard-coded defaults from thread options:
+   - Files to edit:
+     - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
+   - Requirements:
+     - Use provided `codexFlags` values directly.
+     - Leave fields undefined when missing so env defaults from validation are respected.
+
+3. [ ] Update tests covering Codex thread options:
+   - Documentation to read (repeat):
+     - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
+   - Tests to add/update:
+     - Integration/unit tests asserting thread options reflect validated flags and no fallback to old defaults.
+
+4. [ ] Documentation check - `README.md` (update only if needed):
+   - Document: `README.md`
+
+5. [ ] Documentation check - `design.md` (update only if needed):
+   - Document: `design.md`
+
+6. [ ] Documentation check - `projectStructure.md` (update only if needed):
+   - Document: `projectStructure.md`
+
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier options: https://prettier.io/docs/options
+
+#### Testing
+
+1. [ ] Build the server (workspace build):
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+   - Command: `npm run build --workspace server`
+
+2. [ ] Build the client (workspace build):
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+   - Command: `npm run build --workspace client`
+
+3. [ ] Perform a clean Docker Compose build:
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+   - Command: `npm run compose:build`
+
+4. [ ] Start Docker Compose stack:
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+   - Command: `npm run compose:up`
+
+5. [ ] Run server unit tests (targeted if available):
+   - Documentation to read (repeat):
+     - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
+   - Command: `npm run test:unit --workspace server`
+
+#### Implementation notes
+
+- 
+
+---
+
+### 4. Shared: Codex defaults response types
+
+- Task Status: **__to_do__**
+- Git Commits: 
+
+#### Overview
+
+Add shared types and fixtures for the new `/chat/models` Codex response fields so the server and client can exchange `codexDefaults` and `codexWarnings` safely.
+
+#### Documentation Locations
+
+- TypeScript type system reference: https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
+- ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
+- Prettier options (format check expectations): https://prettier.io/docs/options
+
+#### Subtasks
+
+1. [ ] Review existing shared model response types:
+   - Files to read:
+     - `common/src/lmstudio.ts`
+     - `common/src/fixtures/mockModels.ts`
+
+2. [ ] Add Codex defaults response types:
+   - Files to edit:
+     - `common/src/lmstudio.ts`
+   - Requirements:
+     - Add a `CodexDefaults` type and optional `codexDefaults`/`codexWarnings` fields to `ChatModelsResponse`.
+
+3. [ ] Update fixtures and shared mocks:
+   - Files to edit:
+     - `common/src/fixtures/mockModels.ts`
+   - Requirements:
+     - Extend mocks to include Codex response fields where appropriate.
+
+4. [ ] Update tests that consume the shared fixtures:
+   - Files to edit:
+     - `server/src/test/steps/chat_models.steps.ts`
+     - Any client tests relying on `mockModelsResponse`.
+
+5. [ ] Documentation check - `README.md` (update only if needed):
+   - Document: `README.md`
+
+6. [ ] Documentation check - `design.md` (update only if needed):
+   - Document: `design.md`
+
+7. [ ] Documentation check - `projectStructure.md` (update only if needed):
+   - Document: `projectStructure.md`
+
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier options: https://prettier.io/docs/options
+
+#### Testing
+
+1. [ ] Build the server (workspace build):
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+   - Command: `npm run build --workspace server`
+
+2. [ ] Build the client (workspace build):
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+   - Command: `npm run build --workspace client`
+
+3. [ ] Perform a clean Docker Compose build:
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+   - Command: `npm run compose:build`
+
+4. [ ] Start Docker Compose stack:
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+   - Command: `npm run compose:up`
+
+#### Implementation notes
+
+- 
+
+---
+
+### 5. Server: Codex models response + warnings
+
+- Task Status: **__to_do__**
+- Git Commits: 
+
+#### Overview
+
+Drive the Codex model list from `Codex_model_list`, extend `/chat/models?provider=codex` to return `codexDefaults`/`codexWarnings`, and add runtime warnings when web search is enabled but tools are unavailable.
+
+#### Documentation Locations
+
+- Node.js `process.env` reference: https://nodejs.org/api/process.html#processenv
+- CSV parsing basics (string split/trim patterns): https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/split
+- JSON schema shape guidance (response contracts): https://www.jsonrpc.org/specification
+- ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
+- Prettier options (format check expectations): https://prettier.io/docs/options
+
+#### Subtasks
+
+1. [ ] Review Codex models route and MCP availability status:
+   - Files to read:
+     - `server/src/routes/chatModels.ts`
+     - `server/src/routes/chatProviders.ts`
+
+2. [ ] Extend the Codex env helper for model list parsing:
+   - Files to read:
+     - `server/src/ingest/config.ts` (CSV split/trim + Set de-duplication pattern)
+   - Files to edit:
+     - Codex env helper module from Task 1
+   - Requirements:
+     - Parse `Codex_model_list` as CSV, trim, drop empties, de-duplicate.
+     - Warn and fall back to the built-in list if the parsed list is empty.
+
+3. [ ] Update `/chat/models?provider=codex` response:
+   - Files to edit:
+     - `server/src/routes/chatModels.ts`
+   - Requirements:
+     - Use the env-driven model list.
+     - Include `codexDefaults` and `codexWarnings` even when Codex is unavailable.
+     - Log warnings using existing server logging patterns.
+
+4. [ ] Append runtime warnings when tools are unavailable:
+   - Files to edit:
+     - `server/src/routes/chatModels.ts`
+   - Requirements:
+     - If `webSearchEnabled === true` while tools are unavailable, append a warning without mutating the flag.
+     - Merge model-list, default, and runtime warnings into `codexWarnings`.
+
+5. [ ] Update server defaults in `server/.env` (model list):
+   - Files to edit:
+     - `server/.env`
+   - Requirements:
+     - Add `Codex_model_list` with the fallback entries plus `gpt-5.2-codex`.
+
+6. [ ] Add/update server tests for the Codex models response:
+   - Documentation to read (repeat):
+     - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
+   - Tests to add/update:
+     - Unit tests asserting env list parsing, warnings, and response fields.
+     - Coverage for duplicate/unknown CSV entries and empty CSV fallback.
+
+7. [ ] Documentation check - `README.md` (update only if needed):
+   - Document: `README.md`
+
+8. [ ] Documentation check - `design.md` (update only if needed):
+   - Document: `design.md`
+
+9. [ ] Documentation check - `projectStructure.md` (update only if needed):
+   - Document: `projectStructure.md`
 
 10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
@@ -258,31 +604,26 @@ Add a single, reusable server helper that reads Codex default flags from environ
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
    - Command: `npm run build --workspace server`
-   - Purpose: Ensure server TypeScript build succeeds outside Docker.
 
 2. [ ] Build the client (workspace build):
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
    - Command: `npm run build --workspace client`
-   - Purpose: Ensure client production build succeeds outside Docker.
 
 3. [ ] Perform a clean Docker Compose build:
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
    - Command: `npm run compose:build`
-   - Purpose: Validate Docker images build cleanly with env defaults changes.
 
 4. [ ] Start Docker Compose stack:
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
    - Command: `npm run compose:up`
-   - Purpose: Ensure the full stack starts with env defaults changes.
 
 5. [ ] Run server unit tests (targeted if available):
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
    - Command: `npm run test:unit --workspace server`
-   - Purpose: Validate Codex env default parsing in isolation.
 
 #### Implementation notes
 
@@ -290,151 +631,14 @@ Add a single, reusable server helper that reads Codex default flags from environ
 
 ---
 
-### 2. Server: Codex model list + defaults/warnings response
+### 6. Client: Codex defaults consumption + flags init
 
 - Task Status: **__to_do__**
 - Git Commits: 
 
 #### Overview
 
-Drive the Codex model list from a CSV environment variable and extend the Codex `/chat/models` response with `codexDefaults` and `codexWarnings`. This exposes server-driven defaults and warning messages to the client without adding new endpoints.
-
-#### Documentation Locations
-
-- Node.js `process.env` reference: https://nodejs.org/api/process.html#processenv
-- CSV parsing basics (string split/trim patterns): https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/split
-- JSON schema shape guidance (response contracts): https://www.jsonrpc.org/specification
-- ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
-- Prettier options (format check expectations): https://prettier.io/docs/options
-- Markdown syntax (doc updates): https://www.markdownguide.org/basic-syntax/
-
-#### Subtasks
-
-1. [ ] Review Codex model list handling and chat models response:
-   - Documentation to read (repeat):
-     - Node.js `process.env` reference: https://nodejs.org/api/process.html#processenv
-   - Files to read:
-     - `server/src/routes/chatModels.ts`
-     - `common/src/lmstudio.ts`
-     - `common/src/fixtures/mockModels.ts`
-   - Goal:
-     - Identify the current hard-coded model list and response shape.
-
-2. [ ] Add env-driven Codex model list parsing (CSV + fallback):
-   - Documentation to read (repeat):
-     - CSV parsing basics: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/split
-   - Files to read:
-     - `server/src/ingest/config.ts` (CSV split/trim + Set de-duplication pattern)
-   - Files to edit:
-     - Codex env helper module added in Task 1
-   - Requirements:
-     - Read `Codex_model_list` as a CSV, trim whitespace, drop empty entries, and de-duplicate in first-seen order.
-     - Mirror the CSV split/trim/filter + `Set` de-duplication pattern in `server/src/ingest/config.ts` for consistency.
-     - If the final list is empty, add a warning and fall back to the built-in list from Acceptance Criteria.
-
-3. [ ] Extend `/chat/models?provider=codex` response:
-   - Files to edit:
-     - `server/src/routes/chatModels.ts`
-   - Requirements:
-     - Use the env model list from the helper.
-     - Include `codexDefaults` and `codexWarnings` in the Codex response only.
-     - Log warnings when present using the existing server logging patterns.
-     - Return `codexDefaults`/`codexWarnings` even when Codex is unavailable so the UI can still display env warnings.
-
-4. [ ] Add runtime warnings to the Codex warnings list:
-   - Files to read:
-     - `server/src/routes/chatModels.ts`
-     - `server/src/routes/chatProviders.ts`
-   - Requirements:
-     - If `webSearchEnabled === true` while Codex tools are unavailable, append a warning (keep the flag unchanged).
-     - Ensure `codexWarnings` merges model-list warnings and default-flag warnings with any runtime warnings.
-
-5. [ ] Update shared types and fixtures for the new response shape:
-   - Files to edit:
-     - `common/src/lmstudio.ts`
-     - `common/src/fixtures/mockModels.ts`
-   - Requirements:
-     - Add optional `codexDefaults`/`codexWarnings` fields to the models response type.
-     - Add a shared `CodexDefaults` type for `sandboxMode`, `approvalPolicy`, `modelReasoningEffort`, `networkAccessEnabled`, `webSearchEnabled`.
-     - Ensure fixtures include these fields for Codex provider mocks.
-
-6. [ ] Add/update tests for the Codex models response shape:
-   - Documentation to read (repeat):
-     - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
-   - Tests to add/update:
-     - Server unit tests under `server/src/test/unit/` that assert env list parsing and response fields.
-     - Include a test that the runtime warning is appended when tools are unavailable.
-     - Add coverage for duplicate/unknown CSV entries and empty CSV fallback.
-
-7. [ ] Update server defaults in `server/.env` with `Codex_model_list`:
-   - Files to edit:
-     - `server/.env`
-   - Requirements:
-     - Include the CSV model list with the fallback entries plus `gpt-5.2-codex`.
-
-8. [ ] Documentation check - `README.md`:
-   - Document: `README.md`
-   - Requirement: Confirm whether the Codex model list or defaults need updates; update if required.
-
-9. [ ] Documentation check - `design.md`:
-   - Document: `design.md`
-   - Requirement: Confirm whether `/chat/models` response docs need updating; update if required.
-
-10. [ ] Documentation check - `projectStructure.md`:
-   - Document: `projectStructure.md`
-   - Requirement: Confirm whether any new files need to be listed.
-
-11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier options: https://prettier.io/docs/options
-
-#### Testing
-
-1. [ ] Build the server (workspace build):
-   - Documentation to read (repeat):
-     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-   - Command: `npm run build --workspace server`
-   - Purpose: Ensure server TypeScript build succeeds outside Docker.
-
-2. [ ] Build the client (workspace build):
-   - Documentation to read (repeat):
-     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-   - Command: `npm run build --workspace client`
-   - Purpose: Ensure client production build succeeds outside Docker.
-
-3. [ ] Perform a clean Docker Compose build:
-   - Documentation to read (repeat):
-     - Docker/Compose: Context7 `/docker/docs`
-   - Command: `npm run compose:build`
-   - Purpose: Validate Docker images build cleanly with Codex models response changes.
-
-4. [ ] Start Docker Compose stack:
-   - Documentation to read (repeat):
-     - Docker/Compose: Context7 `/docker/docs`
-   - Command: `npm run compose:up`
-   - Purpose: Ensure the full stack starts with Codex models response changes.
-
-5. [ ] Run server unit tests (targeted if available):
-   - Documentation to read (repeat):
-     - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
-   - Command: `npm run test:unit --workspace server`
-   - Purpose: Validate the Codex models response shape and warnings.
-
-#### Implementation notes
-
-- 
-
----
-
-### 3. Client: Server-driven Codex defaults + warnings + override-only payloads
-
-- Task Status: **__to_do__**
-- Git Commits: 
-
-#### Overview
-
-Update the client to consume `codexDefaults` and `codexWarnings` from the server, initialize the Codex flags panel from those defaults, surface warnings near the controls, and omit unchanged flags from `/chat` payloads so server defaults are applied.
+Consume `codexDefaults` from `/chat/models` and use them to initialize Codex flag state in the chat UI, including resets on provider changes and new conversations.
 
 #### Documentation Locations
 
@@ -444,84 +648,53 @@ Update the client to consume `codexDefaults` and `codexWarnings` from the server
 - TypeScript discriminated unions (model/provider typing): https://www.typescriptlang.org/docs/handbook/2/narrowing.html
 - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier options (format check expectations): https://prettier.io/docs/options
-- Markdown syntax (doc updates): https://www.markdownguide.org/basic-syntax/
 
 #### Subtasks
 
-1. [ ] Review current client Codex defaults and payload logic:
+1. [ ] Review current Codex defaults and model hook state:
    - Files to read:
      - `client/src/pages/ChatPage.tsx`
      - `client/src/hooks/useChatStream.ts`
      - `client/src/hooks/useChatModel.ts`
      - `common/src/lmstudio.ts`
      - `client/package.json` (confirm React 19.2.0 + MUI 6.4.x)
-   - Goal:
-     - Identify where hard-coded defaults and Codex payload flags are applied.
 
-2. [ ] Update client types and model hooks to accept `codexDefaults` + `codexWarnings`:
-   - Documentation to read (repeat):
-     - TypeScript narrowing: https://www.typescriptlang.org/docs/handbook/2/narrowing.html
+2. [ ] Add codexDefaults/codexWarnings to the chat model hook:
    - Files to edit:
-     - `common/src/lmstudio.ts`
      - `client/src/hooks/useChatModel.ts`
    - Requirements:
-     - Plumb the optional fields through to the hook result so the UI can access them.
+     - Store the optional `codexDefaults`/`codexWarnings` from the response and expose them to the UI.
 
-3. [ ] Initialize Codex flags panel from server defaults and reset on provider changes:
-   - Documentation to read (repeat):
-     - React state + effects: https://react.dev/reference/react
-   - Files to edit:
-     - `client/src/pages/ChatPage.tsx`
-     - `client/src/components/chat/CodexFlagsPanel.tsx` (if needed)
-   - Requirements:
-     - Use `codexDefaults` from the server response as the source of truth.
-     - When provider switches away and back to Codex, rehydrate defaults from the latest server response.
-     - While `codexDefaults` is missing, keep Codex flag controls disabled and do not send defaults.
-     - Ensure **New conversation** resets flags to `codexDefaults` instead of hard-coded values.
-     - Update default labels in `CodexFlagsPanel` to reflect the server-provided defaults (or remove hard-coded “(default)” labels).
-
-4. [ ] Omit unchanged Codex flags from `/chat` payloads:
-   - Files to edit:
-     - `client/src/hooks/useChatStream.ts`
-   - Requirements:
-     - Compare user-selected flags against `codexDefaults`.
-     - Only include flags in the request body when they differ from defaults.
-     - Preserve current behavior for LM Studio.
-     - If defaults are not loaded, omit all Codex flags from the payload.
-     - Remove `useChatStream` hard-coded DEFAULT_* values and rely on passed defaults.
-
-5. [ ] Surface `codexWarnings` in the chat controls:
-   - Documentation to read (repeat):
-     - MUI MCP docs: Alert
+3. [ ] Initialize Codex flag state from server defaults:
    - Files to edit:
      - `client/src/pages/ChatPage.tsx`
    - Requirements:
-     - Reuse the existing `Alert` layout patterns already used for Codex availability/tooling banners.
-     - Render warnings near the provider/model controls when `codexWarnings` is non-empty.
-     - Use existing warning banner styling patterns.
-     - Clear warnings when the provider is not Codex.
+     - Set initial flag state from `codexDefaults` when provider is Codex.
+     - Reset flags to `codexDefaults` on provider switch and **New conversation**.
+     - Disable Codex flags panel while defaults are missing.
 
-6. [ ] Add/update client tests for defaults and payload omission:
+4. [ ] Update Codex flags labels to avoid hard-coded “default” text:
+   - Files to edit:
+     - `client/src/components/chat/CodexFlagsPanel.tsx`
+   - Requirements:
+     - Remove hard-coded “(default)” labels or accept default indicators from the parent.
+
+5. [ ] Add/update client tests for defaults initialization:
    - Documentation to read (repeat):
      - Jest docs: Context7 `/jestjs/jest`
    - Tests to add/update:
-     - Chat page tests to assert defaults are sourced from the server response.
-     - Hook or API tests to assert unchanged flags are omitted from payloads.
-     - Update `client/src/test/setupTests.ts` and Codex flag tests to include `codexDefaults`/`codexWarnings` in mock `/chat/models` responses.
+     - Chat page tests asserting defaults are sourced from the server response.
 
-7. [ ] Documentation check - `README.md`:
+6. [ ] Documentation check - `README.md` (update only if needed):
    - Document: `README.md`
-   - Requirement: Confirm whether client-facing Codex default notes need to be updated; update if required.
 
-8. [ ] Documentation check - `design.md`:
+7. [ ] Documentation check - `design.md` (update only if needed):
    - Document: `design.md`
-   - Requirement: Confirm whether the Codex flags panel description needs updates; update if required.
 
-9. [ ] Documentation check - `projectStructure.md`:
+8. [ ] Documentation check - `projectStructure.md` (update only if needed):
    - Document: `projectStructure.md`
-   - Requirement: Confirm whether any new client files need to be listed.
 
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier options: https://prettier.io/docs/options
@@ -532,31 +705,26 @@ Update the client to consume `codexDefaults` and `codexWarnings` from the server
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
    - Command: `npm run build --workspace server`
-   - Purpose: Ensure server TypeScript build succeeds outside Docker.
 
 2. [ ] Build the client (workspace build):
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
    - Command: `npm run build --workspace client`
-   - Purpose: Ensure client production build succeeds outside Docker.
 
 3. [ ] Perform a clean Docker Compose build:
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
    - Command: `npm run compose:build`
-   - Purpose: Validate Docker images build cleanly with client Codex defaults changes.
 
 4. [ ] Start Docker Compose stack:
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
    - Command: `npm run compose:up`
-   - Purpose: Ensure the full stack starts with client Codex defaults changes.
 
 5. [ ] Run client tests (Jest):
    - Documentation to read (repeat):
      - Jest docs: Context7 `/jestjs/jest`
    - Command: `npm run test --workspace client`
-   - Purpose: Validate Codex defaults initialization and payload behavior.
 
 #### Implementation notes
 
@@ -564,14 +732,107 @@ Update the client to consume `codexDefaults` and `codexWarnings` from the server
 
 ---
 
-### 4. Docs: Codex env defaults + models list updates
+### 7. Client: Codex payload omission + warnings banner
 
 - Task Status: **__to_do__**
 - Git Commits: 
 
 #### Overview
 
-Update user-facing documentation to describe the env-driven Codex model list and default flag behavior, ensuring the README and design notes accurately reflect the new server-driven defaults and warnings path.
+Omit unchanged Codex flags from `/chat` payloads and surface `codexWarnings` near the chat controls using existing alert patterns.
+
+#### Documentation Locations
+
+- React state + effects (reference): https://react.dev/reference/react
+- MUI MCP docs (v6.4.x): Alert
+- TypeScript discriminated unions (model/provider typing): https://www.typescriptlang.org/docs/handbook/2/narrowing.html
+- ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
+- Prettier options (format check expectations): https://prettier.io/docs/options
+
+#### Subtasks
+
+1. [ ] Review Codex payload construction:
+   - Files to read:
+     - `client/src/hooks/useChatStream.ts`
+     - `client/src/pages/ChatPage.tsx`
+
+2. [ ] Omit unchanged Codex flags from `/chat` payloads:
+   - Files to edit:
+     - `client/src/hooks/useChatStream.ts`
+   - Requirements:
+     - Compare user-selected flags against `codexDefaults`.
+     - Remove hard-coded DEFAULT_* values and rely on passed defaults.
+     - If defaults are missing, omit all Codex flags from the payload.
+
+3. [ ] Render `codexWarnings` near chat controls:
+   - Files to edit:
+     - `client/src/pages/ChatPage.tsx`
+   - Requirements:
+     - Reuse existing `Alert` layout patterns already used for Codex availability/tooling banners.
+     - Clear warnings when the provider is not Codex.
+
+4. [ ] Update client tests for payload omission and warning rendering:
+   - Documentation to read (repeat):
+     - Jest docs: Context7 `/jestjs/jest`
+   - Tests to add/update:
+     - Update mock `/chat/models` responses with `codexDefaults`/`codexWarnings`.
+     - Add assertions that unchanged flags are omitted from payloads.
+
+5. [ ] Documentation check - `README.md` (update only if needed):
+   - Document: `README.md`
+
+6. [ ] Documentation check - `design.md` (update only if needed):
+   - Document: `design.md`
+
+7. [ ] Documentation check - `projectStructure.md` (update only if needed):
+   - Document: `projectStructure.md`
+
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier options: https://prettier.io/docs/options
+
+#### Testing
+
+1. [ ] Build the server (workspace build):
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+   - Command: `npm run build --workspace server`
+
+2. [ ] Build the client (workspace build):
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+   - Command: `npm run build --workspace client`
+
+3. [ ] Perform a clean Docker Compose build:
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+   - Command: `npm run compose:build`
+
+4. [ ] Start Docker Compose stack:
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+   - Command: `npm run compose:up`
+
+5. [ ] Run client tests (Jest):
+   - Documentation to read (repeat):
+     - Jest docs: Context7 `/jestjs/jest`
+   - Command: `npm run test --workspace client`
+
+#### Implementation notes
+
+- 
+
+---
+
+### 8. Docs: Codex env defaults updates
+
+- Task Status: **__to_do__**
+- Git Commits: 
+
+#### Overview
+
+Update user-facing documentation to describe env-driven Codex models and defaults, plus the new `codexDefaults`/`codexWarnings` response contract.
 
 #### Documentation Locations
 
@@ -589,8 +850,8 @@ Update user-facing documentation to describe the env-driven Codex model list and
    - Files to edit:
      - `README.md`
    - Requirements:
-     - Add or update Codex defaults to reflect the env-driven values.
      - Document `Codex_model_list` CSV usage.
+     - Update Codex default flag values to match env defaults.
 
 2. [ ] Update `design.md` to reflect server-driven defaults and warnings:
    - Documentation to read (repeat):
@@ -598,14 +859,12 @@ Update user-facing documentation to describe the env-driven Codex model list and
    - Files to edit:
      - `design.md`
    - Requirements:
-     - Update any Codex flags panel description to show defaults now come from the server.
-     - Update `/chat/models` response description to mention `codexDefaults` and `codexWarnings`.
+     - Update Codex flags panel description to mention server defaults.
+     - Update `/chat/models` response documentation to mention `codexDefaults` and `codexWarnings`.
 
-3. [ ] Update `projectStructure.md` if any new files were introduced:
+3. [ ] Update `projectStructure.md` if new files were introduced:
    - Files to edit:
      - `projectStructure.md`
-   - Requirements:
-     - Add new config/helper/test files to the tree if created in earlier tasks.
 
 4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
@@ -618,25 +877,21 @@ Update user-facing documentation to describe the env-driven Codex model list and
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
    - Command: `npm run build --workspace server`
-   - Purpose: Ensure server TypeScript build succeeds outside Docker.
 
 2. [ ] Build the client (workspace build):
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
    - Command: `npm run build --workspace client`
-   - Purpose: Ensure client production build succeeds outside Docker.
 
 3. [ ] Perform a clean Docker Compose build:
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
    - Command: `npm run compose:build`
-   - Purpose: Validate Docker images build cleanly after documentation updates.
 
 4. [ ] Start Docker Compose stack:
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
    - Command: `npm run compose:up`
-   - Purpose: Ensure the full stack starts after documentation updates.
 
 #### Implementation notes
 
@@ -644,7 +899,7 @@ Update user-facing documentation to describe the env-driven Codex model list and
 
 ---
 
-### 5. Final verification + PR summary
+### 9. Final verification + PR summary
 
 - status: **__to_do__**
 - Git Commits: **to_do**

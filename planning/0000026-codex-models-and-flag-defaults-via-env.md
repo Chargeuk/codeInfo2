@@ -158,7 +158,7 @@ These instructions will be followed during implementation.
 
 ### 1. Server: Codex env defaults helper
 
-- Task Status: **__in_progress__**
+- Task Status: **__done__**
 - Git Commits: 
 
 #### Overview
@@ -185,7 +185,7 @@ Create a reusable helper that reads Codex default flag values from environment v
 
 #### Subtasks
 
-1. [ ] Review existing Codex defaults and env parsing patterns:
+1. [x] Review existing Codex defaults and env parsing patterns:
    - Documentation to read (repeat):
      - Node.js `process.env` reference: https://nodejs.org/api/process.html#processenv
    - Files to read:
@@ -198,7 +198,7 @@ Create a reusable helper that reads Codex default flag values from environment v
      - Document the current defaults, enums, and parsing patterns before adding the helper.
      - Note that `@lmstudio/sdk` is present only in `server/package.json` (no direct imports), so version confirmation is informational.
 
-2. [ ] Implement a Codex env defaults helper:
+2. [x] Implement a Codex env defaults helper:
    - Documentation to read (repeat):
      - Zod schema validation: Context7 `/colinhacks/zod`
    - Files to edit:
@@ -213,7 +213,7 @@ Create a reusable helper that reads Codex default flag values from environment v
      - Add a warning when `networkAccessEnabled === true` and `sandboxMode !== 'workspace-write'`.
      - Reference enums from `server/src/routes/chatValidators.ts` for allowed values.
 
-3. [ ] Add unit test: valid env values map into defaults
+3. [x] Add unit test: valid env values map into defaults
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
    - Test type: server unit test
@@ -221,7 +221,7 @@ Create a reusable helper that reads Codex default flag values from environment v
    - Purpose: Ensure valid env values are parsed and reflected in the returned defaults object.
    - Reference pattern: `server/src/test/unit/ws-chat-stream.test.ts` (node:test style).
 
-4. [ ] Add unit test: missing env values use built-in defaults (no warnings)
+4. [x] Add unit test: missing env values use built-in defaults (no warnings)
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
    - Test type: server unit test
@@ -229,7 +229,7 @@ Create a reusable helper that reads Codex default flag values from environment v
    - Purpose: Confirm unset env values fall back to built-in defaults without emitting warnings.
    - Reference pattern: `server/src/test/unit/ws-chat-stream.test.ts` (node:test style).
 
-5. [ ] Add unit test: invalid enum values and empty strings warn + fall back
+5. [x] Add unit test: invalid enum values and empty strings warn + fall back
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
    - Test type: server unit test
@@ -237,7 +237,7 @@ Create a reusable helper that reads Codex default flag values from environment v
    - Purpose: Confirm invalid enum values or empty-string envs emit warnings and fall back to built-in defaults.
    - Reference pattern: `server/src/test/unit/ws-chat-stream.test.ts` (node:test style).
 
-6. [ ] Add unit test: boolean parsing + invalid boolean handling
+6. [x] Add unit test: boolean parsing + invalid boolean handling
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
    - Test type: server unit test
@@ -245,7 +245,7 @@ Create a reusable helper that reads Codex default flag values from environment v
    - Purpose: Verify case-insensitive `true`/`false` parsing and warning/fallback on invalid boolean strings.
    - Reference pattern: `server/src/test/unit/ws-chat-stream.test.ts` (node:test style).
 
-7. [ ] Add unit test: network access warning outside workspace-write
+7. [x] Add unit test: network access warning outside workspace-write
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
    - Test type: server unit test
@@ -253,7 +253,7 @@ Create a reusable helper that reads Codex default flag values from environment v
    - Purpose: Emit a warning when `networkAccessEnabled === true` and `sandboxMode` is not `workspace-write`.
    - Reference pattern: `server/src/test/unit/ws-chat-stream.test.ts` (node:test style).
 
-8. [ ] Update server defaults in `server/.env` (flags only):
+8. [x] Update server defaults in `server/.env` (flags only):
    - Documentation to read (repeat):
      - Environment variable docs (reference format): https://12factor.net/config
    - Files to edit:
@@ -261,28 +261,28 @@ Create a reusable helper that reads Codex default flag values from environment v
    - Requirements:
      - Add the Codex flag defaults with the values from Acceptance Criteria.
 
-9. [ ] Update `README.md` if env-default details changed:
+9. [x] Update `README.md` if env-default details changed:
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location: `README.md`
    - Description: Add or adjust Codex flag env defaults and usage notes if this task changes them.
    - Purpose: Keep setup documentation aligned with the env defaults helper behavior.
 
-10. [ ] Update `design.md` for env-default architecture changes:
+10. [x] Update `design.md` for env-default architecture changes:
    - Documentation to read (repeat):
      - Mermaid docs: Context7 `/mermaid-js/mermaid`
    - Location: `design.md`
    - Description: Document the new env defaults helper and warning flow; add/update diagrams as needed.
    - Purpose: Ensure architectural notes and diagrams reflect the new defaults layer.
 
-11. [ ] Update `projectStructure.md` after adding/removing files in this task:
+11. [x] Update `projectStructure.md` after adding/removing files in this task:
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location: `projectStructure.md`
    - Description: List every file added or removed in this task (paths) and update the tree entries.
    - Purpose: Keep the repo tree map accurate after file additions/removals.
 
-12. [ ] Add server log line for env defaults resolution:
+12. [x] Add server log line for env defaults resolution:
    - Files to edit:
      - `server/src/config/codexEnvDefaults.ts`
    - Log line to add:
@@ -290,52 +290,70 @@ Create a reusable helper that reads Codex default flag values from environment v
    - Expected outcome:
      - Logs once per `/chat/models` fetch and shows `warningsCount: 0` when env values are valid.
 
-13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+13. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier options: https://prettier.io/docs/options
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
 
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
    - Documentation to read (repeat):
      - Jest docs: Context7 `/jestjs/jest`
 
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
 
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
-8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001): verify the Chat page loads, Codex flags panel still renders with defaults, and the server logs include `[codex-env-defaults] resolved` with `warningsCount: 0`; confirm no errors appear in the browser debug console.
+8. [x] Manual Playwright-MCP check (http://host.docker.internal:5001): verify the Chat page loads, Codex flags panel still renders with defaults, and the server logs include `[codex-env-defaults] resolved` with `warningsCount: 0`; confirm no errors appear in the browser debug console.
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
 
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
 #### Implementation notes
 
-- 
+- Reviewed Codex defaults in `server/src/routes/chatValidators.ts` (sandboxMode `workspace-write`, network/web search `true`, approvalPolicy `on-failure`, reasoning effort `high`) and confirmed `ChatInterfaceCodex` re-applies the same defaults when building thread options.
+- Confirmed boolean env parsing pattern in `server/src/lmstudio/toolService.ts` uses `(value ?? '').toLowerCase() === 'true'` and noted `server/package.json` pins `@openai/codex-sdk` 0.64.0 and `@lmstudio/sdk` 1.5.0.
+- Added `server/src/config/codexEnvDefaults.ts` to parse Codex env defaults against exported enums, emit user-facing warnings (including the network access + sandboxMode mismatch), and log `[codex-env-defaults] resolved` with warnings count.
+- Added `server/src/test/unit/codexEnvDefaults.test.ts` covering valid defaults, missing env fallback, invalid enum/boolean warnings, and network access mismatch warnings.
+- Added Codex flag default env vars to `server/.env` with the values specified in the acceptance criteria.
+- Updated `README.md` Codex flags panel copy to state defaults come from the `Codex_*` env vars and listed the current default values from `server/.env`.
+- Added design notes covering the new Codex env defaults helper and clarified that Codex flags panel defaults are sourced from server env defaults.
+- Updated `projectStructure.md` to include the new `server/src/config/codexEnvDefaults.ts` helper and `server/src/test/unit/codexEnvDefaults.test.ts` entry.
+- Logged `[codex-env-defaults] resolved` with defaults and warning count inside the env defaults helper.
+- Ran `npm run lint --workspaces` (warnings only in existing files) and `npm run format:check --workspaces`, then fixed formatting with `npm run format --workspaces` and re-ran the format check successfully.
+- `npm run build --workspace server` succeeded after adjusting the log signature to use the structured `baseLogger.info({ ... }, msg)` form.
+- `npm run build --workspace client` completed successfully (Vite chunk size warnings only).
+- `npm run test --workspace server` passed (unit + integration; 54 scenarios).
+- `npm run test --workspace client` passed; console warnings/errors were emitted by existing tests (logger output + markdown nesting warnings).
+- `npm run e2e` completed successfully (compose build/up/test/down; 36 Playwright tests passed).
+- `npm run compose:build` completed successfully.
+- `npm run compose:up` started the docker compose stack successfully (containers healthy).
+- Manual Playwright MCP check: `/chat` loaded via http://host.docker.internal:5001, Codex flags panel rendered with defaults, no browser console errors, and `/app/logs/server.1.log` contained `[codex-env-defaults] resolved` with `warningsCount: 0`.
+- `npm run compose:down` stopped the compose stack.
 
 ---
 

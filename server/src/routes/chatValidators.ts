@@ -11,7 +11,7 @@ const DEFAULT_WEB_SEARCH_ENABLED = true;
 const DEFAULT_APPROVAL_POLICY: ApprovalMode = 'on-failure';
 const DEFAULT_MODEL_REASONING_EFFORT: ModelReasoningEffort = 'high';
 
-type AppModelReasoningEffort = ModelReasoningEffort | 'xhigh';
+export type AppModelReasoningEffort = ModelReasoningEffort | 'xhigh';
 
 type Provider = 'codex' | 'lmstudio';
 
@@ -57,20 +57,20 @@ export class ChatValidationError extends Error {
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
-const sandboxModes: SandboxMode[] = [
+export const sandboxModes: SandboxMode[] = [
   'read-only',
   'workspace-write',
   'danger-full-access',
 ] as SandboxMode[];
 
-const approvalPolicies: ApprovalMode[] = [
+export const approvalPolicies: ApprovalMode[] = [
   'never',
   'on-request',
   'on-failure',
   'untrusted',
 ] as ApprovalMode[];
 
-const modelReasoningEfforts: AppModelReasoningEffort[] = [
+export const modelReasoningEfforts: AppModelReasoningEffort[] = [
   'low',
   'medium',
   'high',

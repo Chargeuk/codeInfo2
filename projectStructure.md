@@ -209,6 +209,9 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚     â”œâ”€ index.ts â€” Express app entry
 â”‚     â”œâ”€ logger.ts â€” pino/pino-http setup with rotation and env config helper
 â”‚     â”œâ”€ logStore.ts â€” in-memory log buffer with sequence numbers and filters
+â”‚     â”œâ”€ config/
+â”‚     â”‚  â”œâ”€ codexConfig.ts â€” Codex home/env config builder
+â”‚     â”‚  â””â”€ codexEnvDefaults.ts â€” Codex env defaults parser + warnings helper
 â”‚     â”œâ”€ chatStream.ts — SSE helper for streaming endpoints (e.g., `/logs/stream`); chat runs stream over `/ws`
 â”‚     â”œâ”€ chat/
 â”‚     â”‚  â”œâ”€ factory.ts — provider map returning ChatInterface instances or throws UnsupportedProviderError
@@ -260,6 +263,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚     â”‚  â”œâ”€ codexAvailability.ts — Codex CLI availability check for tool call gating
 â”‚     â”‚  â””â”€ tools.ts — Agents tool registry wiring
 â”‚     â”œâ”€ test/unit/chat-assistant-suppress.test.ts â€” unit coverage for assistant-role tool payload suppression helpers
+â”‚     â”œâ”€ test/unit/codexEnvDefaults.test.ts â€” unit coverage for Codex env defaults parsing/warnings
 â”‚     â”œâ”€ ingest/ â€” ingest helpers (discovery, chunking, hashing, config)
 â”‚     â”‚  â”œâ”€ __fixtures__/sample.ts â€” sample text blocks for chunking tests
 â”‚     â”‚  â”œâ”€ modelLock.ts — placeholder for ingest model lock retrieval

@@ -214,7 +214,10 @@ Create a reusable helper that reads Codex default flag values from environment v
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
    - Tests to add/update:
-     - New unit tests under `server/src/test/unit/` covering valid/invalid values, boolean parsing, and the network/sandbox warning.
+     - New unit tests under `server/src/test/unit/` covering valid values mapping into defaults.
+     - Invalid enum values and empty-string envs should emit warnings and fall back to built-in defaults.
+     - Boolean parsing accepts case-insensitive `true`/`false` and warns/falls back on invalid strings.
+     - Warning emitted when `networkAccessEnabled === true` while `sandboxMode !== 'workspace-write'`.
 
 4. [ ] Update server defaults in `server/.env` (flags only):
    - Documentation to read (repeat):
@@ -328,6 +331,8 @@ Wire the new Codex env defaults helper into `validateChatRequest` so Codex reque
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
    - Tests to add/update:
      - Unit tests asserting env defaults are applied only when flags are omitted.
+     - Tests confirming explicit request flags override env defaults.
+     - Non-Codex requests ignore Codex defaults and preserve existing validation behavior.
 
 4. [ ] Documentation check - `README.md` (update only if needed):
    - Documentation to read (repeat):
@@ -431,6 +436,7 @@ Remove hard-coded Codex defaults from the provider interface so `ChatInterfaceCo
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
    - Tests to add/update:
      - Integration/unit tests asserting thread options reflect validated flags and no fallback to old defaults.
+     - Missing flags stay `undefined` in thread options so Codex config/env defaults apply.
 
 4. [ ] Documentation check - `README.md` (update only if needed):
    - Documentation to read (repeat):
@@ -659,6 +665,8 @@ Drive the Codex model list from `Codex_model_list`, extend `/chat/models?provide
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
    - Tests to add/update:
      - Unit tests asserting env list parsing, warnings, and response fields.
+     - Ensure CSV parsing trims whitespace, drops empties, and de-duplicates entries.
+     - Runtime warnings are appended when web search is enabled but tools are unavailable.
      - Coverage for empty CSV fallback and warning emission (duplicate/unknown entries can be exercised opportunistically).
 
 7. [ ] Documentation check - `README.md` (update only if needed):
@@ -787,6 +795,8 @@ Consume `codexDefaults` from `/chat/models` and use them to initialize Codex fla
      - Jest docs: Context7 `/jestjs/jest`
    - Tests to add/update:
      - Chat page tests asserting defaults are sourced from the server response.
+     - Defaults re-apply on provider switch and on **New conversation**.
+     - Codex flags panel is disabled when `codexDefaults` are missing.
 
 6. [ ] Documentation check - `README.md` (update only if needed):
    - Documentation to read (repeat):
@@ -896,6 +906,8 @@ Omit unchanged Codex flags from `/chat` payloads and surface `codexWarnings` nea
    - Tests to add/update:
      - Update mock `/chat/models` responses with `codexDefaults`/`codexWarnings`.
      - Add assertions that unchanged flags are omitted from payloads.
+     - When defaults are missing, omit all Codex flags from the payload.
+     - Render codex warnings only when provider is Codex and warnings exist; clear otherwise.
 
 5. [ ] Documentation check - `README.md` (update only if needed):
    - Documentation to read (repeat):

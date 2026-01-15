@@ -702,7 +702,11 @@ Consume `codexDefaults` from `/chat/models` and use them to initialize Codex fla
 
 - React state + effects (reference): https://react.dev/reference/react
 - React 19 release notes (confirm hook behavior stability): https://react.dev/blog/2024/12/05/react-19
-- MUI MCP docs (v6.4.x): Alert, Accordion, Switch, Select (for warning and flags UI)
+- MUI MCP docs (v6.4.12):
+  - Alert https://llms.mui.com/material-ui/6.4.12/components/alert.md
+  - Accordion https://llms.mui.com/material-ui/6.4.12/components/accordion.md
+  - Switch https://llms.mui.com/material-ui/6.4.12/api/switch.md
+  - Select https://llms.mui.com/material-ui/6.4.12/api/select.md
 - TypeScript discriminated unions (model/provider typing): https://www.typescriptlang.org/docs/handbook/2/narrowing.html
 - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier options (format check expectations): https://prettier.io/docs/options
@@ -739,7 +743,11 @@ Consume `codexDefaults` from `/chat/models` and use them to initialize Codex fla
 
 4. [ ] Update Codex flags labels to avoid hard-coded “default” text:
    - Documentation to read (repeat):
-     - MUI MCP docs (v6.4.x): Alert, Accordion, Switch, Select
+     - MUI MCP docs (v6.4.12):
+       - Alert https://llms.mui.com/material-ui/6.4.12/components/alert.md
+       - Accordion https://llms.mui.com/material-ui/6.4.12/components/accordion.md
+       - Switch https://llms.mui.com/material-ui/6.4.12/api/switch.md
+       - Select https://llms.mui.com/material-ui/6.4.12/api/select.md
    - Files to edit:
      - `client/src/components/chat/CodexFlagsPanel.tsx`
    - Requirements:
@@ -816,7 +824,7 @@ Omit unchanged Codex flags from `/chat` payloads and surface `codexWarnings` nea
 #### Documentation Locations
 
 - React state + effects (reference): https://react.dev/reference/react
-- MUI MCP docs (v6.4.x): Alert
+- MUI MCP docs (v6.4.12): Alert https://llms.mui.com/material-ui/6.4.12/components/alert.md
 - TypeScript discriminated unions (model/provider typing): https://www.typescriptlang.org/docs/handbook/2/narrowing.html
 - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier options (format check expectations): https://prettier.io/docs/options
@@ -842,7 +850,7 @@ Omit unchanged Codex flags from `/chat` payloads and surface `codexWarnings` nea
 
 3. [ ] Render `codexWarnings` near chat controls:
    - Documentation to read (repeat):
-     - MUI MCP docs (v6.4.x): Alert
+     - MUI MCP docs (v6.4.12): Alert https://llms.mui.com/material-ui/6.4.12/components/alert.md
    - Files to edit:
      - `client/src/pages/ChatPage.tsx`
    - Requirements:

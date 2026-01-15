@@ -210,18 +210,26 @@ Create a reusable helper that reads Codex default flag values from environment v
      - New unit tests under `server/src/test/unit/` covering valid/invalid values, boolean parsing, and the network/sandbox warning.
 
 4. [ ] Update server defaults in `server/.env` (flags only):
+   - Documentation to read (repeat):
+     - Environment variable docs (reference format): https://12factor.net/config
    - Files to edit:
      - `server/.env`
    - Requirements:
      - Add the Codex flag defaults with the values from Acceptance Criteria.
 
 5. [ ] Documentation check - `README.md` (update only if needed):
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document: `README.md`
 
 6. [ ] Documentation check - `design.md` (update only if needed):
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document: `design.md`
 
 7. [ ] Documentation check - `projectStructure.md` (update only if needed):
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document: `projectStructure.md`
 
 8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
@@ -286,6 +294,8 @@ Wire the new Codex env defaults helper into `validateChatRequest` so Codex reque
 #### Subtasks
 
 1. [ ] Review current validation behavior:
+   - Documentation to read (repeat):
+     - TypeScript literal unions: https://www.typescriptlang.org/docs/handbook/2/everyday-types.html#literal-types
    - Files to read:
      - `server/src/routes/chatValidators.ts`
      - `server/src/test/unit/` (existing validation tests, if any)
@@ -293,6 +303,8 @@ Wire the new Codex env defaults helper into `validateChatRequest` so Codex reque
      - Confirm where defaults are injected and where warnings are produced.
 
 2. [ ] Update `validateChatRequest` to use env defaults:
+   - Documentation to read (repeat):
+     - TypeScript literal unions: https://www.typescriptlang.org/docs/handbook/2/everyday-types.html#literal-types
    - Files to edit:
      - `server/src/routes/chatValidators.ts`
    - Requirements:
@@ -307,12 +319,18 @@ Wire the new Codex env defaults helper into `validateChatRequest` so Codex reque
      - Unit tests asserting env defaults are applied only when flags are omitted.
 
 4. [ ] Documentation check - `README.md` (update only if needed):
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document: `README.md`
 
 5. [ ] Documentation check - `design.md` (update only if needed):
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document: `design.md`
 
 6. [ ] Documentation check - `projectStructure.md` (update only if needed):
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document: `projectStructure.md`
 
 7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
@@ -376,6 +394,8 @@ Remove hard-coded Codex defaults from the provider interface so `ChatInterfaceCo
 #### Subtasks
 
 1. [ ] Review current thread options assembly:
+   - Documentation to read (repeat):
+     - @openai/codex-sdk 0.64.0 (ThreadOptions fields): https://www.npmjs.com/package/@openai/codex-sdk
    - Files to read:
      - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
      - `server/src/test/integration/chat-codex.test.ts`
@@ -383,6 +403,8 @@ Remove hard-coded Codex defaults from the provider interface so `ChatInterfaceCo
      - Identify where defaults are injected before the Codex SDK call.
 
 2. [ ] Remove hard-coded defaults from thread options:
+   - Documentation to read (repeat):
+     - @openai/codex-sdk 0.64.0 (ThreadOptions fields): https://www.npmjs.com/package/@openai/codex-sdk
    - Files to edit:
      - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
    - Requirements:
@@ -396,12 +418,18 @@ Remove hard-coded Codex defaults from the provider interface so `ChatInterfaceCo
      - Integration/unit tests asserting thread options reflect validated flags and no fallback to old defaults.
 
 4. [ ] Documentation check - `README.md` (update only if needed):
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document: `README.md`
 
 5. [ ] Documentation check - `design.md` (update only if needed):
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document: `design.md`
 
 6. [ ] Documentation check - `projectStructure.md` (update only if needed):
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document: `projectStructure.md`
 
 7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
@@ -460,34 +488,48 @@ Add shared types and fixtures for the new `/chat/models` Codex response fields s
 #### Subtasks
 
 1. [ ] Review existing shared model response types:
+   - Documentation to read (repeat):
+     - TypeScript type system reference: https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - Files to read:
      - `common/src/lmstudio.ts`
      - `common/src/fixtures/mockModels.ts`
 
 2. [ ] Add Codex defaults response types:
+   - Documentation to read (repeat):
+     - TypeScript type system reference: https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - Files to edit:
      - `common/src/lmstudio.ts`
    - Requirements:
      - Add a `CodexDefaults` type and optional `codexDefaults`/`codexWarnings` fields to `ChatModelsResponse`.
 
 3. [ ] Update fixtures and shared mocks:
+   - Documentation to read (repeat):
+     - TypeScript type system reference: https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - Files to edit:
      - `common/src/fixtures/mockModels.ts`
    - Requirements:
      - Extend mocks to include Codex response fields where appropriate.
 
 4. [ ] Update tests that consume the shared fixtures:
+   - Documentation to read (repeat):
+     - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
    - Files to edit:
      - `server/src/test/steps/chat_models.steps.ts`
      - Any client tests relying on `mockModelsResponse`.
 
 5. [ ] Documentation check - `README.md` (update only if needed):
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document: `README.md`
 
 6. [ ] Documentation check - `design.md` (update only if needed):
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document: `design.md`
 
 7. [ ] Documentation check - `projectStructure.md` (update only if needed):
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document: `projectStructure.md`
 
 8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
@@ -543,11 +585,15 @@ Drive the Codex model list from `Codex_model_list`, extend `/chat/models?provide
 #### Subtasks
 
 1. [ ] Review Codex models route and MCP availability status:
+   - Documentation to read (repeat):
+     - Node.js `process.env` reference: https://nodejs.org/api/process.html#processenv
    - Files to read:
      - `server/src/routes/chatModels.ts`
      - `server/src/routes/chatProviders.ts`
 
 2. [ ] Extend the Codex env helper for model list parsing:
+   - Documentation to read (repeat):
+     - CSV parsing basics: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/split
    - Files to read:
      - `server/src/ingest/config.ts` (CSV split/trim + Set de-duplication pattern)
    - Files to edit:
@@ -557,6 +603,8 @@ Drive the Codex model list from `Codex_model_list`, extend `/chat/models?provide
      - Warn and fall back to the built-in list if the parsed list is empty.
 
 3. [ ] Update `/chat/models?provider=codex` response:
+   - Documentation to read (repeat):
+     - JSON schema shape guidance (response contracts): https://www.jsonrpc.org/specification
    - Files to edit:
      - `server/src/routes/chatModels.ts`
    - Requirements:
@@ -565,6 +613,8 @@ Drive the Codex model list from `Codex_model_list`, extend `/chat/models?provide
      - Log warnings using existing server logging patterns.
 
 4. [ ] Append runtime warnings when tools are unavailable:
+   - Documentation to read (repeat):
+     - JSON schema shape guidance (response contracts): https://www.jsonrpc.org/specification
    - Files to edit:
      - `server/src/routes/chatModels.ts`
    - Requirements:
@@ -572,6 +622,8 @@ Drive the Codex model list from `Codex_model_list`, extend `/chat/models?provide
      - Merge model-list, default, and runtime warnings into `codexWarnings`.
 
 5. [ ] Update server defaults in `server/.env` (model list):
+   - Documentation to read (repeat):
+     - Environment variable docs (reference format): https://12factor.net/config
    - Files to edit:
      - `server/.env`
    - Requirements:
@@ -585,12 +637,18 @@ Drive the Codex model list from `Codex_model_list`, extend `/chat/models?provide
      - Coverage for empty CSV fallback and warning emission (duplicate/unknown entries can be exercised opportunistically).
 
 7. [ ] Documentation check - `README.md` (update only if needed):
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document: `README.md`
 
 8. [ ] Documentation check - `design.md` (update only if needed):
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document: `design.md`
 
 9. [ ] Documentation check - `projectStructure.md` (update only if needed):
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document: `projectStructure.md`
 
 10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
@@ -652,6 +710,8 @@ Consume `codexDefaults` from `/chat/models` and use them to initialize Codex fla
 #### Subtasks
 
 1. [ ] Review current Codex defaults and model hook state:
+   - Documentation to read (repeat):
+     - React state + effects (reference): https://react.dev/reference/react
    - Files to read:
      - `client/src/pages/ChatPage.tsx`
      - `client/src/hooks/useChatStream.ts`
@@ -660,12 +720,16 @@ Consume `codexDefaults` from `/chat/models` and use them to initialize Codex fla
      - `client/package.json` (confirm React 19.2.0 + MUI 6.4.x)
 
 2. [ ] Add codexDefaults/codexWarnings to the chat model hook:
+   - Documentation to read (repeat):
+     - TypeScript discriminated unions (model/provider typing): https://www.typescriptlang.org/docs/handbook/2/narrowing.html
    - Files to edit:
      - `client/src/hooks/useChatModel.ts`
    - Requirements:
      - Store the optional `codexDefaults`/`codexWarnings` from the response and expose them to the UI.
 
 3. [ ] Initialize Codex flag state from server defaults:
+   - Documentation to read (repeat):
+     - React state + effects (reference): https://react.dev/reference/react
    - Files to edit:
      - `client/src/pages/ChatPage.tsx`
    - Requirements:
@@ -674,6 +738,8 @@ Consume `codexDefaults` from `/chat/models` and use them to initialize Codex fla
      - Disable Codex flags panel while defaults are missing.
 
 4. [ ] Update Codex flags labels to avoid hard-coded “default” text:
+   - Documentation to read (repeat):
+     - MUI MCP docs (v6.4.x): Alert, Accordion, Switch, Select
    - Files to edit:
      - `client/src/components/chat/CodexFlagsPanel.tsx`
    - Requirements:
@@ -686,12 +752,18 @@ Consume `codexDefaults` from `/chat/models` and use them to initialize Codex fla
      - Chat page tests asserting defaults are sourced from the server response.
 
 6. [ ] Documentation check - `README.md` (update only if needed):
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document: `README.md`
 
 7. [ ] Documentation check - `design.md` (update only if needed):
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document: `design.md`
 
 8. [ ] Documentation check - `projectStructure.md` (update only if needed):
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document: `projectStructure.md`
 
 9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
@@ -752,11 +824,15 @@ Omit unchanged Codex flags from `/chat` payloads and surface `codexWarnings` nea
 #### Subtasks
 
 1. [ ] Review Codex payload construction:
+   - Documentation to read (repeat):
+     - React state + effects (reference): https://react.dev/reference/react
    - Files to read:
      - `client/src/hooks/useChatStream.ts`
      - `client/src/pages/ChatPage.tsx`
 
 2. [ ] Omit unchanged Codex flags from `/chat` payloads:
+   - Documentation to read (repeat):
+     - TypeScript discriminated unions (model/provider typing): https://www.typescriptlang.org/docs/handbook/2/narrowing.html
    - Files to edit:
      - `client/src/hooks/useChatStream.ts`
    - Requirements:
@@ -765,6 +841,8 @@ Omit unchanged Codex flags from `/chat` payloads and surface `codexWarnings` nea
      - If defaults are missing, omit all Codex flags from the payload.
 
 3. [ ] Render `codexWarnings` near chat controls:
+   - Documentation to read (repeat):
+     - MUI MCP docs (v6.4.x): Alert
    - Files to edit:
      - `client/src/pages/ChatPage.tsx`
    - Requirements:
@@ -779,12 +857,18 @@ Omit unchanged Codex flags from `/chat` payloads and surface `codexWarnings` nea
      - Add assertions that unchanged flags are omitted from payloads.
 
 5. [ ] Documentation check - `README.md` (update only if needed):
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document: `README.md`
 
 6. [ ] Documentation check - `design.md` (update only if needed):
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document: `design.md`
 
 7. [ ] Documentation check - `projectStructure.md` (update only if needed):
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document: `projectStructure.md`
 
 8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
@@ -863,6 +947,8 @@ Update user-facing documentation to describe env-driven Codex models and default
      - Update `/chat/models` response documentation to mention `codexDefaults` and `codexWarnings`.
 
 3. [ ] Update `projectStructure.md` if new files were introduced:
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
      - `projectStructure.md`
 
@@ -920,20 +1006,54 @@ The final task must always check against the acceptance criteria of the story. I
 #### Subtasks
 
 1. [ ] Build the server
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+   - Command: `npm run build --workspace server`
 2. [ ] Build the client
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+   - Command: `npm run build --workspace client`
 3. [ ] perform a clean docker build
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+   - Command: `npm run compose:build`
 4. [ ] Ensure Readme.md is updated with any required description changes and with any new commands that have been added as part of this story
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Document: `README.md`
 5. [ ] Ensure Design.md is updated with any required description changes including mermaid diagrams that have been added as part of this story
+   - Documentation to read (repeat):
+     - Mermaid: Context7 `/mermaid-js/mermaid`
+   - Document: `design.md`
 6. [ ] Ensure projectStructure.md is updated with any updated, added or removed files & folders
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Document: `projectStructure.md`
 7. [ ] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
 
 #### Testing
 
 1. [ ] run the client jest tests
+   - Documentation to read (repeat):
+     - Jest: Context7 `/jestjs/jest`
+   - Command: `npm run test --workspace client`
 2. [ ] run the server cucumber tests
+   - Documentation to read (repeat):
+     - Cucumber guides https://cucumber.io/docs/guides/
+   - Command: `npm run test --workspace server`
 3. [ ] restart the docker environment
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+   - Commands: `npm run compose:down` then `npm run compose:up`
 4. [ ] run the e2e tests
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
+   - Command: `npm run e2e`
 5. [ ] use the playwright mcp tool to ensure manually check the application, saving screenshots to ./test-results/screenshots/ - Each screenshot should be named with the plan index including the preceding seroes, then a dash, and then the task number, then a dash and the name of the screenshot
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
 
 #### Implementation notes
 

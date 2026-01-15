@@ -271,8 +271,8 @@ Create a reusable helper that reads Codex default flag values from environment v
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location: `projectStructure.md`
-   - Description: Add any new helper module or test file entries introduced by this task.
-   - Purpose: Keep the repo tree map accurate after file additions.
+   - Description: List every file added or removed in this task (paths) and update the tree entries.
+   - Purpose: Keep the repo tree map accurate after file additions/removals.
 
 12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
@@ -405,8 +405,8 @@ Wire the new Codex env defaults helper into `validateChatRequest` so Codex reque
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location: `projectStructure.md`
-   - Description: Add any new validation test files introduced in this task.
-   - Purpose: Keep the repo tree map accurate after file additions.
+   - Description: List every file added or removed in this task (paths) and update the tree entries.
+   - Purpose: Keep the repo tree map accurate after file additions/removals.
 
 10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
@@ -523,8 +523,8 @@ Remove hard-coded Codex defaults from the provider interface so `ChatInterfaceCo
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location: `projectStructure.md`
-   - Description: Add any new test files created for Codex thread options.
-   - Purpose: Keep the repo tree map accurate after file additions.
+   - Description: List every file added or removed in this task (paths) and update the tree entries.
+   - Purpose: Keep the repo tree map accurate after file additions/removals.
 
 8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
@@ -636,8 +636,8 @@ Add shared types and fixtures for the new `/chat/models` Codex response fields s
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location: `projectStructure.md`
-   - Description: Add any new fixture or test files introduced in this task.
-   - Purpose: Keep the repo tree map accurate after file additions.
+   - Description: List every file added or removed in this task (paths) and update the tree entries.
+   - Purpose: Keep the repo tree map accurate after file additions/removals.
 
 8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
@@ -809,8 +809,8 @@ Drive the Codex model list from `Codex_model_list`, extend `/chat/models?provide
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location: `projectStructure.md`
-   - Description: Add any new models-response test files created in this task.
-   - Purpose: Keep the repo tree map accurate after file additions.
+   - Description: List every file added or removed in this task (paths) and update the tree entries.
+   - Purpose: Keep the repo tree map accurate after file additions/removals.
 
 16. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
@@ -965,8 +965,8 @@ Consume `codexDefaults` from `/chat/models` and use them to initialize Codex fla
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location: `projectStructure.md`
-   - Description: Add any new client test files or UI components introduced in this task.
-   - Purpose: Keep the repo tree map accurate after file additions.
+   - Description: List every file added or removed in this task (paths) and update the tree entries.
+   - Purpose: Keep the repo tree map accurate after file additions/removals.
 
 12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
@@ -1116,8 +1116,8 @@ Omit unchanged Codex flags from `/chat` payloads and surface `codexWarnings` nea
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location: `projectStructure.md`
-   - Description: Add any new client test files or UI components introduced in this task.
-   - Purpose: Keep the repo tree map accurate after file additions.
+   - Description: List every file added or removed in this task (paths) and update the tree entries.
+   - Purpose: Keep the repo tree map accurate after file additions/removals.
 
 13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
@@ -1196,7 +1196,7 @@ Update user-facing documentation to describe env-driven Codex models and default
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location: `projectStructure.md`
-   - Description: Add any new helpers/tests added by this story.
+   - Description: List every file added or removed in this story (paths) and update the tree entries.
    - Purpose: Keep the repo tree map accurate.
 
 4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
@@ -1282,7 +1282,7 @@ The final task must always check against the acceptance criteria of the story. I
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location: `projectStructure.md`
-   - Description: Add/remove any files or directories introduced by this story.
+   - Description: List every file added or removed in this story (paths) and update the tree entries.
    - Purpose: Maintain an accurate repository structure map.
 7. [ ] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
    - Documentation to read (repeat):

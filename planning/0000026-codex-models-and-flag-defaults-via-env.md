@@ -91,6 +91,17 @@ Message Contracts & Storage Shapes (define up front):
       "codexWarnings": []
     }
     ```
+
+Edge Cases and Failure Modes:
+
+- `Codex_model_list` set but only contains commas/whitespace → treat as invalid, warn, fall back to built-in list.
+- `Codex_model_list` contains duplicates → de-duplicate in order of first appearance; warn only if all entries become invalid.
+- `Codex_model_list` contains unknown model keys → keep them (no validation against remote model catalog); warn only if list is empty after trimming.
+- Any `Codex_*` env flag has an invalid value (wrong enum/boolean) → warn + fall back to explicit defaults.
+- `Codex_network_access_enabled=true` while `Codex_sandbox_mode` is not `workspace-write` → still pass flag through but warn that upstream Codex may ignore it.
+- `Codex_web_search_enabled=true` when Codex CLI tooling is unavailable → surface warning but keep flag so requests remain consistent.
+- Client loads before `/chat/models` completes → keep controls disabled/placeholder defaults until `codexDefaults` arrives; avoid sending default flags until user explicitly changes values.
+- User switches provider away from Codex and back → rehydrate defaults from latest `codexDefaults` response; discard stale local overrides.
 - `POST /chat` request contract remains unchanged; the client will omit unchanged flags so the server applies env defaults.
 - WebSocket contracts remain unchanged; reuse existing `stream_warning` events to display any runtime/default warnings in the chat transcript (no new WS event types).
 - Storage schema impact:

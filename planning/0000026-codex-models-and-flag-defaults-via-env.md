@@ -544,6 +544,7 @@ Add shared types and fixtures for the new `/chat/models` Codex response fields s
 - TypeScript type system reference: https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
 - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
 - Cucumber guides: https://cucumber.io/docs/guides/
+- Jest docs: Context7 `/jestjs/jest`
 - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 - Docker/Compose: Context7 `/docker/docs`
 - Markdown syntax: https://www.markdownguide.org/basic-syntax/

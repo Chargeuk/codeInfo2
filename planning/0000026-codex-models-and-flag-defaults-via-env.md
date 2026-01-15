@@ -210,16 +210,35 @@ Create a reusable helper that reads Codex default flag values from environment v
      - Return `{ defaults, warnings }`, where warnings are user-facing strings for invalid env values.
      - Add a warning when `networkAccessEnabled === true` and `sandboxMode !== 'workspace-write'`.
 
-3. [ ] Add unit tests for the helper:
+3. [ ] Add unit test: valid env values map into defaults
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
-   - Tests to add/update:
-     - New unit tests under `server/src/test/unit/` covering valid values mapping into defaults.
-     - Invalid enum values and empty-string envs should emit warnings and fall back to built-in defaults.
-     - Boolean parsing accepts case-insensitive `true`/`false` and warns/falls back on invalid strings.
-     - Warning emitted when `networkAccessEnabled === true` while `sandboxMode !== 'workspace-write'`.
+   - Test type: server unit test
+   - Location: `server/src/test/unit/` (new test file for the env helper)
+   - Purpose: Ensure valid env values are parsed and reflected in the returned defaults object.
 
-4. [ ] Update server defaults in `server/.env` (flags only):
+4. [ ] Add unit test: invalid enum values and empty strings warn + fall back
+   - Documentation to read (repeat):
+     - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
+   - Test type: server unit test
+   - Location: `server/src/test/unit/` (env helper test file)
+   - Purpose: Confirm invalid enum values or empty-string envs emit warnings and fall back to built-in defaults.
+
+5. [ ] Add unit test: boolean parsing + invalid boolean handling
+   - Documentation to read (repeat):
+     - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
+   - Test type: server unit test
+   - Location: `server/src/test/unit/` (env helper test file)
+   - Purpose: Verify case-insensitive `true`/`false` parsing and warning/fallback on invalid boolean strings.
+
+6. [ ] Add unit test: network access warning outside workspace-write
+   - Documentation to read (repeat):
+     - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
+   - Test type: server unit test
+   - Location: `server/src/test/unit/` (env helper test file)
+   - Purpose: Emit a warning when `networkAccessEnabled === true` and `sandboxMode` is not `workspace-write`.
+
+7. [ ] Update server defaults in `server/.env` (flags only):
    - Documentation to read (repeat):
      - Environment variable docs (reference format): https://12factor.net/config
    - Files to edit:
@@ -227,22 +246,22 @@ Create a reusable helper that reads Codex default flag values from environment v
    - Requirements:
      - Add the Codex flag defaults with the values from Acceptance Criteria.
 
-5. [ ] Documentation check - `README.md` (update only if needed):
+8. [ ] Documentation check - `README.md` (update only if needed):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document: `README.md`
 
-6. [ ] Documentation check - `design.md` (update only if needed):
+9. [ ] Documentation check - `design.md` (update only if needed):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document: `design.md`
 
-7. [ ] Documentation check - `projectStructure.md` (update only if needed):
+10. [ ] Documentation check - `projectStructure.md` (update only if needed):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document: `projectStructure.md`
 
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier options: https://prettier.io/docs/options
@@ -326,30 +345,43 @@ Wire the new Codex env defaults helper into `validateChatRequest` so Codex reque
      - Preserve explicit request overrides.
      - Keep LM Studio warning behavior unchanged.
 
-3. [ ] Update validation tests:
+3. [ ] Add unit test: env defaults applied when flags omitted
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
-   - Tests to add/update:
-     - Unit tests asserting env defaults are applied only when flags are omitted.
-     - Tests confirming explicit request flags override env defaults.
-     - Non-Codex requests ignore Codex defaults and preserve existing validation behavior.
+   - Test type: server unit test
+   - Location: `server/src/test/unit/` (validation tests)
+   - Purpose: Ensure env defaults are injected only when Codex flags are missing.
 
-4. [ ] Documentation check - `README.md` (update only if needed):
+4. [ ] Add unit test: explicit request flags override env defaults
+   - Documentation to read (repeat):
+     - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
+   - Test type: server unit test
+   - Location: `server/src/test/unit/` (validation tests)
+   - Purpose: Confirm explicit request values override env defaults for Codex flags.
+
+5. [ ] Add unit test: non-Codex validation unchanged
+   - Documentation to read (repeat):
+     - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
+   - Test type: server unit test
+   - Location: `server/src/test/unit/` (validation tests)
+   - Purpose: Verify non-Codex requests ignore Codex defaults and preserve existing warning behavior.
+
+6. [ ] Documentation check - `README.md` (update only if needed):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document: `README.md`
 
-5. [ ] Documentation check - `design.md` (update only if needed):
+7. [ ] Documentation check - `design.md` (update only if needed):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document: `design.md`
 
-6. [ ] Documentation check - `projectStructure.md` (update only if needed):
+8. [ ] Documentation check - `projectStructure.md` (update only if needed):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document: `projectStructure.md`
 
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier options: https://prettier.io/docs/options
@@ -431,29 +463,36 @@ Remove hard-coded Codex defaults from the provider interface so `ChatInterfaceCo
      - Use provided `codexFlags` values directly.
      - Leave fields undefined when missing so env defaults from validation are respected.
 
-3. [ ] Update tests covering Codex thread options:
+3. [ ] Add test: thread options reflect validated flags
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
-   - Tests to add/update:
-     - Integration/unit tests asserting thread options reflect validated flags and no fallback to old defaults.
-     - Missing flags stay `undefined` in thread options so Codex config/env defaults apply.
+   - Test type: server integration/unit test
+   - Location: `server/src/test/integration/chat-codex.test.ts` or `server/src/test/unit/`
+   - Purpose: Confirm thread options use validated flags and do not inject old defaults.
 
-4. [ ] Documentation check - `README.md` (update only if needed):
+4. [ ] Add test: missing flags stay undefined in thread options
+   - Documentation to read (repeat):
+     - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
+   - Test type: server integration/unit test
+   - Location: `server/src/test/integration/chat-codex.test.ts` or `server/src/test/unit/`
+   - Purpose: Ensure omitted flags remain `undefined` so Codex config/env defaults apply.
+
+5. [ ] Documentation check - `README.md` (update only if needed):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document: `README.md`
 
-5. [ ] Documentation check - `design.md` (update only if needed):
+6. [ ] Documentation check - `design.md` (update only if needed):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document: `design.md`
 
-6. [ ] Documentation check - `projectStructure.md` (update only if needed):
+7. [ ] Documentation check - `projectStructure.md` (update only if needed):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document: `projectStructure.md`
 
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier options: https://prettier.io/docs/options
@@ -660,31 +699,50 @@ Drive the Codex model list from `Codex_model_list`, extend `/chat/models?provide
    - Requirements:
      - Add `Codex_model_list` with the fallback entries plus `gpt-5.2-codex`.
 
-6. [ ] Add/update server tests for the Codex models response:
+6. [ ] Add unit test: env model list parsing + response fields
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
-   - Tests to add/update:
-     - Unit tests asserting env list parsing, warnings, and response fields.
-     - Ensure CSV parsing trims whitespace, drops empties, and de-duplicates entries.
-     - Runtime warnings are appended when web search is enabled but tools are unavailable.
-     - Coverage for empty CSV fallback and warning emission (duplicate/unknown entries can be exercised opportunistically).
+   - Test type: server unit test
+   - Location: `server/src/test/unit/` (models response tests)
+   - Purpose: Assert env model list parsing is applied and response includes `codexDefaults`/`codexWarnings`.
 
-7. [ ] Documentation check - `README.md` (update only if needed):
+7. [ ] Add unit test: CSV trims, drops empties, de-duplicates
+   - Documentation to read (repeat):
+     - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
+   - Test type: server unit test
+   - Location: `server/src/test/unit/` (models response tests)
+   - Purpose: Ensure whitespace trimming, empty entry removal, and de-duplication are enforced.
+
+8. [ ] Add unit test: empty CSV fallback + warning
+   - Documentation to read (repeat):
+     - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
+   - Test type: server unit test
+   - Location: `server/src/test/unit/` (models response tests)
+   - Purpose: Warn and fall back to the built-in model list when the CSV yields no valid entries.
+
+9. [ ] Add unit test: runtime warning when web search enabled but tools unavailable
+   - Documentation to read (repeat):
+     - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
+   - Test type: server unit test
+   - Location: `server/src/test/unit/` (models response tests)
+   - Purpose: Append a warning if `webSearchEnabled` is true while tools are unavailable.
+
+10. [ ] Documentation check - `README.md` (update only if needed):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document: `README.md`
 
-8. [ ] Documentation check - `design.md` (update only if needed):
+11. [ ] Documentation check - `design.md` (update only if needed):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document: `design.md`
 
-9. [ ] Documentation check - `projectStructure.md` (update only if needed):
+12. [ ] Documentation check - `projectStructure.md` (update only if needed):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document: `projectStructure.md`
 
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier options: https://prettier.io/docs/options
@@ -790,30 +848,50 @@ Consume `codexDefaults` from `/chat/models` and use them to initialize Codex fla
    - Requirements:
      - Remove hard-coded “(default)” labels or accept default indicators from the parent.
 
-5. [ ] Add/update client tests for defaults initialization:
+5. [ ] Add client test: defaults sourced from server response
    - Documentation to read (repeat):
      - Jest docs: Context7 `/jestjs/jest`
-   - Tests to add/update:
-     - Chat page tests asserting defaults are sourced from the server response.
-     - Defaults re-apply on provider switch and on **New conversation**.
-     - Codex flags panel is disabled when `codexDefaults` are missing.
+   - Test type: client Jest/RTL test
+   - Location: `client/src/test/` (chat page tests)
+   - Purpose: Ensure Codex defaults are initialized from `codexDefaults` in `/chat/models`.
 
-6. [ ] Documentation check - `README.md` (update only if needed):
+6. [ ] Add client test: defaults re-apply on provider switch
+   - Documentation to read (repeat):
+     - Jest docs: Context7 `/jestjs/jest`
+   - Test type: client Jest/RTL test
+   - Location: `client/src/test/` (chat page tests)
+   - Purpose: Verify Codex defaults re-apply when switching back to the Codex provider.
+
+7. [ ] Add client test: defaults re-apply on new conversation
+   - Documentation to read (repeat):
+     - Jest docs: Context7 `/jestjs/jest`
+   - Test type: client Jest/RTL test
+   - Location: `client/src/test/` (chat page tests)
+   - Purpose: Confirm **New conversation** resets flags to server defaults.
+
+8. [ ] Add client test: Codex flags panel disabled without defaults
+   - Documentation to read (repeat):
+     - Jest docs: Context7 `/jestjs/jest`
+   - Test type: client Jest/RTL test
+   - Location: `client/src/test/` (chat page tests)
+   - Purpose: Ensure the Codex flags panel is disabled when `codexDefaults` are missing.
+
+9. [ ] Documentation check - `README.md` (update only if needed):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document: `README.md`
 
-7. [ ] Documentation check - `design.md` (update only if needed):
+10. [ ] Documentation check - `design.md` (update only if needed):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document: `design.md`
 
-8. [ ] Documentation check - `projectStructure.md` (update only if needed):
+11. [ ] Documentation check - `projectStructure.md` (update only if needed):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document: `projectStructure.md`
 
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier options: https://prettier.io/docs/options
@@ -900,31 +978,50 @@ Omit unchanged Codex flags from `/chat` payloads and surface `codexWarnings` nea
      - Reuse existing `Alert` layout patterns already used for Codex availability/tooling banners.
      - Clear warnings when the provider is not Codex.
 
-4. [ ] Update client tests for payload omission and warning rendering:
+4. [ ] Update client test fixtures: include `codexDefaults` + `codexWarnings`
    - Documentation to read (repeat):
      - Jest docs: Context7 `/jestjs/jest`
-   - Tests to add/update:
-     - Update mock `/chat/models` responses with `codexDefaults`/`codexWarnings`.
-     - Add assertions that unchanged flags are omitted from payloads.
-     - When defaults are missing, omit all Codex flags from the payload.
-     - Render codex warnings only when provider is Codex and warnings exist; clear otherwise.
+   - Test type: client Jest/RTL test support update
+   - Location: `client/src/test/` (mock `/chat/models` responses)
+   - Purpose: Ensure test fixtures mirror the updated server response shape.
 
-5. [ ] Documentation check - `README.md` (update only if needed):
+5. [ ] Add client test: unchanged flags omitted from `/chat` payload
+   - Documentation to read (repeat):
+     - Jest docs: Context7 `/jestjs/jest`
+   - Test type: client Jest/RTL test
+   - Location: `client/src/test/` (chat stream/payload tests)
+   - Purpose: Assert unchanged Codex flags are omitted so server defaults apply.
+
+6. [ ] Add client test: omit all flags when defaults missing
+   - Documentation to read (repeat):
+     - Jest docs: Context7 `/jestjs/jest`
+   - Test type: client Jest/RTL test
+   - Location: `client/src/test/` (chat stream/payload tests)
+   - Purpose: When `codexDefaults` is absent, omit all Codex flags from the payload.
+
+7. [ ] Add client test: render codex warnings only for Codex provider
+   - Documentation to read (repeat):
+     - Jest docs: Context7 `/jestjs/jest`
+   - Test type: client Jest/RTL test
+   - Location: `client/src/test/` (chat page alert tests)
+   - Purpose: Show warnings when provider is Codex and clear warnings when provider changes.
+
+8. [ ] Documentation check - `README.md` (update only if needed):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document: `README.md`
 
-6. [ ] Documentation check - `design.md` (update only if needed):
+9. [ ] Documentation check - `design.md` (update only if needed):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document: `design.md`
 
-7. [ ] Documentation check - `projectStructure.md` (update only if needed):
+10. [ ] Documentation check - `projectStructure.md` (update only if needed):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Document: `projectStructure.md`
 
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier options: https://prettier.io/docs/options

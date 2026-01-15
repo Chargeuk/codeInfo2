@@ -31,6 +31,7 @@ Decisions from Q&A:
 - CSV parsing trims whitespace and ignores empty entries.
 - Invalid env values must warn + fall back (log + visible warning on the chat page).
 - The client should not own defaults; defaults must be driven by the server.
+- Server defaults + warnings should be exposed by extending existing endpoints (no new endpoints).
 
 ---
 

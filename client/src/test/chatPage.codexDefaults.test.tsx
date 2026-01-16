@@ -32,6 +32,7 @@ const routes = [
   },
 ];
 
+// Intentionally not matching server defaults to prove the UI uses the server response.
 const defaultCodexDefaults = {
   sandboxMode: 'read-only',
   approvalPolicy: 'never',

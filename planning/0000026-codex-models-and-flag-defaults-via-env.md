@@ -1501,7 +1501,7 @@ Omit unchanged Codex flags from `/chat` payloads and surface `codexWarnings` nea
 
 ### 8. Docs: Codex env defaults updates
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: 
 
 #### Overview

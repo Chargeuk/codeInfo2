@@ -858,8 +858,8 @@ Add shared types and fixtures for the new `/chat/models` Codex response fields s
 
 ### 5. Server: Codex models response + warnings
 
-- Task Status: **__in_progress__**
-- Git Commits: 
+- Task Status: **__done__**
+- Git Commits: 17867f7
 
 #### Overview
 

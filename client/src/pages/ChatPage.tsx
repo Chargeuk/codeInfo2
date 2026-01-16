@@ -229,6 +229,7 @@ export default function ChatPage() {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const stopRef = useRef(stop);
   const lastSentRef = useRef('');
+  const codexDocsLoggedRef = useRef(false);
   const [input, setInput] = useState('');
   const [thinkOpen, setThinkOpen] = useState<Record<string, boolean>>({});
   const [toolOpen, setToolOpen] = useState<Record<string, boolean>>({});
@@ -602,6 +603,15 @@ export default function ChatPage() {
       setProvider(selectedConversation.provider);
     }
   }, [provider, selectedConversation, setProvider]);
+
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    if (codexDocsLoggedRef.current) return;
+    if (isLoading) return;
+    if (providers.length === 0 && models.length === 0) return;
+    codexDocsLoggedRef.current = true;
+    console.info('[codex-docs] docs synced', { source: '/chat/models' });
+  }, [isLoading, models.length, providers.length]);
 
   useEffect(() => {
     if (providerIsCodex) return;

@@ -149,6 +149,7 @@ export default function ChatPage() {
     errorMessage,
     providerErrorMessage,
     codexDefaults,
+    codexWarnings,
     isLoading,
     isError,
     isEmpty,
@@ -432,7 +433,13 @@ export default function ChatPage() {
   const providerLocked = Boolean(selectedConversation || messages.length > 0);
   const providerIsCodex = provider === 'codex';
   const codexDefaultsReady = providerIsCodex && Boolean(codexDefaults);
+  const codexWarningList = useMemo(
+    () => (providerIsCodex ? (codexWarnings ?? []) : []),
+    [codexWarnings, providerIsCodex],
+  );
+  const showCodexWarnings = codexWarningList.length > 0;
   const codexDefaultsInitializedRef = useRef(false);
+  const codexWarningsRef = useRef('');
   const pendingCodexDefaultsReasonRef = useRef<
     null | 'provider-change' | 'new-conversation'
   >(null);
@@ -600,7 +607,19 @@ export default function ChatPage() {
     if (providerIsCodex) return;
     codexDefaultsInitializedRef.current = false;
     pendingCodexDefaultsReasonRef.current = null;
+    codexWarningsRef.current = '';
   }, [providerIsCodex]);
+
+  useEffect(() => {
+    if (!showCodexWarnings) {
+      codexWarningsRef.current = '';
+      return;
+    }
+    const serialized = JSON.stringify(codexWarningList);
+    if (serialized === codexWarningsRef.current) return;
+    codexWarningsRef.current = serialized;
+    console.info('[codex-warnings] rendered', { warnings: codexWarningList });
+  }, [codexWarningList, showCodexWarnings]);
 
   useEffect(() => {
     if (!providerIsCodex || !codexDefaults) return;
@@ -1488,6 +1507,23 @@ export default function ChatPage() {
                         </Stack>
                       </Stack>
 
+                      {showCodexWarnings && (
+                        <Alert
+                          severity="warning"
+                          data-testid="codex-warnings-banner"
+                        >
+                          <Stack spacing={0.5}>
+                            {codexWarningList.map((warning, index) => (
+                              <Typography
+                                key={`${warning}-${index}`}
+                                variant="body2"
+                              >
+                                {warning}
+                              </Typography>
+                            ))}
+                          </Stack>
+                        </Alert>
+                      )}
                       {providerIsCodex && (
                         <CodexFlagsPanel
                           sandboxMode={sandboxMode}

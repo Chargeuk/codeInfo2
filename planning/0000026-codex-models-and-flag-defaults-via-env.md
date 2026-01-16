@@ -1300,7 +1300,7 @@ Consume `codexDefaults` from `/chat/models` and use them to initialize Codex fla
 
 ### 7. Client: Codex payload omission + warnings banner
 
-- Task Status: **__in_progress__**
+- Task Status: **__done__**
 - Git Commits: 
 
 #### Overview
@@ -1322,14 +1322,14 @@ Omit unchanged Codex flags from `/chat` payloads and surface `codexWarnings` nea
 
 #### Subtasks
 
-1. [ ] Review Codex payload construction:
+1. [x] Review Codex payload construction:
    - Documentation to read (repeat):
      - React state + effects (reference): https://react.dev/reference/react
    - Files to read:
      - `client/src/hooks/useChatStream.ts`
      - `client/src/pages/ChatPage.tsx`
 
-2. [ ] Omit unchanged Codex flags from `/chat` payloads:
+2. [x] Omit unchanged Codex flags from `/chat` payloads:
    - Documentation to read (repeat):
      - TypeScript discriminated unions (model/provider typing): https://www.typescriptlang.org/docs/handbook/2/narrowing.html
    - Files to edit:
@@ -1341,7 +1341,7 @@ Omit unchanged Codex flags from `/chat` payloads and surface `codexWarnings` nea
      - If defaults are missing, omit all Codex flags from the payload.
      - Update the `useChatStream` options signature to accept `codexDefaults` and use it for comparison.
 
-3. [ ] Render `codexWarnings` near chat controls:
+3. [x] Render `codexWarnings` near chat controls:
    - Documentation to read (repeat):
      - MUI MCP docs (v6.4.12): Alert https://llms.mui.com/material-ui/6.4.12/components/alert.md
    - Files to edit:
@@ -1351,7 +1351,7 @@ Omit unchanged Codex flags from `/chat` payloads and surface `codexWarnings` nea
      - Clear warnings when the provider is not Codex.
      - Render the banner directly above the Codex flags panel for visibility.
 
-4. [ ] Update client test fixtures: include `codexDefaults` + `codexWarnings`
+4. [x] Update client test fixtures: include `codexDefaults` + `codexWarnings`
    - Documentation to read (repeat):
      - Jest docs: Context7 `/jestjs/jest`
    - Test type: client Jest/RTL test support update
@@ -1363,7 +1363,7 @@ Omit unchanged Codex flags from `/chat` payloads and surface `codexWarnings` nea
      - `client/src/test/chatPage.codexBanners.test.tsx`
    - Purpose: Ensure test fixtures mirror the updated server response shape.
 
-5. [ ] Add client test: unchanged flags omitted from `/chat` payload
+5. [x] Add client test: unchanged flags omitted from `/chat` payload
    - Documentation to read (repeat):
      - Jest docs: Context7 `/jestjs/jest`
    - Test type: client Jest/RTL test
@@ -1371,7 +1371,7 @@ Omit unchanged Codex flags from `/chat` payloads and surface `codexWarnings` nea
    - Purpose: Assert unchanged Codex flags are omitted so server defaults apply.
    - Reference pattern: existing payload assertions in `chatPage.flags.sandbox.payload.test.tsx`.
 
-6. [ ] Add client test: changed flags included in `/chat` payload
+6. [x] Add client test: changed flags included in `/chat` payload
    - Documentation to read (repeat):
      - Jest docs: Context7 `/jestjs/jest`
    - Test type: client Jest/RTL test
@@ -1379,7 +1379,7 @@ Omit unchanged Codex flags from `/chat` payloads and surface `codexWarnings` nea
    - Purpose: Ensure only user-changed Codex flags are included in the payload.
    - Reference pattern: existing payload assertions in `chatPage.flags.network.payload.test.tsx`.
 
-7. [ ] Add client test: omit all flags when defaults missing
+7. [x] Add client test: omit all flags when defaults missing
    - Documentation to read (repeat):
      - Jest docs: Context7 `/jestjs/jest`
    - Test type: client Jest/RTL test
@@ -1387,7 +1387,7 @@ Omit unchanged Codex flags from `/chat` payloads and surface `codexWarnings` nea
    - Purpose: When `codexDefaults` is absent, omit all Codex flags from the payload.
    - Reference pattern: existing payload assertions in `chatPage.flags.sandbox.payload.test.tsx`.
 
-8. [ ] Add client test: render codex warnings only for Codex provider
+8. [x] Add client test: render codex warnings only for Codex provider
    - Documentation to read (repeat):
      - Jest docs: Context7 `/jestjs/jest`
    - Test type: client Jest/RTL test
@@ -1395,7 +1395,7 @@ Omit unchanged Codex flags from `/chat` payloads and surface `codexWarnings` nea
    - Purpose: Show warnings when provider is Codex and clear warnings when provider changes.
    - Reference pattern: existing banner assertions in `chatPage.codexBanners.test.tsx`.
 
-9. [ ] Add client test: no warnings banner when codexWarnings empty
+9. [x] Add client test: no warnings banner when codexWarnings empty
    - Documentation to read (repeat):
      - Jest docs: Context7 `/jestjs/jest`
    - Test type: client Jest/RTL test
@@ -1403,28 +1403,28 @@ Omit unchanged Codex flags from `/chat` payloads and surface `codexWarnings` nea
    - Purpose: Ensure the warning banner is not shown when `codexWarnings` is empty.
    - Reference pattern: existing banner assertions in `chatPage.codexBanners.test.tsx`.
 
-10. [ ] Update `README.md` if payload omission behavior is documented:
+10. [x] Update `README.md` if payload omission behavior is documented:
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location: `README.md`
    - Description: Mention that Codex flags are omitted when unchanged so env defaults apply.
    - Purpose: Keep usage docs aligned with payload behavior.
 
-11. [ ] Update `design.md` with warning/banner flow + mermaid diagrams:
+11. [x] Update `design.md` with warning/banner flow + mermaid diagrams:
    - Documentation to read (repeat):
      - Mermaid docs: Context7 `/mermaid-js/mermaid`
    - Location: `design.md`
    - Description: Document the `codexWarnings` banner flow and any UI/response updates.
    - Purpose: Keep architecture/flow diagrams current.
 
-12. [ ] Update `projectStructure.md` after adding/removing files in this task:
+12. [x] Update `projectStructure.md` after adding/removing files in this task:
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location: `projectStructure.md`
    - Description: List every file added or removed in this task (paths) and update the tree entries.
    - Purpose: Keep the repo tree map accurate after file additions/removals.
 
-13. [ ] Add client log lines for payload omission + warnings banner:
+13. [x] Add client log lines for payload omission + warnings banner:
    - Files to edit:
      - `client/src/hooks/useChatStream.ts`
      - `client/src/pages/ChatPage.tsx`
@@ -1434,52 +1434,68 @@ Omit unchanged Codex flags from `/chat` payloads and surface `codexWarnings` nea
    - Expected outcome:
      - `omittedFlags` lists all flags excluded when unchanged; `warnings` matches `codexWarnings` when the banner is shown.
 
-14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+14. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier options: https://prettier.io/docs/options
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
 
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
    - Documentation to read (repeat):
      - Jest docs: Context7 `/jestjs/jest`
 
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
 
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
-8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001): send a Codex message with unchanged flags and confirm the console logs `[codex-payload] omitted flags` listing all omitted flags; if `codexWarnings` is non-empty (set an invalid env like `Codex_reasoning_effort=invalid` before compose up), verify the banner renders and `[codex-warnings] rendered` logs with the warning text; ensure no console errors appear.
+8. [x] Manual Playwright-MCP check (http://host.docker.internal:5001): send a Codex message with unchanged flags and confirm the console logs `[codex-payload] omitted flags` listing all omitted flags; if `codexWarnings` is non-empty (set an invalid env like `Codex_reasoning_effort=invalid` before compose up), verify the banner renders and `[codex-warnings] rendered` logs with the warning text; ensure no console errors appear.
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
 
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
 #### Implementation notes
 
-- 
+- Reviewed `client/src/hooks/useChatStream.ts` and `client/src/pages/ChatPage.tsx` to map current Codex payload defaults and banner placement before changes.
+- Updated `client/src/hooks/useChatStream.ts` to compare Codex flags against `codexDefaults`, omit unchanged flags (or all flags when defaults are missing), and log `[codex-payload] omitted flags` when applicable.
+- Updated `client/src/pages/ChatPage.tsx` to render a Codex warnings alert above the flags panel, log `[codex-warnings] rendered` on changes, and reset warning state when leaving Codex.
+- Confirmed Codex test fixtures include `codexDefaults` and `codexWarnings` in the listed mock `/chat/models` responses.
+- Added payload omission tests in `client/src/test/chatPage.flags.sandbox.payload.test.tsx` for unchanged flags and missing defaults, updated network payload assertions in `client/src/test/chatPage.flags.network.payload.test.tsx` to ensure only changed flags are included, and expanded `client/src/test/chatPage.codexBanners.test.tsx` to cover warning banner rendering/clearing.
+- Updated `README.md` and `design.md` to describe omitting unchanged Codex flags and the `codexWarnings` banner; no projectStructure tree changes were required in this task.
+- Added `[codex-payload] omitted flags` logging in `useChatStream` and `[codex-warnings] rendered` logging in `ChatPage`.
+- Ran `npm run lint --workspaces` (existing import-order warnings in server only) and `npm run format:check --workspaces` (clean).
+- Testing: `npm run build --workspace server`.
+- Testing: `npm run build --workspace client` (Vite chunk-size warning only).
+- Testing: `npm run test --workspace server` (54 scenarios passed; long-running output includes chroma compose logs).
+- Testing: `npm run test --workspace client` (passes; VM Modules warnings + existing console logs).
+- Testing: `npm run e2e` (36 Playwright specs passed; compose:e2e down completed).
+- Testing: `npm run compose:build` (completed; client build warns about large chunks).
+- Testing: `Codex_reasoning_effort=invalid npm run compose:up` (containers healthy, env override for warnings).
+- Testing: Playwright manual check at `http://host.docker.internal:5001/chat` confirmed `[codex-payload] omitted flags` and `[codex-warnings] rendered`; no console errors.
+- Testing: `npm run compose:down` (stopped and removed compose services).
 
 ---
 

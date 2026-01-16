@@ -32,7 +32,10 @@ const routes = [
   },
 ];
 
-function mockProvidersWithBodies(chatBodies: Array<Record<string, unknown>>) {
+function mockProvidersWithBodies(
+  chatBodies: Array<Record<string, unknown>>,
+  options?: { includeCodexDefaults?: boolean },
+) {
   mockFetch.mockImplementation((url: RequestInfo | URL, opts?: RequestInit) => {
     const href = typeof url === 'string' ? url : url.toString();
     if (href.includes('/health')) {
@@ -72,6 +75,7 @@ function mockProvidersWithBodies(chatBodies: Array<Record<string, unknown>>) {
       }) as unknown as Response;
     }
     if (href.includes('/chat/models') && href.includes('provider=codex')) {
+      const includeCodexDefaults = options?.includeCodexDefaults ?? true;
       return Promise.resolve({
         ok: true,
         status: 200,
@@ -79,14 +83,18 @@ function mockProvidersWithBodies(chatBodies: Array<Record<string, unknown>>) {
           provider: 'codex',
           available: true,
           toolsAvailable: true,
-          codexDefaults: {
-            sandboxMode: 'workspace-write',
-            approvalPolicy: 'on-failure',
-            modelReasoningEffort: 'high',
-            networkAccessEnabled: true,
-            webSearchEnabled: true,
-          },
-          codexWarnings: [],
+          ...(includeCodexDefaults
+            ? {
+                codexDefaults: {
+                  sandboxMode: 'workspace-write',
+                  approvalPolicy: 'on-failure',
+                  modelReasoningEffort: 'high',
+                  networkAccessEnabled: true,
+                  webSearchEnabled: true,
+                },
+                codexWarnings: [],
+              }
+            : {}),
           models: [
             {
               key: 'gpt-5.1-codex-max',
@@ -145,6 +153,42 @@ function mockProvidersWithBodies(chatBodies: Array<Record<string, unknown>>) {
 }
 
 describe('Codex sandbox flag payloads', () => {
+  it('omits unchanged Codex flags so server defaults apply', async () => {
+    const chatBodies: Record<string, unknown>[] = [];
+    mockProvidersWithBodies(chatBodies);
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const providerSelect = await screen.findByRole('combobox', {
+      name: /provider/i,
+    });
+    await userEvent.click(providerSelect);
+    const codexOption = await screen.findByRole('option', {
+      name: /openai codex/i,
+    });
+    await userEvent.click(codexOption);
+
+    const input = await screen.findByTestId('chat-input');
+    const sendButton = await screen.findByTestId('chat-send');
+
+    await userEvent.clear(input);
+    await userEvent.type(input, 'Hello Codex');
+    await waitFor(() => expect(sendButton).toBeEnabled());
+    await act(async () => {
+      await userEvent.click(sendButton);
+    });
+
+    await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(1));
+    const codexBody = chatBodies[0];
+    expect(codexBody.provider).toBe('codex');
+    expect(codexBody).not.toHaveProperty('sandboxMode');
+    expect(codexBody).not.toHaveProperty('approvalPolicy');
+    expect(codexBody).not.toHaveProperty('modelReasoningEffort');
+    expect(codexBody).not.toHaveProperty('networkAccessEnabled');
+    expect(codexBody).not.toHaveProperty('webSearchEnabled');
+  });
+
   it('omits sandbox flag for LM Studio and includes chosen value for Codex', async () => {
     const chatBodies: Record<string, unknown>[] = [];
     mockProvidersWithBodies(chatBodies);
@@ -213,5 +257,48 @@ describe('Codex sandbox flag payloads', () => {
     const codexBody = chatBodies[1];
     expect(codexBody.provider).toBe('codex');
     expect(codexBody.sandboxMode).toBe('danger-full-access');
+  });
+
+  it('omits all Codex flags when defaults are missing', async () => {
+    const chatBodies: Record<string, unknown>[] = [];
+    mockProvidersWithBodies(chatBodies, { includeCodexDefaults: false });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const providerSelect = await screen.findByRole('combobox', {
+      name: /provider/i,
+    });
+    await userEvent.click(providerSelect);
+    const codexOption = await screen.findByRole('option', {
+      name: /openai codex/i,
+    });
+    await userEvent.click(codexOption);
+
+    await ensureCodexFlagsPanelExpanded();
+
+    const sandboxSelect = await screen.findByRole('combobox', {
+      name: /sandbox mode/i,
+    });
+    expect(sandboxSelect).toHaveAttribute('aria-disabled', 'true');
+
+    const input = await screen.findByTestId('chat-input');
+    const sendButton = await screen.findByTestId('chat-send');
+
+    await userEvent.clear(input);
+    await userEvent.type(input, 'Hello Codex');
+    await waitFor(() => expect(sendButton).toBeEnabled());
+    await act(async () => {
+      await userEvent.click(sendButton);
+    });
+
+    await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(1));
+    const codexBody = chatBodies[0];
+    expect(codexBody.provider).toBe('codex');
+    expect(codexBody).not.toHaveProperty('sandboxMode');
+    expect(codexBody).not.toHaveProperty('approvalPolicy');
+    expect(codexBody).not.toHaveProperty('modelReasoningEffort');
+    expect(codexBody).not.toHaveProperty('networkAccessEnabled');
+    expect(codexBody).not.toHaveProperty('webSearchEnabled');
   });
 });

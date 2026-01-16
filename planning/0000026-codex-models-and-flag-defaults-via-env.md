@@ -555,7 +555,7 @@ Remove hard-coded Codex defaults from the provider interface so `ChatInterfaceCo
 
 #### Subtasks
 
-1. [ ] Review current thread options assembly:
+1. [x] Review current thread options assembly:
    - Documentation to read (repeat):
      - @openai/codex-sdk 0.64.0 (ThreadOptions fields): https://www.npmjs.com/package/@openai/codex-sdk
    - Files to read:
@@ -564,7 +564,7 @@ Remove hard-coded Codex defaults from the provider interface so `ChatInterfaceCo
    - Goal:
      - Identify where defaults are injected before the Codex SDK call.
 
-2. [ ] Remove hard-coded defaults from thread options:
+2. [x] Remove hard-coded defaults from thread options:
    - Documentation to read (repeat):
      - @openai/codex-sdk 0.64.0 (ThreadOptions fields): https://www.npmjs.com/package/@openai/codex-sdk
    - Files to edit:
@@ -574,7 +574,7 @@ Remove hard-coded Codex defaults from the provider interface so `ChatInterfaceCo
      - Use provided `codexFlags` values directly.
      - Leave fields undefined when missing so env defaults from validation are respected.
 
-3. [ ] Add test: thread options reflect validated flags
+3. [x] Add test: thread options reflect validated flags
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
    - Test type: server integration/unit test
@@ -582,7 +582,7 @@ Remove hard-coded Codex defaults from the provider interface so `ChatInterfaceCo
    - Purpose: Confirm thread options use validated flags and do not inject old defaults.
    - Reference pattern: existing Codex integration tests in `server/src/test/integration/chat-codex.test.ts`.
 
-4. [ ] Add test: missing flags stay undefined in thread options
+4. [x] Add test: missing flags stay undefined in thread options
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
    - Test type: server integration/unit test
@@ -590,28 +590,28 @@ Remove hard-coded Codex defaults from the provider interface so `ChatInterfaceCo
    - Purpose: Ensure omitted flags remain `undefined` so Codex config/env defaults apply.
    - Reference pattern: existing Codex integration tests in `server/src/test/integration/chat-codex.test.ts`.
 
-5. [ ] Update `README.md` if Codex thread option behavior changes are documented:
+5. [x] Update `README.md` if Codex thread option behavior changes are documented:
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location: `README.md`
    - Description: Clarify that Codex flags come from validated inputs without extra fallback defaults.
    - Purpose: Keep usage notes aligned with Codex execution behavior.
 
-6. [ ] Update `design.md` with thread option flow + mermaid diagrams:
+6. [x] Update `design.md` with thread option flow + mermaid diagrams:
    - Documentation to read (repeat):
      - Mermaid docs: Context7 `/mermaid-js/mermaid`
    - Location: `design.md`
    - Description: Update Codex flow diagrams to remove hard-coded defaults and show validated flags.
    - Purpose: Maintain accurate architecture documentation for Codex execution.
 
-7. [ ] Update `projectStructure.md` after adding/removing files in this task:
+7. [x] Update `projectStructure.md` after adding/removing files in this task:
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location: `projectStructure.md`
    - Description: List every file added or removed in this task (paths) and update the tree entries.
    - Purpose: Keep the repo tree map accurate after file additions/removals.
 
-8. [ ] Add server log line for prepared Codex thread options:
+8. [x] Add server log line for prepared Codex thread options:
    - Files to edit:
      - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
    - Log line to add:
@@ -619,52 +619,78 @@ Remove hard-coded Codex defaults from the provider interface so `ChatInterfaceCo
    - Expected outcome:
      - `undefinedFlags` lists any flags intentionally left undefined so Codex env/config defaults apply.
 
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+9. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier options: https://prettier.io/docs/options
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
 
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
    - Documentation to read (repeat):
      - Jest docs: Context7 `/jestjs/jest`
 
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
 
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
-8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001): start a Codex chat with flags untouched, confirm it succeeds, and verify the server logs include `[codex-thread-options] prepared` with expected `undefinedFlags`; confirm no errors in the browser debug console.
+8. [x] Manual Playwright-MCP check (http://host.docker.internal:5001): start a Codex chat with flags untouched, confirm it succeeds, and verify the server logs include `[codex-thread-options] prepared` with expected `undefinedFlags`; confirm no errors in the browser debug console.
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
 
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
 #### Implementation notes
 
-- 
+- Reviewed `server/src/chat/interfaces/ChatInterfaceCodex.ts` and `server/src/test/integration/chat-codex.test.ts`; thread options currently default sandbox/network/web/approval/reasoning values and tests only assert workingDirectory/skipGitRepoCheck and resume model.
+- Ran `npm run lint --workspaces` (existing import-order warnings only) and `npm run format:check --workspaces` after completing subtask 1.
+- Updated `server/src/chat/interfaces/ChatInterfaceCodex.ts` to pass Codex thread option flags directly without hard-coded fallbacks, leaving missing values undefined for env/config defaults.
+- Ran `npm run lint --workspaces` (existing import-order warnings only), `npm run format --workspaces`, and `npm run format:check --workspaces` after completing subtask 2.
+- Added unit coverage in `server/src/test/unit/chat-interface-codex.test.ts` to assert Codex thread options receive explicit validated flag values.
+- Ran `npm run lint --workspaces` (existing import-order warnings only) and `npm run format:check --workspaces` after completing subtask 3.
+- Added unit coverage in `server/src/test/unit/chat-interface-codex.test.ts` to ensure missing Codex flags remain undefined in thread options.
+- Ran `npm run lint --workspaces` (existing import-order warnings only) and `npm run format:check --workspaces` after completing subtask 4.
+- Updated `README.md` to note Codex thread options use validated flags without extra fallback defaults.
+- Ran `npm run lint --workspaces` (existing import-order warnings only) and `npm run format:check --workspaces` after completing subtask 5.
+- Updated `design.md` to document validated Codex thread option handling and the new `[codex-thread-options] prepared` log marker.
+- Ran `npm run lint --workspaces` (existing import-order warnings only) and `npm run format:check --workspaces` after completing subtask 6.
+- No `projectStructure.md` update needed because Task 3 added no new files or removals.
+- Ran `npm run lint --workspaces` (existing import-order warnings only) and `npm run format:check --workspaces` after completing subtask 7.
+- Added `[codex-thread-options] prepared` logging in `server/src/chat/interfaces/ChatInterfaceCodex.ts` with an `undefinedFlags` list for omitted Codex flags.
+- Ran `npm run lint --workspaces` (existing import-order warnings only) and `npm run format:check --workspaces` after completing subtask 8.
+- Ran `npm run lint --workspaces` (existing import-order warnings only) and `npm run format:check --workspaces` after completing subtask 9.
+- Fixed the `[codex-thread-options] prepared` log call to use the base logger signature `(object, message)` after a server build type error.
+- `npm run build --workspace server` completed successfully after the log fix.
+- `npm run build --workspace client` completed successfully (Vite chunk size warnings only).
+- `npm run test --workspace server` initially timed out, then failed on Chroma connection errors during Cucumber runs; a subsequent run completed successfully after the testcontainers Chroma stack stabilized.
+- `npm run test --workspace client` passed with existing console log output during tests.
+- `npm run e2e` completed successfully (36 passed).
+- `npm run compose:build` completed successfully.
+- `npm run compose:up` started the docker compose stack successfully.
+- Manual Playwright check: sent a Codex chat with flags untouched; chat streamed successfully, `/app/logs/server.1.log` contained `[codex-thread-options] prepared` with `undefinedFlags: []`, and the browser console had no errors.
+- `npm run compose:down` stopped the docker compose stack successfully.
 
 ---
 

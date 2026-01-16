@@ -24,6 +24,7 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - Depends on `@codeinfo2/common` for DTO helper; built with `tsc -b`, started via `npm run start --workspace server`.
 - Codex env defaults are resolved by `server/src/config/codexEnvDefaults.ts`, which parses `Codex_*` env vars into validated defaults plus warnings (including network-access mismatches) and logs `[codex-env-defaults] resolved`.
 - `validateChatRequest` applies Codex env defaults when request flags are missing, surfaces env warnings on the response payload, and logs `[codex-validate] applied env defaults` with the defaulted flag list.
+- `ChatInterfaceCodex` builds thread options from validated flags without extra fallback defaults, leaving missing values undefined so Codex config/env defaults apply, and logs `[codex-thread-options] prepared` with `undefinedFlags`.
 
 ## Server testing & Docker
 
@@ -191,7 +192,7 @@ sequenceDiagram
 flowchart LR
   UI[UI: /chat\nCodex flags panel] -->|select xhigh| Req[POST /chat\nmodelReasoningEffort: 'xhigh']
   Req --> V[server validateChatRequest\naccepts low/medium/high/xhigh]
-  V --> C[ChatInterfaceCodex\nthreadOptions.modelReasoningEffort]
+  V --> C[ChatInterfaceCodex\nthreadOptions (validated flags)]
   C --> SDK[@openai/codex-sdk\nexec args: --config model_reasoning_effort="xhigh"]
   SDK --> CLI[Codex CLI]
 

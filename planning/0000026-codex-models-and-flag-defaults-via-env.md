@@ -1729,3 +1729,63 @@ The final task must always check against the acceptance criteria of the story. I
 - Testing: `npm run compose:down`.
 
 ---
+
+### 10. Review fixes
+
+- Task Status: **__to_do__**
+- Git Commits: 
+
+#### Overview
+
+Address review feedback by removing the network-access mismatch warning and ensuring Codex requests still send fallback flag values when server defaults are unavailable. This keeps behavior consistent and avoids confusing user-facing banners.
+
+#### Documentation Locations
+
+- Express response patterns (warnings/errors): https://expressjs.com/en/guide/error-handling.html
+- Node.js `process.env` reference: https://nodejs.org/api/process.html#processenv
+- TypeScript optional chaining: https://www.typescriptlang.org/docs/handbook/2/everyday-types.html#optional-properties
+- Jest docs: Context7 `/jestjs/jest`
+- Docker/Compose: Context7 `/docker/docs`
+- Playwright: Context7 `/microsoft/playwright`
+- Markdown syntax: https://www.markdownguide.org/basic-syntax/
+
+#### Subtasks
+
+1. [ ] Remove the network-access mismatch warning so it is not surfaced to the client:
+   - Files to edit:
+     - `server/src/config/codexEnvDefaults.ts`
+     - `server/src/routes/chatModels.ts` (if warning list composition changes)
+2. [ ] Ensure Codex payloads send fallback values when `codexDefaults` are missing:
+   - Files to edit:
+     - `client/src/hooks/useChatStream.ts`
+     - `client/src/pages/ChatPage.tsx`
+   - Verify the payload always includes sandbox/approval/reasoning/network/websearch flags for Codex when defaults are unavailable.
+3. [ ] Update any impacted tests or fixtures for the new behavior:
+   - Files to edit:
+     - `client/src/test/chatPage.flags.*.test.tsx` (as needed)
+     - `server/src/test/unit/chatModels.codex.test.ts` (if warnings list changes)
+4. [ ] Update documentation if warnings behavior or defaults handling is described:
+   - Files to edit:
+     - `README.md`
+     - `design.md`
+5. [ ] Update `projectStructure.md` if any files are added or removed.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000`)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001): verify Codex defaults still load, warnings banner is absent, and fallback flags are sent when defaults are missing.
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Details about the implementation. Include what went to plan and what did not.
+- Essential that any decisions that got made during the implementation are documented here
+
+---

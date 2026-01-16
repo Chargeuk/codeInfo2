@@ -1613,7 +1613,7 @@ Update user-facing documentation to describe env-driven Codex models and default
 
 ### 9. Final verification + PR summary
 
-- status: **__to_do__**
+- status: **__in_progress__**
 - Git Commits: **to_do**
 
 #### Overview

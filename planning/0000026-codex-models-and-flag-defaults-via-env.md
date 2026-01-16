@@ -1732,7 +1732,7 @@ The final task must always check against the acceptance criteria of the story. I
 
 ### 10. Review fixes
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: 
 
 #### Overview

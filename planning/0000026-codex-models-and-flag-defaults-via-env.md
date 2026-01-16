@@ -1300,7 +1300,7 @@ Consume `codexDefaults` from `/chat/models` and use them to initialize Codex fla
 
 ### 7. Client: Codex payload omission + warnings banner
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: 
 
 #### Overview

@@ -79,6 +79,14 @@ function mockProvidersWithBodies(chatBodies: Array<Record<string, unknown>>) {
           provider: 'codex',
           available: true,
           toolsAvailable: true,
+          codexDefaults: {
+            sandboxMode: 'workspace-write',
+            approvalPolicy: 'on-failure',
+            modelReasoningEffort: 'high',
+            networkAccessEnabled: true,
+            webSearchEnabled: true,
+          },
+          codexWarnings: [],
           models: [
             {
               key: 'gpt-5.1-codex-max',

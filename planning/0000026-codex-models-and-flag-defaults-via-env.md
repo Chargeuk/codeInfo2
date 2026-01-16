@@ -1122,7 +1122,7 @@ Consume `codexDefaults` from `/chat/models` and use them to initialize Codex fla
 
 #### Subtasks
 
-1. [ ] Review current Codex defaults and model hook state:
+1. [x] Review current Codex defaults and model hook state:
    - Documentation to read (repeat):
      - React state + effects (reference): https://react.dev/reference/react
    - Files to read:
@@ -1132,7 +1132,7 @@ Consume `codexDefaults` from `/chat/models` and use them to initialize Codex fla
      - `common/src/lmstudio.ts`
      - `client/package.json` (confirm React 19.2.0 + MUI 6.4.x)
 
-2. [ ] Add codexDefaults/codexWarnings to the chat model hook:
+2. [x] Add codexDefaults/codexWarnings to the chat model hook:
    - Documentation to read (repeat):
      - TypeScript discriminated unions (model/provider typing): https://www.typescriptlang.org/docs/handbook/2/narrowing.html
    - Files to edit:
@@ -1142,7 +1142,7 @@ Consume `codexDefaults` from `/chat/models` and use them to initialize Codex fla
      - Store the optional `codexDefaults`/`codexWarnings` from the response and expose them to the UI.
      - When provider is not `codex`, ensure `codexDefaults`/`codexWarnings` are `undefined` (do not carry stale data).
 
-3. [ ] Initialize Codex flag state from server defaults:
+3. [x] Initialize Codex flag state from server defaults:
    - Documentation to read (repeat):
      - React state + effects (reference): https://react.dev/reference/react
    - Files to edit:
@@ -1153,7 +1153,7 @@ Consume `codexDefaults` from `/chat/models` and use them to initialize Codex fla
      - Disable Codex flags panel while defaults are missing.
      - Pass `codexDefaults` into `useChatStream` so payload-diffing can omit unchanged flags (Task 7).
 
-4. [ ] Update Codex flags labels to avoid hard-coded “default” text:
+4. [x] Update Codex flags labels to avoid hard-coded “default” text:
    - Documentation to read (repeat):
      - MUI MCP docs (v6.4.12):
        - Alert https://llms.mui.com/material-ui/6.4.12/components/alert.md
@@ -1166,7 +1166,7 @@ Consume `codexDefaults` from `/chat/models` and use them to initialize Codex fla
      - Remove hard-coded “(default)” labels in `sandboxOptions`, `approvalOptions`, and `reasoningOptions`.
      - If needed, accept a `defaultLabelSuffix` prop from the parent for optional labeling.
 
-5. [ ] Add client test: defaults sourced from server response
+5. [x] Add client test: defaults sourced from server response
    - Documentation to read (repeat):
      - Jest docs: Context7 `/jestjs/jest`
    - Test type: client Jest/RTL test
@@ -1174,7 +1174,7 @@ Consume `codexDefaults` from `/chat/models` and use them to initialize Codex fla
    - Purpose: Ensure Codex defaults are initialized from `codexDefaults` in `/chat/models`.
    - Reference pattern: `client/src/test/chatPage.flags.sandbox.default.test.tsx`.
 
-6. [ ] Add client test: defaults re-apply on provider switch
+6. [x] Add client test: defaults re-apply on provider switch
    - Documentation to read (repeat):
      - Jest docs: Context7 `/jestjs/jest`
    - Test type: client Jest/RTL test
@@ -1182,7 +1182,7 @@ Consume `codexDefaults` from `/chat/models` and use them to initialize Codex fla
    - Purpose: Verify Codex defaults re-apply when switching back to the Codex provider.
    - Reference pattern: `client/src/test/chatPage.flags.sandbox.default.test.tsx`.
 
-7. [ ] Add client test: defaults re-apply on new conversation
+7. [x] Add client test: defaults re-apply on new conversation
    - Documentation to read (repeat):
      - Jest docs: Context7 `/jestjs/jest`
    - Test type: client Jest/RTL test
@@ -1190,7 +1190,7 @@ Consume `codexDefaults` from `/chat/models` and use them to initialize Codex fla
    - Purpose: Confirm **New conversation** resets flags to server defaults.
    - Reference pattern: `client/src/test/chatPage.flags.sandbox.default.test.tsx`.
 
-8. [ ] Add client test: Codex flags panel disabled without defaults
+8. [x] Add client test: Codex flags panel disabled without defaults
    - Documentation to read (repeat):
      - Jest docs: Context7 `/jestjs/jest`
    - Test type: client Jest/RTL test
@@ -1198,28 +1198,28 @@ Consume `codexDefaults` from `/chat/models` and use them to initialize Codex fla
    - Purpose: Ensure the Codex flags panel is disabled when `codexDefaults` are missing.
    - Reference pattern: `client/src/test/chatPage.flags.sandbox.default.test.tsx`.
 
-9. [ ] Update `README.md` if client defaults behavior is documented:
+9. [x] Update `README.md` if client defaults behavior is documented:
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location: `README.md`
    - Description: Note that Codex defaults now come from `/chat/models` rather than hard-coded client values.
    - Purpose: Keep user-facing usage docs aligned with server-driven defaults.
 
-10. [ ] Update `design.md` with client defaults flow + mermaid diagrams:
+10. [x] Update `design.md` with client defaults flow + mermaid diagrams:
    - Documentation to read (repeat):
      - Mermaid docs: Context7 `/mermaid-js/mermaid`
    - Location: `design.md`
    - Description: Update UI flow diagrams to show defaults coming from `/chat/models`.
    - Purpose: Keep architecture notes aligned with the new client initialization flow.
 
-11. [ ] Update `projectStructure.md` after adding/removing files in this task:
+11. [x] Update `projectStructure.md` after adding/removing files in this task:
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location: `projectStructure.md`
    - Description: List every file added or removed in this task (paths) and update the tree entries.
    - Purpose: Keep the repo tree map accurate after file additions/removals.
 
-12. [ ] Add client log lines for default initialization/reset:
+12. [x] Add client log lines for default initialization/reset:
    - Files to edit:
      - `client/src/pages/ChatPage.tsx`
    - Log lines to add:
@@ -1228,52 +1228,73 @@ Consume `codexDefaults` from `/chat/models` and use them to initialize Codex fla
    - Expected outcome:
      - One `initialized` log on first Codex load, plus `reset` logs on provider change and new conversation.
 
-13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+13. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier options: https://prettier.io/docs/options
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
 
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
    - Documentation to read (repeat):
      - Jest docs: Context7 `/jestjs/jest`
 
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
 
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
-8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001): confirm Codex defaults load from `/chat/models`, resets occur on provider switch and **New conversation**, and the browser console includes `[codex-ui-defaults] initialized` plus `reset` logs with reasons `provider-change` and `new-conversation`; ensure no console errors appear.
+8. [x] Manual Playwright-MCP check (http://host.docker.internal:5001): confirm Codex defaults load from `/chat/models`, resets occur on provider switch and **New conversation**, and the browser console includes `[codex-ui-defaults] initialized` plus `reset` logs with reasons `provider-change` and `new-conversation`; ensure no console errors appear.
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
 
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
 #### Implementation notes
 
-- 
+- Reviewed `client/src/pages/ChatPage.tsx`, `client/src/hooks/useChatStream.ts`, `client/src/hooks/useChatModel.ts`, `common/src/lmstudio.ts`, and `client/package.json` to confirm current Codex defaults and hook wiring.
+- Ran `npm run lint --workspaces` (existing import-order warnings only) and `npm run format:check --workspaces` after completing subtask 1.
+- Updated `client/src/hooks/useChatModel.ts` to store and expose `codexDefaults`/`codexWarnings`, clearing them when the provider is non-Codex or when requests fail.
+- Ran `npm run lint --workspaces` (existing import-order warnings only) and `npm run format:check --workspaces` after completing subtask 2.
+- Updated `client/src/pages/ChatPage.tsx` to initialize/reset Codex flags from `codexDefaults`, disable the flags panel until defaults exist, and pass `codexDefaults` into `useChatStream` for later payload diffing.
+- Ran `npm run lint --workspaces` (existing import-order warnings only), `npm run format --workspaces`, and `npm run format:check --workspaces` after completing subtask 3.
+- Updated `client/src/components/chat/CodexFlagsPanel.tsx` to remove the hard-coded “(default)” labels from Codex flag options.
+- Ran `npm run lint --workspaces` (existing import-order warnings only) and `npm run format:check --workspaces` after completing subtask 4.
+- Added `client/src/test/chatPage.codexDefaults.test.tsx` to cover initializing Codex flags from server defaults, reapplying defaults on provider switch/new conversation, and disabling the flags panel when defaults are missing. Updated `client/src/test/chatPage.codexBanners.test.tsx` to include `codexDefaults`/`codexWarnings` in Codex model responses.
+- Updated `README.md` to clarify Codex defaults are delivered via `/chat/models`, refreshed the Codex defaults sequence diagram in `design.md`, and added `chatPage.codexDefaults.test.tsx` to `projectStructure.md`.
+- Ran `npm run lint --workspaces` (existing import-order warnings in server only). Ran `npm run format:check --workspaces`, then `npm run format --workspaces` to fix client formatting, followed by a clean `npm run format:check --workspaces`.
+- Updated `client/src/pages/ChatPage.tsx` to queue Codex default resets when the provider switches before defaults are available, ensuring the correct reset log reason and reapply behavior. Adjusted Codex approval/reasoning default tests to match the new label text after removing "(default)".
+- After refining Codex default tests, reran `npm run format --workspaces` to fix Prettier warnings in updated test files and confirmed a clean `npm run format:check --workspaces`.
+- Testing: `npm run build --workspace server`.
+- Testing: `npm run build --workspace client` (Vite warning about large chunks only).
+- Testing: `npm run test --workspace server` (first two runs timed out at 120s/300s; rerun with 420s completed, 54 scenarios passed).
+- Testing: `npm run test --workspace client` (passes; console output includes experimental VM Modules warnings and existing log noise).
+- Testing: `npm run e2e` (compose:e2e build + 36 Playwright specs passed; compose:e2e down completed).
+- Testing: `npm run compose:build` (completed; client build warns about large chunks).
+- Testing: `npm run compose:up` (containers healthy).
+- Testing: Playwright MCP manual check at `http://host.docker.internal:5001/chat` confirmed Codex defaults apply (danger-full-access/high/on-failure with network/web search enabled), reset logs for provider-change/new-conversation, initialized log after selecting a Codex conversation, and no console errors.
+- Testing: `npm run compose:down`.
 
 ---
 

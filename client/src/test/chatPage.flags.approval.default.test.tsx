@@ -79,6 +79,14 @@ function mockCodexReady() {
           provider: 'codex',
           available: true,
           toolsAvailable: true,
+          codexDefaults: {
+            sandboxMode: 'workspace-write',
+            approvalPolicy: 'on-failure',
+            modelReasoningEffort: 'high',
+            networkAccessEnabled: true,
+            webSearchEnabled: true,
+          },
+          codexWarnings: [],
           models: [
             {
               key: 'gpt-5.1-codex-max',
@@ -134,7 +142,7 @@ describe('Codex approval policy flag defaults', () => {
 
     const approvalSelect = await screen.findByTestId('approval-policy-select');
     await waitFor(() =>
-      expect(approvalSelect).toHaveTextContent(/on failure \(default\)/i),
+      expect(approvalSelect).toHaveTextContent(/on failure/i),
     );
 
     expect(

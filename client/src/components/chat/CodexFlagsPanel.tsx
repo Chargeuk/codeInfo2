@@ -34,13 +34,13 @@ type Props = {
 };
 
 const sandboxOptions: Array<{ value: SandboxMode; label: string }> = [
-  { value: 'workspace-write', label: 'Workspace write (default)' },
+  { value: 'workspace-write', label: 'Workspace write' },
   { value: 'read-only', label: 'Read-only' },
   { value: 'danger-full-access', label: 'Danger full access' },
 ];
 
 const approvalOptions: Array<{ value: ApprovalPolicy; label: string }> = [
-  { value: 'on-failure', label: 'On failure (default)' },
+  { value: 'on-failure', label: 'On failure' },
   { value: 'on-request', label: 'On request' },
   { value: 'never', label: 'Never (auto-approve)' },
   { value: 'untrusted', label: 'Untrusted' },
@@ -51,7 +51,7 @@ const reasoningOptions: Array<{
   label: string;
 }> = [
   { value: 'xhigh', label: 'XHigh' },
-  { value: 'high', label: 'High (default)' },
+  { value: 'high', label: 'High' },
   { value: 'medium', label: 'Medium' },
   { value: 'low', label: 'Low' },
 ];

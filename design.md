@@ -1220,6 +1220,7 @@ sequenceDiagram
   Server->>MCP: initialize (availability check)
   alt Codex available
     Server-->>Client: 200 {models[], codexDefaults, codexWarnings}
+    Client->>Client: Init flags from codexDefaults
   else Codex unavailable
     Server-->>Client: 200 {models: [], codexDefaults, codexWarnings}
   end

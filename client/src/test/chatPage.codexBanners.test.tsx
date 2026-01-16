@@ -83,6 +83,14 @@ describe('Chat Codex banners', () => {
             provider: 'codex',
             available: true,
             toolsAvailable: true,
+            codexDefaults: {
+              sandboxMode: 'workspace-write',
+              approvalPolicy: 'on-failure',
+              modelReasoningEffort: 'high',
+              networkAccessEnabled: true,
+              webSearchEnabled: true,
+            },
+            codexWarnings: [],
             models: [
               {
                 key: 'gpt-5.1-codex-max',
@@ -184,6 +192,14 @@ describe('Chat Codex banners', () => {
             provider: 'codex',
             available: true,
             toolsAvailable: false,
+            codexDefaults: {
+              sandboxMode: 'workspace-write',
+              approvalPolicy: 'on-failure',
+              modelReasoningEffort: 'high',
+              networkAccessEnabled: true,
+              webSearchEnabled: true,
+            },
+            codexWarnings: [],
             models: [
               {
                 key: 'gpt-5.1-codex-max',

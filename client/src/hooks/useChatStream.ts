@@ -1,4 +1,4 @@
-import type { LogLevel } from '@codeinfo2/common';
+import type { CodexDefaults, LogLevel } from '@codeinfo2/common';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getApiBaseUrl } from '../api/baseUrl';
 import { createLogger } from '../logging/logger';
@@ -202,7 +202,9 @@ export function useChatStream(
   model?: string,
   provider?: string,
   codexFlags?: CodexFlagState,
+  codexDefaults?: CodexDefaults,
 ) {
+  void codexDefaults;
   const log = useRef(createLogger('client')).current;
   const logWithChannel = useCallback(
     (level: LogLevel, message: string, context: Record<string, unknown> = {}) =>

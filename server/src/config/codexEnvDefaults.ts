@@ -24,6 +24,14 @@ const DEFAULT_CODEX_DEFAULTS: CodexDefaults = {
   webSearchEnabled: true,
 };
 
+const DEFAULT_CODEX_MODEL_LIST = [
+  'gpt-5.1-codex-max',
+  'gpt-5.1-codex-mini',
+  'gpt-5.1',
+  'gpt-5.2',
+  'gpt-5.2-codex',
+];
+
 const parseEnumEnv = <T extends string>(
   envName: string,
   value: string | undefined,
@@ -145,4 +153,44 @@ export const getCodexEnvDefaults = (): {
   );
 
   return { defaults, warnings };
+};
+
+export const getCodexModelList = (): {
+  models: string[];
+  warnings: string[];
+  fallbackUsed: boolean;
+} => {
+  const warnings: string[] = [];
+  const rawList = process.env.Codex_model_list;
+
+  if (rawList === undefined) {
+    return {
+      models: DEFAULT_CODEX_MODEL_LIST,
+      warnings,
+      fallbackUsed: true,
+    };
+  }
+
+  const parsed = rawList
+    .split(',')
+    .map((value) => value.trim())
+    .filter(Boolean);
+  const models = Array.from(new Set(parsed));
+
+  if (models.length === 0) {
+    warnings.push(
+      'Codex_model_list is empty; using the default model list instead.',
+    );
+    return {
+      models: DEFAULT_CODEX_MODEL_LIST,
+      warnings,
+      fallbackUsed: true,
+    };
+  }
+
+  return {
+    models,
+    warnings,
+    fallbackUsed: false,
+  };
 };

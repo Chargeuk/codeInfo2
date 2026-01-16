@@ -1190,7 +1190,7 @@ The proxy does not cache results and times out after 60s. Invalid base URLs are 
 - Success returns `200` with `[ { key, displayName, type } ]` and the chat UI defaults to the first entry when none is selected.
 - Failure or invalid/unreachable base URL returns `503 { error: "lmstudio unavailable" }`.
 - Logging: start, success, and failure entries record the sanitized base URL origin; success logs the model count for visibility.
-- `GET /chat/models?provider=codex` returns `ChatModelsResponse` with `codexDefaults` + `codexWarnings` for the client’s Codex flag defaults; non-Codex responses omit those optional fields.
+- `GET /chat/models?provider=codex` uses `Codex_model_list` (CSV trim + de-duplicate) with a fallback default list when the env list is empty; it returns the list only when Codex is available and always includes `codexDefaults` plus `codexWarnings` (env/default/model-list/runtime warnings). If web search is enabled while tools are unavailable, a runtime warning is appended. Logs include `[codex-model-list] using env list` with `modelCount`, `fallbackUsed`, and `warningsCount`.
 
 ```mermaid
 sequenceDiagram
@@ -1205,6 +1205,23 @@ sequenceDiagram
     Server-->>Client: 200 [{key,displayName,type}]
   else LM Studio down/invalid
     Server-->>Client: 503 {error:"lmstudio unavailable"}
+  end
+```
+
+```mermaid
+sequenceDiagram
+  participant Client as Chat page
+  participant Server
+  participant Env as process.env
+  participant MCP
+
+  Client->>Server: GET /chat/models?provider=codex
+  Server->>Env: Read Codex_model_list + Codex_* defaults
+  Server->>MCP: initialize (availability check)
+  alt Codex available
+    Server-->>Client: 200 {models[], codexDefaults, codexWarnings}
+  else Codex unavailable
+    Server-->>Client: 200 {models: [], codexDefaults, codexWarnings}
   end
 ```
 

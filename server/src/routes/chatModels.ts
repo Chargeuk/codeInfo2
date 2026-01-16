@@ -1,7 +1,10 @@
 import type { ChatModelInfo, ChatModelsResponse } from '@codeinfo2/common';
 import type { LMStudioClient } from '@lmstudio/sdk';
 import { Router } from 'express';
-import { getCodexEnvDefaults } from '../config/codexEnvDefaults.js';
+import {
+  getCodexEnvDefaults,
+  getCodexModelList,
+} from '../config/codexEnvDefaults.js';
 import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
 import { getCodexDetection } from '../providers/codexRegistry.js';
@@ -43,37 +46,51 @@ export function createChatModelsRouter({
       const detection = getCodexDetection();
       const mcp = await getMcpStatus();
       const codexEnv = getCodexEnvDefaults();
-      const codexModels: ChatModelInfo[] = [
-        {
-          key: 'gpt-5.1-codex-max',
-          displayName: 'gpt-5.1-codex-max',
-          type: 'codex',
-        },
-        {
-          key: 'gpt-5.1-codex-mini',
-          displayName: 'gpt-5.1-codex-mini',
-          type: 'codex',
-        },
-        {
-          key: 'gpt-5.1',
-          displayName: 'gpt-5.1',
-          type: 'codex',
-        },
-        {
-          key: 'gpt-5.2',
-          displayName: 'gpt-5.2',
-          type: 'codex',
-        },
+      const modelList = getCodexModelList();
+      const toolsAvailable = detection.available && mcp.available;
+      const runtimeWarnings: string[] = [];
+
+      if (codexEnv.defaults.webSearchEnabled && !toolsAvailable) {
+        runtimeWarnings.push(
+          'Codex web search is enabled, but tools are unavailable; web search will be ignored.',
+        );
+      }
+
+      const codexWarnings = [
+        ...modelList.warnings,
+        ...codexEnv.warnings,
+        ...runtimeWarnings,
       ];
+      const codexModels: ChatModelInfo[] = modelList.models.map((model) => ({
+        key: model,
+        displayName: model,
+        type: 'codex',
+      }));
+
+      baseLogger.info(
+        {
+          modelCount: modelList.models.length,
+          fallbackUsed: modelList.fallbackUsed,
+          warningsCount: modelList.warnings.length,
+        },
+        '[codex-model-list] using env list',
+      );
+
+      if (codexWarnings.length > 0) {
+        baseLogger.warn(
+          { requestId, warningsCount: codexWarnings.length, codexWarnings },
+          'chat models codex warnings',
+        );
+      }
 
       const response: ChatModelsResponse = {
         provider: 'codex',
         available: detection.available,
-        toolsAvailable: detection.available && mcp.available,
+        toolsAvailable,
         reason: detection.reason ?? (mcp.available ? undefined : mcp.reason),
         models: detection.available ? codexModels : [],
         codexDefaults: codexEnv.defaults,
-        codexWarnings: codexEnv.warnings,
+        codexWarnings,
       };
 
       return res.json(response);

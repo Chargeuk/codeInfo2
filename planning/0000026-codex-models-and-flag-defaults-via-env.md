@@ -881,14 +881,14 @@ Drive the Codex model list from `Codex_model_list`, extend `/chat/models?provide
 
 #### Subtasks
 
-1. [ ] Review Codex models route and MCP availability status:
+1. [x] Review Codex models route and MCP availability status:
    - Documentation to read (repeat):
      - Node.js `process.env` reference: https://nodejs.org/api/process.html#processenv
    - Files to read:
      - `server/src/routes/chatModels.ts`
      - `server/src/routes/chatProviders.ts`
 
-2. [ ] Extend the Codex env helper for model list parsing:
+2. [x] Extend the Codex env helper for model list parsing:
    - Documentation to read (repeat):
      - CSV parsing basics: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/String/split
    - Files to read:
@@ -900,7 +900,7 @@ Drive the Codex model list from `Codex_model_list`, extend `/chat/models?provide
      - Parse `Codex_model_list` as CSV, trim, drop empties, de-duplicate.
      - Warn and fall back to the built-in list if the parsed list is empty.
 
-3. [ ] Update `/chat/models?provider=codex` response:
+3. [x] Update `/chat/models?provider=codex` response:
    - Documentation to read (repeat):
      - JSON schema shape guidance (response contracts): https://www.jsonrpc.org/specification
    - Files to edit:
@@ -911,7 +911,7 @@ Drive the Codex model list from `Codex_model_list`, extend `/chat/models?provide
      - Log warnings using existing server logging patterns.
      - Keep existing response fields (`provider`, `available`, `toolsAvailable`, `models`, `reason`) intact.
 
-4. [ ] Append runtime warnings when tools are unavailable:
+4. [x] Append runtime warnings when tools are unavailable:
    - Documentation to read (repeat):
      - JSON schema shape guidance (response contracts): https://www.jsonrpc.org/specification
    - Files to edit:
@@ -920,7 +920,7 @@ Drive the Codex model list from `Codex_model_list`, extend `/chat/models?provide
      - If `webSearchEnabled === true` while tools are unavailable, append a warning without mutating the flag.
      - Merge model-list, default, and runtime warnings into `codexWarnings`.
 
-5. [ ] Update server defaults in `server/.env` (model list):
+5. [x] Update server defaults in `server/.env` (model list):
    - Documentation to read (repeat):
      - Environment variable docs (reference format): https://12factor.net/config
    - Files to edit:
@@ -928,7 +928,7 @@ Drive the Codex model list from `Codex_model_list`, extend `/chat/models?provide
    - Requirements:
      - Add `Codex_model_list` with the fallback entries plus `gpt-5.2-codex`.
 
-6. [ ] Add unit test: env model list parsing + response fields
+6. [x] Add unit test: env model list parsing + response fields
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
    - Test type: server unit test
@@ -936,7 +936,7 @@ Drive the Codex model list from `Codex_model_list`, extend `/chat/models?provide
    - Purpose: Assert env model list parsing is applied and response includes `codexDefaults`/`codexWarnings`.
    - Reference pattern: `server/src/test/unit/ws-chat-stream.test.ts` (node:test style).
 
-7. [ ] Add unit test: codexDefaults/codexWarnings included when Codex unavailable
+7. [x] Add unit test: codexDefaults/codexWarnings included when Codex unavailable
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
    - Test type: server unit test
@@ -944,7 +944,7 @@ Drive the Codex model list from `Codex_model_list`, extend `/chat/models?provide
    - Purpose: Ensure `/chat/models?provider=codex` still returns defaults/warnings even when Codex is unavailable.
    - Reference pattern: `server/src/test/unit/ws-chat-stream.test.ts` (node:test style).
 
-8. [ ] Add unit test: defaults warnings propagate into codexWarnings
+8. [x] Add unit test: defaults warnings propagate into codexWarnings
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
    - Test type: server unit test
@@ -952,7 +952,7 @@ Drive the Codex model list from `Codex_model_list`, extend `/chat/models?provide
    - Purpose: Confirm warnings from invalid env defaults are merged into `codexWarnings`.
    - Reference pattern: `server/src/test/unit/ws-chat-stream.test.ts` (node:test style).
 
-9. [ ] Add unit test: CSV trims, drops empties, de-duplicates
+9. [x] Add unit test: CSV trims, drops empties, de-duplicates
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
    - Test type: server unit test
@@ -960,7 +960,7 @@ Drive the Codex model list from `Codex_model_list`, extend `/chat/models?provide
    - Purpose: Ensure whitespace trimming, empty entry removal, and de-duplication are enforced.
    - Reference pattern: `server/src/test/unit/ws-chat-stream.test.ts` (node:test style).
 
-10. [ ] Add unit test: empty CSV fallback + warning
+10. [x] Add unit test: empty CSV fallback + warning
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
    - Test type: server unit test
@@ -968,7 +968,7 @@ Drive the Codex model list from `Codex_model_list`, extend `/chat/models?provide
    - Purpose: Warn and fall back to the built-in model list when the CSV yields no valid entries.
    - Reference pattern: `server/src/test/unit/ws-chat-stream.test.ts` (node:test style).
 
-11. [ ] Add unit test: runtime warning when web search enabled but tools unavailable
+11. [x] Add unit test: runtime warning when web search enabled but tools unavailable
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
    - Test type: server unit test
@@ -976,7 +976,7 @@ Drive the Codex model list from `Codex_model_list`, extend `/chat/models?provide
    - Purpose: Append a warning if `webSearchEnabled` is true while tools are unavailable.
    - Reference pattern: `server/src/test/unit/ws-chat-stream.test.ts` (node:test style).
 
-12. [ ] Add unit test: non-Codex provider omits codexDefaults/codexWarnings
+12. [x] Add unit test: non-Codex provider omits codexDefaults/codexWarnings
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
    - Test type: server unit test
@@ -984,28 +984,28 @@ Drive the Codex model list from `Codex_model_list`, extend `/chat/models?provide
    - Purpose: Ensure `/chat/models?provider=lmstudio` response does not include Codex-only fields.
    - Reference pattern: `server/src/test/unit/ws-chat-stream.test.ts` (node:test style).
 
-13. [ ] Update `README.md` with model list env details if changed:
+13. [x] Update `README.md` with model list env details if changed:
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location: `README.md`
    - Description: Document `Codex_model_list` CSV format and default list updates.
    - Purpose: Keep environment configuration docs aligned with model list behavior.
 
-14. [ ] Update `design.md` with model list response flow + mermaid diagrams:
+14. [x] Update `design.md` with model list response flow + mermaid diagrams:
    - Documentation to read (repeat):
      - Mermaid docs: Context7 `/mermaid-js/mermaid`
    - Location: `design.md`
    - Description: Add/update response-contract diagrams showing `codexDefaults`/`codexWarnings`.
    - Purpose: Ensure architecture docs reflect the updated `/chat/models` response.
 
-15. [ ] Update `projectStructure.md` after adding/removing files in this task:
+15. [x] Update `projectStructure.md` after adding/removing files in this task:
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location: `projectStructure.md`
    - Description: List every file added or removed in this task (paths) and update the tree entries.
    - Purpose: Keep the repo tree map accurate after file additions/removals.
 
-16. [ ] Add server log line for Codex model list selection:
+16. [x] Add server log line for Codex model list selection:
    - Files to edit:
      - `server/src/routes/chatModels.ts`
    - Log line to add:
@@ -1013,52 +1013,83 @@ Drive the Codex model list from `Codex_model_list`, extend `/chat/models?provide
    - Expected outcome:
      - Logs whenever `/chat/models?provider=codex` is called; `fallbackUsed` is `false` when env CSV is valid.
 
-17. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+17. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier options: https://prettier.io/docs/options
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
 
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
    - Documentation to read (repeat):
      - Jest docs: Context7 `/jestjs/jest`
 
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
 
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
-8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001): verify the Codex model list reflects the env-driven entries, confirm server logs include `[codex-model-list] using env list` with `fallbackUsed: false` and the expected `modelCount`, and ensure no console errors appear.
+8. [x] Manual Playwright-MCP check (http://host.docker.internal:5001): verify the Codex model list reflects the env-driven entries, confirm server logs include `[codex-model-list] using env list` with `fallbackUsed: false` and the expected `modelCount`, and ensure no console errors appear.
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
 
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
 #### Implementation notes
 
-- 
+- Reviewed `server/src/routes/chatModels.ts` and `server/src/routes/chatProviders.ts` to confirm current Codex availability/tooling logic and static model list usage.
+- Ran `npm run lint --workspaces` (existing import-order warnings only) and `npm run format:check --workspaces` after completing subtask 1.
+- Added `getCodexModelList()` and a default Codex model list in `server/src/config/codexEnvDefaults.ts`, including CSV trim/de-duplication and fallback warnings when the env list is empty.
+- Ran `npm run lint --workspaces` (existing import-order warnings only) and `npm run format:check --workspaces` after completing subtask 2.
+- Updated `server/src/routes/chatModels.ts` to build Codex models from the env list, include `codexDefaults`/`codexWarnings` on every response, and log warnings when present.
+- Ran `npm run lint --workspaces` (existing import-order warnings only) and `npm run format:check --workspaces` after completing subtask 3.
+- Added runtime warnings in `server/src/routes/chatModels.ts` when web search is enabled but Codex tools are unavailable, merging them into `codexWarnings`.
+- Ran `npm run lint --workspaces` (existing import-order warnings only) and `npm run format:check --workspaces` after completing subtask 4.
+- Added `Codex_model_list` defaults to `server/.env` with the fallback entries plus `gpt-5.2-codex`.
+- Ran `npm run lint --workspaces` (existing import-order warnings only) and `npm run format:check --workspaces` after completing subtask 5.
+- Added `server/src/test/unit/chatModels.codex.test.ts` coverage for Codex model list parsing and response fields.
+- Ran `npm run lint --workspaces` (existing import-order warnings only), `npm run format --workspaces`, and `npm run format:check --workspaces` after completing subtask 6.
+- Added unit coverage in `server/src/test/unit/chatModels.codex.test.ts` for Codex-unavailable responses, env default warnings, CSV de-duplication, empty list fallback warnings, runtime warnings, and non-Codex response behavior.
+- No additional lint/format changes were required after completing subtasks 7–12 (subtask 6 run still applies).
+- Updated `README.md` to document the `Codex_model_list` CSV defaults and list contents for Codex models.
+- Ran `npm run lint --workspaces` (existing import-order warnings only) and `npm run format:check --workspaces` after completing subtask 13.
+- Updated `design.md` to describe the Codex model list flow, runtime warnings, and added a `/chat/models?provider=codex` sequence diagram.
+- Ran `npm run lint --workspaces` (existing import-order warnings only) and `npm run format:check --workspaces` after completing subtask 14.
+- Updated `projectStructure.md` to include `server/src/test/unit/chatModels.codex.test.ts`.
+- Ran `npm run lint --workspaces` (existing import-order warnings only) and `npm run format:check --workspaces` after completing subtask 15.
+- Added `[codex-model-list] using env list` logging in `server/src/routes/chatModels.ts` with model count, fallback usage, and warning count.
+- Ran `npm run lint --workspaces` (existing import-order warnings only) and `npm run format:check --workspaces` after completing subtask 16.
+- Confirmed `npm run lint --workspaces` (existing import-order warnings only) and `npm run format:check --workspaces` as the final linting step for subtask 17.
+- `npm run build --workspace server` completed successfully.
+- `npm run build --workspace client` completed successfully (Vite chunk size warnings only).
+- `npm run test --workspace server` initially timed out, then failed due to a Chroma connection error from an unhealthy testcontainers stack; removing the `codeinfo2-chroma-cucumber`/`mongo_db_CodeInfo-cucumber`/testcontainers zipkin+otel containers and rerunning produced a successful pass (54 scenarios).
+- `npm run test --workspace client` completed successfully (existing VM Modules warnings and console logs during tests).
+- `npm run e2e` completed successfully (36 passed).
+- `npm run compose:build` completed successfully.
+- `npm run compose:up` started the docker compose stack successfully.
+- Manual Playwright check: `/chat` loaded, switched to OpenAI Codex, verified model list includes `gpt-5.1-codex-max`, `gpt-5.1-codex-mini`, `gpt-5.1`, `gpt-5.2`, `gpt-5.2-codex`, and no console errors; `logs/server.1.log` contained `[codex-model-list] using env list` with `modelCount: 5` and `fallbackUsed: false`.
+- `npm run compose:down` stopped the docker compose stack successfully.
 
 ---
 

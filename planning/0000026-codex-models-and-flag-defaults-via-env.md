@@ -1095,8 +1095,8 @@ Drive the Codex model list from `Codex_model_list`, extend `/chat/models?provide
 
 ### 6. Client: Codex defaults consumption + flags init
 
-- Task Status: **__in_progress__**
-- Git Commits: 
+- Task Status: **__done__**
+- Git Commits: eeef8f2
 
 #### Overview
 

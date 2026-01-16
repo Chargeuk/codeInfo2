@@ -535,7 +535,7 @@ Wire the new Codex env defaults helper into `validateChatRequest` so Codex reque
 
 ### 3. Server: Align ChatInterfaceCodex defaults
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: 
 
 #### Overview

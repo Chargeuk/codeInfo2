@@ -1,8 +1,15 @@
 import { Box, Container, CssBaseline } from '@mui/material';
+import { useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import NavBar from './components/NavBar';
 
 export default function App() {
+  useEffect(() => {
+    if (import.meta.env.DEV) {
+      console.info('[codex-final-check] smoke ready', { story: '0000026' });
+    }
+  }, []);
+
   return (
     <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
       <CssBaseline />

@@ -605,7 +605,11 @@ export default function ChatPage() {
   }, [provider, selectedConversation, setProvider]);
 
   useEffect(() => {
-    if (!import.meta.env.DEV) return;
+    const isDev =
+      (typeof import.meta !== 'undefined' && import.meta.env?.DEV) ||
+      (typeof window !== 'undefined' &&
+        (window as { __CODEINFO_TEST__?: boolean }).__CODEINFO_TEST__);
+    if (!isDev) return;
     if (codexDocsLoggedRef.current) return;
     if (isLoading) return;
     if (providers.length === 0 && models.length === 0) return;

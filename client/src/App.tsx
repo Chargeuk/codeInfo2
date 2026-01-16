@@ -5,7 +5,11 @@ import NavBar from './components/NavBar';
 
 export default function App() {
   useEffect(() => {
-    if (import.meta.env.DEV) {
+    const isDev =
+      (typeof import.meta !== 'undefined' && import.meta.env?.DEV) ||
+      (typeof window !== 'undefined' &&
+        (window as { __CODEINFO_TEST__?: boolean }).__CODEINFO_TEST__);
+    if (isDev) {
       console.info('[codex-final-check] smoke ready', { story: '0000026' });
     }
   }, []);

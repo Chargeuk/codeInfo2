@@ -1727,16 +1727,5 @@ The final task must always check against the acceptance criteria of the story. I
 - Testing: `npm run compose:up`.
 - Testing: Playwright MCP check at `http://host.docker.internal:5001/chat` confirmed Codex models, defaults, and warning banner; `[codex-final-check]` log did not appear in the production build. Saved screenshot `test-results/screenshots/0000026-9-codex-warning.jpg`.
 - Testing: `npm run compose:down`.
-- Testing: `npm run build --workspace server`.
-- Testing: `npm run build --workspace client` (Vite chunk-size warnings only).
-- Testing: `npm run test --workspace server`.
-- Testing: `npm run test --workspace client` failed with 59 test suites failing (147 tests) under Jest; output logged in the run.
-- Testing: `npm run e2e` (36 passed).
-- Testing: `npm run compose:build` (Vite chunk-size warnings only).
-- Testing: `npm run compose:up`.
-- Testing: Playwright MCP check at `http://host.docker.internal:5001/chat` confirmed Codex models, defaults, and warning banner; `[codex-final-check]` log did not appear in the production build. Saved screenshot `test-results/screenshots/0000026-9-codex-warning.jpg`.
-- Testing: `npm run compose:down`.
-- Details about the implementation. Include what went to plan and what did not.
-- Essential that any decisions that got made during the implementation are documented here
 
 ---

@@ -75,7 +75,13 @@ Then('the chat models response status code is {int}', (status: number) => {
 
 Then('the chat models body equals the mock models fixture', () => {
   assert(response, 'expected response');
-  assert.deepStrictEqual(response.body, mockModelsResponse);
+  const body = response.body as Record<string, unknown>;
+  const normalized = {
+    ...body,
+    codexDefaults: body.codexDefaults ?? undefined,
+    codexWarnings: body.codexWarnings ?? undefined,
+  };
+  assert.deepStrictEqual(normalized, mockModelsResponse);
 });
 
 Then(

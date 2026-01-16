@@ -13,4 +13,6 @@ export const mockModelsResponse: ChatModelsResponse = {
   available: true,
   toolsAvailable: true,
   models: mockModels,
+  codexDefaults: undefined,
+  codexWarnings: undefined,
 };

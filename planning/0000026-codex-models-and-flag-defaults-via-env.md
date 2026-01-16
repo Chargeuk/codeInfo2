@@ -696,7 +696,7 @@ Remove hard-coded Codex defaults from the provider interface so `ChatInterfaceCo
 
 ### 4. Shared: Codex defaults response types
 
-- Task Status: **__in_progress__**
+- Task Status: **__done__**
 - Git Commits: 
 
 #### Overview
@@ -717,14 +717,14 @@ Add shared types and fixtures for the new `/chat/models` Codex response fields s
 
 #### Subtasks
 
-1. [ ] Review existing shared model response types:
+1. [x] Review existing shared model response types:
    - Documentation to read (repeat):
      - TypeScript type system reference: https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - Files to read:
      - `common/src/lmstudio.ts`
      - `common/src/fixtures/mockModels.ts`
 
-2. [ ] Add Codex defaults response types:
+2. [x] Add Codex defaults response types:
    - Documentation to read (repeat):
      - TypeScript type system reference: https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - Files to edit:
@@ -733,7 +733,7 @@ Add shared types and fixtures for the new `/chat/models` Codex response fields s
      - Add a `CodexDefaults` type and optional `codexDefaults`/`codexWarnings` fields to `ChatModelsResponse`.
      - Keep Codex fields optional so non-codex providers can omit them.
 
-3. [ ] Update fixtures and shared mocks:
+3. [x] Update fixtures and shared mocks:
    - Documentation to read (repeat):
      - TypeScript type system reference: https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - Files to edit:
@@ -741,7 +741,7 @@ Add shared types and fixtures for the new `/chat/models` Codex response fields s
    - Requirements:
      - Extend mocks to include Codex response fields where appropriate.
 
-4. [ ] Update tests that consume the shared fixtures:
+4. [x] Update tests that consume the shared fixtures:
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
    - Test type: server Cucumber step update
@@ -750,28 +750,28 @@ Add shared types and fixtures for the new `/chat/models` Codex response fields s
    - Purpose: Keep shared-fixture tests aligned with the new response shape (no client usages found).
    - Reference pattern: other Cucumber step assertions in `server/src/test/steps/`.
 
-5. [ ] Update `README.md` if shared response fields are documented:
+5. [x] Update `README.md` if shared response fields are documented:
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location: `README.md`
    - Description: Add or update `/chat/models` response field documentation for `codexDefaults`/`codexWarnings`.
    - Purpose: Keep API usage docs aligned with shared DTOs.
 
-6. [ ] Update `design.md` if response contract diagrams change:
+6. [x] Update `design.md` if response contract diagrams change:
    - Documentation to read (repeat):
      - Mermaid docs: Context7 `/mermaid-js/mermaid`
    - Location: `design.md`
    - Description: Update response contract notes/diagrams to include new Codex fields.
    - Purpose: Ensure architecture docs match shared contract changes.
 
-7. [ ] Update `projectStructure.md` after adding/removing files in this task:
+7. [x] Update `projectStructure.md` after adding/removing files in this task:
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location: `projectStructure.md`
    - Description: List every file added or removed in this task (paths) and update the tree entries.
    - Purpose: Keep the repo tree map accurate after file additions/removals.
 
-8. [ ] Add client log line when `/chat/models` includes Codex defaults:
+8. [x] Add client log line when `/chat/models` includes Codex defaults:
    - Files to edit:
      - `client/src/hooks/useChatModel.ts`
    - Log line to add:
@@ -779,52 +779,80 @@ Add shared types and fixtures for the new `/chat/models` Codex response fields s
    - Expected outcome:
      - Appears once after models load; `hasWarnings` reflects whether `codexWarnings` is non-empty.
 
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+9. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier options: https://prettier.io/docs/options
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
 
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
    - Documentation to read (repeat):
      - Jest docs: Context7 `/jestjs/jest`
 
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
 
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
-8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001): open the Chat page, confirm the models list loads, verify the browser debug console includes `[codex-models-response] codexDefaults received` with `hasWarnings: false` (unless warnings are expected), and ensure no console errors appear.
+8. [x] Manual Playwright-MCP check (http://host.docker.internal:5001): open the Chat page, confirm the models list loads, verify the browser debug console includes `[codex-models-response] codexDefaults received` with `hasWarnings: false` (unless warnings are expected), and ensure no console errors appear.
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
 
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
 #### Implementation notes
 
-- 
+- Reviewed `common/src/lmstudio.ts` and `common/src/fixtures/mockModels.ts` to confirm current `ChatModelsResponse` and mock response shapes.
+- Ran `npm run lint --workspaces` (existing import-order warnings only) and `npm run format:check --workspaces` after completing subtask 1.
+- Added `CodexDefaults` plus optional `codexDefaults`/`codexWarnings` fields to `common/src/lmstudio.ts` for `/chat/models` responses.
+- Ran `npm run lint --workspaces` (existing import-order warnings only) and `npm run format:check --workspaces` after completing subtask 2.
+- Updated `common/src/fixtures/mockModels.ts` to include explicit `codexDefaults`/`codexWarnings` placeholders in the shared mock response.
+- Ran `npm run lint --workspaces` (existing import-order warnings only) and `npm run format:check --workspaces` after completing subtask 3.
+- Updated `server/src/test/steps/chat_models.steps.ts` to normalize optional `codexDefaults`/`codexWarnings` fields before comparing to the shared fixture.
+- Ran `npm run lint --workspaces` (existing import-order warnings only) and `npm run format:check --workspaces` after completing subtask 4.
+- Updated `README.md` to describe `codexDefaults`/`codexWarnings` fields in `/chat/models?provider=codex` responses.
+- Ran `npm run lint --workspaces` (existing import-order warnings only) and `npm run format:check --workspaces` after completing subtask 5.
+- Updated `design.md` to note the codex-specific `codexDefaults`/`codexWarnings` fields on `/chat/models` responses.
+- Ran `npm run lint --workspaces` (existing import-order warnings only) and `npm run format:check --workspaces` after completing subtask 6.
+- No `projectStructure.md` update needed because Task 4 added no new files or removals.
+- Ran `npm run lint --workspaces` (existing import-order warnings only) and `npm run format:check --workspaces` after completing subtask 7.
+- Added `[codex-models-response] codexDefaults received` logging in `client/src/hooks/useChatModel.ts` when Codex defaults are present.
+- Ran `npm run lint --workspaces` (existing import-order warnings only) and `npm run format:check --workspaces` after completing subtask 8.
+- Ran `npm run lint --workspaces` (existing import-order warnings only) and `npm run format:check --workspaces` after completing subtask 9.
+- Added `codexDefaults`/`codexWarnings` fields to the Codex `/chat/models` response using `getCodexEnvDefaults()` so the new client log line can fire.
+- Ran `npm run lint --workspaces` (existing import-order warnings only) and `npm run format:check --workspaces` after updating the Codex models response.
+- Updated `common/src/lmstudio.ts` to include `minimal` in `CodexDefaults.modelReasoningEffort` so the server defaults type aligns with the shared response type.
+- `npm run build --workspace server` initially failed due to the CodexDefaults reasoning-effort mismatch, then passed after updating the shared type.
+- `npm run build --workspace client` completed successfully (Vite chunk size warnings only).
+- `npm run test --workspace server` initially failed with Chroma connection errors because the testcontainers compose stack was blocked by existing `mongo_db_CodeInfo-cucumber`/zipkin/otel containers; removing the old containers and rerunning allowed the testcontainers Chroma stack to start and the server tests passed.
+- `npm run test --workspace client` passed with existing console warnings from tests.
+- `npm run e2e` completed successfully (33 passed, 3 skipped).
+- `npm run compose:build` completed successfully.
+- `npm run compose:up` started the docker compose stack successfully.
+- Manual Playwright check: `/chat` loaded, switched provider to OpenAI Codex, observed `[codex-models-response] codexDefaults received` in the console with `hasWarnings: true` (expected due to Codex warnings), and no console errors were logged.
+- `npm run compose:down` stopped the docker compose stack successfully.
 
 ---
 

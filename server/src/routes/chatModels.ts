@@ -1,6 +1,7 @@
 import type { ChatModelInfo, ChatModelsResponse } from '@codeinfo2/common';
 import type { LMStudioClient } from '@lmstudio/sdk';
 import { Router } from 'express';
+import { getCodexEnvDefaults } from '../config/codexEnvDefaults.js';
 import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
 import { getCodexDetection } from '../providers/codexRegistry.js';
@@ -41,6 +42,7 @@ export function createChatModelsRouter({
     if (provider === 'codex') {
       const detection = getCodexDetection();
       const mcp = await getMcpStatus();
+      const codexEnv = getCodexEnvDefaults();
       const codexModels: ChatModelInfo[] = [
         {
           key: 'gpt-5.1-codex-max',
@@ -70,6 +72,8 @@ export function createChatModelsRouter({
         toolsAvailable: detection.available && mcp.available,
         reason: detection.reason ?? (mcp.available ? undefined : mcp.reason),
         models: detection.available ? codexModels : [],
+        codexDefaults: codexEnv.defaults,
+        codexWarnings: codexEnv.warnings,
       };
 
       return res.json(response);

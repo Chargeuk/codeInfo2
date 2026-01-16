@@ -1186,10 +1186,11 @@ The proxy does not cache results and times out after 60s. Invalid base URLs are 
 
 ### Chat models endpoint
 
-- `GET /chat/models` uses `LMSTUDIO_BASE_URL` (converted to ws/wss for the SDK) to call `system.listDownloadedModels()`.
+- `GET /chat/models?provider=lmstudio` uses `LMSTUDIO_BASE_URL` (converted to ws/wss for the SDK) to call `system.listDownloadedModels()`.
 - Success returns `200` with `[ { key, displayName, type } ]` and the chat UI defaults to the first entry when none is selected.
 - Failure or invalid/unreachable base URL returns `503 { error: "lmstudio unavailable" }`.
 - Logging: start, success, and failure entries record the sanitized base URL origin; success logs the model count for visibility.
+- `GET /chat/models?provider=codex` returns `ChatModelsResponse` with `codexDefaults` + `codexWarnings` for the client’s Codex flag defaults; non-Codex responses omit those optional fields.
 
 ```mermaid
 sequenceDiagram

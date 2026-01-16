@@ -32,6 +32,14 @@ export type ChatModelInfo = {
   type: string;
 };
 
+export type CodexDefaults = {
+  sandboxMode: 'read-only' | 'workspace-write' | 'danger-full-access';
+  approvalPolicy: 'untrusted' | 'on-request' | 'on-failure' | 'never';
+  modelReasoningEffort: 'minimal' | 'low' | 'medium' | 'high' | 'xhigh';
+  networkAccessEnabled: boolean;
+  webSearchEnabled: boolean;
+};
+
 export type ChatProviderInfo = {
   id: string;
   label: string;
@@ -45,5 +53,7 @@ export type ChatModelsResponse = {
   available: boolean;
   toolsAvailable: boolean;
   models: ChatModelInfo[];
+  codexDefaults?: CodexDefaults;
+  codexWarnings?: string[];
   reason?: string;
 };

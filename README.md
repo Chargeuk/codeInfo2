@@ -465,10 +465,11 @@ Ingest collection names (`INGEST_COLLECTION`, `INGEST_ROOTS_COLLECTION`) come fr
 
 ### Chat models (LM Studio)
 
-- Endpoint: `GET /chat/models` (uses `LMSTUDIO_BASE_URL`; no query parameters). Returns `[ { "key": "llama-3", "displayName": "Llama 3 Instruct", "type": "gguf" } ]` shaped items.
+- Endpoint: `GET /chat/models?provider=lmstudio` (uses `LMSTUDIO_BASE_URL`). Returns `[ { "key": "llama-3", "displayName": "Llama 3 Instruct", "type": "gguf" } ]` shaped items.
 - Failure: if LM Studio is unreachable/invalid, responds `503 { "error": "lmstudio unavailable" }`.
 - The chat UI selects the first item by default when no model is chosen; callers should treat an empty array as “no models available”.
 - Logging: start/success/failure log entries include the base URL origin and model count on success; errors log the sanitized origin only.
+- Codex requests use `GET /chat/models?provider=codex` and include `codexDefaults` (server env defaults) plus `codexWarnings` (env warnings) in the response; non-Codex responses omit these optional fields.
 
 ### Chat streaming
 

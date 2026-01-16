@@ -163,6 +163,13 @@ export function useChatModel() {
 
         const data = (await res.json()) as ChatModelsResponse;
         const models = Array.isArray(data.models) ? data.models : [];
+        if (data.codexDefaults) {
+          const hasWarnings = Boolean(data.codexWarnings?.length);
+          console.info('[codex-models-response] codexDefaults received', {
+            hasWarnings,
+            codexDefaults: data.codexDefaults,
+          });
+        }
         setAvailable(Boolean(data.available));
         setToolsAvailable(Boolean(data.toolsAvailable));
         setProviderReason(data.reason);

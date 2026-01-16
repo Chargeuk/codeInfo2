@@ -38,25 +38,25 @@ const parseEnumEnv = <T extends string>(
   allowed: readonly T[],
   fallback: T,
   warnings: string[],
-): { value: T; fromEnv: boolean } => {
+): { value: T; envVarPresent: boolean } => {
   if (value === undefined) {
-    return { value: fallback, fromEnv: false };
+    return { value: fallback, envVarPresent: false };
   }
 
   const trimmed = value.trim();
   if (!trimmed) {
     warnings.push(`${envName} is empty; using default "${fallback}" instead.`);
-    return { value: fallback, fromEnv: true };
+    return { value: fallback, envVarPresent: true };
   }
 
   if (!allowed.includes(trimmed as T)) {
     warnings.push(
       `${envName} must be one of ${allowed.join(', ')}; received "${trimmed}". Using default "${fallback}" instead.`,
     );
-    return { value: fallback, fromEnv: true };
+    return { value: fallback, envVarPresent: true };
   }
 
-  return { value: trimmed as T, fromEnv: true };
+  return { value: trimmed as T, envVarPresent: true };
 };
 
 const parseBooleanEnv = (
@@ -64,15 +64,15 @@ const parseBooleanEnv = (
   value: string | undefined,
   fallback: boolean,
   warnings: string[],
-): { value: boolean; fromEnv: boolean } => {
+): { value: boolean; envVarPresent: boolean } => {
   if (value === undefined) {
-    return { value: fallback, fromEnv: false };
+    return { value: fallback, envVarPresent: false };
   }
 
   const trimmed = value.trim();
   if (!trimmed) {
     warnings.push(`${envName} is empty; using default "${fallback}" instead.`);
-    return { value: fallback, fromEnv: true };
+    return { value: fallback, envVarPresent: true };
   }
 
   const normalized = trimmed.toLowerCase();
@@ -80,10 +80,10 @@ const parseBooleanEnv = (
     warnings.push(
       `${envName} must be "true" or "false"; received "${trimmed}". Using default "${fallback}" instead.`,
     );
-    return { value: fallback, fromEnv: true };
+    return { value: fallback, envVarPresent: true };
   }
 
-  return { value: normalized === 'true', fromEnv: true };
+  return { value: normalized === 'true', envVarPresent: true };
 };
 
 export const getCodexEnvDefaults = (): {
@@ -137,7 +137,7 @@ export const getCodexEnvDefaults = (): {
   if (
     defaults.networkAccessEnabled &&
     defaults.sandboxMode !== 'workspace-write' &&
-    (networkAccessEnabled.fromEnv || sandboxMode.fromEnv)
+    (networkAccessEnabled.envVarPresent || sandboxMode.envVarPresent)
   ) {
     warnings.push(
       'Codex_network_access_enabled is true, but Codex_sandbox_mode is not "workspace-write"; network access requires workspace-write mode.',

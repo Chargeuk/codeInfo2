@@ -35,7 +35,7 @@ export type ChatModelInfo = {
 export type CodexDefaults = {
   sandboxMode: 'read-only' | 'workspace-write' | 'danger-full-access';
   approvalPolicy: 'untrusted' | 'on-request' | 'on-failure' | 'never';
-  modelReasoningEffort: 'minimal' | 'low' | 'medium' | 'high' | 'xhigh';
+  modelReasoningEffort: 'low' | 'medium' | 'high' | 'xhigh';
   networkAccessEnabled: boolean;
   webSearchEnabled: boolean;
 };

@@ -380,7 +380,7 @@ Wire the new Codex env defaults helper into `validateChatRequest` so Codex reque
 
 #### Subtasks
 
-1. [ ] Review current validation behavior:
+1. [x] Review current validation behavior:
    - Documentation to read (repeat):
      - TypeScript literal unions: https://www.typescriptlang.org/docs/handbook/2/everyday-types.html#literal-types
    - Files to read:
@@ -389,7 +389,7 @@ Wire the new Codex env defaults helper into `validateChatRequest` so Codex reque
    - Goal:
      - Confirm where defaults are injected and where warnings are produced.
 
-2. [ ] Update `validateChatRequest` to use env defaults:
+2. [x] Update `validateChatRequest` to use env defaults:
    - Documentation to read (repeat):
      - TypeScript literal unions: https://www.typescriptlang.org/docs/handbook/2/everyday-types.html#literal-types
    - Files to edit:
@@ -400,7 +400,7 @@ Wire the new Codex env defaults helper into `validateChatRequest` so Codex reque
      - Preserve explicit request overrides.
      - Keep LM Studio warning behavior unchanged.
 
-3. [ ] Add unit test: env defaults applied when flags omitted
+3. [x] Add unit test: env defaults applied when flags omitted
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
    - Test type: server unit test
@@ -408,7 +408,7 @@ Wire the new Codex env defaults helper into `validateChatRequest` so Codex reque
    - Purpose: Ensure env defaults are injected only when Codex flags are missing.
    - Reference pattern: `server/src/test/unit/ws-chat-stream.test.ts` (node:test style).
 
-4. [ ] Add unit test: explicit request flags override env defaults
+4. [x] Add unit test: explicit request flags override env defaults
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
    - Test type: server unit test
@@ -416,7 +416,7 @@ Wire the new Codex env defaults helper into `validateChatRequest` so Codex reque
    - Purpose: Confirm explicit request values override env defaults for Codex flags.
    - Reference pattern: `server/src/test/unit/ws-chat-stream.test.ts` (node:test style).
 
-5. [ ] Add unit test: non-Codex validation unchanged
+5. [x] Add unit test: non-Codex validation unchanged
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
    - Test type: server unit test
@@ -424,7 +424,7 @@ Wire the new Codex env defaults helper into `validateChatRequest` so Codex reque
    - Purpose: Verify non-Codex requests ignore Codex defaults and preserve existing warning behavior.
    - Reference pattern: `server/src/test/unit/ws-chat-stream.test.ts` (node:test style).
 
-6. [ ] Add unit test: non-Codex provider with Codex flags emits warnings
+6. [x] Add unit test: non-Codex provider with Codex flags emits warnings
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
    - Test type: server unit test
@@ -432,28 +432,28 @@ Wire the new Codex env defaults helper into `validateChatRequest` so Codex reque
    - Purpose: Ensure Codex-only flags are ignored and warnings are emitted when provider is not Codex.
    - Reference pattern: `server/src/test/unit/ws-chat-stream.test.ts` (node:test style).
 
-7. [ ] Update `README.md` if validation behavior changes are user-facing:
+7. [x] Update `README.md` if validation behavior changes are user-facing:
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location: `README.md`
    - Description: Note that Codex request flags default from server env when omitted.
    - Purpose: Keep user-facing docs aligned with request validation behavior.
 
-8. [ ] Update `design.md` with validation flow changes + mermaid diagrams:
+8. [x] Update `design.md` with validation flow changes + mermaid diagrams:
    - Documentation to read (repeat):
      - Mermaid docs: Context7 `/mermaid-js/mermaid`
    - Location: `design.md`
    - Description: Update validation flow to show env defaults injection and warning behavior.
    - Purpose: Ensure architecture docs reflect the server-side defaulting logic.
 
-9. [ ] Update `projectStructure.md` after adding/removing files in this task:
+9. [x] Update `projectStructure.md` after adding/removing files in this task:
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location: `projectStructure.md`
    - Description: List every file added or removed in this task (paths) and update the tree entries.
    - Purpose: Keep the repo tree map accurate after file additions/removals.
 
-10. [ ] Add server log line when env defaults are applied during validation:
+10. [x] Add server log line when env defaults are applied during validation:
    - Files to edit:
      - `server/src/routes/chatValidators.ts`
    - Log line to add:
@@ -461,52 +461,75 @@ Wire the new Codex env defaults helper into `validateChatRequest` so Codex reque
    - Expected outcome:
      - `defaultedFlags` lists every flag filled in from env when the request omits Codex flags.
 
-11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+11. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier options: https://prettier.io/docs/options
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
 
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
    - Documentation to read (repeat):
      - Jest docs: Context7 `/jestjs/jest`
 
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
 
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
-8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001): send a Codex message without changing flags, confirm the request succeeds, and verify the server logs include `[codex-validate] applied env defaults` with all five Codex flags listed; confirm no errors appear in the browser debug console.
+8. [x] Manual Playwright-MCP check (http://host.docker.internal:5001): send a Codex message without changing flags, confirm the request succeeds, and verify the server logs include `[codex-validate] applied env defaults` with all five Codex flags listed; confirm no errors appear in the browser debug console.
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
 
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
 #### Implementation notes
 
-- 
+- Reviewed `server/src/routes/chatValidators.ts`; defaults are applied inline per-flag for Codex and warnings are appended when Codex-only flags are supplied to non-Codex providers. No existing `chatValidators` unit tests were found under `server/src/test/unit`.
+- Ran `npm run lint --workspaces` (existing import-order warnings only) and `npm run format:check --workspaces`.
+- Updated `server/src/routes/chatValidators.ts` to pull Codex defaults from `getCodexEnvDefaults()`, append env warnings for Codex requests, and track which flags were defaulted.
+- Re-ran `npm run lint --workspaces` (existing warnings only) and `npm run format:check --workspaces` after the validation update.
+- Added `server/src/test/unit/chatValidators.test.ts` covering env defaults, explicit overrides, and non-Codex warning behavior.
+- Ran `npm run lint --workspaces` (existing warnings only) and `npm run format:check --workspaces` after adding chat validator tests.
+- Updated `README.md` to state that server env defaults apply when Codex flags are omitted.
+- Ran `npm run lint --workspaces` (existing warnings only) and `npm run format:check --workspaces` after the README update.
+- Updated `design.md` to document validation applying Codex env defaults and the `[codex-validate] applied env defaults` log.
+- Ran `npm run lint --workspaces` (existing warnings only) and `npm run format:check --workspaces` after the design update.
+- Updated `projectStructure.md` to list `server/src/test/unit/chatValidators.test.ts`.
+- Ran `npm run lint --workspaces` (existing warnings only) and `npm run format:check --workspaces` after the project structure update.
+- Added `[codex-validate] applied env defaults` logging with `defaultedFlags` in `server/src/routes/chatValidators.ts`.
+- Ran `npm run lint --workspaces` (existing warnings only) and `npm run format:check --workspaces` after adding the validation log line.
+- `npm run build --workspace server` completed successfully.
+- `npm run build --workspace client` completed successfully (Vite chunk size warnings only).
+- Updated `server/src/test/integration/chat-codex-mcp.test.ts` to assert Codex defaults via `getCodexEnvDefaults()` instead of hard-coded sandbox values.
+- `npm run test --workspace server` passed (unit + integration; 54 scenarios).
+- `npm run test --workspace client` passed; existing console logs and markdown nesting warnings were emitted.
+- `npm run e2e` completed successfully (33 passed, 3 skipped).
+- `npm run compose:build` completed successfully.
+- `npm run compose:up` started the docker compose stack successfully (containers healthy).
+- Manual Playwright MCP check: POSTed a Codex message via http://host.docker.internal:5001, request returned 202, browser console had no errors, and `/app/logs/server.1.log` contained `[codex-validate] applied env defaults` with all five flags listed.
+- `npm run compose:down` stopped the docker compose stack.
 
 ---
 

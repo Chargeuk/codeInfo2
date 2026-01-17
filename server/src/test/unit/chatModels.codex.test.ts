@@ -237,6 +237,35 @@ test('codex model list empty CSV falls back with warning', async () => {
   }
 });
 
+test('codex model list whitespace-only CSV falls back with warning', async () => {
+  env.set('Codex_model_list', '   ');
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+  });
+
+  const server = await startServer({ mcpAvailable: true });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/models?provider=codex')
+      .expect(200);
+
+    const modelKeys = res.body.models.map(
+      (model: { key: string }) => model.key,
+    );
+    assert.ok(modelKeys.includes('gpt-5.2-codex'));
+    assert.ok(
+      res.body.codexWarnings.some((warning: string) =>
+        warning.includes('Codex_model_list is empty'),
+      ),
+    );
+  } finally {
+    await stopServer(server);
+  }
+});
+
 test('codex runtime warning when web search enabled but tools unavailable', async () => {
   setCodexDetection({
     available: true,

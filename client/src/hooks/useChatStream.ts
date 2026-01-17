@@ -26,6 +26,14 @@ export type CodexFlagState = {
   modelReasoningEffort?: ModelReasoningEffort;
 };
 
+const DEFAULT_CODEX_FLAGS: Required<CodexFlagState> = {
+  sandboxMode: 'danger-full-access',
+  approvalPolicy: 'on-failure',
+  modelReasoningEffort: 'high',
+  networkAccessEnabled: true,
+  webSearchEnabled: true,
+};
+
 export type ToolCitation = {
   repo: string;
   relPath: string;
@@ -901,13 +909,35 @@ export function useChatStream(
           provider === 'codex' ? { ...baseCodexPayload } : {};
 
         if (provider === 'codex') {
+          const fallbackFlags: Required<CodexFlagState> = {
+            sandboxMode:
+              codexFlags?.sandboxMode ?? DEFAULT_CODEX_FLAGS.sandboxMode,
+            approvalPolicy:
+              codexFlags?.approvalPolicy ?? DEFAULT_CODEX_FLAGS.approvalPolicy,
+            modelReasoningEffort:
+              codexFlags?.modelReasoningEffort ??
+              DEFAULT_CODEX_FLAGS.modelReasoningEffort,
+            networkAccessEnabled:
+              codexFlags?.networkAccessEnabled ??
+              DEFAULT_CODEX_FLAGS.networkAccessEnabled,
+            webSearchEnabled:
+              codexFlags?.webSearchEnabled ??
+              DEFAULT_CODEX_FLAGS.webSearchEnabled,
+          };
+
           if (!codexDefaults) {
-            omittedFlags.push(
-              'sandboxMode',
-              'approvalPolicy',
-              'modelReasoningEffort',
-              'networkAccessEnabled',
-              'webSearchEnabled',
+            codexPayload.sandboxMode = fallbackFlags.sandboxMode;
+            codexPayload.approvalPolicy = fallbackFlags.approvalPolicy;
+            codexPayload.modelReasoningEffort =
+              fallbackFlags.modelReasoningEffort;
+            codexPayload.networkAccessEnabled =
+              fallbackFlags.networkAccessEnabled;
+            codexPayload.webSearchEnabled = fallbackFlags.webSearchEnabled;
+            console.info(
+              '[codex-payload] defaults missing, sending fallbacks',
+              {
+                fallbackFlags,
+              },
             );
           } else {
             const sandboxMode = codexFlags?.sandboxMode;

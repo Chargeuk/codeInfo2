@@ -1751,40 +1751,56 @@ Address review feedback by removing the network-access mismatch warning and ensu
 
 #### Subtasks
 
-1. [ ] Remove the network-access mismatch warning so it is not surfaced to the client:
+1. [x] Remove the network-access mismatch warning so it is not surfaced to the client:
    - Files to edit:
      - `server/src/config/codexEnvDefaults.ts`
      - `server/src/routes/chatModels.ts` (if warning list composition changes)
-2. [ ] Ensure Codex payloads send fallback values when `codexDefaults` are missing:
+2. [x] Ensure Codex payloads send fallback values when `codexDefaults` are missing:
    - Files to edit:
      - `client/src/hooks/useChatStream.ts`
      - `client/src/pages/ChatPage.tsx`
    - Verify the payload always includes sandbox/approval/reasoning/network/websearch flags for Codex when defaults are unavailable.
-3. [ ] Update any impacted tests or fixtures for the new behavior:
+3. [x] Update any impacted tests or fixtures for the new behavior:
    - Files to edit:
      - `client/src/test/chatPage.flags.*.test.tsx` (as needed)
      - `server/src/test/unit/chatModels.codex.test.ts` (if warnings list changes)
-4. [ ] Update documentation if warnings behavior or defaults handling is described:
+4. [x] Update documentation if warnings behavior or defaults handling is described:
    - Files to edit:
      - `README.md`
      - `design.md`
-5. [ ] Update `projectStructure.md` if any files are added or removed.
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+5. [x] Update `projectStructure.md` if any files are added or removed.
+6. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000`)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001): verify Codex defaults still load, warnings banner is absent, and fallback flags are sent when defaults are missing.
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000`)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check (http://host.docker.internal:5001): verify Codex defaults still load, warnings banner is absent, and fallback flags are sent when defaults are missing.
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
+- Removed the network-access mismatch warning from `server/src/config/codexEnvDefaults.ts`.
+- Ensured Codex payloads send fallback flags when defaults are missing in `client/src/hooks/useChatStream.ts` and `client/src/pages/ChatPage.tsx`.
+- Updated client/server tests to reflect fallback flag payloads and removed the mismatch-warning unit coverage.
+- Updated `design.md` to remove the network-access mismatch warning note.
+- Reviewed `projectStructure.md`; no changes required.
+- Ran `npm run lint --workspaces` (existing import-order warnings only), `npm run format:check --workspaces` (failed for `useChatStream.ts`), and `npm run format --workspaces` to resolve formatting.
+- Ran `npm run build --workspace server`.
+- Ran `npm run build --workspace client` (noted Vite chunk size warnings).
+- Ran `npm run test --workspace server` (initial timeout at 120s; reran with extended timeout and passed).
+- Ran `npm run test --workspace client` (Jest VM module warnings only).
+- Ran `npm run e2e` (compose build warnings about deprecated npm packages; 3 e2e tests skipped as expected).
+- Ran `npm run compose:build` (cached build output; repeated Vite chunk size warning).
+- Ran `npm run compose:up` (stack started; no services to build warning).
+- Manual Playwright-MCP check on http://host.docker.internal:5001/chat: no warning banner/alerts with Codex defaults loaded; intercepted `/chat/models?provider=codex` to drop defaults and confirmed `/chat` payload sent fallback Codex flags (danger-full-access/on-failure/high/true/true).
+- Ran `npm run compose:down`.
+- Adjusted `server/src/config/codexEnvDefaults.ts` to align `modelReasoningEfforts` typing with shared `CodexDefaults` after server build surfaced a union mismatch.
 - Details about the implementation. Include what went to plan and what did not.
 - Essential that any decisions that got made during the implementation are documented here
 

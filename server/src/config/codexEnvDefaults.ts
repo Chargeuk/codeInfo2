@@ -1,3 +1,4 @@
+import type { CodexDefaults as SharedCodexDefaults } from '@codeinfo2/common';
 import type { ApprovalMode, SandboxMode } from '@openai/codex-sdk';
 
 import { baseLogger } from '../logger.js';
@@ -5,16 +6,9 @@ import {
   approvalPolicies,
   modelReasoningEfforts,
   sandboxModes,
-  type AppModelReasoningEffort,
 } from '../routes/chatValidators.js';
 
-export type CodexDefaults = {
-  sandboxMode: SandboxMode;
-  approvalPolicy: ApprovalMode;
-  modelReasoningEffort: AppModelReasoningEffort;
-  networkAccessEnabled: boolean;
-  webSearchEnabled: boolean;
-};
+export type CodexDefaults = SharedCodexDefaults;
 
 const DEFAULT_CODEX_DEFAULTS: CodexDefaults = {
   sandboxMode: 'danger-full-access',
@@ -109,7 +103,7 @@ export const getCodexEnvDefaults = (): {
   const modelReasoningEffort = parseEnumEnv(
     'Codex_reasoning_effort',
     process.env.Codex_reasoning_effort,
-    modelReasoningEfforts,
+    modelReasoningEfforts as CodexDefaults['modelReasoningEffort'][],
     DEFAULT_CODEX_DEFAULTS.modelReasoningEffort,
     warnings,
   );
@@ -133,16 +127,6 @@ export const getCodexEnvDefaults = (): {
     networkAccessEnabled: networkAccessEnabled.value,
     webSearchEnabled: webSearchEnabled.value,
   };
-
-  if (
-    defaults.networkAccessEnabled &&
-    defaults.sandboxMode !== 'workspace-write' &&
-    (networkAccessEnabled.envVarPresent || sandboxMode.envVarPresent)
-  ) {
-    warnings.push(
-      'Codex_network_access_enabled is true, but Codex_sandbox_mode is not "workspace-write"; network access requires workspace-write mode.',
-    );
-  }
 
   baseLogger.info(
     {

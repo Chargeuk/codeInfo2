@@ -22,7 +22,7 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - Express 5 app with CORS enabled and env-driven port (default 5010 via `server/.env`).
 - Routes: `/health` returns `{ status: 'ok', uptime, timestamp }`; `/version` returns `VersionInfo` using `package.json` version; `/info` echoes a friendly message plus VersionInfo.
 - Depends on `@codeinfo2/common` for DTO helper; built with `tsc -b`, started via `npm run start --workspace server`.
-- Codex env defaults are resolved by `server/src/config/codexEnvDefaults.ts`, which parses `Codex_*` env vars into validated defaults plus warnings (including network-access mismatches) and logs `[codex-env-defaults] resolved`.
+- Codex env defaults are resolved by `server/src/config/codexEnvDefaults.ts`, which parses `Codex_*` env vars into validated defaults plus warnings and logs `[codex-env-defaults] resolved`.
 - `validateChatRequest` applies Codex env defaults when request flags are missing, surfaces env warnings on the response payload, and logs `[codex-validate] applied env defaults` with the defaulted flag list.
 - `ChatInterfaceCodex` builds thread options from validated flags without extra fallback defaults, leaving missing values undefined so Codex config/env defaults apply, and logs `[codex-thread-options] prepared` with `undefinedFlags`.
 

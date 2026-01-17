@@ -259,7 +259,7 @@ describe('Codex sandbox flag payloads', () => {
     expect(codexBody.sandboxMode).toBe('danger-full-access');
   });
 
-  it('omits all Codex flags when defaults are missing', async () => {
+  it('sends fallback Codex flags when defaults are missing', async () => {
     const chatBodies: Record<string, unknown>[] = [];
     mockProvidersWithBodies(chatBodies, { includeCodexDefaults: false });
 
@@ -295,10 +295,10 @@ describe('Codex sandbox flag payloads', () => {
     await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(1));
     const codexBody = chatBodies[0];
     expect(codexBody.provider).toBe('codex');
-    expect(codexBody).not.toHaveProperty('sandboxMode');
-    expect(codexBody).not.toHaveProperty('approvalPolicy');
-    expect(codexBody).not.toHaveProperty('modelReasoningEffort');
-    expect(codexBody).not.toHaveProperty('networkAccessEnabled');
-    expect(codexBody).not.toHaveProperty('webSearchEnabled');
+    expect(codexBody.sandboxMode).toBe('danger-full-access');
+    expect(codexBody.approvalPolicy).toBe('on-failure');
+    expect(codexBody.modelReasoningEffort).toBe('high');
+    expect(codexBody.networkAccessEnabled).toBe(true);
+    expect(codexBody.webSearchEnabled).toBe(true);
   });
 });

@@ -125,18 +125,3 @@ test('boolean parsing handles valid and invalid values', () => {
     ),
   );
 });
-
-test('network access warning appears outside workspace-write', () => {
-  setEnv({
-    Codex_sandbox_mode: 'danger-full-access',
-    Codex_network_access_enabled: 'true',
-  });
-
-  const { warnings } = getCodexEnvDefaults();
-
-  assert.ok(
-    warnings.some((warning) =>
-      warning.includes('network access requires workspace-write mode'),
-    ),
-  );
-});

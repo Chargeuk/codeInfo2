@@ -157,7 +157,7 @@ export default function ChatPage() {
     refreshProviders,
   } = useChatModel();
   const [sandboxMode, setSandboxMode] = useState<SandboxMode>(
-    codexDefaults?.sandboxMode ?? 'workspace-write',
+    codexDefaults?.sandboxMode ?? 'danger-full-access',
   );
   const [approvalPolicy, setApprovalPolicy] = useState<ApprovalPolicy>(
     codexDefaults?.approvalPolicy ?? 'on-failure',

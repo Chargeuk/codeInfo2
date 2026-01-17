@@ -1184,7 +1184,7 @@ Add support for `command` steps that run agent command macros (`commands/<comman
 
 #### Subtasks
 
-1. [ ] Review agent command loader + schema:
+1. [x] Review agent command loader + schema:
    - Documentation to read (repeat):
      - JSON schema validation patterns: Context7 `/colinhacks/zod`
    - Files to read:
@@ -1200,7 +1200,7 @@ Add support for `command` steps that run agent command macros (`commands/<comman
      - `runAgentCommandRunner` and `isSafeCommandName` in `server/src/agents/commandsRunner.ts`.
      - `AgentCommandFileSchema` in `server/src/agents/commandsSchema.ts`.
 
-2. [ ] Implement `command` step execution in flow runtime:
+2. [x] Implement `command` step execution in flow runtime:
    - Documentation to read (repeat):
      - Express error handling (invalid request responses): Context7 `/expressjs/express/v5.1.0`
    - Files to edit:
@@ -1216,7 +1216,7 @@ Add support for `command` steps that run agent command macros (`commands/<comman
    - Logging requirement (repeat):
      - Emit `flows.run.command_step` (info) with `{ commandName, agentType }` when a command step begins execution.
 
-3. [ ] Integration tests: command step run:
+3. [x] Integration tests: command step run:
    - Test type: Integration (`node:test`)
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
@@ -1231,7 +1231,7 @@ Add support for `command` steps that run agent command macros (`commands/<comman
    - Purpose:
      - Validate a command step succeeds and invalid commands fail with 400.
 
-4. [ ] Documentation update: `design.md` (command steps)
+4. [x] Documentation update: `design.md` (command steps)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
      - Mermaid docs (diagram syntax for design.md): Context7 `/mermaid-js/mermaid`
@@ -1242,7 +1242,7 @@ Add support for `command` steps that run agent command macros (`commands/<comman
    - Purpose:
      - Keep command step behavior aligned with flow execution.
 
-5. [ ] Documentation update: `projectStructure.md` (command test + fixture files)
+5. [x] Documentation update: `projectStructure.md` (command test + fixture files)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -1252,24 +1252,37 @@ Add support for `command` steps that run agent command macros (`commands/<comman
    - Purpose:
      - Keep file map accurate after adding command tests.
 
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+6. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, run a command-step flow if available, then open Logs and confirm `flows.run.command_step` appears with the expected `commandName`; confirm no errors appear in the browser debug console.
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 7 minutes)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, run a command-step flow if available, then open Logs and confirm `flows.run.command_step` appears with the expected `commandName`; confirm no errors appear in the browser debug console.
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- Details about the implementation. Include what went to plan and what did not.
-- Essential that any decisions that got made during the implementation are documented here.
+- Reviewed agent command loading/validation patterns in `commandsLoader`, `commandsSchema`, and `commandsRunner` to mirror error mapping for `COMMAND_INVALID`/`COMMAND_NOT_FOUND` and safe command name checks.
+- Added command-step execution in `server/src/flows/service.ts`, including command file validation, `flows.run.command_step` logging, and a fallback failure path that emits a failed flow turn when command loading fails.
+- Added `flows.run.command` integration coverage with a `command-step.json` fixture to validate successful command execution and a missing command case returning `400 invalid_request`.
+- Updated `design.md` to document command step execution and failure behavior.
+- Updated `projectStructure.md` to include the command-step fixture and integration test.
+- Ran workspace lint/format checks; resolved new formatting issues and noted pre-existing lint warnings outside this task.
+- `npm run build --workspace server` succeeded after removing an unreachable-type reference in the flow step fallback branch.
+- `npm run build --workspace client` succeeded (Vite emitted chunk-size warnings only).
+- `npm run test --workspace server` succeeded after updating `flows.list.test.ts` for the new `command-step` fixture (earlier run failed and a timeout occurred before rerunning with a larger window).
+- `npm run test --workspace client` succeeded (logs include expected jsdom console output warnings).
+- `npm run e2e` succeeded (compose e2e build/up/tests/down all passed).
+- `npm run compose:build` completed successfully.
+- `npm run compose:up` started the stack successfully (services healthy).
+- Manual Playwright check: ran `manual-command-step` flow, verified `flows.run.command_step` (commandName `improve_plan`) in Logs, and saw no browser console errors.
+- `npm run compose:down` stopped the stack cleanly after manual verification.
 
 ---
 

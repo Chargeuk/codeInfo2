@@ -10,6 +10,7 @@ export type FlowRunErrorCode =
   | 'WORKING_FOLDER_INVALID'
   | 'WORKING_FOLDER_NOT_FOUND'
   | 'AGENT_NOT_FOUND'
+  | 'COMMAND_INVALID'
   | 'UNSUPPORTED_STEP'
   | 'NO_STEPS';
 

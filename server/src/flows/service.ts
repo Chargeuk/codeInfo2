@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
+import { loadAgentCommandFile } from '../agents/commandsLoader.js';
 import { readAgentModelId } from '../agents/config.js';
 import { discoverAgents } from '../agents/discovery.js';
 import {
@@ -25,6 +26,7 @@ import type {
   ChatTokenEvent,
   ChatToolResultEvent,
 } from '../chat/interfaces/ChatInterface.js';
+import { ChatInterface } from '../chat/interfaces/ChatInterface.js';
 import {
   memoryConversations,
   recordMemoryTurn,
@@ -53,6 +55,7 @@ import {
   parseFlowFile,
   type FlowFile,
   type FlowBreakStep,
+  type FlowCommandStep,
   type FlowLlmStep,
   type FlowStep,
 } from './flowSchema.js';
@@ -72,6 +75,14 @@ const toFlowRunError = (code: FlowRunErrorCode, reason?: string) =>
   ({ code, reason }) satisfies FlowRunError;
 
 const isSafeFlowName = (raw: string): boolean => {
+  const name = raw.trim();
+  if (!name) return false;
+  if (name.includes('/') || name.includes('\\')) return false;
+  if (name.includes('..')) return false;
+  return true;
+};
+
+const isSafeCommandName = (raw: string): boolean => {
   const name = raw.trim();
   if (!name) return false;
   if (name.includes('/') || name.includes('\\')) return false;
@@ -499,6 +510,104 @@ const runFlowInstruction = async (params: {
   return result;
 };
 
+const createNoopChat = () =>
+  new (class extends ChatInterface {
+    async execute() {
+      return undefined;
+    }
+  })();
+
+const emitFailedFlowStep = async (params: {
+  flowConversationId: string;
+  inflightId: string;
+  instruction: string;
+  modelId: string;
+  source: 'REST' | 'MCP';
+  message: string;
+  errorCode?: string;
+}) => {
+  const createdAtIso = new Date().toISOString();
+  createInflight({
+    conversationId: params.flowConversationId,
+    inflightId: params.inflightId,
+    provider: 'codex',
+    model: params.modelId,
+    source: params.source,
+    userTurn: { content: params.instruction, createdAt: createdAtIso },
+  });
+
+  publishUserTurn({
+    conversationId: params.flowConversationId,
+    inflightId: params.inflightId,
+    content: params.instruction,
+    createdAt: createdAtIso,
+  });
+
+  const bridge = attachChatStreamBridge({
+    conversationId: params.flowConversationId,
+    inflightId: params.inflightId,
+    provider: 'codex',
+    model: params.modelId,
+    chat: createNoopChat(),
+    deferFinal: true,
+  });
+
+  const userCreatedAt = new Date(createdAtIso);
+  const userPersisted = await persistFlowTurn({
+    conversationId: params.flowConversationId,
+    role: 'user',
+    content: params.instruction,
+    model: params.modelId,
+    provider: 'codex',
+    source: params.source,
+    status: 'ok',
+    toolCalls: null,
+    createdAt: userCreatedAt,
+  });
+
+  const assistantCreatedAt = new Date();
+  const assistantPersisted = await persistFlowTurn({
+    conversationId: params.flowConversationId,
+    role: 'assistant',
+    content: params.message,
+    model: params.modelId,
+    provider: 'codex',
+    source: params.source,
+    status: 'failed',
+    toolCalls: null,
+    createdAt: assistantCreatedAt,
+  });
+
+  markInflightPersisted({
+    conversationId: params.flowConversationId,
+    inflightId: params.inflightId,
+    role: 'user',
+    turnId: userPersisted.turnId,
+  });
+  markInflightPersisted({
+    conversationId: params.flowConversationId,
+    inflightId: params.inflightId,
+    role: 'assistant',
+    turnId: assistantPersisted.turnId,
+  });
+
+  bridge.finalize({
+    fallback: {
+      status: 'failed',
+      error: {
+        code: params.errorCode,
+        message: params.message,
+      },
+    },
+  });
+  bridge.cleanup();
+
+  cleanupInflight({
+    conversationId: params.flowConversationId,
+    inflightId: params.inflightId,
+  });
+};
+
 type FlowStepOutcome = TurnStatus | 'break';
 
 type LoopFrame = {
@@ -538,11 +647,19 @@ const parseBreakAnswer = (
   return { ok: true, answer };
 };
 
-const findFirstLlmStep = (steps: FlowStep[]): FlowLlmStep | undefined => {
+const findFirstAgentStep = (
+  steps: FlowStep[],
+): FlowLlmStep | FlowBreakStep | FlowCommandStep | undefined => {
   for (const step of steps) {
-    if (step.type === 'llm') return step;
+    if (
+      step.type === 'llm' ||
+      step.type === 'break' ||
+      step.type === 'command'
+    ) {
+      return step;
+    }
     if (step.type === 'startLoop') {
-      const nested = findFirstLlmStep(step.steps);
+      const nested = findFirstAgentStep(step.steps);
       if (nested) return nested;
     }
   }
@@ -551,12 +668,80 @@ const findFirstLlmStep = (steps: FlowStep[]): FlowLlmStep | undefined => {
 
 const hasUnsupportedStep = (steps: FlowStep[]): boolean => {
   for (const step of steps) {
-    if (step.type === 'command') return true;
     if (step.type === 'startLoop' && hasUnsupportedStep(step.steps)) {
       return true;
     }
   }
   return false;
+};
+
+const validateCommandSteps = async (
+  steps: FlowStep[],
+  agentByName: Map<string, { home: string }>,
+): Promise<void> => {
+  for (const step of steps) {
+    if (step.type === 'startLoop') {
+      await validateCommandSteps(step.steps, agentByName);
+      continue;
+    }
+    if (step.type === 'command') {
+      const agent = agentByName.get(step.agentType);
+      if (!agent) {
+        throw toFlowRunError(
+          'AGENT_NOT_FOUND',
+          `Agent ${step.agentType} not found`,
+        );
+      }
+      const commandLoad = await loadCommandForAgent({
+        agentHome: agent.home,
+        commandName: step.commandName,
+      });
+      if (!commandLoad.ok) {
+        throw toFlowRunError('COMMAND_INVALID', commandLoad.message);
+      }
+    }
+  }
+};
+
+const loadCommandForAgent = async (params: {
+  agentHome: string;
+  commandName: string;
+}): Promise<
+  | {
+      ok: true;
+      commandName: string;
+      command: { items: Array<{ content: string[] }> };
+    }
+  | { ok: false; message: string }
+> => {
+  const rawName = params.commandName;
+  if (!isSafeCommandName(rawName)) {
+    return { ok: false, message: 'commandName must be a valid file name' };
+  }
+
+  const commandName = rawName.trim();
+  const commandsDir = path.join(params.agentHome, 'commands');
+  const filePath = path.join(commandsDir, `${commandName}.json`);
+  const commandStat = await fs.stat(filePath).catch((error) => {
+    if ((error as { code?: string }).code === 'ENOENT') return null;
+    throw error;
+  });
+  if (!commandStat?.isFile()) {
+    return {
+      ok: false,
+      message: `Command ${commandName} not found for agent`,
+    };
+  }
+
+  const parsed = await loadAgentCommandFile({ filePath });
+  if (!parsed.ok) {
+    return {
+      ok: false,
+      message: `Command ${commandName} failed schema validation`,
+    };
+  }
+
+  return { ok: true, commandName, command: parsed.command };
 };
 
 async function runFlowUnlocked(params: {
@@ -716,6 +901,57 @@ async function runFlowUnlocked(params: {
     };
   };
 
+  const runCommandStep = async (step: FlowCommandStep): Promise<TurnStatus> => {
+    const agent = agentByName.get(step.agentType);
+    if (!agent) {
+      throw toFlowRunError(
+        'AGENT_NOT_FOUND',
+        `Agent ${step.agentType} not found`,
+      );
+    }
+
+    append({
+      level: 'info',
+      message: 'flows.run.command_step',
+      timestamp: new Date().toISOString(),
+      source: 'server',
+      context: {
+        commandName: step.commandName,
+        agentType: step.agentType,
+      },
+    });
+
+    const commandLoad = await loadCommandForAgent({
+      agentHome: agent.home,
+      commandName: step.commandName,
+    });
+    if (!commandLoad.ok) {
+      const modelId = await getAgentModelId(agent.configPath);
+      await emitFailedFlowStep({
+        flowConversationId: params.conversationId,
+        inflightId: stepInflightId,
+        instruction: `Command: ${step.commandName}`,
+        modelId,
+        source: params.source,
+        message: commandLoad.message,
+        errorCode: 'COMMAND_INVALID',
+      });
+      return 'failed';
+    }
+
+    for (const item of commandLoad.command.items) {
+      const instruction = joinMessageContent(item.content);
+      const result = await runInstruction({
+        agentType: step.agentType,
+        identifier: step.identifier,
+        instruction,
+      });
+      if (shouldStopAfter(result.status)) return result.status;
+    }
+
+    return 'ok';
+  };
+
   const runSteps = async (
     steps: FlowStep[],
     stepPath: number[],
@@ -756,9 +992,15 @@ async function runFlowUnlocked(params: {
         continue;
       }
 
+      if (step.type === 'command') {
+        const status = await runCommandStep(step);
+        if (shouldStopAfter(status)) return status;
+        continue;
+      }
+
       throw toFlowRunError(
         'UNSUPPORTED_STEP',
-        `Flow step type ${step.type} not supported yet`,
+        'Flow step type not supported yet',
       );
     }
 
@@ -794,7 +1036,7 @@ export async function startFlowRun(
     if (hasUnsupportedStep(flow.steps)) {
       throw toFlowRunError(
         'UNSUPPORTED_STEP',
-        'Only llm, startLoop, and break steps are supported in this flow run',
+        'Only llm, startLoop, break, and command steps are supported in this flow run',
       );
     }
 
@@ -803,19 +1045,18 @@ export async function startFlowRun(
       throw toFlowRunError('CONVERSATION_ARCHIVED');
     }
 
-    const firstLlmStep = findFirstLlmStep(flow.steps);
-    if (!firstLlmStep) {
-      throw toFlowRunError('UNSUPPORTED_STEP', 'No llm steps found');
+    const firstAgentStep = findFirstAgentStep(flow.steps);
+    if (!firstAgentStep) {
+      throw toFlowRunError('UNSUPPORTED_STEP', 'No agent steps found');
     }
 
     const discovered = await discoverAgents();
-    const agent = discovered.find(
-      (item) => item.name === firstLlmStep.agentType,
-    );
+    const agentByName = new Map(discovered.map((item) => [item.name, item]));
+    const agent = agentByName.get(firstAgentStep.agentType);
     if (!agent) {
       throw toFlowRunError(
         'AGENT_NOT_FOUND',
-        `Agent ${firstLlmStep.agentType} not found`,
+        `Agent ${firstAgentStep.agentType} not found`,
       );
     }
 
@@ -825,6 +1066,8 @@ export async function startFlowRun(
     }
 
     modelId = await getAgentModelId(agent.configPath);
+
+    await validateCommandSteps(flow.steps, agentByName);
 
     await ensureFlowConversation({
       conversationId,

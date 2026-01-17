@@ -38,6 +38,7 @@ describe('GET /flows', () => {
       (flow: { name: string }) => flow.name,
     );
     assert.deepEqual(names, [
+      'command-step',
       'hot-reload',
       'invalid-json',
       'invalid-schema',

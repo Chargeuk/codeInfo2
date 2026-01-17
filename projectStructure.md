@@ -337,6 +337,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚        |  â”œâ”€ invalid-json.json — invalid flow JSON fixture
 â”‚        |  â”œâ”€ invalid-schema.json — invalid flow schema fixture
 â”‚        |  â”œâ”€ llm-basic.json — basic llm flow fixture
+â”‚        |  â”œâ”€ command-step.json — command step flow fixture
 â”‚        |  â”œâ”€ loop-break.json — loop + break flow fixture
 â”‚        |  â””â”€ valid-flow.json — valid flow fixture
 â”‚        â””â”€ unit/
@@ -373,6 +374,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚        â”œâ”€ integration/
 â”‚        |  â”œâ”€ flows.list.test.ts â€” integration coverage for GET /flows listing
 â”‚        |  â”œâ”€ flows.run.basic.test.ts â€” integration coverage for POST /flows/:flowName/run streaming
+â”‚        |  â”œâ”€ flows.run.command.test.ts â€” integration coverage for command-step flow runs
 â”‚        |  â”œâ”€ flows.run.errors.test.ts â€” integration coverage for flow run error responses
 â”‚        |  â”œâ”€ flows.run.working-folder.test.ts â€” integration coverage for flow run working_folder validation
 â”‚        |  â”œâ”€ flows.run.hot-reload.test.ts â€” integration coverage for flow run hot reload

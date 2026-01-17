@@ -1540,7 +1540,7 @@ Enable resume execution using `resumeStepPath` and stored `flags.flow` state. Th
 
 ### 10. Server: Flow turn metadata for UI (message changes)
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **__to_do__**
 
 #### Overview

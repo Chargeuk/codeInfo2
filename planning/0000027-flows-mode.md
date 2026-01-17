@@ -307,15 +307,8 @@ Define the strict flow JSON schema and unit coverage for validation. This task e
      - `projectStructure.md`
    - Description:
      - Add `server/src/flows/flowSchema.ts` and `server/src/test/unit/flows-schema.test.ts` to the repo tree (no removals).
-   - Purpose:
-     - Keep the repo tree accurate after new files are added.
-
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier: https://prettier.io/docs/options
-   - Story requirements to repeat here so they are not missed:
-     - Lint and formatting must pass before moving to the next task.
+  - Purpose:
+    - Keep the repo tree accurate after new files are added.
 
 #### Testing
 
@@ -343,6 +336,12 @@ Define the strict flow JSON schema and unit coverage for validation. This task e
 8. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
+9. [ ] `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier: https://prettier.io/docs/options
+   - Story requirements to repeat here so they are not missed:
+     - Lint and formatting must pass before moving to the next task.
 
 #### Implementation notes
 
@@ -462,15 +461,8 @@ Add flow discovery (scan `flows/` on each request) and expose `GET /flows` with 
      - `projectStructure.md`
    - Description:
      - Add `server/src/flows/discovery.ts`, `server/src/routes/flows.ts`, `server/src/test/integration/flows.list.test.ts`, and `server/src/test/fixtures/flows/` fixture files (`valid-flow.json`, `invalid-json.json`, `invalid-schema.json`, `ignore.txt`) to the repo tree (no removals).
-   - Purpose:
-     - Keep the repo tree accurate after new discovery files are added.
-
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier: https://prettier.io/docs/options
-   - Story requirements to repeat here so they are not missed:
-     - Lint and format must pass before moving to the next task.
+  - Purpose:
+    - Keep the repo tree accurate after new discovery files are added.
 
 #### Testing
 
@@ -482,6 +474,12 @@ Add flow discovery (scan `flows/` on each request) and expose `GET /flows` with 
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
 8. [ ] `npm run compose:down`
+9. [ ] `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier: https://prettier.io/docs/options
+   - Story requirements to repeat here so they are not missed:
+     - Lint and format must pass before moving to the next task.
 
 #### Implementation notes
 
@@ -600,15 +598,8 @@ Add `flowName` to conversation persistence and summary types so flow conversatio
      - `projectStructure.md`
    - Description:
      - Add `server/src/test/integration/conversations.flowname.test.ts` to the repo tree (no removals).
-   - Purpose:
-     - Keep the repo structure accurate.
-
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier: https://prettier.io/docs/options
-   - Story requirements to repeat here so they are not missed:
-     - Lint and format must pass before moving to the next task.
+  - Purpose:
+    - Keep the repo structure accurate.
 
 #### Testing
 
@@ -620,6 +611,12 @@ Add `flowName` to conversation persistence and summary types so flow conversatio
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
 8. [ ] `npm run compose:down`
+9. [ ] `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier: https://prettier.io/docs/options
+   - Story requirements to repeat here so they are not missed:
+     - Lint and format must pass before moving to the next task.
 
 #### Implementation notes
 
@@ -714,15 +711,8 @@ Add `flowName` filtering to `GET /conversations` (`flowName=<name>` and `flowNam
      - `design.md`
    - Description:
      - Document `flowName` filtering and `__none__` semantics.
-   - Purpose:
-     - Keep filtering behavior aligned with API contract.
-
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier: https://prettier.io/docs/options
-   - Story requirements to repeat here so they are not missed:
-     - Lint and format must pass before moving to the next task.
+  - Purpose:
+    - Keep filtering behavior aligned with API contract.
 
 #### Testing
 
@@ -734,6 +724,12 @@ Add `flowName` filtering to `GET /conversations` (`flowName=<name>` and `flowNam
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
 8. [ ] `npm run compose:down`
+9. [ ] `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier: https://prettier.io/docs/options
+   - Story requirements to repeat here so they are not missed:
+     - Lint and format must pass before moving to the next task.
 
 #### Implementation notes
 
@@ -921,15 +917,8 @@ Implement the flow run engine for linear `llm` steps, including `POST /flows/:fl
      - `projectStructure.md`
    - Description:
      - Add `server/src/flows/service.ts`, `server/src/flows/types.ts`, `server/src/routes/flowsRun.ts`, `server/src/test/integration/flows.run.basic.test.ts`, `server/src/test/integration/flows.run.errors.test.ts`, `server/src/test/integration/flows.run.working-folder.test.ts`, `server/src/test/integration/flows.run.hot-reload.test.ts`, and `server/src/test/fixtures/flows/` fixtures (`llm-basic.json`, `hot-reload.json`) to the repo tree (no removals).
-   - Purpose:
-     - Keep the repo structure accurate after new flow runtime files.
-
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier: https://prettier.io/docs/options
-   - Story requirements to repeat here so they are not missed:
-     - Lint and format must pass before moving to the next task.
+  - Purpose:
+    - Keep the repo structure accurate after new flow runtime files.
 
 #### Testing
 
@@ -941,6 +930,12 @@ Implement the flow run engine for linear `llm` steps, including `POST /flows/:fl
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
 8. [ ] `npm run compose:down`
+9. [ ] `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier: https://prettier.io/docs/options
+   - Story requirements to repeat here so they are not missed:
+     - Lint and format must pass before moving to the next task.
 
 #### Implementation notes
 
@@ -1049,15 +1044,8 @@ Extend the flow runtime with nested loop support and `break` steps that evaluate
      - `projectStructure.md`
    - Description:
      - Add `server/src/test/integration/flows.run.loop.test.ts` and `server/src/test/fixtures/flows/loop-break.json` to the repo tree (no removals).
-   - Purpose:
-     - Keep file map accurate after adding loop tests.
-
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier: https://prettier.io/docs/options
-   - Story requirements to repeat here so they are not missed:
-     - Lint and format must pass before moving to the next task.
+  - Purpose:
+    - Keep file map accurate after adding loop tests.
 
 #### Testing
 
@@ -1069,6 +1057,12 @@ Extend the flow runtime with nested loop support and `break` steps that evaluate
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
 8. [ ] `npm run compose:down`
+9. [ ] `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier: https://prettier.io/docs/options
+   - Story requirements to repeat here so they are not missed:
+     - Lint and format must pass before moving to the next task.
 
 #### Implementation notes
 
@@ -1162,15 +1156,8 @@ Add support for `command` steps that run agent command macros (`commands/<comman
      - `projectStructure.md`
    - Description:
      - Add `server/src/test/integration/flows.run.command.test.ts` and `server/src/test/fixtures/flows/command-step.json` to the repo tree (no removals).
-   - Purpose:
-     - Keep file map accurate after adding command tests.
-
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier: https://prettier.io/docs/options
-   - Story requirements to repeat here so they are not missed:
-     - Lint and format must pass before moving to the next task.
+  - Purpose:
+    - Keep file map accurate after adding command tests.
 
 #### Testing
 
@@ -1182,6 +1169,12 @@ Add support for `command` steps that run agent command macros (`commands/<comman
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
 8. [ ] `npm run compose:down`
+9. [ ] `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier: https://prettier.io/docs/options
+   - Story requirements to repeat here so they are not missed:
+     - Lint and format must pass before moving to the next task.
 
 #### Implementation notes
 
@@ -1281,15 +1274,8 @@ Persist flow run state (step path, loop stack, agent conversation mapping, and p
      - `projectStructure.md`
    - Description:
      - Add `server/src/test/unit/flows.flags.test.ts` to the repo tree (no removals).
-   - Purpose:
-     - Keep file map accurate after adding flags tests.
-
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier: https://prettier.io/docs/options
-   - Story requirements to repeat here so they are not missed:
-     - Lint and format must pass before moving to the next task.
+  - Purpose:
+    - Keep file map accurate after adding flags tests.
 
 #### Testing
 
@@ -1301,6 +1287,12 @@ Persist flow run state (step path, loop stack, agent conversation mapping, and p
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
 8. [ ] `npm run compose:down`
+9. [ ] `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier: https://prettier.io/docs/options
+   - Story requirements to repeat here so they are not missed:
+     - Lint and format must pass before moving to the next task.
 
 #### Implementation notes
 
@@ -1394,15 +1386,8 @@ Enable resume execution using `resumeStepPath` and stored `flags.flow` state. Th
      - `projectStructure.md`
    - Description:
      - Add `server/src/test/integration/flows.run.resume.test.ts` to the repo tree (no removals).
-   - Purpose:
-     - Keep file map accurate after adding resume tests.
-
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier: https://prettier.io/docs/options
-   - Story requirements to repeat here so they are not missed:
-     - Lint and format must pass before moving to the next task.
+  - Purpose:
+    - Keep file map accurate after adding resume tests.
 
 #### Testing
 
@@ -1414,6 +1399,12 @@ Enable resume execution using `resumeStepPath` and stored `flags.flow` state. Th
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
 8. [ ] `npm run compose:down`
+9. [ ] `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier: https://prettier.io/docs/options
+   - Story requirements to repeat here so they are not missed:
+     - Lint and format must pass before moving to the next task.
 
 #### Implementation notes
 
@@ -1536,15 +1527,8 @@ Attach flow step metadata to persisted turns (`turn.command`) so the client can 
      - `projectStructure.md`
    - Description:
      - Add `server/src/test/integration/flows.turn-metadata.test.ts` to the repo tree (no removals).
-   - Purpose:
-     - Keep file map accurate after adding metadata tests.
-
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier: https://prettier.io/docs/options
-   - Story requirements to repeat here so they are not missed:
-     - Lint and format must pass before moving to the next task.
+  - Purpose:
+    - Keep file map accurate after adding metadata tests.
 
 #### Testing
 
@@ -1556,6 +1540,12 @@ Attach flow step metadata to persisted turns (`turn.command`) so the client can 
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
 8. [ ] `npm run compose:down`
+9. [ ] `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier: https://prettier.io/docs/options
+   - Story requirements to repeat here so they are not missed:
+     - Lint and format must pass before moving to the next task.
 
 #### Implementation notes
 
@@ -1644,15 +1634,8 @@ Add client API helpers for listing flows and starting flow runs. This task expos
      - `projectStructure.md`
    - Description:
      - Add `client/src/api/flows.ts`, `client/src/test/flowsApi.test.ts`, and `client/src/test/flowsApi.run.payload.test.ts` to the repo tree (no removals).
-   - Purpose:
-     - Keep file map accurate after API helper additions.
-
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier: https://prettier.io/docs/options
-   - Story requirements to repeat here so they are not missed:
-     - Lint and format must pass before moving to the next task.
+  - Purpose:
+    - Keep file map accurate after API helper additions.
 
 #### Testing
 
@@ -1664,6 +1647,12 @@ Add client API helpers for listing flows and starting flow runs. This task expos
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
 8. [ ] `npm run compose:down`
+9. [ ] `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier: https://prettier.io/docs/options
+   - Story requirements to repeat here so they are not missed:
+     - Lint and format must pass before moving to the next task.
 
 #### Implementation notes
 
@@ -1816,15 +1805,8 @@ Build the Flows UI: list flows, start/resume runs, and render flow conversations
      - `projectStructure.md`
    - Description:
      - Add `client/src/pages/FlowsPage.tsx`, `client/src/test/flowsPage.test.tsx`, `client/src/test/flowsPage.run.test.tsx`, and `client/src/test/flowsPage.stop.test.tsx` to the repo tree (no removals).
-   - Purpose:
-     - Keep file map accurate after UI additions.
-
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier: https://prettier.io/docs/options
-   - Story requirements to repeat here so they are not missed:
-     - Lint and format must pass before moving to the next task.
+  - Purpose:
+    - Keep file map accurate after UI additions.
 
 #### Testing
 
@@ -1836,6 +1818,12 @@ Build the Flows UI: list flows, start/resume runs, and render flow conversations
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
 8. [ ] `npm run compose:down`
+9. [ ] `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier: https://prettier.io/docs/options
+   - Story requirements to repeat here so they are not missed:
+     - Lint and format must pass before moving to the next task.
 
 #### Implementation notes
 
@@ -1904,15 +1892,8 @@ Update client conversation list filtering so Chat and Agents exclude flow conver
      - Validate the flowName query parameter selection for Chat/Agents.
    - Story requirements to repeat here so they are not missed:
      - Tests confirm `flowName=__none__` is included for Chat/Agents.
-   - Purpose:
-     - Confirm `flowName=__none__` is included in Chat/Agents list requests.
-
-4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier: https://prettier.io/docs/options
-   - Story requirements to repeat here so they are not missed:
-     - Lint and format must pass before moving to the next task.
+  - Purpose:
+    - Confirm `flowName=__none__` is included in Chat/Agents list requests.
 
 #### Testing
 
@@ -1924,6 +1905,12 @@ Update client conversation list filtering so Chat and Agents exclude flow conver
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
 8. [ ] `npm run compose:down`
+9. [ ] `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier: https://prettier.io/docs/options
+   - Story requirements to repeat here so they are not missed:
+     - Lint and format must pass before moving to the next task.
 
 #### Implementation notes
 
@@ -1993,15 +1980,8 @@ Preserve the extended flow step metadata (`loopDepth`, `label`, `agentType`, `id
      - Validate stream parsing preserves flow metadata in tool payloads.
    - Story requirements to repeat here so they are not missed:
      - Tests verify flow metadata fields survive normalization.
-   - Purpose:
-     - Confirm stream normalization does not drop flow metadata.
-
-4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier: https://prettier.io/docs/options
-   - Story requirements to repeat here so they are not missed:
-     - Lint and format must pass before moving to the next task.
+  - Purpose:
+    - Confirm stream normalization does not drop flow metadata.
 
 #### Testing
 
@@ -2013,6 +1993,12 @@ Preserve the extended flow step metadata (`loopDepth`, `label`, `agentType`, `id
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
 8. [ ] `npm run compose:down`
+9. [ ] `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier: https://prettier.io/docs/options
+   - Story requirements to repeat here so they are not missed:
+     - Lint and format must pass before moving to the next task.
 
 #### Implementation notes
 
@@ -2081,15 +2067,8 @@ Validate the full story against acceptance criteria, perform clean builds/tests,
      - `planning/0000027-flows-mode.md`
    - Description:
      - Create a summary of server, client, tests, and compat impacts.
-   - Purpose:
-     - Provide a ready-to-post PR summary after all tasks complete.
-
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier CLI/options: https://prettier.io/docs/options
-   - Story requirements to repeat here so they are not missed:
-     - Lint and format must pass before finalizing the story.
+  - Purpose:
+    - Provide a ready-to-post PR summary after all tasks complete.
 
 #### Testing
 
@@ -2102,6 +2081,12 @@ Validate the full story against acceptance criteria, perform clean builds/tests,
 7. [ ] `npm run compose:up`
 8. [ ] Manual check: run a flow end-to-end, stop mid-run, resume, and verify sidebar filtering by `flowName`.
 9. [ ] `npm run compose:down`
+10. [ ] `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier CLI/options: https://prettier.io/docs/options
+   - Story requirements to repeat here so they are not missed:
+     - Lint and format must pass before finalizing the story.
 
 #### Implementation notes
 

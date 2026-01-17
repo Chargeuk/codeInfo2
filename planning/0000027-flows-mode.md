@@ -373,7 +373,7 @@ Define the strict flow JSON schema and unit coverage for validation. This task e
 
 ### 2. Server: Flow discovery + list endpoint
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **__to_do__**
 
 #### Overview

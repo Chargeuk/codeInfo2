@@ -29,7 +29,9 @@ Flows support nested loops via `startLoop`/`endLoop`, and a `break` step that as
 - `llm` steps require `agentType` (Codex agent name from the Agents dropdown), `identifier`, and `messages` in the same shape used by agent commands (role + content array).
 - `break` steps require `agentType`, `identifier`, `question`, and `breakOn: "yes" | "no"` and must instruct the agent to return JSON in the shape `{ "answer": "yes" | "no" }` for the break decision.
 - Nested loops are supported by the runtime using a loop stack; `break` exits only the current loop defined by the closest `startLoop`/`endLoop` pair.
-- `GET /flows` returns `{ flows: [{ name, description, disabled, error? }] }`, where `name` is the filename stem and `description` is the top-level flow description (empty string when missing). Invalid JSON or schema errors return `disabled: true` with an error message.
+- Flow JSON validation is strict (unknown keys invalid) and mirrors agent command validation rules for trimming/empty checks; invalid JSON or schema errors still appear in the list but with `disabled: true` and a human-readable error message.
+- Non-JSON files in `flows/` are ignored and missing `flows/` returns an empty list (same behavior as missing agent command folders).
+- `GET /flows` returns `{ flows: [{ name, description, disabled, error? }] }`, where `name` is the filename stem and `description` is the top-level flow description (empty string when missing).
 - `POST /flows/:flowName/run` returns `202 { status: "started", flowName, conversationId, inflightId, modelId }` and accepts optional `working_folder`, `conversationId`, and `resumeStepIndex` fields to resume a stopped flow.
 - Flow runs persist a merged flow conversation and stream events to the client using the same protocol as chat/agent runs.
 - Conversations gain an optional `flowName` field; flow runs set `flowName` to the flow name so they can be filtered separately from chat/agent conversations.
@@ -39,6 +41,7 @@ Flows support nested loops via `startLoop`/`endLoop`, and a `break` step that as
 - The main flow view renders each step and its result, including agent type, identifier, optional step label, and step metadata.
 - Each flow turn persists step metadata under `turn.command` with at least `{ name: "flow", stepIndex, totalSteps, loopDepth, agentType, identifier, label? }`, and the UI uses this metadata in the bubble.
 - Users can stop a running flow, and later resume it from a stored step index.
+- Stopping a flow uses the existing `cancel_inflight` WebSocket event and produces a `turn_final` event with `status: "stopped"` for the flow conversation.
 - Flow run state for resume is stored under `conversation.flags.flow` with at least `{ stepIndex, loopStack, agentConversations }` and is updated after each completed step.
 - The flow runtime reuses the previous `conversationId` per `agentType + identifier` grouping when available, otherwise starts a new conversation for that grouping.
 
@@ -56,6 +59,13 @@ Flows support nested loops via `startLoop`/`endLoop`, and a `break` step that as
 ## Questions
 
 None.
+
+---
+
+## Research Notes
+
+- Use directory re-scans for hot reload (same as agent commands). Node’s `fs.watch()` is documented as not being 100% consistent across platforms and can be unreliable on network/virtual file systems, so avoiding watcher-based reload is safer.
+- Express 5 supports async route handlers that return promises; rejected promises are routed to the error handler, so flow endpoints can follow the same async pattern as existing agent routes without extra wrappers.
 
 ---
 

@@ -205,4 +205,742 @@ These instructions will be followed during implementation.
 
 # Tasks
 
-Tasks will be added after the Questions section is resolved.
+### 1. Server: Flow schema + discovery + list endpoint
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Create the flow JSON schema, add discovery that scans `flows/` on each request, and expose a `GET /flows` list endpoint with disabled/error reporting for invalid flow files. This task establishes the flow definition contract and hot-reload listing without starting any flow runs yet.
+
+#### Documentation Locations
+
+- Zod schema validation (`.strict()` + unions + refinements): Context7 `/colinhacks/zod`
+- Node.js `fs/promises` + `path` (directory scanning + JSON file reads): https://nodejs.org/api/fs.html
+- Express 5 response helpers (`res.json`, async handlers): https://expressjs.com/en/api.html#res.json
+- JSON parsing errors + try/catch patterns: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/parse
+- ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
+- Prettier CLI/options: https://prettier.io/docs/options
+- Markdown syntax (doc updates): https://www.markdownguide.org/basic-syntax/
+
+#### Subtasks
+
+1. [ ] Review existing agent command schema + discovery patterns to mirror behavior:
+   - Documentation to read (repeat):
+     - Zod schema validation: Context7 `/colinhacks/zod`
+     - Node.js `fs/promises`: https://nodejs.org/api/fs.html
+   - Files to read:
+     - `server/src/agents/commandsSchema.ts`
+     - `server/src/agents/commands.ts`
+     - `server/src/agents/service.ts`
+   - Goal:
+     - Confirm how invalid JSON is surfaced as `disabled: true` with an error message.
+
+2. [ ] Add a strict flow schema module for JSON validation:
+   - Documentation to read (repeat):
+     - Zod schema validation: Context7 `/colinhacks/zod`
+   - Files to edit:
+     - `server/src/flows/flowSchema.ts` (new)
+   - Requirements:
+     - Top-level object with `steps` (non-empty array) and optional `description`.
+     - Step union types: `startLoop`, `llm`, `break`, `command`.
+     - `startLoop` requires a non-empty `steps` array (recursive schema).
+     - `llm` requires `agentType`, `identifier`, `messages` (`{ role, content: string[] }`).
+     - `break` requires `agentType`, `identifier`, `question`, `breakOn: 'yes' | 'no'`.
+     - `command` requires `agentType`, `identifier`, `commandName`.
+     - All objects are `.strict()` so unknown keys invalidate the flow.
+
+3. [ ] Implement flow discovery with hot-reload scanning:
+   - Documentation to read (repeat):
+     - Node.js `fs/promises`: https://nodejs.org/api/fs.html
+     - JSON.parse error handling: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/parse
+   - Files to edit:
+     - `server/src/flows/discovery.ts` (new)
+   - Requirements:
+     - Scan `flows/` on every request (no in-memory cache).
+     - Ignore non-JSON files; missing folder returns `[]`.
+     - Invalid JSON or schema produces `disabled: true` with a human-readable error.
+     - Flow summary includes `{ name, description, disabled, error? }`.
+
+4. [ ] Add `GET /flows` route and register it:
+   - Documentation to read (repeat):
+     - Express `res.json`: https://expressjs.com/en/api.html#res.json
+   - Files to edit:
+     - `server/src/routes/flows.ts` (new)
+     - `server/src/index.ts`
+   - Requirements:
+     - `GET /flows` returns `{ flows: FlowSummary[] }`.
+     - Disabled flows include `error` text from validation/parsing.
+
+5. [ ] Tests: flow schema + discovery list:
+   - Test type: Unit + Integration (`node:test`)
+   - Files to add/edit:
+     - `server/src/test/unit/flows-schema.test.ts` (new)
+     - `server/src/test/integration/flows.list.test.ts` (new)
+     - `server/src/test/fixtures/flows/` (new fixtures)
+   - Purpose:
+     - Validate strict schema errors, non-JSON ignore, missing folder handling, and `disabled` error text.
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+
+6. [ ] Documentation updates:
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Files to edit:
+     - `design.md` (flow schema + `/flows` endpoint overview)
+     - `projectStructure.md` (add `flows/` and new server files)
+
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier: https://prettier.io/docs/options
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+2. [ ] `npm run build --workspace client`
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+3. [ ] `npm run test --workspace server`
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+4. [ ] `npm run test --workspace client`
+   - Documentation to read (repeat):
+     - Jest: Context7 `/jestjs/jest`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
+6. [ ] `npm run compose:build`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+7. [ ] `npm run compose:up`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+8. [ ] Manual check: call `GET /flows` with valid + invalid fixtures and confirm `disabled/error` behavior in the response payload.
+9. [ ] `npm run compose:down`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+
+#### Implementation notes
+
+- Details about the implementation. Include what went to plan and what did not.
+- Essential that any decisions that got made during the implementation are documented here.
+
+---
+
+### 2. Server: Conversation flowName persistence + filtering
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Add `flowName` to conversation persistence and wire `GET /conversations` filtering (`flowName=<name>` and `flowName=__none__`). This isolates flow conversations from chat/agent history and updates WebSocket sidebar summaries to include the new field.
+
+#### Documentation Locations
+
+- Mongoose schema fields + optional indexes: Context7 `/automattic/mongoose/9.0.1`
+- Express query parsing (`req.query`) and response helpers: https://expressjs.com/en/api.html#req.query
+- WebSocket JSON message shape best practices: https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API
+- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+- Prettier CLI/options: https://prettier.io/docs/options
+- Markdown syntax: https://www.markdownguide.org/basic-syntax/
+
+#### Subtasks
+
+1. [ ] Review current conversation schema and list filtering:
+   - Documentation to read (repeat):
+     - Mongoose schema fields: Context7 `/automattic/mongoose/9.0.1`
+   - Files to read:
+     - `server/src/mongo/conversation.ts`
+     - `server/src/mongo/repo.ts`
+     - `server/src/routes/conversations.ts`
+     - `server/src/ws/sidebar.ts`
+     - `server/src/ws/types.ts`
+     - `client/src/hooks/useConversations.ts`
+
+2. [ ] Add `flowName` to persistence + summary types:
+   - Documentation to read (repeat):
+     - Mongoose schema fields: Context7 `/automattic/mongoose/9.0.1`
+   - Files to edit:
+     - `server/src/mongo/conversation.ts`
+     - `server/src/mongo/repo.ts`
+     - `server/src/ws/types.ts`
+     - `server/src/ws/sidebar.ts`
+     - `client/src/hooks/useConversations.ts`
+   - Requirements:
+     - `flowName?: string` optional field on conversations.
+     - Include `flowName` in `ConversationSummary` and WS sidebar summaries.
+     - Ensure missing `flowName` is omitted (not `null`).
+
+3. [ ] Implement `flowName` filtering in `GET /conversations`:
+   - Documentation to read (repeat):
+     - Express query parsing: https://expressjs.com/en/api.html#req.query
+   - Files to edit:
+     - `server/src/routes/conversations.ts`
+     - `server/src/mongo/repo.ts`
+   - Requirements:
+     - `flowName=<name>` returns only conversations with that `flowName`.
+     - `flowName=__none__` returns only conversations without a `flowName`.
+     - Preserve existing `agentName` and `state` filters.
+
+4. [ ] Integration tests: flowName list filtering:
+   - Test type: Integration (`node:test`)
+   - Files to edit:
+     - `server/src/test/integration/conversations.list.test.ts`
+   - Purpose:
+     - Validate `flowName=<name>` and `flowName=__none__` filtering.
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+
+5. [ ] Documentation updates:
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Files to edit:
+     - `design.md` (conversation filters + flowName field)
+     - `projectStructure.md` (if any files added/removed)
+
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier: https://prettier.io/docs/options
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual check: `GET /conversations?flowName=__none__` returns only non-flow conversations.
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Details about the implementation. Include what went to plan and what did not.
+- Essential that any decisions that got made during the implementation are documented here.
+
+---
+
+### 3. Server: Flow run core (llm steps only)
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Implement the flow run engine for linear `llm` steps, including `POST /flows/:flowName/run`, flow conversation creation (`title: Flow: <name>`), and sequential step execution. This task focuses on core execution without loops, break steps, commands, or resume support.
+
+#### Documentation Locations
+
+- Express async handlers + error propagation: https://expressjs.com/en/guide/error-handling.html
+- AbortController usage (cancellation): https://developer.mozilla.org/en-US/docs/Web/API/AbortController
+- Node.js timers (delays between steps if needed): https://nodejs.org/api/timers.html
+- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+- Prettier CLI/options: https://prettier.io/docs/options
+- Markdown syntax: https://www.markdownguide.org/basic-syntax/
+
+#### Subtasks
+
+1. [ ] Review agent run + inflight streaming helpers:
+   - Documentation to read (repeat):
+     - AbortController: https://developer.mozilla.org/en-US/docs/Web/API/AbortController
+   - Files to read:
+     - `server/src/agents/service.ts`
+     - `server/src/agents/commands.ts`
+     - `server/src/chat/inflightRegistry.ts`
+     - `server/src/chat/chatStreamBridge.ts`
+     - `server/src/routes/agentsRun.ts`
+
+2. [ ] Implement flow run service for sequential `llm` steps:
+   - Documentation to read (repeat):
+     - Express error handling: https://expressjs.com/en/guide/error-handling.html
+   - Files to edit:
+     - `server/src/flows/service.ts` (new)
+     - `server/src/flows/types.ts` (new)
+   - Requirements:
+     - Load flow definition on each run (no caching).
+     - Create flow conversation when missing; set `flowName` and `title`.
+     - Execute `llm` steps sequentially using the agent run service.
+     - Maintain an in-memory `agentConversations` map keyed by `${agentType}:${identifier}` for step reuse (persist later).
+     - Use existing WS streaming bridge to emit transcript events to the flow conversation.
+
+3. [ ] Add `POST /flows/:flowName/run` route:
+   - Documentation to read (repeat):
+     - Express request body parsing: https://expressjs.com/en/api.html#req.body
+   - Files to edit:
+     - `server/src/routes/flowsRun.ts` (new)
+     - `server/src/index.ts`
+   - Requirements:
+     - Accept `{ conversationId?, working_folder? }`.
+     - Return `202 { status: "started", flowName, conversationId, inflightId, modelId }`.
+     - Mirror agent run validation for `working_folder` errors.
+
+4. [ ] Integration tests: basic `llm` flow run:
+   - Test type: Integration (`node:test`)
+   - Files to add/edit:
+     - `server/src/test/integration/flows.run.basic.test.ts` (new)
+     - `server/src/test/fixtures/flows/` (extend with a simple llm-only flow)
+   - Purpose:
+     - Ensure `POST /flows/:flowName/run` returns 202 and streams a user turn + assistant delta.
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+
+5. [ ] Documentation updates:
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Files to edit:
+     - `design.md` (flow run core + REST contract)
+     - `projectStructure.md` (new flow service/routes)
+
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier: https://prettier.io/docs/options
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual check: trigger a basic flow and verify WS transcript events land on the flow conversation.
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Details about the implementation. Include what went to plan and what did not.
+- Essential that any decisions that got made during the implementation are documented here.
+
+---
+
+### 4. Server: Loop + break step support
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Extend the flow runtime with nested loop support and `break` steps that evaluate a JSON `yes/no` response. This task introduces loop stack mechanics and validates break responses without adding command steps yet.
+
+#### Documentation Locations
+
+- JSON parsing + error handling patterns: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/parse
+- AbortController usage: https://developer.mozilla.org/en-US/docs/Web/API/AbortController
+- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+- Prettier CLI/options: https://prettier.io/docs/options
+- Markdown syntax: https://www.markdownguide.org/basic-syntax/
+
+#### Subtasks
+
+1. [ ] Review existing flow runtime implementation:
+   - Files to read:
+     - `server/src/flows/service.ts`
+     - `server/src/flows/flowSchema.ts`
+
+2. [ ] Add loop stack execution for `startLoop`:
+   - Files to edit:
+     - `server/src/flows/service.ts`
+   - Requirements:
+     - Maintain a loop stack with current loop path + iteration count.
+     - Execute nested `startLoop` steps recursively.
+     - Ensure `break` exits only the nearest loop.
+
+3. [ ] Implement `break` step handling:
+   - Documentation to read (repeat):
+     - JSON.parse error handling: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/parse
+   - Files to edit:
+     - `server/src/flows/service.ts`
+   - Requirements:
+     - Ask the configured agent to answer `{ "answer": "yes" | "no" }`.
+     - Validate JSON and `answer` shape; invalid responses fail the flow with clear errors.
+     - Exit current loop only when response matches `breakOn`.
+
+4. [ ] Integration tests: nested loop + break behavior:
+   - Test type: Integration (`node:test`)
+   - Files to add/edit:
+     - `server/src/test/integration/flows.run.loop.test.ts` (new)
+     - `server/src/test/fixtures/flows/` (add a loop flow fixture)
+   - Purpose:
+     - Confirm loop iterations continue until `break` triggers.
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+
+5. [ ] Documentation updates:
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Files to edit:
+     - `design.md` (loop stack + break step semantics)
+
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier: https://prettier.io/docs/options
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual check: run a loop flow and confirm the break response stops the loop.
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Details about the implementation. Include what went to plan and what did not.
+- Essential that any decisions that got made during the implementation are documented here.
+
+---
+
+### 5. Server: Command step support
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Add support for `command` steps that run agent command macros (`commands/<commandName>.json`) within a flow. This task reuses the existing agent command runner and surfaces errors when command names are invalid.
+
+#### Documentation Locations
+
+- Express error handling (invalid request responses): https://expressjs.com/en/guide/error-handling.html
+- JSON schema validation patterns: Context7 `/colinhacks/zod`
+- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+- Prettier CLI/options: https://prettier.io/docs/options
+- Markdown syntax: https://www.markdownguide.org/basic-syntax/
+
+#### Subtasks
+
+1. [ ] Review agent command runner + validation:
+   - Files to read:
+     - `server/src/agents/commands.ts`
+     - `server/src/agents/service.ts`
+     - `server/src/routes/agentsCommands.ts`
+
+2. [ ] Implement `command` step execution in flow runtime:
+   - Files to edit:
+     - `server/src/flows/service.ts`
+   - Requirements:
+     - Validate `commandName` exists for the target `agentType`.
+     - Run the command using the same code path as `/agents/:agentName/commands/run`.
+     - Ensure errors surface as `turn_final` status `failed` with a clear message.
+
+3. [ ] Integration tests: command step run:
+   - Test type: Integration (`node:test`)
+   - Files to add/edit:
+     - `server/src/test/integration/flows.run.command.test.ts` (new)
+     - `server/src/test/fixtures/flows/` (add a command step fixture)
+   - Purpose:
+     - Validate a command step succeeds and invalid commands fail with 400.
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+
+4. [ ] Documentation updates:
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Files to edit:
+     - `design.md` (command step description + error handling)
+
+5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier: https://prettier.io/docs/options
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual check: run a flow containing a command step and verify the output appears in the flow transcript.
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Details about the implementation. Include what went to plan and what did not.
+- Essential that any decisions that got made during the implementation are documented here.
+
+---
+
+### 6. Server: Resume state + flow step persistence
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Persist flow run state (step path, loop stack, and agent conversation mapping) and add `resumeStepPath` support to `/flows/:flowName/run`. This enables stop/resume functionality and validates resume paths before execution.
+
+#### Documentation Locations
+
+- Mongoose schema updates + nested objects: Context7 `/automattic/mongoose/9.0.1`
+- Express request validation patterns: https://expressjs.com/en/guide/error-handling.html
+- JSON parsing + validation: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/parse
+- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+- Prettier CLI/options: https://prettier.io/docs/options
+- Markdown syntax: https://www.markdownguide.org/basic-syntax/
+
+#### Subtasks
+
+1. [ ] Review existing conversation flags handling:
+   - Files to read:
+     - `server/src/mongo/conversation.ts`
+     - `server/src/mongo/repo.ts`
+     - `server/src/agents/service.ts`
+
+2. [ ] Add `conversation.flags.flow` persistence shape:
+   - Documentation to read (repeat):
+     - Mongoose schema updates: Context7 `/automattic/mongoose/9.0.1`
+   - Files to edit:
+     - `server/src/mongo/conversation.ts`
+     - `server/src/mongo/repo.ts`
+   - Requirements:
+     - Store `stepPath`, `loopStack`, and `agentConversations` map.
+     - Ensure flags remain optional and backward compatible.
+
+3. [ ] Implement resume path validation + execution:
+   - Documentation to read (repeat):
+     - Express error handling: https://expressjs.com/en/guide/error-handling.html
+   - Files to edit:
+     - `server/src/flows/service.ts`
+     - `server/src/routes/flowsRun.ts`
+   - Requirements:
+     - Accept `resumeStepPath` (array of indices) in the run request.
+     - Validate every index and return `400 invalid_request` on mismatch.
+     - Resume uses stored `loopStack` and `agentConversations` when present.
+     - Update `flags.flow.stepPath` after each completed step.
+
+4. [ ] Integration tests: resume behavior + invalid resume path:
+   - Test type: Integration (`node:test`)
+   - Files to add/edit:
+     - `server/src/test/integration/flows.run.resume.test.ts` (new)
+   - Purpose:
+     - Verify stop/resume from stored step path and invalid path errors.
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+
+5. [ ] Documentation updates:
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Files to edit:
+     - `design.md` (resume state + `flags.flow` storage)
+
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier: https://prettier.io/docs/options
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual check: start a flow, stop mid-run, resume with `resumeStepPath`, and confirm it continues.
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Details about the implementation. Include what went to plan and what did not.
+- Essential that any decisions that got made during the implementation are documented here.
+
+---
+
+### 7. Server: Flow turn metadata for UI (message changes)
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Attach flow step metadata to persisted turns (`turn.command`) so the client can render step labels, agent identifiers, and loop depth. This isolates the server-side message shape changes that the UI will consume.
+
+#### Documentation Locations
+
+- Mongoose subdocument fields: Context7 `/automattic/mongoose/9.0.1`
+- Express response shaping: https://expressjs.com/en/api.html#res.json
+- WebSocket payload patterns: https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API
+- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+- Prettier CLI/options: https://prettier.io/docs/options
+- Markdown syntax: https://www.markdownguide.org/basic-syntax/
+
+#### Subtasks
+
+1. [ ] Review current turn metadata usage:
+   - Files to read:
+     - `server/src/mongo/turn.ts`
+     - `server/src/mongo/repo.ts`
+     - `server/src/routes/conversations.ts`
+     - `client/src/hooks/useChatStream.ts` (client rendering of command metadata)
+
+2. [ ] Add flow-specific command metadata shape:
+   - Documentation to read (repeat):
+     - Mongoose subdocument fields: Context7 `/automattic/mongoose/9.0.1`
+   - Files to edit:
+     - `server/src/mongo/turn.ts`
+     - `server/src/mongo/repo.ts`
+     - `server/src/ws/types.ts`
+   - Requirements:
+     - `turn.command.name = "flow"`
+     - Include `stepIndex`, `totalSteps`, `loopDepth`, `agentType`, `identifier`, and `label`.
+     - Default `label` to the step `type` when omitted in the flow JSON.
+
+3. [ ] Emit flow metadata on each flow step turn:
+   - Files to edit:
+     - `server/src/flows/service.ts`
+   - Requirements:
+     - Populate `turn.command` fields for every flow step.
+     - Preserve existing agent step metadata where applicable.
+
+4. [ ] Integration tests: turn metadata in snapshots:
+   - Test type: Integration (`node:test`)
+   - Files to add/edit:
+     - `server/src/test/integration/flows.turn-metadata.test.ts` (new)
+   - Purpose:
+     - Verify `GET /conversations/:id/turns` includes `command` metadata for flow turns.
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+
+5. [ ] Documentation updates:
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Files to edit:
+     - `design.md` (flow turn metadata contract)
+
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier: https://prettier.io/docs/options
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual check: load a flow conversation and verify `command` metadata appears in the turn snapshot payload.
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Details about the implementation. Include what went to plan and what did not.
+- Essential that any decisions that got made during the implementation are documented here.
+
+---
+
+### 8. Client: Flows UI + API integration
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Build the Flows UI: list flows, start/resume runs, and render flow conversations with step metadata. This task depends on the server message changes from Task 7.
+
+#### Documentation Locations
+
+- MUI components (Drawer, Button, TextField, Chip, Typography): MUI MCP tool (`@mui/material@7.2.0`)
+- React Router v6: https://reactrouter.com/en/main
+- Fetch API + AbortController: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
+- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+- Prettier CLI/options: https://prettier.io/docs/options
+- Markdown syntax: https://www.markdownguide.org/basic-syntax/
+
+#### Subtasks
+
+1. [ ] Review existing Chat/Agents UI patterns for reuse:
+   - Files to read:
+     - `client/src/pages/ChatPage.tsx`
+     - `client/src/pages/AgentsPage.tsx`
+     - `client/src/components/chat/ConversationList.tsx`
+     - `client/src/hooks/useConversations.ts`
+     - `client/src/hooks/useChatStream.ts`
+
+2. [ ] Add flows API helpers:
+   - Files to edit:
+     - `client/src/api/flows.ts` (new)
+   - Requirements:
+     - `listFlows()` calling `GET /flows`.
+     - `runFlow(flowName, payload)` calling `POST /flows/:flowName/run`.
+     - Mirror error handling patterns from `client/src/api/agents.ts`.
+
+3. [ ] Build Flows page UI:
+   - Documentation to read (repeat):
+     - MUI components: MUI MCP tool (`@mui/material@7.2.0`)
+   - Files to edit:
+     - `client/src/pages/FlowsPage.tsx` (new)
+     - `client/src/routes/router.tsx`
+     - `client/src/components/NavBar.tsx`
+   - Requirements:
+     - Sidebar uses `ConversationList` filtered by `flowName`.
+     - Main panel includes flow selector, run/resume controls, and transcript.
+     - Display `command` metadata in bubble header (label + agentType/identifier).
+
+4. [ ] Wire flow run/resume + stop controls:
+   - Files to edit:
+     - `client/src/pages/FlowsPage.tsx`
+     - `client/src/hooks/useChatStream.ts`
+   - Requirements:
+     - Start runs via `POST /flows/:flowName/run`.
+     - Resume uses stored `resumeStepPath` when provided.
+     - Stop uses existing `cancel_inflight` WS path.
+
+5. [ ] Client tests (RTL): flows page basics:
+   - Test type: RTL/Jest
+   - Files to add/edit:
+     - `client/src/test/flowsPage.test.tsx` (new)
+   - Purpose:
+     - Render Flows page, list flows, and verify metadata line rendering.
+   - Documentation to read (repeat):
+     - Jest: Context7 `/jestjs/jest`
+
+6. [ ] Documentation updates:
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Files to edit:
+     - `README.md` (new Flows page entry)
+     - `design.md` (Flows UI description)
+     - `projectStructure.md` (new client files)
+
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier: https://prettier.io/docs/options
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual check: open `/flows`, start a flow, and verify step headers render with label + agentType/identifier.
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Details about the implementation. Include what went to plan and what did not.
+- Essential that any decisions that got made during the implementation are documented here.

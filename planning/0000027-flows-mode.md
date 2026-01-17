@@ -247,6 +247,7 @@ Create the flow JSON schema, add discovery that scans `flows/` on each request, 
      - Step union types: `startLoop`, `llm`, `break`, `command`.
      - `startLoop` requires a non-empty `steps` array (recursive schema).
      - `llm` requires `agentType`, `identifier`, `messages` (`{ role, content: string[] }`).
+     - For now, `messages.role` must be `user` to mirror existing agent command semantics.
      - `break` requires `agentType`, `identifier`, `question`, `breakOn: 'yes' | 'no'`.
      - `command` requires `agentType`, `identifier`, `commandName`.
      - All objects are `.strict()` so unknown keys invalidate the flow.
@@ -332,51 +333,6 @@ Create the flow JSON schema, add discovery that scans `flows/` on each request, 
 
 ---
 
-### 9. Final verification + documentation + PR summary
-
-- Task Status: **__to_do__**
-- Git Commits: **__to_do__**
-
-#### Overview
-
-Validate the full story against acceptance criteria, perform clean builds/tests, update documentation, and produce the pull request summary for the story.
-
-#### Documentation Locations
-
-- Docker Compose guide (clean builds + compose up/down): Context7 `/docker/docs`
-- Playwright Test docs (Node/TS setup + running tests): https://playwright.dev/docs/intro
-- Husky docs (git hook management + install): https://typicode.github.io/husky/
-- Mermaid docs (diagram syntax for design.md): Context7 `/mermaid-js/mermaid`
-- Jest docs (test runner + expect API): Context7 `/jestjs/jest`
-- npm run-script reference (running workspace scripts): https://docs.npmjs.com/cli/v9/commands/npm-run-script
-- Cucumber guides (BDD + JavaScript workflow): https://cucumber.io/docs/guides/
-- Markdown syntax (README/design updates): https://www.markdownguide.org/basic-syntax/
-
-#### Subtasks
-
-1. [ ] Ensure `README.md` is updated with any required description changes and with any new commands that have been added as part of this story.
-2. [ ] Ensure `design.md` is updated with any required description changes including Mermaid diagrams added for flows.
-3. [ ] Ensure `projectStructure.md` is updated with any updated, added or removed files & folders after all file additions/removals.
-4. [ ] Create a summary of all changes and draft the PR comment for this story (server + client + tests).
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
-
-#### Testing
-
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual check: run a flow end-to-end, stop mid-run, resume, and verify sidebar filtering by `flowName`.
-9. [ ] `npm run compose:down`
-
-#### Implementation notes
-
-- Details about the implementation. Include what went to plan and what did not.
-- Essential that any decisions that got made during the implementation are documented here.
-
 ---
 
 ### 2. Server: Conversation flowName persistence + filtering
@@ -439,6 +395,7 @@ Add `flowName` to conversation persistence and wire `GET /conversations` filteri
    - Test type: Integration (`node:test`)
    - Files to edit:
      - `server/src/test/integration/conversations.list.test.ts`
+     - `server/src/test/unit/conversations-router-agent-filter.test.ts`
    - Purpose:
      - Validate `flowName=<name>` and `flowName=__none__` filtering.
    - Documentation to read (repeat):
@@ -514,9 +471,17 @@ Implement the flow run engine for linear `llm` steps, including `POST /flows/:fl
    - Requirements:
      - Load flow definition on each run (no caching).
      - Create flow conversation when missing; set `flowName` and `title`.
-     - Execute `llm` steps sequentially using the agent run service.
+     - Execute `llm` steps sequentially using a flow step runner built from agent config (Codex home + system prompt).
      - Maintain an in-memory `agentConversations` map keyed by `${agentType}:${identifier}` for step reuse (persist later).
      - Use existing WS streaming bridge to emit transcript events to the flow conversation.
+     - Persist user/assistant turns to the flow conversation (do not persist step turns into the agent-mapping conversations).
+     - Convert each `messages[]` entry to a single instruction string (join `content` with `\n`).
+     - Use agent config (`codexHome`, `useConfigDefaults`, `systemPrompt`) like `runAgentInstructionUnlocked`.
+     - When a per-agent thread id exists, pass it via `threadId` so the same Codex thread continues.
+     - Only include `systemPrompt` when starting a brand-new thread (no thread id stored yet).
+     - Acquire/release the existing per-conversation run lock to prevent overlapping flow runs.
+     - Propagate the flow inflight AbortSignal into each step so Stop cancels the active step.
+     - Validate `working_folder` via the shared resolver and surface `WORKING_FOLDER_INVALID/NOT_FOUND` consistently.
 
 3. [ ] Add `POST /flows/:flowName/run` route:
    - Documentation to read (repeat):
@@ -616,6 +581,7 @@ Extend the flow runtime with nested loop support and `break` steps that evaluate
      - Validate JSON and `answer` shape; invalid responses fail the flow with clear errors.
      - Exit current loop only when response matches `breakOn`.
      - Emit `turn_final` with `status: 'failed'` on invalid JSON or invalid `answer` values.
+     - Persist the final `answer` decision into flow turn content so it appears in the transcript.
 
 4. [ ] Integration tests: nested loop + break behavior:
    - Test type: Integration (`node:test`)
@@ -664,7 +630,7 @@ Extend the flow runtime with nested loop support and `break` steps that evaluate
 
 #### Overview
 
-Add support for `command` steps that run agent command macros (`commands/<commandName>.json`) within a flow. This task reuses the existing agent command runner and surfaces errors when command names are invalid.
+Add support for `command` steps that run agent command macros (`commands/<commandName>.json`) within a flow. This task loads and executes the command JSON using the flow step runner so results stream and persist into the flow conversation (not the agent conversation).
 
 #### Documentation Locations
 
@@ -676,9 +642,10 @@ Add support for `command` steps that run agent command macros (`commands/<comman
 
 #### Subtasks
 
-1. [ ] Review agent command runner + validation:
+1. [ ] Review agent command loader + schema:
    - Files to read:
-     - `server/src/agents/commands.ts`
+     - `server/src/agents/commandsLoader.ts`
+     - `server/src/agents/commandsSchema.ts`
      - `server/src/agents/service.ts`
      - `server/src/routes/agentsCommands.ts`
 
@@ -687,7 +654,8 @@ Add support for `command` steps that run agent command macros (`commands/<comman
      - `server/src/flows/service.ts`
    - Requirements:
      - Validate `commandName` exists for the target `agentType`.
-     - Run the command using the same code path as `/agents/:agentName/commands/run`.
+     - Load the command JSON and execute each item using the flow step runner (same streaming/persistence as `llm`).
+     - Treat each command item as a sub-step under the same flow step metadata (no new flow step index).
      - Ensure errors surface as `turn_final` status `failed` with a clear message.
 
 3. [ ] Integration tests: command step run:
@@ -763,8 +731,11 @@ Persist flow run state (step path, loop stack, and agent conversation mapping) a
      - `server/src/mongo/conversation.ts`
      - `server/src/mongo/repo.ts`
    - Requirements:
-     - Store `stepPath`, `loopStack`, and `agentConversations` map.
-     - Ensure flags remain optional and backward compatible.
+    - Store `stepPath`, `loopStack`, and `agentConversations` map.
+    - Ensure flags remain optional and backward compatible.
+    - Store per-agent `threadId` values keyed by `${agentType}:${identifier}` alongside `agentConversations`.
+    - On run start, hydrate the in-memory agent map from `flags.flow` when present.
+     - When a new agent mapping is needed, create a companion agent conversation (`agentName` set, title derived from flow + identifier) so thread ids can be persisted safely.
 
 3. [ ] Implement resume path validation + execution:
    - Documentation to read (repeat):
@@ -779,6 +750,8 @@ Persist flow run state (step path, loop stack, and agent conversation mapping) a
      - Update `flags.flow.stepPath` after each completed step.
      - If a stored `agentConversations` id maps to a different agent, return `400 { error: 'agent_mismatch' }`.
      - On stop/cancel, persist the last completed `stepPath` for resume.
+     - Update per-agent `threadId` mapping after each step when Codex emits a new thread id.
+     - Prefer the thread id from `turn_final`/`thread` events over the flow conversation `flags.threadId`.
 
 4. [ ] Integration tests: resume behavior + invalid resume path:
    - Test type: Integration (`node:test`)
@@ -843,6 +816,8 @@ Attach flow step metadata to persisted turns (`turn.command`) so the client can 
    - Files to read:
      - `server/src/mongo/turn.ts`
      - `server/src/mongo/repo.ts`
+     - `server/src/chat/interfaces/ChatInterface.ts`
+     - `server/src/chat/inflightRegistry.ts`
      - `server/src/routes/conversations.ts`
      - `client/src/hooks/useChatStream.ts` (client rendering of command metadata)
 
@@ -852,6 +827,8 @@ Attach flow step metadata to persisted turns (`turn.command`) so the client can 
    - Files to edit:
      - `server/src/mongo/turn.ts`
      - `server/src/mongo/repo.ts`
+     - `server/src/chat/interfaces/ChatInterface.ts` (parseCommandMetadata)
+     - `server/src/chat/inflightRegistry.ts`
      - `server/src/ws/types.ts`
    - Requirements:
      - `turn.command.name = "flow"`
@@ -864,11 +841,13 @@ Attach flow step metadata to persisted turns (`turn.command`) so the client can 
    - Requirements:
      - Populate `turn.command` fields for every flow step.
      - Preserve existing agent step metadata where applicable.
+     - Ensure inflight snapshots include the flow command metadata during streaming.
 
 4. [ ] Integration tests: turn metadata in snapshots:
    - Test type: Integration (`node:test`)
    - Files to add/edit:
      - `server/src/test/integration/flows.turn-metadata.test.ts` (new)
+     - `server/src/test/unit/chat-command-metadata.test.ts`
    - Purpose:
      - Verify `GET /conversations/:id/turns` includes `command` metadata for flow turns.
    - Documentation to read (repeat):
@@ -931,6 +910,7 @@ Build the Flows UI: list flows, start/resume runs, and render flow conversations
      - `client/src/components/chat/ConversationList.tsx`
      - `client/src/hooks/useConversations.ts`
      - `client/src/hooks/useChatStream.ts`
+     - `client/src/hooks/useChatWs.ts`
 
 2. [ ] Add flows API helpers:
    - Files to edit:
@@ -993,6 +973,121 @@ Build the Flows UI: list flows, start/resume runs, and render flow conversations
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
 8. [ ] Manual check: open `/flows`, start a flow, and verify step headers render with label + agentType/identifier.
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Details about the implementation. Include what went to plan and what did not.
+- Essential that any decisions that got made during the implementation are documented here.
+
+---
+
+### 9. Client: Flow filtering + command metadata support
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Update shared client types and filters so flow conversations do not pollute Chat/Agents lists, and ensure the new flow command metadata fields are preserved through WS + REST normalization.
+
+#### Documentation Locations
+
+- React state patterns: https://react.dev/reference/react/useState
+- TypeScript structural typing: https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
+- MUI components (List, Chip, Typography): MUI MCP tool (`@mui/material@7.2.0`)
+- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+- Prettier CLI/options: https://prettier.io/docs/options
+- Markdown syntax: https://www.markdownguide.org/basic-syntax/
+
+#### Subtasks
+
+1. [ ] Extend conversation summary + WS types for `flowName`:
+   - Files to edit:
+     - `client/src/hooks/useChatWs.ts`
+     - `client/src/hooks/useConversations.ts`
+   - Requirements:
+     - Add `flowName?: string` to client summary shapes.
+     - Preserve `flowName` on WS sidebar upserts.
+
+2. [ ] Update `useConversations` to accept `flowName` filter:
+   - Files to edit:
+     - `client/src/hooks/useConversations.ts`
+   - Requirements:
+     - Support `flowName=<name>` and `flowName=__none__` query params.
+     - Ensure Chat + Agents requests include `flowName=__none__` so flow conversations stay isolated.
+
+3. [ ] Preserve extended command metadata in client normalizers:
+   - Files to edit:
+     - `client/src/hooks/useChatStream.ts`
+     - `client/src/hooks/useConversationTurns.ts`
+     - `client/src/test/support/mockChatWs.ts`
+   - Requirements:
+     - Extend command metadata types to include `loopDepth`, `label`, `agentType`, `identifier`.
+     - Keep backward compatibility with existing command metadata tests.
+
+4. [ ] Update/extend client tests for command metadata:
+   - Test type: RTL/Jest
+   - Files to edit:
+     - `client/src/test/useConversationTurns.commandMetadata.test.ts`
+     - `client/src/test/useChatStream.toolPayloads.test.tsx`
+   - Purpose:
+     - Confirm flow metadata fields survive normalization and do not break existing step line rendering.
+
+5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual check: Chat/Agents sidebars no longer show flow conversations; Flows sidebar shows only the selected flow.
+9. [ ] `npm run compose:down`
+
+---
+
+### 10. Final verification + documentation + PR summary
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Validate the full story against acceptance criteria, perform clean builds/tests, update documentation, and produce the pull request summary for the story.
+
+#### Documentation Locations
+
+- Docker Compose guide (clean builds + compose up/down): Context7 `/docker/docs`
+- Playwright Test docs (Node/TS setup + running tests): https://playwright.dev/docs/intro
+- Husky docs (git hook management + install): https://typicode.github.io/husky/
+- Mermaid docs (diagram syntax for design.md): Context7 `/mermaid-js/mermaid`
+- Jest docs (test runner + expect API): Context7 `/jestjs/jest`
+- npm run-script reference (running workspace scripts): https://docs.npmjs.com/cli/v9/commands/npm-run-script
+- Cucumber guides (BDD + JavaScript workflow): https://cucumber.io/docs/guides/
+- Markdown syntax (README/design updates): https://www.markdownguide.org/basic-syntax/
+
+#### Subtasks
+
+1. [ ] Ensure `README.md` is updated with any required description changes and with any new commands that have been added as part of this story.
+2. [ ] Ensure `design.md` is updated with any required description changes including Mermaid diagrams added for flows.
+3. [ ] Ensure `projectStructure.md` is updated with any updated, added or removed files & folders after all file additions/removals.
+4. [ ] Create a summary of all changes and draft the PR comment for this story (server + client + tests).
+5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual check: run a flow end-to-end, stop mid-run, resume, and verify sidebar filtering by `flowName`.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes

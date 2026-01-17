@@ -664,7 +664,7 @@ Add `flowName` to conversation persistence and summary types so flow conversatio
 - `npm run lint --workspaces` completed with existing import-order warnings only; `npm run format:check --workspaces` passed cleanly.
 - `npm run build --workspace server` succeeded.
 - `npm run build --workspace client` succeeded (Vite chunk size warnings only).
-- `npm run test --workspace server` required longer timeouts; reran with a higher timeout but Cucumber scenarios failed due to `ChromaConnectionError` connecting to the test Chroma instance (54 scenarios failed).
+- `npm run test --workspace server` initially failed due to stale Testcontainers (port/Chroma conflicts); after removing the leftover containers, reran successfully with all unit + Cucumber scenarios passing.
 - `npm run test --workspace client` passed (console output includes expected jsdom/logging noise).
 - `npm run e2e` completed successfully (33 passed, 3 skipped).
 - `npm run compose:build` completed successfully.

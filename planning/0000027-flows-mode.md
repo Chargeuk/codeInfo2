@@ -176,7 +176,7 @@ None.
 ```
 
 - Each `messages` entry uses `{ role, content: string[] }` matching agent command message items.
-- `startLoop` requires a non-empty `steps` array and may include an optional `label`.
+- `startLoop` requires a non-empty `steps` array and may include an optional `label`; the `steps` array is the loop body and repeats until a `break` step triggers.
 
 ---
 

@@ -1121,7 +1121,7 @@ Attach flow step metadata to persisted turns (`turn.command`) so the client can 
 #### Documentation Locations
 
 - Mongoose subdocument fields: Context7 `/automattic/mongoose/9.0.1`
-- Express response shaping: https://expressjs.com/en/api.html#res.json
+- Express response shaping (`res.json`): Context7 `/expressjs/express/v5.1.0`
 - WebSocket payload patterns: https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API
 - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI/options: https://prettier.io/docs/options

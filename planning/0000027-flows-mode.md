@@ -1288,7 +1288,7 @@ Add support for `command` steps that run agent command macros (`commands/<comman
 
 ### 8. Server: Resume state persistence
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **__to_do__**
 
 #### Overview

@@ -380,7 +380,8 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚        |  â”œâ”€ flows.run.resume.test.ts â€” integration coverage for flow run resume validation
 â”‚        |  â”œâ”€ flows.run.working-folder.test.ts â€” integration coverage for flow run working_folder validation
 â”‚        |  â”œâ”€ flows.run.hot-reload.test.ts â€” integration coverage for flow run hot reload
-â”‚        |  â””â”€ flows.run.loop.test.ts â€” integration coverage for flow run loop + break
+â”‚        |  â”œâ”€ flows.run.loop.test.ts â€” integration coverage for flow run loop + break
+â”‚        |  â””â”€ flows.turn-metadata.test.ts â€” integration coverage for flow command metadata
 â”‚        |  â”œâ”€ chat-tools-wire.test.ts â€” chat route wiring (POST /chat 202 + WS bridge) with mocked LM Studio tools
 â”‚        |  â”œâ”€ chat-vectorsearch-locked-model.test.ts â€” chat run error/success flows when vector search lock/embedding availability changes
 â”‚        |  â”œâ”€ chat-codex.test.ts — Codex chat run flow, thread reuse, and availability gating

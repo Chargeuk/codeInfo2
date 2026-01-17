@@ -6,11 +6,21 @@ export type TurnRole = 'user' | 'assistant' | 'system';
 export type TurnStatus = 'ok' | 'stopped' | 'failed';
 export type TurnSource = 'REST' | 'MCP';
 
-export interface TurnCommandMetadata {
-  name: string;
-  stepIndex: number;
-  totalSteps: number;
-}
+export type TurnCommandMetadata =
+  | {
+      name: string;
+      stepIndex: number;
+      totalSteps: number;
+    }
+  | {
+      name: 'flow';
+      stepIndex: number;
+      totalSteps: number;
+      loopDepth: number;
+      agentType: string;
+      identifier: string;
+      label: string;
+    };
 
 export interface TurnUsageMetadata {
   inputTokens?: number;
@@ -46,6 +56,10 @@ const turnCommandSchema = new Schema<TurnCommandMetadata>(
     name: { type: String, required: true },
     stepIndex: { type: Number, required: true },
     totalSteps: { type: Number, required: true },
+    loopDepth: { type: Number, required: false },
+    agentType: { type: String, required: false },
+    identifier: { type: String, required: false },
+    label: { type: String, required: false },
   },
   { _id: false },
 );

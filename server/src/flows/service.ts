@@ -45,6 +45,7 @@ import {
   updateConversationThreadId,
 } from '../mongo/repo.js';
 import type {
+  TurnCommandMetadata,
   Turn,
   TurnStatus,
   TurnTimingMetadata,
@@ -366,6 +367,27 @@ const deriveStatusFromError = (message: string | undefined): TurnStatus => {
 
 const joinMessageContent = (content: string[]) => content.join('\n');
 
+type FlowTurnCommandMetadata = Extract<TurnCommandMetadata, { name: 'flow' }>;
+
+const buildFlowCommandMetadata = (params: {
+  step: FlowLlmStep | FlowBreakStep | FlowCommandStep;
+  stepIndex: number;
+  totalSteps: number;
+  loopDepth: number;
+}): FlowTurnCommandMetadata => {
+  const rawLabel = params.step.label?.trim();
+  const label = rawLabel && rawLabel.length > 0 ? rawLabel : params.step.type;
+  return {
+    name: 'flow',
+    stepIndex: params.stepIndex,
+    totalSteps: params.totalSteps,
+    loopDepth: params.loopDepth,
+    agentType: params.step.agentType,
+    identifier: params.step.identifier,
+    label,
+  };
+};
+
 type FlowInstructionResult = {
   status: TurnStatus;
   content: string;
@@ -392,6 +414,7 @@ async function persistFlowTurn(params: {
   source: 'REST' | 'MCP';
   status: TurnStatus;
   toolCalls: Record<string, unknown> | null;
+  command?: TurnCommandMetadata;
   usage?: TurnUsageMetadata;
   timing?: TurnTimingMetadata;
   createdAt: Date;
@@ -406,6 +429,7 @@ async function persistFlowTurn(params: {
       source: params.source,
       toolCalls: params.toolCalls,
       status: params.status,
+      command: params.command,
       usage: params.usage,
       timing: params.timing,
       createdAt: params.createdAt,
@@ -426,6 +450,7 @@ async function persistFlowTurn(params: {
     source: params.source,
     toolCalls: params.toolCalls,
     status: params.status,
+    command: params.command,
     usage: params.usage,
     timing: params.timing,
     createdAt: params.createdAt,
@@ -460,6 +485,7 @@ const runFlowInstruction = async (params: {
   deferFinal?: boolean;
   postProcess?: FlowInstructionPostProcess;
   onThreadId: (threadId: string) => void;
+  command?: TurnCommandMetadata;
 }): Promise<FlowInstructionResult> => {
   const createdAtIso = new Date().toISOString();
   createInflight({
@@ -468,6 +494,7 @@ const runFlowInstruction = async (params: {
     provider: 'codex',
     model: params.modelId,
     source: params.source,
+    command: params.command,
     userTurn: { content: params.instruction, createdAt: createdAtIso },
   });
 
@@ -623,6 +650,7 @@ const runFlowInstruction = async (params: {
     source: params.source,
     status: 'ok',
     toolCalls: null,
+    command: params.command,
     createdAt: userCreatedAt,
   });
 
@@ -636,6 +664,7 @@ const runFlowInstruction = async (params: {
     source: params.source,
     status: result.status,
     toolCalls,
+    command: params.command,
     usage: result.usage,
     timing: result.timing,
     createdAt: assistantCreatedAt,
@@ -687,6 +716,7 @@ const emitFailedFlowStep = async (params: {
   source: 'REST' | 'MCP';
   message: string;
   errorCode?: string;
+  command?: TurnCommandMetadata;
 }) => {
   const createdAtIso = new Date().toISOString();
   createInflight({
@@ -695,6 +725,7 @@ const emitFailedFlowStep = async (params: {
     provider: 'codex',
     model: params.modelId,
     source: params.source,
+    command: params.command,
     userTurn: { content: params.instruction, createdAt: createdAtIso },
   });
 
@@ -724,6 +755,7 @@ const emitFailedFlowStep = async (params: {
     source: params.source,
     status: 'ok',
     toolCalls: null,
+    command: params.command,
     createdAt: userCreatedAt,
   });
 
@@ -737,6 +769,7 @@ const emitFailedFlowStep = async (params: {
     source: params.source,
     status: 'failed',
     toolCalls: null,
+    command: params.command,
     createdAt: assistantCreatedAt,
   });
 
@@ -1046,6 +1079,7 @@ async function runFlowUnlocked(params: {
     instruction: string;
     deferFinal?: boolean;
     postProcess?: FlowInstructionPostProcess;
+    command?: TurnCommandMetadata;
   }): Promise<FlowInstructionResult> => {
     const agent = agentByName.get(instructionParams.agentType);
     if (!agent) {
@@ -1100,6 +1134,7 @@ async function runFlowUnlocked(params: {
       chatFactory: params.chatFactory,
       deferFinal: instructionParams.deferFinal,
       postProcess: instructionParams.postProcess,
+      command: instructionParams.command,
       onThreadId: (threadId) => {
         agentState.threadId = threadId;
         void persistAgentThreadId({
@@ -1121,13 +1156,17 @@ async function runFlowUnlocked(params: {
     return result;
   };
 
-  const runLlmStep = async (step: FlowLlmStep): Promise<TurnStatus> => {
+  const runLlmStep = async (
+    step: FlowLlmStep,
+    command: TurnCommandMetadata,
+  ): Promise<TurnStatus> => {
     for (const message of step.messages) {
       const instruction = joinMessageContent(message.content);
       const result = await runInstruction({
         agentType: step.agentType,
         identifier: step.identifier,
         instruction,
+        command,
       });
       if (shouldStopAfter(result.status)) return result.status;
     }
@@ -1136,6 +1175,7 @@ async function runFlowUnlocked(params: {
 
   const runBreakStep = async (
     step: FlowBreakStep,
+    command: TurnCommandMetadata,
   ): Promise<{
     status: TurnStatus;
     shouldBreak: boolean;
@@ -1151,6 +1191,7 @@ async function runFlowUnlocked(params: {
       identifier: step.identifier,
       instruction,
       deferFinal: true,
+      command,
       postProcess: (candidate) => {
         const parsed = parseBreakAnswer(candidate.content);
         if (!parsed.ok) {
@@ -1201,7 +1242,10 @@ async function runFlowUnlocked(params: {
     };
   };
 
-  const runCommandStep = async (step: FlowCommandStep): Promise<TurnStatus> => {
+  const runCommandStep = async (
+    step: FlowCommandStep,
+    command: TurnCommandMetadata,
+  ): Promise<TurnStatus> => {
     const agent = agentByName.get(step.agentType);
     if (!agent) {
       throw toFlowRunError(
@@ -1235,6 +1279,7 @@ async function runFlowUnlocked(params: {
         source: params.source,
         message: commandLoad.message,
         errorCode: 'COMMAND_INVALID',
+        command,
       });
       return 'failed';
     }
@@ -1245,6 +1290,7 @@ async function runFlowUnlocked(params: {
         agentType: step.agentType,
         identifier: step.identifier,
         instruction,
+        command,
       });
       if (shouldStopAfter(result.status)) return result.status;
     }
@@ -1337,7 +1383,23 @@ async function runFlowUnlocked(params: {
       }
 
       if (step.type === 'llm') {
-        const status = await runLlmStep(step);
+        const command = buildFlowCommandMetadata({
+          step,
+          stepIndex: index + 1,
+          totalSteps: steps.length,
+          loopDepth: loopStack.length,
+        });
+        append({
+          level: 'info',
+          message: 'flows.turn.metadata_attached',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          context: {
+            stepIndex: command.stepIndex,
+            agentType: command.agentType,
+          },
+        });
+        const status = await runLlmStep(step, command);
         if (shouldStopAfter(status)) {
           await persistFlowResumeState({
             conversationId: params.conversationId,
@@ -1356,7 +1418,23 @@ async function runFlowUnlocked(params: {
       }
 
       if (step.type === 'break') {
-        const { status, shouldBreak } = await runBreakStep(step);
+        const command = buildFlowCommandMetadata({
+          step,
+          stepIndex: index + 1,
+          totalSteps: steps.length,
+          loopDepth: loopStack.length,
+        });
+        append({
+          level: 'info',
+          message: 'flows.turn.metadata_attached',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          context: {
+            stepIndex: command.stepIndex,
+            agentType: command.agentType,
+          },
+        });
+        const { status, shouldBreak } = await runBreakStep(step, command);
         if (shouldStopAfter(status)) {
           await persistFlowResumeState({
             conversationId: params.conversationId,
@@ -1382,7 +1460,23 @@ async function runFlowUnlocked(params: {
       }
 
       if (step.type === 'command') {
-        const status = await runCommandStep(step);
+        const command = buildFlowCommandMetadata({
+          step,
+          stepIndex: index + 1,
+          totalSteps: steps.length,
+          loopDepth: loopStack.length,
+        });
+        append({
+          level: 'info',
+          message: 'flows.turn.metadata_attached',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          context: {
+            stepIndex: command.stepIndex,
+            agentType: command.agentType,
+          },
+        });
+        const status = await runCommandStep(step, command);
         if (shouldStopAfter(status)) {
           await persistFlowResumeState({
             conversationId: params.conversationId,

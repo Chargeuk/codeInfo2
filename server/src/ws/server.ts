@@ -465,6 +465,7 @@ export function attachWs(params: { httpServer: http.Server }): WsServerHandle {
               assistantThink: snapshot.assistantThink,
               toolEvents: snapshot.toolEvents,
               startedAt: snapshot.startedAt,
+              ...(snapshot.command ? { command: snapshot.command } : {}),
             },
           };
           safeSend(ws, event);

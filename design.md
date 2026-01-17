@@ -54,6 +54,7 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - `break` asks the configured agent to answer JSON `{ "answer": "yes" | "no" }` and fails the step (turn_final status `failed`) if the response is invalid.
 - `command` steps load `commands/<commandName>.json` for the specified agent and run each command item as a flow instruction; missing/invalid commands return `invalid_request` and emit a failed `turn_final`.
 - Each `llm` message entry is joined into a single instruction string and streamed via the existing WS protocol (no new event types).
+- Flow turns attach `turn.command` metadata with `{ name: 'flow', stepIndex, totalSteps, loopDepth, agentType, identifier, label }` (label defaults to the step type) and log `flows.turn.metadata_attached`.
 - Per-agent thread reuse is tracked in memory by `agentType:identifier`, while the flow conversation stores the merged transcript.
 - Resume state is stored on the flow conversation as `flags.flow` with `{ stepPath, loopStack, agentConversations, agentThreads }`, and each save emits `flows.resume.state_saved`.
 - Resume runs accept `resumeStepPath`, log `flows.resume.requested`, and validate path indices; mismatched agent conversation mappings return `agent_mismatch`.

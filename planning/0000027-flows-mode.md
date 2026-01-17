@@ -1561,7 +1561,7 @@ Attach flow step metadata to persisted turns (`turn.command`) so the client can 
 
 #### Subtasks
 
-1. [ ] Review current turn metadata usage:
+1. [x] Review current turn metadata usage:
    - Documentation to read (repeat):
      - Mongoose subdocument fields: Context7 `/automattic/mongoose/9.0.1`
      - WebSocket payload patterns: https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API
@@ -1579,7 +1579,7 @@ Attach flow step metadata to persisted turns (`turn.command`) so the client can 
      - `parseCommandMetadata` in `server/src/chat/interfaces/ChatInterface.ts`.
      - `InflightState.command` in `server/src/chat/inflightRegistry.ts` and snapshot builders in the same file.
 
-2. [ ] Add flow-specific command metadata shape:
+2. [x] Add flow-specific command metadata shape:
    - Documentation to read (repeat):
      - Mongoose subdocument fields: Context7 `/automattic/mongoose/9.0.1`
    - Files to edit:
@@ -1596,7 +1596,7 @@ Attach flow step metadata to persisted turns (`turn.command`) so the client can 
      - Include `stepIndex`, `totalSteps`, `loopDepth`, `agentType`, `identifier`, and `label`.
      - Default `label` to the step `type` when omitted in the flow JSON.
 
-3. [ ] Emit flow metadata on each flow step turn:
+3. [x] Emit flow metadata on each flow step turn:
    - Documentation to read (repeat):
      - WebSocket payload patterns: https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API
    - Files to edit:
@@ -1610,7 +1610,7 @@ Attach flow step metadata to persisted turns (`turn.command`) so the client can 
    - Logging requirement (repeat):
      - Emit `flows.turn.metadata_attached` (info) with `{ stepIndex, agentType }` when attaching flow command metadata.
 
-4. [ ] Integration test: flow turn metadata in snapshots
+4. [x] Integration test: flow turn metadata in snapshots
    - Test type: Integration (`node:test`)
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
@@ -1623,7 +1623,7 @@ Attach flow step metadata to persisted turns (`turn.command`) so the client can 
    - Purpose:
      - Verify turn snapshots include `command` metadata for flow turns.
 
-5. [ ] Unit test: command metadata parser for flows
+5. [x] Unit test: command metadata parser for flows
    - Test type: Unit (`node:test`)
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
@@ -1636,7 +1636,7 @@ Attach flow step metadata to persisted turns (`turn.command`) so the client can 
    - Purpose:
      - Ensure command metadata parsing is aligned with flow turns.
 
-6. [ ] Documentation update: `design.md` (flow turn metadata)
+6. [x] Documentation update: `design.md` (flow turn metadata)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
      - Mermaid docs (diagram syntax for design.md): Context7 `/mermaid-js/mermaid`
@@ -1647,7 +1647,7 @@ Attach flow step metadata to persisted turns (`turn.command`) so the client can 
    - Purpose:
      - Keep transcript metadata documented for UI consumers.
 
-7. [ ] Documentation update: `projectStructure.md` (flow metadata test file)
+7. [x] Documentation update: `projectStructure.md` (flow metadata test file)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -1657,24 +1657,31 @@ Attach flow step metadata to persisted turns (`turn.command`) so the client can 
    - Purpose:
      - Keep file map accurate after adding metadata tests.
 
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+8. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, run a flow if available, then open Logs and confirm `flows.turn.metadata_attached` entries appear for step indices; ensure no errors appear in the browser debug console.
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 7 minutes)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, run a flow if available, then open Logs and confirm `flows.turn.metadata_attached` entries appear for step indices; ensure no errors appear in the browser debug console.
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- Details about the implementation. Include what went to plan and what did not.
-- Essential that any decisions that got made during the implementation are documented here.
+- Extended turn command metadata to support flow fields, updated parsing, and allowed optional flow fields in turn append validation.
+- Flow runs now attach `turn.command` for each step (with label defaulting to step type), persist it on turns, include it in inflight snapshots, and emit `flows.turn.metadata_attached` logs.
+- Added integration coverage for flow command metadata in inflight snapshots and turn history, plus a unit test for flow command parsing defaults.
+- Updated `design.md` and `projectStructure.md` to document flow command metadata and the new integration test.
+- `npm run lint --workspaces` reported existing import-order warnings; `npm run format --workspaces` and `npm run format:check --workspaces` completed successfully after formatting updates.
+- Included flow `command` metadata in WebSocket inflight snapshots for late subscribers and updated the flow metadata test to use memory-backed turn listings.
+- `npm run test --workspace server` and `npm run test --workspace client` succeeded after the flow metadata snapshot fix (client tests emitted expected console logs).
+- `npm run e2e` succeeded (36 passed, ingest skips cleared) after the initial timeout; `npm run compose:build`, `npm run compose:up`, and `npm run compose:down` completed successfully.
+- Manual Playwright check: ran `manual-metadata` flow via `POST /flows/manual-metadata/run`, filtered Logs for `flows.turn.metadata_attached`, and confirmed entries for step index 1 with no browser console errors.
 
 ---
 

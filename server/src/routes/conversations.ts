@@ -79,6 +79,10 @@ const appendTurnSchema = z
         name: z.string().min(1),
         stepIndex: z.number().int().min(1),
         totalSteps: z.number().int().min(1),
+        loopDepth: z.number().int().min(0).optional(),
+        agentType: z.string().min(1).optional(),
+        identifier: z.string().min(1).optional(),
+        label: z.string().min(1).optional(),
       })
       .strict()
       .optional(),

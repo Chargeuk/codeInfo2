@@ -35,6 +35,26 @@ const parseCommandMetadata = (
     return undefined;
   if (typeof totalSteps !== 'number' || !Number.isFinite(totalSteps))
     return undefined;
+  if (name === 'flow') {
+    const loopDepth =
+      typeof value.loopDepth === 'number' ? value.loopDepth : undefined;
+    const agentType =
+      typeof value.agentType === 'string' ? value.agentType.trim() : '';
+    const identifier =
+      typeof value.identifier === 'string' ? value.identifier.trim() : '';
+    const label = typeof value.label === 'string' ? value.label.trim() : 'flow';
+    if (loopDepth === undefined || !Number.isFinite(loopDepth)) return undefined;
+    if (!agentType.length || !identifier.length) return undefined;
+    return {
+      name: 'flow',
+      stepIndex,
+      totalSteps,
+      loopDepth,
+      agentType,
+      identifier,
+      label: label.length ? label : 'flow',
+    };
+  }
   return { name, stepIndex, totalSteps };
 };
 

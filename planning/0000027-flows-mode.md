@@ -822,7 +822,7 @@ Implement the flow run engine for linear `llm` steps, including `POST /flows/:fl
 
 #### Subtasks
 
-1. [ ] Review agent run + inflight streaming helpers:
+1. [x] Review agent run + inflight streaming helpers:
    - Documentation to read (repeat):
      - AbortController: https://developer.mozilla.org/en-US/docs/Web/API/AbortController
    - Files to read:
@@ -840,7 +840,7 @@ Implement the flow run engine for linear `llm` steps, including `POST /flows/:fl
      - `attachChatStreamBridge` in `server/src/chat/chatStreamBridge.ts` for streaming events.
      - Route patterns in `server/src/routes/agentsRun.ts` for request parsing + error mapping.
 
-2. [ ] Implement flow run service for sequential `llm` steps:
+2. [x] Implement flow run service for sequential `llm` steps:
    - Documentation to read (repeat):
      - Express error handling: https://expressjs.com/en/guide/error-handling.html
      - AbortController: https://developer.mozilla.org/en-US/docs/Web/API/AbortController
@@ -877,7 +877,7 @@ Implement the flow run engine for linear `llm` steps, including `POST /flows/:fl
      - `tryAcquireConversationLock`/`releaseConversationLock` in `server/src/agents/runLock.ts` for run locking.
      - `recordMemoryTurn` + `updateMemoryConversationMeta` in `server/src/chat/memoryPersistence.ts`.
 
-3. [ ] Add `POST /flows/:flowName/run` route:
+3. [x] Add `POST /flows/:flowName/run` route:
    - Documentation to read (repeat):
      - Express request body parsing: https://expressjs.com/en/api.html#req.body
    - Files to edit:
@@ -900,7 +900,7 @@ Implement the flow run engine for linear `llm` steps, including `POST /flows/:fl
    - Logging requirement (repeat):
      - Emit `flows.run.started` (info) when returning 202 with `{ flowName, conversationId, inflightId }`.
 
-4. [ ] Integration tests: basic `llm` flow run:
+4. [x] Integration tests: basic `llm` flow run:
    - Test type: Integration (`node:test`)
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
@@ -917,7 +917,7 @@ Implement the flow run engine for linear `llm` steps, including `POST /flows/:fl
    - Purpose:
      - Ensure `POST /flows/:flowName/run` returns 202, sets the flow title, and streams a user turn + assistant delta.
 
-5. [ ] Integration tests: flow run error cases (missing/invalid/archived/conflict):
+5. [x] Integration tests: flow run error cases (missing/invalid/archived/conflict):
    - Test type: Integration (`node:test`)
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
@@ -934,7 +934,7 @@ Implement the flow run engine for linear `llm` steps, including `POST /flows/:fl
    - Purpose:
      - Lock in error handling for core run request validation.
 
-6. [ ] Integration tests: flow run `working_folder` validation
+6. [x] Integration tests: flow run `working_folder` validation
    - Test type: Integration (`node:test`)
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
@@ -948,7 +948,7 @@ Implement the flow run engine for linear `llm` steps, including `POST /flows/:fl
    - Purpose:
      - Ensure flow runs reuse agent working-folder validation semantics.
 
-7. [ ] Integration tests: flow run hot reload between runs
+7. [x] Integration tests: flow run hot reload between runs
    - Test type: Integration (`node:test`)
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
@@ -961,7 +961,7 @@ Implement the flow run engine for linear `llm` steps, including `POST /flows/:fl
    - Purpose:
      - Confirm hot-reload behavior for run execution.
 
-8. [ ] Documentation update: `design.md` (flow run core)
+8. [x] Documentation update: `design.md` (flow run core)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
      - Mermaid docs (diagram syntax for design.md): Context7 `/mermaid-js/mermaid`
@@ -972,7 +972,7 @@ Implement the flow run engine for linear `llm` steps, including `POST /flows/:fl
    - Purpose:
      - Keep runtime flow behavior documented and aligned with the API.
 
-9. [ ] Documentation update: `projectStructure.md` (flow run files)
+9. [x] Documentation update: `projectStructure.md` (flow run files)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -982,24 +982,42 @@ Implement the flow run engine for linear `llm` steps, including `POST /flows/:fl
    - Purpose:
      - Keep the repo structure accurate after new flow runtime files.
 
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+10. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, run `fetch('http://host.docker.internal:5010/flows/<flowName>/run', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })` for a valid flow, then open Logs and confirm `flows.run.started` appears with matching `flowName`; confirm no errors appear in the browser debug console.
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 7 minutes)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, run `fetch('http://host.docker.internal:5010/flows/<flowName>/run', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })` for a valid flow, then open Logs and confirm `flows.run.started` appears with matching `flowName`; confirm no errors appear in the browser debug console.
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- Details about the implementation. Include what went to plan and what did not.
-- Essential that any decisions that got made during the implementation are documented here.
+- Reviewed agent run/inflight helpers in `server/src/agents/service.ts`, `server/src/agents/commandsRunner.ts` (note: `commands.ts` does not exist), `server/src/chat/inflightRegistry.ts`, `server/src/chat/chatStreamBridge.ts`, and `server/src/routes/agentsRun.ts` to mirror WS streaming, locking, and error mapping for flow runs.
+- Confirmed inflight creation/publish flow and working-folder validation patterns to reuse in flow service.
+- Added `server/src/flows/service.ts` and `server/src/flows/types.ts` to load flow files per run, create flow conversations, execute llm-only steps with per-agent thread reuse, and persist merged flow turns while streaming via the existing WS bridge.
+- Wired `POST /flows/:flowName/run` in `server/src/routes/flowsRun.ts` with request validation, error mapping, and registration in `server/src/index.ts`.
+- Added flow run integration coverage for basic streaming (`flows.run.basic.test.ts`), error cases (`flows.run.errors.test.ts`), working folder validation (`flows.run.working-folder.test.ts`), and hot reload behavior (`flows.run.hot-reload.test.ts`).
+- Added flow run fixtures `llm-basic.json` and `hot-reload.json` under `server/src/test/fixtures/flows/`.
+- Documented core flow run behavior and sequential llm execution in `design.md`.
+- Updated `projectStructure.md` with new flow service/router files, integration tests, and flow fixtures.
+- `npm run lint --workspaces` reports existing import-order warnings in unrelated files; no new lint errors.
+- `npm run format --workspaces` followed by `npm run format:check --workspaces` passes.
+- `npm run build --workspace server` succeeded.
+- `npm run build --workspace client` succeeded (Vite chunk-size warnings only).
+- `npm run test --workspace server` passed (reran with extended timeout after initial timeouts; 413 tests, 54 Cucumber scenarios).
+- `npm run test --workspace client` passed (console warnings from jsdom/DOM nesting logs).
+- `npm run e2e` passed after rerun with extended timeout (33 passed, 3 skipped).
+- `npm run compose:build` succeeded.
+- `npm run compose:up` started the stack successfully.
+- Playwright MCP check: `POST /flows/manual-flow/run` returned 202 and Logs page showed `flows.run.started` for `manual-flow` with no browser console errors.
+- `npm run compose:down` stopped the stack successfully.
+- Updated `server/src/test/integration/flows.list.test.ts` expectations to include the new flow fixtures introduced for flow run tests.
 
 ---
 

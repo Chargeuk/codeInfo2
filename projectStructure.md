@@ -236,6 +236,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚     â”‚  â”œâ”€ ingestRemove.ts — POST /ingest/remove/:root purge vectors/metadata and unlock if empty
 â”‚     â”‚  â”œâ”€ logs.ts â€” log ingestion, history, and SSE streaming routes
 â”‚     â”‚  â”œâ”€ flows.ts — GET /flows list endpoint
+â”‚     â”‚  â”œâ”€ flowsRun.ts — POST /flows/:flowName/run flow runner endpoint
 â”‚     â”‚  â”œâ”€ toolsIngestedRepos.ts â€” GET /tools/ingested-repos repo list for agent tools
 â”‚     â”‚  â”œâ”€ toolsVectorSearch.ts â€” POST /tools/vector-search chunk search with optional repo filter
 â”‚     â”‚  â””â”€ lmstudio.ts â€” LM Studio proxy route
@@ -267,8 +268,10 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚     â”‚  â”œâ”€ codexAvailability.ts — Codex CLI availability check for tool call gating
 â”‚     â”‚  â””â”€ tools.ts — Agents tool registry wiring
 â”‚     â”œâ”€ flows/
-â”‚     â”‚  â””â”€ flowSchema.ts — strict Zod schema for flow JSON validation
-â”‚     â”‚  â””â”€ discovery.ts — flow discovery and summary listing (hot reload)
+â”‚     â”‚  â”œâ”€ discovery.ts — flow discovery and summary listing (hot reload)
+â”‚     â”‚  â”œâ”€ flowSchema.ts — strict Zod schema for flow JSON validation
+â”‚     â”‚  â”œâ”€ service.ts — flow run execution (llm-only core)
+â”‚     â”‚  â””â”€ types.ts — flow run types + error codes
 â”‚     â”œâ”€ test/unit/chat-assistant-suppress.test.ts â€” unit coverage for assistant-role tool payload suppression helpers
 â”‚     â”œâ”€ test/unit/codexEnvDefaults.test.ts â€” unit coverage for Codex env defaults parsing/warnings
 â”‚     â”œâ”€ ingest/ â€” ingest helpers (discovery, chunking, hashing, config)
@@ -327,6 +330,14 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
         - ingest-dryrun-no-write.steps.ts - step defs for dry-run no-write
 â”‚        â”œâ”€ support/
 â”‚        |  â””â”€ mockLmStudioSdk.ts â€” controllable LM Studio SDK mock
+â”‚        â”œâ”€ fixtures/
+â”‚        |  â”œâ”€ flows/
+â”‚        |  â”œâ”€ hot-reload.json — flow run hot reload fixture
+â”‚        |  â”œâ”€ ignore.txt — non-JSON flow fixture
+â”‚        |  â”œâ”€ invalid-json.json — invalid flow JSON fixture
+â”‚        |  â”œâ”€ invalid-schema.json — invalid flow schema fixture
+â”‚        |  â”œâ”€ llm-basic.json — basic llm flow fixture
+â”‚        |  â””â”€ valid-flow.json — valid flow fixture
 â”‚        â””â”€ unit/
 â”‚           â”œâ”€ chunker.test.ts â€” chunking behaviour and slicing coverage
 â”‚           â”œâ”€ discovery.test.ts â€” discovery include/exclude and git-tracked coverage
@@ -359,7 +370,11 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚           â”œâ”€ mcp-unsupported-provider.test.ts — MCP tools/call unsupported provider error path
 â”‚           â””â”€ tools-vector-search.test.ts â€” supertest coverage for /tools/vector-search
 â”‚        â”œâ”€ integration/
-â”‚        |  â””â”€ flows.list.test.ts â€” integration coverage for GET /flows listing
+â”‚        |  â”œâ”€ flows.list.test.ts â€” integration coverage for GET /flows listing
+â”‚        |  â”œâ”€ flows.run.basic.test.ts â€” integration coverage for POST /flows/:flowName/run streaming
+â”‚        |  â”œâ”€ flows.run.errors.test.ts â€” integration coverage for flow run error responses
+â”‚        |  â”œâ”€ flows.run.working-folder.test.ts â€” integration coverage for flow run working_folder validation
+â”‚        |  â””â”€ flows.run.hot-reload.test.ts â€” integration coverage for flow run hot reload
 â”‚        |  â”œâ”€ chat-tools-wire.test.ts â€” chat route wiring (POST /chat 202 + WS bridge) with mocked LM Studio tools
 â”‚        |  â”œâ”€ chat-vectorsearch-locked-model.test.ts â€” chat run error/success flows when vector search lock/embedding availability changes
 â”‚        |  â”œâ”€ chat-codex.test.ts — Codex chat run flow, thread reuse, and availability gating

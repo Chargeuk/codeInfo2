@@ -1,0 +1,16 @@
+{
+  "description": "Hot reload flow",
+  "steps": [
+    {
+      "type": "llm",
+      "agentType": "coding_agent",
+      "identifier": "reload",
+      "messages": [
+        {
+          "role": "user",
+          "content": ["First run"]
+        }
+      ]
+    }
+  ]
+}

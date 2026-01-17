@@ -37,7 +37,13 @@ describe('GET /flows', () => {
     const names = response.body.flows.map(
       (flow: { name: string }) => flow.name,
     );
-    assert.deepEqual(names, ['invalid-json', 'invalid-schema', 'valid-flow']);
+    assert.deepEqual(names, [
+      'hot-reload',
+      'invalid-json',
+      'invalid-schema',
+      'llm-basic',
+      'valid-flow',
+    ]);
 
     const invalidJson = response.body.flows.find(
       (flow: { name: string }) => flow.name === 'invalid-json',

@@ -218,6 +218,7 @@ Define the strict flow JSON schema and unit coverage for validation. This task e
 
 - Zod schema validation (`.strict()` + unions + refinements): Context7 `/colinhacks/zod`
 - JSON parsing errors + try/catch patterns: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/parse
+- Node.js test runner (`node:test`): https://nodejs.org/api/test.html
 - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI/options: https://prettier.io/docs/options
 - Markdown syntax (doc updates): https://www.markdownguide.org/basic-syntax/
@@ -337,6 +338,7 @@ Add flow discovery (scan `flows/` on each request) and expose `GET /flows` with 
 - Node.js `fs/promises` + `path` (directory scanning + JSON file reads): https://nodejs.org/api/fs.html
 - Express 5 response helpers (`res.json`, async handlers): Context7 `/expressjs/express/v5.1.0`
 - JSON parsing errors + try/catch patterns: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/parse
+- Node.js test runner (`node:test`): https://nodejs.org/api/test.html
 - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI/options: https://prettier.io/docs/options
 - Markdown syntax (doc updates): https://www.markdownguide.org/basic-syntax/
@@ -450,6 +452,7 @@ Add `flowName` to conversation persistence and summary types so flow conversatio
 - Mongoose schema fields + optional indexes: Context7 `/automattic/mongoose/9.0.1`
 - Express query parsing (`req.query`) and response helpers: Context7 `/expressjs/express/v5.1.0`
 - WebSocket JSON message shape best practices: https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API
+- Node.js test runner (`node:test`): https://nodejs.org/api/test.html
 - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI/options: https://prettier.io/docs/options
 - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -618,6 +621,7 @@ Implement the flow run engine for linear `llm` steps, including `POST /flows/:fl
 - Express async handlers + error propagation: Context7 `/expressjs/express/v5.1.0`
 - AbortController usage (cancellation): https://developer.mozilla.org/en-US/docs/Web/API/AbortController
 - Node.js timers (delays between steps if needed): https://nodejs.org/api/timers.html
+- Node.js test runner (`node:test`): https://nodejs.org/api/test.html
 - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI/options: https://prettier.io/docs/options
 - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -747,6 +751,7 @@ Extend the flow runtime with nested loop support and `break` steps that evaluate
 
 - JSON parsing + error handling patterns: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/parse
 - AbortController usage: https://developer.mozilla.org/en-US/docs/Web/API/AbortController
+- Node.js test runner (`node:test`): https://nodejs.org/api/test.html
 - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI/options: https://prettier.io/docs/options
 - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -852,6 +857,7 @@ Add support for `command` steps that run agent command macros (`commands/<comman
 
 - Express error handling (invalid request responses): Context7 `/expressjs/express/v5.1.0`
 - JSON schema validation patterns: Context7 `/colinhacks/zod`
+- Node.js test runner (`node:test`): https://nodejs.org/api/test.html
 - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI/options: https://prettier.io/docs/options
 - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -943,6 +949,7 @@ Persist flow run state (step path, loop stack, agent conversation mapping, and p
 
 - Mongoose schema updates + nested objects: Context7 `/automattic/mongoose/9.0.1`
 - JSON parsing + validation: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/parse
+- Node.js test runner (`node:test`): https://nodejs.org/api/test.html
 - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI/options: https://prettier.io/docs/options
 - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -1037,6 +1044,7 @@ Enable resume execution using `resumeStepPath` and stored `flags.flow` state. Th
 
 - Express request validation patterns: Context7 `/expressjs/express/v5.1.0`
 - JSON parsing + validation: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/parse
+- Node.js test runner (`node:test`): https://nodejs.org/api/test.html
 - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI/options: https://prettier.io/docs/options
 - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -1123,6 +1131,7 @@ Attach flow step metadata to persisted turns (`turn.command`) so the client can 
 - Mongoose subdocument fields: Context7 `/automattic/mongoose/9.0.1`
 - Express response shaping (`res.json`): Context7 `/expressjs/express/v5.1.0`
 - WebSocket payload patterns: https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API
+- Node.js test runner (`node:test`): https://nodejs.org/api/test.html
 - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI/options: https://prettier.io/docs/options
 - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -1229,6 +1238,7 @@ Add client API helpers for listing flows and starting flow runs. This task expos
 #### Documentation Locations
 
 - Fetch API + AbortController: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
+- Jest docs (test runner + expect API): Context7 `/jestjs/jest`
 - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI/options: https://prettier.io/docs/options
 - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -1318,6 +1328,7 @@ Build the Flows UI: list flows, start/resume runs, and render flow conversations
 - MUI components (Drawer, Button, TextField, Chip, Typography): MUI MCP tool (`@mui/material@6.4.12`)
 - React Router v7.9.x docs: Context7 `/remix-run/react-router/react-router_7.9.4`
 - Fetch API + AbortController: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
+- Jest docs (test runner + expect API): Context7 `/jestjs/jest`
 - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI/options: https://prettier.io/docs/options
 - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -1430,6 +1441,7 @@ Update client conversation list filtering so Chat and Agents exclude flow conver
 
 - React state patterns: https://react.dev/reference/react/useState
 - TypeScript structural typing: https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
+- Jest docs (test runner + expect API): Context7 `/jestjs/jest`
 - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI/options: https://prettier.io/docs/options
 - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -1510,6 +1522,7 @@ Preserve the extended flow step metadata (`loopDepth`, `label`, `agentType`, `id
 #### Documentation Locations
 
 - TypeScript structural typing: https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
+- Jest docs (test runner + expect API): Context7 `/jestjs/jest`
 - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI/options: https://prettier.io/docs/options
 - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -1584,7 +1597,7 @@ Validate the full story against acceptance criteria, perform clean builds/tests,
 - Mermaid docs (diagram syntax for design.md): Context7 `/mermaid-js/mermaid`
 - Jest docs (test runner + expect API): Context7 `/jestjs/jest`
 - npm run-script reference (running workspace scripts): https://docs.npmjs.com/cli/v9/commands/npm-run-script
-- Cucumber guides (BDD + JavaScript workflow): https://cucumber.io/docs/guides/
+- Cucumber guides (BDD + JavaScript workflow): https://cucumber.io/docs/guides/10-minute-tutorial/
 - Markdown syntax (README/design updates): https://www.markdownguide.org/basic-syntax/
 
 #### Subtasks

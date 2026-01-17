@@ -1308,7 +1308,7 @@ Persist flow run state (step path, loop stack, agent conversation mapping, and p
 
 #### Subtasks
 
-1. [ ] Review existing conversation flags handling:
+1. [x] Review existing conversation flags handling:
    - Documentation to read (repeat):
      - Mongoose schema updates + nested objects: Context7 `/automattic/mongoose/9.0.1`
    - Files to read:
@@ -1324,7 +1324,7 @@ Persist flow run state (step path, loop stack, agent conversation mapping, and p
      - `threadId` lookup in `runAgentInstructionUnlocked` (`server/src/agents/service.ts`).
      - `updateMemoryConversationMeta` in `server/src/chat/memoryPersistence.ts`.
 
-2. [ ] Add `conversation.flags.flow` persistence shape:
+2. [x] Add `conversation.flags.flow` persistence shape:
    - Documentation to read (repeat):
      - Mongoose schema updates: Context7 `/automattic/mongoose/9.0.1`
      - JSON parsing + validation: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/parse
@@ -1348,7 +1348,7 @@ Persist flow run state (step path, loop stack, agent conversation mapping, and p
    - Logging requirement (repeat):
      - Emit `flows.resume.state_saved` (info) when `flags.flow` is persisted, with `{ conversationId, stepPath }`.
 
-3. [ ] Unit tests: flow flags persistence
+3. [x] Unit tests: flow flags persistence
    - Test type: Unit (`node:test`)
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
@@ -1361,7 +1361,7 @@ Persist flow run state (step path, loop stack, agent conversation mapping, and p
    - Purpose:
      - Ensure `flags.flow` is stored and returned in conversation metadata.
 
-4. [ ] Documentation update: `design.md` (resume state)
+4. [x] Documentation update: `design.md` (resume state)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
      - Mermaid docs (diagram syntax for design.md): Context7 `/mermaid-js/mermaid`
@@ -1372,7 +1372,7 @@ Persist flow run state (step path, loop stack, agent conversation mapping, and p
    - Purpose:
      - Keep resume state design notes current.
 
-5. [ ] Documentation update: `projectStructure.md` (flow flags test file)
+5. [x] Documentation update: `projectStructure.md` (flow flags test file)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -1382,24 +1382,37 @@ Persist flow run state (step path, loop stack, agent conversation mapping, and p
    - Purpose:
      - Keep file map accurate after adding flags tests.
 
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+6. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, run a flow if available, then open Logs and confirm `flows.resume.state_saved` appears with the flow `conversationId`; confirm no errors appear in the browser debug console.
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 7 minutes)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, run a flow if available, then open Logs and confirm `flows.resume.state_saved` appears with the flow `conversationId`; confirm no errors appear in the browser debug console.
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- Details about the implementation. Include what went to plan and what did not.
-- Essential that any decisions that got made during the implementation are documented here.
+- Reviewed existing conversation flags usage in `conversation.ts`, `repo.ts`, `agents/service.ts`, and `memoryPersistence.ts` to align flow resume state with current threadId persistence patterns.
+- Added flow resume state persistence in `server/src/flows/service.ts` and a dedicated `FlowResumeState` type, including agent conversation hydration, threadId persistence, and `flows.resume.state_saved` logging.
+- Added `flows.flags.test.ts` to verify `flags.flow` persistence and conversation listing surfaces the stored state.
+- Updated `design.md` with the `flags.flow` resume state structure and logging note.
+- Updated `projectStructure.md` to include the new `flows.flags.test.ts` unit test.
+- Ran workspace lint/format checks; fixed new import order/formatting issues and noted existing lint warnings elsewhere.
+- `npm run build --workspace server` succeeded after reordering flow agent model lookup.
+- `npm run build --workspace client` succeeded (Vite emitted chunk-size warnings only).
+- `npm run test --workspace server` succeeded (unit + integration suites).
+- `npm run test --workspace client` succeeded (Jest suite; expected jsdom console logging).
+- `npm run e2e` succeeded (compose e2e build/up/tests/down all passed).
+- `npm run compose:build` completed successfully.
+- `npm run compose:up` started the stack successfully (services healthy).
+- Manual Playwright check: ran `manual-resume-state` flow, verified `flows.resume.state_saved` with conversationId `645baef7-3751-4087-8974-3f688ac9e70a` in Logs, and saw no browser console errors.
+- `npm run compose:down` stopped the stack cleanly after manual verification.
 
 ---
 

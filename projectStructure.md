@@ -353,6 +353,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚           â”œâ”€ chat-command-metadata.test.ts — ChatInterface.run persists command metadata on user+assistant turns (including aborted/stopped runs)
 â”‚           â”œâ”€ chatValidators.test.ts — unit coverage for Codex env defaults + warnings in chat validation
 â”‚           â”œâ”€ flows-schema.test.ts — unit coverage for flow schema parsing/strictness/trimming
+â”‚           â”œâ”€ flows.flags.test.ts — unit coverage for flow resume flags persistence
 â”‚           â”œâ”€ turn-command-metadata.test.ts — Turn persistence plumbs optional command metadata through append/list helpers
 â”‚           â”œâ”€ toolService.synthetic.test.ts — unit coverage for onToolResult callback emission
 â”‚           â”œâ”€ chroma-embedding-selection.test.ts â€” locked-model embedding function selection + error paths

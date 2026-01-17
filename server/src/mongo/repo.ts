@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import type { FlowResumeState } from '../flows/flowState.js';
 import { append } from '../logStore.js';
 import {
   ConversationModel,
@@ -151,6 +152,24 @@ export async function updateConversationThreadId({
   const updated = await ConversationModel.findByIdAndUpdate(
     conversationId,
     { $set: { 'flags.threadId': threadId } },
+    { new: true },
+  ).exec();
+  if (updated) emitConversationUpsert(toConversationEvent(updated));
+  return updated;
+}
+
+export async function updateConversationFlowState({
+  conversationId,
+  flow,
+}: {
+  conversationId: string;
+  flow: FlowResumeState;
+}): Promise<Conversation | null> {
+  if (mongoose.connection.readyState !== 1) return null;
+
+  const updated = await ConversationModel.findByIdAndUpdate(
+    conversationId,
+    { $set: { 'flags.flow': flow } },
     { new: true },
   ).exec();
   if (updated) emitConversationUpsert(toConversationEvent(updated));

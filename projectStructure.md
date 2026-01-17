@@ -78,6 +78,8 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 |     |  |- useIngestRoots.ts ? fetches /ingest/roots with lock info and refetch helper
 |     |  |- useIngestModels.ts ? fetches /ingest/models with lock + default selection
 |     |  - useLogs.ts ? log history + SSE hook with filters
+|     |- utils/
+|     |  - isDevEnv.ts ? shared dev/test environment detection helper
 |     |- api/
 |     |  - agents.ts ? client wrapper for GET /agents and POST /agents/:agentName/run (AbortSignal supported)
 |     |  - baseUrl.ts ? runtime API base resolver (config/env/location)
@@ -114,6 +116,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 |     |     |- chatPage.flags.approval.payload.test.tsx ? approval policy omitted for LM Studio and forwarded/reset for Codex
 |     |     |- chatPage.flags.reasoning.default.test.tsx ? Codex reasoning effort select default and helper
 |     |     |- chatPage.flags.reasoning.payload.test.tsx ? reasoning effort omitted for LM Studio and forwarded/reset for Codex
+|     |     |- chatPage.codexDefaults.test.tsx ? Codex defaults sourced from server, reset on provider/new conversation, panel disabled without defaults
 |     |     |- chatPage.provider.test.tsx ? provider dropdown, Codex disabled guidance, provider lock after first send
 |     |     |- chatPage.markdown.test.tsx ? assistant markdown rendering for lists and code fences
 |     |     |- chatPage.mermaid.test.tsx ? mermaid code fence rendering and script stripping
@@ -209,6 +212,9 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚     â”œâ”€ index.ts â€” Express app entry
 â”‚     â”œâ”€ logger.ts â€” pino/pino-http setup with rotation and env config helper
 â”‚     â”œâ”€ logStore.ts â€” in-memory log buffer with sequence numbers and filters
+â”‚     â”œâ”€ config/
+â”‚     â”‚  â”œâ”€ codexConfig.ts â€” Codex home/env config builder
+â”‚     â”‚  â””â”€ codexEnvDefaults.ts â€” Codex env defaults parser + warnings helper
 â”‚     â”œâ”€ chatStream.ts — SSE helper for streaming endpoints (e.g., `/logs/stream`); chat runs stream over `/ws`
 â”‚     â”œâ”€ chat/
 â”‚     â”‚  â”œâ”€ factory.ts — provider map returning ChatInterface instances or throws UnsupportedProviderError
@@ -260,6 +266,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚     â”‚  â”œâ”€ codexAvailability.ts — Codex CLI availability check for tool call gating
 â”‚     â”‚  â””â”€ tools.ts — Agents tool registry wiring
 â”‚     â”œâ”€ test/unit/chat-assistant-suppress.test.ts â€” unit coverage for assistant-role tool payload suppression helpers
+â”‚     â”œâ”€ test/unit/codexEnvDefaults.test.ts â€” unit coverage for Codex env defaults parsing/warnings
 â”‚     â”œâ”€ ingest/ â€” ingest helpers (discovery, chunking, hashing, config)
 â”‚     â”‚  â”œâ”€ __fixtures__/sample.ts â€” sample text blocks for chunking tests
 â”‚     â”‚  â”œâ”€ modelLock.ts — placeholder for ingest model lock retrieval
@@ -327,6 +334,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚           â”œâ”€ chat-unsupported-provider.test.ts — REST /chat returns 400 on unsupported provider error path
 â”‚           â”œâ”€ chat-interface-run-persistence.test.ts — ChatInterface.run persists user turn then delegates execute, with memory fallback coverage
 â”‚           â”œâ”€ chat-command-metadata.test.ts — ChatInterface.run persists command metadata on user+assistant turns (including aborted/stopped runs)
+â”‚           â”œâ”€ chatValidators.test.ts — unit coverage for Codex env defaults + warnings in chat validation
 â”‚           â”œâ”€ turn-command-metadata.test.ts — Turn persistence plumbs optional command metadata through append/list helpers
 â”‚           â”œâ”€ toolService.synthetic.test.ts — unit coverage for onToolResult callback emission
 â”‚           â”œâ”€ chroma-embedding-selection.test.ts â€” locked-model embedding function selection + error paths
@@ -428,6 +436,8 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 - server/src/test/unit/agent-commands-runner-abort-retry.test.ts — unit coverage that retries stop immediately when aborted
 - server/src/test/unit/mcp-responder-transient-error.test.ts — unit coverage that McpResponder ignores transient reconnect error events
 - server/src/test/unit/chat-command-metadata.test.ts — unit coverage that chat persistence attaches `command` metadata to turns created by command runs
+- server/src/test/unit/chatModels.codex.test.ts — unit coverage for `/chat/models` Codex defaults, warnings, and env model lists
+- server/src/test/unit/chatValidators.test.ts — unit coverage for Codex env defaults + warnings in chat validation
 - server/src/test/unit/chat-codex-workingDirectoryOverride.test.ts — ensures ChatInterfaceCodex honors per-call workingDirectory overrides
 - server/src/test/unit/conversations-router-agent-filter.test.ts — Supertest coverage for `/conversations?agentName=...` request forwarding
 - server/src/test/integration/conversations.bulk.test.ts — Supertest coverage for bulk conversation endpoints (archive/restore/delete + validation/conflicts)

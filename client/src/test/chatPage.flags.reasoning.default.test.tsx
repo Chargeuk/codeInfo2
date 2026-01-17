@@ -79,6 +79,14 @@ function mockCodexReady() {
           provider: 'codex',
           available: true,
           toolsAvailable: true,
+          codexDefaults: {
+            sandboxMode: 'workspace-write',
+            approvalPolicy: 'on-failure',
+            modelReasoningEffort: 'high',
+            networkAccessEnabled: true,
+            webSearchEnabled: true,
+          },
+          codexWarnings: [],
           models: [
             {
               key: 'gpt-5.1-codex-max',
@@ -135,9 +143,7 @@ describe('Codex model reasoning effort defaults', () => {
     const reasoningSelect = await screen.findByTestId(
       'reasoning-effort-select',
     );
-    await waitFor(() =>
-      expect(reasoningSelect).toHaveTextContent(/high \(default\)/i),
-    );
+    await waitFor(() => expect(reasoningSelect).toHaveTextContent(/high/i));
 
     expect(
       screen.getByText(/higher effort may improve quality at more cost/i),

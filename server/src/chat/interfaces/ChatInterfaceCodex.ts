@@ -149,13 +149,32 @@ export class ChatInterfaceCodex extends ChatInterface {
           model,
           workingDirectory: codexWorkingDirectory,
           skipGitRepoCheck: true,
-          sandboxMode: codexFlags?.sandboxMode ?? 'workspace-write',
-          networkAccessEnabled: codexFlags?.networkAccessEnabled ?? true,
-          webSearchEnabled: codexFlags?.webSearchEnabled ?? true,
-          approvalPolicy: codexFlags?.approvalPolicy ?? 'on-failure',
-          modelReasoningEffort: (codexFlags?.modelReasoningEffort ??
-            'high') as unknown as CodexThreadOptions['modelReasoningEffort'],
+          sandboxMode: codexFlags?.sandboxMode,
+          networkAccessEnabled: codexFlags?.networkAccessEnabled,
+          webSearchEnabled: codexFlags?.webSearchEnabled,
+          approvalPolicy: codexFlags?.approvalPolicy,
+          modelReasoningEffort:
+            codexFlags?.modelReasoningEffort as unknown as CodexThreadOptions['modelReasoningEffort'],
         };
+
+    const undefinedFlags: string[] = [];
+    const addUndefinedFlag = (label: string, value: unknown) => {
+      if (value === undefined) undefinedFlags.push(label);
+    };
+
+    addUndefinedFlag('sandboxMode', codexFlags?.sandboxMode);
+    addUndefinedFlag('networkAccessEnabled', codexFlags?.networkAccessEnabled);
+    addUndefinedFlag('webSearchEnabled', codexFlags?.webSearchEnabled);
+    addUndefinedFlag('approvalPolicy', codexFlags?.approvalPolicy);
+    addUndefinedFlag('modelReasoningEffort', codexFlags?.modelReasoningEffort);
+
+    baseLogger.info(
+      {
+        threadOptions,
+        undefinedFlags,
+      },
+      '[codex-thread-options] prepared',
+    );
 
     const codex = codexHome
       ? (new Codex(buildCodexOptions({ codexHome })) as unknown as CodexLike)

@@ -56,6 +56,7 @@ import useConversationTurns, {
 import useConversations from '../hooks/useConversations';
 import usePersistenceStatus from '../hooks/usePersistenceStatus';
 import { createLogger } from '../logging/logger';
+import { isDevEnv } from '../utils/isDevEnv';
 
 const bubbleTimestampFormatter = new Intl.DateTimeFormat(undefined, {
   dateStyle: 'medium',
@@ -148,29 +149,29 @@ export default function ChatPage() {
     setSelected,
     errorMessage,
     providerErrorMessage,
+    codexDefaults,
+    codexWarnings,
     isLoading,
     isError,
     isEmpty,
     refreshModels,
     refreshProviders,
   } = useChatModel();
-  const defaultSandboxMode: SandboxMode = 'workspace-write';
-  const defaultApprovalPolicy: ApprovalPolicy = 'on-failure';
-  const defaultModelReasoningEffort: ModelReasoningEffort = 'high';
-  const defaultNetworkAccessEnabled = true;
-  const defaultWebSearchEnabled = true;
-  const [sandboxMode, setSandboxMode] =
-    useState<SandboxMode>(defaultSandboxMode);
+  const [sandboxMode, setSandboxMode] = useState<SandboxMode>(
+    codexDefaults?.sandboxMode ?? 'danger-full-access',
+  );
   const [approvalPolicy, setApprovalPolicy] = useState<ApprovalPolicy>(
-    defaultApprovalPolicy,
+    codexDefaults?.approvalPolicy ?? 'on-failure',
   );
   const [modelReasoningEffort, setModelReasoningEffort] =
-    useState<ModelReasoningEffort>(defaultModelReasoningEffort);
+    useState<ModelReasoningEffort>(
+      codexDefaults?.modelReasoningEffort ?? 'high',
+    );
   const [networkAccessEnabled, setNetworkAccessEnabled] = useState<boolean>(
-    defaultNetworkAccessEnabled,
+    codexDefaults?.networkAccessEnabled ?? true,
   );
   const [webSearchEnabled, setWebSearchEnabled] = useState<boolean>(
-    defaultWebSearchEnabled,
+    codexDefaults?.webSearchEnabled ?? true,
   );
   const {
     messages,
@@ -185,13 +186,18 @@ export default function ChatPage() {
     hydrateInflightSnapshot,
     getInflightId,
     handleWsEvent,
-  } = useChatStream(selected, provider, {
-    sandboxMode,
-    approvalPolicy,
-    modelReasoningEffort,
-    networkAccessEnabled,
-    webSearchEnabled,
-  });
+  } = useChatStream(
+    selected,
+    provider,
+    {
+      sandboxMode,
+      approvalPolicy,
+      modelReasoningEffort,
+      networkAccessEnabled,
+      webSearchEnabled,
+    },
+    codexDefaults,
+  );
 
   const {
     conversations,
@@ -224,6 +230,7 @@ export default function ChatPage() {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const stopRef = useRef(stop);
   const lastSentRef = useRef('');
+  const codexDocsLoggedRef = useRef(false);
   const [input, setInput] = useState('');
   const [thinkOpen, setThinkOpen] = useState<Record<string, boolean>>({});
   const [toolOpen, setToolOpen] = useState<Record<string, boolean>>({});
@@ -427,6 +434,34 @@ export default function ChatPage() {
   }, [handleWsEvent]);
   const providerLocked = Boolean(selectedConversation || messages.length > 0);
   const providerIsCodex = provider === 'codex';
+  const codexDefaultsReady = providerIsCodex && Boolean(codexDefaults);
+  const codexWarningList = useMemo(
+    () => (providerIsCodex ? (codexWarnings ?? []) : []),
+    [codexWarnings, providerIsCodex],
+  );
+  const showCodexWarnings = codexWarningList.length > 0;
+  const codexDefaultsInitializedRef = useRef(false);
+  const codexWarningsRef = useRef('');
+  const pendingCodexDefaultsReasonRef = useRef<
+    null | 'provider-change' | 'new-conversation'
+  >(null);
+  const applyCodexDefaults = useCallback(
+    (reason: 'initial' | 'provider-change' | 'new-conversation') => {
+      if (!codexDefaults) return false;
+      setSandboxMode(codexDefaults.sandboxMode);
+      setApprovalPolicy(codexDefaults.approvalPolicy);
+      setModelReasoningEffort(codexDefaults.modelReasoningEffort);
+      setNetworkAccessEnabled(codexDefaults.networkAccessEnabled);
+      setWebSearchEnabled(codexDefaults.webSearchEnabled);
+      if (reason === 'initial') {
+        console.info('[codex-ui-defaults] initialized', { codexDefaults });
+      } else {
+        console.info('[codex-ui-defaults] reset', { reason, codexDefaults });
+      }
+      return true;
+    },
+    [codexDefaults],
+  );
   const codexProvider = useMemo(
     () => providers.find((p) => p.id === 'codex'),
     [providers],
@@ -571,6 +606,44 @@ export default function ChatPage() {
   }, [provider, selectedConversation, setProvider]);
 
   useEffect(() => {
+    if (!isDevEnv()) return;
+    if (codexDocsLoggedRef.current) return;
+    if (isLoading) return;
+    if (providers.length === 0 && models.length === 0) return;
+    codexDocsLoggedRef.current = true;
+    console.info('[codex-docs] docs synced', { source: '/chat/models' });
+  }, [isLoading, models.length, providers.length]);
+
+  useEffect(() => {
+    if (providerIsCodex) return;
+    codexDefaultsInitializedRef.current = false;
+    pendingCodexDefaultsReasonRef.current = null;
+    codexWarningsRef.current = '';
+  }, [providerIsCodex]);
+
+  useEffect(() => {
+    if (!showCodexWarnings) {
+      codexWarningsRef.current = '';
+      return;
+    }
+    const serialized = JSON.stringify(codexWarningList);
+    if (serialized === codexWarningsRef.current) return;
+    codexWarningsRef.current = serialized;
+    console.info('[codex-warnings] rendered', { warnings: codexWarningList });
+  }, [codexWarningList, showCodexWarnings]);
+
+  useEffect(() => {
+    if (!providerIsCodex || !codexDefaults) return;
+    if (codexDefaultsInitializedRef.current) return;
+    const pendingReason = pendingCodexDefaultsReasonRef.current;
+    const applied = applyCodexDefaults(pendingReason ?? 'initial');
+    if (applied) {
+      codexDefaultsInitializedRef.current = true;
+      pendingCodexDefaultsReasonRef.current = null;
+    }
+  }, [applyCodexDefaults, codexDefaults, providerIsCodex]);
+
+  useEffect(() => {
     if (!selectedConversation?.model) return;
     if (models.some((model) => model.key === selectedConversation.model)) {
       setSelected(selectedConversation.model);
@@ -606,7 +679,10 @@ export default function ChatPage() {
     inputRef.current?.focus();
   };
 
-  const handleNewConversation = () => {
+  const handleNewConversation = (options?: {
+    reason?: 'provider-change' | 'new-conversation';
+    nextProvider?: string;
+  }) => {
     const currentInflightId = getInflightId();
     if (activeConversationId && currentInflightId) {
       cancelInflight(activeConversationId, currentInflightId);
@@ -621,17 +697,20 @@ export default function ChatPage() {
     inputRef.current?.focus();
     setThinkOpen({});
     setToolOpen({});
-    setSandboxMode(defaultSandboxMode);
-    setApprovalPolicy(defaultApprovalPolicy);
-    setModelReasoningEffort(defaultModelReasoningEffort);
-    setNetworkAccessEnabled(defaultNetworkAccessEnabled);
-    setWebSearchEnabled(defaultWebSearchEnabled);
+    const targetProvider = options?.nextProvider ?? provider;
+    if (targetProvider === 'codex') {
+      const reason = options?.reason ?? 'new-conversation';
+      const applied = applyCodexDefaults(reason);
+      if (!applied) {
+        pendingCodexDefaultsReasonRef.current = reason;
+      }
+    }
   };
 
   const handleProviderChange = (event: SelectChangeEvent<string>) => {
     const nextProvider = event.target.value;
     setProvider(nextProvider);
-    handleNewConversation();
+    handleNewConversation({ reason: 'provider-change', nextProvider });
   };
 
   const toggleThink = (id: string) => {
@@ -1439,6 +1518,23 @@ export default function ChatPage() {
                         </Stack>
                       </Stack>
 
+                      {showCodexWarnings && (
+                        <Alert
+                          severity="warning"
+                          data-testid="codex-warnings-banner"
+                        >
+                          <Stack spacing={0.5}>
+                            {codexWarningList.map((warning, index) => (
+                              <Typography
+                                key={`${warning}-${index}`}
+                                variant="body2"
+                              >
+                                {warning}
+                              </Typography>
+                            ))}
+                          </Stack>
+                        </Alert>
+                      )}
                       {providerIsCodex && (
                         <CodexFlagsPanel
                           sandboxMode={sandboxMode}
@@ -1451,7 +1547,7 @@ export default function ChatPage() {
                           onNetworkAccessEnabledChange={setNetworkAccessEnabled}
                           webSearchEnabled={webSearchEnabled}
                           onWebSearchEnabledChange={setWebSearchEnabled}
-                          disabled={controlsDisabled}
+                          disabled={controlsDisabled || !codexDefaultsReady}
                         />
                       )}
 

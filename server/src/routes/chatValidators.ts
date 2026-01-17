@@ -3,15 +3,11 @@ import type {
   ModelReasoningEffort,
   SandboxMode,
 } from '@openai/codex-sdk';
+import { getCodexEnvDefaults } from '../config/codexEnvDefaults.js';
+import { baseLogger } from '../logger.js';
 
 const DEFAULT_PROVIDER = 'lmstudio';
-const DEFAULT_SANDBOX_MODE: SandboxMode = 'workspace-write';
-const DEFAULT_NETWORK_ACCESS_ENABLED = true;
-const DEFAULT_WEB_SEARCH_ENABLED = true;
-const DEFAULT_APPROVAL_POLICY: ApprovalMode = 'on-failure';
-const DEFAULT_MODEL_REASONING_EFFORT: ModelReasoningEffort = 'high';
-
-type AppModelReasoningEffort = ModelReasoningEffort | 'xhigh';
+export type AppModelReasoningEffort = ModelReasoningEffort | 'xhigh';
 
 type Provider = 'codex' | 'lmstudio';
 
@@ -57,20 +53,20 @@ export class ChatValidationError extends Error {
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
-const sandboxModes: SandboxMode[] = [
+export const sandboxModes: SandboxMode[] = [
   'read-only',
   'workspace-write',
   'danger-full-access',
 ] as SandboxMode[];
 
-const approvalPolicies: ApprovalMode[] = [
+export const approvalPolicies: ApprovalMode[] = [
   'never',
   'on-request',
   'on-failure',
   'untrusted',
 ] as ApprovalMode[];
 
-const modelReasoningEfforts: AppModelReasoningEffort[] = [
+export const modelReasoningEfforts: AppModelReasoningEffort[] = [
   'low',
   'medium',
   'high',
@@ -134,6 +130,12 @@ export function validateChatRequest(
   }
 
   const codexFlags: ValidatedChatRequest['codexFlags'] = {};
+  const defaultedFlags: Array<keyof ValidatedChatRequest['codexFlags']> = [];
+  const codexEnvDefaults =
+    provider === 'codex' ? getCodexEnvDefaults() : undefined;
+  if (codexEnvDefaults?.warnings.length) {
+    warnings.push(...codexEnvDefaults.warnings);
+  }
 
   // Example payloads for juniors:
   // { provider: 'codex', model: 'gpt-5.1-codex', messages: [{ role: 'user', content: 'Hi' }], sandboxMode: 'danger-full-access', networkAccessEnabled: false, webSearchEnabled: false, approvalPolicy: 'never', modelReasoningEffort: 'medium' }
@@ -157,7 +159,8 @@ export function validateChatRequest(
       codexFlags.sandboxMode = sandboxMode as SandboxMode;
     }
   } else if (provider === 'codex') {
-    codexFlags.sandboxMode = DEFAULT_SANDBOX_MODE;
+    codexFlags.sandboxMode = codexEnvDefaults?.defaults.sandboxMode;
+    defaultedFlags.push('sandboxMode');
   }
 
   const networkAccessEnabled = body.networkAccessEnabled;
@@ -173,7 +176,9 @@ export function validateChatRequest(
       codexFlags.networkAccessEnabled = networkAccessEnabled;
     }
   } else if (provider === 'codex') {
-    codexFlags.networkAccessEnabled = DEFAULT_NETWORK_ACCESS_ENABLED;
+    codexFlags.networkAccessEnabled =
+      codexEnvDefaults?.defaults.networkAccessEnabled;
+    defaultedFlags.push('networkAccessEnabled');
   }
 
   const webSearchEnabled = body.webSearchEnabled;
@@ -189,7 +194,8 @@ export function validateChatRequest(
       codexFlags.webSearchEnabled = webSearchEnabled;
     }
   } else if (provider === 'codex') {
-    codexFlags.webSearchEnabled = DEFAULT_WEB_SEARCH_ENABLED;
+    codexFlags.webSearchEnabled = codexEnvDefaults?.defaults.webSearchEnabled;
+    defaultedFlags.push('webSearchEnabled');
   }
 
   const approvalPolicy = body.approvalPolicy;
@@ -210,7 +216,8 @@ export function validateChatRequest(
       codexFlags.approvalPolicy = approvalPolicy as ApprovalMode;
     }
   } else if (provider === 'codex') {
-    codexFlags.approvalPolicy = DEFAULT_APPROVAL_POLICY;
+    codexFlags.approvalPolicy = codexEnvDefaults?.defaults.approvalPolicy;
+    defaultedFlags.push('approvalPolicy');
   }
 
   const modelReasoningEffort = body.modelReasoningEffort;
@@ -234,7 +241,16 @@ export function validateChatRequest(
         modelReasoningEffort as AppModelReasoningEffort;
     }
   } else if (provider === 'codex') {
-    codexFlags.modelReasoningEffort = DEFAULT_MODEL_REASONING_EFFORT;
+    codexFlags.modelReasoningEffort =
+      codexEnvDefaults?.defaults.modelReasoningEffort;
+    defaultedFlags.push('modelReasoningEffort');
+  }
+
+  if (provider === 'codex' && defaultedFlags.length > 0) {
+    baseLogger.info(
+      { defaultedFlags },
+      '[codex-validate] applied env defaults',
+    );
   }
 
   return {

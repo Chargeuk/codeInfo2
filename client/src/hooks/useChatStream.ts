@@ -1,4 +1,4 @@
-import type { LogLevel } from '@codeinfo2/common';
+import type { CodexDefaults, LogLevel } from '@codeinfo2/common';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getApiBaseUrl } from '../api/baseUrl';
 import { createLogger } from '../logging/logger';
@@ -24,6 +24,15 @@ export type CodexFlagState = {
   networkAccessEnabled?: boolean;
   webSearchEnabled?: boolean;
   modelReasoningEffort?: ModelReasoningEffort;
+};
+
+// Fallbacks used only when codexDefaults are unavailable; keep in sync with server defaults.
+const DEFAULT_CODEX_FLAGS: Required<CodexFlagState> = {
+  sandboxMode: 'danger-full-access',
+  approvalPolicy: 'on-failure',
+  modelReasoningEffort: 'high',
+  networkAccessEnabled: true,
+  webSearchEnabled: true,
 };
 
 export type ToolCitation = {
@@ -87,11 +96,6 @@ type Status = 'idle' | 'sending';
 
 const API_BASE = getApiBaseUrl();
 
-const DEFAULT_SANDBOX_MODE: SandboxMode = 'workspace-write';
-const DEFAULT_APPROVAL_POLICY: ApprovalPolicy = 'on-failure';
-const DEFAULT_NETWORK_ACCESS_ENABLED = true;
-const DEFAULT_WEB_SEARCH_ENABLED = true;
-const DEFAULT_MODEL_REASONING_EFFORT: ModelReasoningEffort = 'high';
 const HYDRATION_DEDUPE_WINDOW_MS = 30 * 60 * 1000;
 
 const normalizeMessageContent = (value: string) =>
@@ -202,6 +206,7 @@ export function useChatStream(
   model?: string,
   provider?: string,
   codexFlags?: CodexFlagState,
+  codexDefaults?: CodexDefaults,
 ) {
   const log = useRef(createLogger('client')).current;
   const logWithChannel = useCallback(
@@ -897,42 +902,97 @@ export function useChatStream(
       scheduleThinkingTimer();
 
       try {
-        const sandboxMode =
-          provider === 'codex'
-            ? (codexFlags?.sandboxMode ?? DEFAULT_SANDBOX_MODE)
-            : undefined;
-        const approvalPolicy =
-          provider === 'codex'
-            ? (codexFlags?.approvalPolicy ?? DEFAULT_APPROVAL_POLICY)
-            : undefined;
-        const modelReasoningEffort =
-          provider === 'codex'
-            ? (codexFlags?.modelReasoningEffort ??
-              DEFAULT_MODEL_REASONING_EFFORT)
-            : undefined;
-        const networkAccessEnabled =
-          provider === 'codex'
-            ? (codexFlags?.networkAccessEnabled ??
-              DEFAULT_NETWORK_ACCESS_ENABLED)
-            : undefined;
-        const webSearchEnabled =
-          provider === 'codex'
-            ? (codexFlags?.webSearchEnabled ?? DEFAULT_WEB_SEARCH_ENABLED)
-            : undefined;
+        const omittedFlags: string[] = [];
+        const baseCodexPayload = threadIdRef.current
+          ? { threadId: threadIdRef.current }
+          : {};
+        const codexPayload: Record<string, unknown> =
+          provider === 'codex' ? { ...baseCodexPayload } : {};
 
-        const codexPayload =
-          provider === 'codex'
-            ? {
-                ...(threadIdRef.current
-                  ? { threadId: threadIdRef.current }
-                  : {}),
-                sandboxMode,
-                approvalPolicy,
-                modelReasoningEffort,
-                networkAccessEnabled,
-                webSearchEnabled,
-              }
-            : {};
+        if (provider === 'codex') {
+          const fallbackFlags: Required<CodexFlagState> = {
+            sandboxMode:
+              codexFlags?.sandboxMode ?? DEFAULT_CODEX_FLAGS.sandboxMode,
+            approvalPolicy:
+              codexFlags?.approvalPolicy ?? DEFAULT_CODEX_FLAGS.approvalPolicy,
+            modelReasoningEffort:
+              codexFlags?.modelReasoningEffort ??
+              DEFAULT_CODEX_FLAGS.modelReasoningEffort,
+            networkAccessEnabled:
+              codexFlags?.networkAccessEnabled ??
+              DEFAULT_CODEX_FLAGS.networkAccessEnabled,
+            webSearchEnabled:
+              codexFlags?.webSearchEnabled ??
+              DEFAULT_CODEX_FLAGS.webSearchEnabled,
+          };
+
+          if (!codexDefaults) {
+            codexPayload.sandboxMode = fallbackFlags.sandboxMode;
+            codexPayload.approvalPolicy = fallbackFlags.approvalPolicy;
+            codexPayload.modelReasoningEffort =
+              fallbackFlags.modelReasoningEffort;
+            codexPayload.networkAccessEnabled =
+              fallbackFlags.networkAccessEnabled;
+            codexPayload.webSearchEnabled = fallbackFlags.webSearchEnabled;
+            console.info(
+              '[codex-payload] defaults missing, sending fallbacks',
+              {
+                fallbackFlags,
+              },
+            );
+          } else {
+            const sandboxMode = codexFlags?.sandboxMode;
+            if (sandboxMode && sandboxMode !== codexDefaults.sandboxMode) {
+              codexPayload.sandboxMode = sandboxMode;
+            } else {
+              omittedFlags.push('sandboxMode');
+            }
+
+            const approvalPolicy = codexFlags?.approvalPolicy;
+            if (
+              approvalPolicy &&
+              approvalPolicy !== codexDefaults.approvalPolicy
+            ) {
+              codexPayload.approvalPolicy = approvalPolicy;
+            } else {
+              omittedFlags.push('approvalPolicy');
+            }
+
+            const modelReasoningEffort = codexFlags?.modelReasoningEffort;
+            if (
+              modelReasoningEffort &&
+              modelReasoningEffort !== codexDefaults.modelReasoningEffort
+            ) {
+              codexPayload.modelReasoningEffort = modelReasoningEffort;
+            } else {
+              omittedFlags.push('modelReasoningEffort');
+            }
+
+            const networkAccessEnabled = codexFlags?.networkAccessEnabled;
+            if (
+              typeof networkAccessEnabled === 'boolean' &&
+              networkAccessEnabled !== codexDefaults.networkAccessEnabled
+            ) {
+              codexPayload.networkAccessEnabled = networkAccessEnabled;
+            } else {
+              omittedFlags.push('networkAccessEnabled');
+            }
+
+            const webSearchEnabled = codexFlags?.webSearchEnabled;
+            if (
+              typeof webSearchEnabled === 'boolean' &&
+              webSearchEnabled !== codexDefaults.webSearchEnabled
+            ) {
+              codexPayload.webSearchEnabled = webSearchEnabled;
+            } else {
+              omittedFlags.push('webSearchEnabled');
+            }
+          }
+        }
+
+        if (provider === 'codex' && omittedFlags.length > 0) {
+          console.info('[codex-payload] omitted flags', { omittedFlags });
+        }
 
         const res = await fetch(new URL('/chat', API_BASE).toString(), {
           method: 'POST',
@@ -1010,6 +1070,7 @@ export function useChatStream(
       }
     },
     [
+      codexDefaults,
       codexFlags,
       ensureAssistantMessage,
       handleErrorBubble,

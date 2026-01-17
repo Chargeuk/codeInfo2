@@ -79,6 +79,14 @@ function mockProvidersWithBodies(chatBodies: Array<Record<string, unknown>>) {
           provider: 'codex',
           available: true,
           toolsAvailable: true,
+          codexDefaults: {
+            sandboxMode: 'workspace-write',
+            approvalPolicy: 'on-failure',
+            modelReasoningEffort: 'high',
+            networkAccessEnabled: true,
+            webSearchEnabled: true,
+          },
+          codexWarnings: [],
           models: [
             {
               key: 'gpt-5.1-codex-max',
@@ -200,6 +208,10 @@ describe('Codex network access flag payloads', () => {
     const codexBody = chatBodies[1];
     expect(codexBody.provider).toBe('codex');
     expect(codexBody.networkAccessEnabled).toBe(false);
+    expect(codexBody).not.toHaveProperty('sandboxMode');
+    expect(codexBody).not.toHaveProperty('approvalPolicy');
+    expect(codexBody).not.toHaveProperty('modelReasoningEffort');
+    expect(codexBody).not.toHaveProperty('webSearchEnabled');
 
     await act(async () => {
       await userEvent.click(newConversationButton);

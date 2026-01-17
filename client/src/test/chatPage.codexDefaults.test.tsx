@@ -32,7 +32,19 @@ const routes = [
   },
 ];
 
-function mockCodexReady() {
+// Intentionally not matching server defaults to prove the UI uses the server response.
+const defaultCodexDefaults = {
+  sandboxMode: 'read-only',
+  approvalPolicy: 'never',
+  modelReasoningEffort: 'medium',
+  networkAccessEnabled: false,
+  webSearchEnabled: false,
+} as const;
+
+function mockCodexReady(options?: {
+  codexDefaults?: typeof defaultCodexDefaults;
+  includeDefaults?: boolean;
+}) {
   mockFetch.mockImplementation((url: RequestInfo | URL) => {
     const href = typeof url === 'string' ? url : url.toString();
     if (href.includes('/health')) {
@@ -72,6 +84,7 @@ function mockCodexReady() {
       }) as unknown as Response;
     }
     if (href.includes('/chat/models') && href.includes('provider=codex')) {
+      const includeDefaults = options?.includeDefaults ?? true;
       return Promise.resolve({
         ok: true,
         status: 200,
@@ -79,23 +92,16 @@ function mockCodexReady() {
           provider: 'codex',
           available: true,
           toolsAvailable: true,
-          codexDefaults: {
-            sandboxMode: 'workspace-write',
-            approvalPolicy: 'on-failure',
-            modelReasoningEffort: 'high',
-            networkAccessEnabled: true,
-            webSearchEnabled: true,
-          },
-          codexWarnings: [],
+          ...(includeDefaults
+            ? {
+                codexDefaults: options?.codexDefaults ?? defaultCodexDefaults,
+                codexWarnings: [],
+              }
+            : {}),
           models: [
             {
               key: 'gpt-5.1-codex-max',
               displayName: 'gpt-5.1-codex-max',
-              type: 'codex',
-            },
-            {
-              key: 'gpt-5.2',
-              displayName: 'gpt-5.2',
               type: 'codex',
             },
           ],
@@ -122,8 +128,44 @@ function mockCodexReady() {
   });
 }
 
-describe('Codex sandbox flag reset behaviour', () => {
-  it('resets sandbox mode on new conversation and provider switch', async () => {
+describe('Codex defaults from server', () => {
+  it('initializes Codex flags from codexDefaults', async () => {
+    mockCodexReady();
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const providerSelect = await screen.findByRole('combobox', {
+      name: /provider/i,
+    });
+    await userEvent.click(providerSelect);
+    const codexOption = await screen.findByRole('option', {
+      name: /openai codex/i,
+    });
+    await userEvent.click(codexOption);
+
+    await ensureCodexFlagsPanelExpanded();
+
+    const sandboxSelect = await screen.findByRole('combobox', {
+      name: /sandbox mode/i,
+    });
+    const approvalSelect = await screen.findByRole('combobox', {
+      name: /approval policy/i,
+    });
+    const reasoningSelect = await screen.findByRole('combobox', {
+      name: /reasoning effort/i,
+    });
+    const networkSwitch = await screen.findByTestId('network-access-switch');
+    const webSearchSwitch = await screen.findByTestId('web-search-switch');
+
+    await waitFor(() => expect(sandboxSelect).toHaveTextContent(/read-only/i));
+    await waitFor(() => expect(approvalSelect).toHaveTextContent(/never/i));
+    await waitFor(() => expect(reasoningSelect).toHaveTextContent(/medium/i));
+    expect(networkSwitch).not.toBeChecked();
+    expect(webSearchSwitch).not.toBeChecked();
+  });
+
+  it('re-applies defaults when switching providers', async () => {
     mockCodexReady();
 
     const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
@@ -144,26 +186,6 @@ describe('Codex sandbox flag reset behaviour', () => {
       name: /sandbox mode/i,
     });
     await userEvent.click(sandboxSelect);
-    const readOnlyOption = await screen.findByRole('option', {
-      name: /read-only/i,
-    });
-    await userEvent.click(readOnlyOption);
-    await waitFor(() => expect(sandboxSelect).toHaveTextContent(/read-only/i));
-
-    const newConversationButton = screen.getByRole('button', {
-      name: /new conversation/i,
-    });
-    await act(async () => {
-      await userEvent.click(newConversationButton);
-    });
-
-    await ensureCodexFlagsPanelExpanded();
-
-    await waitFor(() =>
-      expect(sandboxSelect).toHaveTextContent(/workspace write/i),
-    );
-
-    await userEvent.click(sandboxSelect);
     const dangerOption = await screen.findByRole('option', {
       name: /danger full access/i,
     });
@@ -177,10 +199,10 @@ describe('Codex sandbox flag reset behaviour', () => {
     await userEvent.click(lmOption);
 
     await userEvent.click(providerSelect);
-    const codexOptionReturn = await screen.findByRole('option', {
+    const codexReturn = await screen.findByRole('option', {
       name: /openai codex/i,
     });
-    await userEvent.click(codexOptionReturn);
+    await userEvent.click(codexReturn);
 
     await ensureCodexFlagsPanelExpanded();
 
@@ -188,7 +210,79 @@ describe('Codex sandbox flag reset behaviour', () => {
       name: /sandbox mode/i,
     });
     await waitFor(() =>
-      expect(sandboxSelectAfterSwitch).toHaveTextContent(/workspace write/i),
+      expect(sandboxSelectAfterSwitch).toHaveTextContent(/read-only/i),
     );
+  });
+
+  it('re-applies defaults when starting a new conversation', async () => {
+    mockCodexReady();
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const providerSelect = await screen.findByRole('combobox', {
+      name: /provider/i,
+    });
+    await userEvent.click(providerSelect);
+    const codexOption = await screen.findByRole('option', {
+      name: /openai codex/i,
+    });
+    await userEvent.click(codexOption);
+
+    await ensureCodexFlagsPanelExpanded();
+
+    const sandboxSelect = await screen.findByRole('combobox', {
+      name: /sandbox mode/i,
+    });
+    await userEvent.click(sandboxSelect);
+    const dangerOption = await screen.findByRole('option', {
+      name: /danger full access/i,
+    });
+    await userEvent.click(dangerOption);
+    await waitFor(() =>
+      expect(sandboxSelect).toHaveTextContent(/danger full access/i),
+    );
+
+    const newConversationButton = screen.getByRole('button', {
+      name: /new conversation/i,
+    });
+    await act(async () => {
+      await userEvent.click(newConversationButton);
+    });
+
+    await ensureCodexFlagsPanelExpanded();
+
+    const sandboxSelectAfterReset = await screen.findByRole('combobox', {
+      name: /sandbox mode/i,
+    });
+    await waitFor(() =>
+      expect(sandboxSelectAfterReset).toHaveTextContent(/read-only/i),
+    );
+  });
+
+  it('disables Codex flags when defaults are missing', async () => {
+    mockCodexReady({ includeDefaults: false });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const providerSelect = await screen.findByRole('combobox', {
+      name: /provider/i,
+    });
+    await userEvent.click(providerSelect);
+    const codexOption = await screen.findByRole('option', {
+      name: /openai codex/i,
+    });
+    await userEvent.click(codexOption);
+
+    await ensureCodexFlagsPanelExpanded();
+
+    const sandboxSelect = await screen.findByRole('combobox', {
+      name: /sandbox mode/i,
+    });
+    const networkSwitch = await screen.findByTestId('network-access-switch');
+
+    expect(sandboxSelect).toHaveAttribute('aria-disabled', 'true');
+    expect(networkSwitch).toBeDisabled();
   });
 });

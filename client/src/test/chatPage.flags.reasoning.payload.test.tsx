@@ -79,6 +79,14 @@ function mockProvidersWithBodies(chatBodies: Array<Record<string, unknown>>) {
           provider: 'codex',
           available: true,
           toolsAvailable: true,
+          codexDefaults: {
+            sandboxMode: 'workspace-write',
+            approvalPolicy: 'on-failure',
+            modelReasoningEffort: 'high',
+            networkAccessEnabled: true,
+            webSearchEnabled: true,
+          },
+          codexWarnings: [],
           models: [
             {
               key: 'gpt-5.1-codex-max',
@@ -188,9 +196,7 @@ describe('Codex model reasoning effort flag payloads', () => {
     const reasoningSelect = await screen.findByRole('combobox', {
       name: /reasoning effort/i,
     });
-    await waitFor(() =>
-      expect(reasoningSelect).toHaveTextContent(/high \(default\)/i),
-    );
+    await waitFor(() => expect(reasoningSelect).toHaveTextContent(/high/i));
     await userEvent.click(reasoningSelect);
     const xhighOption = await screen.findByRole('option', {
       name: /xhigh/i,
@@ -215,8 +221,6 @@ describe('Codex model reasoning effort flag payloads', () => {
 
     await ensureCodexFlagsPanelExpanded();
     const resetSelect = await screen.findByTestId('reasoning-effort-select');
-    await waitFor(() =>
-      expect(resetSelect).toHaveTextContent(/high \(default\)/i),
-    );
+    await waitFor(() => expect(resetSelect).toHaveTextContent(/high/i));
   });
 });

@@ -83,6 +83,14 @@ describe('Codex approval policy flag payloads', () => {
               provider: 'codex',
               available: true,
               toolsAvailable: true,
+              codexDefaults: {
+                sandboxMode: 'workspace-write',
+                approvalPolicy: 'on-failure',
+                modelReasoningEffort: 'high',
+                networkAccessEnabled: true,
+                webSearchEnabled: true,
+              },
+              codexWarnings: [],
               models: [
                 {
                   key: 'gpt-5.1-codex-max',
@@ -179,7 +187,7 @@ describe('Codex approval policy flag payloads', () => {
       name: /approval policy/i,
     });
     await waitFor(() =>
-      expect(approvalSelect).toHaveTextContent(/on failure \(default\)/i),
+      expect(approvalSelect).toHaveTextContent(/on failure/i),
     );
     await userEvent.click(approvalSelect);
     const neverOption = await screen.findByRole('option', {
@@ -205,8 +213,6 @@ describe('Codex approval policy flag payloads', () => {
 
     await ensureCodexFlagsPanelExpanded();
     const resetSelect = await screen.findByTestId('approval-policy-select');
-    await waitFor(() =>
-      expect(resetSelect).toHaveTextContent(/on failure \(default\)/i),
-    );
+    await waitFor(() => expect(resetSelect).toHaveTextContent(/on failure/i));
   });
 });

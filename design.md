@@ -22,6 +22,9 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - Express 5 app with CORS enabled and env-driven port (default 5010 via `server/.env`).
 - Routes: `/health` returns `{ status: 'ok', uptime, timestamp }`; `/version` returns `VersionInfo` using `package.json` version; `/info` echoes a friendly message plus VersionInfo.
 - Depends on `@codeinfo2/common` for DTO helper; built with `tsc -b`, started via `npm run start --workspace server`.
+- Codex env defaults are resolved by `server/src/config/codexEnvDefaults.ts`, which parses `Codex_*` env vars into validated defaults plus warnings and logs `[codex-env-defaults] resolved`.
+- `validateChatRequest` applies Codex env defaults when request flags are missing, surfaces env warnings on the response payload, and logs `[codex-validate] applied env defaults` with the defaulted flag list.
+- `ChatInterfaceCodex` builds thread options from validated flags without extra fallback defaults, leaving missing values undefined so Codex config/env defaults apply, and logs `[codex-thread-options] prepared` with `undefinedFlags`.
 
 ## Server testing & Docker
 
@@ -179,7 +182,7 @@ sequenceDiagram
 ### Chat page (models list)
 
 - Route `/chat` surfaces the chat shell; controls sit at the top with Provider/Model selectors implemented as MUI `TextField` with `select` enabled (avoids label clipping seen with raw `FormControl + InputLabel + Select`). The first available provider is auto-selected and the first model for that provider auto-selects when data loads; provider locks after the first message while model can still change.
-- Codex-only controls live in a collapsible (collapsed by default) **Codex flags** panel rendered under the Provider/Model row whenever `provider === 'codex'`. The panel exposes `sandboxMode` (`workspace-write` default; also `read-only`, `danger-full-access`), `approvalPolicy` (`on-failure` default; also `on-request`, `never`, `untrusted`), `modelReasoningEffort` (`high` default; also `xhigh`, `medium`, `low`), plus **Enable network access** and **Enable web search** toggles (both default `true`); these flags are sent on Codex requests and ignored for LM Studio. The controls reset to their defaults on provider changes or when **New conversation** is clicked while preserving choices during an active Codex session.
+- Codex-only controls live in a collapsible (collapsed by default) **Codex flags** panel rendered under the Provider/Model row whenever `provider === 'codex'`. The panel defaults come from `Codex_*` env-driven defaults (surfaced via `/chat/models`), exposes `sandboxMode`, `approvalPolicy`, `modelReasoningEffort`, plus **Enable network access** and **Enable web search** toggles; unchanged defaults are omitted from the `/chat` payload so the server can apply env defaults, while user-changed flags are sent. The controls reset to their defaults on provider changes or when **New conversation** is clicked while preserving choices during an active Codex session. Any `codexWarnings` returned by `/chat/models?provider=codex` render a warning banner above the flags panel.
 
 #### Codex reasoning effort flow
 
@@ -189,7 +192,7 @@ sequenceDiagram
 flowchart LR
   UI[UI: /chat\nCodex flags panel] -->|select xhigh| Req[POST /chat\nmodelReasoningEffort: 'xhigh']
   Req --> V[server validateChatRequest\naccepts low/medium/high/xhigh]
-  V --> C[ChatInterfaceCodex\nthreadOptions.modelReasoningEffort]
+  V --> C[ChatInterfaceCodex\nthreadOptions (validated flags)]
   C --> SDK[@openai/codex-sdk\nexec args: --config model_reasoning_effort="xhigh"]
   SDK --> CLI[Codex CLI]
 
@@ -1183,10 +1186,11 @@ The proxy does not cache results and times out after 60s. Invalid base URLs are 
 
 ### Chat models endpoint
 
-- `GET /chat/models` uses `LMSTUDIO_BASE_URL` (converted to ws/wss for the SDK) to call `system.listDownloadedModels()`.
+- `GET /chat/models?provider=lmstudio` uses `LMSTUDIO_BASE_URL` (converted to ws/wss for the SDK) to call `system.listDownloadedModels()`.
 - Success returns `200` with `[ { key, displayName, type } ]` and the chat UI defaults to the first entry when none is selected.
 - Failure or invalid/unreachable base URL returns `503 { error: "lmstudio unavailable" }`.
 - Logging: start, success, and failure entries record the sanitized base URL origin; success logs the model count for visibility.
+- `GET /chat/models?provider=codex` uses `Codex_model_list` (CSV trim + de-duplicate) with a fallback default list when the env list is empty; it returns the list only when Codex is available and always includes `codexDefaults` plus `codexWarnings` (env/default/model-list/runtime warnings). `codexDefaults` mirrors `Codex_sandbox_mode`, `Codex_approval_policy`, `Codex_reasoning_effort`, `Codex_network_access_enabled`, and `Codex_web_search_enabled` from `server/.env`. If web search is enabled while tools are unavailable, a runtime warning is appended. Logs include `[codex-model-list] using env list` with `modelCount`, `fallbackUsed`, and `warningsCount`.
 
 ```mermaid
 sequenceDiagram
@@ -1201,6 +1205,25 @@ sequenceDiagram
     Server-->>Client: 200 [{key,displayName,type}]
   else LM Studio down/invalid
     Server-->>Client: 503 {error:"lmstudio unavailable"}
+  end
+```
+
+```mermaid
+sequenceDiagram
+  participant Client as Chat page
+  participant Server
+  participant Env as process.env
+  participant MCP
+
+  Client->>Server: GET /chat/models?provider=codex
+  Server->>Env: Read Codex_model_list + Codex_* defaults
+  Server->>MCP: initialize (availability check)
+  alt Codex available
+    Server-->>Client: 200 {models[], codexDefaults, codexWarnings}
+    Client->>Client: Init flags from codexDefaults
+    Client->>Client: Render codexWarnings banner (when non-empty)
+  else Codex unavailable
+    Server-->>Client: 200 {models: [], codexDefaults, codexWarnings}
   end
 ```
 

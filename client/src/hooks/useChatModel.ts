@@ -1,6 +1,7 @@
 import type {
   ChatModelInfo,
   ChatModelsResponse,
+  CodexDefaults,
   ChatProviderInfo,
 } from '@codeinfo2/common';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -35,6 +36,10 @@ export function useChatModel() {
   const [available, setAvailable] = useState<boolean>(true);
   const [toolsAvailable, setToolsAvailable] = useState<boolean>(true);
   const [providerReason, setProviderReason] = useState<string | undefined>();
+  const [codexDefaults, setCodexDefaults] = useState<
+    CodexDefaults | undefined
+  >();
+  const [codexWarnings, setCodexWarnings] = useState<string[] | undefined>();
 
   const pickProvider = useCallback(
     (list: ChatProviderInfo[]) => {
@@ -163,9 +168,22 @@ export function useChatModel() {
 
         const data = (await res.json()) as ChatModelsResponse;
         const models = Array.isArray(data.models) ? data.models : [];
+        if (data.codexDefaults) {
+          const hasWarnings = Boolean(data.codexWarnings?.length);
+          console.info('[codex-models-response] codexDefaults received', {
+            hasWarnings,
+            codexDefaults: data.codexDefaults,
+          });
+        }
         setAvailable(Boolean(data.available));
         setToolsAvailable(Boolean(data.toolsAvailable));
         setProviderReason(data.reason);
+        setCodexDefaults(
+          effectiveProvider === 'codex' ? data.codexDefaults : undefined,
+        );
+        setCodexWarnings(
+          effectiveProvider === 'codex' ? data.codexWarnings : undefined,
+        );
         setModels(models);
         setSelected((prev) => {
           if (prev && models.some((m) => m.key === prev)) {
@@ -179,6 +197,8 @@ export function useChatModel() {
         setAvailable(true);
         setToolsAvailable(true);
         setProviderReason((err as Error).message);
+        setCodexDefaults(undefined);
+        setCodexWarnings(undefined);
         setModels(fallbackModels);
         setSelected((prev) => prev ?? fallbackModels[0]?.key);
         setStatus('success');
@@ -227,6 +247,8 @@ export function useChatModel() {
     providerReason,
     available,
     toolsAvailable,
+    codexDefaults,
+    codexWarnings,
     models,
     selected,
     setSelected,

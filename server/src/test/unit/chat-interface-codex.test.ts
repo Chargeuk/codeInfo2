@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
+import type { ThreadOptions as CodexThreadOptions } from '@openai/codex-sdk';
 import mongoose from 'mongoose';
 import type {
   ChatEvent,
@@ -22,8 +23,8 @@ type MockThread = {
 };
 
 type MockCodexFactory = () => {
-  startThread: () => MockThread;
-  resumeThread: () => MockThread;
+  startThread: (opts?: CodexThreadOptions) => MockThread;
+  resumeThread: (threadId: string, opts?: CodexThreadOptions) => MockThread;
 };
 
 class TestChatInterfaceCodex extends ChatInterfaceCodex {
@@ -263,6 +264,97 @@ describe('ChatInterfaceCodex', () => {
       cachedInputTokens: 3,
       totalTokens: 16,
     });
+  });
+
+  it('passes validated codex flags into thread options', async () => {
+    resetMemory();
+    setCodexDetection({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+    });
+
+    let lastOptions: CodexThreadOptions | undefined;
+    const events = async function* () {
+      yield { type: 'thread.started', thread_id: 'tid-flags' };
+      yield { type: 'turn.completed' };
+    };
+
+    const thread = {
+      id: 'tid-flags',
+      runStreamed: async () => ({ events: events() }),
+    };
+    const codexFactory = () => ({
+      startThread: (opts?: CodexThreadOptions) => {
+        lastOptions = opts;
+        return thread;
+      },
+      resumeThread: () => thread,
+    });
+    const chat = new TestChatInterfaceCodex(codexFactory);
+
+    await chat.run(
+      'Hello',
+      {
+        threadId: null,
+        codexFlags: {
+          sandboxMode: 'danger-full-access',
+          networkAccessEnabled: false,
+          webSearchEnabled: false,
+          approvalPolicy: 'never',
+          modelReasoningEffort: 'medium',
+        },
+      },
+      'conv-flags',
+      'gpt-5',
+    );
+
+    assert.equal(lastOptions?.sandboxMode, 'danger-full-access');
+    assert.equal(lastOptions?.networkAccessEnabled, false);
+    assert.equal(lastOptions?.webSearchEnabled, false);
+    assert.equal(lastOptions?.approvalPolicy, 'never');
+    assert.equal(lastOptions?.modelReasoningEffort, 'medium');
+  });
+
+  it('leaves missing codex flags undefined in thread options', async () => {
+    resetMemory();
+    setCodexDetection({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+    });
+
+    let lastOptions: CodexThreadOptions | undefined;
+    const events = async function* () {
+      yield { type: 'thread.started', thread_id: 'tid-flags-undefined' };
+      yield { type: 'turn.completed' };
+    };
+
+    const thread = {
+      id: 'tid-flags-undefined',
+      runStreamed: async () => ({ events: events() }),
+    };
+    const codexFactory = () => ({
+      startThread: (opts?: CodexThreadOptions) => {
+        lastOptions = opts;
+        return thread;
+      },
+      resumeThread: () => thread,
+    });
+    const chat = new TestChatInterfaceCodex(codexFactory);
+
+    await chat.run(
+      'Hello',
+      { threadId: null, codexFlags: {} },
+      'conv-flags-undefined',
+      'gpt-5',
+    );
+
+    assert.equal(lastOptions?.sandboxMode, undefined);
+    assert.equal(lastOptions?.networkAccessEnabled, undefined);
+    assert.equal(lastOptions?.webSearchEnabled, undefined);
+    assert.equal(lastOptions?.approvalPolicy, undefined);
+    assert.equal(lastOptions?.modelReasoningEffort, undefined);
   });
 
   it('updates flags.threadId without overwriting other flags keys', async () => {

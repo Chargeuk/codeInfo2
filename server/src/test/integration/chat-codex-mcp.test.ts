@@ -9,6 +9,7 @@ import type {
 } from '@openai/codex-sdk';
 import express from 'express';
 import request from 'supertest';
+import { getCodexEnvDefaults } from '../../config/codexEnvDefaults.js';
 import { query, resetStore } from '../../logStore.js';
 import { setCodexDetection } from '../../providers/codexRegistry.js';
 import { createChatRouter } from '../../routes/chat.js';
@@ -382,20 +383,22 @@ test('codex chat injects system context and emits MCP tool request/result', asyn
     'prompt should include user text',
   );
 
+  const { defaults: codexDefaults } = getCodexEnvDefaults();
+
   assert.equal(
     mockCodex.lastStartOptions?.sandboxMode,
-    'workspace-write',
-    'default sandbox mode should be workspace-write',
+    codexDefaults.sandboxMode,
+    'default sandbox mode should match env defaults',
   );
   assert.equal(
     mockCodex.lastStartOptions?.networkAccessEnabled,
-    true,
-    'default network access should be true',
+    codexDefaults.networkAccessEnabled,
+    'default network access should match env defaults',
   );
   assert.equal(
     mockCodex.lastStartOptions?.webSearchEnabled,
-    true,
-    'default web search should be true',
+    codexDefaults.webSearchEnabled,
+    'default web search should match env defaults',
   );
   assert.equal(mockCodex.lastStartOptions?.workingDirectory, '/data');
   assert.equal(mockCodex.lastStartOptions?.skipGitRepoCheck, true);

@@ -220,6 +220,7 @@ Define the strict flow JSON schema and unit coverage for validation. This task e
 - JSON parsing errors + try/catch patterns: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/parse
 - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
 - Cucumber guides (BDD + JavaScript workflow): https://cucumber.io/docs/guides/
+- Mermaid docs (diagram syntax for design.md): Context7 `/mermaid-js/mermaid`
 - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI/options: https://prettier.io/docs/options
 - Markdown syntax (doc updates): https://www.markdownguide.org/basic-syntax/
@@ -284,6 +285,7 @@ Define the strict flow JSON schema and unit coverage for validation. This task e
      - `projectStructure.md` (add `flows/` and new server files)
    - Story requirements to repeat here so they are not missed:
      - Document the strict flow schema and supported step types.
+     - Add/refresh Mermaid diagrams describing the flow schema + API shape.
      - Add any new flow/server files to the project structure tree.
 
 5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
@@ -343,6 +345,7 @@ Add flow discovery (scan `flows/` on each request) and expose `GET /flows` with 
 - JSON parsing errors + try/catch patterns: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/parse
 - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
 - Cucumber guides (BDD + JavaScript workflow): https://cucumber.io/docs/guides/
+- Mermaid docs (diagram syntax for design.md): Context7 `/mermaid-js/mermaid`
 - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI/options: https://prettier.io/docs/options
 - Markdown syntax (doc updates): https://www.markdownguide.org/basic-syntax/
@@ -417,6 +420,7 @@ Add flow discovery (scan `flows/` on each request) and expose `GET /flows` with 
      - `projectStructure.md` (add `flows/` and discovery/route files)
    - Story requirements to repeat here so they are not missed:
      - Document `/flows` discovery and disabled/error behavior.
+     - Add/refresh Mermaid diagrams showing flow discovery + listing.
      - Add new `server/src/flows/*` files and `flows/` directory to the tree.
 
 6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
@@ -460,6 +464,7 @@ Add `flowName` to conversation persistence and summary types so flow conversatio
 - WebSocket JSON message shape best practices: https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API
 - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
 - Cucumber guides (BDD + JavaScript workflow): https://cucumber.io/docs/guides/
+- Mermaid docs (diagram syntax for design.md): Context7 `/mermaid-js/mermaid`
 - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI/options: https://prettier.io/docs/options
 - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -505,6 +510,7 @@ Add `flowName` to conversation persistence and summary types so flow conversatio
      - `projectStructure.md` (if any files added/removed)
    - Story requirements to repeat here so they are not missed:
      - Document the `flowName` field and how filtering will use it.
+     - Add/refresh Mermaid diagram(s) that show flow vs chat conversation separation.
 
 4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
    - Documentation to read (repeat):
@@ -546,6 +552,7 @@ Add `flowName` filtering to `GET /conversations` (`flowName=<name>` and `flowNam
 - Mongoose query filters: Context7 `/automattic/mongoose/9.0.1`
 - Node.js test runner: https://nodejs.org/api/test.html
 - Cucumber guides (BDD + JavaScript workflow): https://cucumber.io/docs/guides/
+- Mermaid docs (diagram syntax for design.md): Context7 `/mermaid-js/mermaid`
 - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI/options: https://prettier.io/docs/options
 - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -614,6 +621,7 @@ Add `flowName` filtering to `GET /conversations` (`flowName=<name>` and `flowNam
      - `design.md` (conversation filter notes)
    - Story requirements to repeat here so they are not missed:
      - Document `flowName` filtering and `__none__` semantics.
+     - Add/refresh Mermaid diagram(s) covering filtering flow vs non-flow conversations.
 
 6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
    - Documentation to read (repeat):
@@ -656,6 +664,7 @@ Implement the flow run engine for linear `llm` steps, including `POST /flows/:fl
 - Node.js timers (delays between steps if needed): https://nodejs.org/api/timers.html
 - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
 - Cucumber guides (BDD + JavaScript workflow): https://cucumber.io/docs/guides/
+- Mermaid docs (diagram syntax for design.md): Context7 `/mermaid-js/mermaid`
 - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI/options: https://prettier.io/docs/options
 - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -766,6 +775,7 @@ Implement the flow run engine for linear `llm` steps, including `POST /flows/:fl
      - `projectStructure.md` (new flow service/routes)
    - Story requirements to repeat here so they are not missed:
      - Document the `/flows/:flowName/run` contract and flow conversation title format.
+     - Add/refresh Mermaid sequence/flow diagrams for the core flow run.
 
 7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
    - Documentation to read (repeat):
@@ -807,6 +817,7 @@ Extend the flow runtime with nested loop support and `break` steps that evaluate
 - AbortController usage: https://developer.mozilla.org/en-US/docs/Web/API/AbortController
 - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
 - Cucumber guides (BDD + JavaScript workflow): https://cucumber.io/docs/guides/
+- Mermaid docs (diagram syntax for design.md): Context7 `/mermaid-js/mermaid`
 - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI/options: https://prettier.io/docs/options
 - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -878,6 +889,7 @@ Extend the flow runtime with nested loop support and `break` steps that evaluate
      - `projectStructure.md` (add new flow loop test + fixture files)
    - Story requirements to repeat here so they are not missed:
      - Document loop stack behavior and `break` JSON response contract.
+     - Add/refresh Mermaid diagrams describing loop and break flow control.
      - Update the project structure for newly added test/fixture files.
 
 6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
@@ -920,6 +932,7 @@ Add support for `command` steps that run agent command macros (`commands/<comman
 - JSON schema validation patterns: Context7 `/colinhacks/zod`
 - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
 - Cucumber guides (BDD + JavaScript workflow): https://cucumber.io/docs/guides/
+- Mermaid docs (diagram syntax for design.md): Context7 `/mermaid-js/mermaid`
 - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI/options: https://prettier.io/docs/options
 - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -975,6 +988,7 @@ Add support for `command` steps that run agent command macros (`commands/<comman
      - `projectStructure.md` (add new command flow test + fixture files)
    - Story requirements to repeat here so they are not missed:
      - Document command step behavior and error handling.
+     - Add/refresh Mermaid diagrams showing command step execution.
      - Update the project structure for newly added test/fixture files.
 
 5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
@@ -1017,6 +1031,7 @@ Persist flow run state (step path, loop stack, agent conversation mapping, and p
 - JSON parsing + validation: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/parse
 - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
 - Cucumber guides (BDD + JavaScript workflow): https://cucumber.io/docs/guides/
+- Mermaid docs (diagram syntax for design.md): Context7 `/mermaid-js/mermaid`
 - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI/options: https://prettier.io/docs/options
 - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -1073,6 +1088,7 @@ Persist flow run state (step path, loop stack, agent conversation mapping, and p
      - `projectStructure.md` (add new flow flags test file)
    - Story requirements to repeat here so they are not missed:
      - Document the `flags.flow` structure and how it is used for resume.
+     - Add/refresh Mermaid diagrams covering resume state storage.
      - Update the project structure for newly added test files.
 
 5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
@@ -1117,6 +1133,7 @@ Enable resume execution using `resumeStepPath` and stored `flags.flow` state. Th
 - JSON parsing + validation: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/parse
 - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
 - Cucumber guides (BDD + JavaScript workflow): https://cucumber.io/docs/guides/
+- Mermaid docs (diagram syntax for design.md): Context7 `/mermaid-js/mermaid`
 - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI/options: https://prettier.io/docs/options
 - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -1168,6 +1185,7 @@ Enable resume execution using `resumeStepPath` and stored `flags.flow` state. Th
      - `projectStructure.md` (add new resume test file)
    - Story requirements to repeat here so they are not missed:
      - Document resume path validation and `agent_mismatch` error behavior.
+     - Add/refresh Mermaid diagrams for resume execution flow.
      - Update the project structure for newly added test files.
 
 4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
@@ -1211,6 +1229,7 @@ Attach flow step metadata to persisted turns (`turn.command`) so the client can 
 - WebSocket payload patterns: https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API
 - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
 - Cucumber guides (BDD + JavaScript workflow): https://cucumber.io/docs/guides/
+- Mermaid docs (diagram syntax for design.md): Context7 `/mermaid-js/mermaid`
 - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI/options: https://prettier.io/docs/options
 - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -1294,6 +1313,7 @@ Attach flow step metadata to persisted turns (`turn.command`) so the client can 
      - `projectStructure.md` (add new flow metadata test file)
    - Story requirements to repeat here so they are not missed:
      - Document the `turn.command` metadata shape used by flows.
+     - Add/refresh Mermaid diagrams showing flow metadata in the transcript.
      - Update the project structure for newly added test files.
 
 7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
@@ -1428,6 +1448,7 @@ Build the Flows UI: list flows, start/resume runs, and render flow conversations
 - Fetch API + AbortController: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
 - Jest docs (test runner + expect API): Context7 `/jestjs/jest`
 - Cucumber guides (BDD + JavaScript workflow): https://cucumber.io/docs/guides/
+- Mermaid docs (diagram syntax for design.md): Context7 `/mermaid-js/mermaid`
 - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI/options: https://prettier.io/docs/options
 - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -1503,6 +1524,7 @@ Build the Flows UI: list flows, start/resume runs, and render flow conversations
      - `projectStructure.md` (new client files)
    - Story requirements to repeat here so they are not missed:
      - Document Flows UI route, key controls, and new files.
+     - Add/refresh Mermaid diagrams for the Flows UI navigation + data flow.
 
 6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
    - Documentation to read (repeat):

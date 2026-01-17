@@ -218,7 +218,7 @@ Create the flow JSON schema, add discovery that scans `flows/` on each request, 
 
 - Zod schema validation (`.strict()` + unions + refinements): Context7 `/colinhacks/zod`
 - Node.js `fs/promises` + `path` (directory scanning + JSON file reads): https://nodejs.org/api/fs.html
-- Express 5 response helpers (`res.json`, async handlers): https://expressjs.com/en/api.html#res.json
+- Express 5 response helpers (`res.json`, async handlers): Context7 `/expressjs/express/v5.1.0`
 - JSON parsing errors + try/catch patterns: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/parse
 - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI/options: https://prettier.io/docs/options
@@ -350,7 +350,7 @@ Add `flowName` to conversation persistence and wire `GET /conversations` filteri
 #### Documentation Locations
 
 - Mongoose schema fields + optional indexes: Context7 `/automattic/mongoose/9.0.1`
-- Express query parsing (`req.query`) and response helpers: https://expressjs.com/en/api.html#req.query
+- Express query parsing (`req.query`) and response helpers: Context7 `/expressjs/express/v5.1.0`
 - WebSocket JSON message shape best practices: https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API
 - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI/options: https://prettier.io/docs/options
@@ -446,7 +446,7 @@ Implement the flow run engine for linear `llm` steps, including `POST /flows/:fl
 
 #### Documentation Locations
 
-- Express async handlers + error propagation: https://expressjs.com/en/guide/error-handling.html
+- Express async handlers + error propagation: Context7 `/expressjs/express/v5.1.0`
 - AbortController usage (cancellation): https://developer.mozilla.org/en-US/docs/Web/API/AbortController
 - Node.js timers (delays between steps if needed): https://nodejs.org/api/timers.html
 - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -638,7 +638,7 @@ Add support for `command` steps that run agent command macros (`commands/<comman
 
 #### Documentation Locations
 
-- Express error handling (invalid request responses): https://expressjs.com/en/guide/error-handling.html
+- Express error handling (invalid request responses): Context7 `/expressjs/express/v5.1.0`
 - JSON schema validation patterns: Context7 `/colinhacks/zod`
 - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI/options: https://prettier.io/docs/options
@@ -898,8 +898,8 @@ Build the Flows UI: list flows, start/resume runs, and render flow conversations
 
 #### Documentation Locations
 
-- MUI components (Drawer, Button, TextField, Chip, Typography): MUI MCP tool (`@mui/material@7.2.0`)
-- React Router v6: https://reactrouter.com/en/main
+- MUI components (Drawer, Button, TextField, Chip, Typography): MUI MCP tool (`@mui/material@6.4.12`)
+- React Router v7.9.x docs: Context7 `/remix-run/react-router/react-router_7.9.4`
 - Fetch API + AbortController: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
 - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI/options: https://prettier.io/docs/options
@@ -928,7 +928,7 @@ Build the Flows UI: list flows, start/resume runs, and render flow conversations
 
 3. [ ] Build Flows page UI:
    - Documentation to read (repeat):
-     - MUI components: MUI MCP tool (`@mui/material@7.2.0`)
+     - MUI components: MUI MCP tool (`@mui/material@6.4.12`)
    - Files to edit:
      - `client/src/pages/FlowsPage.tsx` (new)
      - `client/src/routes/router.tsx`
@@ -1001,7 +1001,7 @@ Update shared client types and filters so flow conversations do not pollute Chat
 
 - React state patterns: https://react.dev/reference/react/useState
 - TypeScript structural typing: https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
-- MUI components (List, Chip, Typography): MUI MCP tool (`@mui/material@7.2.0`)
+- MUI components (List, Chip, Typography): MUI MCP tool (`@mui/material@6.4.12`)
 - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI/options: https://prettier.io/docs/options
 - Markdown syntax: https://www.markdownguide.org/basic-syntax/

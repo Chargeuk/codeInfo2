@@ -82,6 +82,46 @@ None.
 
 ---
 
+## Message & Storage Contracts
+
+### REST API (new)
+
+- `GET /flows` → `{ flows: [{ name, description, disabled, error? }] }`
+  - `name`: filename stem of `flows/<name>.json`
+  - `description`: top-level flow description (empty string if omitted)
+  - `disabled`: `true` when JSON/schema validation fails
+  - `error`: optional validation error summary for disabled flows
+- `POST /flows/:flowName/run` body: `{ working_folder?, conversationId?, resumeStepIndex? }`
+  - `working_folder` should use the same validation as Agents (`working_folder` may be omitted)
+  - `conversationId` and `resumeStepIndex` together indicate resume-from-step
+  - Response `202`: `{ status: "started", flowName, conversationId, inflightId, modelId }`
+
+### Conversations (existing endpoints, extended fields)
+
+- `ConversationSummary` gains `flowName?: string` (similar to `agentName`)
+- `GET /conversations` supports `flowName` filter:
+  - `flowName=<name>` returns only flow conversations for that flow
+  - `flowName=__none__` returns conversations with no flow name
+- New flow conversations default `title` to `Flow: <name>`
+
+### Turn metadata (storage + UI)
+
+- Flow turns set `turn.command` to include:
+  - `name: "flow"`
+  - `stepIndex`, `totalSteps`, `loopDepth`
+  - `agentType`, `identifier`
+  - optional `label`
+- This metadata is persisted in `turns` and rendered in the flow bubble header.
+
+### Conversation state (resume)
+
+- Flow resume state stored in `conversation.flags.flow`:
+  - `stepIndex`: last completed step index
+  - `loopStack`: serialized loop stack
+  - `agentConversations`: map keyed by `agentType+identifier` → `conversationId`
+
+---
+
 # Implementation Plan
 
 ## Instructions

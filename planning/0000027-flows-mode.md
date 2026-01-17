@@ -297,7 +297,7 @@ Define the strict flow JSON schema and unit coverage for validation. This task e
    - Files to edit:
      - `projectStructure.md`
    - Description:
-     - Add `server/src/flows/flowSchema.ts` and any new flow folders/files.
+     - Add `server/src/flows/flowSchema.ts` and `server/src/test/unit/flows-schema.test.ts` to the repo tree (no removals).
    - Purpose:
      - Keep the repo tree accurate after new files are added.
 
@@ -442,7 +442,7 @@ Add flow discovery (scan `flows/` on each request) and expose `GET /flows` with 
    - Files to edit:
      - `projectStructure.md`
    - Description:
-     - Add new flow discovery/route files and `flows/` directory entries.
+     - Add `server/src/flows/discovery.ts`, `server/src/routes/flows.ts`, `server/src/test/integration/flows.list.test.ts`, and `server/src/test/fixtures/flows/` fixture files (`valid-flow.json`, `invalid-json.json`, `invalid-schema.json`, `ignore.txt`) to the repo tree (no removals).
    - Purpose:
      - Keep the repo tree accurate after new discovery files are added.
 
@@ -571,7 +571,7 @@ Add `flowName` to conversation persistence and summary types so flow conversatio
    - Files to edit:
      - `projectStructure.md`
    - Description:
-     - Add new flowName test files to the tree.
+     - Add `server/src/test/integration/conversations.flowname.test.ts` to the repo tree (no removals).
    - Purpose:
      - Keep the repo structure accurate.
 
@@ -882,7 +882,7 @@ Implement the flow run engine for linear `llm` steps, including `POST /flows/:fl
    - Files to edit:
      - `projectStructure.md`
    - Description:
-     - Add new flow run service/route files plus flow run test files to the tree.
+     - Add `server/src/flows/service.ts`, `server/src/flows/types.ts`, `server/src/routes/flowsRun.ts`, `server/src/test/integration/flows.run.basic.test.ts`, `server/src/test/integration/flows.run.errors.test.ts`, `server/src/test/integration/flows.run.working-folder.test.ts`, `server/src/test/integration/flows.run.hot-reload.test.ts`, and `server/src/test/fixtures/flows/` fixtures (`llm-basic.json`, `hot-reload.json`) to the repo tree (no removals).
    - Purpose:
      - Keep the repo structure accurate after new flow runtime files.
 
@@ -1007,7 +1007,7 @@ Extend the flow runtime with nested loop support and `break` steps that evaluate
    - Files to edit:
      - `projectStructure.md`
    - Description:
-     - Add loop test + fixture files to the repo tree.
+     - Add `server/src/test/integration/flows.run.loop.test.ts` and `server/src/test/fixtures/flows/loop-break.json` to the repo tree (no removals).
    - Purpose:
      - Keep file map accurate after adding loop tests.
 
@@ -1116,7 +1116,7 @@ Add support for `command` steps that run agent command macros (`commands/<comman
    - Files to edit:
      - `projectStructure.md`
    - Description:
-     - Add command flow test + fixture files to the tree.
+     - Add `server/src/test/integration/flows.run.command.test.ts` and `server/src/test/fixtures/flows/command-step.json` to the repo tree (no removals).
    - Purpose:
      - Keep file map accurate after adding command tests.
 
@@ -1230,7 +1230,7 @@ Persist flow run state (step path, loop stack, agent conversation mapping, and p
    - Files to edit:
      - `projectStructure.md`
    - Description:
-     - Add the flow flags test file to the repo tree.
+     - Add `server/src/test/unit/flows.flags.test.ts` to the repo tree (no removals).
    - Purpose:
      - Keep file map accurate after adding flags tests.
 
@@ -1339,7 +1339,7 @@ Enable resume execution using `resumeStepPath` and stored `flags.flow` state. Th
    - Files to edit:
      - `projectStructure.md`
    - Description:
-     - Add the resume integration test file to the tree.
+     - Add `server/src/test/integration/flows.run.resume.test.ts` to the repo tree (no removals).
    - Purpose:
      - Keep file map accurate after adding resume tests.
 
@@ -1477,7 +1477,7 @@ Attach flow step metadata to persisted turns (`turn.command`) so the client can 
    - Files to edit:
      - `projectStructure.md`
    - Description:
-     - Add the flow metadata integration test file to the tree.
+     - Add `server/src/test/integration/flows.turn-metadata.test.ts` to the repo tree (no removals).
    - Purpose:
      - Keep file map accurate after adding metadata tests.
 
@@ -1582,7 +1582,7 @@ Add client API helpers for listing flows and starting flow runs. This task expos
    - Files to edit:
      - `projectStructure.md`
    - Description:
-     - Add the new flows API helper file and flows API test files to the repo tree.
+     - Add `client/src/api/flows.ts`, `client/src/test/flowsApi.test.ts`, and `client/src/test/flowsApi.run.payload.test.ts` to the repo tree (no removals).
    - Purpose:
      - Keep file map accurate after API helper additions.
 
@@ -1750,7 +1750,7 @@ Build the Flows UI: list flows, start/resume runs, and render flow conversations
    - Files to edit:
      - `projectStructure.md`
    - Description:
-     - Add new Flows UI files and flows page test files to the repo tree.
+     - Add `client/src/pages/FlowsPage.tsx`, `client/src/test/flowsPage.test.tsx`, `client/src/test/flowsPage.run.test.tsx`, and `client/src/test/flowsPage.stop.test.tsx` to the repo tree (no removals).
    - Purpose:
      - Keep file map accurate after UI additions.
 

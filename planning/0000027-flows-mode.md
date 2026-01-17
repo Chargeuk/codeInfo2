@@ -266,6 +266,8 @@ Define the strict flow JSON schema and unit coverage for validation. This task e
    - Code landmarks (repeat):
      - Model the flow schema after `AgentCommandFileSchema` and `AgentCommandMessageItemSchema` in `server/src/agents/commandsSchema.ts`.
      - Follow `parseAgentCommandFile` error handling to return `{ ok: false }` on JSON parse or schema failures.
+   - Logging requirement (repeat):
+     - Emit `flows.schema.loaded` (info) once when the flow schema module is loaded; include `{ module: 'flows' }` in the context.
 
 3. [ ] Unit tests: flow schema validation
    - Test type: Unit (`node:test`)
@@ -335,7 +337,7 @@ Define the strict flow JSON schema and unit coverage for validation. This task e
 7. [ ] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001` and verify Chat + Agents pages load with sidebar and input visible; confirm no errors appear in the browser debug console.
+8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, then open the Logs page and confirm a `flows.schema.loaded` log entry appears (expect exactly one entry after server start); verify no errors appear in the browser debug console.
 9. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
@@ -407,6 +409,8 @@ Add flow discovery (scan `flows/` on each request) and expose `GET /flows` with 
      - Use `fs.readdir(..., { withFileTypes: true })` to list `flows/` and filter `.json` files only.
      - Parse JSON with `JSON.parse` in a try/catch, then validate with the flow schema and return `{ disabled: true, error }` on failure.
      - Default `description` to an empty string when missing.
+   - Logging requirement (repeat):
+     - Emit `flows.discovery.scan` (info) after each scan with `{ totalFlows, disabledFlows }` so listing requests can be verified.
 
 3. [ ] Add `GET /flows` route and register it:
    - Documentation to read (repeat):
@@ -472,7 +476,7 @@ Add flow discovery (scan `flows/` on each request) and expose `GET /flows` with 
 5. [ ] `npm run e2e` (allow up to 7 minutes)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, confirm Chat page loads, then in the browser devtools console run `fetch('http://host.docker.internal:5010/flows')` and verify the response JSON has a `flows` array; confirm no errors appear in the browser debug console.
+8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, run `fetch('http://host.docker.internal:5010/flows')` in devtools, verify the response JSON has a `flows` array, then open Logs and confirm a `flows.discovery.scan` entry appears with `totalFlows` ≥ 0; confirm no errors appear in the browser debug console.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -551,6 +555,8 @@ Add `flowName` to conversation persistence and summary types so flow conversatio
      - Add `flowName?: string` to `Conversation` and persist it in `conversationSchema`.
      - Extend `CreateConversationInput` + `toConversationEvent` to pass `flowName` through to `ConversationEventSummary`.
      - Include `flowName` in sidebar summaries (only when defined) and in memory persistence updates.
+   - Logging requirement (repeat):
+     - Emit `conversations.flowName.mapped` (info) when listing conversations, with `{ flowNameCount, totalCount }` in the context.
 
 3. [ ] Integration test: flowName appears in conversation list
    - Test type: Integration (`node:test`)
@@ -606,7 +612,7 @@ Add `flowName` to conversation persistence and summary types so flow conversatio
 5. [ ] `npm run e2e` (allow up to 7 minutes)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, load the Chat page, then in devtools run `fetch('http://host.docker.internal:5010/conversations?state=all')` and verify the response contains `items` and that entries without flow data omit `flowName`; confirm no errors appear in the browser debug console.
+8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, run `fetch('http://host.docker.internal:5010/conversations?state=all')` in devtools, verify `items` omit `flowName` when absent, then open Logs and confirm a `conversations.flowName.mapped` entry with `totalCount` matching the response length; confirm no errors appear in the browser debug console.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -653,6 +659,8 @@ Add `flowName` filtering to `GET /conversations` (`flowName=<name>` and `flowNam
      - `flowName=<name>` returns only conversations with that `flowName`.
      - `flowName=__none__` returns only conversations without a `flowName`.
      - Preserve existing `agentName` and `state` filters.
+   - Logging requirement (repeat):
+     - Emit `conversations.flowName.filter_applied` (info) with `{ flowNameFilter }` whenever a flowName filter is present.
 
 2. [ ] Integration test: conversations list flowName filtering
    - Test type: Integration (`node:test`)
@@ -716,7 +724,7 @@ Add `flowName` filtering to `GET /conversations` (`flowName=<name>` and `flowNam
 5. [ ] `npm run e2e` (allow up to 7 minutes)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open Chat and Agents pages at `http://host.docker.internal:5001`, confirm network requests for `/conversations` include `flowName=__none__`, and verify no errors appear in the browser debug console.
+8. [ ] Manual Playwright-MCP check: open Chat and Agents pages at `http://host.docker.internal:5001`, confirm `/conversations` requests include `flowName=__none__`, then open Logs and verify `conversations.flowName.filter_applied` entries show `flowNameFilter: "__none__"`; confirm no errors appear in the browser debug console.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -825,6 +833,8 @@ Implement the flow run engine for linear `llm` steps, including `POST /flows/:fl
      - Invalid flow JSON/schema returns `400 { error: 'invalid_request' }`.
      - Archived conversations return `410 { error: 'archived' }`.
      - Concurrent runs on the same flow conversation return `409 { error: 'conflict', code: 'RUN_IN_PROGRESS' }`.
+   - Logging requirement (repeat):
+     - Emit `flows.run.started` (info) when returning 202 with `{ flowName, conversationId, inflightId }`.
 
 4. [ ] Integration tests: basic `llm` flow run:
    - Test type: Integration (`node:test`)
@@ -919,7 +929,7 @@ Implement the flow run engine for linear `llm` steps, including `POST /flows/:fl
 5. [ ] `npm run e2e` (allow up to 7 minutes)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, confirm Chat page loads, then in devtools run `fetch('http://host.docker.internal:5010/flows')` (expect `flows` array) and `fetch('http://host.docker.internal:5010/flows/does-not-exist/run', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })` (expect 404); confirm no errors appear in the browser debug console.
+8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, run `fetch('http://host.docker.internal:5010/flows/<flowName>/run', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })` for a valid flow, then open Logs and confirm `flows.run.started` appears with matching `flowName`; confirm no errors appear in the browser debug console.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -993,6 +1003,8 @@ Extend the flow runtime with nested loop support and `break` steps that evaluate
      - Exit current loop only when response matches `breakOn`.
      - Emit `turn_final` with `status: 'failed'` on invalid JSON or invalid `answer` values.
      - Persist the final `answer` decision into flow turn content so it appears in the transcript.
+   - Logging requirement (repeat):
+     - Emit `flows.run.break_decision` (info) with `{ answer, breakOn, loopDepth }` when a break response is evaluated.
 
 4. [ ] Integration tests: nested loop + break behavior:
    - Test type: Integration (`node:test`)
@@ -1043,7 +1055,7 @@ Extend the flow runtime with nested loop support and `break` steps that evaluate
 5. [ ] `npm run e2e` (allow up to 7 minutes)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, ensure Chat page loads, then if a loop/break flow exists in `/flows`, start it via the run endpoint and confirm it stops on the configured break; otherwise confirm `/flows` returns without console errors; verify no errors in the browser debug console.
+8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, start a loop/break flow if available, then open Logs and confirm `flows.run.break_decision` appears with `answer` matching the step; verify no errors in the browser debug console.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -1104,6 +1116,8 @@ Add support for `command` steps that run agent command macros (`commands/<comman
      - Load the command JSON and execute each item using the flow step runner (same streaming/persistence as `llm`).
      - Treat each command item as a sub-step under the same flow step metadata (no new flow step index).
      - Ensure errors surface as `turn_final` status `failed` with a clear message.
+   - Logging requirement (repeat):
+     - Emit `flows.run.command_step` (info) with `{ commandName, agentType }` when a command step begins execution.
 
 3. [ ] Integration tests: command step run:
    - Test type: Integration (`node:test`)
@@ -1152,7 +1166,7 @@ Add support for `command` steps that run agent command macros (`commands/<comman
 5. [ ] `npm run e2e` (allow up to 7 minutes)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, confirm Chat page loads, then if a command-step flow exists in `/flows`, run it and verify the flow completes without errors; confirm no errors appear in the browser debug console.
+8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, run a command-step flow if available, then open Logs and confirm `flows.run.command_step` appears with the expected `commandName`; confirm no errors appear in the browser debug console.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -1221,6 +1235,8 @@ Persist flow run state (step path, loop stack, agent conversation mapping, and p
      - On run start, hydrate the in-memory agent map from `flags.flow` when present.
      - When a new agent mapping is needed, create a companion agent conversation (`agentName` set, title derived from flow + identifier) so thread ids can be persisted safely.
      - When using memory persistence, update `memoryConversations` with `flags.flow` via `updateMemoryConversationMeta`.
+   - Logging requirement (repeat):
+     - Emit `flows.resume.state_saved` (info) when `flags.flow` is persisted, with `{ conversationId, stepPath }`.
 
 3. [ ] Unit tests: flow flags persistence
    - Test type: Unit (`node:test`)
@@ -1267,7 +1283,7 @@ Persist flow run state (step path, loop stack, agent conversation mapping, and p
 5. [ ] `npm run e2e` (allow up to 7 minutes)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, run a flow if available, then in devtools fetch `/conversations?state=all` and confirm the flow conversation includes `flags.flow` data; confirm no errors appear in the browser debug console.
+8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, run a flow if available, then open Logs and confirm `flows.resume.state_saved` appears with the flow `conversationId`; confirm no errors appear in the browser debug console.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -1324,6 +1340,8 @@ Enable resume execution using `resumeStepPath` and stored `flags.flow` state. Th
      - Update per-agent `threadId` mapping after each step when Codex emits a new thread id.
      - Prefer the thread id from `turn_final`/`thread` events over the flow conversation `flags.threadId`.
      - When `shouldUseMemoryPersistence()` is true, update `memoryConversations` with the latest `flags.flow` values.
+   - Logging requirement (repeat):
+     - Emit `flows.resume.requested` (info) with `{ conversationId, resumeStepPath }` when a resume run starts.
    - Code landmarks (repeat):
      - Flow run request parsing pattern in `server/src/routes/flowsRun.ts` (created in Task 5).
      - `updateConversationMeta` usage in `server/src/mongo/repo.ts` for persisting `flags` updates.
@@ -1376,7 +1394,7 @@ Enable resume execution using `resumeStepPath` and stored `flags.flow` state. Th
 5. [ ] `npm run e2e` (allow up to 7 minutes)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, start a flow run (if available), stop it, then resume with the stored `resumeStepPath` and confirm it continues; verify no errors appear in the browser debug console.
+8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, stop a flow run and resume it, then open Logs and confirm `flows.resume.requested` appears with the expected `resumeStepPath`; verify no errors appear in the browser debug console.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -1455,6 +1473,8 @@ Attach flow step metadata to persisted turns (`turn.command`) so the client can 
      - Populate `turn.command` fields for every flow step.
      - Preserve existing agent step metadata where applicable.
      - Ensure inflight snapshots include the flow command metadata during streaming.
+   - Logging requirement (repeat):
+     - Emit `flows.turn.metadata_attached` (info) with `{ stepIndex, agentType }` when attaching flow command metadata.
 
 4. [ ] Integration test: flow turn metadata in snapshots
    - Test type: Integration (`node:test`)
@@ -1514,7 +1534,7 @@ Attach flow step metadata to persisted turns (`turn.command`) so the client can 
 5. [ ] `npm run e2e` (allow up to 7 minutes)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, run a flow (if available), then in devtools fetch `/conversations/<flowConversationId>/turns` and confirm `command` metadata includes step fields; ensure no errors appear in the browser debug console.
+8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, run a flow if available, then open Logs and confirm `flows.turn.metadata_attached` entries appear for step indices; ensure no errors appear in the browser debug console.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -1569,6 +1589,8 @@ Add client API helpers for listing flows and starting flow runs. This task expos
      - `runFlow(flowName, payload)` calling `POST /flows/:flowName/run`.
      - Mirror error handling patterns from `client/src/api/agents.ts`.
      - Reuse the same abort + error parsing helpers as the Agents API if available.
+   - Logging requirement (repeat):
+     - Use `createLogger('client-flows')` to emit `flows.api.list` and `flows.api.run` (info) with `{ flowName }` where applicable.
 
 3. [ ] Unit tests: flows API helpers
    - Test type: RTL/Jest
@@ -1618,7 +1640,7 @@ Add client API helpers for listing flows and starting flow runs. This task expos
 5. [ ] `npm run e2e` (allow up to 7 minutes)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, run `fetch('http://host.docker.internal:5010/flows')` and `fetch('http://host.docker.internal:5010/flows/does-not-exist/run', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })` from the console to verify API responses; confirm no errors appear in the browser debug console.
+8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, call `listFlows()` and `runFlow()` from the Flows UI (or console), then open Logs and confirm `flows.api.list` and `flows.api.run` entries appear with the expected `flowName`; confirm no errors appear in the browser debug console.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -1688,6 +1710,8 @@ Build the Flows UI: list flows, start/resume runs, and render flow conversations
      - Sidebar uses `ConversationList` filtered by `flowName`.
      - Main panel includes flow selector, run/resume controls, and transcript.
      - Display `command` metadata in bubble header (label + agentType/identifier).
+   - Logging requirement (repeat):
+     - Use `createLogger('client-flows')` to emit `flows.ui.opened` (info) when the page mounts.
 
 3. [ ] Wire flow run/resume + stop controls:
    - Documentation to read (repeat):
@@ -1703,6 +1727,8 @@ Build the Flows UI: list flows, start/resume runs, and render flow conversations
      - Start runs via `POST /flows/:flowName/run`.
      - Resume uses stored `resumeStepPath` when provided.
      - Stop uses existing `cancel_inflight` WS path.
+   - Logging requirement (repeat):
+     - Emit `flows.ui.run_clicked`, `flows.ui.resume_clicked`, and `flows.ui.stop_clicked` (info) with `{ flowName }` when the buttons are used.
 
 4. [ ] Client tests (RTL): flows page basics:
    - Test type: RTL/Jest
@@ -1786,7 +1812,7 @@ Build the Flows UI: list flows, start/resume runs, and render flow conversations
 5. [ ] `npm run e2e` (allow up to 7 minutes)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001/flows`, confirm the flow selector, sidebar, and run/resume/stop controls render; start a flow if available; verify no errors appear in the browser debug console.
+8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001/flows`, start/resume/stop a flow if available, then open Logs and confirm `flows.ui.opened` plus the matching `flows.ui.run_clicked`/`flows.ui.resume_clicked`/`flows.ui.stop_clicked` entries appear; verify no errors appear in the browser debug console.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -1845,6 +1871,8 @@ Update client conversation list filtering so Chat and Agents exclude flow conver
    - Requirements:
      - Support `flowName=<name>` and `flowName=__none__` query params.
      - Ensure Chat + Agents requests include `flowName=__none__` so flow conversations stay isolated.
+   - Logging requirement (repeat):
+     - Use `createLogger('client-flows')` to emit `flows.filter.requested` (info) with `{ flowName }` whenever `useConversations` issues a request.
 
 3. [ ] Update/extend client tests for flow filtering:
    - Test type: RTL/Jest
@@ -1870,7 +1898,7 @@ Update client conversation list filtering so Chat and Agents exclude flow conver
 5. [ ] `npm run e2e` (allow up to 7 minutes)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open Chat, Agents, and Flows pages at `http://host.docker.internal:5001`; confirm Chat/Agents requests include `flowName=__none__` and Flows requests include `flowName=<selected>`; verify no errors appear in the browser debug console.
+8. [ ] Manual Playwright-MCP check: open Chat, Agents, and Flows pages at `http://host.docker.internal:5001`, then open Logs and confirm `flows.filter.requested` entries show `flowName: "__none__"` for Chat/Agents and `flowName: "<selected>"` for Flows; verify no errors appear in the browser debug console.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -1917,6 +1945,8 @@ Preserve the extended flow step metadata (`loopDepth`, `label`, `agentType`, `id
      - Extend command metadata types to include `loopDepth`, `label`, `agentType`, `identifier`.
      - Keep backward compatibility with existing command metadata tests.
      - Mirror server `TurnCommandMetadata` shape so parsing stays in sync.
+   - Logging requirement (repeat):
+     - Emit `flows.metadata.normalized` (info) when flow command metadata is parsed, with `{ stepIndex, label }`.
 
 2. [ ] RTL test: conversation turns command metadata
    - Test type: RTL/Jest
@@ -1955,7 +1985,7 @@ Preserve the extended flow step metadata (`loopDepth`, `label`, `agentType`, `id
 5. [ ] `npm run e2e` (allow up to 7 minutes)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open a flow conversation in the UI (if available) and confirm the message header shows flow labels, agentType, identifier, and loopDepth; verify no errors appear in the browser debug console.
+8. [ ] Manual Playwright-MCP check: open a flow conversation in the UI (if available), then open Logs and confirm `flows.metadata.normalized` entries appear with the expected `label`; verify no errors appear in the browser debug console.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -2025,10 +2055,20 @@ Validate the full story against acceptance criteria, perform clean builds/tests,
      - `planning/0000027-flows-mode.md`
    - Description:
      - Create a summary of server, client, tests, and compat impacts.
-  - Purpose:
-    - Provide a ready-to-post PR summary after all tasks complete.
+   - Purpose:
+     - Provide a ready-to-post PR summary after all tasks complete.
 
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+5. [ ] Add verification log line for final QA pass:
+   - Documentation to read (repeat):
+     - Markdown syntax (README/design updates): https://www.markdownguide.org/basic-syntax/
+   - Files to edit:
+     - `client/src/pages/LogsPage.tsx`
+   - Description:
+     - Emit `flows.verification.manual_check` (info) when the Logs page is opened during the final verification pass.
+   - Purpose:
+     - Provide a definitive log marker that the manual QA step was executed.
+
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -2039,7 +2079,7 @@ Validate the full story against acceptance criteria, perform clean builds/tests,
 5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, run a flow end-to-end (stop mid-run, resume, verify sidebar filtering by `flowName`), and smoke-test Chat + Agents pages for regressions; confirm no errors appear in the browser debug console.
+8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, run a flow end-to-end (stop mid-run, resume, verify sidebar filtering by `flowName`), visit the Logs page, and confirm `flows.verification.manual_check` appears; smoke-test Chat + Agents pages for regressions; confirm no errors appear in the browser debug console.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes

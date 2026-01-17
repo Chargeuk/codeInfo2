@@ -915,7 +915,6 @@ Build the Flows UI: list flows, start/resume runs, and render flow conversations
      - `client/src/hooks/useConversations.ts`
      - `client/src/hooks/useChatStream.ts`
      - `client/src/hooks/useChatWs.ts`
-     - `client/src/hooks/useChatWs.ts`
 
 2. [ ] Add flows API helpers:
    - Files to edit:

@@ -232,7 +232,8 @@ Create the flow JSON schema, add discovery that scans `flows/` on each request, 
      - Node.js `fs/promises`: https://nodejs.org/api/fs.html
    - Files to read:
      - `server/src/agents/commandsSchema.ts`
-     - `server/src/agents/commands.ts`
+     - `server/src/agents/commandsLoader.ts`
+     - `server/src/ingest/discovery.ts`
      - `server/src/agents/service.ts`
    - Goal:
      - Confirm how invalid JSON is surfaced as `disabled: true` with an error message.
@@ -251,6 +252,7 @@ Create the flow JSON schema, add discovery that scans `flows/` on each request, 
      - `break` requires `agentType`, `identifier`, `question`, `breakOn: 'yes' | 'no'`.
      - `command` requires `agentType`, `identifier`, `commandName`.
      - All objects are `.strict()` so unknown keys invalidate the flow.
+     - Prefer reusing the `trimmedNonEmptyString` + `parse` patterns from `server/src/agents/commandsSchema.ts`.
 
 3. [ ] Implement flow discovery with hot-reload scanning:
    - Documentation to read (repeat):
@@ -264,6 +266,7 @@ Create the flow JSON schema, add discovery that scans `flows/` on each request, 
      - Invalid JSON or schema produces `disabled: true` with a human-readable error.
      - Flow summary includes `{ name, description, disabled, error? }`.
      - `description` defaults to an empty string when missing.
+     - Reuse agent command loader patterns (`loadAgentCommandSummary`) rather than new parsing rules when possible.
 
 4. [ ] Add `GET /flows` route and register it:
    - Documentation to read (repeat):
@@ -482,6 +485,7 @@ Implement the flow run engine for linear `llm` steps, including `POST /flows/:fl
      - Acquire/release the existing per-conversation run lock to prevent overlapping flow runs.
      - Propagate the flow inflight AbortSignal into each step so Stop cancels the active step.
      - Validate `working_folder` via the shared resolver and surface `WORKING_FOLDER_INVALID/NOT_FOUND` consistently.
+     - Reuse `resolveWorkingFolderWorkingDirectory` and `tryAcquireConversationLock`/`releaseConversationLock` from the agents layer.
 
 3. [ ] Add `POST /flows/:flowName/run` route:
    - Documentation to read (repeat):
@@ -911,6 +915,7 @@ Build the Flows UI: list flows, start/resume runs, and render flow conversations
      - `client/src/hooks/useConversations.ts`
      - `client/src/hooks/useChatStream.ts`
      - `client/src/hooks/useChatWs.ts`
+     - `client/src/hooks/useChatWs.ts`
 
 2. [ ] Add flows API helpers:
    - Files to edit:
@@ -919,6 +924,7 @@ Build the Flows UI: list flows, start/resume runs, and render flow conversations
      - `listFlows()` calling `GET /flows`.
      - `runFlow(flowName, payload)` calling `POST /flows/:flowName/run`.
      - Mirror error handling patterns from `client/src/api/agents.ts`.
+     - Reuse the same abort + error parsing helpers as the Agents API if available.
 
 3. [ ] Build Flows page UI:
    - Documentation to read (repeat):
@@ -1025,6 +1031,7 @@ Update shared client types and filters so flow conversations do not pollute Chat
    - Requirements:
      - Extend command metadata types to include `loopDepth`, `label`, `agentType`, `identifier`.
      - Keep backward compatibility with existing command metadata tests.
+     - Mirror server `TurnCommandMetadata` shape so parsing stays in sync.
 
 4. [ ] Update/extend client tests for command metadata:
    - Test type: RTL/Jest

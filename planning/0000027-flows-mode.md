@@ -262,6 +262,7 @@ Create the flow JSON schema, add discovery that scans `flows/` on each request, 
      - Ignore non-JSON files; missing folder returns `[]`.
      - Invalid JSON or schema produces `disabled: true` with a human-readable error.
      - Flow summary includes `{ name, description, disabled, error? }`.
+     - `description` defaults to an empty string when missing.
 
 4. [ ] Add `GET /flows` route and register it:
    - Documentation to read (repeat):
@@ -323,6 +324,53 @@ Create the flow JSON schema, add discovery that scans `flows/` on each request, 
 9. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
+
+#### Implementation notes
+
+- Details about the implementation. Include what went to plan and what did not.
+- Essential that any decisions that got made during the implementation are documented here.
+
+---
+
+### 9. Final verification + documentation + PR summary
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Validate the full story against acceptance criteria, perform clean builds/tests, update documentation, and produce the pull request summary for the story.
+
+#### Documentation Locations
+
+- Docker Compose guide (clean builds + compose up/down): Context7 `/docker/docs`
+- Playwright Test docs (Node/TS setup + running tests): https://playwright.dev/docs/intro
+- Husky docs (git hook management + install): https://typicode.github.io/husky/
+- Mermaid docs (diagram syntax for design.md): Context7 `/mermaid-js/mermaid`
+- Jest docs (test runner + expect API): Context7 `/jestjs/jest`
+- npm run-script reference (running workspace scripts): https://docs.npmjs.com/cli/v9/commands/npm-run-script
+- Cucumber guides (BDD + JavaScript workflow): https://cucumber.io/docs/guides/
+- Markdown syntax (README/design updates): https://www.markdownguide.org/basic-syntax/
+
+#### Subtasks
+
+1. [ ] Ensure `README.md` is updated with any required description changes and with any new commands that have been added as part of this story.
+2. [ ] Ensure `design.md` is updated with any required description changes including Mermaid diagrams added for flows.
+3. [ ] Ensure `projectStructure.md` is updated with any updated, added or removed files & folders after all file additions/removals.
+4. [ ] Create a summary of all changes and draft the PR comment for this story (server + client + tests).
+5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual check: run a flow end-to-end, stop mid-run, resume, and verify sidebar filtering by `flowName`.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -480,6 +528,10 @@ Implement the flow run engine for linear `llm` steps, including `POST /flows/:fl
      - Accept `{ conversationId?, working_folder? }`.
      - Return `202 { status: "started", flowName, conversationId, inflightId, modelId }`.
      - Mirror agent run validation for `working_folder` errors.
+     - Missing flow file returns `404 { error: 'not_found' }`.
+     - Invalid flow JSON/schema returns `400 { error: 'invalid_request' }`.
+     - Archived conversations return `410 { error: 'archived' }`.
+     - Concurrent runs on the same flow conversation return `409 { error: 'conflict', code: 'RUN_IN_PROGRESS' }`.
 
 4. [ ] Integration tests: basic `llm` flow run:
    - Test type: Integration (`node:test`)
@@ -563,6 +615,7 @@ Extend the flow runtime with nested loop support and `break` steps that evaluate
      - Ask the configured agent to answer `{ "answer": "yes" | "no" }`.
      - Validate JSON and `answer` shape; invalid responses fail the flow with clear errors.
      - Exit current loop only when response matches `breakOn`.
+     - Emit `turn_final` with `status: 'failed'` on invalid JSON or invalid `answer` values.
 
 4. [ ] Integration tests: nested loop + break behavior:
    - Test type: Integration (`node:test`)
@@ -724,6 +777,8 @@ Persist flow run state (step path, loop stack, and agent conversation mapping) a
      - Validate every index and return `400 invalid_request` on mismatch.
      - Resume uses stored `loopStack` and `agentConversations` when present.
      - Update `flags.flow.stepPath` after each completed step.
+     - If a stored `agentConversations` id maps to a different agent, return `400 { error: 'agent_mismatch' }`.
+     - On stop/cancel, persist the last completed `stepPath` for resume.
 
 4. [ ] Integration tests: resume behavior + invalid resume path:
    - Test type: Integration (`node:test`)

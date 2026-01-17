@@ -15,30 +15,32 @@ Story convention (important for this repo’s planning style):
 
 ## Description
 
-Introduce a new **Flows** mode that orchestrates a logical sequence of agent steps (not tied to a single agent conversation). Flow definitions live on disk under `flows/<flowName>.json`, and each flow step selects a predefined Codex agent plus an identifier. The runtime reuses the previous `conversationId` for each `agentType + identifier` grouping, so steps can continue the same agent thread across the flow.
+Introduce a new **Flows** mode that orchestrates a logical sequence of agent steps (not tied to a single agent conversation). Flow definitions live on disk under `flows/<flowName>.json` and are hot-reloaded by re-reading the filesystem on each request (matching the existing agent/command behavior). Each flow step selects a predefined Codex agent plus an identifier; the runtime reuses the previous `conversationId` for each `agentType + identifier` grouping so steps can continue the same agent thread across the flow.
 
-Flows support nested loops via `startLoop`/`endLoop`, and a `break` step that asks an LLM a provided question and expects a JSON yes/no response. If the configured `breakOn` answer is returned, the current loop is exited. A flow run has its own merged conversation transcript stored and streamed just like existing chat/agent conversations; the UI shows a single flow entry in the sidebar and renders each step with its result plus the agent type/identifier in the message bubbles. Users can stop a flow mid-execution and later resume from a stored step index. Flow definitions are hot-reloaded using the same mechanism as agent commands. Optional step labels can be set in the flow JSON for UI display, and each persisted flow turn should include step metadata (index, loop depth) so the UI can display it alongside the bubble. LLM steps use a `messages` array (like agent commands). Break steps specify a concrete agent + identifier for the JSON response, and the server exposes REST endpoints mirroring the Agents API. Flow conversations are titled `Flow: <name>` by default.
-Flow runs also accept an optional `working_folder`, mirroring the agent run behavior.
+Flows support nested loops via `startLoop`/`endLoop`, and a `break` step that asks an LLM a provided question and expects a JSON yes/no response. If the configured `breakOn` answer is returned, the current loop is exited. A flow run has its own merged conversation transcript stored and streamed just like existing chat/agent conversations; the UI shows a single flow entry in the sidebar and renders each step with its result plus the agent type/identifier in the message bubbles. Users can stop a flow mid-execution and later resume from a stored step index. Optional step labels can be set in the flow JSON for UI display, and each persisted flow turn should include step metadata (index, loop depth) so the UI can display it alongside the bubble. LLM steps use a `messages` array (like agent commands). Break steps specify a concrete agent + identifier for the JSON response, and the server exposes REST endpoints mirroring the Agents API. Flow conversations are titled `Flow: <name>` by default. Flow runs also accept an optional `working_folder`, mirroring the agent run behavior.
 
 ---
 
 ## Acceptance Criteria
 
-- Flow definitions are discovered from `flows/<flowName>.json` on disk and are hot-reloaded without a server restart (same hot-reload behavior as agent commands).
-- A new flow JSON schema exists (distinct from agent commands) with required `steps: []` and step objects that include `type` plus optional `label` for UI display.
-- Supported step `type` values are `startLoop`, `endLoop`, `llm`, and `break`.
-- `llm` steps require `agentType` (Codex agent name from the Agents dropdown) and `identifier` fields, plus `messages` in the same shape used by agent commands (role + content array).
+- Flow definitions are discovered from `flows/<flowName>.json` on disk and are hot-reloaded without a server restart by re-reading the directory on each request (same pattern as agent discovery and command listing).
+- A new flow JSON schema exists (distinct from agent commands) with a required top-level `steps: []`, optional top-level `description`, and step objects that include `type` plus optional `label` for UI display.
+- Supported step `type` values are `startLoop`, `endLoop`, `llm`, and `break`. Loop boundaries are matched only by nesting (no loop ids).
+- `llm` steps require `agentType` (Codex agent name from the Agents dropdown), `identifier`, and `messages` in the same shape used by agent commands (role + content array).
 - `break` steps require `agentType`, `identifier`, `question`, and `breakOn: "yes" | "no"` and must instruct the agent to return JSON in the shape `{ "answer": "yes" | "no" }` for the break decision.
 - Nested loops are supported by the runtime using a loop stack; `break` exits only the current loop defined by the closest `startLoop`/`endLoop` pair.
+- `GET /flows` returns `{ flows: [{ name, description, disabled, error? }] }`, where `name` is the filename stem and `description` is the top-level flow description (empty string when missing). Invalid JSON or schema errors return `disabled: true` with an error message.
+- `POST /flows/:flowName/run` returns `202 { status: "started", flowName, conversationId, inflightId, modelId }` and accepts optional `working_folder`, `conversationId`, and `resumeStepIndex` fields to resume a stopped flow.
 - Flow runs persist a merged flow conversation and stream events to the client using the same protocol as chat/agent runs.
+- Conversations gain an optional `flowName` field; flow runs set `flowName` to the flow name so they can be filtered separately from chat/agent conversations.
+- `GET /conversations` accepts `flowName` filtering (exact match), and `flowName=__none__` returns conversations without a flow name (mirrors `agentName` filtering).
 - Flow conversations default to the title `Flow: <name>` and appear as a single item in the sidebar.
 - The flow UI has a new **Flows** menu entry; the sidebar supports the same conversation management features as the existing conversations list.
 - The main flow view renders each step and its result, including agent type, identifier, optional step label, and step metadata.
-- Flow turn metadata includes step index and loop depth, persisted and surfaced in the UI bubbles.
+- Each flow turn persists step metadata under `turn.command` with at least `{ name: "flow", stepIndex, totalSteps, loopDepth, agentType, identifier, label? }`, and the UI uses this metadata in the bubble.
 - Users can stop a running flow, and later resume it from a stored step index.
+- Flow run state for resume is stored under `conversation.flags.flow` with at least `{ stepIndex, loopStack, agentConversations }` and is updated after each completed step.
 - The flow runtime reuses the previous `conversationId` per `agentType + identifier` grouping when available, otherwise starts a new conversation for that grouping.
-- The server exposes flow REST endpoints mirroring the Agents API surface, including list flows and run flow endpoints.
-- Flow run endpoints accept optional `working_folder` (same validation as Agents), and optional resume input (conversation id + resume step index) to restart mid-flow.
 
 ---
 

@@ -49,3 +49,41 @@ test('GET /conversations forwards agentName=<agent> to repo layer', async () => 
   const params = captured as Record<string, unknown>;
   assert.equal(params.agentName, 'coding_agent');
 });
+
+test('GET /conversations forwards flowName=__none__ to repo layer', async () => {
+  let captured: unknown;
+  const listConversations = async (params: unknown) => {
+    captured = params;
+    return { items: [] };
+  };
+
+  const res = await request(
+    buildApp({ listConversations: listConversations as never }),
+  )
+    .get('/conversations?flowName=__none__')
+    .expect(200);
+
+  assert.equal(Array.isArray(res.body.items), true);
+  assert(captured);
+  const params = captured as Record<string, unknown>;
+  assert.equal(params.flowName, '__none__');
+});
+
+test('GET /conversations forwards flowName=<name> to repo layer', async () => {
+  let captured: unknown;
+  const listConversations = async (params: unknown) => {
+    captured = params;
+    return { items: [] };
+  };
+
+  const res = await request(
+    buildApp({ listConversations: listConversations as never }),
+  )
+    .get('/conversations?flowName=demo-flow')
+    .expect(200);
+
+  assert.equal(Array.isArray(res.body.items), true);
+  assert(captured);
+  const params = captured as Record<string, unknown>;
+  assert.equal(params.flowName, 'demo-flow');
+});

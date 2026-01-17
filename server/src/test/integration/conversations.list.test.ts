@@ -184,6 +184,47 @@ test('archived=true remains backward compatible (maps to state=all)', async () =
   assert.equal(res.body.items.length, 2);
 });
 
+test('flowName query forwards to repo layer', async () => {
+  const calls: unknown[] = [];
+  const res = await request(
+    appWith({
+      listConversations: async (params) => {
+        calls.push(params);
+        return {
+          items: [
+            {
+              ...baseItem,
+              flowName: 'demo-flow',
+            },
+          ],
+        };
+      },
+    }),
+  )
+    .get('/conversations?flowName=demo-flow')
+    .expect(200);
+
+  assert.equal(res.body.items[0].flowName, 'demo-flow');
+  assert.equal((calls[0] as { flowName?: string }).flowName, 'demo-flow');
+});
+
+test('flowName=__none__ forwards sentinel to repo layer', async () => {
+  const calls: unknown[] = [];
+  const res = await request(
+    appWith({
+      listConversations: async (params) => {
+        calls.push(params);
+        return { items: [baseItem] };
+      },
+    }),
+  )
+    .get('/conversations?flowName=__none__')
+    .expect(200);
+
+  assert.equal(Array.isArray(res.body.items), true);
+  assert.equal((calls[0] as { flowName?: string }).flowName, '__none__');
+});
+
 test('invalid state query returns 400 VALIDATION_FAILED', async () => {
   const res = await request(
     appWith({

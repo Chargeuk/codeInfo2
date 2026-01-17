@@ -87,6 +87,7 @@ export interface ListConversationsParams {
   state?: 'active' | 'archived' | 'all';
   includeArchived?: boolean;
   agentName?: string;
+  flowName?: string;
 }
 
 export interface ListTurnsParams {
@@ -247,6 +248,18 @@ export async function listConversations(
       ];
     } else {
       query.agentName = params.agentName;
+    }
+  }
+
+  if (params.flowName !== undefined) {
+    if (params.flowName === '__none__') {
+      query.$or = [
+        { flowName: { $exists: false } },
+        { flowName: null },
+        { flowName: '' },
+      ];
+    } else {
+      query.flowName = params.flowName;
     }
   }
 

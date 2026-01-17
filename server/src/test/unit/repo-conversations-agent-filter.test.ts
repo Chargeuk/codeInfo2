@@ -89,3 +89,82 @@ test('listConversations agentName=<agent> adds an exact match filter', async () 
     );
   }
 });
+
+test('listConversations flowName=__none__ adds an $or filter matching missing/empty flowName', async () => {
+  const originalFind = ConversationModel.find;
+  let capturedQuery: unknown;
+
+  (ConversationModel as unknown as Record<string, unknown>).find = (
+    query: unknown,
+  ) => {
+    capturedQuery = query;
+    return {
+      sort: () => ({
+        limit: () => ({
+          lean: async () => [],
+        }),
+      }),
+    };
+  };
+
+  try {
+    await listConversations({
+      limit: 10,
+      includeArchived: true,
+      flowName: '__none__',
+    });
+
+    assert.equal(typeof capturedQuery, 'object');
+    assert(capturedQuery);
+    const query = capturedQuery as Record<string, unknown>;
+    assert.equal(Array.isArray(query.$or), true);
+    assert.deepEqual(query.$or, [
+      { flowName: { $exists: false } },
+      { flowName: null },
+      { flowName: '' },
+    ]);
+  } finally {
+    restore(
+      ConversationModel as unknown as Record<string, unknown>,
+      'find',
+      originalFind,
+    );
+  }
+});
+
+test('listConversations flowName=<name> adds an exact match filter', async () => {
+  const originalFind = ConversationModel.find;
+  let capturedQuery: unknown;
+
+  (ConversationModel as unknown as Record<string, unknown>).find = (
+    query: unknown,
+  ) => {
+    capturedQuery = query;
+    return {
+      sort: () => ({
+        limit: () => ({
+          lean: async () => [],
+        }),
+      }),
+    };
+  };
+
+  try {
+    await listConversations({
+      limit: 10,
+      includeArchived: true,
+      flowName: 'demo-flow',
+    });
+
+    assert.equal(typeof capturedQuery, 'object');
+    assert(capturedQuery);
+    const query = capturedQuery as Record<string, unknown>;
+    assert.equal(query.flowName, 'demo-flow');
+  } finally {
+    restore(
+      ConversationModel as unknown as Record<string, unknown>,
+      'find',
+      originalFind,
+    );
+  }
+});

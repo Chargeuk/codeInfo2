@@ -800,8 +800,8 @@ Add `flowName` filtering to `GET /conversations` (`flowName=<name>` and `flowNam
 
 ### 5. Server: Flow run core (llm steps only)
 
-- Task Status: **__in_progress__**
-- Git Commits: **__to_do__**
+- Task Status: **__done__**
+- Git Commits: 9d78c5b, 9a4f1b2
 
 #### Overview
 

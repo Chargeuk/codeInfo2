@@ -277,18 +277,28 @@ Define the strict flow JSON schema and unit coverage for validation. This task e
    - Purpose:
      - Validate strict schema errors, trimming, and invalid shapes.
 
-4. [ ] Documentation updates:
+4. [ ] Documentation update: `design.md` (flow schema + `/flows` overview)
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+     - Mermaid docs (diagram syntax for design.md): Context7 `/mermaid-js/mermaid`
+   - Files to edit:
+     - `design.md`
+   - Description:
+     - Document the flow JSON schema, step types, and `/flows` overview.
+   - Purpose:
+     - Keep architecture notes aligned with the new flow schema.
+
+5. [ ] Documentation update: `projectStructure.md` (new flow schema files)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
-     - `design.md` (flow schema + `/flows` endpoint overview)
-     - `projectStructure.md` (add `flows/` and new server files)
-   - Story requirements to repeat here so they are not missed:
-     - Document the strict flow schema and supported step types.
-     - Add/refresh Mermaid diagrams describing the flow schema + API shape.
-     - Add any new flow/server files to the project structure tree.
+     - `projectStructure.md`
+   - Description:
+     - Add `server/src/flows/flowSchema.ts` and any new flow folders/files.
+   - Purpose:
+     - Keep the repo tree accurate after new files are added.
 
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/options
@@ -412,18 +422,28 @@ Add flow discovery (scan `flows/` on each request) and expose `GET /flows` with 
    - Purpose:
      - Validate non-JSON ignore, missing folder handling, and `disabled` error text.
 
-5. [ ] Documentation updates:
+5. [ ] Documentation update: `design.md` (flow discovery + `/flows` listing)
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+     - Mermaid docs (diagram syntax for design.md): Context7 `/mermaid-js/mermaid`
+   - Files to edit:
+     - `design.md`
+   - Description:
+     - Document flow discovery, disabled/error behavior, and list endpoint.
+   - Purpose:
+     - Keep discovery behavior documented for operators and maintainers.
+
+6. [ ] Documentation update: `projectStructure.md` (flow discovery files)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
-     - `design.md` (flow discovery + `/flows` endpoint overview)
-     - `projectStructure.md` (add `flows/` and discovery/route files)
-   - Story requirements to repeat here so they are not missed:
-     - Document `/flows` discovery and disabled/error behavior.
-     - Add/refresh Mermaid diagrams showing flow discovery + listing.
-     - Add new `server/src/flows/*` files and `flows/` directory to the tree.
+     - `projectStructure.md`
+   - Description:
+     - Add new flow discovery/route files and `flows/` directory entries.
+   - Purpose:
+     - Keep the repo tree accurate after new discovery files are added.
 
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/options
@@ -502,17 +522,28 @@ Add `flowName` to conversation persistence and summary types so flow conversatio
      - Ensure missing `flowName` is omitted (not `null`).
      - Ensure new flow conversations can set `flowName` at creation time via `createConversation` inputs.
 
-3. [ ] Documentation updates:
+3. [ ] Documentation update: `design.md` (flowName field)
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+     - Mermaid docs (diagram syntax for design.md): Context7 `/mermaid-js/mermaid`
+   - Files to edit:
+     - `design.md`
+   - Description:
+     - Document the `flowName` field and how it separates flow vs chat conversations.
+   - Purpose:
+     - Keep schema/architecture notes aligned with flow filtering.
+
+4. [ ] Documentation update: `projectStructure.md` (if files changed)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
-     - `design.md` (conversation filters + flowName field)
-     - `projectStructure.md` (if any files added/removed)
-   - Story requirements to repeat here so they are not missed:
-     - Document the `flowName` field and how filtering will use it.
-     - Add/refresh Mermaid diagram(s) that show flow vs chat conversation separation.
+     - `projectStructure.md`
+   - Description:
+     - Update the tree if this task adds/removes files.
+   - Purpose:
+     - Keep the repo structure accurate.
 
-4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
+5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/options
@@ -614,14 +645,16 @@ Add `flowName` filtering to `GET /conversations` (`flowName=<name>` and `flowNam
    - Purpose:
      - Keep repo-level filters consistent across agent + flow filters.
 
-5. [ ] Documentation updates:
+5. [ ] Documentation update: `design.md` (flowName filtering)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+     - Mermaid docs (diagram syntax for design.md): Context7 `/mermaid-js/mermaid`
    - Files to edit:
-     - `design.md` (conversation filter notes)
-   - Story requirements to repeat here so they are not missed:
+     - `design.md`
+   - Description:
      - Document `flowName` filtering and `__none__` semantics.
-     - Add/refresh Mermaid diagram(s) covering filtering flow vs non-flow conversations.
+   - Purpose:
+     - Keep filtering behavior aligned with API contract.
 
 6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
    - Documentation to read (repeat):
@@ -767,17 +800,28 @@ Implement the flow run engine for linear `llm` steps, including `POST /flows/:fl
    - Purpose:
      - Lock in error handling for core run request validation.
 
-6. [ ] Documentation updates:
+6. [ ] Documentation update: `design.md` (flow run core)
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+     - Mermaid docs (diagram syntax for design.md): Context7 `/mermaid-js/mermaid`
+   - Files to edit:
+     - `design.md`
+   - Description:
+     - Document `/flows/:flowName/run` contract and flow conversation title format.
+   - Purpose:
+     - Keep runtime flow behavior documented and aligned with the API.
+
+7. [ ] Documentation update: `projectStructure.md` (flow run files)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
-     - `design.md` (flow run core + REST contract)
-     - `projectStructure.md` (new flow service/routes)
-   - Story requirements to repeat here so they are not missed:
-     - Document the `/flows/:flowName/run` contract and flow conversation title format.
-     - Add/refresh Mermaid sequence/flow diagrams for the core flow run.
+     - `projectStructure.md`
+   - Description:
+     - Add new flow run service/route files to the tree.
+   - Purpose:
+     - Keep the repo structure accurate after new flow runtime files.
 
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/options
@@ -881,18 +925,28 @@ Extend the flow runtime with nested loop support and `break` steps that evaluate
    - Purpose:
      - Confirm loop iterations continue until `break` triggers.
 
-5. [ ] Documentation updates:
+5. [ ] Documentation update: `design.md` (loop + break semantics)
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+     - Mermaid docs (diagram syntax for design.md): Context7 `/mermaid-js/mermaid`
+   - Files to edit:
+     - `design.md`
+   - Description:
+     - Document loop stack behavior and `break` JSON response contract.
+   - Purpose:
+     - Keep loop control semantics documented with diagrams.
+
+6. [ ] Documentation update: `projectStructure.md` (loop test + fixture files)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
-     - `design.md` (loop stack + break step semantics)
-     - `projectStructure.md` (add new flow loop test + fixture files)
-   - Story requirements to repeat here so they are not missed:
-     - Document loop stack behavior and `break` JSON response contract.
-     - Add/refresh Mermaid diagrams describing loop and break flow control.
-     - Update the project structure for newly added test/fixture files.
+     - `projectStructure.md`
+   - Description:
+     - Add loop test + fixture files to the repo tree.
+   - Purpose:
+     - Keep file map accurate after adding loop tests.
 
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/options
@@ -980,18 +1034,28 @@ Add support for `command` steps that run agent command macros (`commands/<comman
    - Purpose:
      - Validate a command step succeeds and invalid commands fail with 400.
 
-4. [ ] Documentation updates:
+4. [ ] Documentation update: `design.md` (command steps)
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+     - Mermaid docs (diagram syntax for design.md): Context7 `/mermaid-js/mermaid`
+   - Files to edit:
+     - `design.md`
+   - Description:
+     - Document command step behavior and error handling.
+   - Purpose:
+     - Keep command step behavior aligned with flow execution.
+
+5. [ ] Documentation update: `projectStructure.md` (command test + fixture files)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
-     - `design.md` (command step description + error handling)
-     - `projectStructure.md` (add new command flow test + fixture files)
-   - Story requirements to repeat here so they are not missed:
-     - Document command step behavior and error handling.
-     - Add/refresh Mermaid diagrams showing command step execution.
-     - Update the project structure for newly added test/fixture files.
+     - `projectStructure.md`
+   - Description:
+     - Add command flow test + fixture files to the tree.
+   - Purpose:
+     - Keep file map accurate after adding command tests.
 
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/options
@@ -1080,18 +1144,28 @@ Persist flow run state (step path, loop stack, agent conversation mapping, and p
    - Purpose:
      - Ensure `flags.flow` is stored and returned in conversation metadata.
 
-4. [ ] Documentation updates:
+4. [ ] Documentation update: `design.md` (resume state)
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+     - Mermaid docs (diagram syntax for design.md): Context7 `/mermaid-js/mermaid`
+   - Files to edit:
+     - `design.md`
+   - Description:
+     - Document the `flags.flow` structure and how it is used for resume.
+   - Purpose:
+     - Keep resume state design notes current.
+
+5. [ ] Documentation update: `projectStructure.md` (flow flags test file)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
-     - `design.md` (resume state + `flags.flow` storage)
-     - `projectStructure.md` (add new flow flags test file)
-   - Story requirements to repeat here so they are not missed:
-     - Document the `flags.flow` structure and how it is used for resume.
-     - Add/refresh Mermaid diagrams covering resume state storage.
-     - Update the project structure for newly added test files.
+     - `projectStructure.md`
+   - Description:
+     - Add the flow flags test file to the repo tree.
+   - Purpose:
+     - Keep file map accurate after adding flags tests.
 
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/options
@@ -1177,18 +1251,28 @@ Enable resume execution using `resumeStepPath` and stored `flags.flow` state. Th
    - Purpose:
      - Verify stop/resume from stored step path and invalid path errors.
 
-3. [ ] Documentation updates:
+3. [ ] Documentation update: `design.md` (resume execution)
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+     - Mermaid docs (diagram syntax for design.md): Context7 `/mermaid-js/mermaid`
+   - Files to edit:
+     - `design.md`
+   - Description:
+     - Document resume path validation and `agent_mismatch` error behavior.
+   - Purpose:
+     - Keep resume execution notes aligned with runtime behavior.
+
+4. [ ] Documentation update: `projectStructure.md` (resume test file)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
-     - `design.md` (resume execution notes)
-     - `projectStructure.md` (add new resume test file)
-   - Story requirements to repeat here so they are not missed:
-     - Document resume path validation and `agent_mismatch` error behavior.
-     - Add/refresh Mermaid diagrams for resume execution flow.
-     - Update the project structure for newly added test files.
+     - `projectStructure.md`
+   - Description:
+     - Add the resume integration test file to the tree.
+   - Purpose:
+     - Keep file map accurate after adding resume tests.
 
-4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
+5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/options
@@ -1305,18 +1389,28 @@ Attach flow step metadata to persisted turns (`turn.command`) so the client can 
    - Purpose:
      - Ensure command metadata parsing is aligned with flow turns.
 
-6. [ ] Documentation updates:
+6. [ ] Documentation update: `design.md` (flow turn metadata)
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+     - Mermaid docs (diagram syntax for design.md): Context7 `/mermaid-js/mermaid`
+   - Files to edit:
+     - `design.md`
+   - Description:
+     - Document the `turn.command` metadata shape used by flows.
+   - Purpose:
+     - Keep transcript metadata documented for UI consumers.
+
+7. [ ] Documentation update: `projectStructure.md` (flow metadata test file)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
-     - `design.md` (flow turn metadata contract)
-     - `projectStructure.md` (add new flow metadata test file)
-   - Story requirements to repeat here so they are not missed:
-     - Document the `turn.command` metadata shape used by flows.
-     - Add/refresh Mermaid diagrams showing flow metadata in the transcript.
-     - Update the project structure for newly added test files.
+     - `projectStructure.md`
+   - Description:
+     - Add the flow metadata integration test file to the tree.
+   - Purpose:
+     - Keep file map accurate after adding metadata tests.
 
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/options
@@ -1397,13 +1491,15 @@ Add client API helpers for listing flows and starting flow runs. This task expos
    - Purpose:
      - Validate request URLs and error handling for `listFlows` and `runFlow`.
 
-4. [ ] Documentation updates:
+4. [ ] Documentation update: `projectStructure.md` (flows API helper)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
-     - `projectStructure.md` (new API helper file)
-   - Story requirements to repeat here so they are not missed:
-     - Add the new client API helper file to the project structure tree.
+     - `projectStructure.md`
+   - Description:
+     - Add the new flows API helper file to the repo tree.
+   - Purpose:
+     - Keep file map accurate after API helper additions.
 
 5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
    - Documentation to read (repeat):
@@ -1515,18 +1611,38 @@ Build the Flows UI: list flows, start/resume runs, and render flow conversations
    - Purpose:
      - Render Flows page, list flows, and verify metadata line rendering.
 
-5. [ ] Documentation updates:
+5. [ ] Documentation update: `README.md` (Flows UI entry)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
-     - `README.md` (new Flows page entry)
-     - `design.md` (Flows UI description)
-     - `projectStructure.md` (new client files)
-   - Story requirements to repeat here so they are not missed:
-     - Document Flows UI route, key controls, and new files.
-     - Add/refresh Mermaid diagrams for the Flows UI navigation + data flow.
+     - `README.md`
+   - Description:
+     - Add Flows page route and usage notes for running flows.
+   - Purpose:
+     - Ensure user-facing docs mention the new Flows UI.
 
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
+6. [ ] Documentation update: `design.md` (Flows UI description)
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+     - Mermaid docs (diagram syntax for design.md): Context7 `/mermaid-js/mermaid`
+   - Files to edit:
+     - `design.md`
+   - Description:
+     - Document Flows UI navigation + data flow and add Mermaid diagrams.
+   - Purpose:
+     - Keep UI architecture aligned with the new page and data flow.
+
+7. [ ] Documentation update: `projectStructure.md` (Flows UI files)
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Files to edit:
+     - `projectStructure.md`
+   - Description:
+     - Add new Flows UI files to the repo tree.
+   - Purpose:
+     - Keep file map accurate after UI additions.
+
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/options
@@ -1743,27 +1859,47 @@ Validate the full story against acceptance criteria, perform clean builds/tests,
 
 #### Subtasks
 
-1. [ ] Ensure `README.md` is updated with any required description changes and with any new commands that have been added as part of this story.
+1. [ ] Documentation update: `README.md` (story summary + commands)
    - Documentation to read (repeat):
      - Markdown syntax (README/design updates): https://www.markdownguide.org/basic-syntax/
-   - Story requirements to repeat here so they are not missed:
+   - Files to edit:
+     - `README.md`
+   - Description:
      - Document new Flows endpoints/commands and UI entry points.
-2. [ ] Ensure `design.md` is updated with any required description changes including Mermaid diagrams added for flows.
+   - Purpose:
+     - Keep user-facing docs current for new flow functionality.
+
+2. [ ] Documentation update: `design.md` (final architecture + diagrams)
    - Documentation to read (repeat):
      - Mermaid docs (diagram syntax for design.md): Context7 `/mermaid-js/mermaid`
      - Markdown syntax (README/design updates): https://www.markdownguide.org/basic-syntax/
-   - Story requirements to repeat here so they are not missed:
-     - Include flow run/resume architecture and metadata changes.
-3. [ ] Ensure `projectStructure.md` is updated with any updated, added or removed files & folders after all file additions/removals.
+   - Files to edit:
+     - `design.md`
+   - Description:
+     - Add final flow run/resume architecture notes and Mermaid diagrams.
+   - Purpose:
+     - Ensure architecture documentation matches the delivered changes.
+
+3. [ ] Documentation update: `projectStructure.md` (final tree)
    - Documentation to read (repeat):
      - Markdown syntax (README/design updates): https://www.markdownguide.org/basic-syntax/
-   - Story requirements to repeat here so they are not missed:
-     - Reflect new `flows/` directory and any new server/client files.
-4. [ ] Create a summary of all changes and draft the PR comment for this story (server + client + tests).
+   - Files to edit:
+     - `projectStructure.md`
+   - Description:
+     - Reflect new `flows/` directory and all new server/client/test files.
+   - Purpose:
+     - Keep repository structure accurate for future work.
+
+4. [ ] Documentation update: PR summary comment
    - Documentation to read (repeat):
      - Markdown syntax (README/design updates): https://www.markdownguide.org/basic-syntax/
-   - Story requirements to repeat here so they are not missed:
-     - Summary must cover server, client, tests, and any migrations/compat impacts.
+   - Files to edit:
+     - `planning/0000027-flows-mode.md`
+   - Description:
+     - Create a summary of server, client, tests, and compat impacts.
+   - Purpose:
+     - Provide a ready-to-post PR summary after all tasks complete.
+
 5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface

@@ -1440,7 +1440,7 @@ Enable resume execution using `resumeStepPath` and stored `flags.flow` state. Th
 
 #### Subtasks
 
-1. [ ] Implement resume path validation + execution:
+1. [x] Implement resume path validation + execution:
    - Documentation to read (repeat):
      - Express request validation patterns: Context7 `/expressjs/express/v5.1.0`
      - JSON parsing + validation: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/parse
@@ -1470,7 +1470,7 @@ Enable resume execution using `resumeStepPath` and stored `flags.flow` state. Th
      - `updateConversationMeta` usage in `server/src/mongo/repo.ts` for persisting `flags` updates.
      - `memoryConversations` + `updateMemoryConversationMeta` in `server/src/chat/memoryPersistence.ts`.
 
-2. [ ] Integration tests: resume behavior + invalid resume path:
+2. [x] Integration tests: resume behavior + invalid resume path:
    - Test type: Integration (`node:test`)
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
@@ -1485,7 +1485,7 @@ Enable resume execution using `resumeStepPath` and stored `flags.flow` state. Th
    - Purpose:
      - Verify stop/resume from stored step path and invalid path errors.
 
-3. [ ] Documentation update: `design.md` (resume execution)
+3. [x] Documentation update: `design.md` (resume execution)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
      - Mermaid docs (diagram syntax for design.md): Context7 `/mermaid-js/mermaid`
@@ -1496,7 +1496,7 @@ Enable resume execution using `resumeStepPath` and stored `flags.flow` state. Th
    - Purpose:
      - Keep resume execution notes aligned with runtime behavior.
 
-4. [ ] Documentation update: `projectStructure.md` (resume test file)
+4. [x] Documentation update: `projectStructure.md` (resume test file)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -1506,24 +1506,35 @@ Enable resume execution using `resumeStepPath` and stored `flags.flow` state. Th
    - Purpose:
      - Keep file map accurate after adding resume tests.
 
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+5. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, stop a flow run and resume it, then open Logs and confirm `flows.resume.requested` appears with the expected `resumeStepPath`; verify no errors appear in the browser debug console.
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 7 minutes)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, stop a flow run and resume it, then open Logs and confirm `flows.resume.requested` appears with the expected `resumeStepPath`; verify no errors appear in the browser debug console.
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- Details about the implementation. Include what went to plan and what did not.
-- Essential that any decisions that got made during the implementation are documented here.
+- Added resumeStepPath validation, agent mismatch checks, and resume-run logging in flow service/routes; resume skips completed steps and persists stepPath on stop/cancel.
+- Added `flows.run.resume.test.ts` integration coverage for resume skip, invalid resumeStepPath, and agent mismatch responses.
+- Updated `design.md` and `projectStructure.md` to reflect resume execution behavior and new integration test.
+- `npm run lint --workspaces` reported existing import-order warnings; `npm run format --workspaces` and `npm run format:check --workspaces` completed successfully after formatting `flows/service.ts`.
+- `npm run build --workspace server` succeeded after adding missing FlowStartLoopStep import.
+- `npm run build --workspace client` succeeded (Vite emitted chunk-size warnings only).
+- `npm run test --workspace server` succeeded (unit + integration suites).
+- `npm run test --workspace client` succeeded (Jest suite; expected jsdom console logging).
+- `npm run e2e` succeeded (33 passed, 3 skipped in ingest suite).
+- `npm run compose:build` completed successfully.
+- `npm run compose:up` started the stack successfully (services healthy).
+- Manual Playwright check: stopped `manual-resume-run` and resumed with `resumeStepPath` `[1]`; confirmed `flows.resume.requested` for conversation `40335d3a-7207-4e7f-b91c-2e3c54c079b4` and no browser console errors.
+- `npm run compose:down` stopped the stack cleanly after manual verification.
 
 ---
 

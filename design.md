@@ -56,6 +56,7 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - Each `llm` message entry is joined into a single instruction string and streamed via the existing WS protocol (no new event types).
 - Per-agent thread reuse is tracked in memory by `agentType:identifier`, while the flow conversation stores the merged transcript.
 - Resume state is stored on the flow conversation as `flags.flow` with `{ stepPath, loopStack, agentConversations, agentThreads }`, and each save emits `flows.resume.state_saved`.
+- Resume runs accept `resumeStepPath`, log `flows.resume.requested`, and validate path indices; mismatched agent conversation mappings return `agent_mismatch`.
 - Working folder validation mirrors agent runs and surfaces `WORKING_FOLDER_INVALID` / `WORKING_FOLDER_NOT_FOUND` for invalid input.
 
 ```mermaid

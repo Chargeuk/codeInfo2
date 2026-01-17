@@ -377,6 +377,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚        |  â”œâ”€ flows.run.basic.test.ts â€” integration coverage for POST /flows/:flowName/run streaming
 â”‚        |  â”œâ”€ flows.run.command.test.ts â€” integration coverage for command-step flow runs
 â”‚        |  â”œâ”€ flows.run.errors.test.ts â€” integration coverage for flow run error responses
+â”‚        |  â”œâ”€ flows.run.resume.test.ts â€” integration coverage for flow run resume validation
 â”‚        |  â”œâ”€ flows.run.working-folder.test.ts â€” integration coverage for flow run working_folder validation
 â”‚        |  â”œâ”€ flows.run.hot-reload.test.ts â€” integration coverage for flow run hot reload
 â”‚        |  â””â”€ flows.run.loop.test.ts â€” integration coverage for flow run loop + break

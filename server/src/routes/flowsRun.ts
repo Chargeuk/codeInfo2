@@ -11,6 +11,7 @@ type Deps = {
 type FlowRunBody = {
   conversationId?: unknown;
   working_folder?: unknown;
+  resumeStepPath?: unknown;
 };
 
 const isFlowRunError = (err: unknown): err is FlowRunError =>
@@ -23,6 +24,7 @@ const validateBody = (
 ): {
   conversationId?: string;
   working_folder?: string;
+  resumeStepPath?: number[];
 } => {
   const candidate = (body ?? {}) as FlowRunBody;
 
@@ -48,7 +50,25 @@ const validateBody = (
       ? rawWorkingFolder.trim()
       : undefined;
 
-  return { conversationId, working_folder };
+  const rawResumeStepPath = candidate.resumeStepPath;
+  if (rawResumeStepPath !== undefined && rawResumeStepPath !== null) {
+    if (!Array.isArray(rawResumeStepPath)) {
+      throw new Error('resumeStepPath must be an array of numbers');
+    }
+    rawResumeStepPath.forEach((value) => {
+      if (typeof value !== 'number' || !Number.isInteger(value)) {
+        throw new Error('resumeStepPath must be an array of integers');
+      }
+      if (value < 0) {
+        throw new Error('resumeStepPath must contain non-negative integers');
+      }
+    });
+  }
+  const resumeStepPath = Array.isArray(rawResumeStepPath)
+    ? rawResumeStepPath
+    : undefined;
+
+  return { conversationId, working_folder, resumeStepPath };
 };
 
 export function createFlowsRunRouter(
@@ -76,6 +96,7 @@ export function createFlowsRunRouter(
     let parsedBody: {
       conversationId?: string;
       working_folder?: string;
+      resumeStepPath?: number[];
     };
     try {
       parsedBody = validateBody(req.body);
@@ -90,6 +111,7 @@ export function createFlowsRunRouter(
         flowName,
         conversationId: parsedBody.conversationId,
         working_folder: parsedBody.working_folder,
+        resumeStepPath: parsedBody.resumeStepPath,
         source: 'REST',
       });
 
@@ -132,6 +154,12 @@ export function createFlowsRunRouter(
             .status(503)
             .json({ error: 'codex_unavailable', reason: err.reason });
         }
+        if (err.code === 'AGENT_MISMATCH') {
+          return res.status(400).json({
+            error: 'agent_mismatch',
+            message: err.reason ?? 'resume agent mismatch',
+          });
+        }
         if (
           err.code === 'WORKING_FOLDER_INVALID' ||
           err.code === 'WORKING_FOLDER_NOT_FOUND'
@@ -140,6 +168,12 @@ export function createFlowsRunRouter(
             error: 'invalid_request',
             code: err.code,
             message: err.reason ?? 'working_folder validation failed',
+          });
+        }
+        if (err.code === 'INVALID_REQUEST') {
+          return res.status(400).json({
+            error: 'invalid_request',
+            message: err.reason ?? 'flow run validation failed',
           });
         }
         return res.status(400).json({

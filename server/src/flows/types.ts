@@ -4,12 +4,14 @@ export type FlowRunErrorCode =
   | 'FLOW_NOT_FOUND'
   | 'FLOW_INVALID'
   | 'FLOW_INVALID_NAME'
+  | 'INVALID_REQUEST'
   | 'CONVERSATION_ARCHIVED'
   | 'RUN_IN_PROGRESS'
   | 'CODEX_UNAVAILABLE'
   | 'WORKING_FOLDER_INVALID'
   | 'WORKING_FOLDER_NOT_FOUND'
   | 'AGENT_NOT_FOUND'
+  | 'AGENT_MISMATCH'
   | 'COMMAND_INVALID'
   | 'UNSUPPORTED_STEP'
   | 'NO_STEPS';
@@ -23,6 +25,7 @@ export type FlowRunStartParams = {
   flowName: string;
   conversationId?: string;
   working_folder?: string;
+  resumeStepPath?: number[];
   source: 'REST' | 'MCP';
   inflightId?: string;
   chatFactory?: FlowChatFactory;

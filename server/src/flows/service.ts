@@ -59,6 +59,7 @@ import {
   type FlowBreakStep,
   type FlowCommandStep,
   type FlowLlmStep,
+  type FlowStartLoopStep,
   type FlowStep,
 } from './flowSchema.js';
 import type { FlowResumeState } from './flowState.js';
@@ -278,6 +279,8 @@ const loadFlowFile = async (flowName: string): Promise<FlowFile> => {
 
 const getAgentKey = (agentType: string, identifier: string) =>
   `${agentType}:${identifier}`;
+
+const getStepPathKey = (stepPath: number[]) => stepPath.join('.');
 
 const ensureAgentState = async (params: {
   agentType: string;
@@ -925,6 +928,51 @@ const validateCommandSteps = async (
   }
 };
 
+const validateResumeStepPath = (
+  steps: FlowStep[],
+  resumeStepPath: number[],
+): void => {
+  let currentSteps = steps;
+  for (let index = 0; index < resumeStepPath.length; index += 1) {
+    const stepIndex = resumeStepPath[index];
+    if (!Number.isInteger(stepIndex) || stepIndex < 0) {
+      throw toFlowRunError(
+        'INVALID_REQUEST',
+        'resumeStepPath must contain non-negative integers',
+      );
+    }
+
+    const step = currentSteps[stepIndex];
+    if (!step) {
+      throw toFlowRunError('INVALID_REQUEST', 'resumeStepPath out of range');
+    }
+
+    if (index < resumeStepPath.length - 1) {
+      if (step.type !== 'startLoop') {
+        throw toFlowRunError(
+          'INVALID_REQUEST',
+          'resumeStepPath must reference loop steps for nested indices',
+        );
+      }
+      currentSteps = step.steps;
+    }
+  }
+};
+
+const validateResumeAgentConversations = async (
+  resumeState: FlowResumeState | null,
+): Promise<void> => {
+  if (!resumeState) return;
+  const entries = Object.entries(resumeState.agentConversations);
+  for (const [key, conversationId] of entries) {
+    const agentType = key.split(':')[0] ?? '';
+    const conversation = await getConversation(conversationId);
+    if (conversation && conversation.agentName !== agentType) {
+      throw toFlowRunError('AGENT_MISMATCH', `Agent mismatch for ${agentType}`);
+    }
+  }
+};
+
 const loadCommandForAgent = async (params: {
   agentHome: string;
   commandName: string;
@@ -975,13 +1023,22 @@ async function runFlowUnlocked(params: {
   source: 'REST' | 'MCP';
   chatFactory?: FlowChatFactory;
   resumeState?: FlowResumeState | null;
+  resumeStepPath?: number[];
 }) {
   const discovered = await discoverAgents();
   const agentByName = new Map(discovered.map((agent) => [agent.name, agent]));
 
   const loopStack: LoopFrame[] = [];
   let stepInflightId = params.inflightId;
-  let lastCompletedStepPath = params.resumeState?.stepPath ?? [];
+  const resumeStepPath = params.resumeStepPath ?? null;
+  let lastCompletedStepPath =
+    resumeStepPath ?? params.resumeState?.stepPath ?? [];
+  const resumeLoopIterations = new Map<string, number>();
+  if (params.resumeState) {
+    params.resumeState.loopStack.forEach((frame) => {
+      resumeLoopIterations.set(getStepPathKey(frame.stepPath), frame.iteration);
+    });
+  }
 
   const runInstruction = async (instructionParams: {
     agentType: string;
@@ -1195,15 +1252,100 @@ async function runFlowUnlocked(params: {
     return 'ok';
   };
 
+  const runStartLoopStep = async (
+    step: FlowStartLoopStep,
+    nextPath: number[],
+    resumePath: number[] | null,
+  ): Promise<FlowStepOutcome> => {
+    const loopFrame: LoopFrame = {
+      loopStepPath: nextPath,
+      iteration: 0,
+    };
+    const savedIteration = resumeLoopIterations.get(getStepPathKey(nextPath));
+    if (
+      resumePath &&
+      typeof savedIteration === 'number' &&
+      savedIteration > 0
+    ) {
+      loopFrame.iteration = Math.max(savedIteration - 1, 0);
+    }
+    loopStack.push(loopFrame);
+    let resumeForLoop = resumePath;
+    while (true) {
+      loopFrame.iteration += 1;
+      const outcome = await runSteps(step.steps, nextPath, resumeForLoop);
+      if (resumeForLoop) resumeForLoop = null;
+      if (outcome === 'break') {
+        loopStack.pop();
+        break;
+      }
+      if (outcome !== 'ok') {
+        loopStack.pop();
+        return outcome;
+      }
+    }
+    lastCompletedStepPath = nextPath;
+    await persistFlowResumeState({
+      conversationId: params.conversationId,
+      stepPath: lastCompletedStepPath,
+      loopStack,
+    });
+    return 'ok';
+  };
+
   const runSteps = async (
     steps: FlowStep[],
     stepPath: number[],
+    resumePath?: number[] | null,
   ): Promise<FlowStepOutcome> => {
+    let resumePathRemaining =
+      resumePath && resumePath.length > 0 ? [...resumePath] : null;
+    let resumeIndex = resumePathRemaining?.[0];
+
     for (const [index, step] of steps.entries()) {
+      if (
+        resumePathRemaining &&
+        resumeIndex !== undefined &&
+        index < resumeIndex
+      ) {
+        continue;
+      }
+
       const nextPath = [...stepPath, index];
+
+      if (resumePathRemaining && resumeIndex === index) {
+        if (resumePathRemaining.length === 1) {
+          resumePathRemaining = null;
+          resumeIndex = undefined;
+          continue;
+        }
+        if (step.type !== 'startLoop') {
+          throw toFlowRunError(
+            'INVALID_REQUEST',
+            'resumeStepPath must reference loop steps for nested indices',
+          );
+        }
+        const outcome = await runStartLoopStep(
+          step,
+          nextPath,
+          resumePathRemaining.slice(1),
+        );
+        resumePathRemaining = null;
+        resumeIndex = undefined;
+        if (outcome !== 'ok') return outcome;
+        continue;
+      }
+
       if (step.type === 'llm') {
         const status = await runLlmStep(step);
-        if (shouldStopAfter(status)) return status;
+        if (shouldStopAfter(status)) {
+          await persistFlowResumeState({
+            conversationId: params.conversationId,
+            stepPath: lastCompletedStepPath,
+            loopStack,
+          });
+          return status;
+        }
         lastCompletedStepPath = nextPath;
         await persistFlowResumeState({
           conversationId: params.conversationId,
@@ -1215,7 +1357,14 @@ async function runFlowUnlocked(params: {
 
       if (step.type === 'break') {
         const { status, shouldBreak } = await runBreakStep(step);
-        if (shouldStopAfter(status)) return status;
+        if (shouldStopAfter(status)) {
+          await persistFlowResumeState({
+            conversationId: params.conversationId,
+            stepPath: lastCompletedStepPath,
+            loopStack,
+          });
+          return status;
+        }
         lastCompletedStepPath = nextPath;
         await persistFlowResumeState({
           conversationId: params.conversationId,
@@ -1227,35 +1376,21 @@ async function runFlowUnlocked(params: {
       }
 
       if (step.type === 'startLoop') {
-        const loopFrame: LoopFrame = {
-          loopStepPath: nextPath,
-          iteration: 0,
-        };
-        loopStack.push(loopFrame);
-        while (true) {
-          loopFrame.iteration += 1;
-          const outcome = await runSteps(step.steps, nextPath);
-          if (outcome === 'break') {
-            loopStack.pop();
-            break;
-          }
-          if (outcome !== 'ok') {
-            loopStack.pop();
-            return outcome;
-          }
-        }
-        lastCompletedStepPath = nextPath;
-        await persistFlowResumeState({
-          conversationId: params.conversationId,
-          stepPath: lastCompletedStepPath,
-          loopStack,
-        });
+        const outcome = await runStartLoopStep(step, nextPath, null);
+        if (outcome !== 'ok') return outcome;
         continue;
       }
 
       if (step.type === 'command') {
         const status = await runCommandStep(step);
-        if (shouldStopAfter(status)) return status;
+        if (shouldStopAfter(status)) {
+          await persistFlowResumeState({
+            conversationId: params.conversationId,
+            stepPath: lastCompletedStepPath,
+            loopStack,
+          });
+          return status;
+        }
         lastCompletedStepPath = nextPath;
         await persistFlowResumeState({
           conversationId: params.conversationId,
@@ -1274,7 +1409,7 @@ async function runFlowUnlocked(params: {
     return 'ok';
   };
 
-  const outcome = await runSteps(params.flow.steps, []);
+  const outcome = await runSteps(params.flow.steps, [], resumeStepPath);
   if (outcome !== 'ok') return;
 }
 
@@ -1284,6 +1419,7 @@ export async function startFlowRun(
   const flowName = params.flowName.trim();
   const conversationId = params.conversationId ?? crypto.randomUUID();
   const inflightId = params.inflightId ?? crypto.randomUUID();
+  const resumeStepPath = params.resumeStepPath;
 
   if (!tryAcquireConversationLock(conversationId)) {
     throw toFlowRunError(
@@ -1318,6 +1454,10 @@ export async function startFlowRun(
         | Record<string, unknown>
         | undefined,
     );
+    if (resumeStepPath) {
+      validateResumeStepPath(flow.steps, resumeStepPath);
+      await validateResumeAgentConversations(resumeState);
+    }
     hydrateFlowAgentState(resumeState);
 
     const firstAgentStep = findFirstAgentStep(flow.steps);
@@ -1357,6 +1497,16 @@ export async function startFlowRun(
     throw err;
   }
 
+  if (resumeStepPath) {
+    append({
+      level: 'info',
+      message: 'flows.resume.requested',
+      timestamp: new Date().toISOString(),
+      source: 'server',
+      context: { conversationId, resumeStepPath },
+    });
+  }
+
   void (async () => {
     try {
       const workingDirectoryOverride =
@@ -1370,6 +1520,7 @@ export async function startFlowRun(
         source: params.source,
         chatFactory: params.chatFactory,
         resumeState,
+        resumeStepPath,
       });
     } catch (err) {
       if ((err as FlowRunError | undefined)?.code) {

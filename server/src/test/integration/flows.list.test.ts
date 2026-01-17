@@ -42,6 +42,7 @@ describe('GET /flows', () => {
       'invalid-json',
       'invalid-schema',
       'llm-basic',
+      'loop-break',
       'valid-flow',
     ]);
 

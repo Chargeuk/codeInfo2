@@ -52,7 +52,9 @@ import { publishUserTurn } from '../ws/server.js';
 import {
   parseFlowFile,
   type FlowFile,
+  type FlowBreakStep,
   type FlowLlmStep,
+  type FlowStep,
 } from './flowSchema.js';
 import type {
   FlowAgentState,
@@ -191,6 +193,23 @@ const deriveStatusFromError = (message: string | undefined): TurnStatus => {
 
 const joinMessageContent = (content: string[]) => content.join('\n');
 
+type FlowInstructionResult = {
+  status: TurnStatus;
+  content: string;
+  toolCalls: Record<string, unknown> | null;
+  usage?: TurnUsageMetadata;
+  timing?: TurnTimingMetadata;
+};
+
+type FlowInstructionPostProcess = (result: FlowInstructionResult) => {
+  status?: TurnStatus;
+  content?: string;
+  finalOverride?: {
+    status: TurnStatus;
+    error?: { code?: string; message?: string };
+  };
+};
+
 async function persistFlowTurn(params: {
   conversationId: string;
   role: 'user' | 'assistant';
@@ -265,8 +284,10 @@ const runFlowInstruction = async (params: {
   workingDirectoryOverride?: string;
   source: 'REST' | 'MCP';
   chatFactory?: FlowChatFactory;
+  deferFinal?: boolean;
+  postProcess?: FlowInstructionPostProcess;
   onThreadId: (threadId: string) => void;
-}): Promise<TurnStatus> => {
+}): Promise<FlowInstructionResult> => {
   const createdAtIso = new Date().toISOString();
   createInflight({
     conversationId: params.flowConversationId,
@@ -301,6 +322,7 @@ const runFlowInstruction = async (params: {
     provider: 'codex',
     model: params.modelId,
     chat,
+    deferFinal: params.deferFinal,
   });
 
   const tokenBuffer: string[] = [];
@@ -406,6 +428,18 @@ const runFlowInstruction = async (params: {
         }
       : null;
 
+  const result: FlowInstructionResult = {
+    status,
+    content,
+    toolCalls,
+    usage: latestUsage,
+    timing: latestTiming,
+  };
+
+  const postProcessed = params.postProcess?.(result);
+  if (postProcessed?.status) result.status = postProcessed.status;
+  if (postProcessed?.content) result.content = postProcessed.content;
+
   const userCreatedAt = new Date(createdAtIso);
   const userPersisted = await persistFlowTurn({
     conversationId: params.flowConversationId,
@@ -423,14 +457,14 @@ const runFlowInstruction = async (params: {
   const assistantPersisted = await persistFlowTurn({
     conversationId: params.flowConversationId,
     role: 'assistant',
-    content,
+    content: result.content,
     model: params.modelId,
     provider: 'codex',
     source: params.source,
-    status,
+    status: result.status,
     toolCalls,
-    usage: latestUsage,
-    timing: latestTiming,
+    usage: result.usage,
+    timing: result.timing,
     createdAt: assistantCreatedAt,
   });
 
@@ -446,12 +480,83 @@ const runFlowInstruction = async (params: {
     role: 'assistant',
     turnId: assistantPersisted.turnId,
   });
+
+  if (params.deferFinal) {
+    bridge.finalize({
+      override: postProcessed?.finalOverride,
+      fallback: {
+        status: result.status,
+        threadId: params.threadId,
+      },
+    });
+  }
+
   cleanupInflight({
     conversationId: params.flowConversationId,
     inflightId: params.inflightId,
   });
 
-  return status;
+  return result;
+};
+
+type FlowStepOutcome = TurnStatus | 'break';
+
+type LoopFrame = {
+  loopStepPath: number[];
+  iteration: number;
+};
+
+const parseBreakAnswer = (
+  content: string,
+): { ok: true; answer: 'yes' | 'no' } | { ok: false; message: string } => {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(content);
+  } catch {
+    return {
+      ok: false,
+      message: 'Break response must be valid JSON with {"answer":"yes"|"no"}.',
+    };
+  }
+
+  if (!parsed || typeof parsed !== 'object') {
+    return {
+      ok: false,
+      message:
+        'Break response must be a JSON object with {"answer":"yes"|"no"}.',
+    };
+  }
+
+  const answer = (parsed as { answer?: unknown }).answer;
+  if (answer !== 'yes' && answer !== 'no') {
+    return {
+      ok: false,
+      message: 'Break response must include answer "yes" or "no".',
+    };
+  }
+
+  return { ok: true, answer };
+};
+
+const findFirstLlmStep = (steps: FlowStep[]): FlowLlmStep | undefined => {
+  for (const step of steps) {
+    if (step.type === 'llm') return step;
+    if (step.type === 'startLoop') {
+      const nested = findFirstLlmStep(step.steps);
+      if (nested) return nested;
+    }
+  }
+  return undefined;
+};
+
+const hasUnsupportedStep = (steps: FlowStep[]): boolean => {
+  for (const step of steps) {
+    if (step.type === 'command') return true;
+    if (step.type === 'startLoop' && hasUnsupportedStep(step.steps)) {
+      return true;
+    }
+  }
+  return false;
 };
 
 async function runFlowUnlocked(params: {
@@ -466,22 +571,21 @@ async function runFlowUnlocked(params: {
   const discovered = await discoverAgents();
   const agentByName = new Map(discovered.map((agent) => [agent.name, agent]));
 
+  const loopStack: LoopFrame[] = [];
   let stepInflightId = params.inflightId;
 
-  for (const step of params.flow.steps) {
-    if (step.type !== 'llm') {
-      throw toFlowRunError(
-        'UNSUPPORTED_STEP',
-        `Flow step type ${step.type} not supported yet`,
-      );
-    }
-
-    const llmStep = step as FlowLlmStep;
-    const agent = agentByName.get(llmStep.agentType);
+  const runInstruction = async (instructionParams: {
+    agentType: string;
+    identifier: string;
+    instruction: string;
+    deferFinal?: boolean;
+    postProcess?: FlowInstructionPostProcess;
+  }): Promise<FlowInstructionResult> => {
+    const agent = agentByName.get(instructionParams.agentType);
     if (!agent) {
       throw toFlowRunError(
         'AGENT_NOT_FOUND',
-        `Agent ${llmStep.agentType} not found`,
+        `Agent ${instructionParams.agentType} not found`,
       );
     }
 
@@ -490,43 +594,179 @@ async function runFlowUnlocked(params: {
       throw toFlowRunError('CODEX_UNAVAILABLE', detection.reason);
     }
 
-    const agentState = ensureAgentState(llmStep.agentType, llmStep.identifier);
+    const agentState = ensureAgentState(
+      instructionParams.agentType,
+      instructionParams.identifier,
+    );
 
     const modelId = await getAgentModelId(agent.configPath);
 
-    for (const message of llmStep.messages) {
-      const instruction = joinMessageContent(message.content);
-      let systemPrompt: string | undefined;
-      if (!agentState.threadId && agent.systemPromptPath) {
-        try {
-          systemPrompt = await fs.readFile(agent.systemPromptPath, 'utf8');
-        } catch {
-          systemPrompt = undefined;
-        }
+    let systemPrompt: string | undefined;
+    if (!agentState.threadId && agent.systemPromptPath) {
+      try {
+        systemPrompt = await fs.readFile(agent.systemPromptPath, 'utf8');
+      } catch {
+        systemPrompt = undefined;
       }
+    }
 
-      const status = await runFlowInstruction({
-        flowConversationId: params.conversationId,
-        inflightId: stepInflightId,
-        instruction,
-        agentConversationId: agentState.conversationId,
-        agentHome: agent.home,
-        modelId,
-        threadId: agentState.threadId,
-        systemPrompt,
-        workingDirectoryOverride: params.workingDirectoryOverride,
-        source: params.source,
-        chatFactory: params.chatFactory,
-        onThreadId: (threadId) => {
-          agentState.threadId = threadId;
-        },
-      });
+    const result = await runFlowInstruction({
+      flowConversationId: params.conversationId,
+      inflightId: stepInflightId,
+      instruction: instructionParams.instruction,
+      agentConversationId: agentState.conversationId,
+      agentHome: agent.home,
+      modelId,
+      threadId: agentState.threadId,
+      systemPrompt,
+      workingDirectoryOverride: params.workingDirectoryOverride,
+      source: params.source,
+      chatFactory: params.chatFactory,
+      deferFinal: instructionParams.deferFinal,
+      postProcess: instructionParams.postProcess,
+      onThreadId: (threadId) => {
+        agentState.threadId = threadId;
+      },
+    });
 
-      if (shouldStopAfter(status)) return;
-
+    if (!shouldStopAfter(result.status)) {
       stepInflightId = crypto.randomUUID();
     }
-  }
+
+    return result;
+  };
+
+  const runLlmStep = async (step: FlowLlmStep): Promise<TurnStatus> => {
+    for (const message of step.messages) {
+      const instruction = joinMessageContent(message.content);
+      const result = await runInstruction({
+        agentType: step.agentType,
+        identifier: step.identifier,
+        instruction,
+      });
+      if (shouldStopAfter(result.status)) return result.status;
+    }
+    return 'ok';
+  };
+
+  const runBreakStep = async (
+    step: FlowBreakStep,
+  ): Promise<{
+    status: TurnStatus;
+    shouldBreak: boolean;
+  }> => {
+    let breakAnswer: 'yes' | 'no' | undefined;
+    const instruction = [
+      'Answer with JSON only: {"answer":"yes"} or {"answer":"no"}.',
+      `Question: ${step.question}`,
+    ].join('\n');
+
+    const result = await runInstruction({
+      agentType: step.agentType,
+      identifier: step.identifier,
+      instruction,
+      deferFinal: true,
+      postProcess: (candidate) => {
+        const parsed = parseBreakAnswer(candidate.content);
+        if (!parsed.ok) {
+          return {
+            status: 'failed',
+            content: parsed.message,
+            finalOverride: {
+              status: 'failed',
+              error: {
+                code: 'INVALID_BREAK_RESPONSE',
+                message: parsed.message,
+              },
+            },
+          };
+        }
+
+        breakAnswer = parsed.answer;
+        return {
+          content: JSON.stringify({ answer: parsed.answer }),
+        };
+      },
+    });
+
+    if (shouldStopAfter(result.status)) {
+      return { status: result.status, shouldBreak: false };
+    }
+
+    if (!breakAnswer) {
+      return { status: 'failed', shouldBreak: false };
+    }
+
+    append({
+      level: 'info',
+      message: 'flows.run.break_decision',
+      timestamp: new Date().toISOString(),
+      source: 'server',
+      context: {
+        flowName: params.flowName,
+        answer: breakAnswer,
+        breakOn: step.breakOn,
+        loopDepth: loopStack.length,
+      },
+    });
+
+    return {
+      status: 'ok',
+      shouldBreak: breakAnswer === step.breakOn,
+    };
+  };
+
+  const runSteps = async (
+    steps: FlowStep[],
+    stepPath: number[],
+  ): Promise<FlowStepOutcome> => {
+    for (const [index, step] of steps.entries()) {
+      const nextPath = [...stepPath, index];
+      if (step.type === 'llm') {
+        const status = await runLlmStep(step);
+        if (shouldStopAfter(status)) return status;
+        continue;
+      }
+
+      if (step.type === 'break') {
+        const { status, shouldBreak } = await runBreakStep(step);
+        if (shouldStopAfter(status)) return status;
+        if (shouldBreak) return 'break';
+        continue;
+      }
+
+      if (step.type === 'startLoop') {
+        const loopFrame: LoopFrame = {
+          loopStepPath: nextPath,
+          iteration: 0,
+        };
+        loopStack.push(loopFrame);
+        while (true) {
+          loopFrame.iteration += 1;
+          const outcome = await runSteps(step.steps, nextPath);
+          if (outcome === 'break') {
+            loopStack.pop();
+            break;
+          }
+          if (outcome !== 'ok') {
+            loopStack.pop();
+            return outcome;
+          }
+        }
+        continue;
+      }
+
+      throw toFlowRunError(
+        'UNSUPPORTED_STEP',
+        `Flow step type ${step.type} not supported yet`,
+      );
+    }
+
+    return 'ok';
+  };
+
+  const outcome = await runSteps(params.flow.steps, []);
+  if (outcome !== 'ok') return;
 }
 
 export async function startFlowRun(
@@ -551,10 +791,10 @@ export async function startFlowRun(
     if (!flow.steps.length) {
       throw toFlowRunError('NO_STEPS', 'Flow has no steps');
     }
-    if (flow.steps.some((step) => step.type !== 'llm')) {
+    if (hasUnsupportedStep(flow.steps)) {
       throw toFlowRunError(
         'UNSUPPORTED_STEP',
-        'Only llm steps are supported in this flow run',
+        'Only llm, startLoop, and break steps are supported in this flow run',
       );
     }
 
@@ -563,9 +803,7 @@ export async function startFlowRun(
       throw toFlowRunError('CONVERSATION_ARCHIVED');
     }
 
-    const firstLlmStep = flow.steps.find((step) => step.type === 'llm') as
-      | FlowLlmStep
-      | undefined;
+    const firstLlmStep = findFirstLlmStep(flow.steps);
     if (!firstLlmStep) {
       throw toFlowRunError('UNSUPPORTED_STEP', 'No llm steps found');
     }

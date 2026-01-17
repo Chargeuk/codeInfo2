@@ -96,6 +96,14 @@ const deriveTiming = (params: {
   return Object.keys(cleaned).length > 0 ? cleaned : undefined;
 };
 
+type FinalPayload = {
+  status: 'ok' | 'stopped' | 'failed';
+  threadId?: string | null;
+  error?: { code?: string; message?: string } | null;
+  usage?: TurnUsageMetadata;
+  timing?: TurnTimingMetadata;
+};
+
 export function attachChatStreamBridge(params: {
   conversationId: string;
   inflightId: string;
@@ -103,6 +111,7 @@ export function attachChatStreamBridge(params: {
   model: string;
   requestId?: string;
   chat: ChatInterface;
+  deferFinal?: boolean;
 }) {
   const { conversationId, inflightId, provider, model, requestId, chat } =
     params;
@@ -111,6 +120,7 @@ export function attachChatStreamBridge(params: {
   let finalPublished = false;
   let deltaCount = 0;
   let toolEventCount = 0;
+  let pendingFinal: FinalPayload | null = null;
 
   const log = (
     level: 'info' | 'warn' | 'error',
@@ -149,13 +159,7 @@ export function attachChatStreamBridge(params: {
     baseLogger.info({ requestId, ...mergedContext }, message);
   };
 
-  const publishFinalOnce = (params: {
-    status: 'ok' | 'stopped' | 'failed';
-    threadId?: string | null;
-    error?: { code?: string; message?: string } | null;
-    usage?: TurnUsageMetadata;
-    timing?: TurnTimingMetadata;
-  }) => {
+  const publishFinalOnce = (params: FinalPayload) => {
     if (finalPublished) return;
     finalPublished = true;
 
@@ -338,12 +342,19 @@ export function attachChatStreamBridge(params: {
       });
     }
 
-    publishFinalOnce({
+    const payload: FinalPayload = {
       status: cancelled ? 'stopped' : 'ok',
       threadId: threadId ?? null,
       usage,
       timing,
-    });
+    };
+
+    if (params.deferFinal) {
+      pendingFinal = payload;
+      return;
+    }
+
+    publishFinalOnce(payload);
   };
 
   const onError = (ev: ChatErrorEvent) => {
@@ -369,14 +380,21 @@ export function attachChatStreamBridge(params: {
       ? 'stopped'
       : deriveStatusFromError(ev.message ?? '');
 
-    publishFinalOnce({
+    const payload: FinalPayload = {
       status,
       threadId: activeThreadId,
       error: {
         code: status === 'stopped' ? 'CANCELLED' : 'PROVIDER_ERROR',
         message: ev.message,
       },
-    });
+    };
+
+    if (params.deferFinal) {
+      pendingFinal = payload;
+      return;
+    }
+
+    publishFinalOnce(payload);
   };
 
   chat.on('token', onToken);
@@ -398,6 +416,15 @@ export function attachChatStreamBridge(params: {
       chat.off('thread', onThread);
       chat.off('complete', onComplete);
       chat.off('error', onError);
+    },
+    finalize: (params?: {
+      override?: Partial<FinalPayload>;
+      fallback?: FinalPayload;
+    }) => {
+      if (finalPublished) return;
+      const base = pendingFinal ?? params?.fallback;
+      if (!base) return;
+      publishFinalOnce({ ...base, ...(params?.override ?? {}) });
     },
   };
 }

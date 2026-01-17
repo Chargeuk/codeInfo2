@@ -1023,7 +1023,7 @@ Implement the flow run engine for linear `llm` steps, including `POST /flows/:fl
 
 ### 6. Server: Loop + break step support
 
-- Task Status: **__in_progress__**
+- Task Status: **__done__**
 - Git Commits: **__to_do__**
 
 #### Overview
@@ -1043,7 +1043,7 @@ Extend the flow runtime with nested loop support and `break` steps that evaluate
 
 #### Subtasks
 
-1. [ ] Review existing flow runtime implementation:
+1. [x] Review existing flow runtime implementation:
    - Documentation to read (repeat):
      - JSON parsing + error handling patterns: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/parse
      - AbortController usage: https://developer.mozilla.org/en-US/docs/Web/API/AbortController
@@ -1057,7 +1057,7 @@ Extend the flow runtime with nested loop support and `break` steps that evaluate
      - Initial flow execution loop in `server/src/flows/service.ts` (created in Task 5).
      - Flow schema definitions in `server/src/flows/flowSchema.ts` for step typing.
 
-2. [ ] Add loop stack execution for `startLoop`:
+2. [x] Add loop stack execution for `startLoop`:
    - Documentation to read (repeat):
      - JSON parsing + error handling patterns: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/parse
    - Files to edit:
@@ -1070,7 +1070,7 @@ Extend the flow runtime with nested loop support and `break` steps that evaluate
      - Execute nested `startLoop` steps recursively.
      - Ensure `break` exits only the nearest loop.
 
-3. [ ] Implement `break` step handling:
+3. [x] Implement `break` step handling:
    - Documentation to read (repeat):
      - JSON.parse error handling: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/parse
    - Files to edit:
@@ -1088,7 +1088,7 @@ Extend the flow runtime with nested loop support and `break` steps that evaluate
    - Logging requirement (repeat):
      - Emit `flows.run.break_decision` (info) with `{ answer, breakOn, loopDepth }` when a break response is evaluated.
 
-4. [ ] Integration tests: nested loop + break behavior:
+4. [x] Integration tests: nested loop + break behavior:
    - Test type: Integration (`node:test`)
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
@@ -1105,7 +1105,7 @@ Extend the flow runtime with nested loop support and `break` steps that evaluate
    - Purpose:
      - Confirm loop iterations continue until `break` triggers.
 
-5. [ ] Documentation update: `design.md` (loop + break semantics)
+5. [x] Documentation update: `design.md` (loop + break semantics)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
      - Mermaid docs (diagram syntax for design.md): Context7 `/mermaid-js/mermaid`
@@ -1116,7 +1116,7 @@ Extend the flow runtime with nested loop support and `break` steps that evaluate
    - Purpose:
      - Keep loop control semantics documented with diagrams.
 
-6. [ ] Documentation update: `projectStructure.md` (loop test + fixture files)
+6. [x] Documentation update: `projectStructure.md` (loop test + fixture files)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -1126,22 +1126,37 @@ Extend the flow runtime with nested loop support and `break` steps that evaluate
    - Purpose:
      - Keep file map accurate after adding loop tests.
 
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+7. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, start a loop/break flow if available, then open Logs and confirm `flows.run.break_decision` appears with `answer` matching the step; verify no errors in the browser debug console.
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 7 minutes)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, start a loop/break flow if available, then open Logs and confirm `flows.run.break_decision` appears with `answer` matching the step; verify no errors in the browser debug console.
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
+- Reviewed `server/src/flows/service.ts` and `server/src/flows/flowSchema.ts` to confirm llm-only flow execution and strict step typing so loop/break support can extend the existing run loop.
+- Added loop-stack execution in `server/src/flows/service.ts` with recursive step traversal, per-loop iteration tracking, and support for nested `startLoop` blocks.
+- Implemented `break` step handling with JSON answer parsing, `flows.run.break_decision` logging, and deferred turn_final override on invalid responses.
+- Added loop/break integration coverage with `server/src/test/integration/flows.run.loop.test.ts` and `server/src/test/fixtures/flows/loop-break.json` to validate looping and error cases.
+- Documented loop/break semantics in `design.md` and registered new loop fixtures/tests in `projectStructure.md`.
+- Ran `npm run lint --workspaces` (existing import-order warnings only) and `npm run format --workspaces` followed by `npm run format:check --workspaces` to align formatting.
+- Verified server build with `npm run build --workspace server`.
+- Verified client build with `npm run build --workspace client` (Vite chunk size warnings only).
+- Ran `npm run test --workspace server` (node:test + cucumber scenarios) after updating flow list fixtures.
+- Ran `npm run test --workspace client` (passes; console log noise from test logger as usual).
+- Ran `npm run e2e` (compose e2e build/up/test/down; 36 specs passed).
+- Ran `npm run compose:build` for the main Docker stack.
+- Started the main Docker stack with `npm run compose:up`.
+- Manual Playwright check: opened `http://host.docker.internal:5001`, ran a loop/break flow, and confirmed `flows.run.break_decision` entries (answer yes) in Logs with no browser console errors.
+- Shut down Docker stack with `npm run compose:down`.
 - Details about the implementation. Include what went to plan and what did not.
 - Essential that any decisions that got made during the implementation are documented here.
 

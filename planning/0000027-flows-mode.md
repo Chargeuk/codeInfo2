@@ -527,8 +527,8 @@ Add flow discovery (scan `flows/` on each request) and expose `GET /flows` with 
 
 ### 3. Server: Conversation flowName persistence
 
-- Task Status: **__in_progress__**
-- Git Commits: **__to_do__**
+- Task Status: **__done__**
+- Git Commits: 2fead1b, 39f50dd
 
 #### Overview
 

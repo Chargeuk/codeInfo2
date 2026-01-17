@@ -527,7 +527,7 @@ Add flow discovery (scan `flows/` on each request) and expose `GET /flows` with 
 
 ### 3. Server: Conversation flowName persistence
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **__to_do__**
 
 #### Overview
@@ -548,7 +548,7 @@ Add `flowName` to conversation persistence and summary types so flow conversatio
 
 #### Subtasks
 
-1. [ ] Review current conversation schema and summary mapping:
+1. [x] Review current conversation schema and summary mapping:
    - Documentation to read (repeat):
      - Mongoose schema fields: Context7 `/automattic/mongoose/9.0.1`
      - WebSocket JSON message shape best practices: https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API
@@ -656,8 +656,7 @@ Add `flowName` to conversation persistence and summary types so flow conversatio
 
 #### Implementation notes
 
-- Details about the implementation. Include what went to plan and what did not.
-- Essential that any decisions that got made during the implementation are documented here.
+- Reviewed conversation persistence, event mapping, WS sidebar types, and memory persistence to confirm where flowName needs to be threaded (conversation schema, repo summaries, WS summaries, memory updates).
 
 ---
 

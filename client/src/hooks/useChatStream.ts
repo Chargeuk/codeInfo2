@@ -26,6 +26,7 @@ export type CodexFlagState = {
   modelReasoningEffort?: ModelReasoningEffort;
 };
 
+// Fallbacks used only when codexDefaults are unavailable; keep in sync with server defaults.
 const DEFAULT_CODEX_FLAGS: Required<CodexFlagState> = {
   sandboxMode: 'danger-full-access',
   approvalPolicy: 'on-failure',

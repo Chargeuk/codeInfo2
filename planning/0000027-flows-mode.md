@@ -273,6 +273,9 @@ Define the strict flow JSON schema and unit coverage for validation. This task e
      - Strict schema rejects unknown keys.
      - `startLoop` requires non-empty `steps`.
      - `breakOn` only accepts `yes` or `no`.
+     - `llm` requires `agentType`, `identifier`, and `messages` entries.
+     - `break` requires `agentType`, `identifier`, `question`, and `breakOn`.
+     - `command` requires `agentType`, `identifier`, and `commandName`.
      - `messages` must contain non-empty strings and `role: "user"`.
    - Purpose:
      - Validate strict schema errors, trimming, and invalid shapes.
@@ -529,7 +532,29 @@ Add `flowName` to conversation persistence and summary types so flow conversatio
      - Update conversation event summaries to include `flowName` for WS upserts.
      - Update memory persistence helpers to keep `flowName` on in-memory conversations.
 
-3. [ ] Documentation update: `design.md` (flowName field)
+3. [ ] Integration test: flowName appears in conversation list
+   - Test type: Integration (`node:test`)
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+   - Files to add/edit:
+     - `server/src/test/integration/conversations.flowname.test.ts` (new)
+   - Description:
+     - Ensure `GET /conversations` returns `flowName` when present.
+   - Purpose:
+     - Validate flow conversation summaries surface `flowName` for the client.
+
+4. [ ] Unit test: WS sidebar upsert includes flowName
+   - Test type: Unit (`node:test`)
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+   - Files to edit:
+     - `server/src/test/unit/ws-server.test.ts`
+   - Description:
+     - Emit a conversation upsert with `flowName` and assert WS payload includes it.
+   - Purpose:
+     - Keep WS sidebar updates aligned with flow filtering UI.
+
+5. [ ] Documentation update: `design.md` (flowName field)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
      - Mermaid docs (diagram syntax for design.md): Context7 `/mermaid-js/mermaid`
@@ -540,17 +565,17 @@ Add `flowName` to conversation persistence and summary types so flow conversatio
    - Purpose:
      - Keep schema/architecture notes aligned with flow filtering.
 
-4. [ ] Documentation update: `projectStructure.md` (if files changed)
+6. [ ] Documentation update: `projectStructure.md` (flowName tests)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
      - `projectStructure.md`
    - Description:
-     - Update the tree if this task adds/removes files.
+     - Add new flowName test files to the tree.
    - Purpose:
      - Keep the repo structure accurate.
 
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/options
@@ -703,6 +728,7 @@ Implement the flow run engine for linear `llm` steps, including `POST /flows/:fl
 - Express async handlers + error propagation: Context7 `/expressjs/express/v5.1.0`
 - AbortController usage (cancellation): https://developer.mozilla.org/en-US/docs/Web/API/AbortController
 - Node.js timers (delays between steps if needed): https://nodejs.org/api/timers.html
+- Node.js `fs/promises` (test fixture updates): https://nodejs.org/api/fs.html
 - Node.js test runner (`node:test`): https://nodejs.org/api/test.html
 - Cucumber guides (BDD + JavaScript workflow): https://cucumber.io/docs/guides/
 - Mermaid docs (diagram syntax for design.md): Context7 `/mermaid-js/mermaid`
@@ -789,9 +815,11 @@ Implement the flow run engine for linear `llm` steps, including `POST /flows/:fl
      - Validate the happy-path flow run for a single `llm` step with streaming.
    - Story requirements to repeat here so they are not missed:
      - `POST /flows/:flowName/run` returns 202 with `conversationId` + `inflightId`.
+     - Response payload includes `flowName` and `modelId`.
+     - Flow conversation title defaults to `Flow: <name>`.
      - Streamed events use the existing WS protocol (no new event types).
    - Purpose:
-     - Ensure `POST /flows/:flowName/run` returns 202 and streams a user turn + assistant delta.
+     - Ensure `POST /flows/:flowName/run` returns 202, sets the flow title, and streams a user turn + assistant delta.
 
 5. [ ] Integration tests: flow run error cases (missing/invalid/archived/conflict):
    - Test type: Integration (`node:test`)
@@ -807,11 +835,37 @@ Implement the flow run engine for linear `llm` steps, including `POST /flows/:fl
      - Invalid flow JSON/schema returns `400 { error: "invalid_request" }`.
      - Archived flow conversation returns `410 { error: "archived" }`.
      - Concurrent run returns `409 { error: "conflict", code: "RUN_IN_PROGRESS" }`.
-     - Invalid `working_folder` returns `400 { code: "WORKING_FOLDER_INVALID" | "WORKING_FOLDER_NOT_FOUND" }`.
    - Purpose:
      - Lock in error handling for core run request validation.
 
-6. [ ] Documentation update: `design.md` (flow run core)
+6. [ ] Integration tests: flow run `working_folder` validation
+   - Test type: Integration (`node:test`)
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+   - Files to add/edit:
+     - `server/src/test/integration/flows.run.working-folder.test.ts` (new)
+   - Description:
+     - Validate `working_folder` acceptance and invalid folder error responses.
+   - Story requirements to repeat here so they are not missed:
+     - Invalid `working_folder` returns `400 { code: "WORKING_FOLDER_INVALID" | "WORKING_FOLDER_NOT_FOUND" }`.
+     - Valid `working_folder` is resolved consistently with agent runs.
+   - Purpose:
+     - Ensure flow runs reuse agent working-folder validation semantics.
+
+7. [ ] Integration tests: flow run hot reload between runs
+   - Test type: Integration (`node:test`)
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+   - Files to add/edit:
+     - `server/src/test/integration/flows.run.hot-reload.test.ts` (new)
+   - Description:
+     - Update a flow file between runs and verify the next run uses the updated definition.
+   - Story requirements to repeat here so they are not missed:
+     - Flow definitions are reloaded from disk on each run request (no cache).
+   - Purpose:
+     - Confirm hot-reload behavior for run execution.
+
+8. [ ] Documentation update: `design.md` (flow run core)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
      - Mermaid docs (diagram syntax for design.md): Context7 `/mermaid-js/mermaid`
@@ -822,17 +876,17 @@ Implement the flow run engine for linear `llm` steps, including `POST /flows/:fl
    - Purpose:
      - Keep runtime flow behavior documented and aligned with the API.
 
-7. [ ] Documentation update: `projectStructure.md` (flow run files)
+9. [ ] Documentation update: `projectStructure.md` (flow run files)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
      - `projectStructure.md`
    - Description:
-     - Add new flow run service/route files to the tree.
+     - Add new flow run service/route files plus flow run test files to the tree.
    - Purpose:
      - Keep the repo structure accurate after new flow runtime files.
 
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/options
@@ -1508,17 +1562,31 @@ Add client API helpers for listing flows and starting flow runs. This task expos
    - Purpose:
      - Validate request URLs and error handling for `listFlows` and `runFlow`.
 
-4. [ ] Documentation update: `projectStructure.md` (flows API helper)
+4. [ ] Unit tests: flows API run payload fields
+   - Test type: RTL/Jest
+   - Documentation to read (repeat):
+     - Jest docs: Context7 `/jestjs/jest`
+   - Files to add/edit:
+     - `client/src/test/flowsApi.run.payload.test.ts` (new)
+   - Description:
+     - Verify `runFlow` includes optional payload fields when provided.
+   - Story requirements to repeat here so they are not missed:
+     - Payload includes `working_folder` when set.
+     - Payload includes `resumeStepPath` when set.
+   - Purpose:
+     - Confirm `runFlow` serializes optional payload fields correctly.
+
+5. [ ] Documentation update: `projectStructure.md` (flows API helper)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
      - `projectStructure.md`
    - Description:
-     - Add the new flows API helper file to the repo tree.
+     - Add the new flows API helper file and flows API test files to the repo tree.
    - Purpose:
      - Keep file map accurate after API helper additions.
 
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/options
@@ -1628,7 +1696,34 @@ Build the Flows UI: list flows, start/resume runs, and render flow conversations
    - Purpose:
      - Render Flows page, list flows, and verify metadata line rendering.
 
-5. [ ] Documentation update: `README.md` (Flows UI entry)
+5. [ ] Client tests (RTL): flows page run/resume controls
+   - Test type: RTL/Jest
+   - Documentation to read (repeat):
+     - Jest: Context7 `/jestjs/jest`
+   - Files to add/edit:
+     - `client/src/test/flowsPage.run.test.tsx` (new)
+   - Description:
+     - Validate run + resume controls call the flows API with expected payloads.
+   - Story requirements to repeat here so they are not missed:
+     - Run uses `POST /flows/:flowName/run`.
+     - Resume includes `resumeStepPath` when available.
+   - Purpose:
+     - Ensure the Flows UI triggers run/resume with the right payload fields.
+
+6. [ ] Client tests (RTL): flows page stop control
+   - Test type: RTL/Jest
+   - Documentation to read (repeat):
+     - Jest: Context7 `/jestjs/jest`
+   - Files to add/edit:
+     - `client/src/test/flowsPage.stop.test.tsx` (new)
+   - Description:
+     - Validate stop control triggers the cancel inflight flow.
+   - Story requirements to repeat here so they are not missed:
+     - Stop uses existing `cancel_inflight` WS path.
+   - Purpose:
+     - Ensure Flows UI stop control wires to the existing stop mechanism.
+
+7. [ ] Documentation update: `README.md` (Flows UI entry)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -1638,7 +1733,7 @@ Build the Flows UI: list flows, start/resume runs, and render flow conversations
    - Purpose:
      - Ensure user-facing docs mention the new Flows UI.
 
-6. [ ] Documentation update: `design.md` (Flows UI description)
+8. [ ] Documentation update: `design.md` (Flows UI description)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
      - Mermaid docs (diagram syntax for design.md): Context7 `/mermaid-js/mermaid`
@@ -1649,17 +1744,17 @@ Build the Flows UI: list flows, start/resume runs, and render flow conversations
    - Purpose:
      - Keep UI architecture aligned with the new page and data flow.
 
-7. [ ] Documentation update: `projectStructure.md` (Flows UI files)
+9. [ ] Documentation update: `projectStructure.md` (Flows UI files)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
      - `projectStructure.md`
    - Description:
-     - Add new Flows UI files to the repo tree.
+     - Add new Flows UI files and flows page test files to the repo tree.
    - Purpose:
      - Keep file map accurate after UI additions.
 
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/options

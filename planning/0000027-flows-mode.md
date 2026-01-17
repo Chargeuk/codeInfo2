@@ -1164,8 +1164,8 @@ Extend the flow runtime with nested loop support and `break` steps that evaluate
 
 ### 7. Server: Command step support
 
-- Task Status: **__in_progress__**
-- Git Commits: **__to_do__**
+- Task Status: **__done__**
+- Git Commits: 12a60a2, 8d3f288
 
 #### Overview
 

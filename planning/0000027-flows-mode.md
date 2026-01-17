@@ -26,7 +26,7 @@ Flows support nested loops via `startLoop`/`endLoop`, and a `break` step that as
 - Flow definitions are discovered from `flows/<flowName>.json` on disk and are hot-reloaded without a server restart by re-reading the directory on each request (same pattern as agent discovery and command listing).
 - A new flow JSON schema exists (distinct from agent commands) with a required top-level `steps: []`, optional top-level `description`, and step objects that include `type` plus optional `label` for UI display.
 - Supported step `type` values are `startLoop`, `endLoop`, `llm`, and `break`. Loop boundaries are matched only by nesting (no loop ids).
-- `llm` steps require `agentType` (Codex agent name from the Agents dropdown), `identifier`, and `messages` in the same shape used by agent commands (role + content array).
+- `llm` steps require `agentType` (Codex agent name from the Agents dropdown), `identifier`, and `messages` entries shaped like `{ role, content: string[] }` (same message payload used by agent commands).
 - `break` steps require `agentType`, `identifier`, `question`, and `breakOn: "yes" | "no"` and must instruct the agent to return JSON in the shape `{ "answer": "yes" | "no" }` for the break decision.
 - Nested loops are supported by the runtime using a loop stack; `break` exits only the current loop defined by the closest `startLoop`/`endLoop` pair.
 - Flow JSON validation is strict (unknown keys invalid) and mirrors agent command validation rules for trimming/empty checks; invalid JSON or schema errors still appear in the list but with `disabled: true` and a human-readable error message.
@@ -94,6 +94,7 @@ None.
 - `POST /flows/:flowName/run` body: `{ working_folder?, conversationId?, resumeStepIndex? }`
   - `working_folder` should use the same validation as Agents (`working_folder` may be omitted)
   - `conversationId` and `resumeStepIndex` together indicate resume-from-step
+  - `resumeStepIndex` is a zero-based index into the `steps` array
   - Response `202`: `{ status: "started", flowName, conversationId, inflightId, modelId }`
 
 ### Conversations (existing endpoints, extended fields)
@@ -117,8 +118,40 @@ None.
 
 - Flow resume state stored in `conversation.flags.flow`:
   - `stepIndex`: last completed step index
-  - `loopStack`: serialized loop stack
-  - `agentConversations`: map keyed by `agentType+identifier` → `conversationId`
+  - `loopStack`: array of `{ startStepIndex, endStepIndex }` frames
+  - `agentConversations`: map keyed by `${agentType}:${identifier}` → `conversationId`
+
+### Flow JSON Example (for clarity)
+
+```json
+{
+  "description": "Summarize, refine, and iterate until done.",
+  "steps": [
+    { "type": "startLoop", "label": "Main loop" },
+    {
+      "type": "llm",
+      "label": "Draft summary",
+      "agentType": "coding_agent",
+      "identifier": "summary",
+      "messages": [
+        { "role": "user", "content": ["Summarize the current notes."] }
+      ]
+    },
+    {
+      "type": "break",
+      "label": "Check for completion",
+      "agentType": "coding_agent",
+      "identifier": "summary",
+      "question": "Is the summary complete? Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+      "breakOn": "yes"
+    },
+    { "type": "endLoop" }
+  ]
+}
+```
+
+- Each `messages` entry uses `{ role, content: string[] }` matching agent command message items.
+- `startLoop`/`endLoop` carry no required fields other than `type` (optional `label`).
 
 ---
 

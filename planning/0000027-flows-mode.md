@@ -704,7 +704,23 @@ Implement the flow run engine for linear `llm` steps, including `POST /flows/:fl
    - Purpose:
      - Ensure `POST /flows/:flowName/run` returns 202 and streams a user turn + assistant delta.
 
-5. [ ] Documentation updates:
+5. [ ] Integration tests: flow run error cases (missing/invalid/archived/conflict):
+   - Test type: Integration (`node:test`)
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+   - Files to add/edit:
+     - `server/src/test/integration/flows.run.errors.test.ts` (new)
+     - `server/src/test/fixtures/flows/` (add invalid JSON + invalid schema fixtures)
+   - Story requirements to repeat here so they are not missed:
+     - Missing flow file returns `404 { error: "not_found" }`.
+     - Invalid flow JSON/schema returns `400 { error: "invalid_request" }`.
+     - Archived flow conversation returns `410 { error: "archived" }`.
+     - Concurrent run returns `409 { error: "conflict", code: "RUN_IN_PROGRESS" }`.
+     - Invalid `working_folder` returns `400 { code: "WORKING_FOLDER_INVALID" | "WORKING_FOLDER_NOT_FOUND" }`.
+   - Purpose:
+     - Lock in error handling for core run request validation.
+
+6. [ ] Documentation updates:
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -713,7 +729,7 @@ Implement the flow run engine for linear `llm` steps, including `POST /flows/:fl
    - Story requirements to repeat here so they are not missed:
      - Document the `/flows/:flowName/run` contract and flow conversation title format.
 
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier: https://prettier.io/docs/options
@@ -808,6 +824,8 @@ Extend the flow runtime with nested loop support and `break` steps that evaluate
    - Story requirements to repeat here so they are not missed:
      - Loop continues until `break` returns the configured `breakOn` answer.
      - Invalid JSON or `answer` fails the flow.
+     - Wrong `answer` value (`maybe`, empty, etc.) fails the flow with `turn_final status=failed`.
+     - Non-JSON response fails the flow with `turn_final status=failed`.
    - Purpose:
      - Confirm loop iterations continue until `break` triggers.
 
@@ -1081,6 +1099,8 @@ Enable resume execution using `resumeStepPath` and stored `flags.flow` state. Th
      - `server/src/test/integration/flows.run.resume.test.ts` (new)
    - Story requirements to repeat here so they are not missed:
      - Tests cover stop/resume and invalid `resumeStepPath` errors.
+     - Tests cover `agent_mismatch` error when an agent conversation id belongs to a different agent.
+     - Tests cover invalid indices (negative or out-of-range) returning `400 { error: "invalid_request" }`.
    - Purpose:
      - Verify stop/resume from stored step path and invalid path errors.
 

@@ -78,6 +78,8 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 |     |  |- useIngestRoots.ts ? fetches /ingest/roots with lock info and refetch helper
 |     |  |- useIngestModels.ts ? fetches /ingest/models with lock + default selection
 |     |  - useLogs.ts ? log history + SSE hook with filters
+|     |- utils/
+|     |  - isDevEnv.ts ? shared dev/test environment detection helper
 |     |- api/
 |     |  - agents.ts ? client wrapper for GET /agents and POST /agents/:agentName/run (AbortSignal supported)
 |     |  - baseUrl.ts ? runtime API base resolver (config/env/location)

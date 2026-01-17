@@ -56,6 +56,7 @@ import useConversationTurns, {
 import useConversations from '../hooks/useConversations';
 import usePersistenceStatus from '../hooks/usePersistenceStatus';
 import { createLogger } from '../logging/logger';
+import { isDevEnv } from '../utils/isDevEnv';
 
 const bubbleTimestampFormatter = new Intl.DateTimeFormat(undefined, {
   dateStyle: 'medium',
@@ -605,11 +606,7 @@ export default function ChatPage() {
   }, [provider, selectedConversation, setProvider]);
 
   useEffect(() => {
-    const isDev =
-      (typeof import.meta !== 'undefined' && import.meta.env?.DEV) ||
-      (typeof window !== 'undefined' &&
-        (window as { __CODEINFO_TEST__?: boolean }).__CODEINFO_TEST__);
-    if (!isDev) return;
+    if (!isDevEnv()) return;
     if (codexDocsLoggedRef.current) return;
     if (isLoading) return;
     if (providers.length === 0 && models.length === 0) return;

@@ -241,6 +241,9 @@ Define the strict flow JSON schema and unit coverage for validation. This task e
    - Goal:
      - Confirm how invalid JSON is surfaced as `disabled: true` with an error message.
      - Note which trimming/empty-check helpers are used so the flow schema matches them.
+   - Code landmarks (repeat):
+     - `trimmedNonEmptyString`, `AgentCommandMessageItemSchema`, and `parseAgentCommandFile` in `server/src/agents/commandsSchema.ts`.
+     - `loadAgentCommandSummary` and `INVALID_DESCRIPTION` handling in `server/src/agents/commandsLoader.ts`.
 
 2. [ ] Add a strict flow schema module for JSON validation:
    - Documentation to read (repeat):
@@ -260,6 +263,9 @@ Define the strict flow JSON schema and unit coverage for validation. This task e
      - All objects are `.strict()` and must reject unknown keys.
    - Implementation hint (repeat):
      - Reuse `trimmedNonEmptyString` + `parse` patterns from `server/src/agents/commandsSchema.ts` so trimming/empty checks match existing behavior.
+   - Code landmarks (repeat):
+     - Model the flow schema after `AgentCommandFileSchema` and `AgentCommandMessageItemSchema` in `server/src/agents/commandsSchema.ts`.
+     - Follow `parseAgentCommandFile` error handling to return `{ ok: false }` on JSON parse or schema failures.
 
 3. [ ] Unit tests: flow schema validation
    - Test type: Unit (`node:test`)
@@ -279,6 +285,9 @@ Define the strict flow JSON schema and unit coverage for validation. This task e
      - `messages` must contain non-empty strings and `role: "user"`.
    - Purpose:
      - Validate strict schema errors, trimming, and invalid shapes.
+   - Test data hints (repeat):
+     - Use inline JSON strings (no file IO) and mirror the `parseAgentCommandFile` calling pattern.
+     - Include at least one valid flow and multiple invalid variants (unknown keys, empty `steps`, missing `agentType`).
 
 4. [ ] Documentation update: `design.md` (flow schema + `/flows` overview)
    - Documentation to read (repeat):
@@ -376,6 +385,9 @@ Add flow discovery (scan `flows/` on each request) and expose `GET /flows` with 
      - Invalid JSON/schema must still be listed as `disabled: true` with an error message.
    - Goal:
      - Confirm how invalid JSON is surfaced as `disabled: true` with an error message.
+   - Code landmarks (repeat):
+     - `loadAgentCommandSummary` in `server/src/agents/commandsLoader.ts` (returns `disabled: true` with `INVALID_DESCRIPTION`).
+     - `walkDir` + `listGitTracked` fallback logic in `server/src/ingest/discovery.ts` for directory scanning patterns.
 
 2. [ ] Implement flow discovery with hot-reload scanning:
    - Documentation to read (repeat):
@@ -395,6 +407,10 @@ Add flow discovery (scan `flows/` on each request) and expose `GET /flows` with 
      - Flow summary includes `{ name, description, disabled, error? }`.
      - `description` defaults to an empty string when missing.
      - Reuse agent command loader patterns (`loadAgentCommandSummary`) rather than new parsing rules when possible.
+   - Implementation checklist (repeat):
+     - Use `fs.readdir(..., { withFileTypes: true })` to list `flows/` and filter `.json` files only.
+     - Parse JSON with `JSON.parse` in a try/catch, then validate with the flow schema and return `{ disabled: true, error }` on failure.
+     - Default `description` to an empty string when missing.
 
 3. [ ] Add `GET /flows` route and register it:
    - Documentation to read (repeat):
@@ -408,6 +424,9 @@ Add flow discovery (scan `flows/` on each request) and expose `GET /flows` with 
    - Requirements:
      - `GET /flows` returns `{ flows: FlowSummary[] }`.
      - Disabled flows include `error` text from validation/parsing.
+   - Code landmarks (repeat):
+     - Mirror response shape and error handling style from `createAgentsCommandsRouter` in `server/src/routes/agentsCommands.ts`.
+     - Follow route registration patterns in `server/src/index.ts` for existing routers.
 
 4. [ ] Integration tests: flow discovery + list
    - Test type: Integration (`node:test`)
@@ -509,6 +528,11 @@ Add `flowName` to conversation persistence and summary types so flow conversatio
      - Conversations gain optional `flowName?: string`.
      - `flowName` must be included in conversation summaries + WS sidebar payloads.
      - Missing `flowName` should be omitted (not `null`).
+   - Code landmarks (repeat):
+     - `Conversation` interface + `conversationSchema` in `server/src/mongo/conversation.ts`.
+     - `toConversationEvent` in `server/src/mongo/repo.ts` and `ConversationEventSummary` in `server/src/mongo/events.ts`.
+     - `toWsConversationSummary` in `server/src/ws/sidebar.ts` and `WsSidebarConversationUpsertEvent` in `server/src/ws/types.ts`.
+     - `memoryConversations` + `updateMemoryConversationMeta` in `server/src/chat/memoryPersistence.ts`.
 
 2. [ ] Add `flowName` to persistence + summary types:
    - Documentation to read (repeat):
@@ -531,6 +555,10 @@ Add `flowName` to conversation persistence and summary types so flow conversatio
      - Ensure new flow conversations can set `flowName` at creation time via `createConversation` inputs.
      - Update conversation event summaries to include `flowName` for WS upserts.
      - Update memory persistence helpers to keep `flowName` on in-memory conversations.
+   - Implementation checklist (repeat):
+     - Add `flowName?: string` to `Conversation` and persist it in `conversationSchema`.
+     - Extend `CreateConversationInput` + `toConversationEvent` to pass `flowName` through to `ConversationEventSummary`.
+     - Include `flowName` in sidebar summaries (only when defined) and in memory persistence updates.
 
 3. [ ] Integration test: flowName appears in conversation list
    - Test type: Integration (`node:test`)
@@ -750,6 +778,11 @@ Implement the flow run engine for linear `llm` steps, including `POST /flows/:fl
    - Story requirements to repeat here so they are not missed:
      - Flow runs must stream using the existing WS protocol (no new event types).
      - Flow runs must reuse per-agent thread ids when available.
+   - Code landmarks (repeat):
+     - `runAgentInstructionUnlocked` + `startAgentInstruction` in `server/src/agents/service.ts` (thread id + inflight creation).
+     - `createInflight`, `appendAssistantDelta`, `appendToolEvent`, and `abortInflight` in `server/src/chat/inflightRegistry.ts`.
+     - `attachChatStreamBridge` in `server/src/chat/chatStreamBridge.ts` for streaming events.
+     - Route patterns in `server/src/routes/agentsRun.ts` for request parsing + error mapping.
 
 2. [ ] Implement flow run service for sequential `llm` steps:
    - Documentation to read (repeat):
@@ -782,6 +815,11 @@ Implement the flow run engine for linear `llm` steps, including `POST /flows/:fl
      - Validate `working_folder` via the shared resolver and surface `WORKING_FOLDER_INVALID/NOT_FOUND` consistently.
      - Reuse `resolveWorkingFolderWorkingDirectory` and `tryAcquireConversationLock`/`releaseConversationLock` from the agents layer.
      - If `shouldUseMemoryPersistence()` is true, create/update `memoryConversations` with `flowName` and persist turns via `recordMemoryTurn`/`updateMemoryConversationMeta`.
+   - Code landmarks (repeat):
+     - `runAgentInstructionUnlocked` in `server/src/agents/service.ts` for per-step execution and inflight setup.
+     - `resolveWorkingFolderWorkingDirectory` in `server/src/agents/service.ts` for `working_folder` validation.
+     - `tryAcquireConversationLock`/`releaseConversationLock` in `server/src/agents/runLock.ts` for run locking.
+     - `recordMemoryTurn` + `updateMemoryConversationMeta` in `server/src/chat/memoryPersistence.ts`.
 
 3. [ ] Add `POST /flows/:flowName/run` route:
    - Documentation to read (repeat):
@@ -943,6 +981,9 @@ Extend the flow runtime with nested loop support and `break` steps that evaluate
    - Story requirements to repeat here so they are not missed:
      - Nested loops must be supported via a loop stack.
      - `break` exits only the nearest loop.
+   - Code landmarks (repeat):
+     - Initial flow execution loop in `server/src/flows/service.ts` (created in Task 5).
+     - Flow schema definitions in `server/src/flows/flowSchema.ts` for step typing.
 
 2. [ ] Add loop stack execution for `startLoop`:
    - Documentation to read (repeat):
@@ -1069,6 +1110,10 @@ Add support for `command` steps that run agent command macros (`commands/<comman
    - Story requirements to repeat here so they are not missed:
      - `command` steps must reuse agent command definitions (`commands/<commandName>.json`).
      - Invalid commands must fail with `400 { error: "invalid_request" }`.
+   - Code landmarks (repeat):
+     - `loadAgentCommandFile` + `loadAgentCommandSummary` in `server/src/agents/commandsLoader.ts`.
+     - `runAgentCommandRunner` and `isSafeCommandName` in `server/src/agents/commandsRunner.ts`.
+     - `AgentCommandFileSchema` in `server/src/agents/commandsSchema.ts`.
 
 2. [ ] Implement `command` step execution in flow runtime:
    - Documentation to read (repeat):
@@ -1177,6 +1222,11 @@ Persist flow run state (step path, loop stack, agent conversation mapping, and p
    - Story requirements to repeat here so they are not missed:
      - Resume state lives in `conversation.flags.flow` with `stepPath`, `loopStack`, and `agentConversations`.
      - Per-agent thread ids must be persisted alongside the agent mapping.
+   - Code landmarks (repeat):
+     - `Conversation` interface `flags` field in `server/src/mongo/conversation.ts`.
+     - `updateConversationMeta` + `updateConversationThreadId` in `server/src/mongo/repo.ts`.
+     - `threadId` lookup in `runAgentInstructionUnlocked` (`server/src/agents/service.ts`).
+     - `updateMemoryConversationMeta` in `server/src/chat/memoryPersistence.ts`.
 
 2. [ ] Add `conversation.flags.flow` persistence shape:
    - Documentation to read (repeat):
@@ -1306,6 +1356,10 @@ Enable resume execution using `resumeStepPath` and stored `flags.flow` state. Th
      - Update per-agent `threadId` mapping after each step when Codex emits a new thread id.
      - Prefer the thread id from `turn_final`/`thread` events over the flow conversation `flags.threadId`.
      - When `shouldUseMemoryPersistence()` is true, update `memoryConversations` with the latest `flags.flow` values.
+   - Code landmarks (repeat):
+     - Flow run request parsing pattern in `server/src/routes/flowsRun.ts` (created in Task 5).
+     - `updateConversationMeta` usage in `server/src/mongo/repo.ts` for persisting `flags` updates.
+     - `memoryConversations` + `updateMemoryConversationMeta` in `server/src/chat/memoryPersistence.ts`.
 
 2. [ ] Integration tests: resume behavior + invalid resume path:
    - Test type: Integration (`node:test`)
@@ -1404,6 +1458,10 @@ Attach flow step metadata to persisted turns (`turn.command`) so the client can 
      - `client/src/hooks/useChatStream.ts` (client rendering of command metadata)
    - Story requirements to repeat here so they are not missed:
      - Flow turns must emit `turn.command` metadata so UI can render step labels + agent identifiers.
+   - Code landmarks (repeat):
+     - `TurnCommandMetadata` in `server/src/mongo/turn.ts`.
+     - `parseCommandMetadata` in `server/src/chat/interfaces/ChatInterface.ts`.
+     - `InflightState.command` in `server/src/chat/inflightRegistry.ts` and snapshot builders in the same file.
 
 2. [ ] Add flow-specific command metadata shape:
    - Documentation to read (repeat):
@@ -1533,6 +1591,9 @@ Add client API helpers for listing flows and starting flow runs. This task expos
      - `client/src/api/agents.ts`
    - Story requirements to repeat here so they are not missed:
      - Flows API should mirror Agents API patterns for error handling and abort support.
+   - Code landmarks (repeat):
+     - `AgentApiError`, `throwAgentApiError`, and `parseAgentApiErrorResponse` in `client/src/api/agents.ts`.
+     - `runAgentInstruction` and `listAgentCommands` request/response shapes in the same file.
 
 2. [ ] Add flows API helpers:
    - Documentation to read (repeat):
@@ -1650,6 +1711,10 @@ Build the Flows UI: list flows, start/resume runs, and render flow conversations
      - `client/src/api/flows.ts`
    - Story requirements to repeat here so they are not missed:
      - Flows UI must reuse existing chat layout patterns and streaming hooks.
+   - Code landmarks (repeat):
+     - Sidebar layout + conversation selection in `client/src/pages/ChatPage.tsx` and `client/src/pages/AgentsPage.tsx`.
+     - `ConversationList` props for sidebar rendering in `client/src/components/chat/ConversationList.tsx`.
+     - Streaming hook usage in `client/src/hooks/useChatStream.ts` and WS handling in `client/src/hooks/useChatWs.ts`.
 
 2. [ ] Build Flows page UI:
    - Documentation to read (repeat):
@@ -1808,6 +1873,9 @@ Update client conversation list filtering so Chat and Agents exclude flow conver
      - `client/src/hooks/useConversations.ts`
    - Story requirements to repeat here so they are not missed:
      - Client summaries must carry `flowName` for filtering.
+   - Code landmarks (repeat):
+     - `ConversationSummary` type in `client/src/hooks/useConversations.ts`.
+     - WS sidebar event handling in `client/src/hooks/useChatWs.ts` (apply upserts + deletes).
    - Requirements:
      - Add `flowName?: string` to client summary shapes.
      - Preserve `flowName` on WS sidebar upserts.
@@ -1893,6 +1961,10 @@ Preserve the extended flow step metadata (`loopDepth`, `label`, `agentType`, `id
      - `client/src/test/support/mockChatWs.ts`
    - Story requirements to repeat here so they are not missed:
      - Client must preserve `loopDepth`, `label`, `agentType`, `identifier` for flow turns.
+   - Code landmarks (repeat):
+     - `normalizeCommandMetadata` and stream parsing in `client/src/hooks/useChatStream.ts`.
+     - Turn normalization in `client/src/hooks/useConversationTurns.ts`.
+     - WS fixtures in `client/src/test/support/mockChatWs.ts` (update sample payloads).
    - Requirements:
      - Extend command metadata types to include `loopDepth`, `label`, `agentType`, `identifier`.
      - Keep backward compatibility with existing command metadata tests.

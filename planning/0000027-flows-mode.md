@@ -35,6 +35,7 @@ Flows support nested loops via `startLoop`/`endLoop`, and a `break` step that as
 - `GET /flows` returns `{ flows: [{ name, description, disabled, error? }] }`, where `name` is the filename stem and `description` is the top-level flow description (empty string when missing).
 - `POST /flows/:flowName/run` returns `202 { status: "started", flowName, conversationId, inflightId, modelId }` and accepts optional `working_folder`, `conversationId`, and `resumeStepIndex` (zero-based) fields to resume a stopped flow.
 - Flow runs persist a merged flow conversation and stream events to the client using the same protocol as chat/agent runs.
+- Flow streaming uses the existing WebSocket event contract (no new event types).
 - Conversations gain an optional `flowName` field; flow runs set `flowName` to the flow name so they can be filtered separately from chat/agent conversations.
 - `GET /conversations` accepts `flowName` filtering (exact match), and `flowName=__none__` returns conversations without a flow name (mirrors `agentName` filtering).
 - Flow conversations default to the title `Flow: <name>` and appear as a single item in the sidebar.
@@ -120,6 +121,12 @@ None.
   - `agentType`, `identifier`
   - optional `label`
 - This metadata is persisted in `turns` and rendered in the flow bubble header.
+- `label` should default to the step `type` when omitted so the UI can display a fallback without extra contracts.
+- `commandName` remains only in the flow JSON for `command` steps and is not stored in `turn.command`.
+
+### Streaming events
+
+- Flow runs reuse the existing chat/agent WebSocket event types (`user_turn`, `assistant_delta`, `tool_event`, `turn_final`, etc.) with no new event shapes.
 
 ### Conversation state (resume)
 

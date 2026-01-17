@@ -294,8 +294,7 @@ Define the strict flow JSON schema and unit coverage for validation. This task e
 7. [ ] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] Manual check: run the flow schema unit test and confirm invalid inputs fail as expected.
-9. [ ] `npm run compose:down`
+8. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
@@ -389,8 +388,7 @@ Add flow discovery (scan `flows/` on each request) and expose `GET /flows` with 
 5. [ ] `npm run e2e` (allow up to 7 minutes)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual check: call `GET /flows` with valid + invalid fixtures and confirm `disabled/error` behavior.
-9. [ ] `npm run compose:down`
+8. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -463,8 +461,7 @@ Add `flowName` to conversation persistence and summary types so flow conversatio
 5. [ ] `npm run e2e` (allow up to 7 minutes)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual check: create a flow conversation and confirm WS sidebar payload includes `flowName`.
-9. [ ] `npm run compose:down`
+8. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -530,8 +527,7 @@ Add `flowName` filtering to `GET /conversations` (`flowName=<name>` and `flowNam
 5. [ ] `npm run e2e` (allow up to 7 minutes)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual check: `GET /conversations?flowName=__none__` returns only non-flow conversations.
-9. [ ] `npm run compose:down`
+8. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -638,8 +634,7 @@ Implement the flow run engine for linear `llm` steps, including `POST /flows/:fl
 5. [ ] `npm run e2e` (allow up to 7 minutes)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual check: trigger a basic flow and verify WS transcript events land on the flow conversation.
-9. [ ] `npm run compose:down`
+8. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -722,8 +717,7 @@ Extend the flow runtime with nested loop support and `break` steps that evaluate
 5. [ ] `npm run e2e` (allow up to 7 minutes)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual check: run a loop flow and confirm the break response stops the loop.
-9. [ ] `npm run compose:down`
+8. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -797,8 +791,7 @@ Add support for `command` steps that run agent command macros (`commands/<comman
 5. [ ] `npm run e2e` (allow up to 7 minutes)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual check: run a flow containing a command step and verify the output appears in the flow transcript.
-9. [ ] `npm run compose:down`
+8. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -872,8 +865,7 @@ Persist flow run state (step path, loop stack, agent conversation mapping, and p
 5. [ ] `npm run e2e` (allow up to 7 minutes)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual check: start a flow and confirm `flags.flow` is stored on the conversation document.
-9. [ ] `npm run compose:down`
+8. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -941,8 +933,7 @@ Enable resume execution using `resumeStepPath` and stored `flags.flow` state. Th
 5. [ ] `npm run e2e` (allow up to 7 minutes)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual check: stop a flow mid-run, resume with `resumeStepPath`, and confirm it continues.
-9. [ ] `npm run compose:down`
+8. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1032,8 +1023,7 @@ Attach flow step metadata to persisted turns (`turn.command`) so the client can 
 5. [ ] `npm run e2e` (allow up to 7 minutes)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual check: load a flow conversation and verify `command` metadata appears in the turn snapshot payload.
-9. [ ] `npm run compose:down`
+8. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1100,8 +1090,7 @@ Add client API helpers for listing flows and starting flow runs. This task expos
 5. [ ] `npm run e2e` (allow up to 7 minutes)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual check: call the new flows API helpers in a dev console and confirm successful responses.
-9. [ ] `npm run compose:down`
+8. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1191,8 +1180,7 @@ Build the Flows UI: list flows, start/resume runs, and render flow conversations
 5. [ ] `npm run e2e` (allow up to 7 minutes)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual check: open `/flows`, start a flow, and verify step headers render with label + agentType/identifier.
-9. [ ] `npm run compose:down`
+8. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1255,8 +1243,7 @@ Update client conversation list filtering so Chat and Agents exclude flow conver
 5. [ ] `npm run e2e` (allow up to 7 minutes)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual check: Chat/Agents sidebars no longer show flow conversations; Flows sidebar shows only the selected flow.
-9. [ ] `npm run compose:down`
+8. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1312,8 +1299,7 @@ Preserve the extended flow step metadata (`loopDepth`, `label`, `agentType`, `id
 5. [ ] `npm run e2e` (allow up to 7 minutes)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual check: flow step headers render extended metadata without breaking existing step lines.
-9. [ ] `npm run compose:down`
+8. [ ] `npm run compose:down`
 
 #### Implementation notes
 

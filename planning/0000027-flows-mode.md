@@ -875,8 +875,10 @@ Extend the flow runtime with nested loop support and `break` steps that evaluate
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
      - `design.md` (loop stack + break step semantics)
+     - `projectStructure.md` (add new flow loop test + fixture files)
    - Story requirements to repeat here so they are not missed:
      - Document loop stack behavior and `break` JSON response contract.
+     - Update the project structure for newly added test/fixture files.
 
 6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
    - Documentation to read (repeat):
@@ -970,8 +972,10 @@ Add support for `command` steps that run agent command macros (`commands/<comman
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
      - `design.md` (command step description + error handling)
+     - `projectStructure.md` (add new command flow test + fixture files)
    - Story requirements to repeat here so they are not missed:
      - Document command step behavior and error handling.
+     - Update the project structure for newly added test/fixture files.
 
 5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
    - Documentation to read (repeat):
@@ -1066,8 +1070,10 @@ Persist flow run state (step path, loop stack, agent conversation mapping, and p
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
      - `design.md` (resume state + `flags.flow` storage)
+     - `projectStructure.md` (add new flow flags test file)
    - Story requirements to repeat here so they are not missed:
      - Document the `flags.flow` structure and how it is used for resume.
+     - Update the project structure for newly added test files.
 
 5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
    - Documentation to read (repeat):
@@ -1159,8 +1165,10 @@ Enable resume execution using `resumeStepPath` and stored `flags.flow` state. Th
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
      - `design.md` (resume execution notes)
+     - `projectStructure.md` (add new resume test file)
    - Story requirements to repeat here so they are not missed:
      - Document resume path validation and `agent_mismatch` error behavior.
+     - Update the project structure for newly added test files.
 
 4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
    - Documentation to read (repeat):
@@ -1283,8 +1291,10 @@ Attach flow step metadata to persisted turns (`turn.command`) so the client can 
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
      - `design.md` (flow turn metadata contract)
+     - `projectStructure.md` (add new flow metadata test file)
    - Story requirements to repeat here so they are not missed:
      - Document the `turn.command` metadata shape used by flows.
+     - Update the project structure for newly added test files.
 
 7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
    - Documentation to read (repeat):

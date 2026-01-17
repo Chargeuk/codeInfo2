@@ -447,6 +447,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 - server/src/test/unit/chat-codex-workingDirectoryOverride.test.ts — ensures ChatInterfaceCodex honors per-call workingDirectory overrides
 - server/src/test/unit/conversations-router-agent-filter.test.ts — Supertest coverage for `/conversations?agentName=...` request forwarding
 - server/src/test/integration/conversations.bulk.test.ts — Supertest coverage for bulk conversation endpoints (archive/restore/delete + validation/conflicts)
+- server/src/test/integration/conversations.flowname.test.ts — Supertest coverage for flowName field in conversation listings
 - server/src/mongo/events.ts — in-process conversation upsert/delete event bus (used for WS sidebar fan-out)
 - server/src/ws/types.ts — WebSocket v1 protocol envelope/types + inbound message parser
 - server/src/ws/registry.ts — in-memory subscription registry (sidebar + per-conversation)

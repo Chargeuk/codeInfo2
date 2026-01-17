@@ -6,6 +6,7 @@ export type ConversationEventSummary = {
   model: string;
   title: string;
   agentName?: string;
+  flowName?: string;
   source: string;
   lastMessageAt: Date;
   archived: boolean;

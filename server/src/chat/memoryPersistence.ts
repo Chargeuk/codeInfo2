@@ -28,7 +28,9 @@ export const getMemoryTurns = (conversationId: string): Turn[] => [
 
 export const updateMemoryConversationMeta = (
   conversationId: string,
-  patch: Partial<Pick<Conversation, 'lastMessageAt' | 'model' | 'flags'>>,
+  patch: Partial<
+    Pick<Conversation, 'lastMessageAt' | 'model' | 'flags' | 'flowName'>
+  >,
 ): void => {
   const existing = memoryConversations.get(conversationId);
   if (!existing) return;

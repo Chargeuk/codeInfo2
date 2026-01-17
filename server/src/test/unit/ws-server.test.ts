@@ -136,6 +136,7 @@ test('WS accepts connection on /ws and processes JSON message (happy path)', asy
       provider: 'lmstudio',
       model: 'model',
       title: 'Title',
+      flowName: 'flow-alpha',
       source: 'REST',
       lastMessageAt: new Date('2025-01-01T00:00:00.000Z'),
       archived: false,
@@ -152,6 +153,10 @@ test('WS accepts connection on /ws and processes JSON message (happy path)', asy
     assert.equal(
       (event.conversation as Record<string, unknown>).conversationId,
       'c-1',
+    );
+    assert.equal(
+      (event.conversation as Record<string, unknown>).flowName,
+      'flow-alpha',
     );
   } finally {
     ws.close();

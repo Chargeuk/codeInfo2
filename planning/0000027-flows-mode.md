@@ -208,7 +208,7 @@ These instructions will be followed during implementation.
 ### 1. Server: Flow schema
 
 - Task Status: **__done__**
-- Git Commits: **__to_do__**
+- Git Commits: f0e76ea, a843fae
 
 #### Overview
 

@@ -1024,7 +1024,7 @@ Implement the flow run engine for linear `llm` steps, including `POST /flows/:fl
 ### 6. Server: Loop + break step support
 
 - Task Status: **__done__**
-- Git Commits: **__to_do__**
+- Git Commits: 9253545, d10dc1a
 
 #### Overview
 

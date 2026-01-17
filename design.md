@@ -26,6 +26,18 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - `validateChatRequest` applies Codex env defaults when request flags are missing, surfaces env warnings on the response payload, and logs `[codex-validate] applied env defaults` with the defaulted flag list.
 - `ChatInterfaceCodex` builds thread options from validated flags without extra fallback defaults, leaving missing values undefined so Codex config/env defaults apply, and logs `[codex-thread-options] prepared` with `undefinedFlags`.
 
+## Flows (schema)
+
+- Flow definitions live under `flows/<flowName>.json` and are validated with a strict Zod schema before use.
+- Top-level shape: `{ description?: string, steps: FlowStep[] }` with optional `label` fields for UI display.
+- Supported step types:
+  - `startLoop`: `{ type, label?, steps: FlowStep[] }` (steps must be non-empty).
+  - `llm`: `{ type, label?, agentType, identifier, messages: { role: 'user', content: string[] }[] }`.
+  - `break`: `{ type, label?, agentType, identifier, question, breakOn: 'yes' | 'no' }`.
+  - `command`: `{ type, label?, agentType, identifier, commandName }`.
+- All objects are `.strict()` and use trimmed non-empty strings; unknown keys or empty/whitespace-only values fail validation.
+- `/flows` listings (added later in the story) surface invalid JSON/schema as `disabled: true` entries with error text.
+
 ## Server testing & Docker
 
 - Cucumber test under `server/src/test` validates `/health` (run with server running on 5010): `npm run test --workspace server`.

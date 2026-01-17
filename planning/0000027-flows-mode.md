@@ -207,7 +207,7 @@ These instructions will be followed during implementation.
 
 ### 1. Server: Flow schema
 
-- Task Status: **__in_progress__**
+- Task Status: **__done__**
 - Git Commits: **__to_do__**
 
 #### Overview
@@ -227,7 +227,7 @@ Define the strict flow JSON schema and unit coverage for validation. This task e
 
 #### Subtasks
 
-1. [ ] Review existing agent command schema patterns to mirror behavior:
+1. [x] Review existing agent command schema patterns to mirror behavior:
    - Documentation to read (repeat):
      - Zod schema validation: Context7 `/colinhacks/zod`
      - JSON parsing errors: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/parse
@@ -244,8 +244,12 @@ Define the strict flow JSON schema and unit coverage for validation. This task e
    - Code landmarks (repeat):
      - `trimmedNonEmptyString`, `AgentCommandMessageItemSchema`, and `parseAgentCommandFile` in `server/src/agents/commandsSchema.ts`.
      - `loadAgentCommandSummary` and `INVALID_DESCRIPTION` handling in `server/src/agents/commandsLoader.ts`.
+   - Notes:
+     - `parseAgentCommandFile` returns `{ ok: false }` on JSON parse or schema failure.
+     - `trimmedNonEmptyString` + `.strict()` enforce trimming and unknown-key rejection.
+     - `loadAgentCommandSummary` surfaces invalid JSON/schema as `disabled: true` with `Invalid command file`.
 
-2. [ ] Add a strict flow schema module for JSON validation:
+2. [x] Add a strict flow schema module for JSON validation:
    - Documentation to read (repeat):
      - Zod schema validation: Context7 `/colinhacks/zod`
      - JSON parsing errors: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/parse
@@ -269,7 +273,7 @@ Define the strict flow JSON schema and unit coverage for validation. This task e
    - Logging requirement (repeat):
      - Emit `flows.schema.loaded` (info) once when the flow schema module is loaded; include `{ module: 'flows' }` in the context.
 
-3. [ ] Unit tests: flow schema validation
+3. [x] Unit tests: flow schema validation
    - Test type: Unit (`node:test`)
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
@@ -291,7 +295,7 @@ Define the strict flow JSON schema and unit coverage for validation. This task e
      - Use inline JSON strings (no file IO) and mirror the `parseAgentCommandFile` calling pattern.
      - Include at least one valid flow and multiple invalid variants (unknown keys, empty `steps`, missing `agentType`).
 
-4. [ ] Documentation update: `design.md` (flow schema + `/flows` overview)
+4. [x] Documentation update: `design.md` (flow schema + `/flows` overview)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
      - Mermaid docs (diagram syntax for design.md): Context7 `/mermaid-js/mermaid`
@@ -302,7 +306,7 @@ Define the strict flow JSON schema and unit coverage for validation. This task e
    - Purpose:
      - Keep architecture notes aligned with the new flow schema.
 
-5. [ ] Documentation update: `projectStructure.md` (new flow schema files)
+5. [x] Documentation update: `projectStructure.md` (new flow schema files)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -312,40 +316,58 @@ Define the strict flow JSON schema and unit coverage for validation. This task e
    - Purpose:
      - Keep the repo tree accurate after new files are added.
 
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+6. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, then open the Logs page and confirm a `flows.schema.loaded` log entry appears (expect exactly one entry after server start); verify no errors appear in the browser debug console.
-9. [ ] `npm run compose:down`
+8. [x] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, then open the Logs page and confirm a `flows.schema.loaded` log entry appears (expect exactly one entry after server start); verify no errors appear in the browser debug console.
+9. [x] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
 #### Implementation notes
 
-- Details about the implementation. Include what went to plan and what did not.
-- Essential that any decisions that got made during the implementation are documented here.
+- Reviewed agent command schema patterns to mirror strict parsing, trim behavior, and invalid-json handling.
+- Confirmed invalid command files surface as disabled entries with the fixed Invalid command file description.
+- Added `server/src/flows/flowSchema.ts` with strict Zod schemas, recursive `startLoop` steps, and a `parseFlowFile` helper that mirrors agent command parsing.
+- Logged `flows.schema.loaded` once on module load via the shared log store.
+- Added unit coverage in `server/src/test/unit/flows-schema.test.ts` for valid flows, strict schema errors, and trimming rules.
+- Documented the flow schema and step types in `design.md`, including strict/trim behavior and the `/flows` listing note.
+- Updated `projectStructure.md` to include the new flow schema module and unit test in the server tree.
+- Ran `npm run lint --workspaces`, fixed lint errors (unused Codex SDK type imports; recursion schema const), and reran lint with existing import-order warnings unchanged.
+- Ran Prettier `format` and confirmed `format:check` passes after formatting the new flow files.
+- Fixed TypeScript build errors by casting flow step schemas as discriminated-union options and keeping manual flow types to avoid recursive inference issues.
+- `npm run build --workspace server` now succeeds.
+- `npm run build --workspace client` succeeds (Vite emits only chunk-size warnings).
+- `npm run test --workspace server` timed out at 120s on first run; reran with longer timeout and all unit/integration tests passed.
+- `npm run test --workspace client` passed (existing console warnings from Markdown/streaming logs remain).
+- `npm run e2e` completed successfully (36 Playwright specs passed).
+- `npm run compose:build` succeeded (same client chunk-size warnings as earlier).
+- `npm run compose:up` started the stack successfully (server/client healthy).
+- Manual Playwright-MCP check confirmed a single `flows.schema.loaded` entry on the Logs page after rebuilding/restarting the stack; no console errors after reload (initial stream error occurred during container restart).
+- `npm run compose:down` stopped the stack cleanly.
+- Added a side-effect import in `server/src/index.ts` to ensure the flow schema module loads and emits its log on server startup; rebuilt/restarted compose afterward.
 
 ---
 

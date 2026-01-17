@@ -1,6 +1,4 @@
 import type { CodexDefaults as SharedCodexDefaults } from '@codeinfo2/common';
-import type { ApprovalMode, SandboxMode } from '@openai/codex-sdk';
-
 import { baseLogger } from '../logger.js';
 import {
   approvalPolicies,

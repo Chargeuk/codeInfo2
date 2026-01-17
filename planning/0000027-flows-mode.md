@@ -498,8 +498,10 @@ Add `flowName` to conversation persistence and summary types so flow conversatio
    - Files to read:
      - `server/src/mongo/conversation.ts`
      - `server/src/mongo/repo.ts`
+     - `server/src/mongo/events.ts`
      - `server/src/ws/sidebar.ts`
      - `server/src/ws/types.ts`
+     - `server/src/chat/memoryPersistence.ts`
    - Story requirements to repeat here so they are not missed:
      - Conversations gain optional `flowName?: string`.
      - `flowName` must be included in conversation summaries + WS sidebar payloads.
@@ -511,16 +513,21 @@ Add `flowName` to conversation persistence and summary types so flow conversatio
    - Files to edit:
      - `server/src/mongo/conversation.ts`
      - `server/src/mongo/repo.ts`
+     - `server/src/mongo/events.ts`
      - `server/src/ws/types.ts`
      - `server/src/ws/sidebar.ts`
+     - `server/src/chat/memoryPersistence.ts`
    - Story requirements to repeat here so they are not missed:
      - Flow runs must persist `flowName` so they can be filtered later.
      - `flowName` must appear in WS sidebar summaries for live updates.
+     - Memory persistence must retain `flowName` when Mongo is unavailable.
    - Requirements:
      - `flowName?: string` optional field on conversations.
      - Include `flowName` in `ConversationSummary` and WS sidebar summaries.
      - Ensure missing `flowName` is omitted (not `null`).
      - Ensure new flow conversations can set `flowName` at creation time via `createConversation` inputs.
+     - Update conversation event summaries to include `flowName` for WS upserts.
+     - Update memory persistence helpers to keep `flowName` on in-memory conversations.
 
 3. [ ] Documentation update: `design.md` (flowName field)
    - Documentation to read (repeat):
@@ -614,6 +621,7 @@ Add `flowName` filtering to `GET /conversations` (`flowName=<name>` and `flowNam
      - `server/src/test/integration/conversations.list.test.ts`
    - Description:
      - Exercise `GET /conversations` with `flowName=<name>` and `flowName=__none__`.
+     - Assert the returned items include the `flowName` field when set.
    - Story requirements to repeat here so they are not missed:
      - Tests must cover `flowName=<name>` and `flowName=__none__`.
    - Purpose:
@@ -730,6 +738,7 @@ Implement the flow run engine for linear `llm` steps, including `POST /flows/:fl
      - Persist turns to the **flow** conversation only.
      - Reuse per-agent thread ids (`agentType` + `identifier` mapping) when available.
      - Validate `working_folder` with shared resolver and surface the same error codes as agent runs.
+     - When memory persistence is active, flow conversations/turns must still be recorded.
    - Requirements:
      - Load flow definition on each run (no caching).
      - Create flow conversation when missing; set `flowName` and `title`.
@@ -737,6 +746,7 @@ Implement the flow run engine for linear `llm` steps, including `POST /flows/:fl
      - Maintain an in-memory `agentConversations` map keyed by `${agentType}:${identifier}` for step reuse (persist later).
      - Use existing WS streaming bridge to emit transcript events to the flow conversation.
      - Persist user/assistant turns to the flow conversation (do not persist step turns into the agent-mapping conversations).
+     - Run the agent chat interface with `skipPersistence: true` against the agent conversation id, then manually persist turns to the flow conversation.
      - Convert each `messages[]` entry to a single instruction string (join `content` with `\n`).
      - Use agent config (`codexHome`, `useConfigDefaults`, `systemPrompt`) like `runAgentInstructionUnlocked`.
      - When a per-agent thread id exists, pass it via `threadId` so the same Codex thread continues.
@@ -745,6 +755,7 @@ Implement the flow run engine for linear `llm` steps, including `POST /flows/:fl
      - Propagate the flow inflight AbortSignal into each step so Stop cancels the active step.
      - Validate `working_folder` via the shared resolver and surface `WORKING_FOLDER_INVALID/NOT_FOUND` consistently.
      - Reuse `resolveWorkingFolderWorkingDirectory` and `tryAcquireConversationLock`/`releaseConversationLock` from the agents layer.
+     - If `shouldUseMemoryPersistence()` is true, create/update `memoryConversations` with `flowName` and persist turns via `recordMemoryTurn`/`updateMemoryConversationMeta`.
 
 3. [ ] Add `POST /flows/:flowName/run` route:
    - Documentation to read (repeat):
@@ -1120,16 +1131,20 @@ Persist flow run state (step path, loop stack, agent conversation mapping, and p
    - Files to edit:
      - `server/src/mongo/conversation.ts`
      - `server/src/mongo/repo.ts`
+     - `server/src/chat/memoryPersistence.ts`
    - Story requirements to repeat here so they are not missed:
      - Store `stepPath`, `loopStack`, and `agentConversations` map.
      - Store per-agent `threadId` values keyed by `${agentType}:${identifier}`.
      - Keep flags optional/backwards compatible.
+     - Memory persistence must retain `flags.flow` updates.
+     - Agent conversation ids are used only for thread continuity; turns still persist to the flow conversation.
    - Requirements:
      - Store `stepPath`, `loopStack`, and `agentConversations` map.
      - Ensure flags remain optional and backward compatible.
      - Store per-agent `threadId` values keyed by `${agentType}:${identifier}` alongside `agentConversations`.
      - On run start, hydrate the in-memory agent map from `flags.flow` when present.
      - When a new agent mapping is needed, create a companion agent conversation (`agentName` set, title derived from flow + identifier) so thread ids can be persisted safely.
+     - When using memory persistence, update `memoryConversations` with `flags.flow` via `updateMemoryConversationMeta`.
 
 3. [ ] Unit tests: flow flags persistence
    - Test type: Unit (`node:test`)
@@ -1226,6 +1241,7 @@ Enable resume execution using `resumeStepPath` and stored `flags.flow` state. Th
      - Invalid indices must return `400 { error: "invalid_request" }`.
      - Agent mismatch returns `400 { error: "agent_mismatch" }`.
      - Persist step progress on stop/cancel for later resume.
+     - Resume state updates must work with memory persistence when Mongo is unavailable.
    - Requirements:
      - Accept `resumeStepPath` (array of indices) in the run request.
      - Validate every index and return `400 invalid_request` on mismatch.
@@ -1235,6 +1251,7 @@ Enable resume execution using `resumeStepPath` and stored `flags.flow` state. Th
      - On stop/cancel, persist the last completed `stepPath` for resume.
      - Update per-agent `threadId` mapping after each step when Codex emits a new thread id.
      - Prefer the thread id from `turn_final`/`thread` events over the flow conversation `flags.threadId`.
+     - When `shouldUseMemoryPersistence()` is true, update `memoryConversations` with the latest `flags.flow` values.
 
 2. [ ] Integration tests: resume behavior + invalid resume path:
    - Test type: Integration (`node:test`)

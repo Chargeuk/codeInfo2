@@ -38,6 +38,13 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - All objects are `.strict()` and use trimmed non-empty strings; unknown keys or empty/whitespace-only values fail validation.
 - `/flows` listings (added later in the story) surface invalid JSON/schema as `disabled: true` entries with error text.
 
+## Flows (discovery + list)
+
+- `GET /flows` scans the `flows/` directory on every request (hot-reload) and returns `{ flows: FlowSummary[] }`.
+- Non-JSON files are ignored; missing `flows/` returns an empty list.
+- Invalid JSON or schema still appears as `disabled: true` with error text.
+- Each scan logs `flows.discovery.scan` with `{ totalFlows, disabledFlows }`.
+
 ## Server testing & Docker
 
 - Cucumber test under `server/src/test` validates `/health` (run with server running on 5010): `npm run test --workspace server`.

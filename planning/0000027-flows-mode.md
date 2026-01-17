@@ -373,7 +373,7 @@ Define the strict flow JSON schema and unit coverage for validation. This task e
 
 ### 2. Server: Flow discovery + list endpoint
 
-- Task Status: **__in_progress__**
+- Task Status: **__done__**
 - Git Commits: **__to_do__**
 
 #### Overview
@@ -394,7 +394,7 @@ Add flow discovery (scan `flows/` on each request) and expose `GET /flows` with 
 
 #### Subtasks
 
-1. [ ] Review existing discovery + loader patterns to mirror behavior:
+1. [x] Review existing discovery + loader patterns to mirror behavior:
    - Documentation to read (repeat):
      - Node.js `fs/promises`: https://nodejs.org/api/fs.html
    - Files to read:
@@ -408,8 +408,11 @@ Add flow discovery (scan `flows/` on each request) and expose `GET /flows` with 
    - Code landmarks (repeat):
      - `loadAgentCommandSummary` in `server/src/agents/commandsLoader.ts` (returns `disabled: true` with `INVALID_DESCRIPTION`).
      - `walkDir` + `listGitTracked` fallback logic in `server/src/ingest/discovery.ts` for directory scanning patterns.
+   - Notes:
+     - Agent command loaders surface invalid JSON/schema as `disabled: true` with `Invalid command file`.
+     - `discoverFiles` uses `fs.readdir({ withFileTypes: true })` plus recursive `walkDir` for on-demand scanning patterns.
 
-2. [ ] Implement flow discovery with hot-reload scanning:
+2. [x] Implement flow discovery with hot-reload scanning:
    - Documentation to read (repeat):
      - JSON.parse error handling: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/JSON/parse
    - Files to edit:
@@ -434,7 +437,7 @@ Add flow discovery (scan `flows/` on each request) and expose `GET /flows` with 
    - Logging requirement (repeat):
      - Emit `flows.discovery.scan` (info) after each scan with `{ totalFlows, disabledFlows }` so listing requests can be verified.
 
-3. [ ] Add `GET /flows` route and register it:
+3. [x] Add `GET /flows` route and register it:
    - Documentation to read (repeat):
      - Express `res.json`: Context7 `/expressjs/express/v5.1.0`
    - Files to edit:
@@ -450,7 +453,7 @@ Add flow discovery (scan `flows/` on each request) and expose `GET /flows` with 
      - Mirror response shape and error handling style from `createAgentsCommandsRouter` in `server/src/routes/agentsCommands.ts`.
      - Follow route registration patterns in `server/src/index.ts` for existing routers.
 
-4. [ ] Integration tests: flow discovery + list
+4. [x] Integration tests: flow discovery + list
    - Test type: Integration (`node:test`)
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
@@ -466,7 +469,7 @@ Add flow discovery (scan `flows/` on each request) and expose `GET /flows` with 
    - Purpose:
      - Validate non-JSON ignore, missing folder handling, and `disabled` error text.
 
-5. [ ] Documentation update: `design.md` (flow discovery + `/flows` listing)
+5. [x] Documentation update: `design.md` (flow discovery + `/flows` listing)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
      - Mermaid docs (diagram syntax for design.md): Context7 `/mermaid-js/mermaid`
@@ -477,7 +480,7 @@ Add flow discovery (scan `flows/` on each request) and expose `GET /flows` with 
    - Purpose:
      - Keep discovery behavior documented for operators and maintainers.
 
-6. [ ] Documentation update: `projectStructure.md` (flow discovery files)
+6. [x] Documentation update: `projectStructure.md` (flow discovery files)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -487,24 +490,38 @@ Add flow discovery (scan `flows/` on each request) and expose `GET /flows` with 
    - Purpose:
      - Keep the repo tree accurate after new discovery files are added.
 
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+7. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, run `fetch('http://host.docker.internal:5010/flows')` in devtools, verify the response JSON has a `flows` array, then open Logs and confirm a `flows.discovery.scan` entry appears with `totalFlows` ≥ 0; confirm no errors appear in the browser debug console.
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 7 minutes)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, run `fetch('http://host.docker.internal:5010/flows')` in devtools, verify the response JSON has a `flows` array, then open Logs and confirm a `flows.discovery.scan` entry appears with `totalFlows` ≥ 0; confirm no errors appear in the browser debug console.
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- Details about the implementation. Include what went to plan and what did not.
-- Essential that any decisions that got made during the implementation are documented here.
+- Reviewed agent command loaders and ingest discovery patterns for invalid JSON handling and on-demand directory scanning.
+- Added `server/src/flows/discovery.ts` to scan the `flows/` folder per request, return summaries with disabled/error states, and emit `flows.discovery.scan` logging.
+- Added `server/src/routes/flows.ts` and registered it in `server/src/index.ts` for `GET /flows` listing.
+- Added `server/src/test/integration/flows.list.test.ts` and fixtures under `server/src/test/fixtures/flows/` to verify listing, invalid JSON/schema errors, and non-JSON ignore behavior.
+- Documented flow discovery and `/flows` listing behavior in `design.md`.
+- Updated `projectStructure.md` for new flow discovery files, route, and fixtures/tests.
+- Ran `npm run lint --workspaces` (existing import-order warnings only) and reran Prettier after ignoring the invalid JSON fixture for format checks.
+- Fixed a TS build error in `server/src/flows/discovery.ts` by typing Dirent from `node:fs` and confirmed the server build passes.
+- `npm run build --workspace client` succeeded (same chunk-size warnings as prior builds).
+- `npm run test --workspace server` initially failed due to the invalid-schema fixture; updated the fixture and cleaned temporary test directories before rerunning successfully.
+- `npm run test --workspace client` passed (existing console warnings remain).
+- `npm run e2e` timed out at 7 minutes on the first attempt; ran `npm run e2e:down` to clean up and reran successfully (36 specs passed).
+- `npm run compose:build` completed successfully.
+- `npm run compose:up` started the stack successfully (server/client healthy).
+- Manual Playwright-MCP check confirmed `/flows` returns an empty `flows` array in this environment and logs `flows.discovery.scan` with `totalFlows: 0`; browser console remained clean.
+- `npm run compose:down` stopped the stack cleanly.
 
 ---
 

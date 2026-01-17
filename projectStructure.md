@@ -235,6 +235,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚     â”‚  â”œâ”€ ingestReembed.ts — POST /ingest/reembed/:root re-runs ingest for a stored root
 â”‚     â”‚  â”œâ”€ ingestRemove.ts — POST /ingest/remove/:root purge vectors/metadata and unlock if empty
 â”‚     â”‚  â”œâ”€ logs.ts â€” log ingestion, history, and SSE streaming routes
+â”‚     â”‚  â”œâ”€ flows.ts — GET /flows list endpoint
 â”‚     â”‚  â”œâ”€ toolsIngestedRepos.ts â€” GET /tools/ingested-repos repo list for agent tools
 â”‚     â”‚  â”œâ”€ toolsVectorSearch.ts â€” POST /tools/vector-search chunk search with optional repo filter
 â”‚     â”‚  â””â”€ lmstudio.ts â€” LM Studio proxy route
@@ -267,6 +268,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚     â”‚  â””â”€ tools.ts — Agents tool registry wiring
 â”‚     â”œâ”€ flows/
 â”‚     â”‚  â””â”€ flowSchema.ts — strict Zod schema for flow JSON validation
+â”‚     â”‚  â””â”€ discovery.ts — flow discovery and summary listing (hot reload)
 â”‚     â”œâ”€ test/unit/chat-assistant-suppress.test.ts â€” unit coverage for assistant-role tool payload suppression helpers
 â”‚     â”œâ”€ test/unit/codexEnvDefaults.test.ts â€” unit coverage for Codex env defaults parsing/warnings
 â”‚     â”œâ”€ ingest/ â€” ingest helpers (discovery, chunking, hashing, config)
@@ -357,6 +359,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚           â”œâ”€ mcp-unsupported-provider.test.ts — MCP tools/call unsupported provider error path
 â”‚           â””â”€ tools-vector-search.test.ts â€” supertest coverage for /tools/vector-search
 â”‚        â”œâ”€ integration/
+â”‚        |  â””â”€ flows.list.test.ts â€” integration coverage for GET /flows listing
 â”‚        |  â”œâ”€ chat-tools-wire.test.ts â€” chat route wiring (POST /chat 202 + WS bridge) with mocked LM Studio tools
 â”‚        |  â”œâ”€ chat-vectorsearch-locked-model.test.ts â€” chat run error/success flows when vector search lock/embedding availability changes
 â”‚        |  â”œâ”€ chat-codex.test.ts — Codex chat run flow, thread reuse, and availability gating

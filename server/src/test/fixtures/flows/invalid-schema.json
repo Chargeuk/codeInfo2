@@ -1,0 +1,10 @@
+{
+  "description": "Invalid",
+  "steps": [
+    {
+      "type": "llm",
+      "identifier": "main",
+      "messages": [{ "role": "user", "content": ["Hello"] }]
+    }
+  ]
+}

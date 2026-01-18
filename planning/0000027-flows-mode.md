@@ -1705,7 +1705,7 @@ Add client API helpers for listing flows and starting flow runs. This task expos
 
 #### Subtasks
 
-1. [ ] Review existing Agents API helpers:
+1. [x] Review existing Agents API helpers:
    - Documentation to read (repeat):
      - Fetch API + AbortController: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
    - Files to read:
@@ -1716,7 +1716,7 @@ Add client API helpers for listing flows and starting flow runs. This task expos
      - `AgentApiError`, `throwAgentApiError`, and `parseAgentApiErrorResponse` in `client/src/api/agents.ts`.
      - `runAgentInstruction` and `listAgentCommands` request/response shapes in the same file.
 
-2. [ ] Add flows API helpers:
+2. [x] Add flows API helpers:
    - Documentation to read (repeat):
      - Fetch API + AbortController: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
    - Files to edit:
@@ -1733,7 +1733,7 @@ Add client API helpers for listing flows and starting flow runs. This task expos
    - Logging requirement (repeat):
      - Use `createLogger('client-flows')` to emit `flows.api.list` and `flows.api.run` (info) with `{ flowName }` where applicable.
 
-3. [ ] Unit tests: flows API helpers
+3. [x] Unit tests: flows API helpers
    - Test type: RTL/Jest
    - Documentation to read (repeat):
      - Jest docs: Context7 `/jestjs/jest`
@@ -1746,7 +1746,7 @@ Add client API helpers for listing flows and starting flow runs. This task expos
    - Purpose:
      - Validate request URLs and error handling for `listFlows` and `runFlow`.
 
-4. [ ] Unit tests: flows API run payload fields
+4. [x] Unit tests: flows API run payload fields
    - Test type: RTL/Jest
    - Documentation to read (repeat):
      - Jest docs: Context7 `/jestjs/jest`
@@ -1760,7 +1760,7 @@ Add client API helpers for listing flows and starting flow runs. This task expos
    - Purpose:
      - Confirm `runFlow` serializes optional payload fields correctly.
 
-5. [ ] Documentation update: `projectStructure.md` (flows API helper)
+5. [x] Documentation update: `projectStructure.md` (flows API helper)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -1770,24 +1770,38 @@ Add client API helpers for listing flows and starting flow runs. This task expos
    - Purpose:
      - Keep file map accurate after API helper additions.
 
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+6. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, call `listFlows()` and `runFlow()` from the Flows UI (or console), then open Logs and confirm `flows.api.list` and `flows.api.run` entries appear with the expected `flowName`; confirm no errors appear in the browser debug console.
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 7 minutes)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, call `listFlows()` and `runFlow()` from the Flows UI (or console), then open Logs and confirm `flows.api.list` and `flows.api.run` entries appear with the expected `flowName`; confirm no errors appear in the browser debug console.
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- Details about the implementation. Include what went to plan and what did not.
-- Essential that any decisions that got made during the implementation are documented here.
+- Reviewed `client/src/api/agents.ts` to mirror fetch/error handling patterns and confirmed helper shapes for list/run endpoints.
+- Added `client/src/api/flows.ts` with list/run helpers, flow-specific errors, and `client-flows` logging for list/run requests.
+- Added `client/src/test/flowsApi.test.ts` to cover list/run request shapes, parsed responses, and structured error handling.
+- Added `client/src/test/flowsApi.run.payload.test.ts` to assert optional run payload fields serialize correctly.
+- Updated `projectStructure.md` to include the new flows API helper and test files.
+- `npm run lint --workspaces` reported existing import-order warnings; reran `npm run format --workspaces` to fix a Prettier mismatch and confirmed `npm run format:check --workspaces` passes.
+- Adjusted flows API tests to set `process.env.MODE = 'test'` so client log forwarding does not consume mocked fetch calls.
+- `npm run build --workspace server` completed successfully.
+- `npm run build --workspace client` completed successfully (Vite chunk-size warning only).
+- `npm run test --workspace server` succeeded (unit + integration + cucumber suites).
+- `npm run test --workspace client` succeeded (Jest suite; expected console logs).
+- `npm run e2e` succeeded (33 passed, 3 skipped).
+- `npm run compose:build` completed successfully.
+- `npm run compose:up` started the stack successfully (services healthy).
+- Manual Playwright check: created `manual-api` flow, invoked `/flows` + `/flows/manual-api/run` from the console, and confirmed `flows.api.list` + `flows.api.run` entries (flowName `manual-api`) with no browser console errors.
+- `npm run compose:down` stopped the stack cleanly after manual verification.
 
 ---
 

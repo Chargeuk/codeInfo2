@@ -43,7 +43,8 @@ const parseCommandMetadata = (
     const identifier =
       typeof value.identifier === 'string' ? value.identifier.trim() : '';
     const label = typeof value.label === 'string' ? value.label.trim() : 'flow';
-    if (loopDepth === undefined || !Number.isFinite(loopDepth)) return undefined;
+    if (loopDepth === undefined || !Number.isFinite(loopDepth))
+      return undefined;
     if (!agentType.length || !identifier.length) return undefined;
     return {
       name: 'flow',

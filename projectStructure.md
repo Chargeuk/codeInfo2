@@ -83,6 +83,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 |     |- api/
 |     |  - agents.ts ? client wrapper for GET /agents and POST /agents/:agentName/run (AbortSignal supported)
 |     |  - baseUrl.ts ? runtime API base resolver (config/env/location)
+|     |  - flows.ts ? client wrapper for GET /flows and POST /flows/:flowName/run with structured errors + logging
 |     |- index.css ? minimal global styles (font smoothing, margin reset)
 |     |- main.tsx ? app entry with RouterProvider
 |     |- pages/
@@ -506,6 +507,8 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 - client/src/test/agentsApi.commandsList.test.ts — Agents API wrapper calls `GET /agents/:agentName/commands` and preserves disabled command entries
 - client/src/test/agentsApi.commandsRun.test.ts — Agents API wrapper calls `POST /agents/:agentName/commands/run` and omits optional fields when absent
 - client/src/test/agentsApi.errors.test.ts — Agents API wrapper throws structured errors exposing HTTP status + server error codes (e.g., `RUN_IN_PROGRESS`)
+- client/src/test/flowsApi.test.ts — Flows API wrapper list/run request shapes, parsed responses, and structured error coverage
+- client/src/test/flowsApi.run.payload.test.ts — Flows API wrapper includes optional run payload fields (`working_folder`, `resumeStepPath`) when set
 - client/src/test/agentsPage.commandsList.test.tsx — Agents page command dropdown refresh, disabled entries, labels, and description display
 - client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx — Agents page command execution refreshes conversation turns for rendering
 - client/src/test/agentsPage.commandsRun.conflict.test.tsx — Agents page surfaces RUN_IN_PROGRESS conflicts for both command execute and normal send

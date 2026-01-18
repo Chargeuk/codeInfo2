@@ -41,6 +41,7 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 ## Flows (discovery + list)
 
 - `GET /flows` scans the `flows/` directory on every request (hot-reload) and returns `{ flows: FlowSummary[] }`.
+- By default, `flows/` is resolved as a sibling to `CODEINFO_CODEX_AGENT_HOME` (so it sits alongside `codex_agents`); `FLOWS_DIR` can override this path.
 - Non-JSON files are ignored; missing `flows/` returns an empty list.
 - Invalid JSON or schema still appears as `disabled: true` with error text.
 - Each scan logs `flows.discovery.scan` with `{ totalFlows, disabledFlows }`.

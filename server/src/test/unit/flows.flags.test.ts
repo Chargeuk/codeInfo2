@@ -46,7 +46,7 @@ test('updateConversationFlowState persists flags.flow via $set', async () => {
       conversationId: 'flow-1',
       flow: {
         stepPath: [1, 2],
-        loopStack: [{ stepPath: [0], iteration: 2 }],
+        loopStack: [{ loopStepPath: [0], iteration: 2 }],
         agentConversations: { 'planning_agent:main': 'agent-conv-1' },
         agentThreads: { 'planning_agent:main': 'thread-1' },
       },
@@ -65,7 +65,7 @@ test('updateConversationFlowState persists flags.flow via $set', async () => {
     $set: {
       'flags.flow': {
         stepPath: [1, 2],
-        loopStack: [{ stepPath: [0], iteration: 2 }],
+        loopStack: [{ loopStepPath: [0], iteration: 2 }],
         agentConversations: { 'planning_agent:main': 'agent-conv-1' },
         agentThreads: { 'planning_agent:main': 'thread-1' },
       },

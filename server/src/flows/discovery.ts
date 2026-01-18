@@ -15,6 +15,14 @@ const INVALID_DESCRIPTION = 'Invalid flow file';
 
 const isJsonFile = (entry: string) => entry.toLowerCase().endsWith('.json');
 
+const resolveFlowsDir = (baseDir?: string): string => {
+  if (baseDir) return path.resolve(baseDir);
+  if (process.env.FLOWS_DIR) return path.resolve(process.env.FLOWS_DIR);
+  const agentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  if (agentsHome) return path.resolve(agentsHome, '..', 'flows');
+  return path.resolve('flows');
+};
+
 const buildSummary = (params: {
   name: string;
   parsed: ReturnType<typeof parseFlowFile> | null;
@@ -39,8 +47,7 @@ const buildSummary = (params: {
 export async function discoverFlows(params?: {
   baseDir?: string;
 }): Promise<FlowSummary[]> {
-  const flowsDir =
-    params?.baseDir ?? process.env.FLOWS_DIR ?? path.resolve('flows');
+  const flowsDir = resolveFlowsDir(params?.baseDir);
   let entries: Array<import('node:fs').Dirent>;
 
   try {

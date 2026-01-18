@@ -124,8 +124,10 @@ const parseFlowResumeState = (
     ? flow.loopStack
         .map((item) => {
           if (!isRecord(item)) return null;
+          const rawStepPath =
+            item.loopStepPath ?? (item.stepPath as unknown | undefined);
           return {
-            stepPath: normalizeNumberArray(item.stepPath),
+            loopStepPath: normalizeNumberArray(rawStepPath),
             iteration:
               typeof item.iteration === 'number' &&
               Number.isFinite(item.iteration)
@@ -133,7 +135,7 @@ const parseFlowResumeState = (
                 : 0,
           };
         })
-        .filter((item): item is { stepPath: number[]; iteration: number } =>
+        .filter((item): item is { loopStepPath: number[]; iteration: number } =>
           Boolean(item),
         )
     : [];
@@ -255,7 +257,12 @@ const ensureFlowAgentConversation = async (params: {
   });
 };
 
-const flowsDirForRun = () => process.env.FLOWS_DIR ?? path.resolve('flows');
+const flowsDirForRun = () => {
+  if (process.env.FLOWS_DIR) return path.resolve(process.env.FLOWS_DIR);
+  const agentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  if (agentsHome) return path.resolve(agentsHome, '..', 'flows');
+  return path.resolve('flows');
+};
 
 const loadFlowFile = async (flowName: string): Promise<FlowFile> => {
   if (!isSafeFlowName(flowName)) {
@@ -826,7 +833,7 @@ const buildFlowResumeState = (params: {
   return {
     stepPath: [...params.stepPath],
     loopStack: params.loopStack.map((frame) => ({
-      stepPath: [...frame.loopStepPath],
+      loopStepPath: [...frame.loopStepPath],
       iteration: frame.iteration,
     })),
     agentConversations,
@@ -1069,7 +1076,10 @@ async function runFlowUnlocked(params: {
   const resumeLoopIterations = new Map<string, number>();
   if (params.resumeState) {
     params.resumeState.loopStack.forEach((frame) => {
-      resumeLoopIterations.set(getStepPathKey(frame.stepPath), frame.iteration);
+      resumeLoopIterations.set(
+        getStepPathKey(frame.loopStepPath),
+        frame.iteration,
+      );
     });
   }
 

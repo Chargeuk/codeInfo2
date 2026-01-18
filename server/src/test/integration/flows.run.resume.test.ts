@@ -127,7 +127,7 @@ test('startFlowRun resumes after resumeStepPath', async () => {
     flags: {
       flow: {
         stepPath: [0],
-        loopStack: [],
+        loopStack: [{ loopStepPath: [0], iteration: 1 }],
         agentConversations: {},
         agentThreads: {},
       },

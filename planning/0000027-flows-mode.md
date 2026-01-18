@@ -2017,7 +2017,7 @@ Update client conversation list filtering so Chat and Agents exclude flow conver
 
 #### Subtasks
 
-1. [ ] Extend conversation summary + WS types for `flowName`:
+1. [x] Extend conversation summary + WS types for `flowName`:
    - Documentation to read (repeat):
      - TypeScript structural typing: https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - Files to edit:
@@ -2032,7 +2032,7 @@ Update client conversation list filtering so Chat and Agents exclude flow conver
      - Add `flowName?: string` to client summary shapes.
      - Preserve `flowName` on WS sidebar upserts.
 
-2. [ ] Update `useConversations` to accept `flowName` filter:
+2. [x] Update `useConversations` to accept `flowName` filter:
    - Documentation to read (repeat):
      - React state patterns: https://react.dev/reference/react/useState
    - Files to edit:
@@ -2048,7 +2048,7 @@ Update client conversation list filtering so Chat and Agents exclude flow conver
    - Logging requirement (repeat):
      - Use `createLogger('client-flows')` to emit `flows.filter.requested` (info) with `{ flowName }` whenever `useConversations` issues a request.
 
-3. [ ] Update/extend client tests for flow filtering:
+3. [x] Update/extend client tests for flow filtering:
    - Test type: RTL/Jest
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
@@ -2061,24 +2061,38 @@ Update client conversation list filtering so Chat and Agents exclude flow conver
    - Purpose:
      - Confirm `flowName=__none__` is included in Chat/Agents list requests.
 
-4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+4. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open Chat, Agents, and Flows pages at `http://host.docker.internal:5001`, then open Logs and confirm `flows.filter.requested` entries show `flowName: "__none__"` for Chat/Agents and `flowName: "<selected>"` for Flows; verify no errors appear in the browser debug console.
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 7 minutes)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check: open Chat, Agents, and Flows pages at `http://host.docker.internal:5001`, then open Logs and confirm `flows.filter.requested` entries show `flowName: "__none__"` for Chat/Agents and `flowName: "<selected>"` for Flows; verify no errors appear in the browser debug console.
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
 - Details about the implementation. Include what went to plan and what did not.
 - Essential that any decisions that got made during the implementation are documented here.
+- Added `flowName` to client conversation summaries and WS sidebar types, plus hook filtering support so flow conversations can be isolated.
+- Updated `useConversations` consumers so Chat/Agents request `flowName=__none__` and Flows requests the selected flow while logging `flows.filter.requested`.
+- Extended `useConversations` hook tests to cover the `flowName` query parameter.
+- Normalized flowName logging to emit `__all__` when no filter is provided and adjusted tests to ignore log fetches.
+- `npm run lint --workspaces` showed existing server import-order warnings; `npm run format:check --workspaces` required a Prettier pass after test tweaks.
+- `npm run build --workspace server` completed successfully.
+- `npm run build --workspace client` completed successfully (chunk-size warning only).
+- `npm run test --workspace server` completed successfully.
+- `npm run test --workspace client` completed successfully (Jest console warnings only).
+- `npm run e2e` completed successfully (36 passed).
+- `npm run compose:build` completed successfully.
+- `npm run compose:up` started the stack successfully.
+- Manual Playwright-MCP check: opened Chat/Agents/Flows, created a `filter-check` flow in `/app/server/flows`, and confirmed Logs show `flows.filter.requested` with `flowName: "__none__"` (Chat/Agents) and `flowName: "filter-check"` (Flows).
+- `npm run compose:down` stopped the stack cleanly after verification.
 
 ---
 

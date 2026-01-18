@@ -185,7 +185,7 @@ export default function FlowsPage() {
     bulkDelete,
     applyWsUpsert,
     applyWsDelete,
-  } = useConversations({ agentName: '__none__' });
+  } = useConversations({ flowName: selectedFlowName });
 
   const [activeConversationId, setActiveConversationId] = useState<
     string | undefined
@@ -219,17 +219,10 @@ export default function FlowsPage() {
   const selectedFlowDisabled = Boolean(selectedFlow?.disabled);
   const selectedFlowError = selectedFlow?.error;
 
-  const flowConversations = useMemo(() => {
-    const currentFlow = selectedFlowName.trim();
-    if (!currentFlow) return [];
-    return conversations.filter((conversation) => {
-      const flowName =
-        typeof (conversation as { flowName?: unknown }).flowName === 'string'
-          ? ((conversation as { flowName?: string }).flowName as string)
-          : undefined;
-      return flowName === currentFlow;
-    });
-  }, [conversations, selectedFlowName]);
+  const flowConversations = useMemo(
+    () => (selectedFlowName.trim() ? conversations : []),
+    [conversations, selectedFlowName],
+  );
 
   const selectedConversation = useMemo(
     () =>

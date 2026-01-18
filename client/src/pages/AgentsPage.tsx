@@ -455,7 +455,10 @@ export default function AgentsPage() {
     bulkDelete,
     applyWsUpsert,
     applyWsDelete,
-  } = useConversations({ agentName: effectiveAgentName });
+  } = useConversations({
+    agentName: effectiveAgentName,
+    flowName: '__none__',
+  });
 
   const turnsConversationId = persistenceUnavailable
     ? undefined

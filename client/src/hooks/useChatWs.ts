@@ -22,6 +22,7 @@ type WsSidebarConversationSummary = {
   lastMessageAt: string;
   archived: boolean;
   agentName?: string;
+  flowName?: string;
   flags?: Record<string, unknown>;
 };
 

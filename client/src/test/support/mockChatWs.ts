@@ -211,7 +211,15 @@ export function setupChatWsHarness(params: {
       assistantThink?: string;
       toolEvents?: unknown[];
       startedAt?: string;
-      command?: { name?: string; stepIndex?: number; totalSteps?: number };
+      command?: {
+        name?: string;
+        stepIndex?: number;
+        totalSteps?: number;
+        loopDepth?: number;
+        label?: string;
+        agentType?: string;
+        identifier?: string;
+      };
     }) => {
       emit({
         type: 'inflight_snapshot',

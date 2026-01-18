@@ -78,7 +78,15 @@ export type ChatMessage = {
   role: 'user' | 'assistant' | 'system';
   content: string;
   warnings?: string[];
-  command?: { name: string; stepIndex: number; totalSteps: number };
+  command?: {
+    name: string;
+    stepIndex: number;
+    totalSteps: number;
+    loopDepth?: number;
+    label?: string;
+    agentType?: string;
+    identifier?: string;
+  };
   kind?: 'error' | 'status';
   think?: string;
   thinkStreaming?: boolean;
@@ -146,11 +154,20 @@ const normalizeTiming = (
 
 const normalizeCommand = (
   command:
-    | { name?: string; stepIndex?: number; totalSteps?: number }
+    | {
+        name?: string;
+        stepIndex?: number;
+        totalSteps?: number;
+        loopDepth?: number;
+        label?: string;
+        agentType?: string;
+        identifier?: string;
+      }
     | undefined,
 ): ChatMessage['command'] | undefined => {
   if (!command) return undefined;
-  if (typeof command.name !== 'string' || command.name.trim().length === 0) {
+  const name = typeof command.name === 'string' ? command.name.trim() : '';
+  if (!name) {
     return undefined;
   }
   if (!isFiniteNumber(command.stepIndex) || command.stepIndex < 0) {
@@ -159,11 +176,29 @@ const normalizeCommand = (
   if (!isFiniteNumber(command.totalSteps) || command.totalSteps < 0) {
     return undefined;
   }
-  return {
-    name: command.name,
+  const normalized: ChatMessage['command'] = {
+    name,
     stepIndex: command.stepIndex,
     totalSteps: command.totalSteps,
   };
+  if (isFiniteNumber(command.loopDepth) && command.loopDepth >= 0) {
+    normalized.loopDepth = command.loopDepth;
+  }
+  const label = typeof command.label === 'string' ? command.label.trim() : '';
+  if (label) {
+    normalized.label = label;
+  }
+  const agentType =
+    typeof command.agentType === 'string' ? command.agentType.trim() : '';
+  if (agentType) {
+    normalized.agentType = agentType;
+  }
+  const identifier =
+    typeof command.identifier === 'string' ? command.identifier.trim() : '';
+  if (identifier) {
+    normalized.identifier = identifier;
+  }
+  return normalized;
 };
 
 const makeId = () =>
@@ -209,6 +244,7 @@ export function useChatStream(
   codexDefaults?: CodexDefaults,
 ) {
   const log = useRef(createLogger('client')).current;
+  const flowLog = useRef(createLogger('client-flows')).current;
   const logWithChannel = useCallback(
     (level: LogLevel, message: string, context: Record<string, unknown> = {}) =>
       log(level, message, {
@@ -791,6 +827,18 @@ export function useChatStream(
     [isStreaming, resetInflightState, status, updateMessages],
   );
 
+  const logFlowCommand = useCallback(
+    (command: ChatMessage['command'] | undefined) => {
+      if (!command || command.name !== 'flow') return;
+      if (!command.label) return;
+      flowLog('info', 'flows.metadata.normalized', {
+        stepIndex: command.stepIndex,
+        label: command.label,
+      });
+    },
+    [flowLog],
+  );
+
   const hydrateInflightSnapshot = useCallback(
     (historyConversationId: string, inflight: InflightSnapshot | null) => {
       if (!inflight) return;
@@ -812,6 +860,7 @@ export function useChatStream(
           ? inflight.startedAt
           : undefined;
       const normalizedCommand = normalizeCommand(inflight.command);
+      logFlowCommand(normalizedCommand);
 
       inflightIdRef.current = inflight.inflightId;
       setInflightId(inflight.inflightId);
@@ -840,7 +889,12 @@ export function useChatStream(
         { assistantId },
       );
     },
-    [applyToolEvent, ensureAssistantMessage, syncAssistantMessage],
+    [
+      applyToolEvent,
+      ensureAssistantMessage,
+      logFlowCommand,
+      syncAssistantMessage,
+    ],
   );
 
   const send = useCallback(
@@ -1223,6 +1277,7 @@ export function useChatStream(
         });
 
         const normalizedCommand = normalizeCommand(event.inflight.command);
+        logFlowCommand(normalizedCommand);
         const startedAt =
           parseTimestamp(event.inflight.startedAt) !== null
             ? event.inflight.startedAt
@@ -1454,6 +1509,7 @@ export function useChatStream(
       applyToolEvent,
       clearThinkingTimer,
       ensureAssistantMessage,
+      logFlowCommand,
       logWithChannel,
       resetAssistantPointer,
       status,

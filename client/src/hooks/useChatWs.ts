@@ -154,6 +154,10 @@ type TurnCommandMetadata = {
   name: string;
   stepIndex: number;
   totalSteps: number;
+  loopDepth?: number;
+  label?: string;
+  agentType?: string;
+  identifier?: string;
 };
 
 type TurnUsageMetadata = {

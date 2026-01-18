@@ -2116,7 +2116,7 @@ Preserve the extended flow step metadata (`loopDepth`, `label`, `agentType`, `id
 
 #### Subtasks
 
-1. [ ] Extend command metadata types + normalization:
+1. [x] Extend command metadata types + normalization:
    - Documentation to read (repeat):
      - TypeScript structural typing: https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - Files to edit:
@@ -2136,7 +2136,7 @@ Preserve the extended flow step metadata (`loopDepth`, `label`, `agentType`, `id
    - Logging requirement (repeat):
      - Emit `flows.metadata.normalized` (info) when flow command metadata is parsed, with `{ stepIndex, label }`.
 
-2. [ ] RTL test: conversation turns command metadata
+2. [x] RTL test: conversation turns command metadata
    - Test type: RTL/Jest
    - Documentation to read (repeat):
      - Jest docs: Context7 `/jestjs/jest`
@@ -2149,7 +2149,7 @@ Preserve the extended flow step metadata (`loopDepth`, `label`, `agentType`, `id
    - Purpose:
      - Confirm flow metadata fields survive normalization in turn snapshots.
 
-3. [ ] RTL test: chat stream tool payload metadata
+3. [x] RTL test: chat stream tool payload metadata
    - Test type: RTL/Jest
    - Documentation to read (repeat):
      - Jest docs: Context7 `/jestjs/jest`
@@ -2162,24 +2162,36 @@ Preserve the extended flow step metadata (`loopDepth`, `label`, `agentType`, `id
    - Purpose:
      - Confirm stream normalization does not drop flow metadata.
 
-4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+4. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open a flow conversation in the UI (if available), then open Logs and confirm `flows.metadata.normalized` entries appear with the expected `label`; verify no errors appear in the browser debug console.
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 7 minutes)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check: open a flow conversation in the UI (if available), then open Logs and confirm `flows.metadata.normalized` entries appear with the expected `label`; verify no errors appear in the browser debug console.
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
 - Details about the implementation. Include what went to plan and what did not.
 - Essential that any decisions that got made during the implementation are documented here.
+- Extended command metadata normalization to retain `loopDepth`, `label`, `agentType`, and `identifier`, and emit `flows.metadata.normalized` logs when flow labels are parsed.
+- Updated `useConversationTurns.commandMetadata` and `useChatStream.toolPayloads` tests to assert the extended flow metadata fields.
+- `npm run lint --workspaces` surfaced the existing server import-order warnings; `npm run format --workspaces` was needed after updating hook/test files.
+- `npm run build --workspace server` completed successfully.
+- `npm run build --workspace client` completed successfully (chunk-size warning only).
+- `npm run test --workspace server` completed successfully.
+- `npm run test --workspace client` completed successfully (Jest console warnings only).
+- `npm run e2e` completed successfully (36 passed).
+- `npm run compose:build` completed successfully.
+- `npm run compose:up` started the stack successfully.
+- Manual Playwright-MCP check: opened Flows, ensured `manual-flow` definition, selected the flow conversation, and confirmed `flows.metadata.normalized` entries in Logs with the expected label.
+- `npm run compose:down` stopped the stack cleanly after verification.
 
 ---
 

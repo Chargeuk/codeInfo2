@@ -20,6 +20,10 @@ export type TurnCommandMetadata = {
   name: string;
   stepIndex: number;
   totalSteps: number;
+  loopDepth?: number;
+  label?: string;
+  agentType?: string;
+  identifier?: string;
 };
 
 export type StoredTurn = {
@@ -115,11 +119,29 @@ const normalizeCommand = (
   if (!isFiniteNumber(command.totalSteps) || command.totalSteps <= 0) {
     return undefined;
   }
-  return {
+  const normalized: TurnCommandMetadata = {
     name,
     stepIndex: command.stepIndex,
     totalSteps: command.totalSteps,
   };
+  if (isFiniteNumber(command.loopDepth) && command.loopDepth >= 0) {
+    normalized.loopDepth = command.loopDepth;
+  }
+  const label = typeof command.label === 'string' ? command.label.trim() : '';
+  if (label) {
+    normalized.label = label;
+  }
+  const agentType =
+    typeof command.agentType === 'string' ? command.agentType.trim() : '';
+  if (agentType) {
+    normalized.agentType = agentType;
+  }
+  const identifier =
+    typeof command.identifier === 'string' ? command.identifier.trim() : '';
+  if (identifier) {
+    normalized.identifier = identifier;
+  }
+  return normalized;
 };
 
 type ApiResponse = {
@@ -148,7 +170,20 @@ export function useConversationTurns(
   const [error, setError] = useState<string | undefined>();
   const controllerRef = useRef<AbortController | null>(null);
   const log = useRef(createLogger('client')).current;
+  const flowLog = useRef(createLogger('client-flows')).current;
   const autoFetch = options?.autoFetch !== false;
+
+  const logFlowCommand = useCallback(
+    (command: TurnCommandMetadata | undefined) => {
+      if (!command || command.name !== 'flow') return;
+      if (!command.label) return;
+      flowLog('info', 'flows.metadata.normalized', {
+        stepIndex: command.stepIndex,
+        label: command.label,
+      });
+    },
+    [flowLog],
+  );
 
   const dedupeTurns = useCallback((items: StoredTurn[]) => {
     const seen = new Set<string>();
@@ -229,15 +264,26 @@ export function useConversationTurns(
           const { usage: _usage, timing: _timing, ...rest } = item;
           void _usage;
           void _timing;
-          return rest;
+          const normalizedCommand = normalizeCommand(item.command);
+          if (normalizedCommand) {
+            logFlowCommand(normalizedCommand);
+          }
+          return normalizedCommand
+            ? { ...rest, command: normalizedCommand }
+            : rest;
         }
 
         const usage = normalizeUsage(item.usage);
         const timing = normalizeTiming(item.timing);
+        const normalizedCommand = normalizeCommand(item.command);
+        if (normalizedCommand) {
+          logFlowCommand(normalizedCommand);
+        }
         return {
           ...item,
           ...(usage ? { usage } : {}),
           ...(timing ? { timing } : {}),
+          ...(normalizedCommand ? { command: normalizedCommand } : {}),
         };
       });
       const chronological = sortChronological(hydrated.slice().reverse());
@@ -245,6 +291,7 @@ export function useConversationTurns(
         ? (() => {
             const { command, ...rest } = data.inflight;
             const normalizedCommand = normalizeCommand(command);
+            logFlowCommand(normalizedCommand);
             return normalizedCommand
               ? { ...rest, command: normalizedCommand }
               : rest;
@@ -292,7 +339,7 @@ export function useConversationTurns(
       }
       setIsLoading(false);
     }
-  }, [conversationId, dedupeTurns, log, sortChronological]);
+  }, [conversationId, dedupeTurns, log, logFlowCommand, sortChronological]);
 
   useEffect(() => {
     setTurns([]);

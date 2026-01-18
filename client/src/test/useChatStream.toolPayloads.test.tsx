@@ -372,7 +372,15 @@ describe('useChatStream tool payload handling (WS transcript events)', () => {
           assistantThink: '',
           toolEvents: [],
           startedAt: '2025-01-01T00:00:00.000Z',
-          command: { name: 'improve_plan', stepIndex: 2, totalSteps: 4 },
+          command: {
+            name: 'flow',
+            stepIndex: 2,
+            totalSteps: 4,
+            loopDepth: 1,
+            label: 'Draft outline',
+            agentType: 'planning_agent',
+            identifier: 'main',
+          },
         },
       },
     ];
@@ -391,9 +399,13 @@ describe('useChatStream tool payload handling (WS transcript events)', () => {
         (msg) => msg.role === 'assistant',
       );
       expect(assistant?.command).toEqual({
-        name: 'improve_plan',
+        name: 'flow',
         stepIndex: 2,
         totalSteps: 4,
+        loopDepth: 1,
+        label: 'Draft outline',
+        agentType: 'planning_agent',
+        identifier: 'main',
       });
     });
   });

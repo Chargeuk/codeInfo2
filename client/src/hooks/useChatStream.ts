@@ -1463,6 +1463,7 @@ export function useChatStream(
   );
 
   const getInflightId = useCallback(() => inflightIdRef.current, []);
+  const getConversationId = useCallback(() => conversationIdRef.current, []);
 
   return useMemo(
     () => ({
@@ -1478,6 +1479,7 @@ export function useChatStream(
       hydrateInflightSnapshot,
       inflightId,
       getInflightId,
+      getConversationId,
       handleWsEvent,
     }),
     [
@@ -1493,6 +1495,7 @@ export function useChatStream(
       hydrateInflightSnapshot,
       inflightId,
       getInflightId,
+      getConversationId,
       handleWsEvent,
     ],
   );

@@ -23,7 +23,11 @@ import useLogs from '../hooks/useLogs';
 import { createLogger } from '../logging';
 
 const levelOptions: LogEntry['level'][] = ['error', 'warn', 'info', 'debug'];
-const sourceOptions: LogEntry['source'][] = ['server', 'client'];
+const sourceOptions: LogEntry['source'][] = [
+  'server',
+  'client',
+  'client-flows',
+];
 
 function formatTimestamp(value: string) {
   const date = new Date(value);

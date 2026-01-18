@@ -71,8 +71,26 @@ sequenceDiagram
     alt answer == breakOn
       break exit loop
     else continue
-    end
   end
+end
+```
+
+## Flows (UI)
+
+- Client route `/flows` provides the Flows page with a drawer sidebar and transcript layout matching Chat/Agents.
+- The flow selector is populated by `GET /flows` and disables invalid flows (shows description + error banner when disabled).
+- Conversations are filtered to the selected flow name and displayed via `ConversationList` (archive/restore/bulk still available).
+- Run/resume controls call `POST /flows/:flowName/run` with `conversationId`, optional `working_folder`, and `resumeStepPath` derived from `flags.flow.stepPath`.
+- The transcript uses `useChatStream` + `useChatWs` to render per-step metadata (label + agentType/identifier) alongside standard timestamp/usage/timing lines; Stop issues `cancel_inflight` over WS.
+
+```mermaid
+flowchart LR
+  User[User selects flow] --> UI[Flows page /flows]
+  UI -->|GET /flows| Server[Server]
+  UI -->|GET /conversations?flowName=<flow>| Server
+  UI -->|POST /flows/:flowName/run| Server
+  Server -->|202 started + WS streaming| UI
+  UI -->|cancel_inflight| WS[WebSocket /ws]
 ```
 
 ## Server testing & Docker

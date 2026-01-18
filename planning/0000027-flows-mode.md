@@ -1830,7 +1830,7 @@ Build the Flows UI: list flows, start/resume runs, and render flow conversations
 
 #### Subtasks
 
-1. [ ] Review existing Chat/Agents UI patterns for reuse:
+1. [x] Review existing Chat/Agents UI patterns for reuse:
    - Documentation to read (repeat):
      - React Router v7.9.x docs: Context7 `/remix-run/react-router/react-router_7.9.4`
      - MUI components: MUI MCP tool (`@mui/material@6.4.12`)
@@ -1849,7 +1849,7 @@ Build the Flows UI: list flows, start/resume runs, and render flow conversations
      - `ConversationList` props for sidebar rendering in `client/src/components/chat/ConversationList.tsx`.
      - Streaming hook usage in `client/src/hooks/useChatStream.ts` and WS handling in `client/src/hooks/useChatWs.ts`.
 
-2. [ ] Build Flows page UI:
+2. [x] Build Flows page UI:
    - Documentation to read (repeat):
      - MUI components: MUI MCP tool (`@mui/material@6.4.12`)
      - React Router v7.9.x docs: Context7 `/remix-run/react-router/react-router_7.9.4`
@@ -1868,7 +1868,7 @@ Build the Flows UI: list flows, start/resume runs, and render flow conversations
    - Logging requirement (repeat):
      - Use `createLogger('client-flows')` to emit `flows.ui.opened` (info) when the page mounts.
 
-3. [ ] Wire flow run/resume + stop controls:
+3. [x] Wire flow run/resume + stop controls:
    - Documentation to read (repeat):
      - Fetch API + AbortController: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
    - Files to edit:
@@ -1885,7 +1885,7 @@ Build the Flows UI: list flows, start/resume runs, and render flow conversations
    - Logging requirement (repeat):
      - Emit `flows.ui.run_clicked`, `flows.ui.resume_clicked`, and `flows.ui.stop_clicked` (info) with `{ flowName }` when the buttons are used.
 
-4. [ ] Client tests (RTL): flows page basics:
+4. [x] Client tests (RTL): flows page basics:
    - Test type: RTL/Jest
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
@@ -1898,7 +1898,7 @@ Build the Flows UI: list flows, start/resume runs, and render flow conversations
    - Purpose:
      - Render Flows page, list flows, and verify metadata line rendering.
 
-5. [ ] Client tests (RTL): flows page run/resume controls
+5. [x] Client tests (RTL): flows page run/resume controls
    - Test type: RTL/Jest
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
@@ -1912,7 +1912,7 @@ Build the Flows UI: list flows, start/resume runs, and render flow conversations
    - Purpose:
      - Ensure the Flows UI triggers run/resume with the right payload fields.
 
-6. [ ] Client tests (RTL): flows page stop control
+6. [x] Client tests (RTL): flows page stop control
    - Test type: RTL/Jest
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
@@ -1925,7 +1925,7 @@ Build the Flows UI: list flows, start/resume runs, and render flow conversations
    - Purpose:
      - Ensure Flows UI stop control wires to the existing stop mechanism.
 
-7. [ ] Documentation update: `README.md` (Flows UI entry)
+7. [x] Documentation update: `README.md` (Flows UI entry)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -1935,7 +1935,7 @@ Build the Flows UI: list flows, start/resume runs, and render flow conversations
    - Purpose:
      - Ensure user-facing docs mention the new Flows UI.
 
-8. [ ] Documentation update: `design.md` (Flows UI description)
+8. [x] Documentation update: `design.md` (Flows UI description)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
      - Mermaid docs (diagram syntax for design.md): Context7 `/mermaid-js/mermaid`
@@ -1946,7 +1946,7 @@ Build the Flows UI: list flows, start/resume runs, and render flow conversations
    - Purpose:
      - Keep UI architecture aligned with the new page and data flow.
 
-9. [ ] Documentation update: `projectStructure.md` (Flows UI files)
+9. [x] Documentation update: `projectStructure.md` (Flows UI files)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -1956,24 +1956,43 @@ Build the Flows UI: list flows, start/resume runs, and render flow conversations
    - Purpose:
      - Keep file map accurate after UI additions.
 
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+10. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001/flows`, start/resume/stop a flow if available, then open Logs and confirm `flows.ui.opened` plus the matching `flows.ui.run_clicked`/`flows.ui.resume_clicked`/`flows.ui.stop_clicked` entries appear; verify no errors appear in the browser debug console.
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 7 minutes)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check: open `http://host.docker.internal:5001/flows`, start/resume/stop a flow if available, then open Logs and confirm `flows.ui.opened` plus the matching `flows.ui.run_clicked`/`flows.ui.resume_clicked`/`flows.ui.stop_clicked` entries appear; verify no errors appear in the browser debug console.
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- Details about the implementation. Include what went to plan and what did not.
-- Essential that any decisions that got made during the implementation are documented here.
+- Reviewed `ChatPage`, `AgentsPage`, `ConversationList`, and the chat streaming/hooks to mirror layout, drawer handling, and transcript wiring for the Flows UI.
+- Added `client/src/pages/FlowsPage.tsx` with a drawer + conversation list, flow selector, run/resume/stop controls, and transcript rendering that includes flow metadata lines.
+- Wired a `/flows` route plus a new Flows tab in the top navigation.
+- Wired `runFlow`/resume/stop handling in `FlowsPage` with WebSocket cancel support and added `getConversationId()` in `useChatStream` for safer stop targeting.
+- Added `client/src/test/flowsPage.test.tsx` to validate flow list rendering and flow metadata line display.
+- Added `client/src/test/flowsPage.run.test.tsx` to confirm run/resume requests include expected payload fields.
+- Added `client/src/test/flowsPage.stop.test.tsx` to verify the stop button sends `cancel_inflight` over WS.
+- Documented the new Flows page route and usage notes in `README.md`.
+- Added a Flows UI section with a Mermaid data-flow diagram in `design.md`.
+- Updated `projectStructure.md` with the new Flows page and test files.
+- `npm run lint --workspaces` surfaced existing server import-order warnings; fixed client lint errors and reran successfully.
+- `npm run format:check --workspaces` failed for new Flows files, so ran `npm run format --workspaces` and confirmed format checks pass.
+- `npm run build --workspace server` completed successfully.
+- `npm run build --workspace client` completed successfully (Vite chunk-size warning only).
+- `npm run test --workspace server` completed successfully after increasing the timeout (initial runs timed out at 120s/240s).
+- `npm run test --workspace client` completed successfully (Jest logs only).
+- `npm run e2e` completed successfully (36 passed).
+- `npm run compose:build` completed successfully.
+- `npm run compose:up` started the stack successfully.
+- Manual Playwright-MCP check: used a `manual-flow` fixture, ran/resumed/stopped a flow, and confirmed `flows.ui.*` entries in Logs (after extending log source support to `client-flows`).
+- `npm run compose:down` stopped the stack cleanly after verification.
 
 ---
 

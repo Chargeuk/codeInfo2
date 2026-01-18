@@ -89,6 +89,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 |     |- pages/
 |     |  |- ChatPage.tsx ? chat shell with model select, streaming transcript, rounded 14px bubbles, tool blocks, citations accordion (closed by default), and stream status/thinking UI (1s idle guard, ignores tool-only waits)
 |     |  |- AgentsPage.tsx ? agents UI with selector/stop/new-conversation controls, description markdown, and persisted conversation continuation
+|     |  |- FlowsPage.tsx ? flows UI with selector/run/resume/stop controls, flow-filtered sidebar, and step metadata transcript
 |     |  |- IngestPage.tsx ? ingest UI shell (lock banner, form, run/status placeholders)
 |     |  |- HomePage.tsx ? version card page
 |     |  |- LmStudioPage.tsx ? LM Studio config/status/models UI
@@ -128,6 +129,9 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 |     |     |- agentsPage.turnHydration.test.tsx ? selecting a conversation hydrates and renders stored turns
 |     |     |- agentsPage.run.test.tsx ? agent run (realtime) renders transcript from WS and ignores REST segments
 |     |     |- agentsPage.run.instructionError.test.tsx ? Agents page shows error banner when instruction start fails
+|     |     |- flowsPage.test.tsx ? Flows page renders flow list and step metadata
+|     |     |- flowsPage.run.test.tsx ? Flows page run/resume controls send expected payloads
+|     |     |- flowsPage.stop.test.tsx ? Flows page stop button sends cancel_inflight
 |     |     |- agentsPage.run.commandError.test.tsx ? Agents page shows error banner when command start fails
 |     |     |- agentsPage.navigateAway.keepsRun.test.tsx ? navigating away does not cancel run; transcript resumes via WS
 |     |     |- agentsPage.persistenceFallbackSegments.test.tsx ? Agents page shows realtime banner + disables Send when WS is unavailable

@@ -2316,8 +2316,8 @@ Validate the full story against acceptance criteria, perform clean builds/tests,
 
 ### 16. Review follow-ups: flows directory + resume loop stack keys
 
-- Task Status: **__in_progress__**
-- Git Commits: __to_do__
+- Task Status: **__done__**
+- Git Commits: 64eee0d
 
 #### Overview
 
@@ -2337,7 +2337,7 @@ Address review feedback by aligning flow discovery/run paths with the repo-root 
 
 #### Subtasks
 
-1. [ ] Align flow directory resolution with the codex_agents location:
+1. [x] Align flow directory resolution with the codex_agents location:
    - Documentation to read (repeat):
      - Node.js path utilities: https://nodejs.org/api/path.html
      - Node.js process.env usage: https://nodejs.org/api/process.html#processenv
@@ -2351,7 +2351,7 @@ Address review feedback by aligning flow discovery/run paths with the repo-root 
      - Resolve the default flows directory using the same anchor as `CODEINFO_CODEX_AGENT_HOME` (sibling to `codex_agents`) when present.
      - Fall back to the existing behavior only when the anchor env is missing.
 
-2. [ ] Correct flow resume loop stack key to `loopStepPath`:
+2. [x] Correct flow resume loop stack key to `loopStepPath`:
    - Documentation to read (repeat):
      - TypeScript structural typing: https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - Files to edit:
@@ -2363,7 +2363,7 @@ Address review feedback by aligning flow discovery/run paths with the repo-root 
      - Update `FlowResumeState` to use `loopStepPath`.
      - Ensure resume state serialization/deserialization uses the corrected key.
 
-3. [ ] Update/extend flow resume tests for the corrected loop stack key:
+3. [x] Update/extend flow resume tests for the corrected loop stack key:
    - Test type: node:test + integration
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
@@ -2374,7 +2374,7 @@ Address review feedback by aligning flow discovery/run paths with the repo-root 
      - Assert `loopStack` frames use `loopStepPath` when persisted/returned.
      - Ensure resume-path validation still works after the key rename.
 
-4. [ ] Documentation updates for flow directory resolution and resume contract:
+4. [x] Documentation updates for flow directory resolution and resume contract:
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -2385,21 +2385,24 @@ Address review feedback by aligning flow discovery/run paths with the repo-root 
      - Document that `flows/` is resolved as a sibling to `codex_agents` by default.
      - Confirm `loopStack` uses `loopStepPath` in the flow resume contract.
 
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+5. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001/flows`, verify a flow stored in repo-root `flows/` is discoverable without `FLOWS_DIR`, run/resume/stop, and confirm no errors appear in the browser debug console.
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 7 minutes)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check: open `http://host.docker.internal:5001/flows`, verify a flow stored in repo-root `flows/` is discoverable without `FLOWS_DIR`, run/resume/stop, and confirm no errors appear in the browser debug console.
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- Details about the implementation. Include what went to plan and what did not.
-- Essential that any decisions that got made during the implementation are documented here.
+- Default flow discovery/run resolution now anchors to `CODEINFO_CODEX_AGENT_HOME` with `flows/` as a sibling and still honors `FLOWS_DIR` overrides.
+- Resume loop stack serialization uses `{ loopStepPath, iteration }`, while legacy `stepPath` inputs are accepted for backward compatibility.
+- Updated unit/integration resume tests and documentation to reflect the corrected loop stack contract and default flow discovery path.
+- `npm run lint --workspaces` reported existing server import-order warnings; `npm run format:check --workspaces` passed after formatting `server/src/flows/service.ts`.
+- Manual QA: copied a test flow into `/app/flows` (Compose does not mount repo-root flows), verified discovery in the UI, stopped and resumed a run, and confirmed no browser console errors.

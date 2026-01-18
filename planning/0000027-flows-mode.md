@@ -1998,8 +1998,8 @@ Build the Flows UI: list flows, start/resume runs, and render flow conversations
 
 ### 13. Client: Flow filtering
 
-- Task Status: **__in_progress__**
-- Git Commits: **__to_do__**
+- Task Status: **__done__**
+- Git Commits: d0ab5de, e098945
 
 #### Overview
 

@@ -69,6 +69,10 @@ export default function LogsPage() {
       story: '0000025',
       logChecksComplete: true,
     });
+    logger('info', 'flows.verification.manual_check', {
+      story: '0000027',
+      logChecksComplete: true,
+    });
   }, [logger]);
 
   const apiBase = getApiBaseUrl();

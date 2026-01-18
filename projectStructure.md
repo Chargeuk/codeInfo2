@@ -16,6 +16,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”œâ”€ README.md â€” repo overview and commands
 â”œâ”€ logs/ â€” runtime server log output (gitignored, host-mounted)
 â”œâ”€ design.md â€” design notes and diagrams
+â”œâ”€ flows/ â€” flow JSON definitions (hot-reloaded, user-managed)
 â”œâ”€ observability/ â€” shared OpenTelemetry collector config for Chroma traces
 â”‚  â””â”€ otel-collector-config.yaml â€” OTLP->Zipkin/logging pipeline used by all compose stacks
 â”œâ”€ docker-compose.yml â€” compose stack for client/server

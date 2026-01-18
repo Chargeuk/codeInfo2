@@ -82,6 +82,7 @@ end
 - Conversations are filtered to the selected flow name and displayed via `ConversationList` (archive/restore/bulk still available).
 - Run/resume controls call `POST /flows/:flowName/run` with `conversationId`, optional `working_folder`, and `resumeStepPath` derived from `flags.flow.stepPath`.
 - The transcript uses `useChatStream` + `useChatWs` to render per-step metadata (label + agentType/identifier) alongside standard timestamp/usage/timing lines; Stop issues `cancel_inflight` over WS.
+- Flow command metadata normalization emits `flows.metadata.normalized` when flow labels are parsed for UI rendering.
 
 ```mermaid
 flowchart LR
@@ -91,6 +92,23 @@ flowchart LR
   UI -->|POST /flows/:flowName/run| Server
   Server -->|202 started + WS streaming| UI
   UI -->|cancel_inflight| WS[WebSocket /ws]
+```
+
+```mermaid
+sequenceDiagram
+  participant User
+  participant UI as Flows UI
+  participant Server
+  participant WS as WebSocket /ws
+  participant Mongo
+
+  User->>UI: Select flow + Run/Resume
+  UI->>Server: POST /flows/:flowName/run (conversationId, resumeStepPath?)
+  Server->>Mongo: persist conversation + resume flags
+  Server-->>UI: 202 started (conversationId, inflightId)
+  Server-->>WS: stream step turns with command metadata
+  WS-->>UI: turn events + flow metadata
+  UI->>WS: cancel_inflight (optional stop)
 ```
 
 ## Server testing & Docker

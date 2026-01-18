@@ -2217,7 +2217,7 @@ Validate the full story against acceptance criteria, perform clean builds/tests,
 
 #### Subtasks
 
-1. [ ] Documentation update: `README.md` (story summary + commands)
+1. [x] Documentation update: `README.md` (story summary + commands)
    - Documentation to read (repeat):
      - Markdown syntax (README/design updates): https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -2227,7 +2227,7 @@ Validate the full story against acceptance criteria, perform clean builds/tests,
    - Purpose:
      - Keep user-facing docs current for new flow functionality.
 
-2. [ ] Documentation update: `design.md` (final architecture + diagrams)
+2. [x] Documentation update: `design.md` (final architecture + diagrams)
    - Documentation to read (repeat):
      - Mermaid docs (diagram syntax for design.md): Context7 `/mermaid-js/mermaid`
      - Markdown syntax (README/design updates): https://www.markdownguide.org/basic-syntax/
@@ -2238,7 +2238,7 @@ Validate the full story against acceptance criteria, perform clean builds/tests,
    - Purpose:
      - Ensure architecture documentation matches the delivered changes.
 
-3. [ ] Documentation update: `projectStructure.md` (final tree)
+3. [x] Documentation update: `projectStructure.md` (final tree)
    - Documentation to read (repeat):
      - Markdown syntax (README/design updates): https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -2248,17 +2248,25 @@ Validate the full story against acceptance criteria, perform clean builds/tests,
    - Purpose:
      - Keep repository structure accurate for future work.
 
-4. [ ] Documentation update: PR summary comment
+4. [x] Documentation update: PR summary comment
    - Documentation to read (repeat):
      - Markdown syntax (README/design updates): https://www.markdownguide.org/basic-syntax/
    - Files to edit:
      - `planning/0000027-flows-mode.md`
-   - Description:
+ - Description:
      - Create a summary of server, client, tests, and compat impacts.
-   - Purpose:
-     - Provide a ready-to-post PR summary after all tasks complete.
+  - Purpose:
+    - Provide a ready-to-post PR summary after all tasks complete.
 
-5. [ ] Add verification log line for final QA pass:
+#### PR Summary
+
+- **Overview:** Introduces Flows mode for orchestrating multi-step agent runs with loop/break/command support, resumable execution, and dedicated UI filtering.
+- **Server:** Added strict flow schema/loader, flow discovery/list/run endpoints, flow conversation persistence + resume state, loop/break/command execution, and flow-specific turn metadata/logging.
+- **Client:** Added Flows API helpers and UI, flowName filtering in conversation listings, flow command metadata normalization, and `client-flows` log source + verification log marker.
+- **Tests:** Added server flow unit/integration coverage and client RTL tests for flows UI, filtering, and metadata; all workspace tests + e2e + compose verification executed.
+- **Compatibility:** New REST endpoints (`/flows`, `/flows/:flowName/run`, `flowName` query filtering) and new log source `client-flows`; flow definitions stored under `flows/` on disk.
+
+5. [x] Add verification log line for final QA pass:
    - Documentation to read (repeat):
      - Markdown syntax (README/design updates): https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -2268,21 +2276,38 @@ Validate the full story against acceptance criteria, perform clean builds/tests,
    - Purpose:
      - Provide a definitive log marker that the manual QA step was executed.
 
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+6. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, run a flow end-to-end (stop mid-run, resume, verify sidebar filtering by `flowName`), visit the Logs page, and confirm `flows.verification.manual_check` appears; smoke-test Chat + Agents pages for regressions; confirm no errors appear in the browser debug console.
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, run a flow end-to-end (stop mid-run, resume, verify sidebar filtering by `flowName`), visit the Logs page, and confirm `flows.verification.manual_check` appears; smoke-test Chat + Agents pages for regressions; confirm no errors appear in the browser debug console.
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
 - Details about the implementation. Include what went to plan and what did not.
 - Essential that any decisions that got made during the implementation are documented here.
+- Updated `README.md` with Flows API endpoints, definitions location, and `flowName` filter guidance.
+- Updated `design.md` with flow metadata logging notes and a run/resume sequence diagram.
+- Updated `projectStructure.md` with the `flows/` directory entry.
+- Added `flows.verification.manual_check` log emission when the Logs page opens.
+- `npm run lint --workspaces` reported existing server import-order warnings; `npm run format:check --workspaces` passed.
+- `npm run build --workspace server` completed successfully.
+- `npm run build --workspace client` completed successfully (chunk-size warning only).
+- `npm run test --workspace server` completed successfully.
+- `npm run test --workspace client` completed successfully (Jest console warnings only).
+- `npm run e2e` completed successfully (36 passed).
+- `npm run compose:build` completed successfully.
+- `npm run compose:up` started the stack successfully.
+- Manual QA: opened Flows, ran `final-check` flow, stopped mid-run, refreshed flow list, and resumed from step path 1; verified flowName filtering shows only `Flow: final-check`.
+- Logs page showed `flows.verification.manual_check`; no browser console errors observed.
+- Smoke-checked Chat + Agents pages for regressions.
+- Screenshots saved: `test-results/screenshots/0000027-15-flows.png`, `test-results/screenshots/0000027-15-logs.png`, `test-results/screenshots/0000027-15-chat.png`, `test-results/screenshots/0000027-15-agents.png`.
+- `npm run compose:down` stopped the stack successfully.

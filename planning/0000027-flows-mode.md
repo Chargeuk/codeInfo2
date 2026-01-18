@@ -2098,8 +2098,8 @@ Update client conversation list filtering so Chat and Agents exclude flow conver
 
 ### 14. Client: Flow command metadata support
 
-- Task Status: **__in_progress__**
-- Git Commits: **__to_do__**
+- Task Status: **__done__**
+- Git Commits: 928cfe5, 9f12bea
 
 #### Overview
 

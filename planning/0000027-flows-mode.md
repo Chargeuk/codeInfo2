@@ -1998,7 +1998,7 @@ Build the Flows UI: list flows, start/resume runs, and render flow conversations
 
 ### 13. Client: Flow filtering
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **__to_do__**
 
 #### Overview

@@ -168,7 +168,7 @@ Ensure the Chat and Agents transcript panels stretch to the bottom of the viewpo
      - Ensure the app shell uses a full-height flex column.
      - Ensure the main content area and transcript container use `flex: 1` with `minHeight: 0`.
      - Remove or reduce bottom padding/overflow behavior that causes a visible blank gap below the transcript card.
-     - Do not change control sizes or button variants (handled in Task 5).
+     - Do not change control sizes or button variants (handled in Tasks 6-7).
 
 3. [ ] Tests to add/update:
    - None. Layout verification is handled by UI screenshots for this task.
@@ -326,14 +326,14 @@ Replace the inline agent description block with an info icon and popover that re
 
 ---
 
-### 3. Client: Agents control rows + fixed Send/Stop width
+### 3. Client: Agents control rows layout
 
 - Task Status: **__to_do__**
 - Git Commits: **__to_do__**
 
 #### Overview
 
-Align Agents controls so the Command selector and Execute button share a row, and the Instruction input shares a row with Send/Stop. Apply a fixed width to Send/Stop to prevent layout shift.
+Align Agents controls so the Command selector and Execute button share a row, and the Instruction input shares a row with the Send/Stop action slot. This task focuses on row structure only.
 
 #### Documentation Locations
 
@@ -352,8 +352,7 @@ Align Agents controls so the Command selector and Execute button share a row, an
      - `client/src/pages/AgentsPage.tsx`
    - Story requirements to repeat here so they are not missed:
      - Command selector and Execute command button are on the same row.
-     - Instruction input and Send/Stop share a row on desktop.
-     - Send/Stop have matching fixed widths so toggling does not shift layout.
+     - Instruction input and the Send/Stop action share the same row.
 
 2. [ ] Implement the control row layout changes:
    - Files to edit:
@@ -362,19 +361,17 @@ Align Agents controls so the Command selector and Execute button share a row, an
      - Restructure controls into two horizontal rows (Stack or Box with `display: 'flex'`).
      - Row 1: Command selector on the left and Execute command button on the right.
      - Keep the command description text below the row so it still renders.
-     - Row 2: Instruction input on the left and a single Send/Stop action slot on the right.
+     - Row 2: Instruction input on the left and an action slot on the right.
      - Move the Stop button out of the Agent selector row into the instruction row.
      - Ensure the rows collapse to a single column on small screens without overlap.
-     - Add a fixed width (e.g., `minWidth`) so Send/Stop occupy the same width when toggling.
-     - Toggle the action between Send and Stop (not both at once) to avoid row width changes.
-     - Keep existing sizes/variants unchanged in this task (standardization happens in Task 5).
+     - Do not implement fixed widths or send/stop toggling in this task (handled in Task 4).
+     - Keep existing sizes/variants unchanged in this task (standardization happens in Tasks 6-7).
 
 3. [ ] Add/update layout tests:
    - Files to add/edit:
      - `client/src/test/agentsPage.layout.test.tsx` (update if it already exists; otherwise create)
    - Test cases to cover:
      - Execute command button appears in the same row container as the Command selector.
-     - Send/Stop container applies a fixed width style so layout remains stable.
      - Stop renders in the instruction row and the header row no longer contains a Stop button.
 
 4. [ ] Capture UI screenshots (required for this task):
@@ -415,7 +412,7 @@ Align Agents controls so the Command selector and Execute button share a row, an
 7. [ ] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] Manual Playwright-MCP check: verify the two-row layout, fixed Send/Stop widths, and stacked layout on a small viewport; confirm no console errors.
+8. [ ] Manual Playwright-MCP check: verify the two-row layout and stacked layout on a small viewport; confirm no console errors.
 9. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
@@ -426,7 +423,94 @@ Align Agents controls so the Command selector and Execute button share a row, an
 
 ---
 
-### 4. Client: Agents working-folder picker reuse
+### 4. Client: Agents send/stop width stability
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Ensure the Send/Stop action slot keeps a stable width so the row does not shift when toggling between Send and Stop.
+
+#### Documentation Locations
+
+- MUI Stack API: https://llms.mui.com/material-ui/6.4.12/api/stack.md
+- MUI Box API: https://llms.mui.com/material-ui/6.4.12/api/box.md
+- MUI Button API: https://llms.mui.com/material-ui/6.4.12/api/button.md
+
+#### Subtasks
+
+1. [ ] Review Send/Stop rendering conditions and current button layout:
+   - Documentation to read (repeat):
+     - MUI Button API: https://llms.mui.com/material-ui/6.4.12/api/button.md
+   - Files to read:
+     - `client/src/pages/AgentsPage.tsx`
+   - Story requirements to repeat here so they are not missed:
+     - Send/Stop use the same width so the row does not shift when toggling.
+     - Only one of Send/Stop is shown at a time in the action slot.
+
+2. [ ] Implement fixed-width Send/Stop slot:
+   - Files to edit:
+     - `client/src/pages/AgentsPage.tsx`
+   - Implementation details:
+     - Set a fixed `minWidth` (or similar) for the action slot so Send/Stop occupy the same width.
+     - Render only one action button at a time (Send when idle, Stop when streaming) to avoid layout jitter.
+     - Keep existing sizes/variants unchanged in this task (standardization happens in Tasks 6-7).
+
+3. [ ] Add/update tests for action width stability:
+   - Files to add/edit:
+     - `client/src/test/agentsPage.layout.test.tsx` (extend existing layout test)
+   - Test cases to cover:
+     - Action slot applies a fixed width style.
+     - Only one of Send/Stop renders at a time in the action slot.
+
+4. [ ] Capture UI screenshots (required for this task):
+   - Use Playwright MCP to capture the instruction row showing the fixed-width Send/Stop slot.
+   - Move the screenshot into `planning/0000028-agents-chat-gui-consistency-data/` as `0000028-4-agents-send-stop-width.png`.
+
+5. [ ] Documentation updates:
+   - `design.md`: add a short note if the Send/Stop stability behavior is described.
+   - `projectStructure.md`: update only if files were added/removed/renamed.
+
+6. [ ] Run full linting:
+   - `npm run lint --workspaces`
+   - `npm run format:check --workspaces`
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+2. [ ] `npm run build --workspace client`
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+3. [ ] `npm run test --workspace server`
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+4. [ ] `npm run test --workspace client -- agentsPage.layout`
+   - Documentation to read (repeat):
+     - Jest: Context7 `/jestjs/jest`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
+6. [ ] `npm run compose:build`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+7. [ ] `npm run compose:up`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+8. [ ] Manual Playwright-MCP check: toggle between Send/Stop and confirm the row width stays stable.
+9. [ ] `npm run compose:down`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+
+#### Implementation notes
+
+- (fill in during execution)
+
+---
+
+### 5. Client: Agents working-folder picker reuse
 
 - Task Status: **__to_do__**
 - Git Commits: **__to_do__**
@@ -474,14 +558,14 @@ Add a “Choose folder…” button next to the Agents working-folder input and 
      - `client/src/test/agentsPage.run.test.tsx` (update if it already asserts inline warning/description layout)
    - Test cases to cover:
      - Clicking “Choose folder…” opens the dialog.
-     - Selecting a folder updates the working-folder input value.
+    - Selecting a folder updates the working-folder input value.
     - Cancel closes the dialog without changing the input.
     - Empty/error states from the picker do not wipe the existing value.
     - Validation errors from the run endpoint do not clear the working-folder input.
 
 4. [ ] Capture UI screenshots (required for this task):
    - Use Playwright MCP to capture the Agents page with the picker dialog open.
-   - Move the screenshot into `planning/0000028-agents-chat-gui-consistency-data/` as `0000028-4-agents-folder-picker.png`.
+   - Move the screenshot into `planning/0000028-agents-chat-gui-consistency-data/` as `0000028-5-agents-folder-picker.png`.
 
 5. [ ] Documentation updates:
    - `design.md`: add a short note describing the Agents working-folder picker.
@@ -525,14 +609,14 @@ Add a “Choose folder…” button next to the Agents working-folder input and 
 
 ---
 
-### 5. Client: Control sizing + button variant consistency
+### 6. Client: Control sizing + variant consistency (Chat + Agents)
 
 - Task Status: **__to_do__**
 - Git Commits: **__to_do__**
 
 #### Overview
 
-Standardize sizing and button variants across Chat, Agents, LM Studio, and Ingest so all controls use `size="small"`, primary actions are contained, secondary actions are outlined, and Stop is contained error.
+Standardize sizing and button variants across Chat and Agents so all controls use `size="small"`, primary actions are contained, secondary actions are outlined, and Stop is contained error.
 
 #### Documentation Locations
 
@@ -547,10 +631,8 @@ Standardize sizing and button variants across Chat, Agents, LM Studio, and Inges
      - MUI Button API: https://llms.mui.com/material-ui/6.4.12/api/button.md
      - MUI TextField API: https://llms.mui.com/material-ui/6.4.12/api/text-field.md
    - Files to read:
-     - `client/src/pages/ChatPage.tsx`
-     - `client/src/pages/AgentsPage.tsx`
-     - `client/src/pages/LmStudioPage.tsx`
-     - `client/src/components/ingest/IngestForm.tsx`
+    - `client/src/pages/ChatPage.tsx`
+    - `client/src/pages/AgentsPage.tsx`
    - Story requirements to repeat here so they are not missed:
      - All dropdowns and text inputs use `size="small"`.
      - Buttons on the same row use `size="small"` and align to input height.
@@ -558,12 +640,10 @@ Standardize sizing and button variants across Chat, Agents, LM Studio, and Inges
      - Secondary actions are `variant="outlined"`.
      - Stop uses `variant="contained"` with `color="error"`.
 
-2. [ ] Apply size and variant updates across the four pages:
+2. [ ] Apply size and variant updates across Chat and Agents:
    - Files to edit:
      - `client/src/pages/ChatPage.tsx`
      - `client/src/pages/AgentsPage.tsx`
-     - `client/src/pages/LmStudioPage.tsx`
-     - `client/src/components/ingest/IngestForm.tsx`
    - Implementation details:
      - Set `size="small"` on all TextField/Select controls.
      - Update primary actions (Send, Execute command, Run/Start) to `contained`.
@@ -574,8 +654,6 @@ Standardize sizing and button variants across Chat, Agents, LM Studio, and Inges
    - Files to add/edit:
      - `client/src/test/chatPage.*.test.tsx` (update relevant assertions)
      - `client/src/test/agentsPage.layout.test.tsx`
-     - `client/src/test/lmstudio.test.tsx`
-     - `client/src/test/ingestForm.test.tsx`
    - Test cases to cover:
      - Buttons use the expected variant (contained/outlined/error).
      - Inputs render with `size="small"` where applicable.
@@ -584,13 +662,9 @@ Standardize sizing and button variants across Chat, Agents, LM Studio, and Inges
    - Use Playwright MCP to capture:
      - Chat controls sizing.
      - Agents controls sizing.
-     - LM Studio controls sizing.
-     - Ingest controls sizing.
    - Move files into `planning/0000028-agents-chat-gui-consistency-data/` with names:
-     - `0000028-5-chat-sizing.png`
-     - `0000028-5-agents-sizing.png`
-     - `0000028-5-lmstudio-sizing.png`
-     - `0000028-5-ingest-sizing.png`
+     - `0000028-6-chat-sizing.png`
+     - `0000028-6-agents-sizing.png`
 
 5. [ ] Documentation updates:
    - `design.md`: add a short note describing the shared sizing + variant baseline.
@@ -623,7 +697,7 @@ Standardize sizing and button variants across Chat, Agents, LM Studio, and Inges
 7. [ ] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] Manual Playwright-MCP check: verify all updated controls use `size="small"`, primary/secondary variants match the rules, and Stop uses `contained` + `error`.
+8. [ ] Manual Playwright-MCP check: verify Chat/Agents controls use `size="small"`, primary/secondary variants match the rules, and Stop uses `contained` + `error`.
 9. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
@@ -634,7 +708,106 @@ Standardize sizing and button variants across Chat, Agents, LM Studio, and Inges
 
 ---
 
-### 6. Final: Verify acceptance criteria + full regression
+---
+
+### 7. Client: Control sizing + variant consistency (LM Studio + Ingest)
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Standardize sizing and button variants across LM Studio and Ingest so controls use `size="small"`, primary actions are contained, and secondary actions are outlined.
+
+#### Documentation Locations
+
+- MUI Button API: https://llms.mui.com/material-ui/6.4.12/api/button.md
+- MUI TextField API: https://llms.mui.com/material-ui/6.4.12/api/text-field.md
+- MUI Select API: https://llms.mui.com/material-ui/6.4.12/api/select.md
+
+#### Subtasks
+
+1. [ ] Inventory current control sizes and variants on each page:
+   - Documentation to read (repeat):
+     - MUI Button API: https://llms.mui.com/material-ui/6.4.12/api/button.md
+     - MUI TextField API: https://llms.mui.com/material-ui/6.4.12/api/text-field.md
+   - Files to read:
+     - `client/src/pages/LmStudioPage.tsx`
+     - `client/src/components/ingest/IngestForm.tsx`
+   - Story requirements to repeat here so they are not missed:
+     - All dropdowns and text inputs use `size="small"`.
+     - Buttons on the same row use `size="small"` and align to input height.
+     - Primary actions are `variant="contained"`.
+     - Secondary actions are `variant="outlined"`.
+
+2. [ ] Apply size and variant updates across LM Studio and Ingest:
+   - Files to edit:
+     - `client/src/pages/LmStudioPage.tsx`
+     - `client/src/components/ingest/IngestForm.tsx`
+   - Implementation details:
+     - Set `size="small"` on all TextField/Select controls.
+     - Update primary actions (Check status, Start ingest) to `contained`.
+     - Update secondary actions (Reset, Refresh models, Choose folder) to `outlined`.
+
+3. [ ] Add/update tests for sizing/variant changes:
+   - Files to add/edit:
+     - `client/src/test/lmstudio.test.tsx`
+     - `client/src/test/ingestForm.test.tsx`
+   - Test cases to cover:
+     - Buttons use the expected variant (contained/outlined).
+     - Inputs render with `size="small"` where applicable.
+
+4. [ ] Capture UI screenshots (required for this task):
+   - Use Playwright MCP to capture:
+     - LM Studio controls sizing.
+     - Ingest controls sizing.
+   - Move files into `planning/0000028-agents-chat-gui-consistency-data/` with names:
+     - `0000028-7-lmstudio-sizing.png`
+     - `0000028-7-ingest-sizing.png`
+
+5. [ ] Documentation updates:
+   - `design.md`: add a short note describing the shared sizing + variant baseline.
+   - `projectStructure.md`: update only if files were added/removed/renamed.
+
+6. [ ] Run full linting:
+   - `npm run lint --workspaces`
+   - `npm run format:check --workspaces`
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+2. [ ] `npm run build --workspace client`
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+3. [ ] `npm run test --workspace server`
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+4. [ ] `npm run test --workspace client`
+   - Documentation to read (repeat):
+     - Jest: Context7 `/jestjs/jest`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
+6. [ ] `npm run compose:build`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+7. [ ] `npm run compose:up`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+8. [ ] Manual Playwright-MCP check: verify LM Studio and Ingest controls use `size="small"` and primary/secondary variants match the rules.
+9. [ ] `npm run compose:down`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+
+#### Implementation notes
+
+- (fill in during execution)
+
+---
+
+### 8. Final: Verify acceptance criteria + full regression
 
 - Task Status: **__to_do__**
 - Git Commits: **__to_do__**
@@ -669,7 +842,7 @@ Validate the full story requirements end-to-end and capture final evidence, incl
 3. [ ] Restart the docker environment
 4. [ ] Run the e2e tests
 5. [ ] Use the Playwright MCP tool to manually check the application, saving screenshots to `./test-results/screenshots/`.
-   - Each screenshot should be named `0000028-6-<short-name>.png`.
+   - Each screenshot should be named `0000028-8-<short-name>.png`.
 
 #### Implementation notes
 

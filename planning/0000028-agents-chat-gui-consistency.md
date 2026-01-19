@@ -182,20 +182,29 @@ Ensure the Chat and Agents transcript panels stretch to the bottom of the viewpo
      - Prefer page-level tweaks first; only adjust the App shell if the gap cannot be resolved locally.
      - Do not change control sizes or button variants (handled in Tasks 6-7).
 
-3. [ ] Tests to add/update:
+3. [ ] Test (unit/client): Chat transcript inline styles
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
-     - Playwright: Context7 `/microsoft/playwright`
-   - Files to add/edit:
-     - `client/src/test/chatPage.layoutWrap.test.tsx` (extend to assert transcript inline styles)
-     - `client/src/test/agentsPage.layout.test.tsx` (add transcript style assertions)
-   - Test cases to cover:
-     - Chat transcript container includes inline `flex: 1 1 0%`, `minHeight: 0`, and `overflowY: auto` styles.
-     - Agents transcript container includes the same inline style values.
-   - Note:
-     - Use inline style assertions on `data-testid="chat-transcript"` to avoid brittle CSS class checks.
+   - Location:
+     - `client/src/test/chatPage.layoutWrap.test.tsx`
+   - Description:
+     - Add an assertion that the Chat transcript container uses inline styles `flex: 1 1 0%`, `minHeight: 0`, and `overflowY: auto` on `data-testid="chat-transcript"`.
+   - Purpose:
+     - Proves the transcript can stretch/scroll and the viewport gap fix is in place for Chat.
 
-4. [ ] Capture UI screenshots (required for this task):
+4. [ ] Test (unit/client): Agents transcript inline styles
+   - Documentation to read (repeat):
+     - Jest: Context7 `/jestjs/jest`
+   - Location:
+     - `client/src/test/agentsPage.layout.test.tsx`
+   - Description:
+     - Add the same inline style assertions for the Agents transcript `data-testid="chat-transcript"`.
+   - Purpose:
+     - Proves the transcript can stretch/scroll and the viewport gap fix is in place for Agents.
+   - Note:
+     - Use inline style assertions to avoid brittle CSS class checks.
+
+5. [ ] Capture UI screenshots (required for this task):
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
    - Use Playwright MCP to capture:
@@ -205,13 +214,13 @@ Ensure the Chat and Agents transcript panels stretch to the bottom of the viewpo
      - `0000028-1-chat-height.png`
      - `0000028-1-agents-height.png`
 
-5. [ ] Documentation updates:
+6. [ ] Documentation updates:
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - `design.md`: add a short note if the layout behavior is described for Chat/Agents.
    - `projectStructure.md`: update only if any files were added/removed/renamed.
 
-6. [ ] Run full linting:
+7. [ ] Run full linting:
    - Documentation to read (repeat):
      - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI/options: https://prettier.io/docs/options
@@ -309,33 +318,79 @@ Replace the inline agent description block with an info icon and popover that re
      - Remove the inline warnings alert and inline description `Paper` so metadata is only in the popover.
      - Keep layout spacing compact; avoid introducing a new full-width block.
 
-3. [ ] Add/update tests for the popover:
+3. [ ] Test (unit/client): Info icon renders for selected agent
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
-   - Files to add/edit:
-     - `client/src/test/agentsPage.description.test.tsx` (update existing test)
-     - `client/src/test/agentsPage.descriptionPopover.test.tsx` (new, only if the existing test becomes too large)
-   - Test cases to cover:
-    - Info icon renders when an agent is selected.
-    - Popover opens and shows Markdown description.
-    - Warnings list renders when warnings are present.
-    - Empty-state message renders when description and warnings are missing.
-    - Info icon is hidden/disabled when the agents fetch fails and the error state renders.
-    - Warnings and description are not rendered inline when the popover is closed.
+   - Location:
+     - `client/src/test/agentsPage.description.test.tsx` (extend existing test file)
+   - Description:
+     - Add a test that renders the Agents page with a selected agent and asserts the info icon button exists.
+   - Purpose:
+     - Confirms the popover entry point appears on the happy path.
 
-4. [ ] Capture UI screenshots (required for this task):
+4. [ ] Test (unit/client): Popover shows Markdown description
+   - Documentation to read (repeat):
+     - Jest: Context7 `/jestjs/jest`
+   - Location:
+     - `client/src/test/agentsPage.description.test.tsx` (or new `agentsPage.descriptionPopover.test.tsx` if the file grows too large)
+   - Description:
+     - Trigger the info icon and assert Markdown description content is rendered inside the popover.
+   - Purpose:
+     - Validates the description rendering moved from inline to popover.
+
+5. [ ] Test (unit/client): Warnings list renders in popover
+   - Documentation to read (repeat):
+     - Jest: Context7 `/jestjs/jest`
+   - Location:
+     - `client/src/test/agentsPage.description.test.tsx` (or new `agentsPage.descriptionPopover.test.tsx`)
+   - Description:
+     - Provide an agent with warnings and assert they appear in the popover content.
+   - Purpose:
+     - Confirms warning display is preserved after moving to popover.
+
+6. [ ] Test (unit/client): Empty-state message
+   - Documentation to read (repeat):
+     - Jest: Context7 `/jestjs/jest`
+   - Location:
+     - `client/src/test/agentsPage.description.test.tsx` (or new `agentsPage.descriptionPopover.test.tsx`)
+   - Description:
+     - Use an agent with no description and no warnings; open the popover and assert the empty-state message.
+   - Purpose:
+     - Covers the empty metadata edge case required by acceptance criteria.
+
+7. [ ] Test (unit/client): Agents fetch error hides or disables info icon
+   - Documentation to read (repeat):
+     - Jest: Context7 `/jestjs/jest`
+   - Location:
+     - `client/src/test/agentsPage.description.test.tsx` (or new `agentsPage.descriptionPopover.test.tsx`)
+   - Description:
+     - Simulate `/agents` failure and assert the error UI renders while the info icon is hidden or disabled.
+   - Purpose:
+     - Ensures error states do not expose a broken popover trigger.
+
+8. [ ] Test (unit/client): Inline warnings/description removed
+   - Documentation to read (repeat):
+     - Jest: Context7 `/jestjs/jest`
+   - Location:
+     - `client/src/test/agentsPage.description.test.tsx` (or new `agentsPage.descriptionPopover.test.tsx`)
+   - Description:
+     - Assert that inline warning alerts and description panel are not present when the popover is closed.
+   - Purpose:
+     - Guarantees the UI change removed the previous inline block.
+
+9. [ ] Capture UI screenshots (required for this task):
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
    - Use Playwright MCP to capture the Agents page with the info popover open.
    - Move the screenshot into `planning/0000028-agents-chat-gui-consistency-data/` as `0000028-2-agents-popover.png`.
 
-5. [ ] Documentation updates:
+10. [ ] Documentation updates:
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - `design.md`: add a short note if agent metadata display behavior is described.
    - `projectStructure.md`: add the new test file if created.
 
-6. [ ] Run full linting:
+11. [ ] Run full linting:
    - Documentation to read (repeat):
      - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI/options: https://prettier.io/docs/options
@@ -430,16 +485,27 @@ Align Agents controls so the Command selector and Execute button share a row, an
      - Do not implement fixed widths or send/stop toggling in this task (handled in Task 4).
      - Keep existing sizes/variants unchanged in this task (standardization happens in Tasks 6-7).
 
-3. [ ] Add/update layout tests:
+3. [ ] Test (unit/client): Command row layout
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
-   - Files to add/edit:
+   - Location:
      - `client/src/test/agentsPage.layout.test.tsx` (update if it already exists; otherwise create)
-   - Test cases to cover:
-     - Execute command button appears in the same row container as the Command selector.
-     - Stop renders in the instruction row and the header row no longer contains a Stop button.
+   - Description:
+     - Assert the Command selector and Execute button render in the same row container.
+   - Purpose:
+     - Ensures the top control row matches the acceptance criteria layout.
 
-4. [ ] Capture UI screenshots (required for this task):
+4. [ ] Test (unit/client): Stop button moved to instruction row
+   - Documentation to read (repeat):
+     - Jest: Context7 `/jestjs/jest`
+   - Location:
+     - `client/src/test/agentsPage.layout.test.tsx`
+   - Description:
+     - Assert Stop renders in the instruction row and is not present in the header row.
+   - Purpose:
+     - Ensures the row re-layout removed the Stop button from the header area.
+
+5. [ ] Capture UI screenshots (required for this task):
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
    - Use Playwright MCP to capture the Agents controls area showing the new two-row layout.
@@ -448,13 +514,13 @@ Align Agents controls so the Command selector and Execute button share a row, an
      - `0000028-3-agents-controls.png`
      - `0000028-3-agents-controls-mobile.png`
 
-5. [ ] Documentation updates:
+6. [ ] Documentation updates:
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - `design.md`: add a short note if control layout is described for Agents.
    - `projectStructure.md`: update only if files were added/removed/renamed.
 
-6. [ ] Run full linting:
+7. [ ] Run full linting:
    - Documentation to read (repeat):
      - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI/options: https://prettier.io/docs/options
@@ -541,28 +607,39 @@ Ensure the Send/Stop action slot keeps a stable width so the row does not shift 
      - Render only one action button at a time (Send when idle, Stop when streaming) to avoid layout jitter.
      - Keep existing sizes/variants unchanged in this task (standardization happens in Tasks 6-7).
 
-3. [ ] Add/update tests for action width stability:
+3. [ ] Test (unit/client): Action slot fixed width
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
-   - Files to add/edit:
+   - Location:
      - `client/src/test/agentsPage.layout.test.tsx` (extend existing layout test)
-   - Test cases to cover:
-     - Action slot applies a fixed width style.
-     - Only one of Send/Stop renders at a time in the action slot.
+   - Description:
+     - Assert the Send/Stop action slot applies a fixed width style (`minWidth` or equivalent).
+   - Purpose:
+     - Prevents layout jitter when toggling between Send and Stop.
 
-4. [ ] Capture UI screenshots (required for this task):
+4. [ ] Test (unit/client): Single action rendered
+   - Documentation to read (repeat):
+     - Jest: Context7 `/jestjs/jest`
+   - Location:
+     - `client/src/test/agentsPage.layout.test.tsx`
+   - Description:
+     - Assert only one of Send or Stop is rendered at a time in the action slot.
+   - Purpose:
+     - Confirms the toggle behavior required for stable layout.
+
+5. [ ] Capture UI screenshots (required for this task):
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
    - Use Playwright MCP to capture the instruction row showing the fixed-width Send/Stop slot.
    - Move the screenshot into `planning/0000028-agents-chat-gui-consistency-data/` as `0000028-4-agents-send-stop-width.png`.
 
-5. [ ] Documentation updates:
+6. [ ] Documentation updates:
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - `design.md`: add a short note if the Send/Stop stability behavior is described.
    - `projectStructure.md`: update only if files were added/removed/renamed.
 
-6. [ ] Run full linting:
+7. [ ] Run full linting:
    - Documentation to read (repeat):
      - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI/options: https://prettier.io/docs/options
@@ -658,32 +735,69 @@ Add a “Choose folder…” button next to the Agents working-folder input and 
     - Ensure server-side validation errors (e.g., `WORKING_FOLDER_INVALID`) do not clear the current working-folder value.
      - Do not add a working-folder picker to Chat (explicitly out of scope).
 
-3. [ ] Add/update tests for the working-folder picker:
+3. [ ] Test (unit/client): Picker opens
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
-   - Files to add/edit:
+   - Location:
      - `client/src/test/agentsPage.workingFolderPicker.test.tsx` (new)
-     - `client/src/test/agentsPage.run.test.tsx` (update if it already asserts inline warning/description layout)
-   - Test cases to cover:
-     - Clicking “Choose folder…” opens the dialog.
-     - Selecting a folder updates the working-folder input value.
-     - Cancel closes the dialog without changing the input.
-     - Empty/error states from the picker (simulate `/ingest/dirs` error payload) do not wipe the existing value.
-     - Validation errors from the run endpoint (simulate `WORKING_FOLDER_INVALID` or `WORKING_FOLDER_NOT_FOUND`) do not clear the working-folder input.
+   - Description:
+     - Click “Choose folder…” and assert the directory picker dialog opens.
+   - Purpose:
+     - Validates the happy-path trigger for the picker.
 
-4. [ ] Capture UI screenshots (required for this task):
+4. [ ] Test (unit/client): Select folder updates input
+   - Documentation to read (repeat):
+     - Jest: Context7 `/jestjs/jest`
+   - Location:
+     - `client/src/test/agentsPage.workingFolderPicker.test.tsx`
+   - Description:
+     - Simulate selecting a folder and assert the working-folder input updates to the selected path.
+   - Purpose:
+     - Confirms the primary selection path updates state.
+
+5. [ ] Test (unit/client): Cancel keeps input value
+   - Documentation to read (repeat):
+     - Jest: Context7 `/jestjs/jest`
+   - Location:
+     - `client/src/test/agentsPage.workingFolderPicker.test.tsx`
+   - Description:
+     - Open the picker, cancel, and assert the working-folder input value stays unchanged.
+   - Purpose:
+     - Covers the cancel path with no state mutation.
+
+6. [ ] Test (unit/client): Picker error does not wipe value
+   - Documentation to read (repeat):
+     - Jest: Context7 `/jestjs/jest`
+   - Location:
+     - `client/src/test/agentsPage.workingFolderPicker.test.tsx`
+   - Description:
+     - Simulate `/ingest/dirs` error payload and ensure the existing working-folder value remains.
+   - Purpose:
+     - Protects against error-state regressions.
+
+7. [ ] Test (unit/client): Run validation error does not wipe value
+   - Documentation to read (repeat):
+     - Jest: Context7 `/jestjs/jest`
+   - Location:
+     - `client/src/test/agentsPage.workingFolderPicker.test.tsx` or `client/src/test/agentsPage.run.test.tsx`
+   - Description:
+     - Simulate `WORKING_FOLDER_INVALID` or `WORKING_FOLDER_NOT_FOUND` from run endpoint and ensure the input value is preserved.
+   - Purpose:
+     - Ensures validation errors do not clear user input.
+
+8. [ ] Capture UI screenshots (required for this task):
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
    - Use Playwright MCP to capture the Agents page with the picker dialog open.
    - Move the screenshot into `planning/0000028-agents-chat-gui-consistency-data/` as `0000028-5-agents-folder-picker.png`.
 
-5. [ ] Documentation updates:
+9. [ ] Documentation updates:
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - `design.md`: add a short note describing the Agents working-folder picker.
    - `projectStructure.md`: update only if files were added/removed/renamed.
 
-6. [ ] Run full linting:
+10. [ ] Run full linting:
    - Documentation to read (repeat):
      - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI/options: https://prettier.io/docs/options
@@ -777,19 +891,31 @@ Standardize sizing and button variants across Chat and Agents so all controls us
      - Update secondary actions (Choose folder, New conversation, Clear, Refresh models) to `outlined`.
      - Ensure Stop uses `contained` + `color="error"` consistently.
 
-3. [ ] Add/update tests for sizing/variant changes:
+3. [ ] Test (unit/client): Chat control sizes/variants
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
-   - Files to add/edit:
-     - `client/src/test/chatPage.*.test.tsx` (update relevant assertions)
-     - `client/src/test/agentsPage.layout.test.tsx`
-   - Test cases to cover:
-     - Buttons use the expected variant (contained/outlined/error).
-     - Inputs render with `size="small"` where applicable.
+   - Location:
+     - `client/src/test/chatPage.*.test.tsx` (update the most relevant existing test)
+   - Description:
+     - Add assertions for Chat inputs/selects using `size="small"` and buttons using expected variants.
+   - Purpose:
+     - Confirms the sizing/variant baseline for Chat controls.
    - Note:
      - If no tests assert size/variant props today, prefer screenshots and skip adding new assertions.
 
-4. [ ] Capture UI screenshots (required for this task):
+4. [ ] Test (unit/client): Agents control sizes/variants
+   - Documentation to read (repeat):
+     - Jest: Context7 `/jestjs/jest`
+   - Location:
+     - `client/src/test/agentsPage.layout.test.tsx`
+   - Description:
+     - Add assertions for Agents inputs/selects using `size="small"` and buttons using expected variants.
+   - Purpose:
+     - Confirms the sizing/variant baseline for Agents controls.
+   - Note:
+     - If no tests assert size/variant props today, prefer screenshots and skip adding new assertions.
+
+5. [ ] Capture UI screenshots (required for this task):
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
    - Use Playwright MCP to capture:
@@ -799,13 +925,13 @@ Standardize sizing and button variants across Chat and Agents so all controls us
      - `0000028-6-chat-sizing.png`
      - `0000028-6-agents-sizing.png`
 
-5. [ ] Documentation updates:
+6. [ ] Documentation updates:
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - `design.md`: add a short note describing the shared sizing + variant baseline.
    - `projectStructure.md`: update only if files were added/removed/renamed.
 
-6. [ ] Run full linting:
+7. [ ] Run full linting:
    - Documentation to read (repeat):
      - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI/options: https://prettier.io/docs/options
@@ -899,19 +1025,31 @@ Standardize sizing and button variants across LM Studio and Ingest so controls u
      - Update primary actions (Check status, Start ingest) to `contained`.
      - Update secondary actions (Reset, Refresh models, Choose folder) to `outlined`.
 
-3. [ ] Add/update tests for sizing/variant changes:
+3. [ ] Test (unit/client): LM Studio control sizes/variants
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
-   - Files to add/edit:
+   - Location:
      - `client/src/test/lmstudio.test.tsx`
-     - `client/src/test/ingestForm.test.tsx`
-   - Test cases to cover:
-     - Buttons use the expected variant (contained/outlined).
-     - Inputs render with `size="small"` where applicable.
+   - Description:
+     - Add assertions for LM Studio inputs using `size="small"` and buttons using expected variants.
+   - Purpose:
+     - Confirms the sizing/variant baseline for LM Studio.
    - Note:
      - If no tests assert size/variant props today, prefer screenshots and skip adding new assertions.
 
-4. [ ] Capture UI screenshots (required for this task):
+4. [ ] Test (unit/client): Ingest control sizes/variants
+   - Documentation to read (repeat):
+     - Jest: Context7 `/jestjs/jest`
+   - Location:
+     - `client/src/test/ingestForm.test.tsx`
+   - Description:
+     - Add assertions for Ingest inputs using `size="small"` and buttons using expected variants.
+   - Purpose:
+     - Confirms the sizing/variant baseline for Ingest.
+   - Note:
+     - If no tests assert size/variant props today, prefer screenshots and skip adding new assertions.
+
+5. [ ] Capture UI screenshots (required for this task):
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
    - Use Playwright MCP to capture:
@@ -921,13 +1059,13 @@ Standardize sizing and button variants across LM Studio and Ingest so controls u
      - `0000028-7-lmstudio-sizing.png`
      - `0000028-7-ingest-sizing.png`
 
-5. [ ] Documentation updates:
+6. [ ] Documentation updates:
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - `design.md`: add a short note describing the shared sizing + variant baseline.
    - `projectStructure.md`: update only if files were added/removed/renamed.
 
-6. [ ] Run full linting:
+7. [ ] Run full linting:
    - Documentation to read (repeat):
      - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI/options: https://prettier.io/docs/options

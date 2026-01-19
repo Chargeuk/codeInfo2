@@ -224,13 +224,15 @@ Ensure the Chat and Agents transcript panels stretch to the bottom of the viewpo
    - Purpose:
      - Keeps architecture/design notes aligned with the layout change.
 
-7. [ ] Documentation update: `projectStructure.md` (only if files were added/removed)
+7. [ ] Documentation update: `projectStructure.md` (if screenshots were added)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location:
      - `projectStructure.md`
    - Description:
-     - Update the repo tree only if files were added/removed in this task.
+     - Update the repo tree to include the new screenshots:
+       - `planning/0000028-agents-chat-gui-consistency-data/0000028-1-chat-height.png`
+       - `planning/0000028-agents-chat-gui-consistency-data/0000028-1-agents-height.png`
    - Purpose:
      - Keeps the repo map accurate.
 
@@ -393,19 +395,23 @@ Replace the inline agent description block with an info icon and popover that re
    - Purpose:
      - Guarantees the UI change removed the previous inline block.
 
-9. [ ] Documentation update: `projectStructure.md` (if a new test file was added)
-   - Documentation to read (repeat):
-     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-   - Files to edit:
-     - `projectStructure.md`
-   - Purpose:
-     - Ensure any newly added test file is reflected in the repo tree.
-
-10. [ ] Capture UI screenshots (required for this task):
+9. [ ] Capture UI screenshots (required for this task):
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
    - Use Playwright MCP to capture the Agents page with the info popover open.
    - Move the screenshot into `planning/0000028-agents-chat-gui-consistency-data/` as `0000028-2-agents-popover.png`.
+
+10. [ ] Documentation update: `projectStructure.md` (after new files are added)
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Location:
+     - `projectStructure.md`
+   - Description:
+     - Update the repo tree to include:
+       - `client/src/test/agentsPage.descriptionPopover.test.tsx` (only if created)
+       - `planning/0000028-agents-chat-gui-consistency-data/0000028-2-agents-popover.png`
+   - Purpose:
+     - Keeps the repo map accurate after new test/screenshot files are added.
 
 11. [ ] Documentation update: `design.md`
    - Documentation to read (repeat):
@@ -540,15 +546,7 @@ Align Agents controls so the Command selector and Execute button share a row, an
    - Purpose:
      - Ensures the row re-layout removed the Stop button from the header area.
 
-6. [ ] Documentation update: `projectStructure.md` (if a new test file was added)
-   - Documentation to read (repeat):
-     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-   - Files to edit:
-     - `projectStructure.md`
-   - Purpose:
-     - Ensure any newly added test file is reflected in the repo tree.
-
-7. [ ] Capture UI screenshots (required for this task):
+6. [ ] Capture UI screenshots (required for this task):
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
    - Use Playwright MCP to capture the Agents controls area showing the new two-row layout.
@@ -556,6 +554,18 @@ Align Agents controls so the Command selector and Execute button share a row, an
    - Move screenshots into `planning/0000028-agents-chat-gui-consistency-data/` as:
      - `0000028-3-agents-controls.png`
      - `0000028-3-agents-controls-mobile.png`
+
+7. [ ] Documentation update: `projectStructure.md` (after screenshots are added)
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Location:
+     - `projectStructure.md`
+   - Description:
+     - Update the repo tree to include:
+       - `planning/0000028-agents-chat-gui-consistency-data/0000028-3-agents-controls.png`
+       - `planning/0000028-agents-chat-gui-consistency-data/0000028-3-agents-controls-mobile.png`
+   - Purpose:
+     - Keeps the repo map accurate after new screenshots are added.
 
 8. [ ] Documentation update: `design.md`
    - Documentation to read (repeat):
@@ -678,7 +688,18 @@ Ensure the Send/Stop action slot keeps a stable width so the row does not shift 
    - Use Playwright MCP to capture the instruction row showing the fixed-width Send/Stop slot.
    - Move the screenshot into `planning/0000028-agents-chat-gui-consistency-data/` as `0000028-4-agents-send-stop-width.png`.
 
-6. [ ] Documentation update: `design.md`
+6. [ ] Documentation update: `projectStructure.md` (after screenshots are added)
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Location:
+     - `projectStructure.md`
+   - Description:
+     - Update the repo tree to include:
+       - `planning/0000028-agents-chat-gui-consistency-data/0000028-4-agents-send-stop-width.png`
+   - Purpose:
+     - Keeps the repo map accurate after the screenshot is added.
+
+7. [ ] Documentation update: `design.md`
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -686,7 +707,7 @@ Ensure the Send/Stop action slot keeps a stable width so the row does not shift 
    - Description:
      - Add a short note if the Send/Stop stability behavior is described.
 
-7. [ ] Run full linting:
+8. [ ] Run full linting:
    - Documentation to read (repeat):
      - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI/options: https://prettier.io/docs/options
@@ -832,19 +853,23 @@ Add a “Choose folder…” button next to the Agents working-folder input and 
    - Purpose:
      - Ensures validation errors do not clear user input.
 
-8. [ ] Documentation update: `projectStructure.md` (new test file added)
-   - Documentation to read (repeat):
-     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-   - Files to edit:
-     - `projectStructure.md`
-   - Purpose:
-     - Add the new `agentsPage.workingFolderPicker.test.tsx` file to the repo tree.
-
-9. [ ] Capture UI screenshots (required for this task):
+8. [ ] Capture UI screenshots (required for this task):
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
    - Use Playwright MCP to capture the Agents page with the picker dialog open.
    - Move the screenshot into `planning/0000028-agents-chat-gui-consistency-data/` as `0000028-5-agents-folder-picker.png`.
+
+9. [ ] Documentation update: `projectStructure.md` (after new files are added)
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Files to edit:
+     - `projectStructure.md`
+   - Description:
+     - Update the repo tree to include:
+       - `client/src/test/agentsPage.workingFolderPicker.test.tsx`
+       - `planning/0000028-agents-chat-gui-consistency-data/0000028-5-agents-folder-picker.png`
+   - Purpose:
+     - Keeps the repo map accurate after new test/screenshot files are added.
 
 10. [ ] Documentation update: `design.md`
    - Documentation to read (repeat):
@@ -988,13 +1013,15 @@ Standardize sizing and button variants across Chat and Agents so all controls us
    - Purpose:
      - Keeps the design reference aligned with the UI consistency work.
 
-7. [ ] Documentation update: `projectStructure.md` (only if files were added/removed/renamed)
+7. [ ] Documentation update: `projectStructure.md` (after screenshots are added)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location:
      - `projectStructure.md`
    - Description:
-     - Update the repo tree only if files were added/removed/renamed in this task.
+     - Update the repo tree to include:
+       - `planning/0000028-agents-chat-gui-consistency-data/0000028-6-chat-sizing.png`
+       - `planning/0000028-agents-chat-gui-consistency-data/0000028-6-agents-sizing.png`
    - Purpose:
      - Keeps the repo map accurate after layout changes.
 
@@ -1132,13 +1159,15 @@ Standardize sizing and button variants across LM Studio and Ingest so controls u
    - Purpose:
      - Keeps the design reference aligned with the UI consistency work.
 
-7. [ ] Documentation update: `projectStructure.md` (only if files were added/removed/renamed)
+7. [ ] Documentation update: `projectStructure.md` (after screenshots are added)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location:
      - `projectStructure.md`
    - Description:
-     - Update the repo tree only if files were added/removed/renamed in this task.
+     - Update the repo tree to include:
+       - `planning/0000028-agents-chat-gui-consistency-data/0000028-7-lmstudio-sizing.png`
+       - `planning/0000028-agents-chat-gui-consistency-data/0000028-7-ingest-sizing.png`
    - Purpose:
      - Keeps the repo map accurate after layout changes.
 
@@ -1221,9 +1250,16 @@ Validate the full story requirements end-to-end and capture final evidence, incl
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
      - Mermaid: Context7 `/mermaid-js/mermaid`
-6. [ ] Ensure `projectStructure.md` is updated with any updated, added or removed files & folders
+6. [ ] Documentation update: `projectStructure.md` (after test screenshots are captured)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Location:
+     - `projectStructure.md`
+   - Description:
+     - After Testing step 5, update the repo tree to include any new screenshots:
+       - `test-results/screenshots/0000028-8-<short-name>.png`
+   - Purpose:
+     - Keeps the repo map accurate after final verification artifacts are added.
 7. [ ] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/

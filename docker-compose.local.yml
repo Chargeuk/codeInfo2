@@ -42,6 +42,7 @@ services:
       - ./codex:${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}
       - ./codex:/app/codex
       - ./codex_agents:/app/codex_agents
+      - ./flows:/app/flows
       - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       chroma:
@@ -168,6 +169,8 @@ services:
       - ./playwright-output-local:/tmp/playwright-output
     networks:
       - internal
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
 
 networks:
   internal:

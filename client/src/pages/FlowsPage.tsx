@@ -399,13 +399,40 @@ export default function FlowsPage() {
     unsubscribeConversation,
   ]);
 
+  const makeClientConversationId = () =>
+    crypto.randomUUID?.() ?? Math.random().toString(36).slice(2);
+
   useEffect(() => {
+    if (!selectedFlowName.trim()) return;
     if (!activeConversationId && flowConversations.length > 0) {
       const first = flowConversations[0];
       setActiveConversationId(first.conversationId);
       setConversation(first.conversationId, { clearMessages: true });
     }
-  }, [activeConversationId, flowConversations, setConversation]);
+  }, [
+    activeConversationId,
+    flowConversations,
+    selectedFlowName,
+    setConversation,
+  ]);
+
+  useEffect(() => {
+    if (!selectedFlowName.trim()) return;
+    if (!activeConversationId) return;
+    const stillVisible = flowConversations.some(
+      (conversation) => conversation.conversationId === activeConversationId,
+    );
+    if (stillVisible) return;
+    resetTurns();
+    setActiveConversationId(undefined);
+    setConversation(makeClientConversationId(), { clearMessages: true });
+  }, [
+    activeConversationId,
+    flowConversations,
+    resetTurns,
+    selectedFlowName,
+    setConversation,
+  ]);
 
   useEffect(() => {
     if (!selectedConversation?.model) return;
@@ -502,9 +529,6 @@ export default function FlowsPage() {
     turns,
     turnsLoading,
   ]);
-
-  const makeClientConversationId = () =>
-    crypto.randomUUID?.() ?? Math.random().toString(36).slice(2);
 
   const resetConversation = useCallback(() => {
     stop();

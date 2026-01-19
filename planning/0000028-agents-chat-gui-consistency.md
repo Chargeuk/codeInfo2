@@ -184,8 +184,16 @@ Ensure the Chat and Agents transcript panels stretch to the bottom of the viewpo
 
 3. [ ] Tests to add/update:
    - Documentation to read (repeat):
+     - Jest: Context7 `/jestjs/jest`
      - Playwright: Context7 `/microsoft/playwright`
-   - None. Layout verification is handled by UI screenshots for this task.
+   - Files to add/edit:
+     - `client/src/test/chatPage.layoutWrap.test.tsx` (extend to assert transcript inline styles)
+     - `client/src/test/agentsPage.layout.test.tsx` (add transcript style assertions)
+   - Test cases to cover:
+     - Chat transcript container includes inline `flex: 1 1 0%`, `minHeight: 0`, and `overflowY: auto` styles.
+     - Agents transcript container includes the same inline style values.
+   - Note:
+     - Use inline style assertions on `data-testid="chat-transcript"` to avoid brittle CSS class checks.
 
 4. [ ] Capture UI screenshots (required for this task):
    - Documentation to read (repeat):
@@ -660,8 +668,8 @@ Add a “Choose folder…” button next to the Agents working-folder input and 
      - Clicking “Choose folder…” opens the dialog.
      - Selecting a folder updates the working-folder input value.
      - Cancel closes the dialog without changing the input.
-     - Empty/error states from the picker do not wipe the existing value.
-     - Validation errors from the run endpoint do not clear the working-folder input.
+     - Empty/error states from the picker (simulate `/ingest/dirs` error payload) do not wipe the existing value.
+     - Validation errors from the run endpoint (simulate `WORKING_FOLDER_INVALID` or `WORKING_FOLDER_NOT_FOUND`) do not clear the working-folder input.
 
 4. [ ] Capture UI screenshots (required for this task):
    - Documentation to read (repeat):

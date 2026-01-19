@@ -766,7 +766,7 @@ Align Agents controls so the Command selector and Execute button share a row, an
 
 ### 4. Client: Agents send/stop width stability
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **__to_do__**
 
 #### Overview

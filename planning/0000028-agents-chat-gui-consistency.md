@@ -127,7 +127,7 @@ These instructions will be followed during implementation.
 
 ### 1. Client: Chat/Agents transcript fills viewport
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **__to_do__**
 
 #### Overview

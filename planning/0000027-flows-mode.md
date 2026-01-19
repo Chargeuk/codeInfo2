@@ -2406,3 +2406,67 @@ Address review feedback by aligning flow discovery/run paths with the repo-root 
 - Updated unit/integration resume tests and documentation to reflect the corrected loop stack contract and default flow discovery path.
 - `npm run lint --workspaces` reported existing server import-order warnings; `npm run format:check --workspaces` passed after formatting `server/src/flows/service.ts`.
 - Manual QA: copied a test flow into `/app/flows` (Compose does not mount repo-root flows), verified discovery in the UI, stopped and resumed a run, and confirmed no browser console errors.
+
+---
+
+### 17. Flows UI: prevent stale active conversation when no flow is selected
+
+- Task Status: **__to_do__**
+- Git Commits: __to_do__
+
+#### Overview
+
+Ensure the Flows page does not hydrate or retain a non-flow conversation in the main transcript when no flow is selected or when the selected flow has zero conversations. The active conversation should only be set after the flow filter is applied so the main view stays empty until a flow run exists.
+
+#### Documentation Locations
+
+- React effects and state updates: https://react.dev/reference/react/useEffect
+- React hooks best practices (rules + deps): https://react.dev/reference/react
+- TypeScript narrowing for optional values: https://www.typescriptlang.org/docs/handbook/2/narrowing.html
+- Jest docs (RTL coverage expectations): Context7 `/jestjs/jest`
+- ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
+- Prettier CLI/options: https://prettier.io/docs/options
+- Markdown syntax (doc updates): https://www.markdownguide.org/basic-syntax/
+
+#### Subtasks
+
+1. [ ] Gate auto-selection so it only runs after the flow filter is applied:
+   - Documentation to read (repeat):
+     - React effects and state updates: https://react.dev/reference/react/useEffect
+   - Files to edit:
+     - `client/src/pages/FlowsPage.tsx`
+   - Story requirements to repeat here so they are not missed:
+     - The main transcript should not show non-flow conversations.
+     - `activeConversationId` should not be set from an unfiltered conversation list.
+   - Requirements:
+     - Only set `activeConversationId` when `selectedFlowName` is non-empty and `flowConversations` includes at least one entry.
+     - If `selectedFlowName` changes and the active id is not in `flowConversations`, clear it and reset the transcript.
+
+2. [ ] Add RTL coverage to prevent stale transcript rendering:
+   - Test type: RTL/Jest
+   - Documentation to read (repeat):
+     - Jest docs: Context7 `/jestjs/jest`
+   - Files to edit:
+     - `client/src/test/flowsPage.test.tsx`
+   - Requirements:
+     - Assert that when the flow list is empty, the transcript shows the empty-state message and does not render a stale conversation.
+     - Assert that selecting a flow with zero conversations does not display any prior conversation content.
+
+3. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5501/flows` (local stack) and confirm the transcript is empty when no flow conversations exist, then create a flow run and confirm the transcript appears only for that flow; verify no errors in the browser debug console.
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Details about the implementation. Include what went to plan and what did not.
+- Essential that any decisions that got made during the implementation are documented here.

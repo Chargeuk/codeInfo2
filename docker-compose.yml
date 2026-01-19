@@ -149,6 +149,8 @@ services:
       - ./playwright-output:/tmp/playwright-output
     networks:
       - internal
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
 
 networks:
   internal:

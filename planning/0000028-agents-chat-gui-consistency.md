@@ -254,42 +254,38 @@ Ensure the Chat and Agents transcript panels stretch to the bottom of the viewpo
    - Snippet example:
      - `planning/0000028-agents-chat-gui-consistency-data/0000028-1-chat-height.png`
 
-8. [ ] Run full linting:
+#### Testing
+
+1. [ ] `npm run lint --workspaces`
    - Documentation to read (repeat):
      - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI/options: https://prettier.io/docs/options
-   - Files to edit: none (commands only)
    - Snippet to run:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
-   - `npm run lint --workspaces`
-   - `npm run format:check --workspaces`
-
-#### Testing
-
-1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-2. [ ] `npm run build --workspace client`
+3. [ ] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-4. [ ] `npm run test --workspace client`
+5. [ ] `npm run test --workspace client`
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
-6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:build`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-7. [ ] `npm run compose:up`
+8. [ ] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] Manual Playwright-MCP check: verify Chat and Agents transcripts stretch to the bottom of the viewport without a blank gap.
-9. [ ] `npm run compose:down`
+9. [ ] Manual Playwright-MCP check: verify Chat and Agents transcripts stretch to the bottom of the viewport without a blank gap.
+10. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
@@ -469,42 +465,38 @@ Replace the inline agent description block with an info icon and popover that re
    - Snippet example:
      - `- Agents page uses an info popover to show agent description + warnings.`
 
-12. [ ] Run full linting:
+#### Testing
+
+1. [ ] `npm run lint --workspaces`
    - Documentation to read (repeat):
      - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI/options: https://prettier.io/docs/options
-   - Files to edit: none (commands only)
    - Snippet to run:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
-   - `npm run lint --workspaces`
-   - `npm run format:check --workspaces`
-
-#### Testing
-
-1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-2. [ ] `npm run build --workspace client`
+3. [ ] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-4. [ ] `npm run test --workspace client -- agentsPage.descriptionPopover`
+5. [ ] `npm run test --workspace client -- agentsPage.descriptionPopover`
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
-6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:build`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-7. [ ] `npm run compose:up`
+8. [ ] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] Manual Playwright-MCP check: open the info popover, verify Markdown renders, warnings list displays, and empty-state appears for agents without metadata.
-9. [ ] `npm run compose:down`
+9. [ ] Manual Playwright-MCP check: open the info popover, verify Markdown renders, warnings list displays, and empty-state appears for agents without metadata.
+10. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
@@ -646,42 +638,38 @@ Align Agents controls so the Command selector and Execute button share a row, an
    - Snippet example:
      - `- Agents controls are arranged as two rows on desktop, stacked on mobile.`
 
-9. [ ] Run full linting:
+#### Testing
+
+1. [ ] `npm run lint --workspaces`
    - Documentation to read (repeat):
      - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI/options: https://prettier.io/docs/options
-   - Files to edit: none (commands only)
    - Snippet to run:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
-   - `npm run lint --workspaces`
-   - `npm run format:check --workspaces`
-
-#### Testing
-
-1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-2. [ ] `npm run build --workspace client`
+3. [ ] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-4. [ ] `npm run test --workspace client -- agentsPage.layoutWrap`
+5. [ ] `npm run test --workspace client -- agentsPage.layoutWrap`
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
-6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:build`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-7. [ ] `npm run compose:up`
+8. [ ] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] Manual Playwright-MCP check: verify the two-row layout and stacked layout on a small viewport.
-9. [ ] `npm run compose:down`
+9. [ ] Manual Playwright-MCP check: verify the two-row layout and stacked layout on a small viewport.
+10. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
@@ -798,42 +786,38 @@ Ensure the Send/Stop action slot keeps a stable width so the row does not shift 
    - Snippet example:
      - `- Agents Send/Stop uses a fixed-width action slot to prevent layout shift.`
 
-8. [ ] Run full linting:
+#### Testing
+
+1. [ ] `npm run lint --workspaces`
    - Documentation to read (repeat):
      - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI/options: https://prettier.io/docs/options
-   - Files to edit: none (commands only)
    - Snippet to run:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
-   - `npm run lint --workspaces`
-   - `npm run format:check --workspaces`
-
-#### Testing
-
-1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-2. [ ] `npm run build --workspace client`
+3. [ ] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-4. [ ] `npm run test --workspace client -- agentsPage.layoutWrap`
+5. [ ] `npm run test --workspace client -- agentsPage.layoutWrap`
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
-6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:build`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-7. [ ] `npm run compose:up`
+8. [ ] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] Manual Playwright-MCP check: toggle between Send/Stop and confirm the row width stays stable.
-9. [ ] `npm run compose:down`
+9. [ ] Manual Playwright-MCP check: toggle between Send/Stop and confirm the row width stays stable.
+10. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
@@ -997,42 +981,38 @@ Add a “Choose folder…” button next to the Agents working-folder input and 
    - Snippet example:
      - `- Agents page reuses the Ingest directory picker for working_folder selection.`
 
-11. [ ] Run full linting:
+#### Testing
+
+1. [ ] `npm run lint --workspaces`
    - Documentation to read (repeat):
      - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI/options: https://prettier.io/docs/options
-   - Files to edit: none (commands only)
    - Snippet to run:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
-   - `npm run lint --workspaces`
-   - `npm run format:check --workspaces`
-
-#### Testing
-
-1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-2. [ ] `npm run build --workspace client`
+3. [ ] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-4. [ ] `npm run test --workspace client -- agentsPage.workingFolderPicker`
+5. [ ] `npm run test --workspace client -- agentsPage.workingFolderPicker`
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
-6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:build`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-7. [ ] `npm run compose:up`
+8. [ ] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] Manual Playwright-MCP check: open the Agents working-folder picker, select a folder, cancel, and confirm value persistence.
-9. [ ] `npm run compose:down`
+9. [ ] Manual Playwright-MCP check: open the Agents working-folder picker, select a folder, cancel, and confirm value persistence.
+10. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
@@ -1166,42 +1146,38 @@ Standardize sizing and button variants across Chat and Agents so all controls us
    - Snippet example:
      - `planning/0000028-agents-chat-gui-consistency-data/0000028-6-agents-sizing.png`
 
-8. [ ] Run full linting:
+#### Testing
+
+1. [ ] `npm run lint --workspaces`
    - Documentation to read (repeat):
      - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI/options: https://prettier.io/docs/options
-   - Files to edit: none (commands only)
    - Snippet to run:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
-   - `npm run lint --workspaces`
-   - `npm run format:check --workspaces`
-
-#### Testing
-
-1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-2. [ ] `npm run build --workspace client`
+3. [ ] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-4. [ ] `npm run test --workspace client`
+5. [ ] `npm run test --workspace client`
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
-6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:build`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-7. [ ] `npm run compose:up`
+8. [ ] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] Manual Playwright-MCP check: verify Chat/Agents controls use `size="small"`, primary/secondary variants match the rules, and Stop uses `contained` + `error`.
-9. [ ] `npm run compose:down`
+9. [ ] Manual Playwright-MCP check: verify Chat/Agents controls use `size="small"`, primary/secondary variants match the rules, and Stop uses `contained` + `error`.
+10. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
@@ -1333,42 +1309,38 @@ Standardize sizing and button variants across LM Studio and Ingest so controls u
    - Snippet example:
      - `planning/0000028-agents-chat-gui-consistency-data/0000028-7-lmstudio-sizing.png`
 
-8. [ ] Run full linting:
+#### Testing
+
+1. [ ] `npm run lint --workspaces`
    - Documentation to read (repeat):
      - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI/options: https://prettier.io/docs/options
-   - Files to edit: none (commands only)
    - Snippet to run:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
-   - `npm run lint --workspaces`
-   - `npm run format:check --workspaces`
-
-#### Testing
-
-1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-2. [ ] `npm run build --workspace client`
+3. [ ] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-4. [ ] `npm run test --workspace client`
+5. [ ] `npm run test --workspace client`
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
-6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:build`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-7. [ ] `npm run compose:up`
+8. [ ] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] Manual Playwright-MCP check: verify LM Studio and Ingest controls use `size="small"` and primary/secondary variants match the rules.
-9. [ ] `npm run compose:down`
+9. [ ] Manual Playwright-MCP check: verify LM Studio and Ingest controls use `size="small"` and primary/secondary variants match the rules.
+10. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
@@ -1400,25 +1372,7 @@ Validate the full story requirements end-to-end and capture final evidence, incl
 
 #### Subtasks
 
-1. [ ] Build the server
-   - Documentation to read (repeat):
-     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-   - Files to edit: none (command only)
-   - Snippet to run:
-     - `npm run build --workspace server`
-2. [ ] Build the client
-   - Documentation to read (repeat):
-     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-   - Files to edit: none (command only)
-   - Snippet to run:
-     - `npm run build --workspace client`
-3. [ ] Perform a clean docker build
-   - Documentation to read (repeat):
-     - Docker/Compose: Context7 `/docker/docs`
-   - Files to edit: none (command only)
-   - Snippet to run:
-     - `npm run compose:build`
-4. [ ] Documentation update: `README.md`
+1. [ ] Documentation update: `README.md`
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location:
@@ -1427,7 +1381,7 @@ Validate the full story requirements end-to-end and capture final evidence, incl
      - Add/adjust any README guidance introduced by this story (UI consistency notes, new screenshots if relevant).
    - Snippet example:
      - `- Agents page uses an info popover for agent metadata.`
-5. [ ] Documentation update: `design.md`
+2. [ ] Documentation update: `design.md`
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
      - Mermaid: Context7 `/mermaid-js/mermaid`
@@ -1437,19 +1391,19 @@ Validate the full story requirements end-to-end and capture final evidence, incl
      - Add/adjust design notes and mermaid diagrams impacted by UI consistency changes.
    - Snippet example:
      - `- Agents layout now groups command + execute and instruction + send rows.`
-6. [ ] Documentation update: `projectStructure.md` (after test screenshots are captured)
+3. [ ] Documentation update: `projectStructure.md` (after test screenshots are captured)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location:
      - `projectStructure.md`
    - Description:
-     - After Testing step 5, update the repo tree to include any new screenshots:
+     - After Testing step 8, update the repo tree to include any new screenshots:
        - `test-results/screenshots/0000028-8-<short-name>.png`
    - Purpose:
      - Keeps the repo map accurate after final verification artifacts are added.
    - Snippet example:
      - `test-results/screenshots/0000028-8-chat-final.png`
-7. [ ] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
+4. [ ] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Files to edit: none (comment only)
@@ -1458,31 +1412,49 @@ Validate the full story requirements end-to-end and capture final evidence, incl
 
 #### Testing
 
-1. [ ] Run the client Jest tests
+1. [ ] `npm run build --workspace server`
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+   - Files to edit: none (command only)
+   - Snippet to run:
+     - `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+   - Files to edit: none (command only)
+   - Snippet to run:
+     - `npm run build --workspace client`
+3. [ ] `npm run compose:build`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+   - Files to edit: none (command only)
+   - Snippet to run:
+     - `npm run compose:build`
+4. [ ] Run the client Jest tests
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Files to edit: none (command only)
    - Snippet to run:
      - `npm run test --workspace client`
-2. [ ] Run the server cucumber tests
+5. [ ] Run the server cucumber tests
    - Documentation to read (repeat):
      - Cucumber guides https://cucumber.io/docs/guides/
    - Files to edit: none (command only)
    - Snippet to run:
      - `npm run test --workspace server`
-3. [ ] Restart the docker environment
+6. [ ] Restart the docker environment
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
    - Files to edit: none (commands only)
    - Snippet to run:
      - `npm run compose:down && npm run compose:up`
-4. [ ] Run the e2e tests
+7. [ ] Run the e2e tests
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
    - Files to edit: none (command only)
    - Snippet to run:
      - `npm run e2e`
-5. [ ] Use the Playwright MCP tool to manually check the application, saving screenshots to `./test-results/screenshots/`.
+8. [ ] Use the Playwright MCP tool to manually check the application, saving screenshots to `./test-results/screenshots/`.
    - Each screenshot should be named `0000028-8-<short-name>.png`.
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`

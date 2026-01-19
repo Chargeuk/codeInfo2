@@ -1,4 +1,4 @@
-clean docker build cache (keeps images and volumes): docker builder prune -a
+clean all docker build cache (does not remove images or volumes): docker builder prune -a
 
 Setup:
 Please read Agents.md and follow it's instructions. Give me an overview of the project and where we are up to and how the next steps will be achieved.

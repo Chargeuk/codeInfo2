@@ -1152,7 +1152,7 @@ Validate the full story requirements end-to-end and capture final evidence, incl
 - Docker/Compose docs: Context7 `/docker/docs` (clean builds + compose restart)
 - Playwright docs: Context7 `/microsoft/playwright` (manual verification + screenshots)
 - Husky docs: https://typicode.github.io/husky/get-started.html (pre-commit hook behavior reference)
-- Mermaid syntax docs: https://mermaid.js.org/syntax/flowchart.html (diagram updates in design docs)
+- Mermaid docs: Context7 `/mermaid-js/mermaid` (diagram updates in design docs)
 - Jest docs: Context7 `/jestjs/jest` (client test runner)
 - Cucumber guides: https://cucumber.io/docs/guides/ (server cucumber test guidance)
 - npm run-script docs: https://docs.npmjs.com/cli/v9/commands/npm-run-script (build/test script execution)

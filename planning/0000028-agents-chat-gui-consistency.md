@@ -67,13 +67,14 @@ The Agents and Chat pages currently waste vertical space and feel inconsistent w
 
 ## Questions
 
-None.
+- Chat currently has no working-folder input and the `/chat` API does not accept `working_folder` (only Agents/Flows do). Should this story add a new Chat working-folder field and server support for `workingDirectoryOverride`, or should the “Choose folder…” requirement be limited to Agents only?
 
 ## Decisions
 
 - Send/Stop buttons use a fixed width matching the larger label to prevent layout jitter when swapping.
 - The info popover shows a friendly empty-state message when no description or warnings are available (e.g., “No description or warnings are available for this agent yet.”).
 - Use `size="small"` for all form inputs and action buttons to establish the shared sizing baseline across Chat, Agents, LM Studio, and Ingest.
+- Reuse the existing Ingest directory picker (`client/src/components/ingest/DirectoryPickerDialog.tsx`) rather than duplicating logic; if it needs to be shared, move it to a common components location and update Ingest imports.
 
 ---
 

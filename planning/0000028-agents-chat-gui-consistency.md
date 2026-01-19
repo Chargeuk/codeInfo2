@@ -21,15 +21,24 @@ The Agents and Chat pages currently waste vertical space and feel inconsistent w
 
 ## Acceptance Criteria
 
-- Agents page removes the description line and replaces it with an info icon beside the agent selector; clicking it opens a popover showing the agent description (Markdown) and any warnings.
-- Agents controls are re-laid out to maximize vertical space:
-  - The command selector and “Execute Command” button sit on the same row.
-  - Send/Stop live to the right of the Instruction input and share identical sizing.
-- Chat and Agents conversation views extend to the bottom of the viewport with no large unused gap.
-- Chat and Agents include a “Choose Folder” button that uses the same directory picker behavior as the Ingest page.
-- All dropdowns, text inputs, and buttons across Chat, Agents, LM Studio, and Ingest use consistent sizing and alignment (matching the current Agents control sizing).
-- Button styling is consistent across pages with a clear primary/secondary hierarchy and matching sizes on shared rows (primary: `contained`; secondary: `outlined`; Stop uses `contained` + error color).
-- Each task in this story must capture and review fresh UI screenshots to confirm the intended changes work and look correct.
+- Agents page removes the inline description block and replaces it with a small info icon next to the Agent selector; clicking it opens a popover that renders the agent description as Markdown and lists any warnings.
+  - When no description or warnings exist, the popover shows a friendly empty-state message (e.g., “No description or warnings are available for this agent yet.”).
+- Agents controls are re-laid out to reclaim vertical space:
+  - The Command selector and the “Execute command” button appear on the same row, with the button to the right of the selector.
+  - The Instruction input and the Send/Stop action share a single row on desktop; Send and Stop use the same width so the row does not shift when toggling.
+- Chat and Agents conversation panels stretch to the bottom of the viewport (beneath the top navigation) with no visible blank gap below the transcript card; resizing the window stretches the transcript area instead of leaving empty whitespace.
+- Chat and Agents include a “Choose folder…” button next to the working-folder input that reuses the Ingest directory picker dialog:
+  - Clicking “Choose folder…” opens the same dialog title and folder list as Ingest.
+  - Selecting a folder fills the working-folder input with the chosen absolute host path.
+  - Cancel closes the dialog without changing the input value.
+- All dropdowns, text inputs, and buttons across Chat, Agents, LM Studio, and Ingest use the same sizing rules:
+  - Form controls (TextField, Select, Autocomplete) use `size="small"`.
+  - Buttons on the same row use `size="small"` and align vertically with the adjacent input height.
+- Button hierarchy is consistent across pages with shared sizing:
+  - Primary actions use `variant="contained"` (e.g., Send, Execute command, Start/Run actions).
+  - Secondary actions use `variant="outlined"` (e.g., Choose folder, New conversation, Clear).
+  - Stop uses `variant="contained"` with `color="error"`.
+- Each task in this story captures and reviews fresh UI screenshots to confirm the layout and sizing changes.
 
 ## Visual References
 
@@ -64,6 +73,7 @@ None.
 
 - Send/Stop buttons use a fixed width matching the larger label to prevent layout jitter when swapping.
 - The info popover shows a friendly empty-state message when no description or warnings are available (e.g., “No description or warnings are available for this agent yet.”).
+- Use `size="small"` for all form inputs and action buttons to establish the shared sizing baseline across Chat, Agents, LM Studio, and Ingest.
 
 ---
 

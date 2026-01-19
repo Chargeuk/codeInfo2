@@ -257,8 +257,10 @@ Replace the inline agent description block with an info icon and popover that re
 2. [ ] Implement the info icon + popover UI:
    - Files to edit:
      - `client/src/pages/AgentsPage.tsx`
-   - Implementation details:
+  - Implementation details:
      - Add an IconButton next to the Agent selector and anchor a Popover to it.
+     - Use `Popover` props `open`, `anchorEl`, and `onClose` per MUI 6.4.x API.
+     - Set the IconButton `size="small"` for alignment; do not add a `variant` prop (IconButton does not use variants in MUI core).
      - Reuse the existing `Markdown` renderer for the description text.
      - Render warnings as a simple list under the description.
      - Show the friendly empty-state message when both description and warnings are empty.

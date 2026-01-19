@@ -2430,7 +2430,7 @@ Ensure the Flows page does not hydrate or retain a non-flow conversation in the 
 
 #### Subtasks
 
-1. [ ] Gate auto-selection so it only runs after the flow filter is applied:
+1. [x] Gate auto-selection so it only runs after the flow filter is applied:
    - Documentation to read (repeat):
      - React effects and state updates: https://react.dev/reference/react/useEffect
    - Files to edit:
@@ -2442,7 +2442,7 @@ Ensure the Flows page does not hydrate or retain a non-flow conversation in the 
      - Only set `activeConversationId` when `selectedFlowName` is non-empty and `flowConversations` includes at least one entry.
      - If `selectedFlowName` changes and the active id is not in `flowConversations`, clear it and reset the transcript.
 
-2. [ ] Add RTL coverage to prevent stale transcript rendering:
+2. [x] Add RTL coverage to prevent stale transcript rendering:
    - Test type: RTL/Jest
    - Documentation to read (repeat):
      - Jest docs: Context7 `/jestjs/jest`
@@ -2452,21 +2452,22 @@ Ensure the Flows page does not hydrate or retain a non-flow conversation in the 
      - Assert that when the flow list is empty, the transcript shows the empty-state message and does not render a stale conversation.
      - Assert that selecting a flow with zero conversations does not display any prior conversation content.
 
-3. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+3. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001/flows` (local stack) and confirm the transcript is empty when no flow conversations exist, then create a flow run and confirm the transcript appears only for that flow; verify no errors in the browser debug console.
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 7 minutes)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check: open `http://host.docker.internal:5001/flows` (local stack) and confirm the transcript is empty when no flow conversations exist, then create a flow run and confirm the transcript appears only for that flow; verify no errors in the browser debug console.
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- Details about the implementation. Include what went to plan and what did not.
-- Essential that any decisions that got made during the implementation are documented here.
+- `FlowsPage` now guards auto-selection until a flow is chosen and clears stale selections when the filtered list excludes the active conversation.
+- Added RTL coverage to ensure empty flow history keeps the transcript empty and avoids showing stale chat content.
+- Manual check: the flow transcript stayed empty with no flow history, and a `Flow: execute_plan` run appeared after starting a flow; no console errors observed.

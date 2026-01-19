@@ -56,6 +56,43 @@ describe('ChatInterface command metadata persistence', () => {
     });
   });
 
+  test('persists flow command metadata with default label', async () => {
+    memoryTurns.clear();
+
+    await withEnv('NODE_ENV', 'test', async () => {
+      const chat = new MemoryChat();
+      await chat.run(
+        'hello',
+        {
+          provider: 'codex',
+          source: 'REST',
+          command: {
+            name: 'flow',
+            stepIndex: 1,
+            totalSteps: 2,
+            loopDepth: 0,
+            agentType: 'coding_agent',
+            identifier: 'flow-1',
+          },
+        },
+        'conv-command-flow',
+        'model-flow',
+      );
+    });
+
+    const turns = memoryTurns.get('conv-command-flow') ?? [];
+    assert.equal(turns.length, 2);
+    assert.deepEqual(turns[0].command, {
+      name: 'flow',
+      stepIndex: 1,
+      totalSteps: 2,
+      loopDepth: 0,
+      agentType: 'coding_agent',
+      identifier: 'flow-1',
+      label: 'flow',
+    });
+  });
+
   test('aborted run persists stopped assistant turn with command', async () => {
     memoryTurns.clear();
 

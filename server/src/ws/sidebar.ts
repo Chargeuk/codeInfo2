@@ -34,6 +34,7 @@ function toWsConversationSummary(conversation: ConversationEventSummary) {
     lastMessageAt: conversation.lastMessageAt.toISOString(),
     archived: conversation.archived,
     ...(conversation.agentName ? { agentName: conversation.agentName } : {}),
+    ...(conversation.flowName ? { flowName: conversation.flowName } : {}),
     flags: conversation.flags,
   };
 }

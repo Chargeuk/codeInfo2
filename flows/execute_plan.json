@@ -1,0 +1,145 @@
+{
+    "description": "Execute a plan until it is complete",
+    "steps": [
+        {
+            "type": "llm",
+            "label": "Select Next Plan",
+            "agentType": "planning_agent",
+            "identifier": "planner",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        "Please tell me the next plan that has not yet been executed. This will be the story I will ask you to improve, but for now just tell me what it is without making changes. Remember that I do not want you to task up."
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "command",
+            "label": "Improve plan",
+            "agentType": "planning_agent",
+            "identifier": "planner",
+            "commandName": "improve_plan"
+        },
+        {
+            "type": "command",
+            "label": "Task Up Plan",
+            "agentType": "tasking_agent",
+            "identifier": "planner",
+            "commandName": "task_up"
+        },
+        {
+            "type": "llm",
+            "label": "Check tasking up of plan",
+            "agentType": "planning_agent",
+            "identifier": "planner",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        "The plan has now been tasked up. Please check that the tasks created fully cover the plan and that nothing has been missed. If you feel something is missing, please update the plan and tasks accordingly. Remember to ensure that each task has clear implementation instructions and testing steps so a developer can fully understand what to do. Please confirm once you are happy that the plan has been fully tasked up and nothing is missing. Do not ask me any questions, instead just update the plan and tasks following the KISS principle until you are happy everything is fully covered."
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "llm",
+            "label": "Explain Next Coding Work",
+            "agentType": "coding_agent",
+            "identifier": "coder",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        "Please read Agents.md and follow it's instructions. Give me an overview of the project and where we are up to and how the next steps will be achieved."
+                    ]
+                }
+            ]
+        },
+        {
+            "type": "startLoop",
+            "label": "Main loop",
+            "steps": [
+                {
+                    "type": "startLoop",
+                    "label": "Execution loop",
+                    "steps": [
+                        {
+                            "type": "llm",
+                            "label": "Explain Gotchas",
+                            "agentType": "coding_agent",
+                            "identifier": "coder",
+                            "messages": [
+                                {
+                                    "role": "user",
+                                    "content": [
+                                        "Please explain the gotchas a developer would need to watch out for while implementing the next task given all the information within the Description, it's subsections, the AC & Out of scope. Also take into account the implementation information of any previous tasks. If you had asked for clarification about a blocker then ensure you re-read the task as it will have answers for you to proceed within the implementation notes of this task."
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            "type": "llm",
+                            "label": "Implement next Task",
+                            "agentType": "coding_agent",
+                            "identifier": "coder",
+                            "messages": [
+                                {
+                                    "role": "user",
+                                    "content": [
+                                        "Taking these gotchas into account, please fully work through the next task yourself, precisely following the steps within the 'Implementation Plan Instructions' section to work through each step. You must keep the subtasks tickbox updated as you work through each subtask to ensure everyone understands what has been done. Then you run through the testing steps, ensuring you keep the subtasks tickbox updated as you work through each testing step. Note that LMStudio is running and available, and locally codex has been logged into and works. Get back to me once all subtasks and testing steps are complete. Get back to me once the task is FULLY complete AND each subtask is marked complete AND each testing step is marked complete, with a concise summary of what changed, the gotchas you came across while working through the task and any commands/output that indicate success. Remember to mark each subtask and testing step as complete immediately after completing it rather than waiting until the end so your progress can be monitored. DO NOT BOTHER ME unless a blocker is hit or the whole task is complete and is marked as such. If a blocker is hit then state the blocker within the implemenmtation notes and another agent will add the required information to the plan to help you move past the blocker. Remember to keep your implementation notes concise and to the point."
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            "type": "llm",
+                            "label": "Check if plan is fully implemented and fix niggles",
+                            "agentType": "planning_agent",
+                            "identifier": "planner",
+                            "messages": [
+                                {
+                                    "role": "user",
+                                    "content": [
+                                        "A coding agent has been working on implementing the code for this plan. Please check if they have marked all tasks complete. If it looks like they have implemented items but maybe just forgotten to fix any task states then you are expected to correct those states accordingly. They may have written a blocking question in the implementation notes, if so please answer the blocker within the notes and mark it as the answer and update any tasks accordingly based on the questions. Note you must not ask me for clarification of the blockers, YOU MUST make any decisions to the best of your ability and update the task and implementation notes accordingly. If there are still tasks to implement or test then just report back where you feel we are up to."
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            "type": "break",
+                            "label": "Check for completion",
+                            "agentType": "planning_agent",
+                            "identifier": "planner",
+                            "question": "Is the plan that was being worked on complete? You must give only a yes or no answer. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+                            "breakOn": "yes"
+                        }
+                    ]
+                },
+                {
+                    "type": "llm",
+                    "label": "Code review",
+                    "agentType": "planning_agent",
+                    "identifier": "planner",
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": [
+                                "Now that everything has been implemented I want you to perform a full code review of all changes in this branch against the main branch. Please perform a standard review looking for code quality, maintainability, performance, security, and adherence to best practices. Also ensure your review checks that all acceptance criteria have been fully met. If you find issues or areas for improvement, please add tasks to the plan to fix these issues, following the same structure of previous tasks. If everything is ok, then add a section to the end of the plan detailing the changes made and the checks you performed."
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "type": "break",
+                    "label": "Check for completion",
+                    "agentType": "planning_agent",
+                    "identifier": "planner",
+                    "question": "Is the plan that was being worked on complete? You must give only a yes or no answer. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+                    "breakOn": "yes"
+                }
+            ]
+        }
+    ]
+}

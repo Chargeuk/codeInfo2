@@ -30,6 +30,7 @@ const listConversationsQuerySchema = z
     state: z.string().optional(),
     archived: z.union([z.literal('true'), z.literal('false')]).optional(),
     agentName: z.string().min(1).optional(),
+    flowName: z.string().min(1).optional(),
   })
   .strict();
 
@@ -78,6 +79,10 @@ const appendTurnSchema = z
         name: z.string().min(1),
         stepIndex: z.number().int().min(1),
         totalSteps: z.number().int().min(1),
+        loopDepth: z.number().int().min(0).optional(),
+        agentType: z.string().min(1).optional(),
+        identifier: z.string().min(1).optional(),
+        label: z.string().min(1).optional(),
       })
       .strict()
       .optional(),
@@ -152,7 +157,7 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
       });
     }
 
-    const { limit, cursor, archived, agentName } = parsed.data;
+    const { limit, cursor, archived, agentName, flowName } = parsed.data;
     const stateRaw = parsed.data.state?.toLowerCase();
 
     const archivedQuery = archived;
@@ -173,6 +178,7 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
         limit,
         cursorProvided,
         ...(agentName !== undefined ? { agentName } : {}),
+        ...(flowName !== undefined ? { flowName } : {}),
       },
     });
 
@@ -194,6 +200,7 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
           limit,
           cursorProvided,
           ...(agentName !== undefined ? { agentName } : {}),
+          ...(flowName !== undefined ? { flowName } : {}),
         },
       });
       return res
@@ -205,12 +212,26 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
       (stateRaw as 'active' | 'archived' | 'all' | undefined) ??
       (archived === 'true' ? 'all' : 'active');
 
+    if (flowName !== undefined) {
+      append({
+        level: 'info',
+        message: 'conversations.flowName.filter_applied',
+        timestamp: new Date().toISOString(),
+        source: 'server',
+        requestId,
+        context: {
+          flowNameFilter: flowName,
+        },
+      });
+    }
+
     try {
       const { items } = await listConversations({
         limit,
         cursor,
         state,
         agentName,
+        flowName,
       });
 
       const nextCursor =
@@ -230,6 +251,7 @@ export function createConversationsRouter(deps: Partial<Deps> = {}) {
           limit,
           cursorProvided,
           ...(agentName !== undefined ? { agentName } : {}),
+          ...(flowName !== undefined ? { flowName } : {}),
           returnedCount: items.length,
         },
       });

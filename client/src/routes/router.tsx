@@ -6,6 +6,7 @@ import {
 import App from '../App';
 import AgentsPage from '../pages/AgentsPage';
 import ChatPage from '../pages/ChatPage';
+import FlowsPage from '../pages/FlowsPage';
 import HomePage from '../pages/HomePage';
 import IngestPage from '../pages/IngestPage';
 import LmStudioPage from '../pages/LmStudioPage';
@@ -18,6 +19,7 @@ export const router = createBrowserRouter(
       <Route index element={<HomePage />} />
       <Route path="chat" element={<ChatPage />} />
       <Route path="agents" element={<AgentsPage />} />
+      <Route path="flows" element={<FlowsPage />} />
       <Route path="lmstudio" element={<LmStudioPage />} />
       <Route path="ingest" element={<IngestPage />} />
       <Route path="logs" element={<LogsPage />} />

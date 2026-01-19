@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getApiBaseUrl } from '../api/baseUrl';
+import { createLogger } from '../logging/logger';
 
 const serverBase = getApiBaseUrl();
 
@@ -13,6 +14,7 @@ export type ConversationSummary = {
   archived?: boolean;
   flags?: Record<string, unknown>;
   agentName?: string;
+  flowName?: string;
 };
 
 export type ConversationFilterState = 'active' | 'all' | 'archived';
@@ -60,8 +62,12 @@ type BulkErrorResponse = {
 
 const PAGE_SIZE = 20;
 
-export function useConversations(params?: { agentName?: string }): State {
+export function useConversations(params?: {
+  agentName?: string;
+  flowName?: string;
+}): State {
   const agentName = params?.agentName;
+  const flowName = params?.flowName;
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [filterState, setFilterState] =
     useState<ConversationFilterState>('active');
@@ -71,16 +77,28 @@ export function useConversations(params?: { agentName?: string }): State {
   const [isError, setIsError] = useState(false);
   const [error, setError] = useState<string | undefined>();
   const controllerRef = useRef<AbortController | null>(null);
+  const log = useMemo(() => createLogger('client-flows'), []);
+
+  const normalizedFlowName =
+    typeof flowName === 'string' ? flowName.trim() : '';
 
   const applyFilter = useCallback(
     (items: ConversationSummary[]) => {
-      if (filterState === 'all') return items;
+      const flowFiltered = normalizedFlowName
+        ? items.filter((item) => {
+            if (normalizedFlowName === '__none__') {
+              return !item.flowName;
+            }
+            return item.flowName === normalizedFlowName;
+          })
+        : items;
+      if (filterState === 'all') return flowFiltered;
       if (filterState === 'archived') {
-        return items.filter((item) => Boolean(item.archived));
+        return flowFiltered.filter((item) => Boolean(item.archived));
       }
-      return items.filter((item) => !item.archived);
+      return flowFiltered.filter((item) => !item.archived);
     },
-    [filterState],
+    [filterState, normalizedFlowName],
   );
 
   const dedupeAndSort = useCallback((items: ConversationSummary[]) => {
@@ -108,12 +126,17 @@ export function useConversations(params?: { agentName?: string }): State {
         console.info('[conversations] fetch start', {
           mode,
           agentName,
+          flowName: normalizedFlowName,
           filterState,
           cursor: cursorRef.current,
+        });
+        log('info', 'flows.filter.requested', {
+          flowName: normalizedFlowName || '__all__',
         });
         const search = new URLSearchParams({ limit: `${PAGE_SIZE}` });
         search.set('state', filterState);
         if (agentName) search.set('agentName', agentName);
+        if (normalizedFlowName) search.set('flowName', normalizedFlowName);
         const cursorToUse = mode === 'append' ? cursorRef.current : undefined;
         if (mode === 'append' && cursorToUse) search.set('cursor', cursorToUse);
         const res = await fetch(
@@ -154,7 +177,14 @@ export function useConversations(params?: { agentName?: string }): State {
         setIsLoading(false);
       }
     },
-    [agentName, filterState, dedupeAndSort, applyFilter],
+    [
+      agentName,
+      filterState,
+      normalizedFlowName,
+      log,
+      dedupeAndSort,
+      applyFilter,
+    ],
   );
 
   useEffect(() => {

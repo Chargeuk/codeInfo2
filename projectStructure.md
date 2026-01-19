@@ -16,6 +16,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”œâ”€ README.md â€” repo overview and commands
 â”œâ”€ logs/ â€” runtime server log output (gitignored, host-mounted)
 â”œâ”€ design.md â€” design notes and diagrams
+â”œâ”€ flows/ â€” flow JSON definitions (hot-reloaded, user-managed; resolved as sibling to codex_agents by default)
 â”œâ”€ observability/ â€” shared OpenTelemetry collector config for Chroma traces
 â”‚  â””â”€ otel-collector-config.yaml â€” OTLP->Zipkin/logging pipeline used by all compose stacks
 â”œâ”€ docker-compose.yml â€” compose stack for client/server
@@ -83,11 +84,13 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 |     |- api/
 |     |  - agents.ts ? client wrapper for GET /agents and POST /agents/:agentName/run (AbortSignal supported)
 |     |  - baseUrl.ts ? runtime API base resolver (config/env/location)
+|     |  - flows.ts ? client wrapper for GET /flows and POST /flows/:flowName/run with structured errors + logging
 |     |- index.css ? minimal global styles (font smoothing, margin reset)
 |     |- main.tsx ? app entry with RouterProvider
 |     |- pages/
 |     |  |- ChatPage.tsx ? chat shell with model select, streaming transcript, rounded 14px bubbles, tool blocks, citations accordion (closed by default), and stream status/thinking UI (1s idle guard, ignores tool-only waits)
 |     |  |- AgentsPage.tsx ? agents UI with selector/stop/new-conversation controls, description markdown, and persisted conversation continuation
+|     |  |- FlowsPage.tsx ? flows UI with selector/run/resume/stop controls, flow-filtered sidebar, and step metadata transcript
 |     |  |- IngestPage.tsx ? ingest UI shell (lock banner, form, run/status placeholders)
 |     |  |- HomePage.tsx ? version card page
 |     |  |- LmStudioPage.tsx ? LM Studio config/status/models UI
@@ -127,6 +130,9 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 |     |     |- agentsPage.turnHydration.test.tsx ? selecting a conversation hydrates and renders stored turns
 |     |     |- agentsPage.run.test.tsx ? agent run (realtime) renders transcript from WS and ignores REST segments
 |     |     |- agentsPage.run.instructionError.test.tsx ? Agents page shows error banner when instruction start fails
+|     |     |- flowsPage.test.tsx ? Flows page renders flow list and step metadata
+|     |     |- flowsPage.run.test.tsx ? Flows page run/resume controls send expected payloads
+|     |     |- flowsPage.stop.test.tsx ? Flows page stop button sends cancel_inflight
 |     |     |- agentsPage.run.commandError.test.tsx ? Agents page shows error banner when command start fails
 |     |     |- agentsPage.navigateAway.keepsRun.test.tsx ? navigating away does not cancel run; transcript resumes via WS
 |     |     |- agentsPage.persistenceFallbackSegments.test.tsx ? Agents page shows realtime banner + disables Send when WS is unavailable
@@ -235,6 +241,8 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚     â”‚  â”œâ”€ ingestReembed.ts — POST /ingest/reembed/:root re-runs ingest for a stored root
 â”‚     â”‚  â”œâ”€ ingestRemove.ts — POST /ingest/remove/:root purge vectors/metadata and unlock if empty
 â”‚     â”‚  â”œâ”€ logs.ts â€” log ingestion, history, and SSE streaming routes
+â”‚     â”‚  â”œâ”€ flows.ts — GET /flows list endpoint
+â”‚     â”‚  â”œâ”€ flowsRun.ts — POST /flows/:flowName/run flow runner endpoint
 â”‚     â”‚  â”œâ”€ toolsIngestedRepos.ts â€” GET /tools/ingested-repos repo list for agent tools
 â”‚     â”‚  â”œâ”€ toolsVectorSearch.ts â€” POST /tools/vector-search chunk search with optional repo filter
 â”‚     â”‚  â””â”€ lmstudio.ts â€” LM Studio proxy route
@@ -265,6 +273,11 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚     â”‚  â”œâ”€ errors.ts — Agents MCP domain errors (Codex unavailable)
 â”‚     â”‚  â”œâ”€ codexAvailability.ts — Codex CLI availability check for tool call gating
 â”‚     â”‚  â””â”€ tools.ts — Agents tool registry wiring
+â”‚     â”œâ”€ flows/
+â”‚     â”‚  â”œâ”€ discovery.ts — flow discovery and summary listing (hot reload)
+â”‚     â”‚  â”œâ”€ flowSchema.ts — strict Zod schema for flow JSON validation
+â”‚     â”‚  â”œâ”€ service.ts — flow run execution (llm-only core)
+â”‚     â”‚  â””â”€ types.ts — flow run types + error codes
 â”‚     â”œâ”€ test/unit/chat-assistant-suppress.test.ts â€” unit coverage for assistant-role tool payload suppression helpers
 â”‚     â”œâ”€ test/unit/codexEnvDefaults.test.ts â€” unit coverage for Codex env defaults parsing/warnings
 â”‚     â”œâ”€ ingest/ â€” ingest helpers (discovery, chunking, hashing, config)
@@ -323,6 +336,16 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
         - ingest-dryrun-no-write.steps.ts - step defs for dry-run no-write
 â”‚        â”œâ”€ support/
 â”‚        |  â””â”€ mockLmStudioSdk.ts â€” controllable LM Studio SDK mock
+â”‚        â”œâ”€ fixtures/
+â”‚        |  â”œâ”€ flows/
+â”‚        |  â”œâ”€ hot-reload.json — flow run hot reload fixture
+â”‚        |  â”œâ”€ ignore.txt — non-JSON flow fixture
+â”‚        |  â”œâ”€ invalid-json.json — invalid flow JSON fixture
+â”‚        |  â”œâ”€ invalid-schema.json — invalid flow schema fixture
+â”‚        |  â”œâ”€ llm-basic.json — basic llm flow fixture
+â”‚        |  â”œâ”€ command-step.json — command step flow fixture
+â”‚        |  â”œâ”€ loop-break.json — loop + break flow fixture
+â”‚        |  â””â”€ valid-flow.json — valid flow fixture
 â”‚        â””â”€ unit/
 â”‚           â”œâ”€ chunker.test.ts â€” chunking behaviour and slicing coverage
 â”‚           â”œâ”€ discovery.test.ts â€” discovery include/exclude and git-tracked coverage
@@ -335,6 +358,8 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚           â”œâ”€ chat-interface-run-persistence.test.ts — ChatInterface.run persists user turn then delegates execute, with memory fallback coverage
 â”‚           â”œâ”€ chat-command-metadata.test.ts — ChatInterface.run persists command metadata on user+assistant turns (including aborted/stopped runs)
 â”‚           â”œâ”€ chatValidators.test.ts — unit coverage for Codex env defaults + warnings in chat validation
+â”‚           â”œâ”€ flows-schema.test.ts — unit coverage for flow schema parsing/strictness/trimming
+â”‚           â”œâ”€ flows.flags.test.ts — unit coverage for flow resume flags persistence
 â”‚           â”œâ”€ turn-command-metadata.test.ts — Turn persistence plumbs optional command metadata through append/list helpers
 â”‚           â”œâ”€ toolService.synthetic.test.ts — unit coverage for onToolResult callback emission
 â”‚           â”œâ”€ chroma-embedding-selection.test.ts â€” locked-model embedding function selection + error paths
@@ -354,6 +379,15 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚           â”œâ”€ mcp-unsupported-provider.test.ts — MCP tools/call unsupported provider error path
 â”‚           â””â”€ tools-vector-search.test.ts â€” supertest coverage for /tools/vector-search
 â”‚        â”œâ”€ integration/
+â”‚        |  â”œâ”€ flows.list.test.ts â€” integration coverage for GET /flows listing
+â”‚        |  â”œâ”€ flows.run.basic.test.ts â€” integration coverage for POST /flows/:flowName/run streaming
+â”‚        |  â”œâ”€ flows.run.command.test.ts â€” integration coverage for command-step flow runs
+â”‚        |  â”œâ”€ flows.run.errors.test.ts â€” integration coverage for flow run error responses
+â”‚        |  â”œâ”€ flows.run.resume.test.ts â€” integration coverage for flow run resume validation
+â”‚        |  â”œâ”€ flows.run.working-folder.test.ts â€” integration coverage for flow run working_folder validation
+â”‚        |  â”œâ”€ flows.run.hot-reload.test.ts â€” integration coverage for flow run hot reload
+â”‚        |  â”œâ”€ flows.run.loop.test.ts â€” integration coverage for flow run loop + break
+â”‚        |  â””â”€ flows.turn-metadata.test.ts â€” integration coverage for flow command metadata
 â”‚        |  â”œâ”€ chat-tools-wire.test.ts â€” chat route wiring (POST /chat 202 + WS bridge) with mocked LM Studio tools
 â”‚        |  â”œâ”€ chat-vectorsearch-locked-model.test.ts â€” chat run error/success flows when vector search lock/embedding availability changes
 â”‚        |  â”œâ”€ chat-codex.test.ts — Codex chat run flow, thread reuse, and availability gating
@@ -441,6 +475,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 - server/src/test/unit/chat-codex-workingDirectoryOverride.test.ts — ensures ChatInterfaceCodex honors per-call workingDirectory overrides
 - server/src/test/unit/conversations-router-agent-filter.test.ts — Supertest coverage for `/conversations?agentName=...` request forwarding
 - server/src/test/integration/conversations.bulk.test.ts — Supertest coverage for bulk conversation endpoints (archive/restore/delete + validation/conflicts)
+- server/src/test/integration/conversations.flowname.test.ts — Supertest coverage for flowName field in conversation listings
 - server/src/mongo/events.ts — in-process conversation upsert/delete event bus (used for WS sidebar fan-out)
 - server/src/ws/types.ts — WebSocket v1 protocol envelope/types + inbound message parser
 - server/src/ws/registry.ts — in-memory subscription registry (sidebar + per-conversation)
@@ -477,6 +512,8 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 - client/src/test/agentsApi.commandsList.test.ts — Agents API wrapper calls `GET /agents/:agentName/commands` and preserves disabled command entries
 - client/src/test/agentsApi.commandsRun.test.ts — Agents API wrapper calls `POST /agents/:agentName/commands/run` and omits optional fields when absent
 - client/src/test/agentsApi.errors.test.ts — Agents API wrapper throws structured errors exposing HTTP status + server error codes (e.g., `RUN_IN_PROGRESS`)
+- client/src/test/flowsApi.test.ts — Flows API wrapper list/run request shapes, parsed responses, and structured error coverage
+- client/src/test/flowsApi.run.payload.test.ts — Flows API wrapper includes optional run payload fields (`working_folder`, `resumeStepPath`) when set
 - client/src/test/agentsPage.commandsList.test.tsx — Agents page command dropdown refresh, disabled entries, labels, and description display
 - client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx — Agents page command execution refreshes conversation turns for rendering
 - client/src/test/agentsPage.commandsRun.conflict.test.tsx — Agents page surfaces RUN_IN_PROGRESS conflicts for both command execute and normal send

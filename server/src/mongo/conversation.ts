@@ -11,6 +11,7 @@ export interface Conversation {
   model: string;
   title: string;
   agentName?: string;
+  flowName?: string;
   source: ConversationSource;
   flags: Record<string, unknown>;
   createdAt: Date;
@@ -28,6 +29,7 @@ const conversationSchema = new Schema<Conversation>(
     model: { type: String, required: true },
     title: { type: String, required: true },
     agentName: { type: String },
+    flowName: { type: String },
     source: { type: String, enum: ['REST', 'MCP'], default: 'REST' },
     flags: { type: Schema.Types.Mixed, default: {} },
     lastMessageAt: { type: Date, required: true, default: () => new Date() },

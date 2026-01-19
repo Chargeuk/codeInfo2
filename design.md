@@ -26,6 +26,92 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - `validateChatRequest` applies Codex env defaults when request flags are missing, surfaces env warnings on the response payload, and logs `[codex-validate] applied env defaults` with the defaulted flag list.
 - `ChatInterfaceCodex` builds thread options from validated flags without extra fallback defaults, leaving missing values undefined so Codex config/env defaults apply, and logs `[codex-thread-options] prepared` with `undefinedFlags`.
 
+## Flows (schema)
+
+- Flow definitions live under `flows/<flowName>.json` and are validated with a strict Zod schema before use.
+- Top-level shape: `{ description?: string, steps: FlowStep[] }` with optional `label` fields for UI display.
+- Supported step types:
+  - `startLoop`: `{ type, label?, steps: FlowStep[] }` (steps must be non-empty).
+  - `llm`: `{ type, label?, agentType, identifier, messages: { role: 'user', content: string[] }[] }`.
+  - `break`: `{ type, label?, agentType, identifier, question, breakOn: 'yes' | 'no' }`.
+  - `command`: `{ type, label?, agentType, identifier, commandName }`.
+- All objects are `.strict()` and use trimmed non-empty strings; unknown keys or empty/whitespace-only values fail validation.
+- `/flows` listings (added later in the story) surface invalid JSON/schema as `disabled: true` entries with error text.
+
+## Flows (discovery + list)
+
+- `GET /flows` scans the `flows/` directory on every request (hot-reload) and returns `{ flows: FlowSummary[] }`.
+- By default, `flows/` is resolved as a sibling to `CODEINFO_CODEX_AGENT_HOME` (so it sits alongside `codex_agents`); `FLOWS_DIR` can override this path.
+- Non-JSON files are ignored; missing `flows/` returns an empty list.
+- Invalid JSON or schema still appears as `disabled: true` with error text.
+- Each scan logs `flows.discovery.scan` with `{ totalFlows, disabledFlows }`.
+
+## Flows (run core)
+
+- `POST /flows/:flowName/run` validates the flow file on disk (hot-reload per run) and returns `202 { status: "started", flowName, conversationId, inflightId, modelId }`.
+- Flow runs create a conversation titled `Flow: <name>` and set `flowName` for sidebar filtering.
+- Core execution supports `llm`, `startLoop`, `break`, and `command` steps; unsupported step types return `400 { error: "invalid_request" }`.
+- `startLoop` executes its nested steps repeatedly, tracking a loop stack with `loopStepPath` and iteration count; `break` exits only the nearest loop.
+- `break` asks the configured agent to answer JSON `{ "answer": "yes" | "no" }` and fails the step (turn_final status `failed`) if the response is invalid.
+- `command` steps load `commands/<commandName>.json` for the specified agent and run each command item as a flow instruction; missing/invalid commands return `invalid_request` and emit a failed `turn_final`.
+- Each `llm` message entry is joined into a single instruction string and streamed via the existing WS protocol (no new event types).
+- Flow turns attach `turn.command` metadata with `{ name: 'flow', stepIndex, totalSteps, loopDepth, agentType, identifier, label }` (label defaults to the step type) and log `flows.turn.metadata_attached`.
+- Per-agent thread reuse is tracked in memory by `agentType:identifier`, while the flow conversation stores the merged transcript.
+- Resume state is stored on the flow conversation as `flags.flow` with `{ stepPath, loopStack, agentConversations, agentThreads }`, and each save emits `flows.resume.state_saved`.
+- Resume runs accept `resumeStepPath`, log `flows.resume.requested`, and validate path indices; mismatched agent conversation mappings return `agent_mismatch`.
+- Working folder validation mirrors agent runs and surfaces `WORKING_FOLDER_INVALID` / `WORKING_FOLDER_NOT_FOUND` for invalid input.
+
+```mermaid
+sequenceDiagram
+  participant Flow
+  participant Agent
+  loop Loop body
+    Flow->>Agent: LLM step
+    Agent-->>Flow: response
+    Flow->>Agent: break question (JSON yes/no)
+    alt answer == breakOn
+      break exit loop
+    else continue
+  end
+end
+```
+
+## Flows (UI)
+
+- Client route `/flows` provides the Flows page with a drawer sidebar and transcript layout matching Chat/Agents.
+- The flow selector is populated by `GET /flows` and disables invalid flows (shows description + error banner when disabled).
+- Conversations are filtered to the selected flow name and displayed via `ConversationList` (archive/restore/bulk still available).
+- Run/resume controls call `POST /flows/:flowName/run` with `conversationId`, optional `working_folder`, and `resumeStepPath` derived from `flags.flow.stepPath`.
+- The transcript uses `useChatStream` + `useChatWs` to render per-step metadata (label + agentType/identifier) alongside standard timestamp/usage/timing lines; Stop issues `cancel_inflight` over WS.
+- Flow command metadata normalization emits `flows.metadata.normalized` when flow labels are parsed for UI rendering.
+
+```mermaid
+flowchart LR
+  User[User selects flow] --> UI[Flows page /flows]
+  UI -->|GET /flows| Server[Server]
+  UI -->|GET /conversations?flowName=<flow>| Server
+  UI -->|POST /flows/:flowName/run| Server
+  Server -->|202 started + WS streaming| UI
+  UI -->|cancel_inflight| WS[WebSocket /ws]
+```
+
+```mermaid
+sequenceDiagram
+  participant User
+  participant UI as Flows UI
+  participant Server
+  participant WS as WebSocket /ws
+  participant Mongo
+
+  User->>UI: Select flow + Run/Resume
+  UI->>Server: POST /flows/:flowName/run (conversationId, resumeStepPath?)
+  Server->>Mongo: persist conversation + resume flags
+  Server-->>UI: 202 started (conversationId, inflightId)
+  Server-->>WS: stream step turns with command metadata
+  WS-->>UI: turn events + flow metadata
+  UI->>WS: cancel_inflight (optional stop)
+```
+
 ## Server testing & Docker
 
 - Cucumber test under `server/src/test` validates `/health` (run with server running on 5010): `npm run test --workspace server`.
@@ -37,6 +123,8 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - Both collections include a `source` enum (`REST` | `MCP`, default `REST`) so the UI can surface where a conversation/turn originated; repo helpers normalise missing `source` values to `REST` for backwards compatibility.
 - Repository helpers in `server/src/mongo/repo.ts` handle create/update/archive/restore, append turns, and cursor pagination for conversation listings (newest-first by `lastMessageAt`). Turn snapshots now return the full newest-first history (no pagination) and merge in-flight turns when present.
 - Conversations can be tagged with `agentName` so the normal Chat history stays clean (no `agentName`) while agent UIs filter to a specific `agentName` value.
+- Conversations can be tagged with `flowName` to mark flow runs; summaries and WS sidebar payloads surface it for flow history isolation.
+- `GET /conversations` supports `flowName=<name>` for exact matches and `flowName=__none__` to return only conversations without a flow tag.
 - HTTP endpoints (`server/src/routes/conversations.ts`) expose list/create/archive/restore and turn append/list. `GET /conversations` supports a 3-state filter via `state=active|archived|all` (default `active`); legacy `archived=true` remains supported and maps to `state=all`. Chat POST now requires `{ conversationId, message, provider, model, flags? }`; the server loads stored turns, streams to LM Studio or Codex, then appends user/assistant/tool turns and updates `lastMessageAt`. Archived conversations return 410 on append.
 - Bulk conversation endpoints (`POST /conversations/bulk/archive|restore|delete`) use validate-first semantics: if any ids are missing (or if delete includes non-archived conversations), the server returns `409 BATCH_CONFLICT` and performs no writes. Hard delete is archived-only and deletes turns first to avoid orphaned turn documents.
 - MCP tool `codebase_question` mirrors the same persistence, storing MCP-sourced conversations/turns (including tool calls) unless the conversation is archived. MCP response payloads return answer-only segments (no reasoning/vector-summary data). Codex uses a persisted `threadId` flag for follow-ups; LM Studio uses stored turns for the `conversationId`.

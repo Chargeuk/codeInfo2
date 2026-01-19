@@ -23,7 +23,11 @@ import useLogs from '../hooks/useLogs';
 import { createLogger } from '../logging';
 
 const levelOptions: LogEntry['level'][] = ['error', 'warn', 'info', 'debug'];
-const sourceOptions: LogEntry['source'][] = ['server', 'client'];
+const sourceOptions: LogEntry['source'][] = [
+  'server',
+  'client',
+  'client-flows',
+];
 
 function formatTimestamp(value: string) {
   const date = new Date(value);
@@ -63,6 +67,10 @@ export default function LogsPage() {
     });
     logger('info', 'DEV-0000025:T8:verification_logs_reviewed', {
       story: '0000025',
+      logChecksComplete: true,
+    });
+    logger('info', 'flows.verification.manual_check', {
+      story: '0000027',
       logChecksComplete: true,
     });
   }, [logger]);

@@ -63,8 +63,28 @@ describe('useConversations source metadata', () => {
 
     const fetchCalls = (global as typeof globalThis & { fetch: jest.Mock })
       .fetch.mock.calls;
+    const conversationCall = fetchCalls.find((call) =>
+      String(call[0]).includes('/conversations?'),
+    );
     const firstUrl =
-      fetchCalls[0]?.[0]?.toString?.() ?? String(fetchCalls[0]?.[0]);
+      conversationCall?.[0]?.toString?.() ?? String(conversationCall?.[0]);
     expect(firstUrl).toContain('agentName=__none__');
+  });
+
+  it('includes flowName when provided', async () => {
+    const { result } = renderHook(() =>
+      useConversations({ agentName: '__none__', flowName: '__none__' }),
+    );
+
+    await waitFor(() => expect(result.current.conversations.length).toBe(2));
+
+    const fetchCalls = (global as typeof globalThis & { fetch: jest.Mock })
+      .fetch.mock.calls;
+    const conversationCall = fetchCalls.find((call) =>
+      String(call[0]).includes('/conversations?'),
+    );
+    const firstUrl =
+      conversationCall?.[0]?.toString?.() ?? String(conversationCall?.[0]);
+    expect(firstUrl).toContain('flowName=__none__');
   });
 });

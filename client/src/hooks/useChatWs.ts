@@ -22,6 +22,7 @@ type WsSidebarConversationSummary = {
   lastMessageAt: string;
   archived: boolean;
   agentName?: string;
+  flowName?: string;
   flags?: Record<string, unknown>;
 };
 
@@ -153,6 +154,10 @@ type TurnCommandMetadata = {
   name: string;
   stepIndex: number;
   totalSteps: number;
+  loopDepth?: number;
+  label?: string;
+  agentType?: string;
+  identifier?: string;
 };
 
 type TurnUsageMetadata = {

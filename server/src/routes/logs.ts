@@ -45,7 +45,8 @@ function normalizeEntries(body: unknown): LogEntry[] | null {
     if (!isLogEntry(candidate)) return null;
     const entry = candidate as LogEntry;
     if (!ALLOWED_LEVELS.includes(entry.level)) return null;
-    if (!['server', 'client'].includes(entry.source)) return null;
+    if (!['server', 'client', 'client-flows'].includes(entry.source))
+      return null;
     entries.push(entry);
   }
   return entries;
@@ -64,7 +65,7 @@ function buildFilters(query: Record<string, unknown>): Filters {
     ALLOWED_LEVELS.includes(lvl as LogLevel),
   ) as LogLevel[];
   const source = parseList(query.source).filter((src) =>
-    ['client', 'server'].includes(src),
+    ['client', 'server', 'client-flows'].includes(src),
   );
   const since = Number(query.since);
   const until = Number(query.until);

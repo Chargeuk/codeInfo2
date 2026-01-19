@@ -1,2 +1,3 @@
 dist
 node_modules
+src/test/fixtures/flows/invalid-json.json

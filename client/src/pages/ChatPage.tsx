@@ -216,7 +216,7 @@ export default function ChatPage() {
     bulkDelete,
     applyWsUpsert,
     applyWsDelete,
-  } = useConversations({ agentName: '__none__' });
+  } = useConversations({ agentName: '__none__', flowName: '__none__' });
 
   const {
     mongoConnected,

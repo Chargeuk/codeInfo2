@@ -38,7 +38,11 @@ function TestCommandTurn() {
   const { turns } = useConversationTurns('c1');
   const turn = turns[0];
   const label = turn?.command
-    ? `${turn.command.name} (${turn.command.stepIndex}/${turn.command.totalSteps})`
+    ? `${turn.command.name}|${turn.command.stepIndex}/${turn.command.totalSteps}|${
+        turn.command.label ?? ''
+      }|${turn.command.agentType ?? ''}|${turn.command.identifier ?? ''}|${
+        turn.command.loopDepth ?? ''
+      }`
     : 'none';
 
   return createElement('div', null, label);
@@ -56,9 +60,13 @@ test('preserves command metadata in StoredTurn', async () => {
         toolCalls: null,
         status: 'ok',
         command: {
-          name: 'improve_plan',
+          name: 'flow',
           stepIndex: 2,
           totalSteps: 12,
+          loopDepth: 1,
+          label: 'Draft outline',
+          agentType: 'planning_agent',
+          identifier: 'main',
         },
         createdAt: '2025-01-02T00:00:00Z',
       },
@@ -67,7 +75,9 @@ test('preserves command metadata in StoredTurn', async () => {
 
   render(createElement(TestCommandTurn));
 
-  expect(await screen.findByText('improve_plan (2/12)')).toBeInTheDocument();
+  expect(
+    await screen.findByText('flow|2/12|Draft outline|planning_agent|main|1'),
+  ).toBeInTheDocument();
 });
 
 function TestUsageTurn() {
@@ -138,7 +148,11 @@ test('omits usage/timing metadata when missing', async () => {
 function TestInflightCommand() {
   const { inflight } = useConversationTurns('c1');
   const label = inflight?.command
-    ? `${inflight.command.name} (${inflight.command.stepIndex}/${inflight.command.totalSteps})`
+    ? `${inflight.command.name}|${inflight.command.stepIndex}/${
+        inflight.command.totalSteps
+      }|${inflight.command.label ?? ''}|${inflight.command.agentType ?? ''}|${
+        inflight.command.identifier ?? ''
+      }|${inflight.command.loopDepth ?? ''}`
     : 'no-command';
   return createElement('div', null, label);
 }
@@ -153,13 +167,23 @@ test('preserves inflight command metadata from REST snapshot', async () => {
       toolEvents: [],
       startedAt: '2025-01-02T00:00:00Z',
       seq: 4,
-      command: { name: 'improve_plan', stepIndex: 1, totalSteps: 3 },
+      command: {
+        name: 'flow',
+        stepIndex: 1,
+        totalSteps: 3,
+        loopDepth: 0,
+        label: 'Step one',
+        agentType: 'planning_agent',
+        identifier: 'main',
+      },
     },
   });
 
   render(createElement(TestInflightCommand));
 
-  expect(await screen.findByText('improve_plan (1/3)')).toBeInTheDocument();
+  expect(
+    await screen.findByText('flow|1/3|Step one|planning_agent|main|0'),
+  ).toBeInTheDocument();
 });
 
 test('omits inflight command metadata when missing', async () => {

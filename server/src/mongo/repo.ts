@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import type { FlowResumeState } from '../flows/flowState.js';
 import { append } from '../logStore.js';
 import {
   ConversationModel,
@@ -38,6 +39,7 @@ function toConversationEvent(doc: Conversation): ConversationEventSummary {
     model: doc.model,
     title: doc.title,
     agentName: doc.agentName,
+    flowName: doc.flowName,
     source: (doc as Conversation).source ?? 'REST',
     lastMessageAt: doc.lastMessageAt,
     archived: doc.archivedAt != null,
@@ -51,6 +53,7 @@ export interface CreateConversationInput {
   model: string;
   title: string;
   agentName?: string;
+  flowName?: string;
   source?: ConversationSource;
   flags?: Record<string, unknown>;
   lastMessageAt?: Date;
@@ -85,6 +88,7 @@ export interface ListConversationsParams {
   state?: 'active' | 'archived' | 'all';
   includeArchived?: boolean;
   agentName?: string;
+  flowName?: string;
 }
 
 export interface ListTurnsParams {
@@ -102,6 +106,7 @@ export async function createConversation(
     model: input.model,
     title: input.title,
     agentName: input.agentName,
+    flowName: input.flowName,
     source: input.source ?? 'REST',
     flags: input.flags ?? {},
     lastMessageAt: input.lastMessageAt ?? new Date(),
@@ -147,6 +152,24 @@ export async function updateConversationThreadId({
   const updated = await ConversationModel.findByIdAndUpdate(
     conversationId,
     { $set: { 'flags.threadId': threadId } },
+    { new: true },
+  ).exec();
+  if (updated) emitConversationUpsert(toConversationEvent(updated));
+  return updated;
+}
+
+export async function updateConversationFlowState({
+  conversationId,
+  flow,
+}: {
+  conversationId: string;
+  flow: FlowResumeState;
+}): Promise<Conversation | null> {
+  if (mongoose.connection.readyState !== 1) return null;
+
+  const updated = await ConversationModel.findByIdAndUpdate(
+    conversationId,
+    { $set: { 'flags.flow': flow } },
     { new: true },
   ).exec();
   if (updated) emitConversationUpsert(toConversationEvent(updated));
@@ -212,6 +235,7 @@ export interface ConversationSummary {
   model: string;
   title: string;
   agentName?: string;
+  flowName?: string;
   source: ConversationSource;
   lastMessageAt: Date;
   archived: boolean;
@@ -246,6 +270,18 @@ export async function listConversations(
     }
   }
 
+  if (params.flowName !== undefined) {
+    if (params.flowName === '__none__') {
+      query.$or = [
+        { flowName: { $exists: false } },
+        { flowName: null },
+        { flowName: '' },
+      ];
+    } else {
+      query.flowName = params.flowName;
+    }
+  }
+
   if (params.cursor) {
     query.lastMessageAt = { $lt: toDate(params.cursor) };
   }
@@ -260,7 +296,8 @@ export async function listConversations(
     provider: doc.provider,
     model: doc.model,
     title: doc.title,
-    agentName: doc.agentName,
+    ...(doc.agentName ? { agentName: doc.agentName } : {}),
+    ...(doc.flowName ? { flowName: doc.flowName } : {}),
     source: (doc as Conversation).source ?? 'REST',
     lastMessageAt: doc.lastMessageAt,
     archived: doc.archivedAt != null,
@@ -268,6 +305,18 @@ export async function listConversations(
     createdAt: doc.createdAt,
     updatedAt: doc.updatedAt,
   }));
+
+  const flowNameCount = items.filter((item) => item.flowName).length;
+  append({
+    level: 'info',
+    message: 'conversations.flowName.mapped',
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      flowNameCount,
+      totalCount: items.length,
+    },
+  });
 
   return { items };
 }

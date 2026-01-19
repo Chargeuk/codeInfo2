@@ -3,7 +3,7 @@ export type LogEntry = {
   level: LogLevel;
   message: string;
   timestamp: string; // ISO string
-  source: 'server' | 'client';
+  source: 'server' | 'client' | 'client-flows';
   requestId?: string;
   correlationId?: string;
   userAgent?: string;

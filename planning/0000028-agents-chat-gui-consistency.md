@@ -60,6 +60,7 @@ The Agents and Chat pages currently waste vertical space and feel inconsistent w
 ## Out Of Scope
 
 - New server APIs or changes to ingest/agent/chat back-end behavior beyond reusing the existing directory picker endpoint.
+- Adding Chat `working_folder` support or any new chat request fields (unless explicitly approved after answering the open question).
 - Visual redesigns of navigation, sidebar behavior, or conversation rendering beyond spacing/height adjustments.
 - Adding new feature pages or new command/agent functionality.
 
@@ -98,7 +99,8 @@ The Agents and Chat pages currently waste vertical space and feel inconsistent w
 - Existing contracts already cover the needed data:
   - Agent metadata (name/description/warnings) comes from `GET /agents` and the `AgentSummary`/`DiscoveredAgent` types.
   - Working-folder values are already accepted by Agents/Flows (`working_folder` in `POST /agents/:agentName/run` and `POST /flows/:flowName/run`).
-  - Chat requests do **not** currently accept `working_folder`—if the open question is resolved in favor of a Chat working-folder, that would require a new request field and validation updates. (Keep this out of scope unless explicitly approved.)
+-  - Chat requests do **not** currently accept `working_folder`—if the open question is resolved in favor of a Chat working-folder, that would require a new request field and validation updates. (Keep this out of scope unless explicitly approved.)
+- No new WebSocket event types or MongoDB document shape changes are expected for this story.
 
 ---
 

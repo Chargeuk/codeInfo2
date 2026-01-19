@@ -520,7 +520,17 @@ Align Agents controls so the Command selector and Execute button share a row, an
    - Purpose:
      - Ensures the top control row matches the acceptance criteria layout.
 
-4. [ ] Test (unit/client): Stop button moved to instruction row
+4. [ ] Test (unit/client): Instruction row layout
+   - Documentation to read (repeat):
+     - Jest: Context7 `/jestjs/jest`
+   - Location:
+     - `client/src/test/agentsPage.layoutWrap.test.tsx`
+   - Description:
+     - Assert the Instruction input and the Send/Stop action slot render within the same row container.
+   - Purpose:
+     - Ensures the instruction row matches the acceptance criteria layout.
+
+5. [ ] Test (unit/client): Stop button moved to instruction row
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Location:
@@ -530,7 +540,7 @@ Align Agents controls so the Command selector and Execute button share a row, an
    - Purpose:
      - Ensures the row re-layout removed the Stop button from the header area.
 
-5. [ ] Documentation update: `projectStructure.md` (if a new test file was added)
+6. [ ] Documentation update: `projectStructure.md` (if a new test file was added)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -538,7 +548,7 @@ Align Agents controls so the Command selector and Execute button share a row, an
    - Purpose:
      - Ensure any newly added test file is reflected in the repo tree.
 
-6. [ ] Capture UI screenshots (required for this task):
+7. [ ] Capture UI screenshots (required for this task):
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
    - Use Playwright MCP to capture the Agents controls area showing the new two-row layout.
@@ -547,7 +557,7 @@ Align Agents controls so the Command selector and Execute button share a row, an
      - `0000028-3-agents-controls.png`
      - `0000028-3-agents-controls-mobile.png`
 
-7. [ ] Documentation update: `design.md`
+8. [ ] Documentation update: `design.md`
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -555,7 +565,7 @@ Align Agents controls so the Command selector and Execute button share a row, an
    - Description:
      - Add a short note if control layout is described for Agents.
 
-8. [ ] Run full linting:
+9. [ ] Run full linting:
    - Documentation to read (repeat):
      - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI/options: https://prettier.io/docs/options
@@ -944,11 +954,9 @@ Standardize sizing and button variants across Chat and Agents so all controls us
    - Location:
      - `client/src/test/chatPage.*.test.tsx` (update the most relevant existing test)
    - Description:
-     - Add assertions for Chat inputs/selects using `size="small"` and buttons using expected variants.
+     - Add assertions for at least one Chat TextField and Select using `size="small"`, plus primary/secondary buttons using expected variants (include Stop `contained` + `error` when streaming).
    - Purpose:
      - Confirms the sizing/variant baseline for Chat controls.
-   - Note:
-     - If no tests assert size/variant props today, prefer screenshots and skip adding new assertions.
 
 4. [ ] Test (unit/client): Agents control sizes/variants
    - Documentation to read (repeat):
@@ -956,11 +964,9 @@ Standardize sizing and button variants across Chat and Agents so all controls us
    - Location:
      - `client/src/test/agentsPage.layoutWrap.test.tsx`
    - Description:
-     - Add assertions for Agents inputs/selects using `size="small"` and buttons using expected variants.
+     - Add assertions that agent selectors/inputs use `size="small"` and buttons (Execute, Send, New conversation, Choose folder) use the expected variants; include Stop using `contained` + `error`.
    - Purpose:
      - Confirms the sizing/variant baseline for Agents controls.
-   - Note:
-     - If no tests assert size/variant props today, prefer screenshots and skip adding new assertions.
 
 5. [ ] Capture UI screenshots (required for this task):
    - Documentation to read (repeat):
@@ -1092,11 +1098,9 @@ Standardize sizing and button variants across LM Studio and Ingest so controls u
    - Location:
      - `client/src/test/lmstudio.test.tsx`
    - Description:
-     - Add assertions for LM Studio inputs using `size="small"` and buttons using expected variants.
+     - Add assertions for LM Studio inputs using `size="small"` and buttons using expected primary/secondary variants.
    - Purpose:
      - Confirms the sizing/variant baseline for LM Studio.
-   - Note:
-     - If no tests assert size/variant props today, prefer screenshots and skip adding new assertions.
 
 4. [ ] Test (unit/client): Ingest control sizes/variants
    - Documentation to read (repeat):
@@ -1104,11 +1108,9 @@ Standardize sizing and button variants across LM Studio and Ingest so controls u
    - Location:
      - `client/src/test/ingestForm.test.tsx`
    - Description:
-     - Add assertions for Ingest inputs using `size="small"` and buttons using expected variants.
+     - Add assertions for Ingest inputs using `size="small"` and buttons using expected primary/secondary variants (e.g., Start ingest contained, Choose folder outlined).
    - Purpose:
      - Confirms the sizing/variant baseline for Ingest.
-   - Note:
-     - If no tests assert size/variant props today, prefer screenshots and skip adding new assertions.
 
 5. [ ] Capture UI screenshots (required for this task):
    - Documentation to read (repeat):

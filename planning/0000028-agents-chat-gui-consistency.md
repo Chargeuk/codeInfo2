@@ -15,7 +15,7 @@ Story convention (important for this repo’s planning style):
 
 ## Description
 
-The Agents and Chat pages currently waste vertical space and feel inconsistent with other pages (Chat, Agents, LM Studio, Ingest). Controls vary in size, alignment, and button styling, and the conversation view stops above the bottom of the screen leaving unused space. This story will reorganize the Agents controls to reclaim space, align inline controls to the same size and baseline, and make the conversation view fill the available height. It also introduces a reusable “Choose Folder” picker for Agents (and Chat only if the open question is explicitly approved) so folder selection behaves the same way as the Ingest page. The end result should be a tighter, more consistent UI that feels aligned across pages, with primary and secondary actions clearly distinguished and better use of screen real estate.
+The Agents and Chat pages currently waste vertical space and feel inconsistent with other pages (Chat, Agents, LM Studio, Ingest). Controls vary in size, alignment, and button styling, and the conversation view stops above the bottom of the screen leaving unused space. This story will reorganize the Agents controls to reclaim space, align inline controls to the same size and baseline, and make the conversation view fill the available height. It also introduces a reusable “Choose Folder” picker for Agents so folder selection behaves the same way as the Ingest page (Chat does not add a working-folder picker in this story). The end result should be a tighter, more consistent UI that feels aligned across pages, with primary and secondary actions clearly distinguished and better use of screen real estate.
 
 ---
 
@@ -31,7 +31,7 @@ The Agents and Chat pages currently waste vertical space and feel inconsistent w
   - Clicking “Choose folder…” opens the same dialog title and folder list as Ingest.
   - Selecting a folder fills the working-folder input with the chosen absolute host path.
   - Cancel closes the dialog without changing the input value.
-- Chat only adds the same “Choose folder…” picker if the open question is approved (otherwise Chat has no working-folder UI in this story).
+- Chat does not add a working-folder input or picker in this story.
 - All dropdowns, text inputs, and buttons across Chat, Agents, LM Studio, and Ingest use the same sizing rules:
   - Form controls (TextField, Select, Autocomplete) use `size="small"`.
   - Buttons on the same row use `size="small"` and align vertically with the adjacent input height.
@@ -69,7 +69,7 @@ The Agents and Chat pages currently waste vertical space and feel inconsistent w
 
 ## Questions
 
-- Chat currently has no working-folder input and the `/chat` API does not accept `working_folder` (only Agents/Flows do). Should this story add a new Chat working-folder field and server support for `workingDirectoryOverride`, or should the “Choose folder…” requirement be limited to Agents only?
+None.
 
 ## Decisions
 
@@ -77,6 +77,7 @@ The Agents and Chat pages currently waste vertical space and feel inconsistent w
 - The info popover shows a friendly empty-state message when no description or warnings are available (e.g., “No description or warnings are available for this agent yet.”).
 - Use `size="small"` for all form inputs and action buttons to establish the shared sizing baseline across Chat, Agents, LM Studio, and Ingest.
 - Reuse the existing Ingest directory picker (`client/src/components/ingest/DirectoryPickerDialog.tsx`) rather than duplicating logic; if it needs to be shared, move it to a common components location and update Ingest imports.
+- Chat working-folder support is explicitly out of scope for this story.
 
 ---
 

@@ -766,7 +766,7 @@ Align Agents controls so the Command selector and Execute button share a row, an
 
 ### 4. Client: Agents send/stop width stability
 
-- Task Status: **__in_progress__**
+- Task Status: **__done__**
 - Git Commits: **__to_do__**
 
 #### Overview
@@ -789,7 +789,7 @@ Ensure the Send/Stop action slot keeps a stable width so the row does not shift 
 
 #### Subtasks
 
-1. [ ] Review Send/Stop rendering conditions and current button layout:
+1. [x] Review Send/Stop rendering conditions and current button layout:
    - Documentation to read (repeat):
      - MUI Button API: https://llms.mui.com/material-ui/6.4.12/api/button.md
    - Files to read:
@@ -800,7 +800,7 @@ Ensure the Send/Stop action slot keeps a stable width so the row does not shift 
      - Send/Stop use the same width so the row does not shift when toggling.
      - Only one of Send/Stop is shown at a time in the action slot.
 
-2. [ ] Implement fixed-width Send/Stop slot:
+2. [x] Implement fixed-width Send/Stop slot:
    - Documentation to read (repeat):
      - MUI Stack API: https://llms.mui.com/material-ui/6.4.12/api/stack.md
      - MUI Box API: https://llms.mui.com/material-ui/6.4.12/api/box.md
@@ -816,7 +816,7 @@ Ensure the Send/Stop action slot keeps a stable width so the row does not shift 
    - Snippet to apply (example):
      - `<Box sx={{ minWidth: 120 }}>...</Box>` wrapping the Send/Stop slot
 
-3. [ ] Test (unit/client): Action slot fixed width
+3. [x] Test (unit/client): Action slot fixed width
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Location:
@@ -828,7 +828,7 @@ Ensure the Send/Stop action slot keeps a stable width so the row does not shift 
    - Snippet example:
      - `expect(actionSlot).toHaveStyle({ minWidth: '120px' });`
 
-4. [ ] Test (unit/client): Single action rendered
+4. [x] Test (unit/client): Single action rendered
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Location:
@@ -840,7 +840,7 @@ Ensure the Send/Stop action slot keeps a stable width so the row does not shift 
    - Snippet example:
      - `expect(screen.queryByTestId('agent-stop')).toBeNull();`
 
-5. [ ] Capture UI screenshots (required for this task):
+5. [x] Capture UI screenshots (required for this task):
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
    - Files to add:
@@ -850,7 +850,7 @@ Ensure the Send/Stop action slot keeps a stable width so the row does not shift 
    - Use Playwright MCP to capture the instruction row showing the fixed-width Send/Stop slot.
    - Move the screenshot into `planning/0000028-agents-chat-gui-consistency-data/` as `0000028-4-agents-send-stop-width.png`.
 
-6. [ ] Documentation update: `projectStructure.md` (after screenshots are added)
+6. [x] Documentation update: `projectStructure.md` (after screenshots are added)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location:
@@ -863,7 +863,7 @@ Ensure the Send/Stop action slot keeps a stable width so the row does not shift 
    - Snippet example:
      - `planning/0000028-agents-chat-gui-consistency-data/0000028-4-agents-send-stop-width.png`
 
-7. [ ] Documentation update: `design.md`
+7. [x] Documentation update: `design.md`
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -873,7 +873,7 @@ Ensure the Send/Stop action slot keeps a stable width so the row does not shift 
    - Snippet example:
      - `- Agents Send/Stop uses a fixed-width action slot to prevent layout shift.`
 
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+8. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI/options: https://prettier.io/docs/options
@@ -885,42 +885,59 @@ Ensure the Send/Stop action slot keeps a stable width so the row does not shift 
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
-5. [ ] `npm run test --workspace client -- agentsPage.layoutWrap`
+5. [x] `npm run test --workspace client -- agentsPage.layoutWrap`
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
-6. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
-7. [ ] `npm run compose:build`
+7. [x] `npm run compose:build`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] `npm run compose:up`
+8. [x] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-9. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, toggle between Send/Stop, confirm row width stays stable, and confirm the debug console shows no errors.
+9. [x] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, toggle between Send/Stop, confirm row width stays stable, and confirm the debug console shows no errors.
    - Capture a Playwright MCP screenshot showing the fixed-width Send/Stop slot; confirm the image is stored under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` before moving/recording it.
    - Expected log lines (debug console):
      - `DEV-0000028[T4] agents action slot state` appears with `showStop: false` when idle.
      - `DEV-0000028[T4] agents action slot state` appears with `showStop: true` after triggering Stop.
-10. [ ] `npm run compose:down`
+10. [x] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
 #### Implementation notes
 
-- (fill in during execution)
+- Reviewed the Send/Stop rendering logic and action slot container in `AgentsPage.tsx`.
+- Added a fixed-width action slot, single-button rendering, and `DEV-0000028[T4] agents action slot state` logging.
+- Expanded `agentsPage.layoutWrap.test.tsx` with action slot width and single-action assertions.
+- Captured the Task 4 Send/Stop width screenshot and moved it into the planning data folder.
+- Updated `projectStructure.md` with the Task 4 Send/Stop width screenshot entry.
+- Documented the fixed-width Send/Stop action slot in `design.md`.
+- Ran `npm run lint --workspaces` (existing server import-order warnings only) and `npm run format --workspaces` followed by `npm run format:check --workspaces`.
+- `npm run build --workspace server` completed successfully for Task 4.
+- `npm run build --workspace client` completed successfully for Task 4 (chunk size warning only).
+- `npm run test --workspace server` completed successfully for Task 4.
+- `npm run test --workspace client` completed successfully for Task 4.
+- `npm run test --workspace client -- agentsPage.layoutWrap` completed successfully.
+- `npm run e2e` completed successfully for Task 4.
+- `npm run compose:build` completed successfully for Task 4.
+- `npm run compose:up` completed successfully for Task 4.
+- Manual Playwright-MCP check completed; Send/Stop toggled via the planning agent command and the action-slot log appeared for both idle and inflight states.
+- Updated the Task 4 Send/Stop width screenshot from `playwright-output-local/playwright-output-local/0000028-4-agents-send-stop-width.png`.
+- `npm run compose:down` completed successfully for Task 4.
 
 ---
 

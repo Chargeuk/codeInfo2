@@ -150,7 +150,28 @@ describe('Agents page layout wrap', () => {
 
     const instructionRow = await screen.findByTestId('agent-instruction-row');
     expect(
-      within(instructionRow).getByTestId('agent-stop'),
+      within(instructionRow).getByTestId('agent-action-slot'),
     ).toBeInTheDocument();
+  });
+
+  it('keeps the action slot width fixed', async () => {
+    mockAgentsFetch();
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    const actionSlot = await screen.findByTestId('agent-action-slot');
+    expect(actionSlot).toHaveStyle({ minWidth: '120px' });
+  });
+
+  it('renders a single action button in the slot', async () => {
+    mockAgentsFetch();
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    const actionSlot = await screen.findByTestId('agent-action-slot');
+    expect(within(actionSlot).getByTestId('agent-send')).toBeInTheDocument();
+    expect(within(actionSlot).queryByTestId('agent-stop')).toBeNull();
   });
 });

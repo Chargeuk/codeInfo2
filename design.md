@@ -799,6 +799,7 @@ flowchart TD
   - agent selector dropdown
   - info icon popover showing agent description + warnings
   - command/execute row + instruction action row on desktop, stacked on mobile
+  - Send/Stop action slot uses fixed width to avoid layout shift
   - command selector dropdown (refreshed on agent change)
   - Execute command (runs selected command)
   - Stop (abort)

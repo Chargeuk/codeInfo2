@@ -138,7 +138,7 @@ describe('Agents page - command start errors', () => {
     expect(screen.getByTestId('agents-run-error')).toHaveTextContent(
       'run in progress',
     );
-    expect(screen.getByTestId('agent-stop')).toBeDisabled();
+    expect(screen.queryByTestId('agent-stop')).toBeNull();
   });
 
   it('shows an error banner for COMMAND_NOT_FOUND (404)', async () => {

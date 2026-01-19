@@ -211,6 +211,7 @@ export default function AgentsPage() {
   const lastSentRef = useRef('');
   const [agentInfoAnchorEl, setAgentInfoAnchorEl] =
     useState<HTMLElement | null>(null);
+  const actionSlotMinWidth = 120;
 
   const [startPending, setStartPending] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
@@ -1099,6 +1100,12 @@ export default function AgentsPage() {
     'No description or warnings are available for this agent yet.';
 
   const showStop = isSending;
+  useEffect(() => {
+    log('info', 'DEV-0000028[T4] agents action slot state', {
+      showStop,
+      minWidth: actionSlotMinWidth,
+    });
+  }, [actionSlotMinWidth, log, showStop]);
   const handleAgentInfoOpen = (event: React.MouseEvent<HTMLElement>) => {
     if (agentInfoDisabled) return;
     setAgentInfoAnchorEl(event.currentTarget);
@@ -1911,37 +1918,40 @@ export default function AgentsPage() {
                       inputProps={{ 'data-testid': 'agent-input' }}
                       sx={{ flex: 1 }}
                     />
-                    <Stack
-                      direction="row"
-                      spacing={1}
-                      justifyContent="flex-end"
+                    <Box
+                      data-testid="agent-action-slot"
+                      style={{ minWidth: actionSlotMinWidth }}
                       sx={{ flexShrink: 0 }}
                     >
-                      <Button
-                        type="button"
-                        variant="outlined"
-                        onClick={handleStopClick}
-                        disabled={!showStop}
-                        data-testid="agent-stop"
-                      >
-                        Stop
-                      </Button>
-                      <Button
-                        type="submit"
-                        variant="contained"
-                        disabled={
-                          controlsDisabled ||
-                          isSending ||
-                          !wsTranscriptReady ||
-                          !selectedAgentName ||
-                          !input.trim() ||
-                          Boolean(selectedAgent?.disabled)
-                        }
-                        data-testid="agent-send"
-                      >
-                        Send
-                      </Button>
-                    </Stack>
+                      <Stack direction="row" justifyContent="flex-end">
+                        {showStop ? (
+                          <Button
+                            type="button"
+                            variant="outlined"
+                            onClick={handleStopClick}
+                            data-testid="agent-stop"
+                          >
+                            Stop
+                          </Button>
+                        ) : (
+                          <Button
+                            type="submit"
+                            variant="contained"
+                            disabled={
+                              controlsDisabled ||
+                              isSending ||
+                              !wsTranscriptReady ||
+                              !selectedAgentName ||
+                              !input.trim() ||
+                              Boolean(selectedAgent?.disabled)
+                            }
+                            data-testid="agent-send"
+                          >
+                            Send
+                          </Button>
+                        )}
+                      </Stack>
+                    </Box>
                   </Stack>
                 </Stack>
               </Box>

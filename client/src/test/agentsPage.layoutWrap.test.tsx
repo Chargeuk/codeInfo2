@@ -108,4 +108,49 @@ describe('Agents page layout wrap', () => {
     expect(['0', '0px']).toContain(transcript.style.minHeight);
     expect(transcript.style.overflowY).toBe('auto');
   });
+
+  it('renders the command selector and execute button in the same row', async () => {
+    mockAgentsFetch();
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    const commandRow = await screen.findByTestId('agent-command-row');
+    expect(
+      within(commandRow).getByTestId('agent-command-select'),
+    ).toBeInTheDocument();
+    expect(
+      within(commandRow).getByTestId('agent-command-execute'),
+    ).toBeInTheDocument();
+  });
+
+  it('renders the instruction input and action buttons in the same row', async () => {
+    mockAgentsFetch();
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    const instructionRow = await screen.findByTestId('agent-instruction-row');
+    expect(
+      within(instructionRow).getByTestId('agent-input'),
+    ).toBeInTheDocument();
+    expect(
+      within(instructionRow).getByTestId('agent-send'),
+    ).toBeInTheDocument();
+  });
+
+  it('moves the stop button out of the header row', async () => {
+    mockAgentsFetch();
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    const headerRow = await screen.findByTestId('agent-header-row');
+    expect(within(headerRow).queryByTestId('agent-stop')).toBeNull();
+
+    const instructionRow = await screen.findByTestId('agent-instruction-row');
+    expect(
+      within(instructionRow).getByTestId('agent-stop'),
+    ).toBeInTheDocument();
+  });
 });

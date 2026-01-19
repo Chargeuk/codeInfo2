@@ -215,7 +215,9 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚  â”œâ”€ 0000028-agents-chat-gui-consistency-data/ â€” UI screenshots for story 0000028
 â”‚  â”‚  â”œâ”€ 0000028-1-agents-height.png â€” Agents transcript height check
 â”‚  â”‚  â”œâ”€ 0000028-1-chat-height.png â€” Chat transcript height check
-â”‚  â”‚  â””â”€ 0000028-2-agents-popover.png â€” Agents info popover
+â”‚  â”‚  â”œâ”€ 0000028-2-agents-popover.png â€” Agents info popover
+â”‚  â”‚  â”œâ”€ 0000028-3-agents-controls.png â€” Agents controls row layout
+â”‚  â”‚  â””â”€ 0000028-3-agents-controls-mobile.png â€” Agents controls stacked layout
 â”‚  â”œâ”€ 0000028-agents-chat-gui-consistency.md â€” plan for story 0000028
 â”‚  â””â”€ plan_format.md â€” planning template/instructions
 â”œâ”€ server/ â€” Express API

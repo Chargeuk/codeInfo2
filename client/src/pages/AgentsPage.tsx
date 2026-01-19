@@ -126,6 +126,7 @@ const buildStepLine = (command: ChatMessage['command']) => {
 export default function AgentsPage() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const controlsLayoutMode = isMobile ? 'stacked' : 'row';
   const drawerWidth = 320;
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState<boolean>(false);
   const [desktopDrawerOpen, setDesktopDrawerOpen] = useState<boolean>(() =>
@@ -258,6 +259,12 @@ export default function AgentsPage() {
       page: 'agents',
     });
   }, [log]);
+
+  useEffect(() => {
+    log('info', 'DEV-0000028[T3] agents controls layout mode', {
+      mode: controlsLayoutMode,
+    });
+  }, [controlsLayoutMode, log]);
 
   useEffect(() => {
     displayMessages.forEach((message) => {
@@ -1698,6 +1705,7 @@ export default function AgentsPage() {
                     </IconButton>
                   </Stack>
                   <Stack
+                    data-testid="agent-header-row"
                     direction={{ xs: 'column', sm: 'row' }}
                     spacing={1}
                     alignItems={{ xs: 'stretch', sm: 'center' }}
@@ -1739,15 +1747,6 @@ export default function AgentsPage() {
                       <Button
                         type="button"
                         variant="outlined"
-                        onClick={handleStopClick}
-                        disabled={!showStop}
-                        data-testid="agent-stop"
-                      >
-                        Stop
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outlined"
                         onClick={() => {
                           resetConversation();
                           inputRef.current?.focus();
@@ -1766,63 +1765,60 @@ export default function AgentsPage() {
                     </Alert>
                   ) : null}
 
-                  <FormControl
-                    fullWidth
-                    size="small"
-                    disabled={
-                      controlsDisabled ||
-                      isSending ||
-                      selectedAgent?.disabled ||
-                      commandsLoading
-                    }
+                  <Stack
+                    data-testid="agent-command-row"
+                    direction={{ xs: 'column', sm: 'row' }}
+                    spacing={1}
+                    alignItems={{ xs: 'stretch', sm: 'center' }}
                   >
-                    <InputLabel id="agent-command-select-label">
-                      Command
-                    </InputLabel>
-                    <Select
-                      labelId="agent-command-select-label"
-                      label="Command"
-                      value={selectedCommandName}
-                      onChange={handleCommandChange}
-                      inputProps={{ 'data-testid': 'agent-command-select' }}
+                    <FormControl
+                      fullWidth
+                      size="small"
+                      disabled={
+                        controlsDisabled ||
+                        isSending ||
+                        selectedAgent?.disabled ||
+                        commandsLoading
+                      }
+                      sx={{ flex: 1 }}
                     >
-                      <MenuItem value="" disabled>
-                        Select a command
-                      </MenuItem>
-                      {commands.map((cmd) => (
-                        <MenuItem
-                          key={cmd.name}
-                          value={cmd.name}
-                          disabled={cmd.disabled}
-                          data-testid={`agent-command-option-${cmd.name}`}
-                        >
-                          <Stack spacing={0.25}>
-                            <Typography variant="body2">
-                              {cmd.name.replace(/_/g, ' ')}
-                            </Typography>
-                            {cmd.disabled ? (
-                              <Typography
-                                variant="caption"
-                                color="text.secondary"
-                              >
-                                Invalid command file
-                              </Typography>
-                            ) : null}
-                          </Stack>
+                      <InputLabel id="agent-command-select-label">
+                        Command
+                      </InputLabel>
+                      <Select
+                        labelId="agent-command-select-label"
+                        label="Command"
+                        value={selectedCommandName}
+                        onChange={handleCommandChange}
+                        inputProps={{ 'data-testid': 'agent-command-select' }}
+                      >
+                        <MenuItem value="" disabled>
+                          Select a command
                         </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    data-testid="agent-command-description"
-                  >
-                    {selectedCommandDescription}
-                  </Typography>
-
-                  <Stack spacing={0.75} alignItems="flex-start">
+                        {commands.map((cmd) => (
+                          <MenuItem
+                            key={cmd.name}
+                            value={cmd.name}
+                            disabled={cmd.disabled}
+                            data-testid={`agent-command-option-${cmd.name}`}
+                          >
+                            <Stack spacing={0.25}>
+                              <Typography variant="body2">
+                                {cmd.name.replace(/_/g, ' ')}
+                              </Typography>
+                              {cmd.disabled ? (
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                >
+                                  Invalid command file
+                                </Typography>
+                              ) : null}
+                            </Stack>
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
                     <Button
                       type="button"
                       variant="contained"
@@ -1836,28 +1832,38 @@ export default function AgentsPage() {
                       }
                       onClick={handleExecuteCommand}
                       data-testid="agent-command-execute"
+                      sx={{ flexShrink: 0 }}
                     >
                       Execute command
                     </Button>
-                    {persistenceUnavailable ? (
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        data-testid="agent-command-persistence-note"
-                      >
-                        Commands require conversation history (Mongo) to display
-                        multi-step results.
-                      </Typography>
-                    ) : !wsTranscriptReady ? (
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        data-testid="agent-command-ws-note"
-                      >
-                        Commands require an open WebSocket connection.
-                      </Typography>
-                    ) : null}
                   </Stack>
+
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    data-testid="agent-command-description"
+                  >
+                    {selectedCommandDescription}
+                  </Typography>
+
+                  {persistenceUnavailable ? (
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      data-testid="agent-command-persistence-note"
+                    >
+                      Commands require conversation history (Mongo) to display
+                      multi-step results.
+                    </Typography>
+                  ) : !wsTranscriptReady ? (
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      data-testid="agent-command-ws-note"
+                    >
+                      Commands require an open WebSocket connection.
+                    </Typography>
+                  ) : null}
 
                   {selectedAgent?.disabled ? (
                     <Alert severity="warning" data-testid="agent-disabled">
@@ -1881,40 +1887,61 @@ export default function AgentsPage() {
                     inputProps={{ 'data-testid': 'agent-working-folder' }}
                   />
 
-                  <TextField
-                    inputRef={inputRef}
-                    fullWidth
-                    multiline
-                    minRows={2}
-                    label="Instruction"
-                    placeholder="Type your instruction"
-                    value={input}
-                    onChange={(event) => setInput(event.target.value)}
-                    disabled={
-                      controlsDisabled ||
-                      isSending ||
-                      !wsTranscriptReady ||
-                      selectedAgent?.disabled
-                    }
-                    inputProps={{ 'data-testid': 'agent-input' }}
-                  />
-
-                  <Stack direction="row" spacing={1} justifyContent="flex-end">
-                    <Button
-                      type="submit"
-                      variant="contained"
+                  <Stack
+                    data-testid="agent-instruction-row"
+                    direction={{ xs: 'column', sm: 'row' }}
+                    spacing={1}
+                    alignItems={{ xs: 'stretch', sm: 'flex-start' }}
+                  >
+                    <TextField
+                      inputRef={inputRef}
+                      fullWidth
+                      multiline
+                      minRows={2}
+                      label="Instruction"
+                      placeholder="Type your instruction"
+                      value={input}
+                      onChange={(event) => setInput(event.target.value)}
                       disabled={
                         controlsDisabled ||
                         isSending ||
                         !wsTranscriptReady ||
-                        !selectedAgentName ||
-                        !input.trim() ||
-                        Boolean(selectedAgent?.disabled)
+                        selectedAgent?.disabled
                       }
-                      data-testid="agent-send"
+                      inputProps={{ 'data-testid': 'agent-input' }}
+                      sx={{ flex: 1 }}
+                    />
+                    <Stack
+                      direction="row"
+                      spacing={1}
+                      justifyContent="flex-end"
+                      sx={{ flexShrink: 0 }}
                     >
-                      Send
-                    </Button>
+                      <Button
+                        type="button"
+                        variant="outlined"
+                        onClick={handleStopClick}
+                        disabled={!showStop}
+                        data-testid="agent-stop"
+                      >
+                        Stop
+                      </Button>
+                      <Button
+                        type="submit"
+                        variant="contained"
+                        disabled={
+                          controlsDisabled ||
+                          isSending ||
+                          !wsTranscriptReady ||
+                          !selectedAgentName ||
+                          !input.trim() ||
+                          Boolean(selectedAgent?.disabled)
+                        }
+                        data-testid="agent-send"
+                      >
+                        Send
+                      </Button>
+                    </Stack>
                   </Stack>
                 </Stack>
               </Box>

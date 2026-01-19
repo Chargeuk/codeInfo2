@@ -588,7 +588,7 @@ Align Agents controls so the Command selector and Execute button share a row, an
 
 #### Subtasks
 
-1. [ ] Review current Agents controls layout:
+1. [x] Review current Agents controls layout:
    - Documentation to read (repeat):
      - MUI Stack API: https://llms.mui.com/material-ui/6.4.12/api/stack.md
      - MUI Button API: https://llms.mui.com/material-ui/6.4.12/api/button.md
@@ -600,7 +600,7 @@ Align Agents controls so the Command selector and Execute button share a row, an
      - Command selector and Execute command button are on the same row.
      - Instruction input and the Send/Stop action share the same row.
 
-2. [ ] Implement the control row layout changes:
+2. [x] Implement the control row layout changes:
    - Documentation to read (repeat):
      - MUI Stack API: https://llms.mui.com/material-ui/6.4.12/api/stack.md
      - MUI Box API: https://llms.mui.com/material-ui/6.4.12/api/box.md
@@ -622,7 +622,7 @@ Align Agents controls so the Command selector and Execute button share a row, an
    - Snippet to apply (example row):
      - `<Stack direction={{ xs: 'column', md: 'row' }} spacing={1} alignItems="center">...`)
 
-3. [ ] Test (unit/client): Command row layout
+3. [x] Test (unit/client): Command row layout
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Location:
@@ -634,7 +634,7 @@ Align Agents controls so the Command selector and Execute button share a row, an
    - Snippet example:
      - `expect(commandRow).toContainElement(screen.getByTestId('agent-command-execute'));`
 
-4. [ ] Test (unit/client): Instruction row layout
+4. [x] Test (unit/client): Instruction row layout
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Location:
@@ -646,7 +646,7 @@ Align Agents controls so the Command selector and Execute button share a row, an
    - Snippet example:
      - `expect(instructionRow).toContainElement(screen.getByTestId('agent-send'));`
 
-5. [ ] Test (unit/client): Stop button moved to instruction row
+5. [x] Test (unit/client): Stop button moved to instruction row
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Location:
@@ -658,7 +658,7 @@ Align Agents controls so the Command selector and Execute button share a row, an
    - Snippet example:
      - `expect(headerRow.querySelector('[data-testid="agent-stop"]')).toBeNull();`
 
-6. [ ] Capture UI screenshots (required for this task):
+6. [x] Capture UI screenshots (required for this task):
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
    - Files to add:
@@ -672,7 +672,7 @@ Align Agents controls so the Command selector and Execute button share a row, an
      - `0000028-3-agents-controls.png`
      - `0000028-3-agents-controls-mobile.png`
 
-7. [ ] Documentation update: `projectStructure.md` (after screenshots are added)
+7. [x] Documentation update: `projectStructure.md` (after screenshots are added)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location:
@@ -686,7 +686,7 @@ Align Agents controls so the Command selector and Execute button share a row, an
    - Snippet example:
      - `planning/0000028-agents-chat-gui-consistency-data/0000028-3-agents-controls-mobile.png`
 
-8. [ ] Documentation update: `design.md`
+8. [x] Documentation update: `design.md`
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -696,7 +696,7 @@ Align Agents controls so the Command selector and Execute button share a row, an
    - Snippet example:
      - `- Agents controls are arranged as two rows on desktop, stacked on mobile.`
 
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+9. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI/options: https://prettier.io/docs/options
@@ -708,42 +708,59 @@ Align Agents controls so the Command selector and Execute button share a row, an
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
-5. [ ] `npm run test --workspace client -- agentsPage.layoutWrap`
+5. [x] `npm run test --workspace client -- agentsPage.layoutWrap`
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
-6. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
-7. [ ] `npm run compose:build`
+7. [x] `npm run compose:build`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] `npm run compose:up`
+8. [x] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-9. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, verify the two-row layout on desktop, stacked layout on small viewport, and confirm the debug console shows no errors.
+9. [x] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, verify the two-row layout on desktop, stacked layout on small viewport, and confirm the debug console shows no errors.
    - Capture Playwright MCP screenshots for desktop and small viewport layouts; confirm the images are stored under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` before moving/recording them.
    - Expected log lines (debug console):
      - `DEV-0000028[T3] agents controls layout mode` appears with `mode: 'row'` on desktop.
      - `DEV-0000028[T3] agents controls layout mode` appears with `mode: 'stacked'` after resizing to a small viewport.
-10. [ ] `npm run compose:down`
+10. [x] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
 #### Implementation notes
 
-- (fill in during execution)
+- Reviewed `AgentsPage.tsx` control stacks to locate the command/execute and instruction/send layout blocks to reflow into rows.
+- Restructured Agents command and instruction controls into responsive row/stack layouts, moving Stop into the instruction action slot and logging `DEV-0000028[T3] agents controls layout mode`.
+- Expanded `agentsPage.layoutWrap.test.tsx` to assert the command row, instruction row, and Stop button relocation.
+- Captured Task 3 desktop and mobile Agents control layout screenshots and moved them into the planning data folder.
+- Updated `projectStructure.md` with the Task 3 control layout screenshots.
+- Documented the Agents control row layout behavior in `design.md`.
+- Ran `npm run lint --workspaces` (existing server import-order warnings only) and `npm run format --workspaces` followed by `npm run format:check --workspaces`.
+- `npm run build --workspace server` completed successfully for Task 3.
+- `npm run build --workspace client` completed successfully for Task 3 (chunk size warning only).
+- `npm run test --workspace server` completed successfully for Task 3.
+- `npm run test --workspace client` completed successfully for Task 3.
+- `npm run test --workspace client -- agentsPage.layoutWrap` completed successfully.
+- `npm run e2e` completed successfully for Task 3.
+- `npm run compose:build` completed successfully for Task 3.
+- `npm run compose:up` completed successfully for Task 3.
+- Manual Playwright check at `http://host.docker.internal:5001/agents` confirmed the desktop two-row controls and stacked mobile layout; console logs showed `DEV-0000028[T3] agents controls layout mode` during resize with no console errors.
+- Captured fresh Task 3 desktop and mobile control layout screenshots and moved them into `planning/0000028-agents-chat-gui-consistency-data/`.
+- `npm run compose:down` completed successfully for Task 3.
 
 ---
 

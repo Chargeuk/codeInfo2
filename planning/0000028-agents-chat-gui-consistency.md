@@ -154,6 +154,7 @@ Ensure the Chat and Agents transcript panels stretch to the bottom of the viewpo
      - Resizing the window should expand the transcript area, not add whitespace.
    - Goal:
      - Identify which container(s) need `flex: 1` and `minHeight: 0` so the transcript can grow and scroll.
+     - Confirm whether `Container` bottom padding or `overflow: auto` is creating a visible gap.
    - Notes:
      - Keep existing spacing and padding intact; this is layout-only.
 
@@ -165,6 +166,7 @@ Ensure the Chat and Agents transcript panels stretch to the bottom of the viewpo
    - Implementation details:
      - Ensure the app shell uses a full-height flex column.
      - Ensure the main content area and transcript container use `flex: 1` with `minHeight: 0`.
+     - Remove or reduce bottom padding/overflow behavior that causes a visible blank gap below the transcript card.
      - Do not change control sizes or button variants (handled in Task 5).
 
 3. [ ] Tests to add/update:
@@ -260,6 +262,7 @@ Replace the inline agent description block with an info icon and popover that re
      - Render warnings as a simple list under the description.
      - Show the friendly empty-state message when both description and warnings are empty.
      - Ensure the info icon does not render (or renders disabled) when agents fail to load.
+     - Remove the inline warnings alert and inline description `Paper` so metadata is only in the popover.
      - Keep layout spacing compact; avoid introducing a new full-width block.
 
 3. [ ] Add/update tests for the popover:
@@ -269,8 +272,9 @@ Replace the inline agent description block with an info icon and popover that re
      - Info icon renders when an agent is selected.
      - Popover opens and shows Markdown description.
      - Warnings list renders when warnings are present.
-     - Empty-state message renders when description and warnings are missing.
-     - Info icon is hidden/disabled when the agents fetch fails and the error state renders.
+    - Empty-state message renders when description and warnings are missing.
+    - Info icon is hidden/disabled when the agents fetch fails and the error state renders.
+     - Warnings and description are not rendered inline when the popover is closed.
 
 4. [ ] Capture UI screenshots (required for this task):
    - Use Playwright MCP to capture the Agents page with the info popover open.
@@ -352,8 +356,13 @@ Align Agents controls so the Command selector and Execute button share a row, an
      - `client/src/pages/AgentsPage.tsx`
    - Implementation details:
      - Restructure controls into two horizontal rows (Stack or Box with `display: 'flex'`).
+     - Row 1: Command selector on the left and Execute command button on the right.
+     - Keep the command description text below the row so it still renders.
+     - Row 2: Instruction input on the left and a single Send/Stop action slot on the right.
+     - Move the Stop button out of the Agent selector row into the instruction row.
      - Ensure the rows collapse to a single column on small screens without overlap.
-     - Add a fixed width (e.g., `minWidth`) to Send and Stop buttons.
+     - Add a fixed width (e.g., `minWidth`) so Send/Stop occupy the same width when toggling.
+     - Toggle the action between Send and Stop (not both at once) to avoid row width changes.
      - Keep existing sizes/variants unchanged in this task (standardization happens in Task 5).
 
 3. [ ] Add/update layout tests:
@@ -362,6 +371,7 @@ Align Agents controls so the Command selector and Execute button share a row, an
    - Test cases to cover:
      - Execute command button appears in the same row container as the Command selector.
      - Send/Stop container applies a fixed width style so layout remains stable.
+     - Stop renders in the instruction row and the header row no longer contains a Stop button.
 
 4. [ ] Capture UI screenshots (required for this task):
    - Use Playwright MCP to capture the Agents controls area showing the new two-row layout.
@@ -449,9 +459,9 @@ Add a “Choose folder…” button next to the Agents working-folder input and 
      - `client/src/components/ingest/DirectoryPickerDialog.tsx` (only if a small prop tweak is needed for reuse)
    - Implementation details:
      - Import and reuse `DirectoryPickerDialog` and `ingestDirsApi` directly from the ingest components (do not move files unless necessary).
-     - Add a “Choose folder…” button next to the working-folder input that opens the dialog.
-     - Update the working-folder state when a folder is selected; cancel should be a no-op.
-     - Ensure server-side validation errors (e.g., `WORKING_FOLDER_INVALID`) do not clear the current working-folder value.
+    - Add a “Choose folder…” button next to the working-folder input that opens the dialog.
+    - Update the working-folder state when a folder is selected; cancel should be a no-op.
+    - Ensure server-side validation errors (e.g., `WORKING_FOLDER_INVALID`) do not clear the current working-folder value.
      - Do not add a working-folder picker to Chat (explicitly out of scope).
 
 3. [ ] Add/update tests for the working-folder picker:
@@ -460,9 +470,9 @@ Add a “Choose folder…” button next to the Agents working-folder input and 
    - Test cases to cover:
      - Clicking “Choose folder…” opens the dialog.
      - Selecting a folder updates the working-folder input value.
-     - Cancel closes the dialog without changing the input.
-     - Empty/error states from the picker do not wipe the existing value.
-     - Validation errors from the run endpoint do not clear the working-folder input.
+    - Cancel closes the dialog without changing the input.
+    - Empty/error states from the picker do not wipe the existing value.
+    - Validation errors from the run endpoint do not clear the working-folder input.
 
 4. [ ] Capture UI screenshots (required for this task):
    - Use Playwright MCP to capture the Agents page with the picker dialog open.

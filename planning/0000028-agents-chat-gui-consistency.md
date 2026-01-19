@@ -291,6 +291,7 @@ Ensure the Chat and Agents transcript panels stretch to the bottom of the viewpo
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, verify Chat and Agents transcripts stretch to the bottom without blank gaps, resize to confirm flex growth, and confirm the debug console shows no errors.
+   - Capture Playwright MCP screenshots that show the full-height transcript on Chat and Agents; confirm the images live under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (docker-compose.local.yml mapping) before moving/recording them.
    - Expected log lines (debug console):
      - `DEV-0000028[T1] chat transcript layout ready` appears at least once.
      - `DEV-0000028[T1] agents transcript layout ready` appears at least once.
@@ -513,6 +514,7 @@ Replace the inline agent description block with an info icon and popover that re
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 9. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, open the info popover, verify Markdown renders, warnings list displays, empty-state appears for agents without metadata, and confirm the debug console shows no errors.
+   - Capture a Playwright MCP screenshot of the open popover and confirm the image is stored under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` before moving/recording it.
    - Expected log lines (debug console):
      - `DEV-0000028[T2] agent info popover opened` appears when the info popover is opened.
 10. [ ] `npm run compose:down`
@@ -696,6 +698,7 @@ Align Agents controls so the Command selector and Execute button share a row, an
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 9. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, verify the two-row layout on desktop, stacked layout on small viewport, and confirm the debug console shows no errors.
+   - Capture Playwright MCP screenshots for desktop and small viewport layouts; confirm the images are stored under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` before moving/recording them.
    - Expected log lines (debug console):
      - `DEV-0000028[T3] agents controls layout mode` appears with `mode: 'row'` on desktop.
      - `DEV-0000028[T3] agents controls layout mode` appears with `mode: 'stacked'` after resizing to a small viewport.
@@ -855,6 +858,7 @@ Ensure the Send/Stop action slot keeps a stable width so the row does not shift 
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 9. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, toggle between Send/Stop, confirm row width stays stable, and confirm the debug console shows no errors.
+   - Capture a Playwright MCP screenshot showing the fixed-width Send/Stop slot; confirm the image is stored under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` before moving/recording it.
    - Expected log lines (debug console):
      - `DEV-0000028[T4] agents action slot state` appears with `showStop: false` when idle.
      - `DEV-0000028[T4] agents action slot state` appears with `showStop: true` after triggering Stop.
@@ -1063,6 +1067,7 @@ Add a “Choose folder…” button next to the Agents working-folder input and 
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 9. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, open the Agents working-folder picker, select a folder, cancel, confirm value persistence, and confirm the debug console shows no errors.
+   - Capture a Playwright MCP screenshot with the folder picker dialog open; confirm the image is stored under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` before moving/recording it.
    - Expected log lines (debug console):
      - `DEV-0000028[T5] agents folder picker opened` appears when the dialog opens.
      - `DEV-0000028[T5] agents folder picker picked` appears after choosing a folder and includes the selected path.
@@ -1238,6 +1243,7 @@ Standardize sizing and button variants across Chat and Agents so all controls us
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, verify Chat/Agents controls use `size="small"`, primary/secondary variants match the rules, Stop uses `contained` + `error`, and confirm the debug console shows no errors.
+   - Capture Playwright MCP screenshots for Chat and Agents controls and confirm the images are stored under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` before moving/recording them.
    - Expected log lines (debug console):
      - `DEV-0000028[T6] chat controls sizing applied` appears after the Chat page renders.
      - `DEV-0000028[T6] agents controls sizing applied` appears after the Agents page renders.
@@ -1410,6 +1416,7 @@ Standardize sizing and button variants across LM Studio and Ingest so controls u
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, verify LM Studio and Ingest controls use `size="small"`, primary/secondary variants match the rules, and confirm the debug console shows no errors.
+   - Capture Playwright MCP screenshots for LM Studio and Ingest controls and confirm the images are stored under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` before moving/recording them.
    - Expected log lines (debug console):
      - `DEV-0000028[T7] lmstudio controls sizing applied` appears after the LM Studio page renders.
      - `DEV-0000028[T7] ingest controls sizing applied` appears after the Ingest page renders.
@@ -1542,6 +1549,7 @@ Validate the full story requirements end-to-end and capture final evidence, incl
      - `npm run compose:up`
 8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, verify all acceptance criteria, run a quick regression sweep, capture screenshots to `./test-results/screenshots/`, and confirm the debug console shows no errors.
    - Each screenshot should be named `0000028-8-<short-name>.png`.
+   - Capture Playwright MCP screenshots for every acceptance-criteria UI state and confirm the images are stored under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` before moving/recording them.
    - Expected log lines (debug console):
      - `DEV-0000028[T8] regression baseline ready` appears once on initial load.
    - Documentation to read (repeat):

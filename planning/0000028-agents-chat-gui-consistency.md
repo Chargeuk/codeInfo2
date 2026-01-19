@@ -136,8 +136,16 @@ Ensure the Chat and Agents transcript panels stretch to the bottom of the viewpo
 
 #### Documentation Locations
 
-- MUI Box API: https://llms.mui.com/material-ui/6.4.12/api/box.md
-- MUI Stack API: https://llms.mui.com/material-ui/6.4.12/api/stack.md
+- MUI Box API: https://llms.mui.com/material-ui/6.4.12/api/box.md (layout container + `sx` flex controls)
+- MUI Stack API: https://llms.mui.com/material-ui/6.4.12/api/stack.md (row/column stacking + spacing)
+- npm run-script docs: https://docs.npmjs.com/cli/v9/commands/npm-run-script (running build/test scripts + passing args)
+- Node.js test runner: https://nodejs.org/api/test.html (server `node:test` execution reference)
+- Jest docs: Context7 `/jestjs/jest` (client test runner usage)
+- Playwright docs: Context7 `/microsoft/playwright` (e2e runs + screenshots)
+- Docker/Compose docs: Context7 `/docker/docs` (compose build/up/down)
+- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface (lint command behavior)
+- Prettier CLI: https://prettier.io/docs/cli (format check/write behavior)
+- Markdown Guide: https://www.markdownguide.org/basic-syntax/ (documentation updates)
 
 #### Subtasks
 
@@ -247,9 +255,17 @@ Replace the inline agent description block with an info icon and popover that re
 
 #### Documentation Locations
 
-- MUI Popover component: https://llms.mui.com/material-ui/6.4.12/components/popover.md
-- MUI Popover API: https://llms.mui.com/material-ui/6.4.12/api/popover.md
-- MUI IconButton API: https://llms.mui.com/material-ui/6.4.12/api/icon-button.md
+- MUI Popover component: https://llms.mui.com/material-ui/6.4.12/components/popover.md (popover behavior + positioning)
+- MUI Popover API: https://llms.mui.com/material-ui/6.4.12/api/popover.md (props: `open`, `anchorEl`, `onClose`)
+- MUI IconButton API: https://llms.mui.com/material-ui/6.4.12/api/icon-button.md (info icon button sizing)
+- Jest docs: Context7 `/jestjs/jest` (client test updates for popover)
+- Playwright docs: Context7 `/microsoft/playwright` (popover screenshot capture)
+- Docker/Compose docs: Context7 `/docker/docs` (compose checks in testing steps)
+- npm run-script docs: https://docs.npmjs.com/cli/v9/commands/npm-run-script (build/test scripts)
+- Node.js test runner: https://nodejs.org/api/test.html (server test command reference)
+- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface (lint command behavior)
+- Prettier CLI: https://prettier.io/docs/cli (format check/write behavior)
+- Markdown Guide: https://www.markdownguide.org/basic-syntax/ (documentation updates)
 
 #### Subtasks
 
@@ -363,10 +379,18 @@ Align Agents controls so the Command selector and Execute button share a row, an
 
 #### Documentation Locations
 
-- MUI Stack API: https://llms.mui.com/material-ui/6.4.12/api/stack.md
-- MUI Box API: https://llms.mui.com/material-ui/6.4.12/api/box.md
-- MUI Button API: https://llms.mui.com/material-ui/6.4.12/api/button.md
-- MUI TextField API: https://llms.mui.com/material-ui/6.4.12/api/text-field.md
+- MUI Stack API: https://llms.mui.com/material-ui/6.4.12/api/stack.md (row/column layout + spacing)
+- MUI Box API: https://llms.mui.com/material-ui/6.4.12/api/box.md (flex container layout)
+- MUI Button API: https://llms.mui.com/material-ui/6.4.12/api/button.md (action buttons)
+- MUI TextField API: https://llms.mui.com/material-ui/6.4.12/api/text-field.md (input sizing/props)
+- Jest docs: Context7 `/jestjs/jest` (layout test updates)
+- Playwright docs: Context7 `/microsoft/playwright` (layout screenshots)
+- Docker/Compose docs: Context7 `/docker/docs` (compose checks in testing steps)
+- npm run-script docs: https://docs.npmjs.com/cli/v9/commands/npm-run-script (build/test scripts)
+- Node.js test runner: https://nodejs.org/api/test.html (server test command reference)
+- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface (lint command behavior)
+- Prettier CLI: https://prettier.io/docs/cli (format check/write behavior)
+- Markdown Guide: https://www.markdownguide.org/basic-syntax/ (documentation updates)
 
 #### Subtasks
 
@@ -474,9 +498,17 @@ Ensure the Send/Stop action slot keeps a stable width so the row does not shift 
 
 #### Documentation Locations
 
-- MUI Stack API: https://llms.mui.com/material-ui/6.4.12/api/stack.md
-- MUI Box API: https://llms.mui.com/material-ui/6.4.12/api/box.md
-- MUI Button API: https://llms.mui.com/material-ui/6.4.12/api/button.md
+- MUI Stack API: https://llms.mui.com/material-ui/6.4.12/api/stack.md (action row layout)
+- MUI Box API: https://llms.mui.com/material-ui/6.4.12/api/box.md (fixed-width slot container)
+- MUI Button API: https://llms.mui.com/material-ui/6.4.12/api/button.md (Send/Stop buttons)
+- Jest docs: Context7 `/jestjs/jest` (layout test updates)
+- Playwright docs: Context7 `/microsoft/playwright` (Send/Stop screenshot)
+- Docker/Compose docs: Context7 `/docker/docs` (compose checks in testing steps)
+- npm run-script docs: https://docs.npmjs.com/cli/v9/commands/npm-run-script (build/test scripts)
+- Node.js test runner: https://nodejs.org/api/test.html (server test command reference)
+- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface (lint command behavior)
+- Prettier CLI: https://prettier.io/docs/cli (format check/write behavior)
+- Markdown Guide: https://www.markdownguide.org/basic-syntax/ (documentation updates)
 
 #### Subtasks
 
@@ -574,10 +606,18 @@ Add a “Choose folder…” button next to the Agents working-folder input and 
 
 #### Documentation Locations
 
-- MUI Dialogs component: https://llms.mui.com/material-ui/6.4.12/components/dialogs.md
-- MUI Dialog API: https://llms.mui.com/material-ui/6.4.12/api/dialog.md
-- MUI Button API: https://llms.mui.com/material-ui/6.4.12/api/button.md
-- MUI TextField API: https://llms.mui.com/material-ui/6.4.12/api/text-field.md
+- MUI Dialogs component: https://llms.mui.com/material-ui/6.4.12/components/dialogs.md (dialog behavior and structure)
+- MUI Dialog API: https://llms.mui.com/material-ui/6.4.12/api/dialog.md (dialog props for open/close)
+- MUI Button API: https://llms.mui.com/material-ui/6.4.12/api/button.md (Choose folder button)
+- MUI TextField API: https://llms.mui.com/material-ui/6.4.12/api/text-field.md (working-folder input)
+- Jest docs: Context7 `/jestjs/jest` (picker test updates)
+- Playwright docs: Context7 `/microsoft/playwright` (picker screenshot)
+- Docker/Compose docs: Context7 `/docker/docs` (compose checks in testing steps)
+- npm run-script docs: https://docs.npmjs.com/cli/v9/commands/npm-run-script (build/test scripts)
+- Node.js test runner: https://nodejs.org/api/test.html (server test command reference)
+- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface (lint command behavior)
+- Prettier CLI: https://prettier.io/docs/cli (format check/write behavior)
+- Markdown Guide: https://www.markdownguide.org/basic-syntax/ (documentation updates)
 
 #### Subtasks
 
@@ -687,9 +727,17 @@ Standardize sizing and button variants across Chat and Agents so all controls us
 
 #### Documentation Locations
 
-- MUI Button API: https://llms.mui.com/material-ui/6.4.12/api/button.md
-- MUI TextField API: https://llms.mui.com/material-ui/6.4.12/api/text-field.md
-- MUI Select API: https://llms.mui.com/material-ui/6.4.12/api/select.md
+- MUI Button API: https://llms.mui.com/material-ui/6.4.12/api/button.md (variants + sizing)
+- MUI TextField API: https://llms.mui.com/material-ui/6.4.12/api/text-field.md (input sizing)
+- MUI Select API: https://llms.mui.com/material-ui/6.4.12/api/select.md (select variant behavior)
+- Jest docs: Context7 `/jestjs/jest` (client test updates)
+- Playwright docs: Context7 `/microsoft/playwright` (sizing screenshots)
+- Docker/Compose docs: Context7 `/docker/docs` (compose checks in testing steps)
+- npm run-script docs: https://docs.npmjs.com/cli/v9/commands/npm-run-script (build/test scripts)
+- Node.js test runner: https://nodejs.org/api/test.html (server test command reference)
+- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface (lint command behavior)
+- Prettier CLI: https://prettier.io/docs/cli (format check/write behavior)
+- Markdown Guide: https://www.markdownguide.org/basic-syntax/ (documentation updates)
 
 #### Subtasks
 
@@ -803,9 +851,17 @@ Standardize sizing and button variants across LM Studio and Ingest so controls u
 
 #### Documentation Locations
 
-- MUI Button API: https://llms.mui.com/material-ui/6.4.12/api/button.md
-- MUI TextField API: https://llms.mui.com/material-ui/6.4.12/api/text-field.md
-- MUI Select API: https://llms.mui.com/material-ui/6.4.12/api/select.md
+- MUI Button API: https://llms.mui.com/material-ui/6.4.12/api/button.md (variants + sizing)
+- MUI TextField API: https://llms.mui.com/material-ui/6.4.12/api/text-field.md (input sizing)
+- MUI Select API: https://llms.mui.com/material-ui/6.4.12/api/select.md (select variant behavior)
+- Jest docs: Context7 `/jestjs/jest` (client test updates)
+- Playwright docs: Context7 `/microsoft/playwright` (sizing screenshots)
+- Docker/Compose docs: Context7 `/docker/docs` (compose checks in testing steps)
+- npm run-script docs: https://docs.npmjs.com/cli/v9/commands/npm-run-script (build/test scripts)
+- Node.js test runner: https://nodejs.org/api/test.html (server test command reference)
+- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface (lint command behavior)
+- Prettier CLI: https://prettier.io/docs/cli (format check/write behavior)
+- Markdown Guide: https://www.markdownguide.org/basic-syntax/ (documentation updates)
 
 #### Subtasks
 
@@ -915,12 +971,14 @@ Validate the full story requirements end-to-end and capture final evidence, incl
 
 #### Documentation Locations
 
-- Docker/Compose: Context7 `/docker/docs`
-- Playwright: Context7 `/microsoft/playwright`
-- Husky: Context7 `/typicode/husky`
-- Mermaid: Context7 `/mermaid-js/mermaid`
-- Jest: Context7 `/jestjs/jest`
-- Cucumber guides https://cucumber.io/docs/guides/
+- Docker/Compose docs: Context7 `/docker/docs` (clean builds + compose restart)
+- Playwright docs: Context7 `/microsoft/playwright` (manual verification + screenshots)
+- Husky docs: https://typicode.github.io/husky/get-started.html (pre-commit hook behavior reference)
+- Mermaid syntax docs: https://mermaid.js.org/syntax/flowchart.html (diagram updates in design docs)
+- Jest docs: Context7 `/jestjs/jest` (client test runner)
+- Cucumber guides: https://cucumber.io/docs/guides/10-minute-tutorial/ (server cucumber test guidance)
+- npm run-script docs: https://docs.npmjs.com/cli/v9/commands/npm-run-script (build/test script execution)
+- Markdown Guide: https://www.markdownguide.org/basic-syntax/ (README/design/projectStructure updates)
 
 #### Subtasks
 

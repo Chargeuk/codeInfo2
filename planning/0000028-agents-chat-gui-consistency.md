@@ -214,13 +214,27 @@ Ensure the Chat and Agents transcript panels stretch to the bottom of the viewpo
      - `0000028-1-chat-height.png`
      - `0000028-1-agents-height.png`
 
-6. [ ] Documentation updates:
+6. [ ] Documentation update: `design.md`
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-   - `design.md`: add a short note if the layout behavior is described for Chat/Agents.
-   - `projectStructure.md`: update only if any files were added/removed/renamed.
+   - Location:
+     - `design.md`
+   - Description:
+     - Add a short note describing the Chat/Agents transcript full-height behavior.
+   - Purpose:
+     - Keeps architecture/design notes aligned with the layout change.
 
-7. [ ] Run full linting:
+7. [ ] Documentation update: `projectStructure.md` (only if files were added/removed)
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Location:
+     - `projectStructure.md`
+   - Description:
+     - Update the repo tree only if files were added/removed in this task.
+   - Purpose:
+     - Keeps the repo map accurate.
+
+8. [ ] Run full linting:
    - Documentation to read (repeat):
      - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI/options: https://prettier.io/docs/options
@@ -957,13 +971,27 @@ Standardize sizing and button variants across Chat and Agents so all controls us
      - `0000028-6-chat-sizing.png`
      - `0000028-6-agents-sizing.png`
 
-6. [ ] Documentation updates:
+6. [ ] Documentation update: `design.md`
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-   - `design.md`: add a short note describing the shared sizing + variant baseline.
-   - `projectStructure.md`: update only if files were added/removed/renamed.
+   - Location:
+     - `design.md`
+   - Description:
+     - Add a short note describing the shared sizing + variant baseline for Chat and Agents controls.
+   - Purpose:
+     - Keeps the design reference aligned with the UI consistency work.
 
-7. [ ] Run full linting:
+7. [ ] Documentation update: `projectStructure.md` (only if files were added/removed/renamed)
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Location:
+     - `projectStructure.md`
+   - Description:
+     - Update the repo tree only if files were added/removed/renamed in this task.
+   - Purpose:
+     - Keeps the repo map accurate after layout changes.
+
+8. [ ] Run full linting:
    - Documentation to read (repeat):
      - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI/options: https://prettier.io/docs/options
@@ -1091,13 +1119,27 @@ Standardize sizing and button variants across LM Studio and Ingest so controls u
      - `0000028-7-lmstudio-sizing.png`
      - `0000028-7-ingest-sizing.png`
 
-6. [ ] Documentation updates:
+6. [ ] Documentation update: `design.md`
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-   - `design.md`: add a short note describing the shared sizing + variant baseline.
-   - `projectStructure.md`: update only if files were added/removed/renamed.
+   - Location:
+     - `design.md`
+   - Description:
+     - Add a short note describing the shared sizing + variant baseline for LM Studio and Ingest controls.
+   - Purpose:
+     - Keeps the design reference aligned with the UI consistency work.
 
-7. [ ] Run full linting:
+7. [ ] Documentation update: `projectStructure.md` (only if files were added/removed/renamed)
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Location:
+     - `projectStructure.md`
+   - Description:
+     - Update the repo tree only if files were added/removed/renamed in this task.
+   - Purpose:
+     - Keeps the repo map accurate after layout changes.
+
+8. [ ] Run full linting:
    - Documentation to read (repeat):
      - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI/options: https://prettier.io/docs/options

@@ -202,7 +202,20 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚  â”œâ”€ 0000017-agent-working-folder-and-codex-updates.md â€” plan for story 0000017
 â”‚  â”œâ”€ 0000018-agent-commands.md â€” plan for story 0000018
 â”‚  â”œâ”€ 0000019-chat-page-ux.md â€” plan for story 0000019 (current)
+â”‚  â”œâ”€ 0000019-screenshots/ â€” screenshots captured for story 0000019
 â”‚  â”œâ”€ 0000020-ingest-delta-reembed-and-ingest-page-ux.md â€” plan for story 0000020
+â”‚  â”œâ”€ 0000020-screenshots/ â€” screenshots captured for story 0000020
+â”‚  â”œâ”€ 0000021-agents-chat-unification.md â€” plan for story 0000021
+â”‚  â”œâ”€ 0000022-ingest-ws-streaming-and-layout.md â€” plan for story 0000022
+â”‚  â”œâ”€ 0000023-conversation-sidebar-fixes.md â€” plan for story 0000023
+â”‚  â”œâ”€ 0000024-chat-bubble-metadata-and-agent-steps.md â€” plan for story 0000024
+â”‚  â”œâ”€ 0000025-summary-first-retrieval.md â€” plan for story 0000025
+â”‚  â”œâ”€ 0000026-codex-models-and-flag-defaults-via-env.md â€” plan for story 0000026
+â”‚  â”œâ”€ 0000027-flows-mode.md â€” plan for story 0000027
+â”‚  â”œâ”€ 0000028-agents-chat-gui-consistency-data/ â€” UI screenshots for story 0000028
+â”‚  â”‚  â”œâ”€ 0000028-1-agents-height.png â€” Agents transcript height check
+â”‚  â”‚  â””â”€ 0000028-1-chat-height.png â€” Chat transcript height check
+â”‚  â”œâ”€ 0000028-agents-chat-gui-consistency.md â€” plan for story 0000028
 â”‚  â””â”€ plan_format.md â€” planning template/instructions
 â”œâ”€ server/ â€” Express API
 â”‚  â”œâ”€ .dockerignore â€” server docker build ignores

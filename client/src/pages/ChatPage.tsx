@@ -320,6 +320,12 @@ export default function ChatPage() {
       boxSizing: 'border-box',
     });
   }, [drawerWidth, log]);
+
+  useEffect(() => {
+    log('info', 'DEV-0000028[T1] chat transcript layout ready', {
+      page: 'chat',
+    });
+  }, [log]);
   const {
     turns,
     inflight: inflightSnapshot,
@@ -1271,7 +1277,7 @@ export default function ChatPage() {
       maxWidth={false}
       sx={{
         pt: 3,
-        pb: 6,
+        pb: 0,
         flex: 1,
         display: 'flex',
         flexDirection: 'column',

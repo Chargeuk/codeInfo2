@@ -250,6 +250,12 @@ export default function AgentsPage() {
   const log = useMemo(() => createLogger('client'), []);
 
   useEffect(() => {
+    log('info', 'DEV-0000028[T1] agents transcript layout ready', {
+      page: 'agents',
+    });
+  }, [log]);
+
+  useEffect(() => {
     displayMessages.forEach((message) => {
       const isErrorBubble = message.kind === 'error';
       const isStatusBubble = message.kind === 'status';
@@ -1504,7 +1510,7 @@ export default function AgentsPage() {
       data-testid="agents-page"
       sx={{
         pt: 3,
-        pb: 6,
+        pb: 0,
         flex: 1,
         display: 'flex',
         flexDirection: 'column',

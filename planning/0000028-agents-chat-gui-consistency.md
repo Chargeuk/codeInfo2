@@ -127,7 +127,7 @@ These instructions will be followed during implementation.
 
 ### 1. Client: Chat/Agents transcript fills viewport
 
-- Task Status: **__in_progress__**
+- Task Status: **__done__**
 - Git Commits: **__to_do__**
 
 #### Overview
@@ -149,7 +149,7 @@ Ensure the Chat and Agents transcript panels stretch to the bottom of the viewpo
 
 #### Subtasks
 
-1. [ ] Review layout containers and locate the height break:
+1. [x] Review layout containers and locate the height break:
    - Documentation to read (repeat):
      - MUI Box API: https://llms.mui.com/material-ui/6.4.12/api/box.md
      - MUI Stack API: https://llms.mui.com/material-ui/6.4.12/api/stack.md
@@ -169,7 +169,7 @@ Ensure the Chat and Agents transcript panels stretch to the bottom of the viewpo
    - Notes:
      - Keep existing spacing and padding intact; this is layout-only.
 
-2. [ ] Implement flex/minHeight adjustments for full-height layout:
+2. [x] Implement flex/minHeight adjustments for full-height layout:
    - Documentation to read (repeat):
      - MUI Box API: https://llms.mui.com/material-ui/6.4.12/api/box.md
      - MUI Stack API: https://llms.mui.com/material-ui/6.4.12/api/stack.md
@@ -190,7 +190,7 @@ Ensure the Chat and Agents transcript panels stretch to the bottom of the viewpo
      - `sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}` on the page shell
      - `style={{ flex: '1 1 0%', minHeight: 0, overflowY: 'auto' }}` on the transcript container
 
-3. [ ] Test (unit/client): Chat transcript inline styles
+3. [x] Test (unit/client): Chat transcript inline styles
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Location:
@@ -202,7 +202,7 @@ Ensure the Chat and Agents transcript panels stretch to the bottom of the viewpo
    - Snippet example:
      - `expect(screen.getByTestId('chat-transcript')).toHaveStyle({ flex: '1 1 0%', minHeight: '0px', overflowY: 'auto' });`
 
-4. [ ] Test (unit/client): Agents transcript inline styles
+4. [x] Test (unit/client): Agents transcript inline styles
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Location:
@@ -216,7 +216,7 @@ Ensure the Chat and Agents transcript panels stretch to the bottom of the viewpo
    - Snippet example:
      - `expect(screen.getByTestId('chat-transcript')).toHaveStyle({ flex: '1 1 0%', minHeight: '0px', overflowY: 'auto' });`
 
-5. [ ] Capture UI screenshots (required for this task):
+5. [x] Capture UI screenshots (required for this task):
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
    - Files to add:
@@ -231,7 +231,7 @@ Ensure the Chat and Agents transcript panels stretch to the bottom of the viewpo
      - `0000028-1-chat-height.png`
      - `0000028-1-agents-height.png`
 
-6. [ ] Documentation update: `design.md`
+6. [x] Documentation update: `design.md`
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location:
@@ -243,7 +243,7 @@ Ensure the Chat and Agents transcript panels stretch to the bottom of the viewpo
    - Snippet example:
      - `- Chat/Agents transcript panels use flex + minHeight: 0 to fill the viewport.`
 
-7. [ ] Documentation update: `projectStructure.md` (if screenshots were added)
+7. [x] Documentation update: `projectStructure.md` (if screenshots were added)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location:
@@ -257,7 +257,7 @@ Ensure the Chat and Agents transcript panels stretch to the bottom of the viewpo
   - Snippet example:
     - `planning/0000028-agents-chat-gui-consistency-data/0000028-1-chat-height.png`
 
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+8. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI/options: https://prettier.io/docs/options
@@ -269,39 +269,55 @@ Ensure the Chat and Agents transcript panels stretch to the bottom of the viewpo
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, verify Chat and Agents transcripts stretch to the bottom without blank gaps, resize to confirm flex growth, and confirm the debug console shows no errors.
+8. [x] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, verify Chat and Agents transcripts stretch to the bottom without blank gaps, resize to confirm flex growth, and confirm the debug console shows no errors.
    - Capture Playwright MCP screenshots that show the full-height transcript on Chat and Agents; confirm the images live under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (docker-compose.local.yml mapping) before moving/recording them.
    - Expected log lines (debug console):
      - `DEV-0000028[T1] chat transcript layout ready` appears at least once.
      - `DEV-0000028[T1] agents transcript layout ready` appears at least once.
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
 #### Implementation notes
 
-- (fill in during execution)
+- Reviewed App, Chat, and Agents layout containers; main flex chain uses App `Container` + page `Container` with `pb` likely causing the visual gap, while transcript already has inline flex + minHeight.
+- Set Chat/Agents page `pb` to `0` and added layout-ready log lines for both pages to confirm the transcript container can fill the remaining flex height.
+- Added a Chat layout test asserting the transcript container retains `flex: 1 1 0%`, `minHeight: 0`, and `overflowY: auto` inline styles.
+- Added an Agents layout test to confirm the transcript container keeps the same inline flex + minHeight + overflow styles.
+- Captured Task 1 screenshots for Chat and Agents transcript height and moved them into the planning data folder.
+- Documented the Chat/Agents full-height transcript behavior in `design.md`.
+- Updated `projectStructure.md` with the new Task 1 screenshots (and the current planning entries).
+- Ran lint + format checks; lint reported existing server import-order warnings, but formatting passed cleanly.
+- `npm run build --workspace server` completed successfully.
+- `npm run build --workspace client` completed successfully (build warning about large chunks only).
+- Server tests initially failed on `flows.list` expecting no flows; updated the test to set `FLOWS_DIR` to a missing folder and the full `npm run test --workspace server` run then passed.
+- Client tests failed on minHeight style strictness; relaxed the assertions to accept `'0'` or `'0px'` and the full `npm run test --workspace client` run then passed.
+- `npm run e2e` completed successfully.
+- `npm run compose:build` completed successfully.
+- `npm run compose:up` completed successfully.
+- Manual Playwright check confirmed the transcript fills the viewport on Chat/Agents after resizing, and console logs included `DEV-0000028[T1] chat transcript layout ready` and `DEV-0000028[T1] agents transcript layout ready`; updated Task 1 screenshots accordingly.
+- `npm run compose:down` completed successfully.
 
 ---
 

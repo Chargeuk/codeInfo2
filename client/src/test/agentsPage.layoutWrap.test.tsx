@@ -96,4 +96,16 @@ describe('Agents page layout wrap', () => {
       within(panel).getByTestId('conversation-load-more'),
     ).toBeInTheDocument();
   });
+
+  it('keeps the transcript container flex stretch styles', async () => {
+    mockAgentsFetch();
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    const transcript = await screen.findByTestId('chat-transcript');
+    expect(transcript.style.flex).toBe('1 1 0%');
+    expect(['0', '0px']).toContain(transcript.style.minHeight);
+    expect(transcript.style.overflowY).toBe('auto');
+  });
 });

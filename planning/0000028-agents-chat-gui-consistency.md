@@ -149,6 +149,7 @@ Ensure the Chat and Agents transcript panels stretch to the bottom of the viewpo
      - `client/src/App.tsx`
      - `client/src/pages/ChatPage.tsx`
      - `client/src/pages/AgentsPage.tsx`
+     - `client/src/test/chatPage.layoutWrap.test.tsx`
    - Story requirements to repeat here so they are not missed:
      - Chat and Agents conversation panels must stretch to the bottom of the viewport with no blank gap below the transcript card.
      - Resizing the window should expand the transcript area, not add whitespace.
@@ -258,7 +259,7 @@ Replace the inline agent description block with an info icon and popover that re
      - `client/src/pages/AgentsPage.tsx`
    - Implementation details:
      - Add an IconButton next to the Agent selector and anchor a Popover to it.
-     - Use the existing Markdown renderer for the description text.
+     - Reuse the existing `Markdown` renderer for the description text.
      - Render warnings as a simple list under the description.
      - Show the friendly empty-state message when both description and warnings are empty.
      - Ensure the info icon does not render (or renders disabled) when agents fail to load.
@@ -267,14 +268,15 @@ Replace the inline agent description block with an info icon and popover that re
 
 3. [ ] Add/update tests for the popover:
    - Files to add/edit:
-     - `client/src/test/agentsPage.descriptionPopover.test.tsx` (new)
+     - `client/src/test/agentsPage.description.test.tsx` (update existing test)
+     - `client/src/test/agentsPage.descriptionPopover.test.tsx` (new, only if the existing test becomes too large)
    - Test cases to cover:
-     - Info icon renders when an agent is selected.
-     - Popover opens and shows Markdown description.
-     - Warnings list renders when warnings are present.
+    - Info icon renders when an agent is selected.
+    - Popover opens and shows Markdown description.
+    - Warnings list renders when warnings are present.
     - Empty-state message renders when description and warnings are missing.
     - Info icon is hidden/disabled when the agents fetch fails and the error state renders.
-     - Warnings and description are not rendered inline when the popover is closed.
+    - Warnings and description are not rendered inline when the popover is closed.
 
 4. [ ] Capture UI screenshots (required for this task):
    - Use Playwright MCP to capture the Agents page with the info popover open.
@@ -367,7 +369,7 @@ Align Agents controls so the Command selector and Execute button share a row, an
 
 3. [ ] Add/update layout tests:
    - Files to add/edit:
-     - `client/src/test/agentsPage.layout.test.tsx`
+     - `client/src/test/agentsPage.layout.test.tsx` (update if it already exists; otherwise create)
    - Test cases to cover:
      - Execute command button appears in the same row container as the Command selector.
      - Send/Stop container applies a fixed width style so layout remains stable.
@@ -467,6 +469,7 @@ Add a “Choose folder…” button next to the Agents working-folder input and 
 3. [ ] Add/update tests for the working-folder picker:
    - Files to add/edit:
      - `client/src/test/agentsPage.workingFolderPicker.test.tsx` (new)
+     - `client/src/test/agentsPage.run.test.tsx` (update if it already asserts inline warning/description layout)
    - Test cases to cover:
      - Clicking “Choose folder…” opens the dialog.
      - Selecting a folder updates the working-folder input value.

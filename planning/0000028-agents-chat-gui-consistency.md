@@ -85,7 +85,7 @@ None.
 
 - **Agents layout + info popover**: In `client/src/pages/AgentsPage.tsx`, replace the inline description/warnings block with an `IconButton` (info icon) next to the Agent selector that opens a `Popover` anchored to the icon. Render Markdown + warnings inside the popover, and show the empty-state message when both are missing.
 - **Agents control rows**: Rebuild the controls stack in `AgentsPage.tsx` so the Command selector and Execute button share one row, and the Instruction input shares a row with Send/Stop. Apply fixed widths to Send/Stop to avoid jitter.
-- **Directory picker reuse**: Extract or reuse `client/src/components/ingest/DirectoryPickerDialog.tsx` plus `client/src/components/ingest/ingestDirsApi.ts` for Agents (and Chat if the open question is resolved in favor). Wire “Choose folder…” next to the working-folder input and update state on selection.
+- **Directory picker reuse**: Extract or reuse `client/src/components/ingest/DirectoryPickerDialog.tsx` plus `client/src/components/ingest/ingestDirsApi.ts` for Agents only. Wire “Choose folder…” next to the working-folder input and update state on selection.
 - **Chat transcript height**: Verify `client/src/pages/ChatPage.tsx` and `client/src/pages/AgentsPage.tsx` containers keep `flex: 1` + `minHeight: 0` from page root to transcript. If a parent container constrains height (e.g., Stack/Container in `client/src/App.tsx`), adjust to let the transcript stretch to the bottom of the viewport.
 - **Sizing + variants alignment**:
    - `ChatPage.tsx`: add `size="small"` to Provider/Model selects, Message field, and action buttons; update Stop to `contained` + `color="error"` (per Acceptance Criteria).
@@ -101,7 +101,7 @@ None.
 - Existing contracts already cover the needed data:
    - Agent metadata (name/description/warnings) comes from `GET /agents` and the `AgentSummary`/`DiscoveredAgent` types.
    - Working-folder values are already accepted by Agents/Flows (`working_folder` in `POST /agents/:agentName/run` and `POST /flows/:flowName/run`).
-   - Chat requests do **not** currently accept `working_folder`—if the open question is resolved in favor of a Chat working-folder, that would require a new request field and validation updates. (Keep this out of scope unless explicitly approved.)
+  - Chat requests do **not** currently accept `working_folder`—adding this would require a new request field and validation updates, so it remains out of scope.
 - No new WebSocket event types or MongoDB document shape changes are expected for this story.
 
 ---
@@ -1134,7 +1134,7 @@ Standardize sizing and button variants across Chat and Agents so all controls us
   - Implementation details:
     - Set `size="small"` on all TextField/Select controls.
     - Update primary actions (Send, Execute command, Run/Start) to `contained`.
-    - Update secondary actions (Choose folder, New conversation, Clear, Refresh models) to `outlined`.
+    - Update secondary actions (Choose folder, New conversation) to `outlined`.
     - Ensure Stop uses `contained` + `color="error"` consistently.
     - Add log lines when sizing/variants are applied so manual checks can confirm each page:
       - `DEV-0000028[T6] chat controls sizing applied` (include `{ page: 'chat' }`).

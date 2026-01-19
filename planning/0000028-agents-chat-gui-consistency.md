@@ -564,7 +564,7 @@ Replace the inline agent description block with an info icon and popover that re
 
 ### 3. Client: Agents control rows layout
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **__to_do__**
 
 #### Overview

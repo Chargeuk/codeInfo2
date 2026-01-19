@@ -323,7 +323,7 @@ Ensure the Chat and Agents transcript panels stretch to the bottom of the viewpo
 
 ### 2. Client: Agents description/warnings popover
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **__to_do__**
 
 #### Overview

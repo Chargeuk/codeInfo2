@@ -15,7 +15,7 @@ Story convention (important for this repo’s planning style):
 
 ## Description
 
-The Agents and Chat pages currently waste vertical space and feel inconsistent with other pages (Chat, Agents, LM Studio, Ingest). Controls vary in size, alignment, and button styling, and the conversation view stops above the bottom of the screen leaving unused space. This story will reorganize the Agents controls to reclaim space, align inline controls to the same size and baseline, and make the conversation view fill the available height. It also introduces a reusable “Choose Folder” picker for Agents and Chat so folder selection behaves the same way as the Ingest page. The end result should be a tighter, more consistent UI that feels aligned across pages, with primary and secondary actions clearly distinguished and better use of screen real estate.
+The Agents and Chat pages currently waste vertical space and feel inconsistent with other pages (Chat, Agents, LM Studio, Ingest). Controls vary in size, alignment, and button styling, and the conversation view stops above the bottom of the screen leaving unused space. This story will reorganize the Agents controls to reclaim space, align inline controls to the same size and baseline, and make the conversation view fill the available height. It also introduces a reusable “Choose Folder” picker for Agents (and Chat only if the open question is explicitly approved) so folder selection behaves the same way as the Ingest page. The end result should be a tighter, more consistent UI that feels aligned across pages, with primary and secondary actions clearly distinguished and better use of screen real estate.
 
 ---
 
@@ -27,10 +27,11 @@ The Agents and Chat pages currently waste vertical space and feel inconsistent w
   - The Command selector and the “Execute command” button appear on the same row, with the button to the right of the selector.
   - The Instruction input and the Send/Stop action share a single row on desktop; Send and Stop use the same width so the row does not shift when toggling.
 - Chat and Agents conversation panels stretch to the bottom of the viewport (beneath the top navigation) with no visible blank gap below the transcript card; resizing the window stretches the transcript area instead of leaving empty whitespace.
-- Chat and Agents include a “Choose folder…” button next to the working-folder input that reuses the Ingest directory picker dialog:
+- Agents include a “Choose folder…” button next to the working-folder input that reuses the Ingest directory picker dialog:
   - Clicking “Choose folder…” opens the same dialog title and folder list as Ingest.
   - Selecting a folder fills the working-folder input with the chosen absolute host path.
   - Cancel closes the dialog without changing the input value.
+- Chat only adds the same “Choose folder…” picker if the open question is approved (otherwise Chat has no working-folder UI in this story).
 - All dropdowns, text inputs, and buttons across Chat, Agents, LM Studio, and Ingest use the same sizing rules:
   - Form controls (TextField, Select, Autocomplete) use `size="small"`.
   - Buttons on the same row use `size="small"` and align vertically with the adjacent input height.
@@ -99,7 +100,7 @@ The Agents and Chat pages currently waste vertical space and feel inconsistent w
 - Existing contracts already cover the needed data:
   - Agent metadata (name/description/warnings) comes from `GET /agents` and the `AgentSummary`/`DiscoveredAgent` types.
   - Working-folder values are already accepted by Agents/Flows (`working_folder` in `POST /agents/:agentName/run` and `POST /flows/:flowName/run`).
--  - Chat requests do **not** currently accept `working_folder`—if the open question is resolved in favor of a Chat working-folder, that would require a new request field and validation updates. (Keep this out of scope unless explicitly approved.)
+  - Chat requests do **not** currently accept `working_folder`—if the open question is resolved in favor of a Chat working-folder, that would require a new request field and validation updates. (Keep this out of scope unless explicitly approved.)
 - No new WebSocket event types or MongoDB document shape changes are expected for this story.
 
 ---

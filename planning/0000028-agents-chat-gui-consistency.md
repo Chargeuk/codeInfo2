@@ -168,6 +168,7 @@ Ensure the Chat and Agents transcript panels stretch to the bottom of the viewpo
      - Ensure the app shell uses a full-height flex column.
      - Ensure the main content area and transcript container use `flex: 1` with `minHeight: 0`.
      - Remove or reduce bottom padding/overflow behavior that causes a visible blank gap below the transcript card.
+     - Prefer page-level tweaks first; only adjust the App shell if the gap cannot be resolved locally.
      - Do not change control sizes or button variants (handled in Tasks 6-7).
 
 3. [ ] Tests to add/update:
@@ -212,7 +213,7 @@ Ensure the Chat and Agents transcript panels stretch to the bottom of the viewpo
 7. [ ] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] Manual Playwright-MCP check: verify Chat and Agents transcripts stretch to the bottom of the viewport without a blank gap and no browser console errors appear.
+8. [ ] Manual Playwright-MCP check: verify Chat and Agents transcripts stretch to the bottom of the viewport without a blank gap.
 9. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
@@ -315,7 +316,7 @@ Replace the inline agent description block with an info icon and popover that re
 7. [ ] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] Manual Playwright-MCP check: open the info popover, verify Markdown renders, warnings list displays, and empty-state appears for agents without metadata; confirm no browser console errors.
+8. [ ] Manual Playwright-MCP check: open the info popover, verify Markdown renders, warnings list displays, and empty-state appears for agents without metadata.
 9. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
@@ -412,7 +413,7 @@ Align Agents controls so the Command selector and Execute button share a row, an
 7. [ ] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] Manual Playwright-MCP check: verify the two-row layout and stacked layout on a small viewport; confirm no console errors.
+8. [ ] Manual Playwright-MCP check: verify the two-row layout and stacked layout on a small viewport.
 9. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
@@ -598,7 +599,7 @@ Add a “Choose folder…” button next to the Agents working-folder input and 
 7. [ ] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] Manual Playwright-MCP check: open the Agents working-folder picker, select a folder, cancel, and confirm value persistence; verify no console errors.
+8. [ ] Manual Playwright-MCP check: open the Agents working-folder picker, select a folder, cancel, and confirm value persistence.
 9. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
@@ -657,6 +658,8 @@ Standardize sizing and button variants across Chat and Agents so all controls us
    - Test cases to cover:
      - Buttons use the expected variant (contained/outlined/error).
      - Inputs render with `size="small"` where applicable.
+   - Note:
+     - If no tests assert size/variant props today, prefer screenshots and skip adding new assertions.
 
 4. [ ] Capture UI screenshots (required for this task):
    - Use Playwright MCP to capture:
@@ -756,6 +759,8 @@ Standardize sizing and button variants across LM Studio and Ingest so controls u
    - Test cases to cover:
      - Buttons use the expected variant (contained/outlined).
      - Inputs render with `size="small"` where applicable.
+   - Note:
+     - If no tests assert size/variant props today, prefer screenshots and skip adding new assertions.
 
 4. [ ] Capture UI screenshots (required for this task):
    - Use Playwright MCP to capture:

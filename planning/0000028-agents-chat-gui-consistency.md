@@ -196,7 +196,7 @@ Ensure the Chat and Agents transcript panels stretch to the bottom of the viewpo
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Location:
-     - `client/src/test/agentsPage.layout.test.tsx`
+     - `client/src/test/agentsPage.layoutWrap.test.tsx`
    - Description:
      - Add the same inline style assertions for the Agents transcript `data-testid="chat-transcript"`.
    - Purpose:
@@ -325,6 +325,7 @@ Replace the inline agent description block with an info icon and popover that re
      - Add an IconButton next to the Agent selector and anchor a Popover to it.
      - Use `Popover` props `open`, `anchorEl`, and `onClose` per MUI 6.4.x API.
      - Set the IconButton `size="small"` for alignment; do not add a `variant` prop (IconButton does not use variants in MUI core).
+     - Add `aria-label="Agent info"` and `data-testid="agent-info"` to the IconButton for accessibility and test selection.
      - Reuse the existing `Markdown` renderer for the description text.
      - Render warnings as a simple list under the description.
      - Show the friendly empty-state message when both description and warnings are empty.
@@ -338,7 +339,7 @@ Replace the inline agent description block with an info icon and popover that re
    - Location:
      - `client/src/test/agentsPage.description.test.tsx` (extend existing test file)
    - Description:
-     - Add a test that renders the Agents page with a selected agent and asserts the info icon button exists.
+     - Add a test that renders the Agents page with a selected agent and asserts the info icon button (`data-testid="agent-info"`) exists.
    - Purpose:
      - Confirms the popover entry point appears on the happy path.
 
@@ -348,7 +349,7 @@ Replace the inline agent description block with an info icon and popover that re
    - Location:
      - `client/src/test/agentsPage.description.test.tsx` (or new `agentsPage.descriptionPopover.test.tsx` if the file grows too large)
    - Description:
-     - Trigger the info icon and assert Markdown description content is rendered inside the popover.
+     - Trigger the info icon (`data-testid="agent-info"`) and assert Markdown description content is rendered inside the popover.
    - Purpose:
      - Validates the description rendering moved from inline to popover.
 
@@ -358,7 +359,7 @@ Replace the inline agent description block with an info icon and popover that re
    - Location:
      - `client/src/test/agentsPage.description.test.tsx` (or new `agentsPage.descriptionPopover.test.tsx`)
    - Description:
-     - Provide an agent with warnings and assert they appear in the popover content.
+     - Provide an agent with warnings and assert they appear in the popover content after clicking `data-testid="agent-info"`.
    - Purpose:
      - Confirms warning display is preserved after moving to popover.
 
@@ -368,7 +369,7 @@ Replace the inline agent description block with an info icon and popover that re
    - Location:
      - `client/src/test/agentsPage.description.test.tsx` (or new `agentsPage.descriptionPopover.test.tsx`)
    - Description:
-     - Use an agent with no description and no warnings; open the popover and assert the empty-state message.
+     - Use an agent with no description and no warnings; open the popover via `data-testid="agent-info"` and assert the empty-state message.
    - Purpose:
      - Covers the empty metadata edge case required by acceptance criteria.
 
@@ -378,7 +379,7 @@ Replace the inline agent description block with an info icon and popover that re
    - Location:
      - `client/src/test/agentsPage.description.test.tsx` (or new `agentsPage.descriptionPopover.test.tsx`)
    - Description:
-     - Simulate `/agents` failure and assert the error UI renders while the info icon is hidden or disabled.
+     - Simulate `/agents` failure and assert the error UI renders while `data-testid="agent-info"` is hidden or disabled.
    - Purpose:
      - Ensures error states do not expose a broken popover trigger.
 
@@ -513,7 +514,7 @@ Align Agents controls so the Command selector and Execute button share a row, an
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Location:
-     - `client/src/test/agentsPage.layout.test.tsx` (update if it already exists; otherwise create)
+     - `client/src/test/agentsPage.layoutWrap.test.tsx` (extend existing layout test)
    - Description:
      - Assert the Command selector and Execute button render in the same row container.
    - Purpose:
@@ -523,7 +524,7 @@ Align Agents controls so the Command selector and Execute button share a row, an
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Location:
-     - `client/src/test/agentsPage.layout.test.tsx`
+     - `client/src/test/agentsPage.layoutWrap.test.tsx`
    - Description:
      - Assert Stop renders in the instruction row and is not present in the header row.
    - Purpose:
@@ -572,7 +573,7 @@ Align Agents controls so the Command selector and Execute button share a row, an
 3. [ ] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-4. [ ] `npm run test --workspace client -- agentsPage.layout`
+4. [ ] `npm run test --workspace client -- agentsPage.layoutWrap`
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
 5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
@@ -645,7 +646,7 @@ Ensure the Send/Stop action slot keeps a stable width so the row does not shift 
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Location:
-     - `client/src/test/agentsPage.layout.test.tsx` (extend existing layout test)
+     - `client/src/test/agentsPage.layoutWrap.test.tsx` (extend existing layout test)
    - Description:
      - Assert the Send/Stop action slot applies a fixed width style (`minWidth` or equivalent).
    - Purpose:
@@ -655,7 +656,7 @@ Ensure the Send/Stop action slot keeps a stable width so the row does not shift 
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Location:
-     - `client/src/test/agentsPage.layout.test.tsx`
+     - `client/src/test/agentsPage.layoutWrap.test.tsx`
    - Description:
      - Assert only one of Send or Stop is rendered at a time in the action slot.
    - Purpose:
@@ -693,7 +694,7 @@ Ensure the Send/Stop action slot keeps a stable width so the row does not shift 
 3. [ ] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-4. [ ] `npm run test --workspace client -- agentsPage.layout`
+4. [ ] `npm run test --workspace client -- agentsPage.layoutWrap`
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
 5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
@@ -953,7 +954,7 @@ Standardize sizing and button variants across Chat and Agents so all controls us
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Location:
-     - `client/src/test/agentsPage.layout.test.tsx`
+     - `client/src/test/agentsPage.layoutWrap.test.tsx`
    - Description:
      - Add assertions for Agents inputs/selects using `size="small"` and buttons using expected variants.
    - Purpose:

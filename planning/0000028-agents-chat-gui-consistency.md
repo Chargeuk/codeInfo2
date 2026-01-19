@@ -78,6 +78,20 @@ The Agents and Chat pages currently waste vertical space and feel inconsistent w
 
 ---
 
+## Implementation Ideas
+
+- **Agents layout + info popover**: In `client/src/pages/AgentsPage.tsx`, replace the inline description/warnings block with an `IconButton` (info icon) next to the Agent selector that opens a `Popover` anchored to the icon. Render Markdown + warnings inside the popover, and show the empty-state message when both are missing.
+- **Agents control rows**: Rebuild the controls stack in `AgentsPage.tsx` so the Command selector and Execute button share one row, and the Instruction input shares a row with Send/Stop. Apply fixed widths to Send/Stop to avoid jitter.
+- **Directory picker reuse**: Extract or reuse `client/src/components/ingest/DirectoryPickerDialog.tsx` plus `client/src/components/ingest/ingestDirsApi.ts` for Agents (and Chat if the open question is resolved in favor). Wire “Choose folder…” next to the working-folder input and update state on selection.
+- **Chat transcript height**: Verify `client/src/pages/ChatPage.tsx` and `client/src/pages/AgentsPage.tsx` containers keep `flex: 1` + `minHeight: 0` from page root to transcript. If a parent container constrains height (e.g., Stack/Container in `client/src/App.tsx`), adjust to let the transcript stretch to the bottom of the viewport.
+- **Sizing + variants alignment**:
+  - `ChatPage.tsx`: add `size="small"` to Provider/Model selects, Message field, and action buttons; update Stop to `contained` + `color="error"` (per Acceptance Criteria).
+  - `AgentsPage.tsx`: set all TextField/Select/Button sizes to `small` and align variants (primary contained, secondary outlined, Stop contained error).
+  - `LMStudioPage.tsx`: update TextField + Buttons to `size="small"` and adjust variants to match primary/secondary guidance (e.g., “Refresh models” should be outlined, not text).
+  - `client/src/components/ingest/IngestForm.tsx`: set all inputs and buttons to `size="small"` and keep “Choose folder…” as outlined secondary.
+
+---
+
 # Implementation Plan
 
 Tasks will be added after the open questions are answered.

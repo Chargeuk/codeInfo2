@@ -92,6 +92,16 @@ The Agents and Chat pages currently waste vertical space and feel inconsistent w
 
 ---
 
+## Message Contracts & Storage Impact
+
+- This story is UI-only, so **no new API contracts or storage schema changes are required**.
+- Existing contracts already cover the needed data:
+  - Agent metadata (name/description/warnings) comes from `GET /agents` and the `AgentSummary`/`DiscoveredAgent` types.
+  - Working-folder values are already accepted by Agents/Flows (`working_folder` in `POST /agents/:agentName/run` and `POST /flows/:flowName/run`).
+  - Chat requests do **not** currently accept `working_folder`—if the open question is resolved in favor of a Chat working-folder, that would require a new request field and validation updates. (Keep this out of scope unless explicitly approved.)
+
+---
+
 # Implementation Plan
 
 Tasks will be added after the open questions are answered.

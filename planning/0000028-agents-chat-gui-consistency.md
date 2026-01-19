@@ -183,6 +183,9 @@ Ensure the Chat and Agents transcript panels stretch to the bottom of the viewpo
      - Remove or reduce bottom padding/overflow behavior that causes a visible blank gap below the transcript card.
      - Prefer page-level tweaks first; only adjust the App shell if the gap cannot be resolved locally.
      - Do not change control sizes or button variants (handled in Tasks 6-7).
+     - Add log lines after layout is applied:
+       - `DEV-0000028[T1] chat transcript layout ready` (include `{ page: 'chat' }`)
+       - `DEV-0000028[T1] agents transcript layout ready` (include `{ page: 'agents' }`)
    - Snippet to apply (example):
      - `sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}` on the page shell
      - `style={{ flex: '1 1 0%', minHeight: 0, overflowY: 'auto' }}` on the transcript container
@@ -288,6 +291,9 @@ Ensure the Chat and Agents transcript panels stretch to the bottom of the viewpo
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, verify Chat and Agents transcripts stretch to the bottom without blank gaps, resize to confirm flex growth, and confirm the debug console shows no errors.
+   - Expected log lines (debug console):
+     - `DEV-0000028[T1] chat transcript layout ready` appears at least once.
+     - `DEV-0000028[T1] agents transcript layout ready` appears at least once.
 9. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
@@ -353,10 +359,12 @@ Replace the inline agent description block with an info icon and popover that re
      - Add `aria-label="Agent info"` and `data-testid="agent-info"` to the IconButton for accessibility and test selection.
      - Reuse the existing `Markdown` renderer for the description text.
      - Render warnings as a simple list under the description.
-     - Show the friendly empty-state message when both description and warnings are empty.
-     - Ensure the info icon does not render (or renders disabled) when agents fail to load.
-     - Remove the inline warnings alert and inline description `Paper` so metadata is only in the popover.
-     - Keep layout spacing compact; avoid introducing a new full-width block.
+    - Show the friendly empty-state message when both description and warnings are empty.
+    - Ensure the info icon does not render (or renders disabled) when agents fail to load.
+    - Remove the inline warnings alert and inline description `Paper` so metadata is only in the popover.
+    - Keep layout spacing compact; avoid introducing a new full-width block.
+    - Add a log line when the popover opens so the interaction can be confirmed in manual checks:
+      - `DEV-0000028[T2] agent info popover opened` (include `{ agentName, hasDescription, warningsCount }`).
    - Snippet to apply (example):
      - `<IconButton size="small" aria-label="Agent info" data-testid="agent-info" onClick={...} />`
      - `<Popover open={Boolean(anchorEl)} anchorEl={anchorEl} onClose={handleClose}>...</Popover>`
@@ -505,6 +513,8 @@ Replace the inline agent description block with an info icon and popover that re
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 9. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, open the info popover, verify Markdown renders, warnings list displays, empty-state appears for agents without metadata, and confirm the debug console shows no errors.
+   - Expected log lines (debug console):
+     - `DEV-0000028[T2] agent info popover opened` appears when the info popover is opened.
 10. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
@@ -565,11 +575,13 @@ Align Agents controls so the Command selector and Execute button share a row, an
      - Restructure controls into two horizontal rows (Stack or Box with `display: 'flex'`).
      - Row 1: Command selector on the left and Execute command button on the right.
      - Keep the command description text below the row so it still renders.
-     - Row 2: Instruction input on the left and an action slot on the right.
-     - Move the Stop button out of the Agent selector row into the instruction row.
-     - Ensure the rows collapse to a single column on small screens without overlap.
-     - Do not implement fixed widths or send/stop toggling in this task (handled in Task 4).
-     - Keep existing sizes/variants unchanged in this task (standardization happens in Tasks 6-7).
+    - Row 2: Instruction input on the left and an action slot on the right.
+    - Move the Stop button out of the Agent selector row into the instruction row.
+    - Ensure the rows collapse to a single column on small screens without overlap.
+    - Do not implement fixed widths or send/stop toggling in this task (handled in Task 4).
+    - Keep existing sizes/variants unchanged in this task (standardization happens in Tasks 6-7).
+    - Add a log line when the layout mode is resolved so manual checks can confirm responsive behavior:
+      - `DEV-0000028[T3] agents controls layout mode` (include `{ mode: 'row' | 'stacked' }`).
    - Snippet to apply (example row):
      - `<Stack direction={{ xs: 'column', md: 'row' }} spacing={1} alignItems="center">...`)
 
@@ -684,6 +696,9 @@ Align Agents controls so the Command selector and Execute button share a row, an
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 9. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, verify the two-row layout on desktop, stacked layout on small viewport, and confirm the debug console shows no errors.
+   - Expected log lines (debug console):
+     - `DEV-0000028[T3] agents controls layout mode` appears with `mode: 'row'` on desktop.
+     - `DEV-0000028[T3] agents controls layout mode` appears with `mode: 'stacked'` after resizing to a small viewport.
 10. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
@@ -738,9 +753,11 @@ Ensure the Send/Stop action slot keeps a stable width so the row does not shift 
    - Files to edit:
      - `client/src/pages/AgentsPage.tsx`
    - Implementation details:
-     - Set a fixed `minWidth` (or similar) for the action slot so Send/Stop occupy the same width.
-     - Render only one action button at a time (Send when idle, Stop when streaming) to avoid layout jitter.
-     - Keep existing sizes/variants unchanged in this task (standardization happens in Tasks 6-7).
+    - Set a fixed `minWidth` (or similar) for the action slot so Send/Stop occupy the same width.
+    - Render only one action button at a time (Send when idle, Stop when streaming) to avoid layout jitter.
+    - Keep existing sizes/variants unchanged in this task (standardization happens in Tasks 6-7).
+    - Add a log line when the action slot state changes so manual checks can confirm toggling:
+      - `DEV-0000028[T4] agents action slot state` (include `{ showStop: boolean, minWidth }`).
    - Snippet to apply (example):
      - `<Box sx={{ minWidth: 120 }}>...</Box>` wrapping the Send/Stop slot
 
@@ -838,6 +855,9 @@ Ensure the Send/Stop action slot keeps a stable width so the row does not shift 
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 9. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, toggle between Send/Stop, confirm row width stays stable, and confirm the debug console shows no errors.
+   - Expected log lines (debug console):
+     - `DEV-0000028[T4] agents action slot state` appears with `showStop: false` when idle.
+     - `DEV-0000028[T4] agents action slot state` appears with `showStop: true` after triggering Stop.
 10. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
@@ -895,15 +915,19 @@ Add a “Choose folder…” button next to the Agents working-folder input and 
      - MUI Dialog API: https://llms.mui.com/material-ui/6.4.12/api/dialog.md
      - MUI Button API: https://llms.mui.com/material-ui/6.4.12/api/button.md
      - MUI TextField API: https://llms.mui.com/material-ui/6.4.12/api/text-field.md
-   - Files to edit:
-     - `client/src/pages/AgentsPage.tsx`
-     - `client/src/components/ingest/DirectoryPickerDialog.tsx` (only if a small prop tweak is needed for reuse)
-   - Implementation details:
-     - Import and reuse `DirectoryPickerDialog` and `ingestDirsApi` directly from the ingest components (do not move files unless necessary).
-   - Add a “Choose folder…” button next to the working-folder input that opens the dialog.
-     - Update the working-folder state when a folder is selected; cancel should be a no-op.
-     - Ensure server-side validation errors (e.g., `WORKING_FOLDER_INVALID`) do not clear the current working-folder value.
-     - Do not add a working-folder picker to Chat (explicitly out of scope).
+  - Files to edit:
+    - `client/src/pages/AgentsPage.tsx`
+    - `client/src/components/ingest/DirectoryPickerDialog.tsx` (only if a small prop tweak is needed for reuse)
+  - Implementation details:
+    - Import and reuse `DirectoryPickerDialog` and `ingestDirsApi` directly from the ingest components (do not move files unless necessary).
+    - Add a “Choose folder…” button next to the working-folder input that opens the dialog.
+      - Update the working-folder state when a folder is selected; cancel should be a no-op.
+      - Ensure server-side validation errors (e.g., `WORKING_FOLDER_INVALID`) do not clear the current working-folder value.
+      - Do not add a working-folder picker to Chat (explicitly out of scope).
+    - Add log lines for picker interactions so manual checks can confirm each step:
+      - `DEV-0000028[T5] agents folder picker opened` (include `{ source: 'agents' }`).
+      - `DEV-0000028[T5] agents folder picker picked` (include `{ path }`).
+      - `DEV-0000028[T5] agents folder picker cancelled` (no payload required).
    - Snippet to apply (example):
      - `<Button variant="outlined" size="small" onClick={() => setDirPickerOpen(true)}>Choose folder…</Button>`
      - `<DirectoryPickerDialog open={dirPickerOpen} path={workingFolder} onClose={...} onPick={(path) => setWorkingFolder(path)} />`
@@ -1039,6 +1063,10 @@ Add a “Choose folder…” button next to the Agents working-folder input and 
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 9. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, open the Agents working-folder picker, select a folder, cancel, confirm value persistence, and confirm the debug console shows no errors.
+   - Expected log lines (debug console):
+     - `DEV-0000028[T5] agents folder picker opened` appears when the dialog opens.
+     - `DEV-0000028[T5] agents folder picker picked` appears after choosing a folder and includes the selected path.
+     - `DEV-0000028[T5] agents folder picker cancelled` appears after canceling the dialog.
 10. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
@@ -1095,14 +1123,17 @@ Standardize sizing and button variants across Chat and Agents so all controls us
      - MUI Button API: https://llms.mui.com/material-ui/6.4.12/api/button.md
      - MUI TextField API: https://llms.mui.com/material-ui/6.4.12/api/text-field.md
      - MUI Select API: https://llms.mui.com/material-ui/6.4.12/api/select.md
-   - Files to edit:
-     - `client/src/pages/ChatPage.tsx`
-     - `client/src/pages/AgentsPage.tsx`
-   - Implementation details:
-     - Set `size="small"` on all TextField/Select controls.
-     - Update primary actions (Send, Execute command, Run/Start) to `contained`.
-     - Update secondary actions (Choose folder, New conversation, Clear, Refresh models) to `outlined`.
-     - Ensure Stop uses `contained` + `color="error"` consistently.
+  - Files to edit:
+    - `client/src/pages/ChatPage.tsx`
+    - `client/src/pages/AgentsPage.tsx`
+  - Implementation details:
+    - Set `size="small"` on all TextField/Select controls.
+    - Update primary actions (Send, Execute command, Run/Start) to `contained`.
+    - Update secondary actions (Choose folder, New conversation, Clear, Refresh models) to `outlined`.
+    - Ensure Stop uses `contained` + `color="error"` consistently.
+    - Add log lines when sizing/variants are applied so manual checks can confirm each page:
+      - `DEV-0000028[T6] chat controls sizing applied` (include `{ page: 'chat' }`).
+      - `DEV-0000028[T6] agents controls sizing applied` (include `{ page: 'agents' }`).
    - Snippet to apply (example):
      - `<Button variant="contained" size="small" data-testid="agent-send">Send</Button>`
      - `<Button variant="contained" color="error" size="small" data-testid="agent-stop">Stop</Button>`
@@ -1207,6 +1238,9 @@ Standardize sizing and button variants across Chat and Agents so all controls us
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, verify Chat/Agents controls use `size="small"`, primary/secondary variants match the rules, Stop uses `contained` + `error`, and confirm the debug console shows no errors.
+   - Expected log lines (debug console):
+     - `DEV-0000028[T6] chat controls sizing applied` appears after the Chat page renders.
+     - `DEV-0000028[T6] agents controls sizing applied` appears after the Agents page renders.
 9. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
@@ -1268,9 +1302,12 @@ Standardize sizing and button variants across LM Studio and Ingest so controls u
      - `client/src/pages/LmStudioPage.tsx`
      - `client/src/components/ingest/IngestForm.tsx`
    - Implementation details:
-     - Set `size="small"` on all TextField/Select controls.
-     - Update primary actions (Check status, Start ingest) to `contained`.
-     - Update secondary actions (Reset, Refresh models, Choose folder) to `outlined`.
+    - Set `size="small"` on all TextField/Select controls.
+    - Update primary actions (Check status, Start ingest) to `contained`.
+    - Update secondary actions (Reset, Refresh models, Choose folder) to `outlined`.
+    - Add log lines when sizing/variants are applied so manual checks can confirm each page:
+      - `DEV-0000028[T7] lmstudio controls sizing applied` (include `{ page: 'lmstudio' }`).
+      - `DEV-0000028[T7] ingest controls sizing applied` (include `{ page: 'ingest' }`).
    - Snippet to apply (example):
      - `<Button variant="contained" size="small">Start ingest</Button>`
 
@@ -1373,6 +1410,9 @@ Standardize sizing and button variants across LM Studio and Ingest so controls u
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, verify LM Studio and Ingest controls use `size="small"`, primary/secondary variants match the rules, and confirm the debug console shows no errors.
+   - Expected log lines (debug console):
+     - `DEV-0000028[T7] lmstudio controls sizing applied` appears after the LM Studio page renders.
+     - `DEV-0000028[T7] ingest controls sizing applied` appears after the Ingest page renders.
 9. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
@@ -1436,14 +1476,24 @@ Validate the full story requirements end-to-end and capture final evidence, incl
      - Keeps the repo map accurate after final verification artifacts are added.
    - Snippet example:
      - `test-results/screenshots/0000028-8-chat-final.png`
-4. [ ] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
+4. [ ] Add a regression-baseline log line used for final verification:
+   - Files to edit:
+     - `client/src/App.tsx`
+   - Implementation details:
+     - Add a log entry when the app shell mounts so manual checks can confirm the final regression baseline loaded.
+     - Log line to add:
+       - `DEV-0000028[T8] regression baseline ready` (include `{ page: 'app-shell' }`).
+   - Snippet example:
+     - `logInfo('DEV-0000028[T8] regression baseline ready', { page: 'app-shell' });`
+
+5. [ ] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Files to edit: none (comment only)
    - Snippet example:
      - `- Updated Agents info popover, working-folder picker, and control sizing consistency.`
 
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI/options: https://prettier.io/docs/options
@@ -1492,6 +1542,8 @@ Validate the full story requirements end-to-end and capture final evidence, incl
      - `npm run compose:up`
 8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, verify all acceptance criteria, run a quick regression sweep, capture screenshots to `./test-results/screenshots/`, and confirm the debug console shows no errors.
    - Each screenshot should be named `0000028-8-<short-name>.png`.
+   - Expected log lines (debug console):
+     - `DEV-0000028[T8] regression baseline ready` appears once on initial load.
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
    - Files to add:

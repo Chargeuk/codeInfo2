@@ -160,6 +160,9 @@ Ensure the Chat and Agents transcript panels stretch to the bottom of the viewpo
      - Keep existing spacing and padding intact; this is layout-only.
 
 2. [ ] Implement flex/minHeight adjustments for full-height layout:
+   - Documentation to read (repeat):
+     - MUI Box API: https://llms.mui.com/material-ui/6.4.12/api/box.md
+     - MUI Stack API: https://llms.mui.com/material-ui/6.4.12/api/stack.md
    - Files to edit:
      - `client/src/App.tsx`
      - `client/src/pages/ChatPage.tsx`
@@ -172,9 +175,13 @@ Ensure the Chat and Agents transcript panels stretch to the bottom of the viewpo
      - Do not change control sizes or button variants (handled in Tasks 6-7).
 
 3. [ ] Tests to add/update:
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
    - None. Layout verification is handled by UI screenshots for this task.
 
 4. [ ] Capture UI screenshots (required for this task):
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
    - Use Playwright MCP to capture:
      - Chat page full-height transcript.
      - Agents page full-height transcript.
@@ -183,10 +190,15 @@ Ensure the Chat and Agents transcript panels stretch to the bottom of the viewpo
      - `0000028-1-agents-height.png`
 
 5. [ ] Documentation updates:
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - `design.md`: add a short note if the layout behavior is described for Chat/Agents.
    - `projectStructure.md`: update only if any files were added/removed/renamed.
 
 6. [ ] Run full linting:
+   - Documentation to read (repeat):
+     - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier CLI/options: https://prettier.io/docs/options
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -256,9 +268,13 @@ Replace the inline agent description block with an info icon and popover that re
      - If the agents list fails to load, the info icon should be hidden/disabled and the error UI should still render cleanly.
 
 2. [ ] Implement the info icon + popover UI:
+   - Documentation to read (repeat):
+     - MUI Popover component: https://llms.mui.com/material-ui/6.4.12/components/popover.md
+     - MUI Popover API: https://llms.mui.com/material-ui/6.4.12/api/popover.md
+     - MUI IconButton API: https://llms.mui.com/material-ui/6.4.12/api/icon-button.md
    - Files to edit:
      - `client/src/pages/AgentsPage.tsx`
-  - Implementation details:
+   - Implementation details:
      - Add an IconButton next to the Agent selector and anchor a Popover to it.
      - Use `Popover` props `open`, `anchorEl`, and `onClose` per MUI 6.4.x API.
      - Set the IconButton `size="small"` for alignment; do not add a `variant` prop (IconButton does not use variants in MUI core).
@@ -270,6 +286,8 @@ Replace the inline agent description block with an info icon and popover that re
      - Keep layout spacing compact; avoid introducing a new full-width block.
 
 3. [ ] Add/update tests for the popover:
+   - Documentation to read (repeat):
+     - Jest: Context7 `/jestjs/jest`
    - Files to add/edit:
      - `client/src/test/agentsPage.description.test.tsx` (update existing test)
      - `client/src/test/agentsPage.descriptionPopover.test.tsx` (new, only if the existing test becomes too large)
@@ -282,14 +300,21 @@ Replace the inline agent description block with an info icon and popover that re
     - Warnings and description are not rendered inline when the popover is closed.
 
 4. [ ] Capture UI screenshots (required for this task):
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
    - Use Playwright MCP to capture the Agents page with the info popover open.
    - Move the screenshot into `planning/0000028-agents-chat-gui-consistency-data/` as `0000028-2-agents-popover.png`.
 
 5. [ ] Documentation updates:
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - `design.md`: add a short note if agent metadata display behavior is described.
    - `projectStructure.md`: add the new test file if created.
 
 6. [ ] Run full linting:
+   - Documentation to read (repeat):
+     - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier CLI/options: https://prettier.io/docs/options
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -356,6 +381,11 @@ Align Agents controls so the Command selector and Execute button share a row, an
      - Instruction input and the Send/Stop action share the same row.
 
 2. [ ] Implement the control row layout changes:
+   - Documentation to read (repeat):
+     - MUI Stack API: https://llms.mui.com/material-ui/6.4.12/api/stack.md
+     - MUI Box API: https://llms.mui.com/material-ui/6.4.12/api/box.md
+     - MUI Button API: https://llms.mui.com/material-ui/6.4.12/api/button.md
+     - MUI TextField API: https://llms.mui.com/material-ui/6.4.12/api/text-field.md
    - Files to edit:
      - `client/src/pages/AgentsPage.tsx`
    - Implementation details:
@@ -369,6 +399,8 @@ Align Agents controls so the Command selector and Execute button share a row, an
      - Keep existing sizes/variants unchanged in this task (standardization happens in Tasks 6-7).
 
 3. [ ] Add/update layout tests:
+   - Documentation to read (repeat):
+     - Jest: Context7 `/jestjs/jest`
    - Files to add/edit:
      - `client/src/test/agentsPage.layout.test.tsx` (update if it already exists; otherwise create)
    - Test cases to cover:
@@ -376,6 +408,8 @@ Align Agents controls so the Command selector and Execute button share a row, an
      - Stop renders in the instruction row and the header row no longer contains a Stop button.
 
 4. [ ] Capture UI screenshots (required for this task):
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
    - Use Playwright MCP to capture the Agents controls area showing the new two-row layout.
    - Capture a second screenshot at a small viewport width to show the stacked layout.
    - Move screenshots into `planning/0000028-agents-chat-gui-consistency-data/` as:
@@ -383,10 +417,15 @@ Align Agents controls so the Command selector and Execute button share a row, an
      - `0000028-3-agents-controls-mobile.png`
 
 5. [ ] Documentation updates:
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - `design.md`: add a short note if control layout is described for Agents.
    - `projectStructure.md`: update only if files were added/removed/renamed.
 
 6. [ ] Run full linting:
+   - Documentation to read (repeat):
+     - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier CLI/options: https://prettier.io/docs/options
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -451,6 +490,10 @@ Ensure the Send/Stop action slot keeps a stable width so the row does not shift 
      - Only one of Send/Stop is shown at a time in the action slot.
 
 2. [ ] Implement fixed-width Send/Stop slot:
+   - Documentation to read (repeat):
+     - MUI Stack API: https://llms.mui.com/material-ui/6.4.12/api/stack.md
+     - MUI Box API: https://llms.mui.com/material-ui/6.4.12/api/box.md
+     - MUI Button API: https://llms.mui.com/material-ui/6.4.12/api/button.md
    - Files to edit:
      - `client/src/pages/AgentsPage.tsx`
    - Implementation details:
@@ -459,6 +502,8 @@ Ensure the Send/Stop action slot keeps a stable width so the row does not shift 
      - Keep existing sizes/variants unchanged in this task (standardization happens in Tasks 6-7).
 
 3. [ ] Add/update tests for action width stability:
+   - Documentation to read (repeat):
+     - Jest: Context7 `/jestjs/jest`
    - Files to add/edit:
      - `client/src/test/agentsPage.layout.test.tsx` (extend existing layout test)
    - Test cases to cover:
@@ -466,14 +511,21 @@ Ensure the Send/Stop action slot keeps a stable width so the row does not shift 
      - Only one of Send/Stop renders at a time in the action slot.
 
 4. [ ] Capture UI screenshots (required for this task):
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
    - Use Playwright MCP to capture the instruction row showing the fixed-width Send/Stop slot.
    - Move the screenshot into `planning/0000028-agents-chat-gui-consistency-data/` as `0000028-4-agents-send-stop-width.png`.
 
 5. [ ] Documentation updates:
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - `design.md`: add a short note if the Send/Stop stability behavior is described.
    - `projectStructure.md`: update only if files were added/removed/renamed.
 
 6. [ ] Run full linting:
+   - Documentation to read (repeat):
+     - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier CLI/options: https://prettier.io/docs/options
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -543,6 +595,11 @@ Add a “Choose folder…” button next to the Agents working-folder input and 
      - Cancel closes the dialog without changing the input value.
 
 2. [ ] Reuse the picker for Agents:
+   - Documentation to read (repeat):
+     - MUI Dialogs component: https://llms.mui.com/material-ui/6.4.12/components/dialogs.md
+     - MUI Dialog API: https://llms.mui.com/material-ui/6.4.12/api/dialog.md
+     - MUI Button API: https://llms.mui.com/material-ui/6.4.12/api/button.md
+     - MUI TextField API: https://llms.mui.com/material-ui/6.4.12/api/text-field.md
    - Files to edit:
      - `client/src/pages/AgentsPage.tsx`
      - `client/src/components/ingest/DirectoryPickerDialog.tsx` (only if a small prop tweak is needed for reuse)
@@ -554,25 +611,34 @@ Add a “Choose folder…” button next to the Agents working-folder input and 
      - Do not add a working-folder picker to Chat (explicitly out of scope).
 
 3. [ ] Add/update tests for the working-folder picker:
+   - Documentation to read (repeat):
+     - Jest: Context7 `/jestjs/jest`
    - Files to add/edit:
      - `client/src/test/agentsPage.workingFolderPicker.test.tsx` (new)
      - `client/src/test/agentsPage.run.test.tsx` (update if it already asserts inline warning/description layout)
    - Test cases to cover:
      - Clicking “Choose folder…” opens the dialog.
-    - Selecting a folder updates the working-folder input value.
-    - Cancel closes the dialog without changing the input.
-    - Empty/error states from the picker do not wipe the existing value.
-    - Validation errors from the run endpoint do not clear the working-folder input.
+     - Selecting a folder updates the working-folder input value.
+     - Cancel closes the dialog without changing the input.
+     - Empty/error states from the picker do not wipe the existing value.
+     - Validation errors from the run endpoint do not clear the working-folder input.
 
 4. [ ] Capture UI screenshots (required for this task):
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
    - Use Playwright MCP to capture the Agents page with the picker dialog open.
    - Move the screenshot into `planning/0000028-agents-chat-gui-consistency-data/` as `0000028-5-agents-folder-picker.png`.
 
 5. [ ] Documentation updates:
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - `design.md`: add a short note describing the Agents working-folder picker.
    - `projectStructure.md`: update only if files were added/removed/renamed.
 
 6. [ ] Run full linting:
+   - Documentation to read (repeat):
+     - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier CLI/options: https://prettier.io/docs/options
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -642,6 +708,10 @@ Standardize sizing and button variants across Chat and Agents so all controls us
      - Stop uses `variant="contained"` with `color="error"`.
 
 2. [ ] Apply size and variant updates across Chat and Agents:
+   - Documentation to read (repeat):
+     - MUI Button API: https://llms.mui.com/material-ui/6.4.12/api/button.md
+     - MUI TextField API: https://llms.mui.com/material-ui/6.4.12/api/text-field.md
+     - MUI Select API: https://llms.mui.com/material-ui/6.4.12/api/select.md
    - Files to edit:
      - `client/src/pages/ChatPage.tsx`
      - `client/src/pages/AgentsPage.tsx`
@@ -652,6 +722,8 @@ Standardize sizing and button variants across Chat and Agents so all controls us
      - Ensure Stop uses `contained` + `color="error"` consistently.
 
 3. [ ] Add/update tests for sizing/variant changes:
+   - Documentation to read (repeat):
+     - Jest: Context7 `/jestjs/jest`
    - Files to add/edit:
      - `client/src/test/chatPage.*.test.tsx` (update relevant assertions)
      - `client/src/test/agentsPage.layout.test.tsx`
@@ -662,6 +734,8 @@ Standardize sizing and button variants across Chat and Agents so all controls us
      - If no tests assert size/variant props today, prefer screenshots and skip adding new assertions.
 
 4. [ ] Capture UI screenshots (required for this task):
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
    - Use Playwright MCP to capture:
      - Chat controls sizing.
      - Agents controls sizing.
@@ -670,10 +744,15 @@ Standardize sizing and button variants across Chat and Agents so all controls us
      - `0000028-6-agents-sizing.png`
 
 5. [ ] Documentation updates:
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - `design.md`: add a short note describing the shared sizing + variant baseline.
    - `projectStructure.md`: update only if files were added/removed/renamed.
 
 6. [ ] Run full linting:
+   - Documentation to read (repeat):
+     - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier CLI/options: https://prettier.io/docs/options
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -744,6 +823,10 @@ Standardize sizing and button variants across LM Studio and Ingest so controls u
      - Secondary actions are `variant="outlined"`.
 
 2. [ ] Apply size and variant updates across LM Studio and Ingest:
+   - Documentation to read (repeat):
+     - MUI Button API: https://llms.mui.com/material-ui/6.4.12/api/button.md
+     - MUI TextField API: https://llms.mui.com/material-ui/6.4.12/api/text-field.md
+     - MUI Select API: https://llms.mui.com/material-ui/6.4.12/api/select.md
    - Files to edit:
      - `client/src/pages/LmStudioPage.tsx`
      - `client/src/components/ingest/IngestForm.tsx`
@@ -753,6 +836,8 @@ Standardize sizing and button variants across LM Studio and Ingest so controls u
      - Update secondary actions (Reset, Refresh models, Choose folder) to `outlined`.
 
 3. [ ] Add/update tests for sizing/variant changes:
+   - Documentation to read (repeat):
+     - Jest: Context7 `/jestjs/jest`
    - Files to add/edit:
      - `client/src/test/lmstudio.test.tsx`
      - `client/src/test/ingestForm.test.tsx`
@@ -763,6 +848,8 @@ Standardize sizing and button variants across LM Studio and Ingest so controls u
      - If no tests assert size/variant props today, prefer screenshots and skip adding new assertions.
 
 4. [ ] Capture UI screenshots (required for this task):
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
    - Use Playwright MCP to capture:
      - LM Studio controls sizing.
      - Ingest controls sizing.
@@ -771,10 +858,15 @@ Standardize sizing and button variants across LM Studio and Ingest so controls u
      - `0000028-7-ingest-sizing.png`
 
 5. [ ] Documentation updates:
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - `design.md`: add a short note describing the shared sizing + variant baseline.
    - `projectStructure.md`: update only if files were added/removed/renamed.
 
 6. [ ] Run full linting:
+   - Documentation to read (repeat):
+     - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier CLI/options: https://prettier.io/docs/options
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -833,21 +925,46 @@ Validate the full story requirements end-to-end and capture final evidence, incl
 #### Subtasks
 
 1. [ ] Build the server
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 2. [ ] Build the client
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 3. [ ] Perform a clean docker build
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
 4. [ ] Ensure `README.md` is updated with any required description changes and with any new commands added as part of this story
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
 5. [ ] Ensure `design.md` is updated with any required description changes including mermaid diagrams that have been added as part of this story
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+     - Mermaid: Context7 `/mermaid-js/mermaid`
 6. [ ] Ensure `projectStructure.md` is updated with any updated, added or removed files & folders
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
 7. [ ] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
 
 #### Testing
 
 1. [ ] Run the client Jest tests
+   - Documentation to read (repeat):
+     - Jest: Context7 `/jestjs/jest`
 2. [ ] Run the server cucumber tests
+   - Documentation to read (repeat):
+     - Cucumber guides https://cucumber.io/docs/guides/
 3. [ ] Restart the docker environment
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
 4. [ ] Run the e2e tests
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
 5. [ ] Use the Playwright MCP tool to manually check the application, saving screenshots to `./test-results/screenshots/`.
    - Each screenshot should be named `0000028-8-<short-name>.png`.
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
 
 #### Implementation notes
 

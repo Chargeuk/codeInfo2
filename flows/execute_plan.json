@@ -74,7 +74,7 @@
                                 {
                                     "role": "user",
                                     "content": [
-                                        "please explain the gotchas a developer would need to watch out for while implementing the next task given all the information within the Description, it's subsections, the AC & Out of scope. Also take into account the implementation information of any previous tasks."
+                                        "Please explain the gotchas a developer would need to watch out for while implementing the next task given all the information within the Description, it's subsections, the AC & Out of scope. Also take into account the implementation information of any previous tasks. If you had asked for clarification about a blocker then ensure you re-read the task as it will have answers for you to proceed within the implementation notes of this task."
                                     ]
                                 }
                             ]
@@ -88,7 +88,7 @@
                                 {
                                     "role": "user",
                                     "content": [
-                                        "Taking these gotchas into account, please fully work through the next task yourself, precisely following the steps within the 'Implementation Plan Instructions' section to work through each step. You must keep the subtasks tickbox updated as you work through each subtask to ensure everyone understands what has been done. Then you run through the testing steps, ensuring you keep the subtasks tickbox updated as you work through each testing step. Note that LMStudio is running and available, and locally codex has been logged into and works. Get back to me once all subtasks and testing steps are complete. Get back to me once the task is FULLY complete AND each subtask is marked complete AND each testing step is marked complete, with a concise summary of what changed, the gotchas you came across while working through the task and any commands/output that indicate success. Remember to mark each subtask and testing step as complete immediately after completing it rather than waiting until the end so your progress can be monitored. DO NOT BOTHER ME unless a blocker is hit or the whole task is complete and is marked as such."
+                                        "Taking these gotchas into account, please fully work through the next task yourself, precisely following the steps within the 'Implementation Plan Instructions' section to work through each step. You must keep the subtasks tickbox updated as you work through each subtask to ensure everyone understands what has been done. Then you run through the testing steps, ensuring you keep the subtasks tickbox updated as you work through each testing step. Note that LMStudio is running and available, and locally codex has been logged into and works. Get back to me once all subtasks and testing steps are complete. Get back to me once the task is FULLY complete AND each subtask is marked complete AND each testing step is marked complete, with a concise summary of what changed, the gotchas you came across while working through the task and any commands/output that indicate success. Remember to mark each subtask and testing step as complete immediately after completing it rather than waiting until the end so your progress can be monitored. DO NOT BOTHER ME unless a blocker is hit or the whole task is complete and is marked as such. If a blocker is hit then state the blocker within the implemenmtation notes and another agent will add the required information to the plan to help you move past the blocker. Remember to keep your implementation notes concise and to the point."
                                     ]
                                 }
                             ]
@@ -102,7 +102,7 @@
                                 {
                                     "role": "user",
                                     "content": [
-                                        "A coding agent has been working on implementing the code for this plan. Please check if they have marked all tasks complete. If it looks like they have implemented items but maybe just forgotten to fix any task states then you are expected to correct those states accordingly. If there are still tasks to implement or test then just report back where you feel we are up to."
+                                        "A coding agent has been working on implementing the code for this plan. Please check if they have marked all tasks complete. If it looks like they have implemented items but maybe just forgotten to fix any task states then you are expected to correct those states accordingly. They may have written a blocking question in the timplementation notes, if so please answer the blocker within the notes and mark it as the answer and update any tasks accordingly based on the questions. Note you must not ask me for clarification of the blockers, YOU MUST make any descisions to the best of your ability and update the task and implementation notes accordingly. If there are still tasks to implement or test then just report back where you feel we are up to."
                                     ]
                                 }
                             ]

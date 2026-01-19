@@ -2463,7 +2463,7 @@ Ensure the Flows page does not hydrate or retain a non-flow conversation in the 
 5. [ ] `npm run e2e` (allow up to 7 minutes)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5501/flows` (local stack) and confirm the transcript is empty when no flow conversations exist, then create a flow run and confirm the transcript appears only for that flow; verify no errors in the browser debug console.
+8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001/flows` (local stack) and confirm the transcript is empty when no flow conversations exist, then create a flow run and confirm the transcript appears only for that flow; verify no errors in the browser debug console.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes

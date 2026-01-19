@@ -106,6 +106,17 @@ None.
 
 ---
 
+## Edge Cases and Failure Modes
+
+- **Agents with missing metadata**: If an agent has no description and no warnings, the info popover should render the empty-state message and not crash.
+- **Agents fetch errors**: If the agents list fails to load, the info icon should remain disabled or hidden and the page should still render error messaging without layout breaking.
+- **Directory picker empty results**: If the directory picker returns no folders or errors, the dialog should show the existing error/empty state and should not overwrite the working-folder input.
+- **Working-folder validation errors**: If a chosen folder fails server validation (non-absolute path or missing directory), the existing error messaging should remain intact and the UI should not lose the user’s last value.
+- **Responsive layout**: On small screens, the stacked layout should remain usable (no overlap, no clipped buttons) when the control rows collapse to columns.
+- **Stop/Send toggling**: Send/Stop swapping should not shift layout; fixed widths prevent jitter when Stop appears/disappears.
+
+---
+
 # Implementation Plan
 
 Tasks will be added after the open questions are answered.

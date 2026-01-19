@@ -22,23 +22,23 @@ The Agents and Chat pages currently waste vertical space and feel inconsistent w
 ## Acceptance Criteria
 
 - Agents page removes the inline description block and replaces it with a small info icon next to the Agent selector; clicking it opens a popover that renders the agent description as Markdown and lists any warnings.
-  - When no description or warnings exist, the popover shows a friendly empty-state message (e.g., “No description or warnings are available for this agent yet.”).
+   - When no description or warnings exist, the popover shows a friendly empty-state message (e.g., “No description or warnings are available for this agent yet.”).
 - Agents controls are re-laid out to reclaim vertical space:
-  - The Command selector and the “Execute command” button appear on the same row, with the button to the right of the selector.
-  - The Instruction input and the Send/Stop action share a single row on desktop; Send and Stop use the same width so the row does not shift when toggling.
+   - The Command selector and the “Execute command” button appear on the same row, with the button to the right of the selector.
+   - The Instruction input and the Send/Stop action share a single row on desktop; Send and Stop use the same width so the row does not shift when toggling.
 - Chat and Agents conversation panels stretch to the bottom of the viewport (beneath the top navigation) with no visible blank gap below the transcript card; resizing the window stretches the transcript area instead of leaving empty whitespace.
 - Agents include a “Choose folder…” button next to the working-folder input that reuses the Ingest directory picker dialog:
-  - Clicking “Choose folder…” opens the same dialog title and folder list as Ingest.
-  - Selecting a folder fills the working-folder input with the chosen absolute host path.
-  - Cancel closes the dialog without changing the input value.
+   - Clicking “Choose folder…” opens the same dialog title and folder list as Ingest.
+   - Selecting a folder fills the working-folder input with the chosen absolute host path.
+   - Cancel closes the dialog without changing the input value.
 - Chat does not add a working-folder input or picker in this story.
 - All dropdowns, text inputs, and buttons across Chat, Agents, LM Studio, and Ingest use the same sizing rules:
-  - Form controls (TextField, Select, Autocomplete) use `size="small"`.
-  - Buttons on the same row use `size="small"` and align vertically with the adjacent input height.
+   - Form controls (TextField, Select, Autocomplete) use `size="small"`.
+   - Buttons on the same row use `size="small"` and align vertically with the adjacent input height.
 - Button hierarchy is consistent across pages with shared sizing:
-  - Primary actions use `variant="contained"` (e.g., Send, Execute command, Start/Run actions).
-  - Secondary actions use `variant="outlined"` (e.g., Choose folder, New conversation, Clear).
-  - Stop uses `variant="contained"` with `color="error"`.
+   - Primary actions use `variant="contained"` (e.g., Send, Execute command, Start/Run actions).
+   - Secondary actions use `variant="outlined"` (e.g., Choose folder, New conversation, Clear).
+   - Stop uses `variant="contained"` with `color="error"`.
 - Each task in this story captures and reviews fresh UI screenshots to confirm the layout and sizing changes.
 
 ## Visual References
@@ -88,10 +88,10 @@ None.
 - **Directory picker reuse**: Extract or reuse `client/src/components/ingest/DirectoryPickerDialog.tsx` plus `client/src/components/ingest/ingestDirsApi.ts` for Agents (and Chat if the open question is resolved in favor). Wire “Choose folder…” next to the working-folder input and update state on selection.
 - **Chat transcript height**: Verify `client/src/pages/ChatPage.tsx` and `client/src/pages/AgentsPage.tsx` containers keep `flex: 1` + `minHeight: 0` from page root to transcript. If a parent container constrains height (e.g., Stack/Container in `client/src/App.tsx`), adjust to let the transcript stretch to the bottom of the viewport.
 - **Sizing + variants alignment**:
-  - `ChatPage.tsx`: add `size="small"` to Provider/Model selects, Message field, and action buttons; update Stop to `contained` + `color="error"` (per Acceptance Criteria).
-  - `AgentsPage.tsx`: set all TextField/Select/Button sizes to `small` and align variants (primary contained, secondary outlined, Stop contained error).
-  - `LMStudioPage.tsx`: update TextField + Buttons to `size="small"` and adjust variants to match primary/secondary guidance (e.g., “Refresh models” should be outlined, not text).
-  - `client/src/components/ingest/IngestForm.tsx`: set all inputs and buttons to `size="small"` and keep “Choose folder…” as outlined secondary.
+   - `ChatPage.tsx`: add `size="small"` to Provider/Model selects, Message field, and action buttons; update Stop to `contained` + `color="error"` (per Acceptance Criteria).
+   - `AgentsPage.tsx`: set all TextField/Select/Button sizes to `small` and align variants (primary contained, secondary outlined, Stop contained error).
+   - `LMStudioPage.tsx`: update TextField + Buttons to `size="small"` and adjust variants to match primary/secondary guidance (e.g., “Refresh models” should be outlined, not text).
+   - `client/src/components/ingest/IngestForm.tsx`: set all inputs and buttons to `size="small"` and keep “Choose folder…” as outlined secondary.
 
 ---
 
@@ -99,9 +99,9 @@ None.
 
 - This story is UI-only, so **no new API contracts or storage schema changes are required**.
 - Existing contracts already cover the needed data:
-  - Agent metadata (name/description/warnings) comes from `GET /agents` and the `AgentSummary`/`DiscoveredAgent` types.
-  - Working-folder values are already accepted by Agents/Flows (`working_folder` in `POST /agents/:agentName/run` and `POST /flows/:flowName/run`).
-  - Chat requests do **not** currently accept `working_folder`—if the open question is resolved in favor of a Chat working-folder, that would require a new request field and validation updates. (Keep this out of scope unless explicitly approved.)
+   - Agent metadata (name/description/warnings) comes from `GET /agents` and the `AgentSummary`/`DiscoveredAgent` types.
+   - Working-folder values are already accepted by Agents/Flows (`working_folder` in `POST /agents/:agentName/run` and `POST /flows/:flowName/run`).
+   - Chat requests do **not** currently accept `working_folder`—if the open question is resolved in favor of a Chat working-folder, that would require a new request field and validation updates. (Keep this out of scope unless explicitly approved.)
 - No new WebSocket event types or MongoDB document shape changes are expected for this story.
 
 ---
@@ -158,6 +158,8 @@ Ensure the Chat and Agents transcript panels stretch to the bottom of the viewpo
      - `client/src/pages/ChatPage.tsx`
      - `client/src/pages/AgentsPage.tsx`
      - `client/src/test/chatPage.layoutWrap.test.tsx`
+   - Snippet to locate (transcript container):
+     - `data-testid="chat-transcript"` with `style={{ flex: '1 1 0%', minHeight: 0, overflowY: 'auto' }}`
    - Story requirements to repeat here so they are not missed:
      - Chat and Agents conversation panels must stretch to the bottom of the viewport with no blank gap below the transcript card.
      - Resizing the window should expand the transcript area, not add whitespace.
@@ -181,6 +183,9 @@ Ensure the Chat and Agents transcript panels stretch to the bottom of the viewpo
      - Remove or reduce bottom padding/overflow behavior that causes a visible blank gap below the transcript card.
      - Prefer page-level tweaks first; only adjust the App shell if the gap cannot be resolved locally.
      - Do not change control sizes or button variants (handled in Tasks 6-7).
+   - Snippet to apply (example):
+     - `sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}` on the page shell
+     - `style={{ flex: '1 1 0%', minHeight: 0, overflowY: 'auto' }}` on the transcript container
 
 3. [ ] Test (unit/client): Chat transcript inline styles
    - Documentation to read (repeat):
@@ -191,6 +196,8 @@ Ensure the Chat and Agents transcript panels stretch to the bottom of the viewpo
      - Add an assertion that the Chat transcript container uses inline styles `flex: 1 1 0%`, `minHeight: 0`, and `overflowY: auto` on `data-testid="chat-transcript"`.
    - Purpose:
      - Proves the transcript can stretch/scroll and the viewport gap fix is in place for Chat.
+   - Snippet example:
+     - `expect(screen.getByTestId('chat-transcript')).toHaveStyle({ flex: '1 1 0%', minHeight: '0px', overflowY: 'auto' });`
 
 4. [ ] Test (unit/client): Agents transcript inline styles
    - Documentation to read (repeat):
@@ -203,10 +210,17 @@ Ensure the Chat and Agents transcript panels stretch to the bottom of the viewpo
      - Proves the transcript can stretch/scroll and the viewport gap fix is in place for Agents.
    - Note:
      - Use inline style assertions to avoid brittle CSS class checks.
+   - Snippet example:
+     - `expect(screen.getByTestId('chat-transcript')).toHaveStyle({ flex: '1 1 0%', minHeight: '0px', overflowY: 'auto' });`
 
 5. [ ] Capture UI screenshots (required for this task):
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
+   - Files to add:
+     - `planning/0000028-agents-chat-gui-consistency-data/0000028-1-chat-height.png`
+     - `planning/0000028-agents-chat-gui-consistency-data/0000028-1-agents-height.png`
+   - Snippet example:
+     - `planning/0000028-agents-chat-gui-consistency-data/0000028-1-chat-height.png`
    - Use Playwright MCP to capture:
      - Chat page full-height transcript.
      - Agents page full-height transcript.
@@ -223,6 +237,8 @@ Ensure the Chat and Agents transcript panels stretch to the bottom of the viewpo
      - Add a short note describing the Chat/Agents transcript full-height behavior.
    - Purpose:
      - Keeps architecture/design notes aligned with the layout change.
+   - Snippet example:
+     - `- Chat/Agents transcript panels use flex + minHeight: 0 to fill the viewport.`
 
 7. [ ] Documentation update: `projectStructure.md` (if screenshots were added)
    - Documentation to read (repeat):
@@ -231,15 +247,21 @@ Ensure the Chat and Agents transcript panels stretch to the bottom of the viewpo
      - `projectStructure.md`
    - Description:
      - Update the repo tree to include the new screenshots:
-       - `planning/0000028-agents-chat-gui-consistency-data/0000028-1-chat-height.png`
-       - `planning/0000028-agents-chat-gui-consistency-data/0000028-1-agents-height.png`
+      - `planning/0000028-agents-chat-gui-consistency-data/0000028-1-chat-height.png`
+      - `planning/0000028-agents-chat-gui-consistency-data/0000028-1-agents-height.png`
    - Purpose:
      - Keeps the repo map accurate.
+   - Snippet example:
+     - `planning/0000028-agents-chat-gui-consistency-data/0000028-1-chat-height.png`
 
 8. [ ] Run full linting:
    - Documentation to read (repeat):
      - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI/options: https://prettier.io/docs/options
+   - Files to edit: none (commands only)
+   - Snippet to run:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -310,6 +332,8 @@ Replace the inline agent description block with an info icon and popover that re
      - `client/src/pages/AgentsPage.tsx`
      - `client/src/components/Markdown.tsx`
      - `client/src/api/agents.ts`
+   - Snippet to locate (current inline block):
+     - `data-testid="agent-description"` and `data-testid="agent-warnings"`
    - Story requirements to repeat here so they are not missed:
      - Info icon sits next to the Agent selector; clicking opens a popover.
      - Popover renders Markdown description and lists warnings.
@@ -334,6 +358,9 @@ Replace the inline agent description block with an info icon and popover that re
      - Ensure the info icon does not render (or renders disabled) when agents fail to load.
      - Remove the inline warnings alert and inline description `Paper` so metadata is only in the popover.
      - Keep layout spacing compact; avoid introducing a new full-width block.
+   - Snippet to apply (example):
+     - `<IconButton size="small" aria-label="Agent info" data-testid="agent-info" onClick={...} />`
+     - `<Popover open={Boolean(anchorEl)} anchorEl={anchorEl} onClose={handleClose}>...</Popover>`
 
 3. [ ] Test (unit/client): Info icon renders for selected agent
    - Documentation to read (repeat):
@@ -344,6 +371,8 @@ Replace the inline agent description block with an info icon and popover that re
      - Add a test that renders the Agents page with a selected agent and asserts the info icon button (`data-testid="agent-info"`) exists.
    - Purpose:
      - Confirms the popover entry point appears on the happy path.
+   - Snippet example:
+     - `expect(await screen.findByTestId('agent-info')).toBeInTheDocument();`
 
 4. [ ] Test (unit/client): Popover shows Markdown description
    - Documentation to read (repeat):
@@ -354,6 +383,9 @@ Replace the inline agent description block with an info icon and popover that re
      - Trigger the info icon (`data-testid="agent-info"`) and assert Markdown description content is rendered inside the popover.
    - Purpose:
      - Validates the description rendering moved from inline to popover.
+   - Snippet example:
+     - `await user.click(screen.getByTestId('agent-info'));`
+     - `expect(screen.getByText('Hello')).toBeInTheDocument();`
 
 5. [ ] Test (unit/client): Warnings list renders in popover
    - Documentation to read (repeat):
@@ -364,6 +396,8 @@ Replace the inline agent description block with an info icon and popover that re
      - Provide an agent with warnings and assert they appear in the popover content after clicking `data-testid="agent-info"`.
    - Purpose:
      - Confirms warning display is preserved after moving to popover.
+   - Snippet example:
+     - `expect(screen.getByText('Warning text')).toBeInTheDocument();`
 
 6. [ ] Test (unit/client): Empty-state message
    - Documentation to read (repeat):
@@ -374,6 +408,8 @@ Replace the inline agent description block with an info icon and popover that re
      - Use an agent with no description and no warnings; open the popover via `data-testid="agent-info"` and assert the empty-state message.
    - Purpose:
      - Covers the empty metadata edge case required by acceptance criteria.
+   - Snippet example:
+     - `expect(screen.getByText('No description or warnings are available')).toBeInTheDocument();`
 
 7. [ ] Test (unit/client): Agents fetch error hides or disables info icon
    - Documentation to read (repeat):
@@ -384,6 +420,8 @@ Replace the inline agent description block with an info icon and popover that re
      - Simulate `/agents` failure and assert the error UI renders while `data-testid="agent-info"` is hidden or disabled.
    - Purpose:
      - Ensures error states do not expose a broken popover trigger.
+   - Snippet example:
+     - `expect(screen.queryByTestId('agent-info')).toBeNull();`
 
 8. [ ] Test (unit/client): Inline warnings/description removed
    - Documentation to read (repeat):
@@ -394,10 +432,16 @@ Replace the inline agent description block with an info icon and popover that re
      - Assert that inline warning alerts and description panel are not present when the popover is closed.
    - Purpose:
      - Guarantees the UI change removed the previous inline block.
+   - Snippet example:
+     - `expect(screen.queryByTestId('agent-description')).toBeNull();`
 
 9. [ ] Capture UI screenshots (required for this task):
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
+   - Files to add:
+     - `planning/0000028-agents-chat-gui-consistency-data/0000028-2-agents-popover.png`
+   - Snippet example:
+     - `planning/0000028-agents-chat-gui-consistency-data/0000028-2-agents-popover.png`
    - Use Playwright MCP to capture the Agents page with the info popover open.
    - Move the screenshot into `planning/0000028-agents-chat-gui-consistency-data/` as `0000028-2-agents-popover.png`.
 
@@ -412,6 +456,8 @@ Replace the inline agent description block with an info icon and popover that re
        - `planning/0000028-agents-chat-gui-consistency-data/0000028-2-agents-popover.png`
    - Purpose:
      - Keeps the repo map accurate after new test/screenshot files are added.
+   - Snippet example:
+     - `client/src/test/agentsPage.descriptionPopover.test.tsx`
 
 11. [ ] Documentation update: `design.md`
    - Documentation to read (repeat):
@@ -420,11 +466,17 @@ Replace the inline agent description block with an info icon and popover that re
      - `design.md`
    - Description:
      - Add a short note if agent metadata display behavior is described.
+   - Snippet example:
+     - `- Agents page uses an info popover to show agent description + warnings.`
 
 12. [ ] Run full linting:
    - Documentation to read (repeat):
      - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI/options: https://prettier.io/docs/options
+   - Files to edit: none (commands only)
+   - Snippet to run:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -494,6 +546,8 @@ Align Agents controls so the Command selector and Execute button share a row, an
      - MUI Button API: https://llms.mui.com/material-ui/6.4.12/api/button.md
    - Files to read:
      - `client/src/pages/AgentsPage.tsx`
+   - Snippet to locate (current layout wrapper):
+     - `Stack spacing={1}` wrapping command/execute/instruction blocks
    - Story requirements to repeat here so they are not missed:
      - Command selector and Execute command button are on the same row.
      - Instruction input and the Send/Stop action share the same row.
@@ -515,6 +569,8 @@ Align Agents controls so the Command selector and Execute button share a row, an
      - Ensure the rows collapse to a single column on small screens without overlap.
      - Do not implement fixed widths or send/stop toggling in this task (handled in Task 4).
      - Keep existing sizes/variants unchanged in this task (standardization happens in Tasks 6-7).
+   - Snippet to apply (example row):
+     - `<Stack direction={{ xs: 'column', md: 'row' }} spacing={1} alignItems="center">...`)
 
 3. [ ] Test (unit/client): Command row layout
    - Documentation to read (repeat):
@@ -525,6 +581,8 @@ Align Agents controls so the Command selector and Execute button share a row, an
      - Assert the Command selector and Execute button render in the same row container.
    - Purpose:
      - Ensures the top control row matches the acceptance criteria layout.
+   - Snippet example:
+     - `expect(commandRow).toContainElement(screen.getByTestId('agent-command-execute'));`
 
 4. [ ] Test (unit/client): Instruction row layout
    - Documentation to read (repeat):
@@ -535,6 +593,8 @@ Align Agents controls so the Command selector and Execute button share a row, an
      - Assert the Instruction input and the Send/Stop action slot render within the same row container.
    - Purpose:
      - Ensures the instruction row matches the acceptance criteria layout.
+   - Snippet example:
+     - `expect(instructionRow).toContainElement(screen.getByTestId('agent-send'));`
 
 5. [ ] Test (unit/client): Stop button moved to instruction row
    - Documentation to read (repeat):
@@ -545,10 +605,17 @@ Align Agents controls so the Command selector and Execute button share a row, an
      - Assert Stop renders in the instruction row and is not present in the header row.
    - Purpose:
      - Ensures the row re-layout removed the Stop button from the header area.
+   - Snippet example:
+     - `expect(headerRow.querySelector('[data-testid="agent-stop"]')).toBeNull();`
 
 6. [ ] Capture UI screenshots (required for this task):
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
+   - Files to add:
+     - `planning/0000028-agents-chat-gui-consistency-data/0000028-3-agents-controls.png`
+     - `planning/0000028-agents-chat-gui-consistency-data/0000028-3-agents-controls-mobile.png`
+   - Snippet example:
+     - `planning/0000028-agents-chat-gui-consistency-data/0000028-3-agents-controls.png`
    - Use Playwright MCP to capture the Agents controls area showing the new two-row layout.
    - Capture a second screenshot at a small viewport width to show the stacked layout.
    - Move screenshots into `planning/0000028-agents-chat-gui-consistency-data/` as:
@@ -566,6 +633,8 @@ Align Agents controls so the Command selector and Execute button share a row, an
        - `planning/0000028-agents-chat-gui-consistency-data/0000028-3-agents-controls-mobile.png`
    - Purpose:
      - Keeps the repo map accurate after new screenshots are added.
+   - Snippet example:
+     - `planning/0000028-agents-chat-gui-consistency-data/0000028-3-agents-controls-mobile.png`
 
 8. [ ] Documentation update: `design.md`
    - Documentation to read (repeat):
@@ -574,11 +643,17 @@ Align Agents controls so the Command selector and Execute button share a row, an
      - `design.md`
    - Description:
      - Add a short note if control layout is described for Agents.
+   - Snippet example:
+     - `- Agents controls are arranged as two rows on desktop, stacked on mobile.`
 
 9. [ ] Run full linting:
    - Documentation to read (repeat):
      - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI/options: https://prettier.io/docs/options
+   - Files to edit: none (commands only)
+   - Snippet to run:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -646,6 +721,8 @@ Ensure the Send/Stop action slot keeps a stable width so the row does not shift 
      - MUI Button API: https://llms.mui.com/material-ui/6.4.12/api/button.md
    - Files to read:
      - `client/src/pages/AgentsPage.tsx`
+   - Snippet to locate (action buttons):
+     - `data-testid="agent-send"` and `data-testid="agent-stop"`
    - Story requirements to repeat here so they are not missed:
      - Send/Stop use the same width so the row does not shift when toggling.
      - Only one of Send/Stop is shown at a time in the action slot.
@@ -661,6 +738,8 @@ Ensure the Send/Stop action slot keeps a stable width so the row does not shift 
      - Set a fixed `minWidth` (or similar) for the action slot so Send/Stop occupy the same width.
      - Render only one action button at a time (Send when idle, Stop when streaming) to avoid layout jitter.
      - Keep existing sizes/variants unchanged in this task (standardization happens in Tasks 6-7).
+   - Snippet to apply (example):
+     - `<Box sx={{ minWidth: 120 }}>...</Box>` wrapping the Send/Stop slot
 
 3. [ ] Test (unit/client): Action slot fixed width
    - Documentation to read (repeat):
@@ -671,6 +750,8 @@ Ensure the Send/Stop action slot keeps a stable width so the row does not shift 
      - Assert the Send/Stop action slot applies a fixed width style (`minWidth` or equivalent).
    - Purpose:
      - Prevents layout jitter when toggling between Send and Stop.
+   - Snippet example:
+     - `expect(actionSlot).toHaveStyle({ minWidth: '120px' });`
 
 4. [ ] Test (unit/client): Single action rendered
    - Documentation to read (repeat):
@@ -681,10 +762,16 @@ Ensure the Send/Stop action slot keeps a stable width so the row does not shift 
      - Assert only one of Send or Stop is rendered at a time in the action slot.
    - Purpose:
      - Confirms the toggle behavior required for stable layout.
+   - Snippet example:
+     - `expect(screen.queryByTestId('agent-stop')).toBeNull();`
 
 5. [ ] Capture UI screenshots (required for this task):
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
+   - Files to add:
+     - `planning/0000028-agents-chat-gui-consistency-data/0000028-4-agents-send-stop-width.png`
+   - Snippet example:
+     - `planning/0000028-agents-chat-gui-consistency-data/0000028-4-agents-send-stop-width.png`
    - Use Playwright MCP to capture the instruction row showing the fixed-width Send/Stop slot.
    - Move the screenshot into `planning/0000028-agents-chat-gui-consistency-data/` as `0000028-4-agents-send-stop-width.png`.
 
@@ -698,6 +785,8 @@ Ensure the Send/Stop action slot keeps a stable width so the row does not shift 
        - `planning/0000028-agents-chat-gui-consistency-data/0000028-4-agents-send-stop-width.png`
    - Purpose:
      - Keeps the repo map accurate after the screenshot is added.
+   - Snippet example:
+     - `planning/0000028-agents-chat-gui-consistency-data/0000028-4-agents-send-stop-width.png`
 
 7. [ ] Documentation update: `design.md`
    - Documentation to read (repeat):
@@ -706,11 +795,17 @@ Ensure the Send/Stop action slot keeps a stable width so the row does not shift 
      - `design.md`
    - Description:
      - Add a short note if the Send/Stop stability behavior is described.
+   - Snippet example:
+     - `- Agents Send/Stop uses a fixed-width action slot to prevent layout shift.`
 
 8. [ ] Run full linting:
    - Documentation to read (repeat):
      - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI/options: https://prettier.io/docs/options
+   - Files to edit: none (commands only)
+   - Snippet to run:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -782,6 +877,8 @@ Add a “Choose folder…” button next to the Agents working-folder input and 
      - `client/src/components/ingest/ingestDirsApi.ts`
      - `client/src/components/ingest/IngestForm.tsx`
      - `client/src/pages/AgentsPage.tsx`
+   - Snippet to locate (Ingest usage):
+     - `<DirectoryPickerDialog open={dirPickerOpen} onPick={...} onClose={...} />`
    - Story requirements to repeat here so they are not missed:
      - Clicking “Choose folder…” opens the same dialog title and folder list as Ingest.
      - Selecting a folder fills the working-folder input with the absolute host path.
@@ -798,10 +895,13 @@ Add a “Choose folder…” button next to the Agents working-folder input and 
      - `client/src/components/ingest/DirectoryPickerDialog.tsx` (only if a small prop tweak is needed for reuse)
    - Implementation details:
      - Import and reuse `DirectoryPickerDialog` and `ingestDirsApi` directly from the ingest components (do not move files unless necessary).
-    - Add a “Choose folder…” button next to the working-folder input that opens the dialog.
-    - Update the working-folder state when a folder is selected; cancel should be a no-op.
-    - Ensure server-side validation errors (e.g., `WORKING_FOLDER_INVALID`) do not clear the current working-folder value.
+   - Add a “Choose folder…” button next to the working-folder input that opens the dialog.
+     - Update the working-folder state when a folder is selected; cancel should be a no-op.
+     - Ensure server-side validation errors (e.g., `WORKING_FOLDER_INVALID`) do not clear the current working-folder value.
      - Do not add a working-folder picker to Chat (explicitly out of scope).
+   - Snippet to apply (example):
+     - `<Button variant="outlined" size="small" onClick={() => setDirPickerOpen(true)}>Choose folder…</Button>`
+     - `<DirectoryPickerDialog open={dirPickerOpen} path={workingFolder} onClose={...} onPick={(path) => setWorkingFolder(path)} />`
 
 3. [ ] Test (unit/client): Picker opens
    - Documentation to read (repeat):
@@ -812,6 +912,8 @@ Add a “Choose folder…” button next to the Agents working-folder input and 
      - Click “Choose folder…” and assert the directory picker dialog opens.
    - Purpose:
      - Validates the happy-path trigger for the picker.
+   - Snippet example:
+     - `await user.click(screen.getByRole('button', { name: /choose folder/i }));`
 
 4. [ ] Test (unit/client): Select folder updates input
    - Documentation to read (repeat):
@@ -822,6 +924,8 @@ Add a “Choose folder…” button next to the Agents working-folder input and 
      - Simulate selecting a folder and assert the working-folder input updates to the selected path.
    - Purpose:
      - Confirms the primary selection path updates state.
+   - Snippet example:
+     - `expect(screen.getByTestId('agent-working-folder')).toHaveValue('/data/repo');`
 
 5. [ ] Test (unit/client): Cancel keeps input value
    - Documentation to read (repeat):
@@ -832,6 +936,8 @@ Add a “Choose folder…” button next to the Agents working-folder input and 
      - Open the picker, cancel, and assert the working-folder input value stays unchanged.
    - Purpose:
      - Covers the cancel path with no state mutation.
+   - Snippet example:
+     - `await user.click(screen.getByRole('button', { name: /cancel/i }));`
 
 6. [ ] Test (unit/client): Picker error does not wipe value
    - Documentation to read (repeat):
@@ -842,6 +948,8 @@ Add a “Choose folder…” button next to the Agents working-folder input and 
      - Simulate `/ingest/dirs` error payload and ensure the existing working-folder value remains.
    - Purpose:
      - Protects against error-state regressions.
+   - Snippet example:
+     - `mockFetch.mockResolvedValueOnce(mockErrorResponse({ status: 'error', code: 'NOT_FOUND' }));`
 
 7. [ ] Test (unit/client): Run validation error does not wipe value
    - Documentation to read (repeat):
@@ -852,10 +960,16 @@ Add a “Choose folder…” button next to the Agents working-folder input and 
      - Simulate `WORKING_FOLDER_INVALID` or `WORKING_FOLDER_NOT_FOUND` from run endpoint and ensure the input value is preserved.
    - Purpose:
      - Ensures validation errors do not clear user input.
+   - Snippet example:
+     - `expect(screen.getByTestId('agent-working-folder')).toHaveValue('/data/repo');`
 
 8. [ ] Capture UI screenshots (required for this task):
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
+   - Files to add:
+     - `planning/0000028-agents-chat-gui-consistency-data/0000028-5-agents-folder-picker.png`
+   - Snippet example:
+     - `planning/0000028-agents-chat-gui-consistency-data/0000028-5-agents-folder-picker.png`
    - Use Playwright MCP to capture the Agents page with the picker dialog open.
    - Move the screenshot into `planning/0000028-agents-chat-gui-consistency-data/` as `0000028-5-agents-folder-picker.png`.
 
@@ -870,6 +984,8 @@ Add a “Choose folder…” button next to the Agents working-folder input and 
        - `planning/0000028-agents-chat-gui-consistency-data/0000028-5-agents-folder-picker.png`
    - Purpose:
      - Keeps the repo map accurate after new test/screenshot files are added.
+   - Snippet example:
+     - `client/src/test/agentsPage.workingFolderPicker.test.tsx`
 
 10. [ ] Documentation update: `design.md`
    - Documentation to read (repeat):
@@ -878,11 +994,17 @@ Add a “Choose folder…” button next to the Agents working-folder input and 
      - `design.md`
    - Description:
      - Add a short note describing the Agents working-folder picker.
+   - Snippet example:
+     - `- Agents page reuses the Ingest directory picker for working_folder selection.`
 
 11. [ ] Run full linting:
    - Documentation to read (repeat):
      - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI/options: https://prettier.io/docs/options
+   - Files to edit: none (commands only)
+   - Snippet to run:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -950,14 +1072,16 @@ Standardize sizing and button variants across Chat and Agents so all controls us
      - MUI Button API: https://llms.mui.com/material-ui/6.4.12/api/button.md
      - MUI TextField API: https://llms.mui.com/material-ui/6.4.12/api/text-field.md
    - Files to read:
-    - `client/src/pages/ChatPage.tsx`
-    - `client/src/pages/AgentsPage.tsx`
+   - `client/src/pages/ChatPage.tsx`
+   - `client/src/pages/AgentsPage.tsx`
    - Story requirements to repeat here so they are not missed:
      - All dropdowns and text inputs use `size="small"`.
      - Buttons on the same row use `size="small"` and align to input height.
      - Primary actions are `variant="contained"`.
      - Secondary actions are `variant="outlined"`.
      - Stop uses `variant="contained"` with `color="error"`.
+   - Snippet to locate (current buttons):
+     - `data-testid="agent-send"`, `data-testid="agent-stop"`, `data-testid="agent-command-execute"`
 
 2. [ ] Apply size and variant updates across Chat and Agents:
    - Documentation to read (repeat):
@@ -972,6 +1096,9 @@ Standardize sizing and button variants across Chat and Agents so all controls us
      - Update primary actions (Send, Execute command, Run/Start) to `contained`.
      - Update secondary actions (Choose folder, New conversation, Clear, Refresh models) to `outlined`.
      - Ensure Stop uses `contained` + `color="error"` consistently.
+   - Snippet to apply (example):
+     - `<Button variant="contained" size="small" data-testid="agent-send">Send</Button>`
+     - `<Button variant="contained" color="error" size="small" data-testid="agent-stop">Stop</Button>`
 
 3. [ ] Test (unit/client): Chat control sizes/variants
    - Documentation to read (repeat):
@@ -982,6 +1109,9 @@ Standardize sizing and button variants across Chat and Agents so all controls us
      - Add assertions for at least one Chat TextField and Select using `size="small"`, plus primary/secondary buttons using expected variants (include Stop `contained` + `error` when streaming).
    - Purpose:
      - Confirms the sizing/variant baseline for Chat controls.
+   - Snippet example:
+     - `expect(sendButton).toHaveClass('MuiButton-contained');`
+     - `expect(stopButton).toHaveClass('MuiButton-contained', { exact: false });`
 
 4. [ ] Test (unit/client): Agents control sizes/variants
    - Documentation to read (repeat):
@@ -992,10 +1122,17 @@ Standardize sizing and button variants across Chat and Agents so all controls us
      - Add assertions that agent selectors/inputs use `size="small"` and buttons (Execute, Send, New conversation, Choose folder) use the expected variants; include Stop using `contained` + `error`.
    - Purpose:
      - Confirms the sizing/variant baseline for Agents controls.
+   - Snippet example:
+     - `expect(executeButton).toHaveClass('MuiButton-contained');`
 
 5. [ ] Capture UI screenshots (required for this task):
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
+   - Files to add:
+     - `planning/0000028-agents-chat-gui-consistency-data/0000028-6-chat-sizing.png`
+     - `planning/0000028-agents-chat-gui-consistency-data/0000028-6-agents-sizing.png`
+   - Snippet example:
+     - `planning/0000028-agents-chat-gui-consistency-data/0000028-6-chat-sizing.png`
    - Use Playwright MCP to capture:
      - Chat controls sizing.
      - Agents controls sizing.
@@ -1012,6 +1149,8 @@ Standardize sizing and button variants across Chat and Agents so all controls us
      - Add a short note describing the shared sizing + variant baseline for Chat and Agents controls.
    - Purpose:
      - Keeps the design reference aligned with the UI consistency work.
+   - Snippet example:
+     - `- Chat/Agents controls use size="small" and contained/outlined variants.`
 
 7. [ ] Documentation update: `projectStructure.md` (after screenshots are added)
    - Documentation to read (repeat):
@@ -1024,11 +1163,17 @@ Standardize sizing and button variants across Chat and Agents so all controls us
        - `planning/0000028-agents-chat-gui-consistency-data/0000028-6-agents-sizing.png`
    - Purpose:
      - Keeps the repo map accurate after layout changes.
+   - Snippet example:
+     - `planning/0000028-agents-chat-gui-consistency-data/0000028-6-agents-sizing.png`
 
 8. [ ] Run full linting:
    - Documentation to read (repeat):
      - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI/options: https://prettier.io/docs/options
+   - Files to edit: none (commands only)
+   - Snippet to run:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -1105,6 +1250,8 @@ Standardize sizing and button variants across LM Studio and Ingest so controls u
      - Buttons on the same row use `size="small"` and align to input height.
      - Primary actions are `variant="contained"`.
      - Secondary actions are `variant="outlined"`.
+   - Snippet to locate (current buttons):
+     - `data-testid="ingest-run"` (or Start ingest button) and LM Studio action buttons
 
 2. [ ] Apply size and variant updates across LM Studio and Ingest:
    - Documentation to read (repeat):
@@ -1118,6 +1265,8 @@ Standardize sizing and button variants across LM Studio and Ingest so controls u
      - Set `size="small"` on all TextField/Select controls.
      - Update primary actions (Check status, Start ingest) to `contained`.
      - Update secondary actions (Reset, Refresh models, Choose folder) to `outlined`.
+   - Snippet to apply (example):
+     - `<Button variant="contained" size="small">Start ingest</Button>`
 
 3. [ ] Test (unit/client): LM Studio control sizes/variants
    - Documentation to read (repeat):
@@ -1128,6 +1277,8 @@ Standardize sizing and button variants across LM Studio and Ingest so controls u
      - Add assertions for LM Studio inputs using `size="small"` and buttons using expected primary/secondary variants.
    - Purpose:
      - Confirms the sizing/variant baseline for LM Studio.
+   - Snippet example:
+     - `expect(resetButton).toHaveClass('MuiButton-outlined');`
 
 4. [ ] Test (unit/client): Ingest control sizes/variants
    - Documentation to read (repeat):
@@ -1138,10 +1289,17 @@ Standardize sizing and button variants across LM Studio and Ingest so controls u
      - Add assertions for Ingest inputs using `size="small"` and buttons using expected primary/secondary variants (e.g., Start ingest contained, Choose folder outlined).
    - Purpose:
      - Confirms the sizing/variant baseline for Ingest.
+   - Snippet example:
+     - `expect(chooseFolderButton).toHaveClass('MuiButton-outlined');`
 
 5. [ ] Capture UI screenshots (required for this task):
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
+   - Files to add:
+     - `planning/0000028-agents-chat-gui-consistency-data/0000028-7-lmstudio-sizing.png`
+     - `planning/0000028-agents-chat-gui-consistency-data/0000028-7-ingest-sizing.png`
+   - Snippet example:
+     - `planning/0000028-agents-chat-gui-consistency-data/0000028-7-lmstudio-sizing.png`
    - Use Playwright MCP to capture:
      - LM Studio controls sizing.
      - Ingest controls sizing.
@@ -1158,6 +1316,8 @@ Standardize sizing and button variants across LM Studio and Ingest so controls u
      - Add a short note describing the shared sizing + variant baseline for LM Studio and Ingest controls.
    - Purpose:
      - Keeps the design reference aligned with the UI consistency work.
+   - Snippet example:
+     - `- LM Studio/Ingest controls use size="small" with contained/outlined variants.`
 
 7. [ ] Documentation update: `projectStructure.md` (after screenshots are added)
    - Documentation to read (repeat):
@@ -1170,11 +1330,17 @@ Standardize sizing and button variants across LM Studio and Ingest so controls u
        - `planning/0000028-agents-chat-gui-consistency-data/0000028-7-ingest-sizing.png`
    - Purpose:
      - Keeps the repo map accurate after layout changes.
+   - Snippet example:
+     - `planning/0000028-agents-chat-gui-consistency-data/0000028-7-lmstudio-sizing.png`
 
 8. [ ] Run full linting:
    - Documentation to read (repeat):
      - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI/options: https://prettier.io/docs/options
+   - Files to edit: none (commands only)
+   - Snippet to run:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -1237,19 +1403,40 @@ Validate the full story requirements end-to-end and capture final evidence, incl
 1. [ ] Build the server
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+   - Files to edit: none (command only)
+   - Snippet to run:
+     - `npm run build --workspace server`
 2. [ ] Build the client
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+   - Files to edit: none (command only)
+   - Snippet to run:
+     - `npm run build --workspace client`
 3. [ ] Perform a clean docker build
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-4. [ ] Ensure `README.md` is updated with any required description changes and with any new commands added as part of this story
+   - Files to edit: none (command only)
+   - Snippet to run:
+     - `npm run compose:build`
+4. [ ] Documentation update: `README.md`
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
-5. [ ] Ensure `design.md` is updated with any required description changes including mermaid diagrams that have been added as part of this story
+   - Location:
+     - `README.md`
+   - Description:
+     - Add/adjust any README guidance introduced by this story (UI consistency notes, new screenshots if relevant).
+   - Snippet example:
+     - `- Agents page uses an info popover for agent metadata.`
+5. [ ] Documentation update: `design.md`
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
      - Mermaid: Context7 `/mermaid-js/mermaid`
+   - Location:
+     - `design.md`
+   - Description:
+     - Add/adjust design notes and mermaid diagrams impacted by UI consistency changes.
+   - Snippet example:
+     - `- Agents layout now groups command + execute and instruction + send rows.`
 6. [ ] Documentation update: `projectStructure.md` (after test screenshots are captured)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -1260,28 +1447,49 @@ Validate the full story requirements end-to-end and capture final evidence, incl
        - `test-results/screenshots/0000028-8-<short-name>.png`
    - Purpose:
      - Keeps the repo map accurate after final verification artifacts are added.
+   - Snippet example:
+     - `test-results/screenshots/0000028-8-chat-final.png`
 7. [ ] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Files to edit: none (comment only)
+   - Snippet example:
+     - `- Updated Agents info popover, working-folder picker, and control sizing consistency.`
 
 #### Testing
 
 1. [ ] Run the client Jest tests
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
+   - Files to edit: none (command only)
+   - Snippet to run:
+     - `npm run test --workspace client`
 2. [ ] Run the server cucumber tests
    - Documentation to read (repeat):
      - Cucumber guides https://cucumber.io/docs/guides/
+   - Files to edit: none (command only)
+   - Snippet to run:
+     - `npm run test --workspace server`
 3. [ ] Restart the docker environment
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
+   - Files to edit: none (commands only)
+   - Snippet to run:
+     - `npm run compose:down && npm run compose:up`
 4. [ ] Run the e2e tests
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
+   - Files to edit: none (command only)
+   - Snippet to run:
+     - `npm run e2e`
 5. [ ] Use the Playwright MCP tool to manually check the application, saving screenshots to `./test-results/screenshots/`.
    - Each screenshot should be named `0000028-8-<short-name>.png`.
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
+   - Files to add:
+     - `test-results/screenshots/0000028-8-<short-name>.png`
+   - Snippet example:
+     - `test-results/screenshots/0000028-8-agents-final.png`
 
 #### Implementation notes
 

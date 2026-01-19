@@ -124,7 +124,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 |     |     |- chatPage.markdown.test.tsx ? assistant markdown rendering for lists and code fences
 |     |     |- chatPage.mermaid.test.tsx ? mermaid code fence rendering and script stripping
 |     |     |- agentsPage.list.test.tsx ? Agents page loads agent list and populates dropdown
-|     |     |- agentsPage.description.test.tsx ? Agents page renders selected agent description markdown
+|     |     |- agentsPage.descriptionPopover.test.tsx ? Agents page renders selected agent description markdown
 |     |     |- agentsPage.agentChange.test.tsx ? switching agent aborts run and resets conversation state
 |     |     |- agentsPage.conversationSelection.test.tsx ? selecting a conversation continues via conversationId
 |     |     |- agentsPage.turnHydration.test.tsx ? selecting a conversation hydrates and renders stored turns
@@ -214,7 +214,8 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚  â”œâ”€ 0000027-flows-mode.md â€” plan for story 0000027
 â”‚  â”œâ”€ 0000028-agents-chat-gui-consistency-data/ â€” UI screenshots for story 0000028
 â”‚  â”‚  â”œâ”€ 0000028-1-agents-height.png â€” Agents transcript height check
-â”‚  â”‚  â””â”€ 0000028-1-chat-height.png â€” Chat transcript height check
+â”‚  â”‚  â”œâ”€ 0000028-1-chat-height.png â€” Chat transcript height check
+â”‚  â”‚  â””â”€ 0000028-2-agents-popover.png â€” Agents info popover
 â”‚  â”œâ”€ 0000028-agents-chat-gui-consistency.md â€” plan for story 0000028
 â”‚  â””â”€ plan_format.md â€” planning template/instructions
 â”œâ”€ server/ â€” Express API

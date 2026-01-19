@@ -2,6 +2,7 @@ import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import HourglassTopIcon from '@mui/icons-material/HourglassTop';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import MenuIcon from '@mui/icons-material/Menu';
 import {
   Accordion,
@@ -19,6 +20,7 @@ import {
   IconButton,
   InputLabel,
   MenuItem,
+  Popover,
   Paper,
   Select,
   Stack,
@@ -206,6 +208,8 @@ export default function AgentsPage() {
   const [workingFolder, setWorkingFolder] = useState('');
   const [input, setInput] = useState('');
   const lastSentRef = useRef('');
+  const [agentInfoAnchorEl, setAgentInfoAnchorEl] =
+    useState<HTMLElement | null>(null);
 
   const [startPending, setStartPending] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
@@ -1078,8 +1082,28 @@ export default function AgentsPage() {
   const selectedAgent = agents.find((a) => a.name === selectedAgentName);
 
   const agentDescription = selectedAgent?.description?.trim();
+  const agentWarnings = selectedAgent?.warnings ?? [];
+  const agentInfoOpen = Boolean(agentInfoAnchorEl);
+  const agentInfoId = agentInfoOpen ? 'agent-info-popover' : undefined;
+  const agentInfoDisabled = agentsLoading || !selectedAgentName;
+  const showAgentInfoButton = !agentsError;
+  const agentInfoEmpty = !agentDescription && agentWarnings.length === 0;
+  const agentInfoEmptyMessage =
+    'No description or warnings are available for this agent yet.';
 
   const showStop = isSending;
+  const handleAgentInfoOpen = (event: React.MouseEvent<HTMLElement>) => {
+    if (agentInfoDisabled) return;
+    setAgentInfoAnchorEl(event.currentTarget);
+    log('info', 'DEV-0000028[T2] agent info popover opened', {
+      agentName: selectedAgentName,
+      hasDescription: Boolean(agentDescription),
+      warningsCount: agentWarnings.length,
+    });
+  };
+  const handleAgentInfoClose = () => {
+    setAgentInfoAnchorEl(null);
+  };
   const renderParamsAccordion = (params: unknown, accordionId: string) => (
     <Accordion
       defaultExpanded={false}
@@ -1699,6 +1723,18 @@ export default function AgentsPage() {
                       </Select>
                     </FormControl>
 
+                    {showAgentInfoButton ? (
+                      <IconButton
+                        aria-describedby={agentInfoId}
+                        onClick={handleAgentInfoOpen}
+                        disabled={agentInfoDisabled}
+                        size="small"
+                        data-testid="agent-info"
+                      >
+                        <InfoOutlinedIcon fontSize="small" />
+                      </IconButton>
+                    ) : null}
+
                     <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
                       <Button
                         type="button"
@@ -1823,26 +1859,10 @@ export default function AgentsPage() {
                     ) : null}
                   </Stack>
 
-                  {selectedAgent?.warnings?.length ? (
-                    <Alert severity="warning" data-testid="agent-warnings">
-                      {selectedAgent.warnings.join('\n')}
-                    </Alert>
-                  ) : null}
-
                   {selectedAgent?.disabled ? (
                     <Alert severity="warning" data-testid="agent-disabled">
                       This agent is currently disabled.
                     </Alert>
-                  ) : null}
-
-                  {agentDescription ? (
-                    <Paper
-                      variant="outlined"
-                      sx={{ p: 1.5 }}
-                      data-testid="agent-description"
-                    >
-                      <Markdown content={agentDescription} />
-                    </Paper>
                   ) : null}
 
                   <TextField
@@ -1898,6 +1918,52 @@ export default function AgentsPage() {
                   </Stack>
                 </Stack>
               </Box>
+              <Popover
+                id={agentInfoId}
+                open={agentInfoOpen}
+                anchorEl={agentInfoAnchorEl}
+                onClose={handleAgentInfoClose}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+                transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+                data-testid="agent-info-popover"
+              >
+                <Stack spacing={1} sx={{ p: 2, maxWidth: 360 }}>
+                  {agentWarnings.length > 0 ? (
+                    <Stack spacing={0.5} data-testid="agent-warnings">
+                      <Typography variant="subtitle2" color="warning.main">
+                        Warnings
+                      </Typography>
+                      {agentWarnings.map((warning) => (
+                        <Typography
+                          key={warning}
+                          variant="body2"
+                          color="warning.main"
+                        >
+                          {warning}
+                        </Typography>
+                      ))}
+                    </Stack>
+                  ) : null}
+                  {agentDescription ? (
+                    <Paper
+                      variant="outlined"
+                      sx={{ p: 1.5 }}
+                      data-testid="agent-description"
+                    >
+                      <Markdown content={agentDescription} />
+                    </Paper>
+                  ) : null}
+                  {agentInfoEmpty ? (
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      data-testid="agent-info-empty"
+                    >
+                      {agentInfoEmptyMessage}
+                    </Typography>
+                  ) : null}
+                </Stack>
+              </Popover>
               <Paper
                 variant="outlined"
                 sx={{

@@ -797,6 +797,7 @@ flowchart TD
 
 - The Agents page (`/agents`) is a Codex-only surface with a constrained control bar:
   - agent selector dropdown
+  - info icon popover showing agent description + warnings
   - command selector dropdown (refreshed on agent change)
   - Execute command (runs selected command)
   - Stop (abort)

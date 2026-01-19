@@ -323,7 +323,7 @@ Ensure the Chat and Agents transcript panels stretch to the bottom of the viewpo
 
 ### 2. Client: Agents description/warnings popover
 
-- Task Status: **__in_progress__**
+- Task Status: **__done__**
 - Git Commits: **__to_do__**
 
 #### Overview
@@ -346,7 +346,7 @@ Replace the inline agent description block with an info icon and popover that re
 
 #### Subtasks
 
-1. [ ] Review the current Agents description block and Markdown rendering:
+1. [x] Review the current Agents description block and Markdown rendering:
    - Documentation to read (repeat):
      - MUI Popover component: https://llms.mui.com/material-ui/6.4.12/components/popover.md
      - MUI IconButton API: https://llms.mui.com/material-ui/6.4.12/api/icon-button.md
@@ -362,7 +362,7 @@ Replace the inline agent description block with an info icon and popover that re
      - Empty-state message appears when both description and warnings are missing.
      - If the agents list fails to load, the info icon should be hidden/disabled and the error UI should still render cleanly.
 
-2. [ ] Implement the info icon + popover UI:
+2. [x] Implement the info icon + popover UI:
    - Documentation to read (repeat):
      - MUI Popover component: https://llms.mui.com/material-ui/6.4.12/components/popover.md
      - MUI Popover API: https://llms.mui.com/material-ui/6.4.12/api/popover.md
@@ -386,7 +386,7 @@ Replace the inline agent description block with an info icon and popover that re
      - `<IconButton size="small" aria-label="Agent info" data-testid="agent-info" onClick={...} />`
      - `<Popover open={Boolean(anchorEl)} anchorEl={anchorEl} onClose={handleClose}>...</Popover>`
 
-3. [ ] Test (unit/client): Info icon renders for selected agent
+3. [x] Test (unit/client): Info icon renders for selected agent
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Location:
@@ -398,7 +398,7 @@ Replace the inline agent description block with an info icon and popover that re
    - Snippet example:
      - `expect(await screen.findByTestId('agent-info')).toBeInTheDocument();`
 
-4. [ ] Test (unit/client): Popover shows Markdown description
+4. [x] Test (unit/client): Popover shows Markdown description
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Location:
@@ -411,7 +411,7 @@ Replace the inline agent description block with an info icon and popover that re
      - `await user.click(screen.getByTestId('agent-info'));`
      - `expect(screen.getByText('Hello')).toBeInTheDocument();`
 
-5. [ ] Test (unit/client): Warnings list renders in popover
+5. [x] Test (unit/client): Warnings list renders in popover
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Location:
@@ -423,7 +423,7 @@ Replace the inline agent description block with an info icon and popover that re
    - Snippet example:
      - `expect(screen.getByText('Warning text')).toBeInTheDocument();`
 
-6. [ ] Test (unit/client): Empty-state message
+6. [x] Test (unit/client): Empty-state message
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Location:
@@ -435,7 +435,7 @@ Replace the inline agent description block with an info icon and popover that re
    - Snippet example:
      - `expect(screen.getByText('No description or warnings are available')).toBeInTheDocument();`
 
-7. [ ] Test (unit/client): Agents fetch error hides or disables info icon
+7. [x] Test (unit/client): Agents fetch error hides or disables info icon
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Location:
@@ -447,7 +447,7 @@ Replace the inline agent description block with an info icon and popover that re
    - Snippet example:
      - `expect(screen.queryByTestId('agent-info')).toBeNull();`
 
-8. [ ] Test (unit/client): Inline warnings/description removed
+8. [x] Test (unit/client): Inline warnings/description removed
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Location:
@@ -459,7 +459,7 @@ Replace the inline agent description block with an info icon and popover that re
    - Snippet example:
      - `expect(screen.queryByTestId('agent-description')).toBeNull();`
 
-9. [ ] Capture UI screenshots (required for this task):
+9. [x] Capture UI screenshots (required for this task):
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
    - Files to add:
@@ -469,7 +469,7 @@ Replace the inline agent description block with an info icon and popover that re
    - Use Playwright MCP to capture the Agents page with the info popover open.
    - Move the screenshot into `planning/0000028-agents-chat-gui-consistency-data/` as `0000028-2-agents-popover.png`.
 
-10. [ ] Documentation update: `projectStructure.md` (after new files are added)
+10. [x] Documentation update: `projectStructure.md` (after new files are added)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location:
@@ -483,7 +483,7 @@ Replace the inline agent description block with an info icon and popover that re
    - Snippet example:
      - `client/src/test/agentsPage.descriptionPopover.test.tsx`
 
-11. [ ] Documentation update: `design.md`
+11. [x] Documentation update: `design.md`
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -493,7 +493,7 @@ Replace the inline agent description block with an info icon and popover that re
    - Snippet example:
      - `- Agents page uses an info popover to show agent description + warnings.`
 
-12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+12. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI/options: https://prettier.io/docs/options
@@ -505,41 +505,60 @@ Replace the inline agent description block with an info icon and popover that re
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
-5. [ ] `npm run test --workspace client -- agentsPage.descriptionPopover`
+5. [x] `npm run test --workspace client -- agentsPage.descriptionPopover`
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
-6. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
-7. [ ] `npm run compose:build`
+7. [x] `npm run compose:build`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] `npm run compose:up`
+8. [x] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-9. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, open the info popover, verify Markdown renders, warnings list displays, empty-state appears for agents without metadata, and confirm the debug console shows no errors.
+9. [x] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, open the info popover, verify Markdown renders, warnings list displays, empty-state appears for agents without metadata, and confirm the debug console shows no errors.
    - Capture a Playwright MCP screenshot of the open popover and confirm the image is stored under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` before moving/recording it.
    - Expected log lines (debug console):
      - `DEV-0000028[T2] agent info popover opened` appears when the info popover is opened.
-10. [ ] `npm run compose:down`
+10. [x] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
 #### Implementation notes
 
-- (fill in during execution)
+- Reviewed `AgentsPage.tsx` for the inline description/warnings panel and current Markdown usage to replace with a popover.
+- Added an info icon next to the Agent selector, wired it to a Popover, and moved description/warnings content into the popover with empty-state messaging and logging.
+- Updated Agents description tests to cover info icon rendering, popover description/warnings, empty-state messaging, error handling, and removal of inline content.
+- Captured the Agents info popover screenshot and moved it into the planning data folder.
+- Updated `projectStructure.md` with the Task 2 popover screenshot.
+- Renamed the description test file to `agentsPage.descriptionPopover.test.tsx` to align with the focused Jest run.
+- Added an Agents UI note in `design.md` describing the info popover behavior.
+- Ran lint + format checks; lint reported existing server import-order warnings, and Prettier required formatting updates which were applied and rechecked.
+- `npm run build --workspace server` completed successfully for Task 2.
+- `npm run build --workspace client` completed successfully for Task 2 (chunk size warning only).
+- `npm run test --workspace server` completed successfully for Task 2.
+- `npm run test --workspace client` completed successfully for Task 2.
+- `npm run test --workspace client -- agentsPage.descriptionPopover` completed successfully.
+- `npm run e2e` completed successfully for Task 2.
+- `npm run compose:build` completed successfully for Task 2.
+- `npm run compose:up` completed successfully for Task 2.
+- Manual Playwright check at `http://host.docker.internal:5001/agents` confirmed the info popover renders agent descriptions, with `DEV-0000028[T2] agent info popover opened` in the console and no console errors.
+- Captured a fresh Task 2 popover screenshot and moved it into `planning/0000028-agents-chat-gui-consistency-data/0000028-2-agents-popover.png`.
+- All available agents had descriptions, so the empty-state message was not visible during manual verification; unit coverage still asserts the empty-state rendering path.
+- `npm run compose:down` completed successfully for Task 2.
 
 ---
 

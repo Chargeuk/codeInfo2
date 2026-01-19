@@ -184,15 +184,35 @@ Ensure the Chat and Agents transcript panels stretch to the bottom of the viewpo
 
 6. [ ] Run full linting:
    - `npm run lint --workspaces`
+   - `npm run format:check --workspaces`
 
 #### Testing
 
-1. [ ] `npm run build --workspace client`
+1. [ ] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-2. [ ] `npm run test --workspace client`
+2. [ ] `npm run build --workspace client`
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+3. [ ] `npm run test --workspace server`
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+4. [ ] `npm run test --workspace client`
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
+6. [ ] `npm run compose:build`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+7. [ ] `npm run compose:up`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+8. [ ] Manual Playwright-MCP check: verify Chat and Agents transcripts stretch to the bottom of the viewport without a blank gap and no browser console errors appear.
+9. [ ] `npm run compose:down`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
 
 #### Implementation notes
 
@@ -229,6 +249,7 @@ Replace the inline agent description block with an info icon and popover that re
      - Info icon sits next to the Agent selector; clicking opens a popover.
      - Popover renders Markdown description and lists warnings.
      - Empty-state message appears when both description and warnings are missing.
+     - If the agents list fails to load, the info icon should be hidden/disabled and the error UI should still render cleanly.
 
 2. [ ] Implement the info icon + popover UI:
    - Files to edit:
@@ -238,6 +259,7 @@ Replace the inline agent description block with an info icon and popover that re
      - Use the existing Markdown renderer for the description text.
      - Render warnings as a simple list under the description.
      - Show the friendly empty-state message when both description and warnings are empty.
+     - Ensure the info icon does not render (or renders disabled) when agents fail to load.
      - Keep layout spacing compact; avoid introducing a new full-width block.
 
 3. [ ] Add/update tests for the popover:
@@ -248,6 +270,7 @@ Replace the inline agent description block with an info icon and popover that re
      - Popover opens and shows Markdown description.
      - Warnings list renders when warnings are present.
      - Empty-state message renders when description and warnings are missing.
+     - Info icon is hidden/disabled when the agents fetch fails and the error state renders.
 
 4. [ ] Capture UI screenshots (required for this task):
    - Use Playwright MCP to capture the Agents page with the info popover open.
@@ -259,15 +282,35 @@ Replace the inline agent description block with an info icon and popover that re
 
 6. [ ] Run full linting:
    - `npm run lint --workspaces`
+   - `npm run format:check --workspaces`
 
 #### Testing
 
-1. [ ] `npm run test --workspace client -- agentsPage.descriptionPopover`
+1. [ ] `npm run build --workspace server`
    - Documentation to read (repeat):
-     - Jest: Context7 `/jestjs/jest`
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 2. [ ] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+3. [ ] `npm run test --workspace server`
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+4. [ ] `npm run test --workspace client -- agentsPage.descriptionPopover`
+   - Documentation to read (repeat):
+     - Jest: Context7 `/jestjs/jest`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
+6. [ ] `npm run compose:build`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+7. [ ] `npm run compose:up`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+8. [ ] Manual Playwright-MCP check: open the info popover, verify Markdown renders, warnings list displays, and empty-state appears for agents without metadata; confirm no browser console errors.
+9. [ ] `npm run compose:down`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
 
 #### Implementation notes
 
@@ -309,6 +352,7 @@ Align Agents controls so the Command selector and Execute button share a row, an
      - `client/src/pages/AgentsPage.tsx`
    - Implementation details:
      - Restructure controls into two horizontal rows (Stack or Box with `display: 'flex'`).
+     - Ensure the rows collapse to a single column on small screens without overlap.
      - Add a fixed width (e.g., `minWidth`) to Send and Stop buttons.
      - Keep existing sizes/variants unchanged in this task (standardization happens in Task 5).
 
@@ -321,7 +365,10 @@ Align Agents controls so the Command selector and Execute button share a row, an
 
 4. [ ] Capture UI screenshots (required for this task):
    - Use Playwright MCP to capture the Agents controls area showing the new two-row layout.
-   - Move the screenshot into `planning/0000028-agents-chat-gui-consistency-data/` as `0000028-3-agents-controls.png`.
+   - Capture a second screenshot at a small viewport width to show the stacked layout.
+   - Move screenshots into `planning/0000028-agents-chat-gui-consistency-data/` as:
+     - `0000028-3-agents-controls.png`
+     - `0000028-3-agents-controls-mobile.png`
 
 5. [ ] Documentation updates:
    - `design.md`: add a short note if control layout is described for Agents.
@@ -329,15 +376,35 @@ Align Agents controls so the Command selector and Execute button share a row, an
 
 6. [ ] Run full linting:
    - `npm run lint --workspaces`
+   - `npm run format:check --workspaces`
 
 #### Testing
 
-1. [ ] `npm run test --workspace client -- agentsPage.layout`
+1. [ ] `npm run build --workspace server`
    - Documentation to read (repeat):
-     - Jest: Context7 `/jestjs/jest`
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 2. [ ] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+3. [ ] `npm run test --workspace server`
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+4. [ ] `npm run test --workspace client -- agentsPage.layout`
+   - Documentation to read (repeat):
+     - Jest: Context7 `/jestjs/jest`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
+6. [ ] `npm run compose:build`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+7. [ ] `npm run compose:up`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+8. [ ] Manual Playwright-MCP check: verify the two-row layout, fixed Send/Stop widths, and stacked layout on a small viewport; confirm no console errors.
+9. [ ] `npm run compose:down`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
 
 #### Implementation notes
 
@@ -384,6 +451,7 @@ Add a “Choose folder…” button next to the Agents working-folder input and 
      - Import and reuse `DirectoryPickerDialog` and `ingestDirsApi` directly from the ingest components (do not move files unless necessary).
      - Add a “Choose folder…” button next to the working-folder input that opens the dialog.
      - Update the working-folder state when a folder is selected; cancel should be a no-op.
+     - Ensure server-side validation errors (e.g., `WORKING_FOLDER_INVALID`) do not clear the current working-folder value.
      - Do not add a working-folder picker to Chat (explicitly out of scope).
 
 3. [ ] Add/update tests for the working-folder picker:
@@ -394,6 +462,7 @@ Add a “Choose folder…” button next to the Agents working-folder input and 
      - Selecting a folder updates the working-folder input value.
      - Cancel closes the dialog without changing the input.
      - Empty/error states from the picker do not wipe the existing value.
+     - Validation errors from the run endpoint do not clear the working-folder input.
 
 4. [ ] Capture UI screenshots (required for this task):
    - Use Playwright MCP to capture the Agents page with the picker dialog open.
@@ -405,15 +474,35 @@ Add a “Choose folder…” button next to the Agents working-folder input and 
 
 6. [ ] Run full linting:
    - `npm run lint --workspaces`
+   - `npm run format:check --workspaces`
 
 #### Testing
 
-1. [ ] `npm run test --workspace client -- agentsPage.workingFolderPicker`
+1. [ ] `npm run build --workspace server`
    - Documentation to read (repeat):
-     - Jest: Context7 `/jestjs/jest`
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 2. [ ] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+3. [ ] `npm run test --workspace server`
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+4. [ ] `npm run test --workspace client -- agentsPage.workingFolderPicker`
+   - Documentation to read (repeat):
+     - Jest: Context7 `/jestjs/jest`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
+6. [ ] `npm run compose:build`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+7. [ ] `npm run compose:up`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+8. [ ] Manual Playwright-MCP check: open the Agents working-folder picker, select a folder, cancel, and confirm value persistence; verify no console errors.
+9. [ ] `npm run compose:down`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
 
 #### Implementation notes
 
@@ -494,15 +583,35 @@ Standardize sizing and button variants across Chat, Agents, LM Studio, and Inges
 
 6. [ ] Run full linting:
    - `npm run lint --workspaces`
+   - `npm run format:check --workspaces`
 
 #### Testing
 
-1. [ ] `npm run test --workspace client`
+1. [ ] `npm run build --workspace server`
    - Documentation to read (repeat):
-     - Jest: Context7 `/jestjs/jest`
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 2. [ ] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+3. [ ] `npm run test --workspace server`
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+4. [ ] `npm run test --workspace client`
+   - Documentation to read (repeat):
+     - Jest: Context7 `/jestjs/jest`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
+6. [ ] `npm run compose:build`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+7. [ ] `npm run compose:up`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+8. [ ] Manual Playwright-MCP check: verify all updated controls use `size="small"`, primary/secondary variants match the rules, and Stop uses `contained` + `error`.
+9. [ ] `npm run compose:down`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
 
 #### Implementation notes
 

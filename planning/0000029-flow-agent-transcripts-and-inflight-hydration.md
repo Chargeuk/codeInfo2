@@ -419,7 +419,7 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
 
 ### 2. Client: Inflight snapshot hydration overlay
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **__to_do__**
 
 #### Overview

@@ -916,8 +916,8 @@ Validate the full story requirements end-to-end and capture final evidence, incl
 
 ### 4. Server: Reduce flow persistence log noise
 
-- Task Status: **__in_progress__**
-- Git Commits: **__to_do__**
+- Task Status: **__done__**
+- Git Commits: 28aeb3b, aef040d
 
 #### Overview
 

@@ -226,6 +226,10 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚  â”‚  â”œâ”€ 0000028-7-ingest-sizing.png â€” Ingest sizing + variant baseline
 â”‚  â”‚  â””â”€ 0000028-7-lmstudio-sizing.png â€” LM Studio sizing + variant baseline
 â”‚  â”œâ”€ 0000028-agents-chat-gui-consistency.md â€” plan for story 0000028
+â”‚  â”œâ”€ 0000029-flow-agent-transcripts-and-inflight-hydration-data/ â€” UI screenshots for story 0000029
+â”‚  â”‚  â”œâ”€ 0000029-1-agent-transcripts.png â€” Agents flow transcript evidence
+â”‚  â”‚  â””â”€ 0000029-1-flow-transcript.png â€” Flow transcript evidence
+â”‚  â”œâ”€ 0000029-flow-agent-transcripts-and-inflight-hydration.md â€” plan for story 0000029
 â”‚  â””â”€ plan_format.md â€” planning template/instructions
 â”œâ”€ test-results/ â€” test artifacts (screenshots, reports)
 â”‚  â””â”€ screenshots/ â€” manual verification screenshots
@@ -330,6 +334,9 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚     â”œâ”€ types/
 â”‚     â”‚  â””â”€ pino-roll.d.ts â€” module shim for pino-roll until official types
 â”‚     â””â”€ test/
+â”‚        â”œâ”€ fixtures/
+â”‚        â”‚  â”œâ”€ flows/
+â”‚        â”‚  â””â”€ multi-agent.json â€” flow fixture for multi-agent integration coverage
 â”‚        â”œâ”€ features/
         - chat_stream.feature - chat run + WS streaming Cucumber coverage
         - chat_cancellation.feature - Cucumber coverage for aborting chat streams

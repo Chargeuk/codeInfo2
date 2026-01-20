@@ -481,7 +481,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
      - Hydration must not drop prior assistant history when inflight content is empty.
      - Only one inflight assistant bubble should exist per inflight run.
 
-2. [ ] Add snapshot inflight-assistant detection logic:
+3. [ ] Add snapshot inflight-assistant detection logic:
    - Documentation to read (repeat):
      - React hooks guidance: Context7 `/websites/react_dev`
    - Files to read:
@@ -507,7 +507,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
      - Reminder from acceptance criteria:
        - If an assistant turn already exists, the UI must **not** add a second inflight bubble.
 
-3. [ ] Apply snapshot-first overlay state rules:
+4. [ ] Apply snapshot-first overlay state rules:
    - Documentation to read (repeat):
      - React hooks guidance: Context7 `/websites/react_dev`
    - Files to read:
@@ -527,7 +527,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
        - `setInflight(nextInflight);`
        - `setTurns(dedupeTurns(chronological));`
 
-4. [ ] Reset overlay when the inflight run changes:
+5. [ ] Reset overlay when the inflight run changes:
    - Documentation to read (repeat):
      - React hooks guidance: Context7 `/websites/react_dev`
    - Files to read:
@@ -543,7 +543,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
        - Store the previous `inflightId` in a `useRef` or local variable scoped to `fetchSnapshot`.
        - If `prevInflightId !== inflight.inflightId`, set `setInflight(null)` before applying the new inflight snapshot.
 
-5. [ ] Update hydration de-duplication so empty inflight bubbles do not drop history:
+6. [ ] Update hydration de-duplication so empty inflight bubbles do not drop history:
    - Documentation to read (repeat):
      - React hooks guidance: Context7 `/websites/react_dev`
    - Files to read:
@@ -562,7 +562,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
      - Example check (adapt to existing code):
        - `if (match.streamStatus === 'processing' && !match.content?.trim()) return false;`
 
-6. [ ] Add client log line for overlay decisions:
+7. [ ] Add client log line for overlay decisions:
    - Documentation to read (repeat):
      - React hooks guidance: Context7 `/websites/react_dev`
    - Files to read:
@@ -580,7 +580,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
      - Reminder from acceptance criteria:
        - Manual checks will look for both `overlayApplied: true` and `overlayApplied: false` at different stages of a run.
 
-7. [ ] Test (unit/client): Snapshot retains assistant history during inflight thinking
+8. [ ] Test (unit/client): Snapshot retains assistant history during inflight thinking
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Test type:
@@ -595,7 +595,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
    - Purpose:
      - Prevents dropping assistant history when inflight output is empty.
 
-8. [ ] Test (unit/client): No duplicate assistant bubble when snapshot includes inflight assistant
+9. [ ] Test (unit/client): No duplicate assistant bubble when snapshot includes inflight assistant
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Test type:
@@ -610,7 +610,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
    - Purpose:
      - Ensures the snapshot remains the single source of truth when assistant text exists.
 
-9. [ ] Test (unit/client): No overlay when snapshot has finalized inflight assistant (empty text)
+10. [ ] Test (unit/client): No overlay when snapshot has finalized inflight assistant (empty text)
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Test type:
@@ -625,7 +625,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
    - Purpose:
      - Confirms the corner case where inflight finalization is already in the snapshot.
 
-10. [ ] Test (unit/client): Overlay appears when snapshot has no inflight assistant
+11. [ ] Test (unit/client): Overlay appears when snapshot has no inflight assistant
     - Documentation to read (repeat):
       - Jest: Context7 `/jestjs/jest`
     - Test type:
@@ -640,7 +640,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
     - Purpose:
       - Validates the happy-path overlay behavior for thinking-only inflight runs.
 
-11. [ ] Test (unit/client): Inflight ID change resets overlay
+12. [ ] Test (unit/client): Inflight ID change resets overlay
     - Documentation to read (repeat):
       - Jest: Context7 `/jestjs/jest`
     - Test type:
@@ -655,7 +655,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
     - Purpose:
       - Prevents multiple inflight bubbles when a new run starts.
 
-12. [ ] Test (unit/client): Hydration keeps assistant history when inflight bubble is empty
+13. [ ] Test (unit/client): Hydration keeps assistant history when inflight bubble is empty
     - Documentation to read (repeat):
       - Jest: Context7 `/jestjs/jest`
     - Test type:
@@ -670,7 +670,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
    - Purpose:
      - Proves the de-duplication fix prevents history loss when inflight content is empty.
 
-13. [ ] Test (integration/server): Inflight final status yields assistant turn even with empty assistantText
+14. [ ] Test (integration/server): Inflight final status yields assistant turn even with empty assistantText
     - Documentation to read (repeat):
       - Node.js test runner: https://nodejs.org/api/test.html
     - Test type:
@@ -686,7 +686,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
     - Purpose:
       - Confirms server snapshots always expose final inflight assistant turns for hydration edge cases.
 
-14. [ ] Documentation update: `design.md` (mermaid diagram)
+15. [ ] Documentation update: `design.md` (mermaid diagram)
    - Documentation to read (repeat):
      - Mermaid: Context7 `/mermaid-js/mermaid`
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -695,7 +695,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
    - Description:
      - Add a Mermaid sequence diagram showing snapshot-first hydration with a conditional inflight overlay.
 
-15. [ ] Documentation update: `projectStructure.md` (after new files are added)
+16. [ ] Documentation update: `projectStructure.md` (after new files are added)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location:
@@ -704,7 +704,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
      - Update the repo tree to include (after the manual Playwright screenshot is captured in Testing step 8):
        - `planning/0000029-flow-agent-transcripts-and-inflight-hydration-data/0000029-2-inflight-hydration.png`
 
-16. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+17. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI/options: https://prettier.io/docs/options

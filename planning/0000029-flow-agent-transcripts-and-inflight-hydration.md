@@ -801,7 +801,7 @@ Validate the full story requirements end-to-end and capture final evidence, incl
 
 #### Subtasks
 
-1. [ ] Documentation update: `README.md`
+1. [x] Documentation update: `README.md`
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location:
@@ -809,7 +809,7 @@ Validate the full story requirements end-to-end and capture final evidence, incl
    - Description:
      - Add/adjust any README guidance introduced by this story (flow transcript persistence + inflight hydration behavior if user-facing).
 
-2. [ ] Documentation update: `design.md`
+2. [x] Documentation update: `design.md`
    - Documentation to read (repeat):
      - Mermaid: Context7 `/mermaid-js/mermaid`
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -818,7 +818,7 @@ Validate the full story requirements end-to-end and capture final evidence, incl
    - Description:
      - Confirm flow transcript persistence and hydration diagrams are present and accurate.
 
-3. [ ] Documentation update: `projectStructure.md` (after test screenshots are captured)
+3. [x] Documentation update: `projectStructure.md` (after test screenshots are captured)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location:
@@ -826,7 +826,7 @@ Validate the full story requirements end-to-end and capture final evidence, incl
    - Description:
      - Update the repo tree to include **every** screenshot created in Testing step 8, listing each exact file path under `test-results/screenshots/` (for example `test-results/screenshots/0000029-3-<short-name>.png`).
 
-4. [ ] Log line checklist for final verification (no new logs added here):
+4. [x] Log line checklist for final verification (no new logs added here):
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Files to read:
@@ -837,18 +837,18 @@ Validate the full story requirements end-to-end and capture final evidence, incl
        - `DEV-0000029:T2:inflight_overlay_decision` (browser console log, emitted on each snapshot refresh)
      - Note: these log lines are added in Tasks 1 and 2; this subtask only captures expectations for the final manual check.
 
-5. [ ] Draft a concise summary of all story changes
+5. [x] Draft a concise summary of all story changes
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Description:
      - Summarize server persistence changes, client inflight hydration updates, tests added, and documentation updates.
 
-6. [ ] Create the pull request comment using the summary
+6. [x] Create the pull request comment using the summary
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Files to edit: none (comment only)
 
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+7. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI/options: https://prettier.io/docs/options
@@ -860,28 +860,28 @@ Validate the full story requirements end-to-end and capture final evidence, incl
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, verify all acceptance criteria, run a quick regression sweep, capture screenshots to `./test-results/screenshots/`, and confirm the debug console shows no errors.
+8. [x] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, verify all acceptance criteria, run a quick regression sweep, capture screenshots to `./test-results/screenshots/`, and confirm the debug console shows no errors.
    - Confirm server logs include `flows.agent.turn_persisted` during flow runs (use `docker compose logs --tail=200 server`) and that at least one entry appears per flow step.
    - Confirm browser console logs include `DEV-0000029:T2:inflight_overlay_decision` for inflight hydration checks and that both `overlayApplied: true` and `overlayApplied: false` appear across the run lifecycle.
    - Each screenshot should be named `0000029-3-<short-name>.png`.
@@ -889,12 +889,28 @@ Validate the full story requirements end-to-end and capture final evidence, incl
    - Review each screenshot to confirm the GUI matches the acceptance criteria and regression expectations.
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
 #### Implementation notes
 
-- (fill in during execution)
+- Reviewed `README.md`; no user-facing updates needed for this story.
+- Verified `design.md` already includes flow persistence and inflight hydration diagrams; no edits required.
+- Logged manual check expectations: `flows.agent.turn_persisted` in server logs and `DEV-0000029:T2:inflight_overlay_decision` in browser console.
+- Testing: `npm run build --workspace server`.
+- Testing: `npm run build --workspace client` (Vite chunk size warning only).
+- Testing: `npm run test --workspace server` (first run timed out at 180s; reran with extended timeout and passed).
+- Testing: `npm run test --workspace client` (existing console/log noise from tests).
+- Testing: `npm run e2e` (36 passed).
+- Testing: `npm run compose:build` (Vite chunk size warning only).
+- Testing: `npm run compose:up`.
+- Manual check: captured `0000029-3-chat-inflight.png`, `0000029-3-flows-transcript.png`, and `0000029-3-agent-transcript.png` while validating inflight overlay and flow agent transcripts; observed `DEV-0000029:T2:inflight_overlay_decision` in browser console and `flows.agent.turn_persisted` in `docker compose logs`.
+- Testing: `npm run compose:down`.
+- Updated `projectStructure.md` with `test-results/screenshots/0000029-3-*.png` entries.
+- Lint: `npm run lint --workspaces` (warnings only).
+- Format: `npm run format:check --workspaces`.
+- Summary: flow steps now persist per-agent transcripts alongside the flow transcript; inflight snapshot hydration is snapshot-first with a single overlay bubble; added client/server tests plus documentation + screenshots for validation.
+- PR comment draft: Verified flow agent transcript persistence and inflight hydration behavior; updated snapshot overlay logic/tests, added server inflight-final coverage, and captured manual screenshots for chat/flows/agents alongside build/test regressions.
 
 ---

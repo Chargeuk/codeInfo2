@@ -240,7 +240,10 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚     â”œâ”€ 0000028-8-agents-popover.png â€” Agents info popover
 â”‚     â”œâ”€ 0000028-8-chat-final.png â€” Chat layout final check
 â”‚     â”œâ”€ 0000028-8-ingest-final.png â€” Ingest layout final check
-â”‚     â””â”€ 0000028-8-lmstudio-final.png â€” LM Studio layout final check
+â”‚     â”œâ”€ 0000028-8-lmstudio-final.png â€” LM Studio layout final check
+â”‚     â”œâ”€ 0000029-3-agent-transcript.png â€” Agents flow transcript verification
+â”‚     â”œâ”€ 0000029-3-chat-inflight.png â€” Chat inflight overlay verification
+â”‚     â””â”€ 0000029-3-flows-transcript.png â€” Flows transcript verification
 â”œâ”€ server/ â€” Express API
 â”‚  â”œâ”€ .dockerignore â€” server docker build ignores
 â”‚  â”œâ”€ .env â€” server default env (PORT, LMSTUDIO_BASE_URL)

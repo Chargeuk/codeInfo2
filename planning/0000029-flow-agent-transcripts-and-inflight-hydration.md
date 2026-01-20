@@ -113,6 +113,9 @@ External reference check:
 
 ## Implementation Ideas
 
+- **Server: confirm persistence bypass point**
+  - Trace flow execution in `server/src/flows/service.ts` (notably `ensureAgentState`, `ensureFlowAgentConversation`, and the flow runner) to identify where persistence is bypassed for per-agent conversations. The current code_info snapshot did not find an explicit `skipPersistence` flag, so the first step is to confirm the actual guard before changing it.
+
 - **Server: persist per-agent flow turns**
   - Update flow execution in `server/src/flows/service.ts` so each agent conversation created for a flow receives user/assistant turns during flow runs (not just the flow conversation). Ensure `flags.flow.agentConversations` remains the mapping source of truth.
   - Confirm `ensureFlowAgentConversation` is used for each agent step and the agent conversation is updated when a step completes.
@@ -123,6 +126,7 @@ External reference check:
 
 - **Client: useConversationTurns hydration**
   - Update `client/src/hooks/useConversationTurns.ts` to treat the REST snapshot as the base transcript each time it hydrates, then overlay only one inflight assistant bubble when the snapshot does **not** include an assistant turn for the inflight run.
+  - Validate the inflight overlay decision point in `client/src/hooks/useChatStream.ts` (for example `ensureAssistantMessage`) so inflight assistant bubbles map to a single `inflightId` and do not erase persisted assistant turns from the snapshot.
   - Ensure the overlay resets when `inflightId` changes; avoid duplicate assistant bubbles when the snapshot already contains assistant text or a finalized status.
   - Extend hook tests (`client/src/test/useConversationTurns.refresh.test.ts`) and page-level tests (Agents/Flows/Chat if they share the hook) to assert the new behavior.
 

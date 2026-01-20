@@ -419,6 +419,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
 - Jest docs: Context7 `/jestjs/jest` (test structure, async matchers)
 - Jest Getting Started: https://jestjs.io/docs/getting-started (CLI usage + matcher patterns)
 - Jest 30.2.0 release notes: https://github.com/jestjs/jest/releases/tag/v30.2.0 (version-specific changes)
+- MUI useMediaQuery hook (closest available 6.4.12 docs; repo uses @mui/material 6.5.0): https://llms.mui.com/material-ui/6.4.12/components/use-media-query.md (responsive layout behavior in Chat/Agents pages)
 - Mermaid diagrams: Context7 `/mermaid-js/mermaid` (sequence diagram syntax for design updates)
 - Mermaid sequence diagram reference (DeepWiki): `mermaid-js/mermaid` (sequence diagram syntax)
 - Mermaid 11.12.1 release notes: https://github.com/mermaid-js/mermaid/releases/tag/mermaid%4011.12.1 (confirm version-specific syntax)

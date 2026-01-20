@@ -76,6 +76,37 @@ None.
 
 ---
 
+## Scope Review & Research Notes
+
+Scope assessment:
+
+- The story is well scoped for a focused persistence + hydration fix: it targets flow-run persistence and the client’s inflight merge logic without introducing new UI redesigns or new API shapes.
+- The scope will stay tight if changes are limited to:
+  - Server flow execution/persistence (flow + per-agent conversations).
+  - Client hydration logic in the existing turns hook used by Chat/Agents/Flows.
+
+Research findings (codebase):
+
+- Flow conversations are created in the flows service; per-agent flow conversations are also created there but currently do not receive persisted turns when `skipPersistence` is active in flow execution.
+- Inflight snapshots are produced server-side by the inflight registry and merged into `/conversations/:id/turns` responses.
+- The client hook `useConversationTurns` is used by Chat, Agents, and Flows, so a fix here will apply consistently across those pages.
+
+Tests/fixtures likely impacted:
+
+- Server: flow run integration tests (`flows.run.basic`, `flows.run.resume`) and inflight snapshot tests (`conversations.turns`).
+- Client: `useConversationTurns` refresh tests and page-level tests for Agents/Flows/Chat hydration behavior.
+
+Unknowns resolved:
+
+- The hydration path is centralized (`useConversationTurns`) and shared by Chat/Agents/Flows.
+- No new API or storage schema changes are required; the fix should reuse existing conversation/turn persistence.
+
+External reference check:
+
+- React state guidance emphasizes avoiding duplicated/contradicting state and using a single source of truth for derived UI; this aligns with using the REST snapshot as the base transcript state.
+
+---
+
 ## Implementation Plan
 
 Tasks will be defined after we agree on the desired behavior for the two issues above.

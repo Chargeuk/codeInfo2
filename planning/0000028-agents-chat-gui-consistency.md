@@ -967,7 +967,7 @@ Add a “Choose folder…” button next to the Agents working-folder input and 
 
 #### Subtasks
 
-1. [ ] Review the existing directory picker implementation:
+1. [x] Review the existing directory picker implementation:
    - Documentation to read (repeat):
      - MUI Dialogs component: https://llms.mui.com/material-ui/6.4.12/components/dialogs.md
    - Files to read:
@@ -982,7 +982,7 @@ Add a “Choose folder…” button next to the Agents working-folder input and 
      - Selecting a folder fills the working-folder input with the absolute host path.
      - Cancel closes the dialog without changing the input value.
 
-2. [ ] Reuse the picker for Agents:
+2. [x] Reuse the picker for Agents:
    - Documentation to read (repeat):
      - MUI Dialogs component: https://llms.mui.com/material-ui/6.4.12/components/dialogs.md
      - MUI Dialog API: https://llms.mui.com/material-ui/6.4.12/api/dialog.md
@@ -1005,7 +1005,7 @@ Add a “Choose folder…” button next to the Agents working-folder input and 
      - `<Button variant="outlined" size="small" onClick={() => setDirPickerOpen(true)}>Choose folder…</Button>`
      - `<DirectoryPickerDialog open={dirPickerOpen} path={workingFolder} onClose={...} onPick={(path) => setWorkingFolder(path)} />`
 
-3. [ ] Test (unit/client): Picker opens
+3. [x] Test (unit/client): Picker opens
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Location:
@@ -1017,7 +1017,7 @@ Add a “Choose folder…” button next to the Agents working-folder input and 
    - Snippet example:
      - `await user.click(screen.getByRole('button', { name: /choose folder/i }));`
 
-4. [ ] Test (unit/client): Select folder updates input
+4. [x] Test (unit/client): Select folder updates input
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Location:
@@ -1029,7 +1029,7 @@ Add a “Choose folder…” button next to the Agents working-folder input and 
    - Snippet example:
      - `expect(screen.getByTestId('agent-working-folder')).toHaveValue('/data/repo');`
 
-5. [ ] Test (unit/client): Cancel keeps input value
+5. [x] Test (unit/client): Cancel keeps input value
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Location:
@@ -1041,7 +1041,7 @@ Add a “Choose folder…” button next to the Agents working-folder input and 
    - Snippet example:
      - `await user.click(screen.getByRole('button', { name: /cancel/i }));`
 
-6. [ ] Test (unit/client): Picker error does not wipe value
+6. [x] Test (unit/client): Picker error does not wipe value
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Location:
@@ -1053,7 +1053,7 @@ Add a “Choose folder…” button next to the Agents working-folder input and 
    - Snippet example:
      - `mockFetch.mockResolvedValueOnce(mockErrorResponse({ status: 'error', code: 'NOT_FOUND' }));`
 
-7. [ ] Test (unit/client): Run validation error does not wipe value
+7. [x] Test (unit/client): Run validation error does not wipe value
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Location:
@@ -1065,7 +1065,7 @@ Add a “Choose folder…” button next to the Agents working-folder input and 
    - Snippet example:
      - `expect(screen.getByTestId('agent-working-folder')).toHaveValue('/data/repo');`
 
-8. [ ] Capture UI screenshots (required for this task):
+8. [x] Capture UI screenshots (required for this task):
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
    - Files to add:
@@ -1075,7 +1075,7 @@ Add a “Choose folder…” button next to the Agents working-folder input and 
    - Use Playwright MCP to capture the Agents page with the picker dialog open.
    - Move the screenshot into `planning/0000028-agents-chat-gui-consistency-data/` as `0000028-5-agents-folder-picker.png`.
 
-9. [ ] Documentation update: `projectStructure.md` (after new files are added)
+9. [x] Documentation update: `projectStructure.md` (after new files are added)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -1089,7 +1089,7 @@ Add a “Choose folder…” button next to the Agents working-folder input and 
    - Snippet example:
      - `client/src/test/agentsPage.workingFolderPicker.test.tsx`
 
-10. [ ] Documentation update: `design.md`
+10. [x] Documentation update: `design.md`
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -1099,7 +1099,7 @@ Add a “Choose folder…” button next to the Agents working-folder input and 
    - Snippet example:
      - `- Agents page reuses the Ingest directory picker for working_folder selection.`
 
-11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+11. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI/options: https://prettier.io/docs/options
@@ -1147,7 +1147,37 @@ Add a “Choose folder…” button next to the Agents working-folder input and 
 
 #### Implementation notes
 
-- (fill in during execution)
+- Reviewed `DirectoryPickerDialog`, `ingestDirsApi`, `IngestForm`, and the Agents working_folder field to confirm dialog reuse and current state management.
+- `npm run lint --workspaces` completed with existing server import-order warnings only.
+- `npm run format:check --workspaces` completed successfully.
+- Reused the ingest directory picker in Agents with a new Choose folder button, open/pick/cancel handlers, and T5 log lines.
+- `npm run lint --workspaces` completed with existing server import-order warnings only after the picker wiring.
+- `npm run format:check --workspaces` completed successfully after the picker wiring.
+- Added a working-folder picker test to verify the dialog opens from the Agents page.
+- `npm run lint --workspaces` completed with existing server import-order warnings only after the picker-open test.
+- `npm run format:check --workspaces` completed successfully after the picker-open test.
+- Added a picker navigation test to ensure selecting a folder updates the working_folder input.
+- `npm run lint --workspaces` completed with existing server import-order warnings only after the picker selection test.
+- `npm run format --workspaces` fixed formatting, followed by a clean `npm run format:check --workspaces`.
+- Added a picker close-path test to ensure cancel keeps the working_folder value unchanged.
+- `npm run lint --workspaces` completed with existing server import-order warnings only after the cancel test.
+- `npm run format:check --workspaces` completed successfully after the cancel test.
+- Added a picker error test to ensure ingest/dirs failures do not clear the working_folder value.
+- `npm run lint --workspaces` completed with existing server import-order warnings only after the error test.
+- `npm run format --workspaces` fixed formatting, followed by a clean `npm run format:check --workspaces`.
+- Added a run validation test to confirm WORKING_FOLDER_INVALID errors preserve the working_folder value.
+- `npm run lint --workspaces` completed with existing server import-order warnings only after the run validation test.
+- `npm run format:check --workspaces` completed successfully after the run validation test.
+- Captured the Task 5 folder picker screenshot with the dialog open and copied it to the planning data folder.
+- `npm run lint --workspaces` completed with existing server import-order warnings only after the screenshot capture.
+- `npm run format:check --workspaces` completed successfully after the screenshot capture.
+- Updated `projectStructure.md` with the new working-folder picker test and screenshot entries.
+- `npm run lint --workspaces` completed with existing server import-order warnings only after the project structure update.
+- `npm run format:check --workspaces` completed successfully after the project structure update.
+- Documented the Agents working-folder picker reuse in `design.md`.
+- `npm run lint --workspaces` completed with existing server import-order warnings only after the design update.
+- `npm run format:check --workspaces` completed successfully after the design update.
+- Pending: build/test/e2e/compose steps for Task 5 are still outstanding.
 
 ---
 

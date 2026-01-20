@@ -130,6 +130,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 |     |     |- agentsPage.turnHydration.test.tsx ? selecting a conversation hydrates and renders stored turns
 |     |     |- agentsPage.run.test.tsx ? agent run (realtime) renders transcript from WS and ignores REST segments
 |     |     |- agentsPage.run.instructionError.test.tsx ? Agents page shows error banner when instruction start fails
+|     |     |- agentsPage.workingFolderPicker.test.tsx ? Agents working-folder picker dialog open/pick/cancel/error coverage
 |     |     |- flowsPage.test.tsx ? Flows page renders flow list and step metadata
 |     |     |- flowsPage.run.test.tsx ? Flows page run/resume controls send expected payloads
 |     |     |- flowsPage.stop.test.tsx ? Flows page stop button sends cancel_inflight
@@ -218,7 +219,8 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚  â”‚  â”œâ”€ 0000028-2-agents-popover.png â€” Agents info popover
 â”‚  â”‚  â”œâ”€ 0000028-3-agents-controls.png â€” Agents controls row layout
 â”‚  â”‚  â”œâ”€ 0000028-3-agents-controls-mobile.png â€” Agents controls stacked layout
-â”‚  â”‚  â””â”€ 0000028-4-agents-send-stop-width.png â€” Agents Send/Stop fixed width
+â”‚  â”‚  â”œâ”€ 0000028-4-agents-send-stop-width.png â€” Agents Send/Stop fixed width
+â”‚  â”‚  â””â”€ 0000028-5-agents-folder-picker.png â€” Agents working-folder picker dialog
 â”‚  â”œâ”€ 0000028-agents-chat-gui-consistency.md â€” plan for story 0000028
 â”‚  â””â”€ plan_format.md â€” planning template/instructions
 â”œâ”€ server/ â€” Express API
@@ -540,6 +542,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 - client/src/test/agentsPage.sidebarWs.test.tsx — Agents page sidebar applies subscribe_sidebar conversation_upsert/delete with agentName filtering + ordering
 - client/src/test/agentsPage.sidebarActions.test.tsx — Agents sidebar filter/bulk/action parity tests for Conversations list
 - client/src/test/agentsPage.layoutWrap.test.tsx — Agents sidebar layout coverage for list panel scroll and Load more placement
+- client/src/test/agentsPage.workingFolderPicker.test.tsx — Agents working-folder picker dialog open/pick/cancel/error coverage
 - client/src/test/agentsPage.citations.test.tsx — Agents transcript renders default-collapsed citations accordion under assistant bubbles
 - client/src/test/agentsPage.reasoning.test.tsx — Agents transcript thought process toggle matches Chat collapse behavior
 - client/src/test/agentsPage.toolsUi.test.tsx — Agents transcript renders Parameters/Result accordions for tool events

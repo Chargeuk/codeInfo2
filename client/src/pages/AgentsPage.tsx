@@ -48,6 +48,7 @@ import {
 } from '../api/agents';
 import Markdown from '../components/Markdown';
 import ConversationList from '../components/chat/ConversationList';
+import DirectoryPickerDialog from '../components/ingest/DirectoryPickerDialog';
 import useChatStream, {
   type ChatMessage,
   type ToolCall,
@@ -207,6 +208,7 @@ export default function AgentsPage() {
 
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [workingFolder, setWorkingFolder] = useState('');
+  const [dirPickerOpen, setDirPickerOpen] = useState(false);
   const [input, setInput] = useState('');
   const lastSentRef = useRef('');
   const [agentInfoAnchorEl, setAgentInfoAnchorEl] =
@@ -266,6 +268,24 @@ export default function AgentsPage() {
       mode: controlsLayoutMode,
     });
   }, [controlsLayoutMode, log]);
+
+  const handleOpenDirPicker = () => {
+    log('info', 'DEV-0000028[T5] agents folder picker opened', {
+      source: 'agents',
+    });
+    setDirPickerOpen(true);
+  };
+
+  const handlePickDir = (path: string) => {
+    log('info', 'DEV-0000028[T5] agents folder picker picked', { path });
+    setWorkingFolder(path);
+    setDirPickerOpen(false);
+  };
+
+  const handleCloseDirPicker = () => {
+    log('info', 'DEV-0000028[T5] agents folder picker cancelled');
+    setDirPickerOpen(false);
+  };
 
   useEffect(() => {
     displayMessages.forEach((message) => {
@@ -1056,14 +1076,19 @@ export default function AgentsPage() {
     workingFolder,
   ]);
 
+  const selectedAgent = agents.find((a) => a.name === selectedAgentName);
   const isSending = startPending || isStreaming || status === 'sending';
-
   const controlsDisabled =
     agentsLoading ||
     !!agentsError ||
     !selectedAgentName ||
     persistenceLoading ||
     isSending;
+  const isWorkingFolderDisabled =
+    controlsDisabled ||
+    isSending ||
+    !wsTranscriptReady ||
+    selectedAgent?.disabled;
   const conversationListDisabled = controlsDisabled || persistenceUnavailable;
 
   const hasFilters = Boolean(setFilterState && refreshConversations);
@@ -1086,8 +1111,6 @@ export default function AgentsPage() {
     persistenceUnavailable,
     selectedAgentName,
   ]);
-
-  const selectedAgent = agents.find((a) => a.name === selectedAgentName);
 
   const agentDescription = selectedAgent?.description?.trim();
   const agentWarnings = selectedAgent?.warnings ?? [];
@@ -1878,21 +1901,29 @@ export default function AgentsPage() {
                     </Alert>
                   ) : null}
 
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label="working_folder"
-                    placeholder="Absolute host path (optional)"
-                    value={workingFolder}
-                    onChange={(event) => setWorkingFolder(event.target.value)}
-                    disabled={
-                      controlsDisabled ||
-                      isSending ||
-                      !wsTranscriptReady ||
-                      selectedAgent?.disabled
-                    }
-                    inputProps={{ 'data-testid': 'agent-working-folder' }}
-                  />
+                  <Stack direction="row" spacing={1} alignItems="flex-start">
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="working_folder"
+                      placeholder="Absolute host path (optional)"
+                      value={workingFolder}
+                      onChange={(event) => setWorkingFolder(event.target.value)}
+                      disabled={isWorkingFolderDisabled}
+                      inputProps={{ 'data-testid': 'agent-working-folder' }}
+                    />
+                    <Button
+                      type="button"
+                      variant="outlined"
+                      size="small"
+                      disabled={isWorkingFolderDisabled}
+                      onClick={handleOpenDirPicker}
+                      data-testid="agent-working-folder-picker"
+                      sx={{ flexShrink: 0 }}
+                    >
+                      Choose folder…
+                    </Button>
+                  </Stack>
 
                   <Stack
                     data-testid="agent-instruction-row"
@@ -1953,6 +1984,12 @@ export default function AgentsPage() {
                       </Stack>
                     </Box>
                   </Stack>
+                  <DirectoryPickerDialog
+                    open={dirPickerOpen}
+                    path={workingFolder}
+                    onClose={handleCloseDirPicker}
+                    onPick={handlePickDir}
+                  />
                 </Stack>
               </Box>
               <Popover

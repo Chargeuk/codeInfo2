@@ -805,6 +805,7 @@ flowchart TD
   - Stop (abort)
   - New conversation (reset)
 - The run form includes an optional `working_folder` field (absolute path) above the instruction input.
+  - Agents page reuses the Ingest directory picker for working_folder selection.
   - Reset behavior: agent change and New conversation clear `working_folder`.
 - Conversation continuation is done by selecting a prior conversation from the sidebar (no manual `conversationId` entry).
 - Command runs do not use client-side locking; the server rejects concurrent runs for the same `conversationId` with `RUN_IN_PROGRESS` (HTTP 409), and the UI surfaces this as a friendly error.

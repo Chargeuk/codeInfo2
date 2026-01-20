@@ -1626,7 +1626,7 @@ Validate the full story requirements end-to-end and capture final evidence, incl
 
 #### Subtasks
 
-1. [ ] Documentation update: `README.md`
+1. [x] Documentation update: `README.md`
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location:
@@ -1635,7 +1635,7 @@ Validate the full story requirements end-to-end and capture final evidence, incl
      - Add/adjust any README guidance introduced by this story (UI consistency notes, new screenshots if relevant).
    - Snippet example:
      - `- Agents page uses an info popover for agent metadata.`
-2. [ ] Documentation update: `design.md`
+2. [x] Documentation update: `design.md`
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
      - Mermaid: Context7 `/mermaid-js/mermaid`
@@ -1645,7 +1645,7 @@ Validate the full story requirements end-to-end and capture final evidence, incl
      - Add/adjust design notes and mermaid diagrams impacted by UI consistency changes.
    - Snippet example:
      - `- Agents layout now groups command + execute and instruction + send rows.`
-3. [ ] Documentation update: `projectStructure.md` (after test screenshots are captured)
+3. [x] Documentation update: `projectStructure.md` (after test screenshots are captured)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location:
@@ -1657,7 +1657,7 @@ Validate the full story requirements end-to-end and capture final evidence, incl
      - Keeps the repo map accurate after final verification artifacts are added.
    - Snippet example:
      - `test-results/screenshots/0000028-8-chat-final.png`
-4. [ ] Add a regression-baseline log line used for final verification:
+4. [x] Add a regression-baseline log line used for final verification:
    - Files to edit:
      - `client/src/App.tsx`
    - Implementation details:
@@ -1667,14 +1667,14 @@ Validate the full story requirements end-to-end and capture final evidence, incl
    - Snippet example:
      - `logInfo('DEV-0000028[T8] regression baseline ready', { page: 'app-shell' });`
 
-5. [ ] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
+5. [x] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Files to edit: none (comment only)
    - Snippet example:
      - `- Updated Agents info popover, working-folder picker, and control sizing consistency.`
 
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+6. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI/options: https://prettier.io/docs/options
@@ -1686,42 +1686,42 @@ Validate the full story requirements end-to-end and capture final evidence, incl
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
    - Snippet to run:
      - `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
    - Snippet to run:
      - `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
    - Snippet to run:
      - `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Snippet to run:
      - `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
    - Snippet to run:
      - `npm run e2e`
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
    - Snippet to run:
      - `npm run compose:build`
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
    - Snippet to run:
      - `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, verify all acceptance criteria, run a quick regression sweep, capture screenshots to `./test-results/screenshots/`, and confirm the debug console shows no errors.
+8. [x] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, verify all acceptance criteria, run a quick regression sweep, capture screenshots to `./test-results/screenshots/`, and confirm the debug console shows no errors.
    - Each screenshot should be named `0000028-8-<short-name>.png`.
    - Capture Playwright MCP screenshots for every acceptance-criteria UI state and confirm the images are stored under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` before moving/recording them.
    - Expected log lines (debug console):
@@ -1732,12 +1732,36 @@ Validate the full story requirements end-to-end and capture final evidence, incl
      - `test-results/screenshots/0000028-8-<short-name>.png`
    - Snippet example:
      - `test-results/screenshots/0000028-8-agents-final.png`
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
 #### Implementation notes
 
-- (fill in during execution)
+- Push attempt after setting Task 8 in progress failed due to missing GitHub credentials.
+- Updated `README.md` with Agents UI notes covering the info popover and Choose folder dialog.
+- Expanded `design.md` with Agents layout, info popover, and folder picker notes.
+- Updated `projectStructure.md` with Task 8 verification screenshots.
+- Added the `DEV-0000028[T8] regression baseline ready` log in `App.tsx`.
+- `npm run lint --workspaces` completed with existing server import-order warnings only after subtask 4.
+- `npm run format:check --workspaces` completed successfully after subtask 4.
+- Drafted PR comment summary covering Tasks 1-7 UI consistency updates, new logs/tests, and documentation/screenshot evidence.
+- PR comment:
+  - Align Chat/Agents transcript panels to fill viewport height with flex + minHeight adjustments, plus verification tests and screenshots.
+  - Replaced Agents inline description with an info popover, tightened control rows (Command+Execute, Instruction+Send/Stop), and fixed Send/Stop width stability.
+  - Added Agents working-folder picker reusing the Ingest dialog, including tests and UI evidence.
+  - Standardized sizing/variant rules across Chat, Agents, LM Studio, and Ingest controls (size="small", contained primaries, outlined secondaries, Stop contained error) with updated tests and screenshots.
+  - Updated design/project structure docs to reflect new UI rules and captured screenshots across tasks.
+- `npm run lint --workspaces` completed with existing server import-order warnings only after subtask 6.
+- `npm run format:check --workspaces` completed successfully after subtask 6.
+- `npm run build --workspace server` completed successfully for Task 8 testing.
+- `npm run build --workspace client` completed successfully for Task 8 testing (chunk size warning only).
+- `npm run test --workspace server` completed successfully for Task 8 testing (extended timeout).
+- `npm run test --workspace client` completed successfully for Task 8 testing (existing experimental VM module warnings only).
+- `npm run e2e` completed successfully for Task 8 testing.
+- `npm run compose:build` completed successfully for Task 8 testing (chunk size warning only).
+- `npm run compose:up` completed successfully for Task 8 testing.
+- Manual Playwright-MCP check completed: verified `DEV-0000028[T8] regression baseline ready`, no console errors, and captured final screenshots for Chat, Agents, Agents popover, Agents folder picker, LM Studio, and Ingest.
+- `npm run compose:down` completed successfully for Task 8 testing.
 
 ---

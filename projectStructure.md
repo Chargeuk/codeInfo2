@@ -1,6 +1,6 @@
 ﻿# Project Structure (full tree)
 
-Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-results`). Keep this in sync whenever files are added/removed/renamed; each line has a brief comment.
+Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep this in sync whenever files are added/removed/renamed; each line has a brief comment.
 
 ```
 .
@@ -227,6 +227,14 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚  â”‚  â””â”€ 0000028-7-lmstudio-sizing.png â€” LM Studio sizing + variant baseline
 â”‚  â”œâ”€ 0000028-agents-chat-gui-consistency.md â€” plan for story 0000028
 â”‚  â””â”€ plan_format.md â€” planning template/instructions
+â”œâ”€ test-results/ â€” test artifacts (screenshots, reports)
+â”‚  â””â”€ screenshots/ â€” manual verification screenshots
+â”‚     â”œâ”€ 0000028-8-agents-final.png â€” Agents layout final check
+â”‚     â”œâ”€ 0000028-8-agents-folder-picker.png â€” Agents folder picker dialog
+â”‚     â”œâ”€ 0000028-8-agents-popover.png â€” Agents info popover
+â”‚     â”œâ”€ 0000028-8-chat-final.png â€” Chat layout final check
+â”‚     â”œâ”€ 0000028-8-ingest-final.png â€” Ingest layout final check
+â”‚     â””â”€ 0000028-8-lmstudio-final.png â€” LM Studio layout final check
 â”œâ”€ server/ â€” Express API
 â”‚  â”œâ”€ .dockerignore â€” server docker build ignores
 â”‚  â”œâ”€ .env â€” server default env (PORT, LMSTUDIO_BASE_URL)

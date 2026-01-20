@@ -1,0 +1,20 @@
+{
+  "description": "Safe echo flow for basic output verification",
+  "steps": [
+    {
+      "type": "llm",
+      "label": "Echo",
+      "agentType": "planning_agent",
+      "identifier": "echo",
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            "Reply with a short greeting and confirm that no tools were used.",
+            "Do not run tools or modify files."
+          ]
+        }
+      ]
+    }
+  ]
+}

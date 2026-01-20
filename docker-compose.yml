@@ -20,6 +20,7 @@ services:
       - CHROMA_URL=http://host.docker.internal:8000
       - CODEINFO_CODEX_HOME=/app/codex
       - CODEINFO_CODEX_AGENT_HOME=/app/codex_agents
+      - FLOWS_DIR=/app/flows-sandbox
       - MCP_PORT=5011 # Codex-only MCP JSON-RPC port
       - AGENTS_MCP_PORT=5012
       - MONGO_URI=mongodb://host.docker.internal:27517/db?directConnection=true
@@ -30,7 +31,7 @@ services:
       - ./codex:${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}
       - ./codex:/app/codex
       - ./codex_agents:/app/codex_agents
-      - ./flows:/app/flows
+      - ./flows-sandbox:/app/flows-sandbox
     depends_on:
       chroma:
         condition: service_started

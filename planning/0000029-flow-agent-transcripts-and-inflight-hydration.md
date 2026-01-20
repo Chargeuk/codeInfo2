@@ -139,10 +139,10 @@ External reference check:
 
 - No new API message contracts or storage schema changes are required for this story.
 - Existing flow/chat/agent contracts already carry the data we need:
-  - Flow run responses already include `conversationId`, `inflightId`, and `modelId`.
-  - Conversations already support `flowName` and `flags.flow` for per-agent mappings.
-  - Turn + inflight records already support `command` metadata (step index/label/agent info) used by flow and agent transcript rendering.
-  - Inflight snapshots already include assistant text/status and optional command metadata in the `/conversations/:id/turns` response.
+  - Conversation storage already supports `flowName`, `agentName`, and `flags.flow` for per-agent mappings (`server/src/mongo/conversation.ts`).
+  - Turn storage already supports `command` metadata (step index/label/agent info), `usage`/`timing`, and tool calls (`server/src/mongo/turn.ts`).
+  - Flow run responses already include `conversationId`, `inflightId`, and `modelId` (`POST /flows/:flowName/run`).
+  - Inflight snapshots already include assistant text/status and optional command metadata in the `/conversations/:id/turns?includeInflight=true` response.
 - The fix should reuse the current contracts and persistence shape by ensuring per-agent flow turns are written and the client hydration logic uses the REST snapshot as the single source of truth.
 
 ---

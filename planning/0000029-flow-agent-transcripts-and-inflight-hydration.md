@@ -214,6 +214,7 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
    - Implementation details:
      - Reuse the existing `persistFlowTurn(...)` helper to write **both** the flow conversation and the per-agent conversation.
      - After the existing flow `userPersisted`/`assistantPersisted` calls, add a second pair of `persistFlowTurn` calls with `conversationId: params.agentConversationId`.
+     - Reuse the same `createdAt` timestamps (`userCreatedAt`, `assistantCreatedAt`) so per-agent ordering matches the flow transcript order.
      - Keep `skipPersistence: true` in `chat.run()` so the agent conversation is **only** persisted via these explicit calls.
      - Preserve existing flow behavior: do not change the merged flow conversation, and do not alter `flags.flow` structure.
      - Reuse the existing `command` metadata payload (no new metadata shaping).
@@ -233,6 +234,7 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
      - Confirm the new per-agent `persistFlowTurn(...)` calls run in memory mode (test mode or Mongo down) and write to `memoryTurns`.
      - Use the existing `recordMemoryTurn(...)` behavior without adding new helper functions.
      - Keep memory conversation metadata aligned with Mongo behavior by relying on `updateMemoryConversationMeta(...)` in the existing helper.
+     - Verify in memory mode that `memoryConversations.get(agentConversationId)?.lastMessageAt` advances for both user and assistant turns.
 
 4. [ ] Add server log line for per-agent persistence:
    - Documentation to read (repeat):
@@ -248,6 +250,7 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
    - Implementation details:
      - Add a log entry `flows.agent.turn_persisted` after each per-agent `persistFlowTurn(...)` call.
      - Include context: `{ flowConversationId, agentConversationId, agentType, identifier, role, turnId }`.
+     - Use the existing `append(...)` logger so the new log line matches other flow log formatting.
 
 5. [ ] Test (integration/server): Per-agent transcript populated (single agent)
    - Documentation to read (repeat):
@@ -261,6 +264,7 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
      - `server/src/test/integration/flows.run.loop.test.ts`
    - Description:
      - Start a flow with a single agent step, read `memoryConversations.get(flowConversationId)?.flags?.flow?.agentConversations`, then assert the mapped agent conversation ID has both a user turn and assistant turn in `memoryTurns`.
+     - Assert counts explicitly (e.g., `userTurns.length === 1`, `assistantTurns.length === 1`) and verify their `content` strings match the flow step instruction/response.
    - Purpose:
      - Confirms per-agent conversations are no longer empty after flow runs.
 
@@ -275,6 +279,7 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
      - `server/src/test/integration/flows.run.loop.test.ts`
    - Description:
      - Run a flow with two different agent identifiers, capture both agent conversation IDs from `flags.flow.agentConversations`, and assert each `memoryTurns` entry only includes the step content for that agent.
+     - Explicitly assert that the “other agent” content is absent from each conversation.
    - Purpose:
      - Ensures turns don’t leak across agents in multi-agent flows.
 
@@ -289,6 +294,7 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
      - `server/src/test/integration/flows.run.loop.test.ts`
    - Description:
      - Run a multi-step flow and assert the main flow conversation `memoryTurns` still includes the full merged transcript, including `turn.command` metadata for flow steps.
+     - Assert the number of flow turns matches the expected steps (user + assistant pairs per step) to prove no turns were dropped.
    - Purpose:
      - Confirms per-agent persistence does not alter the merged flow conversation structure.
 
@@ -442,6 +448,9 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
      - Detection rules:
        - If `data.inflight.assistantText` is non-empty, treat any matching assistant turn as already-present.
        - If `data.inflight.assistantText` is empty, treat any assistant turn with `status` of `failed` or `stopped` and a `createdAt` at/after `data.inflight.startedAt` as already-present.
+     - Matching guidance (for junior devs):
+       - Compare `assistantText` against the persisted assistant `content` using a simple `includes` or `startsWith` check, and only within turns whose `createdAt` is at/after `startedAt`.
+       - Keep logic inline in `fetchSnapshot` to avoid new helpers.
 
 3. [ ] Apply snapshot-first overlay state rules:
    - Documentation to read (repeat):
@@ -456,6 +465,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
    - Implementation details:
      - After fetching `/conversations/:id/turns`, treat the returned `items` as the authoritative turns list.
      - Only keep an overlay inflight assistant bubble when no assistant turn exists for the current inflight run (set `inflight` to `null` when already present).
+     - Explicitly set `setInflight(null)` before `setTurns(...)` when the snapshot already contains an inflight assistant (so the UI never renders a second bubble).
 
 4. [ ] Reset overlay when the inflight run changes:
    - Documentation to read (repeat):
@@ -468,6 +478,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
      - `const inflight = data.inflight ? (...) : null;`
    - Implementation details:
      - When `inflightId` changes between refreshes, clear any prior overlay state before applying the new inflight bubble.
+     - Add a guard so a stale `inflightId` cannot reuse the previous overlay content.
 
 5. [ ] Update hydration de-duplication so empty inflight bubbles do not drop history:
    - Documentation to read (repeat):
@@ -482,6 +493,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
    - Implementation details:
      - In `hydrateHistory`, only treat a `processing` message as a replacement candidate when the existing message content is non-empty.
      - This prevents an empty inflight bubble from matching every assistant message and removing history during hydration.
+     - Ensure the filter path keeps prior assistant messages when `existing.content` is empty and `entry.content` is non-empty.
 
 6. [ ] Add client log line for overlay decisions:
    - Documentation to read (repeat):
@@ -497,6 +509,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
      - Add `log('info', 'DEV-0000029:T2:inflight_overlay_decision', { inflightId, overlayApplied, assistantPresent })` after the snapshot + inflight decision is computed.
      - `overlayApplied` should be `true` only when the UI will render a new inflight bubble.
      - `assistantPresent` should indicate whether a matching assistant turn already exists in the snapshot.
+     - Use the existing `log` instance from `createLogger` to keep log formatting consistent with other chat logs.
 
 7. [ ] Test (unit/client): Snapshot retains assistant history during inflight thinking
    - Documentation to read (repeat):
@@ -509,6 +522,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
      - `client/src/test/useConversationTurns.refresh.test.ts`
    - Description:
      - Mock a snapshot containing prior assistant turns plus an inflight payload with empty assistant text; ensure the assistant history remains in `turns` and only one inflight bubble is shown.
+     - Assert the log line `DEV-0000029:T2:inflight_overlay_decision` includes `overlayApplied: true`.
    - Purpose:
      - Prevents dropping assistant history when inflight output is empty.
 
@@ -523,6 +537,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
      - `client/src/test/useConversationTurns.refresh.test.ts`
    - Description:
      - Mock a snapshot where the inflight assistant turn is already present and ensure the overlay does not add another assistant bubble.
+     - Assert the log line `DEV-0000029:T2:inflight_overlay_decision` includes `overlayApplied: false`.
    - Purpose:
      - Ensures the snapshot remains the single source of truth when assistant text exists.
 
@@ -537,6 +552,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
      - `client/src/test/useConversationTurns.refresh.test.ts`
    - Description:
      - Mock `data.inflight.assistantText` as empty and include an assistant turn with `status: 'failed'` (or `stopped`) and `createdAt` >= `data.inflight.startedAt`, then assert the overlay is cleared (no extra inflight bubble).
+     - Assert the log line `DEV-0000029:T2:inflight_overlay_decision` includes `overlayApplied: false`.
    - Purpose:
      - Confirms the corner case where inflight finalization is already in the snapshot.
 
@@ -549,8 +565,9 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
       - `client/src/test/useConversationTurns.refresh.test.ts`
     - Files to edit:
       - `client/src/test/useConversationTurns.refresh.test.ts`
-    - Description:
-      - Mock an inflight payload with empty `assistantText` and ensure no assistant turns exist at/after `startedAt`; assert the overlay inflight bubble remains present.
+   - Description:
+     - Mock an inflight payload with empty `assistantText` and ensure no assistant turns exist at/after `startedAt`; assert the overlay inflight bubble remains present.
+     - Assert the log line `DEV-0000029:T2:inflight_overlay_decision` includes `overlayApplied: true`.
     - Purpose:
       - Validates the happy-path overlay behavior for thinking-only inflight runs.
 
@@ -563,8 +580,9 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
       - `client/src/test/useConversationTurns.refresh.test.ts`
     - Files to edit:
       - `client/src/test/useConversationTurns.refresh.test.ts`
-    - Description:
+   - Description:
       - Mock an inflight payload with non-empty `assistantText` while the snapshot `items` contains no matching assistant turn; assert the overlay inflight bubble remains present.
+      - Assert the log line `DEV-0000029:T2:inflight_overlay_decision` includes `overlayApplied: true`.
     - Purpose:
       - Covers the common in-progress case where the inflight assistant text exists but has not been persisted yet.
 
@@ -579,6 +597,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
       - `client/src/test/useConversationTurns.refresh.test.ts`
     - Description:
       - Simulate two refreshes with different `inflightId` values and assert the overlay state is replaced, not stacked.
+      - Assert the old inflight bubble content is not present after the second refresh.
     - Purpose:
       - Prevents multiple inflight bubbles when a new run starts.
 
@@ -591,8 +610,9 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
       - `client/src/test/chatPage.inflightSnapshotRefreshMerge.test.tsx`
    - Files to edit:
      - `client/src/test/chatPage.inflightSnapshotRefreshMerge.test.tsx` (extend existing inflight snapshot merge suite)
-   - Description:
-     - Seed `useChatStream` with an empty processing assistant bubble, hydrate history with multiple assistant turns, and assert all assistant turns remain.
+    - Description:
+      - Seed `useChatStream` with an empty processing assistant bubble, hydrate history with multiple assistant turns, and assert all assistant turns remain.
+      - Assert the assistant count equals the persisted history count (no drops) after hydration.
    - Purpose:
      - Proves the de-duplication fix prevents history loss when inflight content is empty.
 
@@ -608,6 +628,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
       - `server/src/test/integration/conversations.turns.test.ts`
     - Description:
       - Create an inflight run without assistant deltas, call `markInflightFinal` with `status: 'failed'` (or `stopped`), then GET `/conversations/:id/turns` and assert an assistant turn is present with empty content and matching status.
+      - Use the existing inflight-only snapshot test as a template and reuse its cleanup pattern.
     - Purpose:
       - Confirms server snapshots always expose final inflight assistant turns for hydration edge cases.
 

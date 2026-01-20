@@ -190,7 +190,7 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
 
 #### Subtasks
 
-1. [x] Review current flow persistence + agent conversation mapping:
+1. [x] Review flow persistence path (flow conversation):
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
    - Files to read:
@@ -198,16 +198,26 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
      - `server/src/flows/flowState.ts`
      - `server/src/flows/types.ts`
      - `server/src/chat/interfaces/ChatInterface.ts`
-     - `server/src/chat/inflightRegistry.ts`
-     - `server/src/mongo/repo.ts`
    - Snippet to locate (flow persistence path):
-     - `ensureFlowAgentConversation`, `runFlowUnlocked`, `runFlowInstruction`
+     - `ensureFlowConversation`, `runFlowUnlocked`, `runFlowInstruction`
      - `skipPersistence: true` in flow execution paths
    - Story requirements to repeat here so they are not missed:
-     - Per-agent flow conversations must contain user + assistant turns for their steps.
      - The flow conversation remains the merged transcript and keeps command metadata.
 
-2. [x] Persist per-agent flow turns in Mongo-backed storage:
+2. [x] Review agent conversation mapping + resume state:
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+   - Files to read:
+     - `server/src/flows/service.ts`
+     - `server/src/flows/flowState.ts`
+     - `server/src/chat/inflightRegistry.ts`
+     - `server/src/mongo/repo.ts`
+   - Snippet to locate (agent conversation mapping):
+     - `ensureFlowAgentConversation`, `agentConversationState`, `persistFlowResumeState`
+   - Story requirements to repeat here so they are not missed:
+     - Per-agent flow conversations must contain user + assistant turns for their steps.
+
+3. [x] Persist per-agent flow turns in Mongo-backed storage:
    - Documentation to read (repeat):
      - Express routing: Context7 `/expressjs/express/v5.1.0`
    - Files to read:
@@ -229,7 +239,7 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
      - Reuse the existing `command` metadata payload (no new metadata shaping).
      - Do **not** call `markInflightPersisted` for the agent conversation (inflight tracking stays on the flow conversation only).
 
-3. [x] Mirror per-agent flow persistence for memory fallback:
+4. [x] Mirror per-agent flow persistence for memory fallback:
    - Documentation to read (repeat):
      - Express routing: Context7 `/expressjs/express/v5.1.0`
    - Files to read:
@@ -245,7 +255,7 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
      - Keep memory conversation metadata aligned with Mongo behavior by relying on `updateMemoryConversationMeta(...)` in the existing helper.
      - Verify in memory mode that `memoryConversations.get(agentConversationId)?.lastMessageAt` advances for both user and assistant turns.
 
-4. [x] Align existing per-agent persistence log line:
+5. [x] Align existing per-agent persistence log line:
    - Documentation to read (repeat):
      - Express routing: Context7 `/expressjs/express/v5.1.0`
    - Files to read:
@@ -258,7 +268,7 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
      - Ensure the existing `flows.agent.turn_persisted` log line includes context: `{ flowConversationId, agentConversationId, agentType, identifier, role, turnId }`.
      - Keep logging consistent with the flow logger already used in `flows/service.ts` (do not introduce a second logger).
 
-5. [x] Test (integration/server): Per-agent transcript populated (single agent)
+6. [x] Test (integration/server): Per-agent transcript populated (single agent)
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
    - Test type:
@@ -274,7 +284,7 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
    - Purpose:
      - Confirms per-agent conversations are no longer empty after flow runs.
 
-6. [x] Test (integration/server): Multi-agent isolation
+7. [x] Test (integration/server): Multi-agent isolation
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
    - Test type:
@@ -289,7 +299,7 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
    - Purpose:
      - Ensures turns don’t leak across agents in multi-agent flows.
 
-7. [x] Test (integration/server): Flow conversation remains merged
+8. [x] Test (integration/server): Flow conversation remains merged
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
    - Test type:
@@ -304,7 +314,7 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
    - Purpose:
      - Confirms per-agent persistence does not alter the merged flow conversation structure.
 
-8. [x] Test (integration/server): Failed flow step persists to agent conversation
+9. [x] Test (integration/server): Failed flow step persists to agent conversation
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
    - Test type:
@@ -318,7 +328,7 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
    - Purpose:
      - Ensures error cases still persist per-agent turns for debugging.
 
-9. [x] Documentation update: `design.md` (mermaid diagram)
+10. [x] Documentation update: `design.md` (mermaid diagram)
    - Documentation to read (repeat):
      - Mermaid: Context7 `/mermaid-js/mermaid`
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -327,7 +337,7 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
    - Description:
      - Add a short section describing per-agent flow transcript persistence and include a Mermaid sequence diagram showing flow steps writing to both flow and agent conversations.
 
-10. [x] Documentation update: `projectStructure.md` (after new files are added)
+11. [x] Documentation update: `projectStructure.md` (after new files are added)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location:
@@ -337,7 +347,7 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
        - `planning/0000029-flow-agent-transcripts-and-inflight-hydration-data/0000029-1-agent-transcripts.png`
        - `planning/0000029-flow-agent-transcripts-and-inflight-hydration-data/0000029-1-flow-transcript.png`
 
-11. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+12. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI/options: https://prettier.io/docs/options
@@ -442,24 +452,34 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
 
 #### Subtasks
 
-1. [ ] Review current hydration logic in the shared hook:
+1. [ ] Review REST snapshot hydration (useConversationTurns):
    - Documentation to read (repeat):
      - React hooks guidance: Context7 `/websites/react_dev`
    - Files to read:
      - `client/src/hooks/useConversationTurns.ts`
-     - `client/src/hooks/useChatStream.ts`
      - `client/src/test/useConversationTurns.refresh.test.ts`
      - `client/src/test/useConversationTurns.commandMetadata.test.ts`
-     - `client/src/test/chatPage.inflightSnapshotRefreshMerge.test.tsx`
    - Snippet to locate (snapshot + inflight state):
-   - `fetchSnapshot(...)`, `setTurns(...)`, and `setInflight(...)` in the refresh path
-   - `hydrateHistory(...)` merge logic in `useChatStream`
-   - `hydrateInflightSnapshot(...)` + `ensureAssistantMessage(...)` in `useChatStream` (existing inflight overlay path)
-   - `/conversations/:id/turns` fetch URL (no `includeInflight` query param; inflight snapshot is always included server-side)
+     - `fetchSnapshot(...)`, `setTurns(...)`, and `setInflight(...)` in the refresh path
+     - `/conversations/:id/turns` fetch URL (no `includeInflight` query param; inflight snapshot is always included server-side)
    - Story requirements to repeat here so they are not missed:
      - REST snapshot is always the base transcript state.
      - Overlay only one inflight assistant bubble if snapshot lacks inflight assistant output.
      - No duplicate assistant bubbles when snapshot already includes inflight assistant text/final state.
+
+2. [ ] Review streaming hydration + inflight overlay (useChatStream):
+   - Documentation to read (repeat):
+     - React hooks guidance: Context7 `/websites/react_dev`
+   - Files to read:
+     - `client/src/hooks/useChatStream.ts`
+     - `client/src/test/chatPage.inflightSnapshotRefreshMerge.test.tsx`
+   - Snippet to locate (overlay + dedupe):
+     - `hydrateHistory(...)` merge logic
+     - `hydrateInflightSnapshot(...)` + `ensureAssistantMessage(...)` (existing inflight overlay path)
+     - `HYDRATION_DEDUPE_WINDOW_MS` (existing dedupe window constant)
+   - Story requirements to repeat here so they are not missed:
+     - Hydration must not drop prior assistant history when inflight content is empty.
+     - Only one inflight assistant bubble should exist per inflight run.
 
 2. [ ] Add snapshot inflight-assistant detection logic:
    - Documentation to read (repeat):
@@ -469,17 +489,23 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
    - Files to edit:
      - `client/src/hooks/useConversationTurns.ts`
    - Snippet to locate (inflight payload):
-     - `type InflightSnapshot` (fields: `assistantText`, `startedAt`, `inflightId`)
-     - `const inflight = data.inflight ? (...) : null;`
+      - `type InflightSnapshot` (fields: `assistantText`, `startedAt`, `inflightId`)
+      - `const inflight = data.inflight ? (...) : null;`
+      - `const data = (await res.json()) as ApiResponse;` and `const hydrated = items.map(...)`
    - Implementation details:
-     - Reuse the existing `data.inflight` snapshot fields (`assistantText`, `startedAt`) and the hydrated turn list to determine if an inflight assistant turn already exists.
-     - Treat the snapshot as authoritative; detection must not introduce new helper utilities unless necessary.
-     - Detection rules:
-       - Treat any assistant turn with `createdAt` at/after `data.inflight.startedAt` as already-present (regardless of status).
-       - Do not perform string matching on `assistantText`; the timestamp check is sufficient and simpler.
+      - Reuse the existing `data.inflight` snapshot fields (`assistantText`, `startedAt`) and the hydrated turn list to determine if an inflight assistant turn already exists.
+      - Treat the snapshot as authoritative; detection must not introduce new helper utilities unless necessary.
+      - Detection rules:
+        - Treat any assistant turn with `createdAt` at/after `data.inflight.startedAt` as already-present (regardless of status).
+        - Do not perform string matching on `assistantText`; the timestamp check is sufficient and simpler.
      - Matching guidance (for junior devs):
        - Use only `createdAt >= startedAt` on assistant-role turns to detect the inflight assistant.
        - Keep logic inline in `fetchSnapshot` to avoid new helpers.
+     - Example shape (adapt to existing variables):
+       - `const startedAtMs = Date.parse(inflight.startedAt);`
+       - `const assistantPresent = hydrated.some(turn => turn.role === 'assistant' && Date.parse(turn.createdAt) >= startedAtMs);`
+     - Reminder from acceptance criteria:
+       - If an assistant turn already exists, the UI must **not** add a second inflight bubble.
 
 3. [ ] Apply snapshot-first overlay state rules:
    - Documentation to read (repeat):
@@ -496,6 +522,10 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
      - Do **not** add an `includeInflight` query param; the server already attaches inflight data by default.
      - Only keep an overlay inflight assistant bubble when no assistant turn exists for the current inflight run (set `inflight` to `null` when already present).
      - Explicitly set `setInflight(null)` before `setTurns(...)` when the snapshot already contains an inflight assistant (so the UI never renders a second bubble).
+     - Example ordering (adapt to existing names):
+       - `const nextInflight = assistantPresent ? null : inflight;`
+       - `setInflight(nextInflight);`
+       - `setTurns(dedupeTurns(chronological));`
 
 4. [ ] Reset overlay when the inflight run changes:
    - Documentation to read (repeat):
@@ -509,6 +539,9 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
    - Implementation details:
      - When `inflightId` changes between refreshes, clear any prior overlay state before applying the new inflight bubble.
      - Add a guard so a stale `inflightId` cannot reuse the previous overlay content.
+     - Example guard (adapt to existing state):
+       - Store the previous `inflightId` in a `useRef` or local variable scoped to `fetchSnapshot`.
+       - If `prevInflightId !== inflight.inflightId`, set `setInflight(null)` before applying the new inflight snapshot.
 
 5. [ ] Update hydration de-duplication so empty inflight bubbles do not drop history:
    - Documentation to read (repeat):
@@ -526,6 +559,8 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
      - In `hydrateHistory`, only treat a `processing` message as a replacement candidate when the existing message content is non-empty.
      - This prevents an empty inflight bubble from matching every assistant message and removing history during hydration.
      - Ensure the filter path keeps prior assistant messages when `existing.content` is empty and `entry.content` is non-empty.
+     - Example check (adapt to existing code):
+       - `if (match.streamStatus === 'processing' && !match.content?.trim()) return false;`
 
 6. [ ] Add client log line for overlay decisions:
    - Documentation to read (repeat):
@@ -542,6 +577,8 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
      - `overlayApplied` should be `true` only when the UI will render a new inflight bubble.
      - `assistantPresent` should indicate whether a matching assistant turn already exists in the snapshot.
      - Use the existing `log` instance from `createLogger` to keep log formatting consistent with other chat logs.
+     - Reminder from acceptance criteria:
+       - Manual checks will look for both `overlayApplied: true` and `overlayApplied: false` at different stages of a run.
 
 7. [ ] Test (unit/client): Snapshot retains assistant history during inflight thinking
    - Documentation to read (repeat):

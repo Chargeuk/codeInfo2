@@ -912,5 +912,6 @@ Validate the full story requirements end-to-end and capture final evidence, incl
 - Format: `npm run format:check --workspaces`.
 - Summary: flow steps now persist per-agent transcripts alongside the flow transcript; inflight snapshot hydration is snapshot-first with a single overlay bubble; added client/server tests plus documentation + screenshots for validation.
 - PR comment draft: Verified flow agent transcript persistence and inflight hydration behavior; updated snapshot overlay logic/tests, added server inflight-final coverage, and captured manual screenshots for chat/flows/agents alongside build/test regressions.
+- `git push` failed due to missing GitHub credentials in the environment.
 
 ---

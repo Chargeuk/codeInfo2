@@ -84,12 +84,14 @@ Scope assessment:
 - The scope will stay tight if changes are limited to:
   - Server flow execution/persistence (flow + per-agent conversations).
   - Client hydration logic in the existing turns hook used by Chat/Agents/Flows.
+- Improvement suggestion (scope guardrails): explicitly validate at least one multi-agent flow run to confirm per-agent transcripts do not leak across agents, and verify a second-window inflight hydration check on each page that uses `useConversationTurns` (Chat/Agents/Flows).
 
 Research findings (codebase):
 
 - Flow conversations and per-agent flow conversations are created in `server/src/flows/service.ts` via `ensureFlowConversation` and `ensureFlowAgentConversation`, but flow execution currently sets `skipPersistence`, so agent conversations never receive their turns.
-- Turn persistence itself is handled in `server/src/chat/interfaces/ChatInterface.ts` (Mongo + memory fallback), so the flow runner needs to route agent turns through that path if we want the per-agent transcript stored.
-- Inflight snapshots are produced by `server/src/chat/inflightRegistry.ts` (`snapshotInflightTurns`) and merged into `GET /conversations/:id/turns` responses.
+- Turn persistence is centralized in `server/src/chat/interfaces/ChatInterface.ts` (Mongo + memory fallback); `server/src/chat/memoryPersistence.ts` holds the in-memory stores used when Mongo is unavailable.
+- Inflight snapshots are produced by `server/src/chat/inflightRegistry.ts` (`snapshotInflightTurns`) and merged into `GET /conversations/:id/turns` responses; ordering + dedupe are covered by `server/src/test/integration/conversations.turns.test.ts`.
+- Flow run persistence/resume behavior is already covered by `server/src/test/integration/flows.run.resume.test.ts`, while flow run error/lock cases are covered by `server/src/test/integration/flows.run.errors.test.ts`.
 - The client merge path is split between `client/src/hooks/useConversationTurns.ts` (REST snapshot + inflight state) and `client/src/hooks/useChatStream.ts` (hydration/stream merge); Chat, Agents, and Flows all import `useConversationTurns` (verified in `client/src/pages/ChatPage.tsx`, `AgentsPage.tsx`, and `FlowsPage.tsx`).
 
 Tests/fixtures likely impacted:
@@ -105,7 +107,7 @@ Unknowns resolved:
 
 External reference check:
 
-- React state guidance emphasizes avoiding redundant/duplicate state and using a single source of truth for derived UI; this aligns with using the REST snapshot as the base transcript state.
+- React state guidance emphasizes avoiding redundant/duplicate state and using a single source of truth for derived UI (React “Choosing the State Structure” and “You Might Not Need an Effect” docs); this aligns with using the REST snapshot as the base transcript state and avoiding duplicate in-flight state in the UI.
 
 ---
 

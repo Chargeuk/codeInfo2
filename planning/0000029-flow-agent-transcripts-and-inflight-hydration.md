@@ -162,8 +162,8 @@ External reference check:
 
 ### 1. Server: Persist per-agent flow transcripts
 
-- Task Status: **__done__**
-- Git Commits: 7c87179
+- Task Status: **__in_progress__**
+- Git Commits: **__to_do__**
 
 #### Overview
 

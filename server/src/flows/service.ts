@@ -477,10 +477,56 @@ async function persistFlowTurn(params: {
   return turnId?.length ? { turnId } : {};
 }
 
+const logAgentTurnPersisted = (params: {
+  flowConversationId: string;
+  agentConversationId: string;
+  agentType: string;
+  identifier: string;
+  role: 'user' | 'assistant';
+  turnId?: string;
+}) => {
+  const timestamp = new Date().toISOString();
+  append({
+    level: 'info',
+    message: 'flows.agent.turn_persisted',
+    timestamp,
+    source: 'server',
+    context: {
+      flowConversationId: params.flowConversationId,
+      agentConversationId: params.agentConversationId,
+      agentType: params.agentType,
+      identifier: params.identifier,
+      role: params.role,
+      turnId: params.turnId,
+    },
+  });
+  baseLogger.info(
+    {
+      flowConversationId: params.flowConversationId,
+      agentConversationId: params.agentConversationId,
+      agentType: params.agentType,
+      identifier: params.identifier,
+      role: params.role,
+      turnId: params.turnId,
+    },
+    'flows.agent.turn_persisted',
+  );
+  console.log('flows.agent.turn_persisted', {
+    flowConversationId: params.flowConversationId,
+    agentConversationId: params.agentConversationId,
+    agentType: params.agentType,
+    identifier: params.identifier,
+    role: params.role,
+    turnId: params.turnId,
+  });
+};
+
 const runFlowInstruction = async (params: {
   flowConversationId: string;
   inflightId: string;
   instruction: string;
+  agentType: string;
+  identifier: string;
   agentConversationId: string;
   agentHome: string;
   modelId: string;
@@ -675,6 +721,50 @@ const runFlowInstruction = async (params: {
     usage: result.usage,
     timing: result.timing,
     createdAt: assistantCreatedAt,
+  });
+
+  const agentUserPersisted = await persistFlowTurn({
+    conversationId: params.agentConversationId,
+    role: 'user',
+    content: params.instruction,
+    model: params.modelId,
+    provider: 'codex',
+    source: params.source,
+    status: 'ok',
+    toolCalls: null,
+    command: params.command,
+    createdAt: userCreatedAt,
+  });
+  logAgentTurnPersisted({
+    flowConversationId: params.flowConversationId,
+    agentConversationId: params.agentConversationId,
+    agentType: params.agentType,
+    identifier: params.identifier,
+    role: 'user',
+    turnId: agentUserPersisted.turnId,
+  });
+
+  const agentAssistantPersisted = await persistFlowTurn({
+    conversationId: params.agentConversationId,
+    role: 'assistant',
+    content: result.content,
+    model: params.modelId,
+    provider: 'codex',
+    source: params.source,
+    status: result.status,
+    toolCalls,
+    command: params.command,
+    usage: result.usage,
+    timing: result.timing,
+    createdAt: assistantCreatedAt,
+  });
+  logAgentTurnPersisted({
+    flowConversationId: params.flowConversationId,
+    agentConversationId: params.agentConversationId,
+    agentType: params.agentType,
+    identifier: params.identifier,
+    role: 'assistant',
+    turnId: agentAssistantPersisted.turnId,
   });
 
   markInflightPersisted({
@@ -1134,6 +1224,8 @@ async function runFlowUnlocked(params: {
       flowConversationId: params.conversationId,
       inflightId: stepInflightId,
       instruction: instructionParams.instruction,
+      agentType: instructionParams.agentType,
+      identifier: instructionParams.identifier,
       agentConversationId: agentState.conversationId,
       agentHome: agent.home,
       modelId,

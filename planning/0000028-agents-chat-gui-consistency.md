@@ -944,7 +944,7 @@ Ensure the Send/Stop action slot keeps a stable width so the row does not shift 
 ### 5. Client: Agents working-folder picker reuse
 
 - Task Status: **__done__**
-- Git Commits: **__to_do__**
+- Git Commits: **e098241**
 
 #### Overview
 

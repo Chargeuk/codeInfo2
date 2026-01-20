@@ -1606,8 +1606,8 @@ Standardize sizing and button variants across LM Studio and Ingest so controls u
 
 ### 8. Final: Verify acceptance criteria + full regression
 
-- Task Status: **__in_progress__**
-- Git Commits: **__to_do__**
+- Task Status: **__done__**
+- Git Commits: 9336a1b
 
 #### Overview
 
@@ -1763,5 +1763,6 @@ Validate the full story requirements end-to-end and capture final evidence, incl
 - `npm run compose:up` completed successfully for Task 8 testing.
 - Manual Playwright-MCP check completed: verified `DEV-0000028[T8] regression baseline ready`, no console errors, and captured final screenshots for Chat, Agents, Agents popover, Agents folder picker, LM Studio, and Ingest.
 - `npm run compose:down` completed successfully for Task 8 testing.
+- Push attempt after Task 8 implementation commit failed due to missing GitHub credentials.
 
 ---

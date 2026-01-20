@@ -475,10 +475,10 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
      - Reuse the existing `data.inflight` snapshot fields (`assistantText`, `startedAt`) and the hydrated turn list to determine if an inflight assistant turn already exists.
      - Treat the snapshot as authoritative; detection must not introduce new helper utilities unless necessary.
      - Detection rules:
-       - If `data.inflight.assistantText` is non-empty, treat any matching assistant turn as already-present.
-     - If `data.inflight.assistantText` is empty, treat any assistant turn with `status` of `ok`, `failed`, or `stopped` and a `createdAt` at/after `data.inflight.startedAt` as already-present.
+       - Treat any assistant turn with `createdAt` at/after `data.inflight.startedAt` as already-present (regardless of status).
+       - Do not perform string matching on `assistantText`; the timestamp check is sufficient and simpler.
      - Matching guidance (for junior devs):
-       - Compare `assistantText` against the persisted assistant `content` using a simple `includes` or `startsWith` check, and only within turns whose `createdAt` is at/after `startedAt`.
+       - Use only `createdAt >= startedAt` on assistant-role turns to detect the inflight assistant.
        - Keep logic inline in `fetchSnapshot` to avoid new helpers.
 
 3. [ ] Apply snapshot-first overlay state rules:
@@ -519,8 +519,10 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
      - `client/src/hooks/useChatStream.ts`
    - Snippet to locate (dedupe window):
      - `normalizeMessageContent(...)` in `hydrateHistory`
+     - `HYDRATION_DEDUPE_WINDOW_MS` (existing dedupe window constant)
      - `if (match.streamStatus === 'processing') { ... }`
    - Implementation details:
+     - Reuse `hydrateHistory` and `HYDRATION_DEDUPE_WINDOW_MS`; do not introduce a new dedupe helper or constant.
      - In `hydrateHistory`, only treat a `processing` message as a replacement candidate when the existing message content is non-empty.
      - This prevents an empty inflight bubble from matching every assistant message and removing history during hydration.
      - Ensure the filter path keeps prior assistant messages when `existing.content` is empty and `entry.content` is non-empty.
@@ -571,7 +573,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
    - Purpose:
      - Ensures the snapshot remains the single source of truth when assistant text exists.
 
-9. [ ] Test (unit/client): No overlay when snapshot has failed/stopped inflight assistant
+9. [ ] Test (unit/client): No overlay when snapshot has finalized inflight assistant (empty text)
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Test type:
@@ -581,27 +583,12 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
    - Files to edit:
      - `client/src/test/useConversationTurns.refresh.test.ts`
    - Description:
-     - Mock `data.inflight.assistantText` as empty and include an assistant turn with `status: 'failed'` (or `stopped`) and `createdAt` >= `data.inflight.startedAt`, then assert the overlay is cleared (no extra inflight bubble).
+     - Mock `data.inflight.assistantText` as empty and include an assistant turn with `createdAt` >= `data.inflight.startedAt` (status can be `ok`, `failed`, or `stopped`), then assert the overlay is cleared (no extra inflight bubble).
      - Assert the log line `DEV-0000029:T2:inflight_overlay_decision` includes `overlayApplied: false`.
    - Purpose:
      - Confirms the corner case where inflight finalization is already in the snapshot.
 
-10. [ ] Test (unit/client): No overlay when snapshot has ok final assistant with empty text
-    - Documentation to read (repeat):
-      - Jest: Context7 `/jestjs/jest`
-    - Test type:
-      - Unit test (client)
-    - Files to read:
-      - `client/src/test/useConversationTurns.refresh.test.ts`
-    - Files to edit:
-      - `client/src/test/useConversationTurns.refresh.test.ts`
-    - Description:
-      - Mock `data.inflight.assistantText` as empty and include an assistant turn with `status: 'ok'` and `createdAt` >= `data.inflight.startedAt`, then assert the overlay is cleared (no extra inflight bubble).
-      - Assert the log line `DEV-0000029:T2:inflight_overlay_decision` includes `overlayApplied: false`.
-    - Purpose:
-      - Covers the finalized-success edge case when assistant content is empty.
-
-11. [ ] Test (unit/client): Overlay appears when snapshot has no inflight assistant
+10. [ ] Test (unit/client): Overlay appears when snapshot has no inflight assistant
     - Documentation to read (repeat):
       - Jest: Context7 `/jestjs/jest`
     - Test type:
@@ -616,7 +603,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
     - Purpose:
       - Validates the happy-path overlay behavior for thinking-only inflight runs.
 
-12. [ ] Test (unit/client): Inflight ID change resets overlay
+11. [ ] Test (unit/client): Inflight ID change resets overlay
     - Documentation to read (repeat):
       - Jest: Context7 `/jestjs/jest`
     - Test type:
@@ -631,7 +618,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
     - Purpose:
       - Prevents multiple inflight bubbles when a new run starts.
 
-13. [ ] Test (unit/client): Hydration keeps assistant history when inflight bubble is empty
+12. [ ] Test (unit/client): Hydration keeps assistant history when inflight bubble is empty
     - Documentation to read (repeat):
       - Jest: Context7 `/jestjs/jest`
     - Test type:
@@ -646,7 +633,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
    - Purpose:
      - Proves the de-duplication fix prevents history loss when inflight content is empty.
 
-14. [ ] Test (integration/server): Inflight final status yields assistant turn even with empty assistantText
+13. [ ] Test (integration/server): Inflight final status yields assistant turn even with empty assistantText
     - Documentation to read (repeat):
       - Node.js test runner: https://nodejs.org/api/test.html
     - Test type:
@@ -662,7 +649,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
     - Purpose:
       - Confirms server snapshots always expose final inflight assistant turns for hydration edge cases.
 
-15. [ ] Documentation update: `design.md` (mermaid diagram)
+14. [ ] Documentation update: `design.md` (mermaid diagram)
    - Documentation to read (repeat):
      - Mermaid: Context7 `/mermaid-js/mermaid`
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -671,7 +658,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
    - Description:
      - Add a Mermaid sequence diagram showing snapshot-first hydration with a conditional inflight overlay.
 
-16. [ ] Documentation update: `projectStructure.md` (after new files are added)
+15. [ ] Documentation update: `projectStructure.md` (after new files are added)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location:
@@ -680,7 +667,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
      - Update the repo tree to include (after the manual Playwright screenshot is captured in Testing step 8):
        - `planning/0000029-flow-agent-transcripts-and-inflight-hydration-data/0000029-2-inflight-hydration.png`
 
-17. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+16. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI/options: https://prettier.io/docs/options

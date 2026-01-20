@@ -213,16 +213,7 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
      - Ensure the memory persistence path records per-agent user + assistant turns for flow steps.
      - Keep memory conversation metadata in sync with Mongo behavior (title, lastMessageAt, provider/model fields).
 
-4. [ ] Copy flow command metadata to per-agent turns:
-   - Documentation to read (repeat):
-     - Express routing: Context7 `/expressjs/express/v5.1.0`
-   - Files to edit:
-     - `server/src/flows/service.ts`
-   - Implementation details:
-     - When flow steps include `turn.command`, copy the same metadata into the per-agent turns so transcript context is preserved.
-     - Preserve the existing flow conversation metadata behavior.
-
-5. [ ] Test (integration/server): Per-agent transcript populated (single agent)
+4. [ ] Test (integration/server): Per-agent transcript populated (single agent)
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
    - Location:
@@ -232,7 +223,7 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
    - Purpose:
      - Confirms per-agent conversations are no longer empty after flow runs.
 
-6. [ ] Test (integration/server): Multi-agent isolation
+5. [ ] Test (integration/server): Multi-agent isolation
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
    - Location:
@@ -242,7 +233,7 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
    - Purpose:
      - Ensures turns don’t leak across agents in multi-agent flows.
 
-7. [ ] Test (integration/server): Flow conversation remains merged
+6. [ ] Test (integration/server): Flow conversation remains merged
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
    - Location:
@@ -252,7 +243,7 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
    - Purpose:
      - Confirms per-agent persistence does not alter the merged flow conversation structure.
 
-8. [ ] Capture UI screenshots (required for this task):
+7. [ ] Capture UI screenshots (required for this task):
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
    - Files to add:
@@ -265,7 +256,7 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
      - Provides visual evidence the agent transcript is now populated.
      - Confirms the flow transcript remains intact in the Flows UI.
 
-9. [ ] Documentation update: `design.md` (mermaid diagram)
+8. [ ] Documentation update: `design.md` (mermaid diagram)
    - Documentation to read (repeat):
      - Mermaid: Context7 `/mermaid-js/mermaid`
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -274,7 +265,7 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
    - Description:
      - Add a short section describing per-agent flow transcript persistence and include a Mermaid sequence diagram showing flow steps writing to both flow and agent conversations.
 
-10. [ ] Documentation update: `projectStructure.md` (after new files are added)
+9. [ ] Documentation update: `projectStructure.md` (after new files are added)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location:
@@ -284,7 +275,7 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
        - `planning/0000029-flow-agent-transcripts-and-inflight-hydration-data/0000029-1-agent-transcripts.png`
        - `planning/0000029-flow-agent-transcripts-and-inflight-hydration-data/0000029-1-flow-transcript.png`
 
-11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI/options: https://prettier.io/docs/options

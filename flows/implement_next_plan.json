@@ -46,7 +46,7 @@
                                 {
                                     "role": "user",
                                     "content": [
-                                        "Please explain the gotchas a developer would need to watch out for while implementing the next task given all the information within the Description, it's subsections, the AC & Out of scope. Also take into account the implementation information of any previous tasks. If you had asked for clarification about a blocker then ensure you re-read the task as it will have answers for you to proceed within the implementation notes of this task."
+                                        "Please explain the gotchas a developer would need to watch out for while implementing the next task given all the information within the Description, it's subsections, the AC & Out of scope. Also take into account the implementation information of any previous tasks. If you had asked for clarification about a blocker then ensure you re-read the task as it will have answers for you to proceed within the implementation notes of this task. No matter what, even if you think you know what is in the plan you must re-read at least the next task as it is possible changes have been made since you last read it."
                                     ]
                                 }
                             ]

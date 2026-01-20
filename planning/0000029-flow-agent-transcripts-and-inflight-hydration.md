@@ -582,7 +582,22 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
    - Purpose:
      - Proves the de-duplication fix prevents history loss when inflight content is empty.
 
-13. [ ] Documentation update: `design.md` (mermaid diagram)
+13. [ ] Test (integration/server): Inflight final status yields assistant turn even with empty assistantText
+    - Documentation to read (repeat):
+      - Node.js test runner: https://nodejs.org/api/test.html
+    - Test type:
+      - Integration test (server)
+    - Files to read:
+      - `server/src/test/integration/conversations.turns.test.ts`
+      - `server/src/chat/inflightRegistry.ts` (for `markInflightFinal` + `snapshotInflightTurns` behavior)
+    - Files to edit:
+      - `server/src/test/integration/conversations.turns.test.ts`
+    - Description:
+      - Create an inflight run without assistant deltas, call `markInflightFinal` with `status: 'failed'` (or `stopped`), then GET `/conversations/:id/turns` and assert an assistant turn is present with empty content and matching status.
+    - Purpose:
+      - Confirms server snapshots always expose final inflight assistant turns for hydration edge cases.
+
+14. [ ] Documentation update: `design.md` (mermaid diagram)
    - Documentation to read (repeat):
      - Mermaid: Context7 `/mermaid-js/mermaid`
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -591,7 +606,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
    - Description:
      - Add a Mermaid sequence diagram showing snapshot-first hydration with a conditional inflight overlay.
 
-14. [ ] Documentation update: `projectStructure.md` (after new files are added)
+15. [ ] Documentation update: `projectStructure.md` (after new files are added)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location:
@@ -600,7 +615,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
      - Update the repo tree to include (after the manual Playwright screenshot is captured in Testing step 8):
        - `planning/0000029-flow-agent-transcripts-and-inflight-hydration-data/0000029-2-inflight-hydration.png`
 
-15. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+16. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI/options: https://prettier.io/docs/options

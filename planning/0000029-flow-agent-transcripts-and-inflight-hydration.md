@@ -107,6 +107,26 @@ External reference check:
 
 ---
 
+## Implementation Ideas
+
+- **Server: persist per-agent flow turns**
+  - Update flow execution in `server/src/flows/service.ts` so each agent conversation created for a flow receives user/assistant turns during flow runs (not just the flow conversation). Ensure `flags.flow.agentConversations` remains the mapping source of truth.
+  - Confirm `ensureFlowAgentConversation` is used for each agent step and the agent conversation is updated when a step completes.
+
+- **Server: inflight snapshot correctness**
+  - Review inflight snapshot generation in `server/src/chat/inflightRegistry.ts` and the merge in `server/src/routes/conversations.ts` so snapshots include the latest inflight state and do not drop persisted assistant turns.
+  - Add/adjust tests in `server/src/test/integration/conversations.turns.test.ts` and flow integration tests (`flows.run.basic`, `flows.run.resume`) to cover per-agent turns plus inflight snapshots.
+
+- **Client: useConversationTurns hydration**
+  - Update `client/src/hooks/useConversationTurns.ts` to treat the REST snapshot as the base transcript each time it hydrates, then overlay only one inflight assistant bubble when the snapshot does **not** include an assistant turn for the inflight run.
+  - Ensure the overlay resets when `inflightId` changes; avoid duplicate assistant bubbles when the snapshot already contains assistant text or a finalized status.
+  - Extend hook tests (`client/src/test/useConversationTurns.refresh.test.ts`) and page-level tests (Agents/Flows/Chat if they share the hook) to assert the new behavior.
+
+- **Evidence**
+  - Capture screenshots reproducing the “missing assistant history during inflight” bug before/after to validate the fix for Agents and Flows (and Chat if applicable).
+
+---
+
 ## Implementation Plan
 
 Tasks will be defined after we agree on the desired behavior for the two issues above.

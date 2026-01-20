@@ -121,27 +121,6 @@ const waitForTurns = async (
   throw new Error('Timed out waiting for flow turns');
 };
 
-const getAgentConversationId = (
-  conversationId: string,
-  agentKey: string,
-): string => {
-  const flowConversation = memoryConversations.get(conversationId);
-  const flowFlags = (flowConversation?.flags ?? {}) as {
-    flow?: { agentConversations?: Record<string, string> };
-  };
-  const agentConversationId = flowFlags.flow?.agentConversations?.[agentKey];
-  assert.ok(agentConversationId, `Missing agent conversation for ${agentKey}`);
-  return agentConversationId;
-};
-
-const cleanupMemory = (...conversationIds: Array<string | undefined>) => {
-  conversationIds.forEach((conversationId) => {
-    if (!conversationId) return;
-    memoryConversations.delete(conversationId);
-    memoryTurns.delete(conversationId);
-  });
-};
-
 test('flow loops until break answer matches breakOn', async () => {
   let outerBreakCount = 0;
   await withFlowServer(
@@ -191,7 +170,8 @@ test('flow loops until break answer matches breakOn', async () => {
       assert.equal(innerBreakTurns.length, 2);
       assert.equal(breakAnswers.length, 4);
       assert.equal(outerBreakCount, 2);
-      cleanupMemory(conversationId);
+      memoryConversations.delete(conversationId);
+      memoryTurns.delete(conversationId);
     },
   );
 });
@@ -236,7 +216,8 @@ test('break step fails on invalid JSON response', async () => {
       });
 
       assert.equal(final.status, 'failed');
-      cleanupMemory(conversationId);
+      memoryConversations.delete(conversationId);
+      memoryTurns.delete(conversationId);
     },
   );
 });
@@ -281,205 +262,8 @@ test('break step fails on invalid answer value', async () => {
       });
 
       assert.equal(final.status, 'failed');
-      cleanupMemory(conversationId);
-    },
-  );
-});
-
-test('flow step persists per-agent transcript', async () => {
-  await withFlowServer(
-    () => 'Flow agent response',
-    async ({ baseUrl, wsUrl }) => {
-      const conversationId = 'flow-agent-single-conv';
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
-
-      await supertest(baseUrl)
-        .post('/flows/llm-basic/run')
-        .send({ conversationId })
-        .expect(202);
-
-      await waitForTurns(
-        conversationId,
-        (items) =>
-          items.filter((turn) => turn.role === 'assistant').length === 1,
-      );
-
-      const agentConversationId = getAgentConversationId(
-        conversationId,
-        'coding_agent:basic',
-      );
-      const agentTurns = await waitForTurns(
-        agentConversationId,
-        (items) => items.length >= 2,
-      );
-      const userTurns = agentTurns.filter((turn) => turn.role === 'user');
-      const assistantTurns = agentTurns.filter(
-        (turn) => turn.role === 'assistant',
-      );
-
-      assert.equal(userTurns.length, 1);
-      assert.equal(assistantTurns.length, 1);
-      assert.ok(userTurns[0].content.includes('Say hello from a flow step.'));
-      assert.equal(assistantTurns[0].content, 'Flow agent response');
-
-      cleanupMemory(conversationId, agentConversationId);
-    },
-  );
-});
-
-test('flow agent transcripts stay isolated by agent', async () => {
-  await withFlowServer(
-    (message) => {
-      if (message.includes('Alpha step.')) return 'Alpha response';
-      if (message.includes('Beta step.')) return 'Beta response';
-      return 'ok';
-    },
-    async ({ baseUrl, wsUrl }) => {
-      const conversationId = 'flow-agent-multi-conv';
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
-
-      await supertest(baseUrl)
-        .post('/flows/multi-agent/run')
-        .send({ conversationId })
-        .expect(202);
-
-      await waitForTurns(
-        conversationId,
-        (items) =>
-          items.filter((turn) => turn.role === 'assistant').length === 2,
-      );
-
-      const alphaConversationId = getAgentConversationId(
-        conversationId,
-        'coding_agent:alpha',
-      );
-      const betaConversationId = getAgentConversationId(
-        conversationId,
-        'planning_agent:beta',
-      );
-      const alphaTurns = await waitForTurns(
-        alphaConversationId,
-        (items) => items.length >= 2,
-      );
-      const betaTurns = await waitForTurns(
-        betaConversationId,
-        (items) => items.length >= 2,
-      );
-
-      const alphaContent = alphaTurns.map((turn) => turn.content).join(' ');
-      const betaContent = betaTurns.map((turn) => turn.content).join(' ');
-
-      assert.ok(alphaContent.includes('Alpha step.'));
-      assert.ok(alphaContent.includes('Alpha response'));
-      assert.ok(!alphaContent.includes('Beta step.'));
-      assert.ok(!alphaContent.includes('Beta response'));
-
-      assert.ok(betaContent.includes('Beta step.'));
-      assert.ok(betaContent.includes('Beta response'));
-      assert.ok(!betaContent.includes('Alpha step.'));
-      assert.ok(!betaContent.includes('Alpha response'));
-
-      cleanupMemory(conversationId, alphaConversationId, betaConversationId);
-    },
-  );
-});
-
-test('flow conversation remains merged with command metadata', async () => {
-  await withFlowServer(
-    (message) => `${message} response`,
-    async ({ baseUrl, wsUrl }) => {
-      const conversationId = 'flow-agent-merged-conv';
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
-
-      await supertest(baseUrl)
-        .post('/flows/multi-agent/run')
-        .send({ conversationId })
-        .expect(202);
-
-      const flowTurns = await waitForTurns(
-        conversationId,
-        (items) => items.length >= 4,
-      );
-
-      assert.equal(flowTurns.length, 4);
-      assert.ok(
-        flowTurns.every((turn) =>
-          turn.command && typeof turn.command === 'object'
-            ? turn.command.name === 'flow'
-            : false,
-        ),
-      );
-      const stepIndexes = flowTurns
-        .map((turn) => (turn.command as { stepIndex?: number })?.stepIndex)
-        .filter((stepIndex): stepIndex is number => stepIndex !== undefined);
-      assert.ok(stepIndexes.includes(1));
-      assert.ok(stepIndexes.includes(2));
-
-      cleanupMemory(conversationId);
-    },
-  );
-});
-
-test('failed flow step persists to agent conversation', async () => {
-  await withFlowServer(
-    (message) => {
-      if (message.includes('Exit inner loop?')) {
-        return JSON.stringify({ answer: 'yes' });
-      }
-      if (message.includes('Exit outer loop?')) {
-        return 'not json';
-      }
-      return 'ok';
-    },
-    async ({ baseUrl, wsUrl }) => {
-      const conversationId = 'flow-agent-failed-conv';
-      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
-
-      await supertest(baseUrl)
-        .post('/flows/loop-break/run')
-        .send({ conversationId })
-        .expect(202);
-
-      await waitForEvent({
-        ws: wsUrl,
-        predicate: (
-          event: unknown,
-        ): event is { type: 'turn_final'; status: string } => {
-          const e = event as {
-            type?: string;
-            conversationId?: string;
-            status?: string;
-          };
-          return (
-            e.type === 'turn_final' &&
-            e.conversationId === conversationId &&
-            e.status === 'failed'
-          );
-        },
-        timeoutMs: 4000,
-      });
-
-      const agentConversationId = getAgentConversationId(
-        conversationId,
-        'coding_agent:outer-break',
-      );
-      const agentTurns = await waitForTurns(agentConversationId, (items) =>
-        items.some((turn) => turn.role === 'assistant'),
-      );
-      const assistantTurns = agentTurns.filter(
-        (turn) => turn.role === 'assistant',
-      );
-      const failedTurn = assistantTurns.find((turn) =>
-        ['failed', 'stopped'].includes(turn.status),
-      );
-
-      assert.ok(
-        failedTurn,
-        'Expected failed assistant turn in agent transcript',
-      );
-      assert.ok(failedTurn?.content.length);
-
-      cleanupMemory(conversationId, agentConversationId);
+      memoryConversations.delete(conversationId);
+      memoryTurns.delete(conversationId);
     },
   );
 });

@@ -76,26 +76,6 @@ sequenceDiagram
 end
 ```
 
-## Flows (agent transcript persistence)
-
-- Each flow step persists user + assistant turns to both the flow conversation (merged transcript) and the per-agent conversation shown in the Agents sidebar.
-- Per-agent persistence reuses the same `createdAt` timestamps and command metadata so ordering stays aligned with the flow transcript.
-- Inflight persistence remains tied to the flow conversation; per-agent conversations only receive explicit persisted turns.
-- Each per-agent write emits `flows.agent.turn_persisted` with flow/agent context for manual verification.
-
-```mermaid
-sequenceDiagram
-  participant FlowRunner
-  participant Agent
-  participant FlowConversation
-  participant AgentConversation
-
-  FlowRunner->>Agent: Run flow instruction
-  Agent-->>FlowRunner: Streamed response
-  FlowRunner->>FlowConversation: Persist user + assistant (command metadata)
-  FlowRunner->>AgentConversation: Persist user + assistant
-```
-
 ## Flows (UI)
 
 - Client route `/flows` provides the Flows page with a drawer sidebar and transcript layout matching Chat/Agents.

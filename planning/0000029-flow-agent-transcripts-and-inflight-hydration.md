@@ -221,8 +221,8 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
      - `runFlowInstruction(...)` around `skipPersistence: true`
      - `getAgentKey(...)` / `agentConversationState`
    - Implementation details:
-     - Reuse the existing `persistFlowTurn(...)` helper to write **both** the flow conversation and the per-agent conversation.
-     - After the existing flow `userPersisted`/`assistantPersisted` calls, add a second pair of `persistFlowTurn` calls with `conversationId: params.agentConversationId`.
+     - Reuse the existing `persistFlowTurn(...)` helper already defined in `flows/service.ts`; **do not** create a new persistence helper.
+     - Confirm `runFlowInstruction(...)` already persists per-agent user + assistant turns via `conversationId: params.agentConversationId`; only adjust if a gap is found.
      - Reuse the same `createdAt` timestamps (`userCreatedAt`, `assistantCreatedAt`) so per-agent ordering matches the flow transcript order.
      - Keep `skipPersistence: true` in `chat.run()` so the agent conversation is **only** persisted via these explicit calls.
      - Preserve existing flow behavior: do not change the merged flow conversation, and do not alter `flags.flow` structure.
@@ -240,7 +240,7 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
    - Snippet to locate (memory helpers):
      - `recordMemoryTurn(...)` and `updateMemoryConversationMeta(...)`
    - Implementation details:
-     - Confirm the new per-agent `persistFlowTurn(...)` calls run in memory mode (test mode or Mongo down) and write to `memoryTurns`.
+     - Confirm the existing per-agent `persistFlowTurn(...)` calls run in memory mode (test mode or Mongo down) and write to `memoryTurns`.
      - Use the existing `recordMemoryTurn(...)` behavior without adding new helper functions.
      - Keep memory conversation metadata aligned with Mongo behavior by relying on `updateMemoryConversationMeta(...)` in the existing helper.
      - Verify in memory mode that `memoryConversations.get(agentConversationId)?.lastMessageAt` advances for both user and assistant turns.

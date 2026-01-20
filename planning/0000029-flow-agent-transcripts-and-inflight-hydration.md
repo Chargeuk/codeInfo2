@@ -752,12 +752,23 @@ Validate the full story requirements end-to-end and capture final evidence, incl
    - Description:
      - Update the repo tree to include **every** screenshot created in Testing step 8, listing each exact file path under `test-results/screenshots/` (for example `test-results/screenshots/0000029-3-<short-name>.png`).
 
-4. [ ] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
+4. [ ] Log line checklist for final verification (no new logs added here):
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Files to read:
+     - `planning/0000029-flow-agent-transcripts-and-inflight-hydration.md` (Task 1 + Task 2 log line subtasks)
+   - Description:
+     - Record the expected log lines that must appear during Testing step 8:
+       - `flows.agent.turn_persisted` (server log, one or more entries per flow step)
+       - `DEV-0000029:T2:inflight_overlay_decision` (browser console log, emitted on each snapshot refresh)
+     - Note: these log lines are added in Tasks 1 and 2; this subtask only captures expectations for the final manual check.
+
+5. [ ] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Files to edit: none (comment only)
 
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI/options: https://prettier.io/docs/options
@@ -791,8 +802,8 @@ Validate the full story requirements end-to-end and capture final evidence, incl
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, verify all acceptance criteria, run a quick regression sweep, capture screenshots to `./test-results/screenshots/`, and confirm the debug console shows no errors.
-   - Confirm server logs include `flows.agent.turn_persisted` during flow runs (use `docker compose logs --tail=200 server`).
-   - Confirm browser console logs include `DEV-0000029:T2:inflight_overlay_decision` for inflight hydration checks.
+   - Confirm server logs include `flows.agent.turn_persisted` during flow runs (use `docker compose logs --tail=200 server`) and that at least one entry appears per flow step.
+   - Confirm browser console logs include `DEV-0000029:T2:inflight_overlay_decision` for inflight hydration checks and that both `overlayApplied: true` and `overlayApplied: false` appear across the run lifecycle.
    - Each screenshot should be named `0000029-3-<short-name>.png`.
    - Capture Playwright MCP screenshots for every acceptance-criteria UI state and confirm the images are stored under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` before moving/recording them.
    - Documentation to read (repeat):

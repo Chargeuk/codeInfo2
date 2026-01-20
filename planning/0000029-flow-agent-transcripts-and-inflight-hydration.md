@@ -419,8 +419,8 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
 
 ### 2. Client: Inflight snapshot hydration overlay
 
-- Task Status: **__in_progress__**
-- Git Commits: **__to_do__**
+- Task Status: **__done__**
+- Git Commits: 0a10fe9, 864cc16
 
 #### Overview
 
@@ -768,6 +768,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
 - Manual Playwright check: started chat run, validated single inflight bubble in second tab, captured `0000029-2-inflight-hydration.png`, and confirmed `flows.agent.turn_persisted` appears in `docker compose logs --tail=200 server`.
 - Testing: `npm run compose:down`.
 - Lint: `npm run lint --workspaces` (warnings only); format check initially failed for client, fixed with `npm run format --workspaces` and rechecked clean.
+- Final `git push` attempts failed again due to missing GitHub credentials in the environment.
 
 ---
 

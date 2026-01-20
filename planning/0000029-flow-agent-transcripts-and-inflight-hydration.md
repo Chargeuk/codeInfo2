@@ -931,7 +931,7 @@ Remove the redundant `console.log` from flow agent turn persistence logging whil
 
 #### Subtasks
 
-1. [ ] Review flow persistence logging implementation.
+1. [x] Review flow persistence logging implementation.
    - Files to read:
      - `server/src/flows/service.ts`
      - `server/src/logging/index.ts`
@@ -940,31 +940,37 @@ Remove the redundant `console.log` from flow agent turn persistence logging whil
    - Goal:
      - Confirm current log targets (`append`, `baseLogger`, `console.log`).
 
-2. [ ] Remove redundant console output.
+2. [x] Remove redundant console output.
    - Files to edit:
      - `server/src/flows/service.ts`
    - Description:
      - Remove `console.log` from `logAgentTurnPersisted` while leaving structured logs intact.
 
-3. [ ] Documentation check (if needed).
+3. [x] Documentation check (if needed).
    - Location:
      - `design.md`
    - Description:
      - Confirm log pipeline documentation remains accurate; update only if console output was previously mentioned.
 
-4. [ ] Run full linting.
+4. [x] Run full linting.
    - Snippet to run:
      - `npm run lint --workspaces`
 
 #### Testing
 
-1. [ ] `npm run test --workspace server -- flows.run.loop.test.ts`
+1. [x] `npm run test --workspace server -- flows.run.loop.test.ts`
    - Documentation to read:
      - Node.js test runner: https://nodejs.org/api/test.html
 
 #### Implementation notes
 
-- (fill in during execution)
+- Reviewed `logAgentTurnPersisted` and confirmed `append`, `baseLogger`, and `console.log` all emit the same event.
+- Note: `server/src/logging/index.ts` does not exist; used `server/src/logger.ts` to confirm logger setup.
+- `git push` failed (missing GitHub credentials in this environment).
+- Removed the redundant `console.log` from `logAgentTurnPersisted` while keeping structured logs intact.
+- Reviewed `design.md`; no console-log documentation changes required.
+- Lint: `npm run lint --workspaces` (warnings only).
+- Testing: `npm run test --workspace server -- flows.run.loop.test.ts` (timed out at 120s and 240s; completed on 420s run).
 
 ---
 

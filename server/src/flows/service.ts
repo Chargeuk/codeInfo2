@@ -511,14 +511,6 @@ const logAgentTurnPersisted = (params: {
     },
     'flows.agent.turn_persisted',
   );
-  console.log('flows.agent.turn_persisted', {
-    flowConversationId: params.flowConversationId,
-    agentConversationId: params.agentConversationId,
-    agentType: params.agentType,
-    identifier: params.identifier,
-    role: params.role,
-    turnId: params.turnId,
-  });
 };
 
 const runFlowInstruction = async (params: {

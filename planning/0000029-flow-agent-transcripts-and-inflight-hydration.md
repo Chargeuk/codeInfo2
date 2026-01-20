@@ -151,4 +151,403 @@ External reference check:
 
 ## Implementation Plan
 
-Tasks will be defined next now that the desired behavior is agreed.
+### 1. Server: Persist per-agent flow transcripts
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Ensure each flow step also persists its user/assistant turns into the per-agent flow conversation, while keeping the merged flow conversation intact.
+
+#### Documentation Locations
+
+- Express routing (server handlers): Context7 `/expressjs/express/v5.1.0`
+- Node.js test runner: https://nodejs.org/api/test.html
+- Mermaid diagrams: Context7 `/mermaid-js/mermaid`
+- Playwright docs: Context7 `/microsoft/playwright` (manual verification + screenshots)
+- Docker/Compose docs: Context7 `/docker/docs` (compose checks in testing steps)
+- npm run-script docs: https://docs.npmjs.com/cli/v9/commands/npm-run-script (build/test scripts)
+- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface (lint command behavior)
+- Prettier CLI: https://prettier.io/docs/cli (format check/write behavior)
+- Markdown Guide: https://www.markdownguide.org/basic-syntax/ (documentation updates)
+
+#### Subtasks
+
+1. [ ] Review current flow persistence + agent conversation mapping:
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+   - Files to read:
+     - `server/src/flows/service.ts`
+     - `server/src/flows/flowState.ts`
+     - `server/src/flows/types.ts`
+     - `server/src/chat/interfaces/ChatInterface.ts`
+     - `server/src/chat/inflightRegistry.ts`
+     - `server/src/mongo/repo.ts`
+   - Snippet to locate (flow persistence path):
+     - `ensureFlowAgentConversation`, `runFlowUnlocked`, `runFlowInstruction`
+     - `skipPersistence: true` in flow execution paths
+   - Story requirements to repeat here so they are not missed:
+     - Per-agent flow conversations must contain user + assistant turns for their steps.
+     - The flow conversation remains the merged transcript and keeps command metadata.
+
+2. [ ] Persist per-agent flow turns during execution:
+   - Documentation to read (repeat):
+     - Express routing: Context7 `/expressjs/express/v5.1.0`
+   - Files to edit:
+     - `server/src/flows/service.ts`
+     - `server/src/chat/inflightRegistry.ts` (only if per-agent inflight persistence needs updates)
+     - `server/src/mongo/repo.ts` (only if helper updates are needed)
+   - Implementation details:
+     - When a flow step runs for an agent, append the user + assistant turns to that agent’s conversation ID (from `agentConversationState` / `flags.flow.agentConversations`).
+     - Ensure both Mongo and memory persistence paths record these turns (mirror the existing flow conversation path).
+     - Keep `turn.command` metadata on the flow conversation, and copy it to the agent conversation turns when available so per-agent transcripts retain step context.
+     - Do **not** change the merged flow conversation behavior or existing `flags.flow` structure.
+
+3. [ ] Test (integration/server): Per-agent transcript populated (single agent)
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+   - Location:
+     - `server/src/test/integration/flows.agent-transcripts.test.ts` (new)
+   - Description:
+     - Start a flow with a single agent step, run it, fetch the agent conversation ID from `flags.flow.agentConversations`, and assert user + assistant turns were persisted.
+   - Purpose:
+     - Confirms per-agent conversations are no longer empty after flow runs.
+
+4. [ ] Test (integration/server): Multi-agent isolation
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+   - Location:
+     - `server/src/test/integration/flows.agent-transcripts.test.ts`
+   - Description:
+     - Run a flow with two different agent identifiers and assert each agent conversation only contains turns for its own steps.
+   - Purpose:
+     - Ensures turns don’t leak across agents in multi-agent flows.
+
+5. [ ] Capture UI screenshot (required for this task):
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
+   - Files to add:
+     - `planning/0000029-flow-agent-transcripts-and-inflight-hydration-data/0000029-1-agent-transcripts.png`
+   - Description:
+     - Use Playwright MCP to capture the Agents sidebar showing a flow-generated agent conversation with its transcript visible.
+   - Purpose:
+     - Provides visual evidence the agent transcript is now populated.
+
+6. [ ] Documentation update: `design.md` (mermaid diagram)
+   - Documentation to read (repeat):
+     - Mermaid: Context7 `/mermaid-js/mermaid`
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Location:
+     - `design.md`
+   - Description:
+     - Add a short section describing per-agent flow transcript persistence and include a Mermaid sequence diagram showing flow steps writing to both flow and agent conversations.
+
+7. [ ] Documentation update: `projectStructure.md` (after new files are added)
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Location:
+     - `projectStructure.md`
+   - Description:
+     - Update the repo tree to include:
+       - `server/src/test/integration/flows.agent-transcripts.test.ts`
+       - `planning/0000029-flow-agent-transcripts-and-inflight-hydration-data/0000029-1-agent-transcripts.png`
+
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier CLI/options: https://prettier.io/docs/options
+   - Snippet to run:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+     - `npm run lint:fix --workspaces`
+     - `npm run format --workspaces`
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+2. [ ] `npm run build --workspace client`
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+3. [ ] `npm run test --workspace server`
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+4. [ ] `npm run test --workspace client`
+   - Documentation to read (repeat):
+     - Jest: Context7 `/jestjs/jest`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
+6. [ ] `npm run compose:build`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+7. [ ] `npm run compose:up`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, run a flow, open the agent conversation in the Agents sidebar, confirm the transcript includes the flow’s user + assistant turns, and confirm the debug console shows no errors.
+   - Capture a Playwright MCP screenshot showing the populated agent transcript and confirm it is stored under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` before moving/recording it.
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
+9. [ ] `npm run compose:down`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+
+#### Implementation notes
+
+- (fill in during execution)
+
+---
+
+### 2. Client: Inflight snapshot hydration overlay
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Make the REST snapshot the base transcript in `useConversationTurns`, then overlay at most one inflight assistant bubble only when the snapshot does not already include assistant output for the inflight run.
+
+#### Documentation Locations
+
+- React state + effects guidance: Context7 `/websites/react_dev`
+- Jest docs: Context7 `/jestjs/jest` (client tests)
+- Mermaid diagrams: Context7 `/mermaid-js/mermaid`
+- Playwright docs: Context7 `/microsoft/playwright` (manual verification + screenshots)
+- Docker/Compose docs: Context7 `/docker/docs` (compose checks in testing steps)
+- npm run-script docs: https://docs.npmjs.com/cli/v9/commands/npm-run-script (build/test scripts)
+- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface (lint command behavior)
+- Prettier CLI: https://prettier.io/docs/cli (format check/write behavior)
+- Markdown Guide: https://www.markdownguide.org/basic-syntax/ (documentation updates)
+
+#### Subtasks
+
+1. [ ] Review current hydration logic in the shared hook:
+   - Documentation to read (repeat):
+     - React hooks guidance: Context7 `/websites/react_dev`
+   - Files to read:
+     - `client/src/hooks/useConversationTurns.ts`
+     - `client/src/test/useConversationTurns.refresh.test.ts`
+     - `client/src/test/useConversationTurns.commandMetadata.test.ts`
+   - Snippet to locate (snapshot + inflight state):
+     - `setTurns(...)` and `setInflight(...)` in the refresh path
+   - Story requirements to repeat here so they are not missed:
+     - REST snapshot is always the base transcript state.
+     - Overlay only one inflight assistant bubble if snapshot lacks inflight assistant output.
+     - No duplicate assistant bubbles when snapshot already includes inflight assistant text/final state.
+
+2. [ ] Update `useConversationTurns` to use snapshot-first overlay rules:
+   - Documentation to read (repeat):
+     - React hooks guidance: Context7 `/websites/react_dev`
+   - Files to edit:
+     - `client/src/hooks/useConversationTurns.ts`
+   - Implementation details:
+     - After fetching `/conversations/:id/turns`, treat the returned `items` as the authoritative turns list.
+     - Determine whether the snapshot already includes an assistant turn for `inflightId` (non-empty text or finalized status).
+     - Only keep an overlay inflight assistant bubble when no assistant turn exists for the current inflight run.
+     - When `inflightId` changes, clear any prior overlay state before applying the new inflight bubble.
+
+3. [ ] Test (unit/client): Snapshot retains assistant history during inflight thinking
+   - Documentation to read (repeat):
+     - Jest: Context7 `/jestjs/jest`
+   - Location:
+     - `client/src/test/useConversationTurns.refresh.test.ts`
+   - Description:
+     - Mock a snapshot containing prior assistant turns plus an inflight payload with empty assistant text; ensure the assistant history remains in `turns` and only one inflight bubble is shown.
+   - Purpose:
+     - Prevents dropping assistant history when inflight output is empty.
+
+4. [ ] Test (unit/client): No duplicate assistant bubble when snapshot includes inflight assistant
+   - Documentation to read (repeat):
+     - Jest: Context7 `/jestjs/jest`
+   - Location:
+     - `client/src/test/useConversationTurns.refresh.test.ts`
+   - Description:
+     - Mock a snapshot where the inflight assistant turn is already present and ensure the overlay does not add another assistant bubble.
+   - Purpose:
+     - Ensures the snapshot remains the single source of truth when assistant text exists.
+
+5. [ ] Test (unit/client): Inflight ID change resets overlay
+   - Documentation to read (repeat):
+     - Jest: Context7 `/jestjs/jest`
+   - Location:
+     - `client/src/test/useConversationTurns.refresh.test.ts`
+   - Description:
+     - Simulate two refreshes with different `inflightId` values and assert the overlay state is replaced, not stacked.
+   - Purpose:
+     - Prevents multiple inflight bubbles when a new run starts.
+
+6. [ ] Capture UI screenshot (required for this task):
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
+   - Files to add:
+     - `planning/0000029-flow-agent-transcripts-and-inflight-hydration-data/0000029-2-inflight-hydration.png`
+   - Description:
+     - Use Playwright MCP to capture a second-window view during an in-progress run showing prior assistant history plus a single inflight bubble.
+
+7. [ ] Documentation update: `design.md` (mermaid diagram)
+   - Documentation to read (repeat):
+     - Mermaid: Context7 `/mermaid-js/mermaid`
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Location:
+     - `design.md`
+   - Description:
+     - Add a Mermaid sequence diagram showing snapshot-first hydration with a conditional inflight overlay.
+
+8. [ ] Documentation update: `projectStructure.md` (after new files are added)
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Location:
+     - `projectStructure.md`
+   - Description:
+     - Update the repo tree to include:
+       - `planning/0000029-flow-agent-transcripts-and-inflight-hydration-data/0000029-2-inflight-hydration.png`
+
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier CLI/options: https://prettier.io/docs/options
+   - Snippet to run:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+     - `npm run lint:fix --workspaces`
+     - `npm run format --workspaces`
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+2. [ ] `npm run build --workspace client`
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+3. [ ] `npm run test --workspace server`
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+4. [ ] `npm run test --workspace client`
+   - Documentation to read (repeat):
+     - Jest: Context7 `/jestjs/jest`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
+6. [ ] `npm run compose:build`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+7. [ ] `npm run compose:up`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, start a run in one window, open a second window mid-run, verify prior assistant turns remain visible with exactly one inflight bubble, and confirm the debug console shows no errors.
+   - Capture a Playwright MCP screenshot and confirm it is stored under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` before moving/recording it.
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
+9. [ ] `npm run compose:down`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+
+#### Implementation notes
+
+- (fill in during execution)
+
+---
+
+### 3. Final: Verify acceptance criteria + full regression
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Validate the full story requirements end-to-end and capture final evidence, including builds, tests, screenshots, and documentation updates.
+
+#### Documentation Locations
+
+- Docker/Compose docs: Context7 `/docker/docs`
+- Playwright docs: Context7 `/microsoft/playwright`
+- Husky docs: https://typicode.github.io/husky/get-started.html
+- Mermaid docs: Context7 `/mermaid-js/mermaid`
+- Jest docs: Context7 `/jestjs/jest`
+- Cucumber guides: https://cucumber.io/docs/guides/
+- npm run-script docs: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+- Markdown Guide: https://www.markdownguide.org/basic-syntax/
+
+#### Subtasks
+
+1. [ ] Documentation update: `README.md`
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Location:
+     - `README.md`
+   - Description:
+     - Add/adjust any README guidance introduced by this story (flow transcript persistence + inflight hydration behavior if user-facing).
+
+2. [ ] Documentation update: `design.md`
+   - Documentation to read (repeat):
+     - Mermaid: Context7 `/mermaid-js/mermaid`
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Location:
+     - `design.md`
+   - Description:
+     - Confirm flow transcript persistence and hydration diagrams are present and accurate.
+
+3. [ ] Documentation update: `projectStructure.md` (after test screenshots are captured)
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Location:
+     - `projectStructure.md`
+   - Description:
+     - Update the repo tree to include any new screenshots:
+       - `test-results/screenshots/0000029-3-<short-name>.png`
+
+4. [ ] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Files to edit: none (comment only)
+
+5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier CLI/options: https://prettier.io/docs/options
+   - Snippet to run:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+     - `npm run lint:fix --workspaces`
+     - `npm run format --workspaces`
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+2. [ ] `npm run build --workspace client`
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+3. [ ] `npm run test --workspace server`
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+4. [ ] `npm run test --workspace client`
+   - Documentation to read (repeat):
+     - Jest: Context7 `/jestjs/jest`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
+6. [ ] `npm run compose:build`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+7. [ ] `npm run compose:up`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, verify all acceptance criteria, run a quick regression sweep, capture screenshots to `./test-results/screenshots/`, and confirm the debug console shows no errors.
+   - Each screenshot should be named `0000029-3-<short-name>.png`.
+   - Capture Playwright MCP screenshots for every acceptance-criteria UI state and confirm the images are stored under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` before moving/recording them.
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
+9. [ ] `npm run compose:down`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+
+#### Implementation notes
+
+- (fill in during execution)
+
+---

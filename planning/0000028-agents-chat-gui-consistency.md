@@ -1404,8 +1404,8 @@ Standardize sizing and button variants across Chat and Agents so all controls us
 
 ### 7. Client: Control sizing + variant consistency (LM Studio + Ingest)
 
-- Task Status: **__in_progress__**
-- Git Commits: **__to_do__**
+- Task Status: **__done__**
+- Git Commits: b93bb08
 
 #### Overview
 
@@ -1600,6 +1600,7 @@ Standardize sizing and button variants across LM Studio and Ingest so controls u
 - `npm run compose:up` completed successfully for Task 7 testing.
 - Manual Playwright-MCP check completed: verified `DEV-0000028[T7] lmstudio controls sizing applied` and `DEV-0000028[T7] ingest controls sizing applied` logs, no console errors, and captured the sizing screenshots.
 - `npm run compose:down` completed successfully for Task 7 testing.
+- Push attempt after Task 7 implementation commit failed due to missing GitHub credentials.
 
 ---
 

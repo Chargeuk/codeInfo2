@@ -1763,6 +1763,37 @@ Validate the full story requirements end-to-end and capture final evidence, incl
 - `npm run compose:up` completed successfully for Task 8 testing.
 - Manual Playwright-MCP check completed: verified `DEV-0000028[T8] regression baseline ready`, no console errors, and captured final screenshots for Chat, Agents, Agents popover, Agents folder picker, LM Studio, and Ingest.
 - `npm run compose:down` completed successfully for Task 8 testing.
+
+---
+
+## Code Review Summary (Main → Story Branch)
+
+### Scope reviewed
+
+- UI layout + sizing changes across Chat, Agents, LM Studio, and Ingest pages.
+- New Agents info popover, command/instruction row layout, Send/Stop width stability, and working-folder picker reuse.
+- Updated tests, logs, and screenshots tied to Tasks 1–8.
+
+### Checks performed
+
+- Code quality: validated component state handling, popover/picker wiring, and log usage for clarity.
+- Maintainability: confirmed shared directory picker reuse avoids duplication and updated tests cover new behavior.
+- Performance: new logs are mount/interaction scoped; no new heavy rendering paths introduced.
+- Security: no new data ingestion or privileged access; UI-only changes reuse existing endpoints.
+- Best practices: sizing/variant consistency enforced with MUI props; tests assert class changes where needed.
+
+### Acceptance criteria verification
+
+- Agents description moved to an info popover with warnings + empty-state message.
+- Agents controls reorganized into command/execute and instruction/send rows; Send/Stop width is stable.
+- Chat/Agents transcript panels fill the viewport with no gap.
+- Agents working-folder uses the Ingest directory picker; Chat keeps no working-folder control (per scope).
+- Controls across Chat/Agents/LM Studio/Ingest now use `size="small"` with consistent primary/secondary variants and Stop as contained error.
+- UI screenshots captured for every task and final verification.
+
+### Result
+
+- No blocking issues found. Code changes align with the story scope and acceptance criteria.
 - Push attempt after Task 8 implementation commit failed due to missing GitHub credentials.
 
 ---

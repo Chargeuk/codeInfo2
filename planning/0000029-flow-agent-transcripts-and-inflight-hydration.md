@@ -40,10 +40,10 @@ Visual reference (missing assistant history during inflight view):
   - All user messages and assistant replies from the flow steps that targeted that agent appear in order.
   - The per-agent transcript is not empty and matches what the flow run produced for that agent.
 - The flow conversation still retains the merged flow transcript (including command metadata) and is unchanged in structure.
-- When a second window/tab opens during an in-progress run (Agents/Flows/Chat if it uses the same hydration path):
+- When a second window/tab opens during an in-progress run on the Chat, Agents, or Flows pages:
   - The transcript shows all previously persisted user and assistant messages (no missing assistant replies).
   - Exactly one in-flight assistant bubble is shown (thinking or partial text) for the current inflight run.
-- Hydration behavior is deterministic and based on the REST snapshot:
+- Hydration behavior is deterministic and based on the REST snapshot (`GET /conversations/:id/turns`):
   - The REST snapshot becomes the base transcript state every time a run is hydrated.
   - A single in-flight assistant bubble is layered on top only when the snapshot does **not** already include an assistant turn for the inflight run.
 - If the REST snapshot already contains an assistant turn for the inflight run (non-empty assistant text or a finalized status), the UI does **not** add a duplicate assistant bubble.
@@ -181,7 +181,7 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
 
 #### Subtasks
 
-1. [ ] Review current flow persistence + agent conversation mapping:
+1. [x] Review current flow persistence + agent conversation mapping:
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
    - Files to read:
@@ -198,7 +198,7 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
      - Per-agent flow conversations must contain user + assistant turns for their steps.
      - The flow conversation remains the merged transcript and keeps command metadata.
 
-2. [ ] Persist per-agent flow turns in Mongo-backed storage:
+2. [x] Persist per-agent flow turns in Mongo-backed storage:
    - Documentation to read (repeat):
      - Express routing: Context7 `/expressjs/express/v5.1.0`
    - Files to read:
@@ -220,7 +220,7 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
      - Reuse the existing `command` metadata payload (no new metadata shaping).
      - Do **not** call `markInflightPersisted` for the agent conversation (inflight tracking stays on the flow conversation only).
 
-3. [ ] Mirror per-agent flow persistence for memory fallback:
+3. [x] Mirror per-agent flow persistence for memory fallback:
    - Documentation to read (repeat):
      - Express routing: Context7 `/expressjs/express/v5.1.0`
    - Files to read:
@@ -236,7 +236,7 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
      - Keep memory conversation metadata aligned with Mongo behavior by relying on `updateMemoryConversationMeta(...)` in the existing helper.
      - Verify in memory mode that `memoryConversations.get(agentConversationId)?.lastMessageAt` advances for both user and assistant turns.
 
-4. [ ] Add server log line for per-agent persistence:
+4. [x] Add server log line for per-agent persistence:
    - Documentation to read (repeat):
      - Express routing: Context7 `/expressjs/express/v5.1.0`
    - Files to read:
@@ -252,7 +252,7 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
      - Include context: `{ flowConversationId, agentConversationId, agentType, identifier, role, turnId }`.
      - Use the existing `append(...)` logger so the new log line matches other flow log formatting.
 
-5. [ ] Test (integration/server): Per-agent transcript populated (single agent)
+5. [x] Test (integration/server): Per-agent transcript populated (single agent)
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
    - Test type:
@@ -268,7 +268,7 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
    - Purpose:
      - Confirms per-agent conversations are no longer empty after flow runs.
 
-6. [ ] Test (integration/server): Multi-agent isolation
+6. [x] Test (integration/server): Multi-agent isolation
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
    - Test type:
@@ -283,7 +283,7 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
    - Purpose:
      - Ensures turns don’t leak across agents in multi-agent flows.
 
-7. [ ] Test (integration/server): Flow conversation remains merged
+7. [x] Test (integration/server): Flow conversation remains merged
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
    - Test type:
@@ -298,7 +298,7 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
    - Purpose:
      - Confirms per-agent persistence does not alter the merged flow conversation structure.
 
-8. [ ] Test (integration/server): Failed flow step persists to agent conversation
+8. [x] Test (integration/server): Failed flow step persists to agent conversation
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
    - Test type:
@@ -312,7 +312,7 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
    - Purpose:
      - Ensures error cases still persist per-agent turns for debugging.
 
-9. [ ] Documentation update: `design.md` (mermaid diagram)
+9. [x] Documentation update: `design.md` (mermaid diagram)
    - Documentation to read (repeat):
      - Mermaid: Context7 `/mermaid-js/mermaid`
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -343,25 +343,25 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, run a flow, open the agent conversation in the Agents sidebar, confirm the transcript includes the flow’s user + assistant turns, then open the Flows page and confirm the merged flow transcript (with command metadata) is intact, and confirm the debug console shows no errors.
@@ -377,7 +377,20 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
 
 #### Implementation notes
 
-- (fill in during execution)
+- Reviewed flow persistence + agent conversation mapping across flow service/state and persistence helpers to locate `skipPersistence` and resume-state usage.
+- Added per-agent persistence using the existing `persistFlowTurn` helper and aligned timestamps with flow conversation turns.
+- Confirmed memory persistence paths are reused via `persistFlowTurn` so agent transcripts hydrate in memory mode without extra helpers.
+- Added `flows.agent.turn_persisted` log entries with flow + agent conversation context for both user and assistant turns.
+- Added integration coverage in `flows.run.loop.test.ts` for single-agent transcripts, multi-agent isolation, merged flow conversation metadata, and failed-step persistence.
+- Added `server/src/test/fixtures/flows/multi-agent.json` to drive multi-agent isolation + merged transcript assertions.
+- Documented per-agent flow persistence in `design.md` with a sequence diagram showing flow + agent conversation writes.
+- `npm run build --workspace server` passed.
+- `npm run build --workspace client` passed (chunk-size warning noted by Vite).
+- `npm run test --workspace server` required extended timeout; updated `flows.list.test.ts` to include the new `multi-agent` fixture and reran until green.
+- `npm run test --workspace client` passed (JSDOM console warnings from markdown tests persist as in baseline).
+- `npm run e2e` passed (compose build + up/test/down).
+- `npm run compose:build` completed successfully.
+- `npm run compose:up` started the stack successfully.
 
 ---
 

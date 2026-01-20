@@ -224,17 +224,30 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
    - Purpose:
      - Ensures turns don’t leak across agents in multi-agent flows.
 
-5. [ ] Capture UI screenshot (required for this task):
+5. [ ] Test (integration/server): Flow conversation remains merged
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+   - Location:
+     - `server/src/test/integration/flows.agent-transcripts.test.ts`
+   - Description:
+     - Run a flow with multiple steps and assert the flow conversation (the main `conversationId`) still contains the merged transcript with command metadata.
+   - Purpose:
+     - Confirms per-agent persistence does not alter the merged flow conversation structure.
+
+6. [ ] Capture UI screenshots (required for this task):
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
    - Files to add:
      - `planning/0000029-flow-agent-transcripts-and-inflight-hydration-data/0000029-1-agent-transcripts.png`
+     - `planning/0000029-flow-agent-transcripts-and-inflight-hydration-data/0000029-1-flow-transcript.png`
    - Description:
      - Use Playwright MCP to capture the Agents sidebar showing a flow-generated agent conversation with its transcript visible.
+     - Capture a second screenshot on the Flows page showing the merged flow conversation transcript.
    - Purpose:
      - Provides visual evidence the agent transcript is now populated.
+     - Confirms the flow transcript remains intact in the Flows UI.
 
-6. [ ] Documentation update: `design.md` (mermaid diagram)
+7. [ ] Documentation update: `design.md` (mermaid diagram)
    - Documentation to read (repeat):
      - Mermaid: Context7 `/mermaid-js/mermaid`
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -243,7 +256,7 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
    - Description:
      - Add a short section describing per-agent flow transcript persistence and include a Mermaid sequence diagram showing flow steps writing to both flow and agent conversations.
 
-7. [ ] Documentation update: `projectStructure.md` (after new files are added)
+8. [ ] Documentation update: `projectStructure.md` (after new files are added)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location:
@@ -252,8 +265,9 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
      - Update the repo tree to include:
        - `server/src/test/integration/flows.agent-transcripts.test.ts`
        - `planning/0000029-flow-agent-transcripts-and-inflight-hydration-data/0000029-1-agent-transcripts.png`
+       - `planning/0000029-flow-agent-transcripts-and-inflight-hydration-data/0000029-1-flow-transcript.png`
 
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI/options: https://prettier.io/docs/options
@@ -286,8 +300,8 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
 7. [ ] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, run a flow, open the agent conversation in the Agents sidebar, confirm the transcript includes the flow’s user + assistant turns, and confirm the debug console shows no errors.
-   - Capture a Playwright MCP screenshot showing the populated agent transcript and confirm it is stored under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` before moving/recording it.
+8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, run a flow, open the agent conversation in the Agents sidebar, confirm the transcript includes the flow’s user + assistant turns, then open the Flows page and confirm the merged flow transcript (with command metadata) is intact, and confirm the debug console shows no errors.
+   - Capture Playwright MCP screenshots for the agent transcript and the flow transcript, and confirm they are stored under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` before moving/recording them.
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
 9. [ ] `npm run compose:down`

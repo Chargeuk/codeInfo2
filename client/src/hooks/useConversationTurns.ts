@@ -169,6 +169,7 @@ export function useConversationTurns(
   const [isError, setIsError] = useState(false);
   const [error, setError] = useState<string | undefined>();
   const controllerRef = useRef<AbortController | null>(null);
+  const inflightIdRef = useRef<string | null>(null);
   const log = useRef(createLogger('client')).current;
   const flowLog = useRef(createLogger('client-flows')).current;
   const autoFetch = options?.autoFetch !== false;
@@ -297,7 +298,36 @@ export function useConversationTurns(
               : rest;
           })()
         : null;
-      setInflight(inflight);
+      const assistantTurns = chronological.filter(
+        (turn) => turn.role === 'assistant',
+      );
+      const startedAtMs = inflight ? Date.parse(inflight.startedAt) : NaN;
+      const assistantPresent = Boolean(
+        inflight &&
+          Number.isFinite(startedAtMs) &&
+          assistantTurns.some((turn) => {
+            const createdAtMs = Date.parse(turn.createdAt);
+            return Number.isFinite(createdAtMs) && createdAtMs >= startedAtMs;
+          }),
+      );
+      const overlayApplied = Boolean(inflight && !assistantPresent);
+      if (inflight) {
+        log('info', 'DEV-0000029:T2:inflight_overlay_decision', {
+          conversationId,
+          inflightId: inflight.inflightId,
+          overlayApplied,
+          assistantPresent,
+          assistantTextLen: inflight.assistantText.length,
+          snapshotAssistantCount: assistantTurns.length,
+        });
+      }
+      const prevInflightId = inflightIdRef.current;
+      if (prevInflightId && prevInflightId !== inflight?.inflightId) {
+        setInflight(null);
+      }
+      const nextInflight = overlayApplied ? inflight : null;
+      inflightIdRef.current = inflight?.inflightId ?? null;
+      setInflight(nextInflight);
       setTurns(dedupeTurns(chronological));
       const turnsWithMetadata = chronological.filter(
         (turn) =>

@@ -17,6 +17,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”œâ”€ logs/ â€” runtime server log output (gitignored, host-mounted)
 â”œâ”€ design.md â€” design notes and diagrams
 â”œâ”€ flows/ â€” flow JSON definitions (hot-reloaded, user-managed; resolved as sibling to codex_agents by default)
+â”œâ”€ flows-sandbox/ â€” safe flow JSON definitions for manual MCP/Playwright testing
 â”œâ”€ observability/ â€” shared OpenTelemetry collector config for Chroma traces
 â”‚  â””â”€ otel-collector-config.yaml â€” OTLP->Zipkin/logging pipeline used by all compose stacks
 â”œâ”€ docker-compose.yml â€” compose stack for client/server
@@ -226,6 +227,11 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚  â”‚  â”œâ”€ 0000028-7-ingest-sizing.png â€” Ingest sizing + variant baseline
 â”‚  â”‚  â””â”€ 0000028-7-lmstudio-sizing.png â€” LM Studio sizing + variant baseline
 â”‚  â”œâ”€ 0000028-agents-chat-gui-consistency.md â€” plan for story 0000028
+â”‚  â”œâ”€ 0000029-flow-agent-transcripts-and-inflight-hydration-data/ â€” UI screenshots for story 0000029
+â”‚  â”‚  â”œâ”€ 0000029-1-agent-transcripts.png â€” Agents flow transcript evidence
+â”‚  â”‚  â”œâ”€ 0000029-1-flow-transcript.png â€” Flow transcript evidence
+â”‚  â”‚  â””â”€ 0000029-2-inflight-hydration.png â€” Inflight snapshot overlay evidence
+â”‚  â”œâ”€ 0000029-flow-agent-transcripts-and-inflight-hydration.md â€” plan for story 0000029
 â”‚  â””â”€ plan_format.md â€” planning template/instructions
 â”œâ”€ test-results/ â€” test artifacts (screenshots, reports)
 â”‚  â””â”€ screenshots/ â€” manual verification screenshots
@@ -234,7 +240,10 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚     â”œâ”€ 0000028-8-agents-popover.png â€” Agents info popover
 â”‚     â”œâ”€ 0000028-8-chat-final.png â€” Chat layout final check
 â”‚     â”œâ”€ 0000028-8-ingest-final.png â€” Ingest layout final check
-â”‚     â””â”€ 0000028-8-lmstudio-final.png â€” LM Studio layout final check
+â”‚     â”œâ”€ 0000028-8-lmstudio-final.png â€” LM Studio layout final check
+â”‚     â”œâ”€ 0000029-3-agent-transcript.png â€” Agents flow transcript verification
+â”‚     â”œâ”€ 0000029-3-chat-inflight.png â€” Chat inflight overlay verification
+â”‚     â””â”€ 0000029-3-flows-transcript.png â€” Flows transcript verification
 â”œâ”€ server/ â€” Express API
 â”‚  â”œâ”€ .dockerignore â€” server docker build ignores
 â”‚  â”œâ”€ .env â€” server default env (PORT, LMSTUDIO_BASE_URL)
@@ -330,6 +339,9 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚     â”œâ”€ types/
 â”‚     â”‚  â””â”€ pino-roll.d.ts â€” module shim for pino-roll until official types
 â”‚     â””â”€ test/
+â”‚        â”œâ”€ fixtures/
+â”‚        â”‚  â”œâ”€ flows/
+â”‚        â”‚  â””â”€ multi-agent.json â€” flow fixture for multi-agent integration coverage
 â”‚        â”œâ”€ features/
         - chat_stream.feature - chat run + WS streaming Cucumber coverage
         - chat_cancellation.feature - Cucumber coverage for aborting chat streams

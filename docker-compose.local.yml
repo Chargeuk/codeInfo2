@@ -6,7 +6,7 @@ services:
     build:
       context: .
       dockerfile: server/Dockerfile
-    image: codeinfo2-server
+    image: codeinfo2-server-local
     ports:
       - '5510:5010'
       - '5511:5011'
@@ -67,7 +67,7 @@ services:
         VITE_API_URL: http://host.docker.internal:5510
         VITE_LMSTUDIO_URL: ${VITE_LMSTUDIO_URL:-http://host.docker.internal:1234}
         VITE_LOG_FORWARD_ENABLED: true
-    image: codeinfo2-client
+    image: codeinfo2-client-local
     ports:
       - '5501:5001'
     networks:

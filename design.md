@@ -76,6 +76,26 @@ sequenceDiagram
 end
 ```
 
+## Flows (agent transcript persistence)
+
+- Each flow step persists user + assistant turns to both the flow conversation (merged transcript) and the per-agent conversation shown in the Agents sidebar.
+- Per-agent persistence reuses the same `createdAt` timestamps and command metadata so ordering stays aligned with the flow transcript.
+- Inflight persistence remains tied to the flow conversation; per-agent conversations only receive explicit persisted turns.
+- Each per-agent write emits `flows.agent.turn_persisted` with flow/agent context for manual verification.
+
+```mermaid
+sequenceDiagram
+  participant FlowRunner
+  participant Agent
+  participant FlowConversation
+  participant AgentConversation
+
+  FlowRunner->>Agent: Run flow instruction
+  Agent-->>FlowRunner: Streamed response
+  FlowRunner->>FlowConversation: Persist user + assistant (command metadata)
+  FlowRunner->>AgentConversation: Persist user + assistant
+```
+
 ## Flows (UI)
 
 - Client route `/flows` provides the Flows page with a drawer sidebar and transcript layout matching Chat/Agents.
@@ -1722,6 +1742,29 @@ flowchart TD
   Segments --> UI[Transcript UI]
   Stream --> UI
   Hydrate --> UI
+```
+
+### Inflight snapshot hydration overlay (client)
+
+- `useConversationTurns` treats the REST snapshot as the base transcript and only overlays an inflight assistant bubble when the snapshot does not already include an assistant turn at/after `inflight.startedAt`.
+- `useChatStream.hydrateInflightSnapshot` is invoked only when the overlay is needed, preventing duplicate assistant bubbles while preserving history during inflight runs.
+
+```mermaid
+sequenceDiagram
+  participant UI as Chat/Agents/Flows UI
+  participant REST as REST /conversations/:id/turns
+  participant Turns as useConversationTurns
+  participant Stream as useChatStream
+
+  UI->>REST: GET /conversations/:id/turns
+  REST-->>Turns: { items, inflight? }
+  Turns->>Turns: detect assistantPresent (createdAt >= inflight.startedAt)
+  Turns->>Stream: hydrateHistory(items)
+  alt assistantPresent
+    Note over Turns,Stream: overlay skipped
+  else no assistant
+    Turns->>Stream: hydrateInflightSnapshot(inflight)
+  end
 ```
 
 ### Client streaming logs (WS observability)

@@ -760,6 +760,7 @@ export function useChatStream(
               const existingContent = normalizeMessageContent(
                 existing.content ?? '',
               );
+              const existingHasContent = existingContent.length > 0;
               if (!entryContent && !existingContent) return false;
               const entryTime = parseTimestamp(entry.createdAt);
               const existingTime = parseTimestamp(existing.createdAt);
@@ -769,10 +770,14 @@ export function useChatStream(
                 Math.abs(entryTime - existingTime) <=
                   HYDRATION_DEDUPE_WINDOW_MS;
               if (entryContent === existingContent) {
-                return withinWindow || existing.streamStatus === 'processing';
+                return (
+                  withinWindow ||
+                  (existing.streamStatus === 'processing' && existingHasContent)
+                );
               }
               if (
                 existing.streamStatus === 'processing' &&
+                existingHasContent &&
                 entryContent.startsWith(existingContent)
               ) {
                 return true;

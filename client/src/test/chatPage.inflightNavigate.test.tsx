@@ -37,16 +37,6 @@ test('navigating away/back during inflight keeps persisted history + inflight', 
     items: [
       {
         conversationId: 'c1',
-        role: 'assistant',
-        content: 'Snapshot partial',
-        model: 'm1',
-        provider: 'lmstudio',
-        toolCalls: null,
-        status: 'ok',
-        createdAt: '2025-01-01T00:00:00.001Z',
-      },
-      {
-        conversationId: 'c1',
         role: 'user',
         content: 'In-flight user',
         model: 'm1',

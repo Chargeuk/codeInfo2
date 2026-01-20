@@ -1,0 +1,20 @@
+{
+  "description": "Safe smoke flow for UI/WS validation",
+  "steps": [
+    {
+      "type": "llm",
+      "label": "Smoke",
+      "agentType": "coding_agent",
+      "identifier": "smoke",
+      "messages": [
+        {
+          "role": "user",
+          "content": [
+            "Respond with the single word \"ok\" only.",
+            "Do not run tools or modify files."
+          ]
+        }
+      ]
+    }
+  ]
+}

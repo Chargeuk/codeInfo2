@@ -1404,7 +1404,7 @@ Standardize sizing and button variants across Chat and Agents so all controls us
 
 ### 7. Client: Control sizing + variant consistency (LM Studio + Ingest)
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **__to_do__**
 
 #### Overview

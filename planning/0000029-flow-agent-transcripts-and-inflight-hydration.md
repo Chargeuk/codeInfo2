@@ -138,6 +138,17 @@ External reference check:
 
 ---
 
+## Edge Cases and Failure Modes
+
+- **Multiple agents in one flow:** Ensure each agent’s conversation only contains turns from steps targeting that agent and does not leak turns from other agents.
+- **Empty assistant output while inflight:** When the inflight assistant has no text (thinking only), the UI should still keep prior assistant messages from the snapshot and show exactly one processing bubble.
+- **Inflight snapshot already includes assistant text:** Do not add a duplicate assistant bubble when the snapshot contains a non-empty assistant turn or a finalized status.
+- **Inflight ID changes mid-view:** When a new inflight run starts, replace the prior processing bubble instead of stacking multiple inflight bubbles.
+- **Resume after reconnect:** If the user opens a second window mid-run and refreshes, the transcript should match the REST snapshot and not drop assistant history.
+- **Persistence disabled/temporary failures:** If Mongo is unavailable and persistence falls back to in-memory, ensure flow conversations and per-agent conversations remain consistent within the session.
+
+---
+
 ## Implementation Plan
 
 Tasks will be defined next now that the desired behavior is agreed.

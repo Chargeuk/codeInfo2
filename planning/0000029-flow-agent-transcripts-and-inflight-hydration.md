@@ -15,7 +15,7 @@ Story convention (important for this repo’s planning style):
 
 ## Description
 
-Flow runs currently create per-agent conversations that appear in the Agents sidebar, but those conversations are empty because turns are only persisted to the flow conversation. Separately, opening a second window during an active run (Agents/Flows and possibly Chat) drops previously generated assistant messages and shows only user turns plus the in-flight thinking bubble. This story will ensure per-agent flow conversations contain the expected transcript, and that in-flight snapshot hydration preserves prior assistant output when viewing a run mid-stream from another window. The proposed UX fix is to treat the REST snapshot as the source of truth, replacing the transcript with the snapshot and only overlaying a single in-flight assistant bubble when the current run is still processing and the snapshot does not already contain that assistant text.
+Flow runs currently create per-agent conversations that appear in the Agents sidebar, but those conversations are empty because turns are only persisted to the flow conversation. Separately, opening a second window during an active run (Agents/Flows/Chat, which all use the same hydration hook) drops previously generated assistant messages and shows only user turns plus the in-flight thinking bubble. This story will ensure per-agent flow conversations contain the expected transcript, and that in-flight snapshot hydration preserves prior assistant output when viewing a run mid-stream from another window. The intended behavior is to treat the REST snapshot as the source of truth and only overlay a single in-flight assistant bubble when the current run is still processing and the snapshot does not already contain that assistant text.
 
 Investigation notes (current behaviour):
 
@@ -140,4 +140,4 @@ External reference check:
 
 ## Implementation Plan
 
-Tasks will be defined after we agree on the desired behavior for the two issues above.
+Tasks will be defined next now that the desired behavior is agreed.

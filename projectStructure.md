@@ -222,7 +222,9 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚  â”‚  â”œâ”€ 0000028-4-agents-send-stop-width.png â€” Agents Send/Stop fixed width
 â”‚  â”‚  â”œâ”€ 0000028-5-agents-folder-picker.png â€” Agents working-folder picker dialog
 â”‚  â”‚  â”œâ”€ 0000028-6-agents-sizing.png â€” Agents sizing + variant baseline
-â”‚  â”‚  â””â”€ 0000028-6-chat-sizing.png â€” Chat sizing + variant baseline
+â”‚  â”‚  â”œâ”€ 0000028-6-chat-sizing.png â€” Chat sizing + variant baseline
+â”‚  â”‚  â”œâ”€ 0000028-7-ingest-sizing.png â€” Ingest sizing + variant baseline
+â”‚  â”‚  â””â”€ 0000028-7-lmstudio-sizing.png â€” LM Studio sizing + variant baseline
 â”‚  â”œâ”€ 0000028-agents-chat-gui-consistency.md â€” plan for story 0000028
 â”‚  â””â”€ plan_format.md â€” planning template/instructions
 â”œâ”€ server/ â€” Express API

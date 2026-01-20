@@ -1427,7 +1427,7 @@ Standardize sizing and button variants across LM Studio and Ingest so controls u
 
 #### Subtasks
 
-1. [ ] Inventory current control sizes and variants on each page:
+1. [x] Inventory current control sizes and variants on each page:
    - Documentation to read (repeat):
      - MUI Button API: https://llms.mui.com/material-ui/6.4.12/api/button.md
      - MUI TextField API: https://llms.mui.com/material-ui/6.4.12/api/text-field.md
@@ -1442,7 +1442,7 @@ Standardize sizing and button variants across LM Studio and Ingest so controls u
    - Snippet to locate (current buttons):
      - `data-testid="ingest-run"` (or Start ingest button) and LM Studio action buttons
 
-2. [ ] Apply size and variant updates across LM Studio and Ingest:
+2. [x] Apply size and variant updates across LM Studio and Ingest:
    - Documentation to read (repeat):
      - MUI Button API: https://llms.mui.com/material-ui/6.4.12/api/button.md
      - MUI TextField API: https://llms.mui.com/material-ui/6.4.12/api/text-field.md
@@ -1460,7 +1460,7 @@ Standardize sizing and button variants across LM Studio and Ingest so controls u
    - Snippet to apply (example):
      - `<Button variant="contained" size="small">Start ingest</Button>`
 
-3. [ ] Test (unit/client): LM Studio control sizes/variants
+3. [x] Test (unit/client): LM Studio control sizes/variants
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Location:
@@ -1472,7 +1472,7 @@ Standardize sizing and button variants across LM Studio and Ingest so controls u
    - Snippet example:
      - `expect(resetButton).toHaveClass('MuiButton-outlined');`
 
-4. [ ] Test (unit/client): Ingest control sizes/variants
+4. [x] Test (unit/client): Ingest control sizes/variants
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Location:
@@ -1484,7 +1484,7 @@ Standardize sizing and button variants across LM Studio and Ingest so controls u
    - Snippet example:
      - `expect(chooseFolderButton).toHaveClass('MuiButton-outlined');`
 
-5. [ ] Capture UI screenshots (required for this task):
+5. [x] Capture UI screenshots (required for this task):
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
    - Files to add:
@@ -1499,7 +1499,7 @@ Standardize sizing and button variants across LM Studio and Ingest so controls u
      - `0000028-7-lmstudio-sizing.png`
      - `0000028-7-ingest-sizing.png`
 
-6. [ ] Documentation update: `design.md`
+6. [x] Documentation update: `design.md`
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location:
@@ -1511,7 +1511,7 @@ Standardize sizing and button variants across LM Studio and Ingest so controls u
    - Snippet example:
      - `- LM Studio/Ingest controls use size="small" with contained/outlined variants.`
 
-7. [ ] Documentation update: `projectStructure.md` (after screenshots are added)
+7. [x] Documentation update: `projectStructure.md` (after screenshots are added)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location:
@@ -1525,7 +1525,7 @@ Standardize sizing and button variants across LM Studio and Ingest so controls u
    - Snippet example:
      - `planning/0000028-agents-chat-gui-consistency-data/0000028-7-lmstudio-sizing.png`
 
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+8. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI/options: https://prettier.io/docs/options
@@ -1537,39 +1537,69 @@ Standardize sizing and button variants across LM Studio and Ingest so controls u
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, verify LM Studio and Ingest controls use `size="small"`, primary/secondary variants match the rules, and confirm the debug console shows no errors.
+8. [x] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, verify LM Studio and Ingest controls use `size="small"`, primary/secondary variants match the rules, and confirm the debug console shows no errors.
    - Capture Playwright MCP screenshots for LM Studio and Ingest controls and confirm the images are stored under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` before moving/recording them.
    - Expected log lines (debug console):
      - `DEV-0000028[T7] lmstudio controls sizing applied` appears after the LM Studio page renders.
      - `DEV-0000028[T7] ingest controls sizing applied` appears after the Ingest page renders.
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
 #### Implementation notes
 
-- (fill in during execution)
+- Attempted to push the Task 7 status update; push failed due to missing GitHub credentials/upstream.
+- Reviewed `LmStudioPage` and `IngestForm` control sizing/variant usage to identify required updates.
+- `npm run lint --workspaces` completed with existing server import-order warnings only after subtask 1.
+- `npm run format:check --workspaces` completed successfully after subtask 1.
+- Applied size="small" and variant updates on LM Studio/Ingest controls and added the T7 sizing log lines.
+- `npm run lint --workspaces` completed with existing server import-order warnings only after subtask 2.
+- `npm run format:check --workspaces` completed successfully after subtask 2.
+- Added LM Studio test coverage for size="small" inputs and contained/outlined button variants.
+- Added Ingest form test coverage for size="small" inputs and contained/outlined button variants.
+- `npm run lint --workspaces` completed with existing server import-order warnings only after subtask 3/4.
+- `npm run format:check --workspaces` completed successfully after subtask 3/4.
+- Captured LM Studio/Ingest sizing screenshots via Playwright MCP and moved them into the planning data folder.
+- `npm run lint --workspaces` completed with existing server import-order warnings only after subtask 5.
+- `npm run format:check --workspaces` completed successfully after subtask 5.
+- Documented the LM Studio/Ingest sizing + variant baseline in `design.md`.
+- `npm run lint --workspaces` completed with existing server import-order warnings only after subtask 6.
+- `npm run format:check --workspaces` completed successfully after subtask 6.
+- Updated `projectStructure.md` with the Task 7 LM Studio/Ingest screenshots.
+- `npm run lint --workspaces` completed with existing server import-order warnings only after subtask 7.
+- `npm run format:check --workspaces` completed successfully after subtask 7.
+- `npm run lint --workspaces` completed with existing server import-order warnings only after subtask 8.
+- `npm run format:check --workspaces` completed successfully after subtask 8.
+- `npm run build --workspace server` completed successfully for Task 7 testing.
+- `npm run build --workspace client` completed successfully for Task 7 testing (chunk size warning only).
+- `npm run test --workspace server` required extended timeout (initial 120s/240s runs timed out) and then completed successfully.
+- `npm run test --workspace client` completed successfully (existing experimental VM module + act warnings only).
+- `npm run e2e` completed successfully.
+- `npm run compose:build` completed successfully (client chunk size warning only).
+- `npm run compose:up` completed successfully for Task 7 testing.
+- Manual Playwright-MCP check completed: verified `DEV-0000028[T7] lmstudio controls sizing applied` and `DEV-0000028[T7] ingest controls sizing applied` logs, no console errors, and captured the sizing screenshots.
+- `npm run compose:down` completed successfully for Task 7 testing.
 
 ---
 

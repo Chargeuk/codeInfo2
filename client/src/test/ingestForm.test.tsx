@@ -34,6 +34,54 @@ describe('IngestForm', () => {
     { id: 'embed-2', displayName: 'Embed Two' },
   ];
 
+  it('applies size="small" inputs and button variant rules', () => {
+    render(
+      <IngestForm
+        models={models}
+        onStarted={jest.fn()}
+        defaultModelId="embed-1"
+      />,
+    );
+
+    const pathInput = screen.getByLabelText(/folder path/i);
+    expect(pathInput.closest('.MuiInputBase-root')).toHaveClass(
+      'MuiInputBase-sizeSmall',
+    );
+
+    const nameInput = screen.getByLabelText(/display name/i);
+    expect(nameInput.closest('.MuiInputBase-root')).toHaveClass(
+      'MuiInputBase-sizeSmall',
+    );
+
+    const descriptionInput = screen.getByLabelText(/description/i);
+    expect(descriptionInput.closest('.MuiInputBase-root')).toHaveClass(
+      'MuiInputBase-sizeSmall',
+    );
+
+    const modelInput = screen.getByRole('combobox', {
+      name: /embedding model/i,
+    });
+    expect(modelInput.closest('.MuiInputBase-root')).toHaveClass(
+      'MuiInputBase-sizeSmall',
+    );
+
+    const chooseFolderButton = screen.getByRole('button', {
+      name: /choose folder/i,
+    });
+    expect(chooseFolderButton).toHaveClass(
+      'MuiButton-outlined',
+      'MuiButton-sizeSmall',
+    );
+
+    const startIngestButton = screen.getByRole('button', {
+      name: /start ingest/i,
+    });
+    expect(startIngestButton).toHaveClass(
+      'MuiButton-contained',
+      'MuiButton-sizeSmall',
+    );
+  });
+
   it('shows validation messages when required fields are missing', async () => {
     render(
       <IngestForm

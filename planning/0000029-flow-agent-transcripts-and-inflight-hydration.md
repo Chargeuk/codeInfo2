@@ -87,9 +87,10 @@ Scope assessment:
 
 Research findings (codebase):
 
-- Flow conversations are created in the flows service; per-agent flow conversations are also created there but currently do not receive persisted turns when `skipPersistence` is active in flow execution.
-- Inflight snapshots are produced server-side by the inflight registry and merged into `/conversations/:id/turns` responses.
-- The client hook `useConversationTurns` is used by Chat, Agents, and Flows, so a fix here will apply consistently across those pages.
+- Flow conversations and per-agent flow conversations are created in `server/src/flows/service.ts` via `ensureFlowConversation` and `ensureFlowAgentConversation`, but flow execution currently sets `skipPersistence`, so agent conversations never receive their turns.
+- Turn persistence itself is handled in `server/src/chat/interfaces/ChatInterface.ts` (Mongo + memory fallback), so the flow runner needs to route agent turns through that path if we want the per-agent transcript stored.
+- Inflight snapshots are produced by `server/src/chat/inflightRegistry.ts` (`snapshotInflightTurns`) and merged into `GET /conversations/:id/turns` responses.
+- The client merge path is split between `client/src/hooks/useConversationTurns.ts` (REST snapshot + inflight state) and `client/src/hooks/useChatStream.ts` (hydration/stream merge); Chat, Agents, and Flows all import `useConversationTurns` (verified in `client/src/pages/ChatPage.tsx`, `AgentsPage.tsx`, and `FlowsPage.tsx`).
 
 Tests/fixtures likely impacted:
 
@@ -100,10 +101,11 @@ Unknowns resolved:
 
 - The hydration path is centralized (`useConversationTurns`) and shared by Chat/Agents/Flows.
 - No new API or storage schema changes are required; the fix should reuse existing conversation/turn persistence.
+- Deepwiki does not currently have indexed docs for this repository, so codebase + Context7 + web sources are the available references.
 
 External reference check:
 
-- React state guidance emphasizes avoiding duplicated/contradicting state and using a single source of truth for derived UI; this aligns with using the REST snapshot as the base transcript state.
+- React state guidance emphasizes avoiding redundant/duplicate state and using a single source of truth for derived UI; this aligns with using the REST snapshot as the base transcript state.
 
 ---
 

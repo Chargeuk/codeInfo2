@@ -252,6 +252,8 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
 5. [ ] Test (integration/server): Per-agent transcript populated (single agent)
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
+   - Test type:
+     - Integration test (server)
    - Files to read:
      - `server/src/test/integration/flows.run.loop.test.ts`
      - `server/src/flows/service.ts` (for `getAgentKey(...)` + `agentConversationState` usage)
@@ -265,6 +267,8 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
 6. [ ] Test (integration/server): Multi-agent isolation
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
+   - Test type:
+     - Integration test (server)
    - Files to read:
      - `server/src/test/integration/flows.run.loop.test.ts`
    - Files to edit:
@@ -277,6 +281,8 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
 7. [ ] Test (integration/server): Flow conversation remains merged
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
+   - Test type:
+     - Integration test (server)
    - Files to read:
      - `server/src/test/integration/flows.run.loop.test.ts`
    - Files to edit:
@@ -289,6 +295,8 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
 8. [ ] Test (integration/server): Failed flow step persists to agent conversation
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
+   - Test type:
+     - Integration test (server)
    - Files to read:
      - `server/src/test/integration/flows.run.loop.test.ts`
    - Files to edit:
@@ -493,6 +501,8 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
 7. [ ] Test (unit/client): Snapshot retains assistant history during inflight thinking
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
+   - Test type:
+     - Unit test (client)
    - Files to read:
      - `client/src/test/useConversationTurns.refresh.test.ts`
    - Files to edit:
@@ -505,6 +515,8 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
 8. [ ] Test (unit/client): No duplicate assistant bubble when snapshot includes inflight assistant
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
+   - Test type:
+     - Unit test (client)
    - Files to read:
      - `client/src/test/useConversationTurns.refresh.test.ts`
    - Files to edit:
@@ -517,6 +529,8 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
 9. [ ] Test (unit/client): No overlay when snapshot has failed/stopped inflight assistant
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
+   - Test type:
+     - Unit test (client)
    - Files to read:
      - `client/src/test/useConversationTurns.refresh.test.ts`
    - Files to edit:
@@ -529,6 +543,8 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
 10. [ ] Test (unit/client): Overlay appears when snapshot has no inflight assistant
     - Documentation to read (repeat):
       - Jest: Context7 `/jestjs/jest`
+    - Test type:
+      - Unit test (client)
     - Files to read:
       - `client/src/test/useConversationTurns.refresh.test.ts`
     - Files to edit:
@@ -539,22 +555,26 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
       - Validates the happy-path overlay behavior for thinking-only inflight runs.
 
 11. [ ] Test (unit/client): Inflight ID change resets overlay
-   - Documentation to read (repeat):
-     - Jest: Context7 `/jestjs/jest`
-   - Files to read:
-     - `client/src/test/useConversationTurns.refresh.test.ts`
-   - Files to edit:
-     - `client/src/test/useConversationTurns.refresh.test.ts`
+    - Documentation to read (repeat):
+      - Jest: Context7 `/jestjs/jest`
+    - Test type:
+      - Unit test (client)
+    - Files to read:
+      - `client/src/test/useConversationTurns.refresh.test.ts`
+    - Files to edit:
+      - `client/src/test/useConversationTurns.refresh.test.ts`
    - Description:
      - Simulate two refreshes with different `inflightId` values and assert the overlay state is replaced, not stacked.
    - Purpose:
      - Prevents multiple inflight bubbles when a new run starts.
 
 12. [ ] Test (unit/client): Hydration keeps assistant history when inflight bubble is empty
-   - Documentation to read (repeat):
-     - Jest: Context7 `/jestjs/jest`
-   - Files to read:
-     - `client/src/test/chatPage.inflightSnapshotRefreshMerge.test.tsx`
+    - Documentation to read (repeat):
+      - Jest: Context7 `/jestjs/jest`
+    - Test type:
+      - Unit test (client)
+    - Files to read:
+      - `client/src/test/chatPage.inflightSnapshotRefreshMerge.test.tsx`
    - Files to edit:
      - `client/src/test/chatPage.inflightSnapshotRefreshMerge.test.tsx` (extend existing inflight snapshot merge suite)
    - Description:

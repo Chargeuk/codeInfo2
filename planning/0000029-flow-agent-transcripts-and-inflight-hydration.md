@@ -142,7 +142,7 @@ External reference check:
   - Conversation storage already supports `flowName`, `agentName`, and `flags.flow` for per-agent mappings (`server/src/mongo/conversation.ts`).
   - Turn storage already supports `command` metadata (step index/label/agent info), `usage`/`timing`, and tool calls (`server/src/mongo/turn.ts`).
   - Flow run responses already include `conversationId`, `inflightId`, and `modelId` (`POST /flows/:flowName/run`).
-  - Inflight snapshots already include assistant text/status and optional command metadata in the `/conversations/:id/turns?includeInflight=true` response.
+- Inflight snapshots already include assistant text/status and optional command metadata in the `/conversations/:id/turns` response (when an inflight run exists).
 - The fix should reuse the current contracts and persistence shape by ensuring per-agent flow turns are written and the client hydration logic uses the REST snapshot as the single source of truth.
 
 ---

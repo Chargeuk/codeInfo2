@@ -337,7 +337,7 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
        - `planning/0000029-flow-agent-transcripts-and-inflight-hydration-data/0000029-1-agent-transcripts.png`
        - `planning/0000029-flow-agent-transcripts-and-inflight-hydration-data/0000029-1-flow-transcript.png`
 
-11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+11. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI/options: https://prettier.io/docs/options
@@ -377,7 +377,7 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
      - `planning/0000029-flow-agent-transcripts-and-inflight-hydration-data/0000029-1-flow-transcript.png`
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
@@ -397,6 +397,13 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
 - `npm run e2e` passed (compose build + up/test/down).
 - `npm run compose:build` completed successfully.
 - `npm run compose:up` started the stack successfully.
+- Manual Playwright check: ran `execute_plan`, refreshed the Flows list, and confirmed the flow transcript renders command metadata.
+- Manual Playwright check: switched to Agents with `planning_agent`, selected `Flow: execute_plan (planner)`, and verified user/assistant turns were present.
+- `docker compose logs --tail=200 server` showed `flows.agent.turn_persisted` entries during the flow run.
+- Saved MCP screenshots to `planning/0000029-flow-agent-transcripts-and-inflight-hydration-data/` and updated `projectStructure.md`.
+- `npm run lint --workspaces` completed with existing import-order warnings.
+- `npm run format:check --workspaces` failed on `server/src/test/integration/flows.run.loop.test.ts`, fixed via `npm run format --workspaces`, and rechecked clean.
+- `npm run compose:down` completed successfully.
 
 ---
 
@@ -485,8 +492,8 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
      - `setInflight(inflight);`
      - `setTurns(dedupeTurns(chronological));`
    - Implementation details:
-   - After fetching `/conversations/:id/turns`, treat the returned `items` as the authoritative turns list.
-    - Do **not** add an `includeInflight` query param; the server already attaches inflight data by default.
+     - After fetching `/conversations/:id/turns`, treat the returned `items` as the authoritative turns list.
+     - Do **not** add an `includeInflight` query param; the server already attaches inflight data by default.
      - Only keep an overlay inflight assistant bubble when no assistant turn exists for the current inflight run (set `inflight` to `null` when already present).
      - Explicitly set `setInflight(null)` before `setTurns(...)` when the snapshot already contains an inflight assistant (so the UI never renders a second bubble).
 
@@ -787,12 +794,18 @@ Validate the full story requirements end-to-end and capture final evidence, incl
        - `DEV-0000029:T2:inflight_overlay_decision` (browser console log, emitted on each snapshot refresh)
      - Note: these log lines are added in Tasks 1 and 2; this subtask only captures expectations for the final manual check.
 
-5. [ ] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
+5. [ ] Draft a concise summary of all story changes
+   - Documentation to read (repeat):
+     - Markdown syntax: https://www.markdownguide.org/basic-syntax/
+   - Description:
+     - Summarize server persistence changes, client inflight hydration updates, tests added, and documentation updates.
+
+6. [ ] Create the pull request comment using the summary
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Files to edit: none (comment only)
 
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI/options: https://prettier.io/docs/options

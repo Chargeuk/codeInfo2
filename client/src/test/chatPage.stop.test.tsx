@@ -46,9 +46,23 @@ describe('Chat page stop control', () => {
     const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
     render(<RouterProvider router={router} />);
 
+    const providerSelect = await screen.findByTestId('provider-select');
+    const providerRoot = providerSelect.closest('.MuiInputBase-root');
+    expect(providerRoot).toHaveClass('MuiInputBase-sizeSmall');
+
+    const modelSelect = await screen.findByTestId('model-select');
+    const modelRoot = modelSelect.closest('.MuiInputBase-root');
+    expect(modelRoot).toHaveClass('MuiInputBase-sizeSmall');
+
     const input = await screen.findByTestId('chat-input');
+    const inputRoot = input.closest('.MuiInputBase-root');
+    expect(inputRoot).toHaveClass('MuiInputBase-sizeSmall');
     fireEvent.change(input, { target: { value: 'Hello' } });
     const sendButton = await screen.findByTestId('chat-send');
+    expect(sendButton).toHaveClass(
+      'MuiButton-contained',
+      'MuiButton-sizeSmall',
+    );
 
     await waitFor(() => expect(sendButton).toBeEnabled());
 
@@ -64,6 +78,11 @@ describe('Chat page stop control', () => {
 
     const stopButton = await screen.findByTestId('chat-stop');
     expect(stopButton).toBeVisible();
+    expect(stopButton).toHaveClass(
+      'MuiButton-contained',
+      'MuiButton-containedError',
+      'MuiButton-sizeSmall',
+    );
 
     await act(async () => {
       await user.click(stopButton);

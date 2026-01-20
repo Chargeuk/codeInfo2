@@ -1,6 +1,6 @@
 ﻿# Project Structure (full tree)
 
-Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-results`). Keep this in sync whenever files are added/removed/renamed; each line has a brief comment.
+Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep this in sync whenever files are added/removed/renamed; each line has a brief comment.
 
 ```
 .
@@ -124,12 +124,13 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 |     |     |- chatPage.markdown.test.tsx ? assistant markdown rendering for lists and code fences
 |     |     |- chatPage.mermaid.test.tsx ? mermaid code fence rendering and script stripping
 |     |     |- agentsPage.list.test.tsx ? Agents page loads agent list and populates dropdown
-|     |     |- agentsPage.description.test.tsx ? Agents page renders selected agent description markdown
+|     |     |- agentsPage.descriptionPopover.test.tsx ? Agents page renders selected agent description markdown
 |     |     |- agentsPage.agentChange.test.tsx ? switching agent aborts run and resets conversation state
 |     |     |- agentsPage.conversationSelection.test.tsx ? selecting a conversation continues via conversationId
 |     |     |- agentsPage.turnHydration.test.tsx ? selecting a conversation hydrates and renders stored turns
 |     |     |- agentsPage.run.test.tsx ? agent run (realtime) renders transcript from WS and ignores REST segments
 |     |     |- agentsPage.run.instructionError.test.tsx ? Agents page shows error banner when instruction start fails
+|     |     |- agentsPage.workingFolderPicker.test.tsx ? Agents working-folder picker dialog open/pick/cancel/error coverage
 |     |     |- flowsPage.test.tsx ? Flows page renders flow list and step metadata
 |     |     |- flowsPage.run.test.tsx ? Flows page run/resume controls send expected payloads
 |     |     |- flowsPage.stop.test.tsx ? Flows page stop button sends cancel_inflight
@@ -202,8 +203,38 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 â”‚  â”œâ”€ 0000017-agent-working-folder-and-codex-updates.md â€” plan for story 0000017
 â”‚  â”œâ”€ 0000018-agent-commands.md â€” plan for story 0000018
 â”‚  â”œâ”€ 0000019-chat-page-ux.md â€” plan for story 0000019 (current)
+â”‚  â”œâ”€ 0000019-screenshots/ â€” screenshots captured for story 0000019
 â”‚  â”œâ”€ 0000020-ingest-delta-reembed-and-ingest-page-ux.md â€” plan for story 0000020
+â”‚  â”œâ”€ 0000020-screenshots/ â€” screenshots captured for story 0000020
+â”‚  â”œâ”€ 0000021-agents-chat-unification.md â€” plan for story 0000021
+â”‚  â”œâ”€ 0000022-ingest-ws-streaming-and-layout.md â€” plan for story 0000022
+â”‚  â”œâ”€ 0000023-conversation-sidebar-fixes.md â€” plan for story 0000023
+â”‚  â”œâ”€ 0000024-chat-bubble-metadata-and-agent-steps.md â€” plan for story 0000024
+â”‚  â”œâ”€ 0000025-summary-first-retrieval.md â€” plan for story 0000025
+â”‚  â”œâ”€ 0000026-codex-models-and-flag-defaults-via-env.md â€” plan for story 0000026
+â”‚  â”œâ”€ 0000027-flows-mode.md â€” plan for story 0000027
+â”‚  â”œâ”€ 0000028-agents-chat-gui-consistency-data/ â€” UI screenshots for story 0000028
+â”‚  â”‚  â”œâ”€ 0000028-1-agents-height.png â€” Agents transcript height check
+â”‚  â”‚  â”œâ”€ 0000028-1-chat-height.png â€” Chat transcript height check
+â”‚  â”‚  â”œâ”€ 0000028-2-agents-popover.png â€” Agents info popover
+â”‚  â”‚  â”œâ”€ 0000028-3-agents-controls.png â€” Agents controls row layout
+â”‚  â”‚  â”œâ”€ 0000028-3-agents-controls-mobile.png â€” Agents controls stacked layout
+â”‚  â”‚  â”œâ”€ 0000028-4-agents-send-stop-width.png â€” Agents Send/Stop fixed width
+â”‚  â”‚  â”œâ”€ 0000028-5-agents-folder-picker.png â€” Agents working-folder picker dialog
+â”‚  â”‚  â”œâ”€ 0000028-6-agents-sizing.png â€” Agents sizing + variant baseline
+â”‚  â”‚  â”œâ”€ 0000028-6-chat-sizing.png â€” Chat sizing + variant baseline
+â”‚  â”‚  â”œâ”€ 0000028-7-ingest-sizing.png â€” Ingest sizing + variant baseline
+â”‚  â”‚  â””â”€ 0000028-7-lmstudio-sizing.png â€” LM Studio sizing + variant baseline
+â”‚  â”œâ”€ 0000028-agents-chat-gui-consistency.md â€” plan for story 0000028
 â”‚  â””â”€ plan_format.md â€” planning template/instructions
+â”œâ”€ test-results/ â€” test artifacts (screenshots, reports)
+â”‚  â””â”€ screenshots/ â€” manual verification screenshots
+â”‚     â”œâ”€ 0000028-8-agents-final.png â€” Agents layout final check
+â”‚     â”œâ”€ 0000028-8-agents-folder-picker.png â€” Agents folder picker dialog
+â”‚     â”œâ”€ 0000028-8-agents-popover.png â€” Agents info popover
+â”‚     â”œâ”€ 0000028-8-chat-final.png â€” Chat layout final check
+â”‚     â”œâ”€ 0000028-8-ingest-final.png â€” Ingest layout final check
+â”‚     â””â”€ 0000028-8-lmstudio-final.png â€” LM Studio layout final check
 â”œâ”€ server/ â€” Express API
 â”‚  â”œâ”€ .dockerignore â€” server docker build ignores
 â”‚  â”œâ”€ .env â€” server default env (PORT, LMSTUDIO_BASE_URL)
@@ -523,6 +554,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`, `test-r
 - client/src/test/agentsPage.sidebarWs.test.tsx — Agents page sidebar applies subscribe_sidebar conversation_upsert/delete with agentName filtering + ordering
 - client/src/test/agentsPage.sidebarActions.test.tsx — Agents sidebar filter/bulk/action parity tests for Conversations list
 - client/src/test/agentsPage.layoutWrap.test.tsx — Agents sidebar layout coverage for list panel scroll and Load more placement
+- client/src/test/agentsPage.workingFolderPicker.test.tsx — Agents working-folder picker dialog open/pick/cancel/error coverage
 - client/src/test/agentsPage.citations.test.tsx — Agents transcript renders default-collapsed citations accordion under assistant bubbles
 - client/src/test/agentsPage.reasoning.test.tsx — Agents transcript thought process toggle matches Chat collapse behavior
 - client/src/test/agentsPage.toolsUi.test.tsx — Agents transcript renders Parameters/Result accordions for tool events

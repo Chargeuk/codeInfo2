@@ -118,7 +118,7 @@ services:
     environment:
       - IS_PERSISTENT=True
       - ANONYMIZED_TELEMETRY=False
-      - CHROMA_OPEN_TELEMETRY__ENDPOINT=http://host.docker.internal:4517/
+      - CHROMA_OPEN_TELEMETRY__ENDPOINT=http://host.docker.internal:4917/
       - CHROMA_OPEN_TELEMETRY__SERVICE_NAME=chroma
     ports:
       - '8200:8000'
@@ -144,8 +144,8 @@ services:
     volumes:
       - ./observability/otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
     ports:
-      - '4517:4317'
-      - '4518:4318'
+      - '4917:4317'
+      - '4918:4318'
     networks:
       - internal
 

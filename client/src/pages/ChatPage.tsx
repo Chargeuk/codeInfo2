@@ -320,6 +320,18 @@ export default function ChatPage() {
       boxSizing: 'border-box',
     });
   }, [drawerWidth, log]);
+
+  useEffect(() => {
+    log('info', 'DEV-0000028[T1] chat transcript layout ready', {
+      page: 'chat',
+    });
+  }, [log]);
+
+  useEffect(() => {
+    log('info', 'DEV-0000028[T6] chat controls sizing applied', {
+      page: 'chat',
+    });
+  }, [log]);
   const {
     turns,
     inflight: inflightSnapshot,
@@ -1271,7 +1283,7 @@ export default function ChatPage() {
       maxWidth={false}
       sx={{
         pt: 3,
-        pb: 6,
+        pb: 0,
         flex: 1,
         display: 'flex',
         flexDirection: 'column',
@@ -1446,6 +1458,7 @@ export default function ChatPage() {
                       >
                         <TextField
                           select
+                          size="small"
                           id="chat-provider-select"
                           label="Provider"
                           value={provider ?? ''}
@@ -1473,6 +1486,7 @@ export default function ChatPage() {
 
                         <TextField
                           select
+                          size="small"
                           id="chat-model-select"
                           label="Model"
                           value={selected ?? ''}
@@ -1509,6 +1523,7 @@ export default function ChatPage() {
                             type="button"
                             variant="outlined"
                             color="secondary"
+                            size="small"
                             onClick={handleNewConversation}
                             disabled={isLoading}
                             fullWidth
@@ -1599,6 +1614,7 @@ export default function ChatPage() {
                           fullWidth
                           multiline
                           minRows={2}
+                          size="small"
                           label="Message"
                           placeholder="Type your prompt"
                           value={input}
@@ -1620,6 +1636,7 @@ export default function ChatPage() {
                           <Button
                             type="submit"
                             variant="contained"
+                            size="small"
                             data-testid="chat-send"
                             disabled={
                               controlsDisabled || isSending || !input.trim()
@@ -1630,8 +1647,9 @@ export default function ChatPage() {
                           {showStop && (
                             <Button
                               type="button"
-                              variant="outlined"
-                              color="warning"
+                              variant="contained"
+                              color="error"
+                              size="small"
                               onClick={handleStop}
                               data-testid="chat-stop"
                             >

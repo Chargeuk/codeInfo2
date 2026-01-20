@@ -16,12 +16,23 @@ const fixturesDir = path.resolve(
 
 describe('GET /flows', () => {
   test('missing flows folder returns empty list', async () => {
+    const prevFlowsDir = process.env.FLOWS_DIR;
+    const missingDir = path.join(process.cwd(), 'tmp-flows-missing');
+    await fs.rm(missingDir, { recursive: true, force: true });
+    process.env.FLOWS_DIR = missingDir;
+
     const app = express();
     app.use(createFlowsRouter());
     const response = await supertest(app).get('/flows');
 
     assert.equal(response.status, 200);
     assert.deepEqual(response.body, { flows: [] });
+
+    if (prevFlowsDir === undefined) {
+      delete process.env.FLOWS_DIR;
+    } else {
+      process.env.FLOWS_DIR = prevFlowsDir;
+    }
   });
 
   test('lists flows with disabled/error states for invalid entries', async () => {

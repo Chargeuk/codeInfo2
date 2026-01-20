@@ -10,6 +10,7 @@ import {
 } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
 import { getApiBaseUrl } from '../../api/baseUrl';
+import { createLogger } from '../../logging';
 import DirectoryPickerDialog from './DirectoryPickerDialog';
 
 const serverBase = getApiBaseUrl();
@@ -49,6 +50,7 @@ export default function IngestForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [dirPickerOpen, setDirPickerOpen] = useState(false);
   const isFormDisabled = disabled || isSubmitting;
+  const logger = useMemo(() => createLogger('client'), []);
 
   const modelOptions = useMemo(() => {
     const list = [...models];
@@ -129,6 +131,12 @@ export default function IngestForm({
 
   const isValid = path.trim() && name.trim() && model;
 
+  useEffect(() => {
+    logger('info', 'DEV-0000028[T7] ingest controls sizing applied', {
+      page: 'ingest',
+    });
+  }, [logger]);
+
   return (
     <Box component="form" onSubmit={handleSubmit} noValidate>
       <Stack spacing={2}>
@@ -148,11 +156,13 @@ export default function IngestForm({
             error={Boolean(errors.path)}
             helperText={errors.path}
             sx={{ flex: 1 }}
+            size="small"
           />
           <Button
             variant="outlined"
             onClick={() => setDirPickerOpen(true)}
             disabled={isFormDisabled}
+            size="small"
           >
             Choose folder…
           </Button>
@@ -172,6 +182,7 @@ export default function IngestForm({
           disabled={isFormDisabled}
           error={Boolean(errors.name)}
           helperText={errors.name}
+          size="small"
         />
 
         <TextField
@@ -183,6 +194,7 @@ export default function IngestForm({
           disabled={isFormDisabled}
           multiline
           minRows={2}
+          size="small"
         />
 
         <TextField
@@ -205,6 +217,7 @@ export default function IngestForm({
           }
           error={Boolean(errors.model)}
           helperText={errors.model}
+          size="small"
         >
           {modelOptions.map((m) => (
             <option key={m.id} value={m.id}>
@@ -238,6 +251,7 @@ export default function IngestForm({
             variant="contained"
             disabled={!isValid || isFormDisabled}
             data-testid="start-ingest"
+            size="small"
           >
             {isSubmitting ? 'Starting…' : 'Start ingest'}
           </Button>

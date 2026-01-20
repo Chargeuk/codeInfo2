@@ -271,6 +271,10 @@ sequenceDiagram
 
 - Route `/chat` surfaces the chat shell; controls sit at the top with Provider/Model selectors implemented as MUI `TextField` with `select` enabled (avoids label clipping seen with raw `FormControl + InputLabel + Select`). The first available provider is auto-selected and the first model for that provider auto-selects when data loads; provider locks after the first message while model can still change.
 - Codex-only controls live in a collapsible (collapsed by default) **Codex flags** panel rendered under the Provider/Model row whenever `provider === 'codex'`. The panel defaults come from `Codex_*` env-driven defaults (surfaced via `/chat/models`), exposes `sandboxMode`, `approvalPolicy`, `modelReasoningEffort`, plus **Enable network access** and **Enable web search** toggles; unchanged defaults are omitted from the `/chat` payload so the server can apply env defaults, while user-changed flags are sent. The controls reset to their defaults on provider changes or when **New conversation** is clicked while preserving choices during an active Codex session. Any `codexWarnings` returned by `/chat/models?provider=codex` render a warning banner above the flags panel.
+- Chat/Agents controls use `size="small"` with contained primary actions, outlined secondary actions, and Stop styled as contained error.
+- LM Studio/Ingest controls use `size="small"` with contained primary actions and outlined secondary actions.
+- Agents controls group Command + Execute and Instruction + Send/Stop on shared rows, with a fixed-width Send/Stop slot to avoid layout shifts.
+- Agents show description/warnings in an info popover next to the selector, and the working-folder input includes a Choose folder dialog matching Ingest.
 
 #### Codex reasoning effort flow
 
@@ -338,6 +342,7 @@ sequenceDiagram
 - Hydration dedupes in-flight bubbles by role/content/time proximity so persisted turns do not create duplicate user/assistant bubbles for the active run.
 - Bubbles render newest-first closest to the controls; user bubbles align right with the primary palette, assistant bubbles align left on the default surface, and error bubbles use the error palette with retry guidance.
 - The transcript panel is a flex child that fills the remaining viewport height beneath the controls (selectors/flags/input) and scrolls vertically within the panel.
+- Chat and Agents transcript panels apply `flex: 1` + `minHeight: 0` so the scroll area reaches the bottom of the viewport without extra gaps.
 - User and assistant bubbles share a 14px border radius while keeping status chips, tool blocks, and citations aligned inside the container.
 - Bubble metadata headers render above content: every user/assistant bubble shows a timestamp formatted with `Intl.DateTimeFormat` `{ dateStyle: 'medium', timeStyle: 'short' }` in local time (invalid timestamps fall back to `new Date()`); assistant bubbles optionally show token usage, timing/rate, and agent step indicators when metadata exists, while status/error bubbles omit metadata entirely.
 - Send is disabled while `status === 'sending'`; a small "Responding..." helper appears under the controls; tool events are logged only (not shown in the transcript).
@@ -796,11 +801,15 @@ flowchart TD
 
 - The Agents page (`/agents`) is a Codex-only surface with a constrained control bar:
   - agent selector dropdown
+  - info icon popover showing agent description + warnings
+  - command/execute row + instruction action row on desktop, stacked on mobile
+  - Send/Stop action slot uses fixed width to avoid layout shift
   - command selector dropdown (refreshed on agent change)
   - Execute command (runs selected command)
   - Stop (abort)
   - New conversation (reset)
 - The run form includes an optional `working_folder` field (absolute path) above the instruction input.
+  - Agents page reuses the Ingest directory picker for working_folder selection.
   - Reset behavior: agent change and New conversation clear `working_folder`.
 - Conversation continuation is done by selecting a prior conversation from the sidebar (no manual `conversationId` entry).
 - Command runs do not use client-side locking; the server rejects concurrent runs for the same `conversationId` with `RUN_IN_PROGRESS` (HTTP 409), and the UI surfaces this as a friendly error.

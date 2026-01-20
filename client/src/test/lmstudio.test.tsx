@@ -63,6 +63,43 @@ describe('LM Studio page', () => {
     localStorage.clear();
   });
 
+  it('applies size="small" inputs and button variant rules', () => {
+    mockFetch.mockResolvedValue(emptyResponse);
+    const router = createMemoryRouter(routes, {
+      initialEntries: ['/lmstudio'],
+    });
+    render(<RouterProvider router={router} />);
+
+    const input = screen.getByLabelText(/LM Studio base URL/i);
+    expect(input.closest('.MuiInputBase-root')).toHaveClass(
+      'MuiInputBase-sizeSmall',
+    );
+
+    const checkButton = screen.getByRole('button', {
+      name: /check status/i,
+    });
+    expect(checkButton).toHaveClass(
+      'MuiButton-contained',
+      'MuiButton-sizeSmall',
+    );
+
+    const resetButton = screen.getByRole('button', {
+      name: /reset to default/i,
+    });
+    expect(resetButton).toHaveClass(
+      'MuiButton-outlined',
+      'MuiButton-sizeSmall',
+    );
+
+    const refreshButton = screen.getByRole('button', {
+      name: /refresh models/i,
+    });
+    expect(refreshButton).toHaveClass(
+      'MuiButton-outlined',
+      'MuiButton-sizeSmall',
+    );
+  });
+
   it('renders models and supports refresh actions', async () => {
     mockFetch.mockResolvedValue(okResponse);
     const router = createMemoryRouter(routes, {

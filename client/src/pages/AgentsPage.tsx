@@ -2,6 +2,7 @@ import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import HourglassTopIcon from '@mui/icons-material/HourglassTop';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import MenuIcon from '@mui/icons-material/Menu';
 import {
   Accordion,
@@ -19,6 +20,7 @@ import {
   IconButton,
   InputLabel,
   MenuItem,
+  Popover,
   Paper,
   Select,
   Stack,
@@ -46,6 +48,7 @@ import {
 } from '../api/agents';
 import Markdown from '../components/Markdown';
 import ConversationList from '../components/chat/ConversationList';
+import DirectoryPickerDialog from '../components/ingest/DirectoryPickerDialog';
 import useChatStream, {
   type ChatMessage,
   type ToolCall,
@@ -124,6 +127,7 @@ const buildStepLine = (command: ChatMessage['command']) => {
 export default function AgentsPage() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const controlsLayoutMode = isMobile ? 'stacked' : 'row';
   const drawerWidth = 320;
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState<boolean>(false);
   const [desktopDrawerOpen, setDesktopDrawerOpen] = useState<boolean>(() =>
@@ -204,8 +208,12 @@ export default function AgentsPage() {
 
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [workingFolder, setWorkingFolder] = useState('');
+  const [dirPickerOpen, setDirPickerOpen] = useState(false);
   const [input, setInput] = useState('');
   const lastSentRef = useRef('');
+  const [agentInfoAnchorEl, setAgentInfoAnchorEl] =
+    useState<HTMLElement | null>(null);
+  const actionSlotMinWidth = 120;
 
   const [startPending, setStartPending] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
@@ -248,6 +256,42 @@ export default function AgentsPage() {
       : `calc(100% - ${theme.spacing(3)})`;
 
   const log = useMemo(() => createLogger('client'), []);
+
+  useEffect(() => {
+    log('info', 'DEV-0000028[T1] agents transcript layout ready', {
+      page: 'agents',
+    });
+  }, [log]);
+
+  useEffect(() => {
+    log('info', 'DEV-0000028[T3] agents controls layout mode', {
+      mode: controlsLayoutMode,
+    });
+  }, [controlsLayoutMode, log]);
+
+  useEffect(() => {
+    log('info', 'DEV-0000028[T6] agents controls sizing applied', {
+      page: 'agents',
+    });
+  }, [log]);
+
+  const handleOpenDirPicker = () => {
+    log('info', 'DEV-0000028[T5] agents folder picker opened', {
+      source: 'agents',
+    });
+    setDirPickerOpen(true);
+  };
+
+  const handlePickDir = (path: string) => {
+    log('info', 'DEV-0000028[T5] agents folder picker picked', { path });
+    setWorkingFolder(path);
+    setDirPickerOpen(false);
+  };
+
+  const handleCloseDirPicker = () => {
+    log('info', 'DEV-0000028[T5] agents folder picker cancelled');
+    setDirPickerOpen(false);
+  };
 
   useEffect(() => {
     displayMessages.forEach((message) => {
@@ -1038,14 +1082,19 @@ export default function AgentsPage() {
     workingFolder,
   ]);
 
+  const selectedAgent = agents.find((a) => a.name === selectedAgentName);
   const isSending = startPending || isStreaming || status === 'sending';
-
   const controlsDisabled =
     agentsLoading ||
     !!agentsError ||
     !selectedAgentName ||
     persistenceLoading ||
     isSending;
+  const isWorkingFolderDisabled =
+    controlsDisabled ||
+    isSending ||
+    !wsTranscriptReady ||
+    selectedAgent?.disabled;
   const conversationListDisabled = controlsDisabled || persistenceUnavailable;
 
   const hasFilters = Boolean(setFilterState && refreshConversations);
@@ -1069,11 +1118,35 @@ export default function AgentsPage() {
     selectedAgentName,
   ]);
 
-  const selectedAgent = agents.find((a) => a.name === selectedAgentName);
-
   const agentDescription = selectedAgent?.description?.trim();
+  const agentWarnings = selectedAgent?.warnings ?? [];
+  const agentInfoOpen = Boolean(agentInfoAnchorEl);
+  const agentInfoId = agentInfoOpen ? 'agent-info-popover' : undefined;
+  const agentInfoDisabled = agentsLoading || !selectedAgentName;
+  const showAgentInfoButton = !agentsError;
+  const agentInfoEmpty = !agentDescription && agentWarnings.length === 0;
+  const agentInfoEmptyMessage =
+    'No description or warnings are available for this agent yet.';
 
   const showStop = isSending;
+  useEffect(() => {
+    log('info', 'DEV-0000028[T4] agents action slot state', {
+      showStop,
+      minWidth: actionSlotMinWidth,
+    });
+  }, [actionSlotMinWidth, log, showStop]);
+  const handleAgentInfoOpen = (event: React.MouseEvent<HTMLElement>) => {
+    if (agentInfoDisabled) return;
+    setAgentInfoAnchorEl(event.currentTarget);
+    log('info', 'DEV-0000028[T2] agent info popover opened', {
+      agentName: selectedAgentName,
+      hasDescription: Boolean(agentDescription),
+      warningsCount: agentWarnings.length,
+    });
+  };
+  const handleAgentInfoClose = () => {
+    setAgentInfoAnchorEl(null);
+  };
   const renderParamsAccordion = (params: unknown, accordionId: string) => (
     <Accordion
       defaultExpanded={false}
@@ -1504,7 +1577,7 @@ export default function AgentsPage() {
       data-testid="agents-page"
       sx={{
         pt: 3,
-        pb: 6,
+        pb: 0,
         flex: 1,
         display: 'flex',
         flexDirection: 'column',
@@ -1668,6 +1741,7 @@ export default function AgentsPage() {
                     </IconButton>
                   </Stack>
                   <Stack
+                    data-testid="agent-header-row"
                     direction={{ xs: 'column', sm: 'row' }}
                     spacing={1}
                     alignItems={{ xs: 'stretch', sm: 'center' }}
@@ -1693,19 +1767,23 @@ export default function AgentsPage() {
                       </Select>
                     </FormControl>
 
+                    {showAgentInfoButton ? (
+                      <IconButton
+                        aria-describedby={agentInfoId}
+                        onClick={handleAgentInfoOpen}
+                        disabled={agentInfoDisabled}
+                        size="small"
+                        data-testid="agent-info"
+                      >
+                        <InfoOutlinedIcon fontSize="small" />
+                      </IconButton>
+                    ) : null}
+
                     <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
                       <Button
                         type="button"
                         variant="outlined"
-                        onClick={handleStopClick}
-                        disabled={!showStop}
-                        data-testid="agent-stop"
-                      >
-                        Stop
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outlined"
+                        size="small"
                         onClick={() => {
                           resetConversation();
                           inputRef.current?.focus();
@@ -1724,66 +1802,64 @@ export default function AgentsPage() {
                     </Alert>
                   ) : null}
 
-                  <FormControl
-                    fullWidth
-                    size="small"
-                    disabled={
-                      controlsDisabled ||
-                      isSending ||
-                      selectedAgent?.disabled ||
-                      commandsLoading
-                    }
+                  <Stack
+                    data-testid="agent-command-row"
+                    direction={{ xs: 'column', sm: 'row' }}
+                    spacing={1}
+                    alignItems={{ xs: 'stretch', sm: 'center' }}
                   >
-                    <InputLabel id="agent-command-select-label">
-                      Command
-                    </InputLabel>
-                    <Select
-                      labelId="agent-command-select-label"
-                      label="Command"
-                      value={selectedCommandName}
-                      onChange={handleCommandChange}
-                      inputProps={{ 'data-testid': 'agent-command-select' }}
+                    <FormControl
+                      fullWidth
+                      size="small"
+                      disabled={
+                        controlsDisabled ||
+                        isSending ||
+                        selectedAgent?.disabled ||
+                        commandsLoading
+                      }
+                      sx={{ flex: 1 }}
                     >
-                      <MenuItem value="" disabled>
-                        Select a command
-                      </MenuItem>
-                      {commands.map((cmd) => (
-                        <MenuItem
-                          key={cmd.name}
-                          value={cmd.name}
-                          disabled={cmd.disabled}
-                          data-testid={`agent-command-option-${cmd.name}`}
-                        >
-                          <Stack spacing={0.25}>
-                            <Typography variant="body2">
-                              {cmd.name.replace(/_/g, ' ')}
-                            </Typography>
-                            {cmd.disabled ? (
-                              <Typography
-                                variant="caption"
-                                color="text.secondary"
-                              >
-                                Invalid command file
-                              </Typography>
-                            ) : null}
-                          </Stack>
+                      <InputLabel id="agent-command-select-label">
+                        Command
+                      </InputLabel>
+                      <Select
+                        labelId="agent-command-select-label"
+                        label="Command"
+                        value={selectedCommandName}
+                        onChange={handleCommandChange}
+                        inputProps={{ 'data-testid': 'agent-command-select' }}
+                      >
+                        <MenuItem value="" disabled>
+                          Select a command
                         </MenuItem>
-                      ))}
-                    </Select>
-                  </FormControl>
-
-                  <Typography
-                    variant="body2"
-                    color="text.secondary"
-                    data-testid="agent-command-description"
-                  >
-                    {selectedCommandDescription}
-                  </Typography>
-
-                  <Stack spacing={0.75} alignItems="flex-start">
+                        {commands.map((cmd) => (
+                          <MenuItem
+                            key={cmd.name}
+                            value={cmd.name}
+                            disabled={cmd.disabled}
+                            data-testid={`agent-command-option-${cmd.name}`}
+                          >
+                            <Stack spacing={0.25}>
+                              <Typography variant="body2">
+                                {cmd.name.replace(/_/g, ' ')}
+                              </Typography>
+                              {cmd.disabled ? (
+                                <Typography
+                                  variant="caption"
+                                  color="text.secondary"
+                                >
+                                  Invalid command file
+                                </Typography>
+                              ) : null}
+                            </Stack>
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
                     <Button
                       type="button"
                       variant="contained"
+                      size="small"
                       disabled={
                         !selectedCommandName ||
                         isSending ||
@@ -1794,33 +1870,37 @@ export default function AgentsPage() {
                       }
                       onClick={handleExecuteCommand}
                       data-testid="agent-command-execute"
+                      sx={{ flexShrink: 0 }}
                     >
                       Execute command
                     </Button>
-                    {persistenceUnavailable ? (
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        data-testid="agent-command-persistence-note"
-                      >
-                        Commands require conversation history (Mongo) to display
-                        multi-step results.
-                      </Typography>
-                    ) : !wsTranscriptReady ? (
-                      <Typography
-                        variant="body2"
-                        color="text.secondary"
-                        data-testid="agent-command-ws-note"
-                      >
-                        Commands require an open WebSocket connection.
-                      </Typography>
-                    ) : null}
                   </Stack>
 
-                  {selectedAgent?.warnings?.length ? (
-                    <Alert severity="warning" data-testid="agent-warnings">
-                      {selectedAgent.warnings.join('\n')}
-                    </Alert>
+                  <Typography
+                    variant="body2"
+                    color="text.secondary"
+                    data-testid="agent-command-description"
+                  >
+                    {selectedCommandDescription}
+                  </Typography>
+
+                  {persistenceUnavailable ? (
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      data-testid="agent-command-persistence-note"
+                    >
+                      Commands require conversation history (Mongo) to display
+                      multi-step results.
+                    </Typography>
+                  ) : !wsTranscriptReady ? (
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      data-testid="agent-command-ws-note"
+                    >
+                      Commands require an open WebSocket connection.
+                    </Typography>
                   ) : null}
 
                   {selectedAgent?.disabled ? (
@@ -1829,6 +1909,127 @@ export default function AgentsPage() {
                     </Alert>
                   ) : null}
 
+                  <Stack direction="row" spacing={1} alignItems="flex-start">
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="working_folder"
+                      placeholder="Absolute host path (optional)"
+                      value={workingFolder}
+                      onChange={(event) => setWorkingFolder(event.target.value)}
+                      disabled={isWorkingFolderDisabled}
+                      inputProps={{ 'data-testid': 'agent-working-folder' }}
+                    />
+                    <Button
+                      type="button"
+                      variant="outlined"
+                      size="small"
+                      disabled={isWorkingFolderDisabled}
+                      onClick={handleOpenDirPicker}
+                      data-testid="agent-working-folder-picker"
+                      sx={{ flexShrink: 0 }}
+                    >
+                      Choose folder…
+                    </Button>
+                  </Stack>
+
+                  <Stack
+                    data-testid="agent-instruction-row"
+                    direction={{ xs: 'column', sm: 'row' }}
+                    spacing={1}
+                    alignItems={{ xs: 'stretch', sm: 'flex-start' }}
+                  >
+                    <TextField
+                      inputRef={inputRef}
+                      fullWidth
+                      multiline
+                      minRows={2}
+                      size="small"
+                      label="Instruction"
+                      placeholder="Type your instruction"
+                      value={input}
+                      onChange={(event) => setInput(event.target.value)}
+                      disabled={
+                        controlsDisabled ||
+                        isSending ||
+                        !wsTranscriptReady ||
+                        selectedAgent?.disabled
+                      }
+                      inputProps={{ 'data-testid': 'agent-input' }}
+                      sx={{ flex: 1 }}
+                    />
+                    <Box
+                      data-testid="agent-action-slot"
+                      style={{ minWidth: actionSlotMinWidth }}
+                      sx={{ flexShrink: 0 }}
+                    >
+                      <Stack direction="row" justifyContent="flex-end">
+                        {showStop ? (
+                          <Button
+                            type="button"
+                            variant="contained"
+                            color="error"
+                            size="small"
+                            onClick={handleStopClick}
+                            data-testid="agent-stop"
+                          >
+                            Stop
+                          </Button>
+                        ) : (
+                          <Button
+                            type="submit"
+                            variant="contained"
+                            size="small"
+                            disabled={
+                              controlsDisabled ||
+                              isSending ||
+                              !wsTranscriptReady ||
+                              !selectedAgentName ||
+                              !input.trim() ||
+                              Boolean(selectedAgent?.disabled)
+                            }
+                            data-testid="agent-send"
+                          >
+                            Send
+                          </Button>
+                        )}
+                      </Stack>
+                    </Box>
+                  </Stack>
+                  <DirectoryPickerDialog
+                    open={dirPickerOpen}
+                    path={workingFolder}
+                    onClose={handleCloseDirPicker}
+                    onPick={handlePickDir}
+                  />
+                </Stack>
+              </Box>
+              <Popover
+                id={agentInfoId}
+                open={agentInfoOpen}
+                anchorEl={agentInfoAnchorEl}
+                onClose={handleAgentInfoClose}
+                anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+                transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+                data-testid="agent-info-popover"
+              >
+                <Stack spacing={1} sx={{ p: 2, maxWidth: 360 }}>
+                  {agentWarnings.length > 0 ? (
+                    <Stack spacing={0.5} data-testid="agent-warnings">
+                      <Typography variant="subtitle2" color="warning.main">
+                        Warnings
+                      </Typography>
+                      {agentWarnings.map((warning) => (
+                        <Typography
+                          key={warning}
+                          variant="body2"
+                          color="warning.main"
+                        >
+                          {warning}
+                        </Typography>
+                      ))}
+                    </Stack>
+                  ) : null}
                   {agentDescription ? (
                     <Paper
                       variant="outlined"
@@ -1838,60 +2039,17 @@ export default function AgentsPage() {
                       <Markdown content={agentDescription} />
                     </Paper>
                   ) : null}
-
-                  <TextField
-                    fullWidth
-                    size="small"
-                    label="working_folder"
-                    placeholder="Absolute host path (optional)"
-                    value={workingFolder}
-                    onChange={(event) => setWorkingFolder(event.target.value)}
-                    disabled={
-                      controlsDisabled ||
-                      isSending ||
-                      !wsTranscriptReady ||
-                      selectedAgent?.disabled
-                    }
-                    inputProps={{ 'data-testid': 'agent-working-folder' }}
-                  />
-
-                  <TextField
-                    inputRef={inputRef}
-                    fullWidth
-                    multiline
-                    minRows={2}
-                    label="Instruction"
-                    placeholder="Type your instruction"
-                    value={input}
-                    onChange={(event) => setInput(event.target.value)}
-                    disabled={
-                      controlsDisabled ||
-                      isSending ||
-                      !wsTranscriptReady ||
-                      selectedAgent?.disabled
-                    }
-                    inputProps={{ 'data-testid': 'agent-input' }}
-                  />
-
-                  <Stack direction="row" spacing={1} justifyContent="flex-end">
-                    <Button
-                      type="submit"
-                      variant="contained"
-                      disabled={
-                        controlsDisabled ||
-                        isSending ||
-                        !wsTranscriptReady ||
-                        !selectedAgentName ||
-                        !input.trim() ||
-                        Boolean(selectedAgent?.disabled)
-                      }
-                      data-testid="agent-send"
+                  {agentInfoEmpty ? (
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      data-testid="agent-info-empty"
                     >
-                      Send
-                    </Button>
-                  </Stack>
+                      {agentInfoEmptyMessage}
+                    </Typography>
+                  ) : null}
                 </Stack>
-              </Box>
+              </Popover>
               <Paper
                 variant="outlined"
                 sx={{

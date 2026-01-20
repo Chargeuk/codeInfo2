@@ -157,7 +157,6 @@ describe('Agents page - agent change', () => {
     });
     const input = await screen.findByTestId('agent-input');
     const send = await screen.findByTestId('agent-send');
-    const stop = await screen.findByTestId('agent-stop');
 
     await userEvent.type(workingFolder, '/abs/path');
     await userEvent.type(input, 'Do work');
@@ -176,7 +175,13 @@ describe('Agents page - agent change', () => {
       createdAt: '2025-01-01T00:00:00.000Z',
     });
 
+    const stop = await screen.findByTestId('agent-stop');
     await waitFor(() => expect(stop).toBeEnabled());
+    expect(stop).toHaveClass(
+      'MuiButton-contained',
+      'MuiButton-containedError',
+      'MuiButton-sizeSmall',
+    );
     expect(screen.getByText('Do work')).toBeInTheDocument();
 
     const agentSelect = screen.getByRole('combobox', { name: /agent/i });

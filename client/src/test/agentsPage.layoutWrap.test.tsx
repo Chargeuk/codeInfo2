@@ -96,4 +96,133 @@ describe('Agents page layout wrap', () => {
       within(panel).getByTestId('conversation-load-more'),
     ).toBeInTheDocument();
   });
+
+  it('keeps the transcript container flex stretch styles', async () => {
+    mockAgentsFetch();
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    const transcript = await screen.findByTestId('chat-transcript');
+    expect(transcript.style.flex).toBe('1 1 0%');
+    expect(['0', '0px']).toContain(transcript.style.minHeight);
+    expect(transcript.style.overflowY).toBe('auto');
+  });
+
+  it('renders the command selector and execute button in the same row', async () => {
+    mockAgentsFetch();
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    const commandRow = await screen.findByTestId('agent-command-row');
+    expect(
+      within(commandRow).getByTestId('agent-command-select'),
+    ).toBeInTheDocument();
+    expect(
+      within(commandRow).getByTestId('agent-command-execute'),
+    ).toBeInTheDocument();
+  });
+
+  it('renders the instruction input and action buttons in the same row', async () => {
+    mockAgentsFetch();
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    const instructionRow = await screen.findByTestId('agent-instruction-row');
+    expect(
+      within(instructionRow).getByTestId('agent-input'),
+    ).toBeInTheDocument();
+    expect(
+      within(instructionRow).getByTestId('agent-send'),
+    ).toBeInTheDocument();
+  });
+
+  it('moves the stop button out of the header row', async () => {
+    mockAgentsFetch();
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    const headerRow = await screen.findByTestId('agent-header-row');
+    expect(within(headerRow).queryByTestId('agent-stop')).toBeNull();
+
+    const instructionRow = await screen.findByTestId('agent-instruction-row');
+    expect(
+      within(instructionRow).getByTestId('agent-action-slot'),
+    ).toBeInTheDocument();
+  });
+
+  it('keeps the action slot width fixed', async () => {
+    mockAgentsFetch();
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    const actionSlot = await screen.findByTestId('agent-action-slot');
+    expect(actionSlot).toHaveStyle({ minWidth: '120px' });
+  });
+
+  it('renders a single action button in the slot', async () => {
+    mockAgentsFetch();
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    const actionSlot = await screen.findByTestId('agent-action-slot');
+    expect(within(actionSlot).getByTestId('agent-send')).toBeInTheDocument();
+    expect(within(actionSlot).queryByTestId('agent-stop')).toBeNull();
+  });
+
+  it('applies size="small" and variant rules to agent controls', async () => {
+    mockAgentsFetch();
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    const agentSelect = await screen.findByTestId('agent-select');
+    const agentSelectRoot = agentSelect.closest('.MuiInputBase-root');
+    expect(agentSelectRoot).toHaveClass('MuiInputBase-sizeSmall');
+
+    const commandSelect = await screen.findByTestId('agent-command-select');
+    const commandSelectRoot = commandSelect.closest('.MuiInputBase-root');
+    expect(commandSelectRoot).toHaveClass('MuiInputBase-sizeSmall');
+
+    const workingFolder = await screen.findByTestId('agent-working-folder');
+    const workingFolderRoot = workingFolder.closest('.MuiInputBase-root');
+    expect(workingFolderRoot).toHaveClass('MuiInputBase-sizeSmall');
+
+    const instructionInput = await screen.findByTestId('agent-input');
+    const instructionRoot = instructionInput.closest('.MuiInputBase-root');
+    expect(instructionRoot).toHaveClass('MuiInputBase-sizeSmall');
+
+    const executeButton = await screen.findByTestId('agent-command-execute');
+    expect(executeButton).toHaveClass(
+      'MuiButton-contained',
+      'MuiButton-sizeSmall',
+    );
+
+    const newConversationButton = screen.getByRole('button', {
+      name: /new conversation/i,
+    });
+    expect(newConversationButton).toHaveClass(
+      'MuiButton-outlined',
+      'MuiButton-sizeSmall',
+    );
+
+    const chooseFolderButton = screen.getByTestId(
+      'agent-working-folder-picker',
+    );
+    expect(chooseFolderButton).toHaveClass(
+      'MuiButton-outlined',
+      'MuiButton-sizeSmall',
+    );
+
+    const sendButton = await screen.findByTestId('agent-send');
+    expect(sendButton).toHaveClass(
+      'MuiButton-contained',
+      'MuiButton-sizeSmall',
+    );
+  });
 });

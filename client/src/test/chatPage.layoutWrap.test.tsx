@@ -353,6 +353,17 @@ describe('Chat page layout alignment', () => {
     ).toBeGreaterThan(0);
   });
 
+  it('keeps the transcript container flex stretch styles', async () => {
+    setupChatWsHarness({ mockFetch });
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const transcript = await screen.findByTestId('chat-transcript');
+    expect(transcript.style.flex).toBe('1 1 0%');
+    expect(['0', '0px']).toContain(transcript.style.minHeight);
+    expect(transcript.style.overflowY).toBe('auto');
+  });
+
   it('keeps gutters enabled on non-chat routes', async () => {
     mockFetch.mockResolvedValueOnce({
       ok: true,

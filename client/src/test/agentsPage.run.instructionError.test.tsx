@@ -109,8 +109,7 @@ describe('Agents page - instruction start errors', () => {
       'run in progress',
     );
 
-    // Stop remains disabled because no WS inflight started.
-    expect(screen.getByTestId('agent-stop')).toBeDisabled();
+    expect(screen.queryByTestId('agent-stop')).toBeNull();
   });
 
   it('shows an error banner for AGENT_NOT_FOUND (404)', async () => {

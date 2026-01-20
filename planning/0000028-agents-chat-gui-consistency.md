@@ -127,8 +127,8 @@ These instructions will be followed during implementation.
 
 ### 1. Client: Chat/Agents transcript fills viewport
 
-- Task Status: **__to_do__**
-- Git Commits: **__to_do__**
+- Task Status: **__done__**
+- Git Commits: **c939d4a, 5f2ff38**
 
 #### Overview
 
@@ -149,7 +149,7 @@ Ensure the Chat and Agents transcript panels stretch to the bottom of the viewpo
 
 #### Subtasks
 
-1. [ ] Review layout containers and locate the height break:
+1. [x] Review layout containers and locate the height break:
    - Documentation to read (repeat):
      - MUI Box API: https://llms.mui.com/material-ui/6.4.12/api/box.md
      - MUI Stack API: https://llms.mui.com/material-ui/6.4.12/api/stack.md
@@ -169,7 +169,7 @@ Ensure the Chat and Agents transcript panels stretch to the bottom of the viewpo
    - Notes:
      - Keep existing spacing and padding intact; this is layout-only.
 
-2. [ ] Implement flex/minHeight adjustments for full-height layout:
+2. [x] Implement flex/minHeight adjustments for full-height layout:
    - Documentation to read (repeat):
      - MUI Box API: https://llms.mui.com/material-ui/6.4.12/api/box.md
      - MUI Stack API: https://llms.mui.com/material-ui/6.4.12/api/stack.md
@@ -190,7 +190,7 @@ Ensure the Chat and Agents transcript panels stretch to the bottom of the viewpo
      - `sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}` on the page shell
      - `style={{ flex: '1 1 0%', minHeight: 0, overflowY: 'auto' }}` on the transcript container
 
-3. [ ] Test (unit/client): Chat transcript inline styles
+3. [x] Test (unit/client): Chat transcript inline styles
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Location:
@@ -202,7 +202,7 @@ Ensure the Chat and Agents transcript panels stretch to the bottom of the viewpo
    - Snippet example:
      - `expect(screen.getByTestId('chat-transcript')).toHaveStyle({ flex: '1 1 0%', minHeight: '0px', overflowY: 'auto' });`
 
-4. [ ] Test (unit/client): Agents transcript inline styles
+4. [x] Test (unit/client): Agents transcript inline styles
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Location:
@@ -216,7 +216,7 @@ Ensure the Chat and Agents transcript panels stretch to the bottom of the viewpo
    - Snippet example:
      - `expect(screen.getByTestId('chat-transcript')).toHaveStyle({ flex: '1 1 0%', minHeight: '0px', overflowY: 'auto' });`
 
-5. [ ] Capture UI screenshots (required for this task):
+5. [x] Capture UI screenshots (required for this task):
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
    - Files to add:
@@ -231,7 +231,7 @@ Ensure the Chat and Agents transcript panels stretch to the bottom of the viewpo
      - `0000028-1-chat-height.png`
      - `0000028-1-agents-height.png`
 
-6. [ ] Documentation update: `design.md`
+6. [x] Documentation update: `design.md`
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location:
@@ -243,7 +243,7 @@ Ensure the Chat and Agents transcript panels stretch to the bottom of the viewpo
    - Snippet example:
      - `- Chat/Agents transcript panels use flex + minHeight: 0 to fill the viewport.`
 
-7. [ ] Documentation update: `projectStructure.md` (if screenshots were added)
+7. [x] Documentation update: `projectStructure.md` (if screenshots were added)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location:
@@ -257,7 +257,7 @@ Ensure the Chat and Agents transcript panels stretch to the bottom of the viewpo
   - Snippet example:
     - `planning/0000028-agents-chat-gui-consistency-data/0000028-1-chat-height.png`
 
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+8. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI/options: https://prettier.io/docs/options
@@ -269,46 +269,62 @@ Ensure the Chat and Agents transcript panels stretch to the bottom of the viewpo
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, verify Chat and Agents transcripts stretch to the bottom without blank gaps, resize to confirm flex growth, and confirm the debug console shows no errors.
+8. [x] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, verify Chat and Agents transcripts stretch to the bottom without blank gaps, resize to confirm flex growth, and confirm the debug console shows no errors.
    - Capture Playwright MCP screenshots that show the full-height transcript on Chat and Agents; confirm the images live under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (docker-compose.local.yml mapping) before moving/recording them.
    - Expected log lines (debug console):
      - `DEV-0000028[T1] chat transcript layout ready` appears at least once.
      - `DEV-0000028[T1] agents transcript layout ready` appears at least once.
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
 #### Implementation notes
 
-- (fill in during execution)
+- Reviewed App, Chat, and Agents layout containers; main flex chain uses App `Container` + page `Container` with `pb` likely causing the visual gap, while transcript already has inline flex + minHeight.
+- Set Chat/Agents page `pb` to `0` and added layout-ready log lines for both pages to confirm the transcript container can fill the remaining flex height.
+- Added a Chat layout test asserting the transcript container retains `flex: 1 1 0%`, `minHeight: 0`, and `overflowY: auto` inline styles.
+- Added an Agents layout test to confirm the transcript container keeps the same inline flex + minHeight + overflow styles.
+- Captured Task 1 screenshots for Chat and Agents transcript height and moved them into the planning data folder.
+- Documented the Chat/Agents full-height transcript behavior in `design.md`.
+- Updated `projectStructure.md` with the new Task 1 screenshots (and the current planning entries).
+- Ran lint + format checks; lint reported existing server import-order warnings, but formatting passed cleanly.
+- `npm run build --workspace server` completed successfully.
+- `npm run build --workspace client` completed successfully (build warning about large chunks only).
+- Server tests initially failed on `flows.list` expecting no flows; updated the test to set `FLOWS_DIR` to a missing folder and the full `npm run test --workspace server` run then passed.
+- Client tests failed on minHeight style strictness; relaxed the assertions to accept `'0'` or `'0px'` and the full `npm run test --workspace client` run then passed.
+- `npm run e2e` completed successfully.
+- `npm run compose:build` completed successfully.
+- `npm run compose:up` completed successfully.
+- Manual Playwright check confirmed the transcript fills the viewport on Chat/Agents after resizing, and console logs included `DEV-0000028[T1] chat transcript layout ready` and `DEV-0000028[T1] agents transcript layout ready`; updated Task 1 screenshots accordingly.
+- `npm run compose:down` completed successfully.
 
 ---
 
 ### 2. Client: Agents description/warnings popover
 
-- Task Status: **__to_do__**
-- Git Commits: **__to_do__**
+- Task Status: **__done__**
+- Git Commits: **391df14, f2d5def**
 
 #### Overview
 
@@ -330,7 +346,7 @@ Replace the inline agent description block with an info icon and popover that re
 
 #### Subtasks
 
-1. [ ] Review the current Agents description block and Markdown rendering:
+1. [x] Review the current Agents description block and Markdown rendering:
    - Documentation to read (repeat):
      - MUI Popover component: https://llms.mui.com/material-ui/6.4.12/components/popover.md
      - MUI IconButton API: https://llms.mui.com/material-ui/6.4.12/api/icon-button.md
@@ -346,7 +362,7 @@ Replace the inline agent description block with an info icon and popover that re
      - Empty-state message appears when both description and warnings are missing.
      - If the agents list fails to load, the info icon should be hidden/disabled and the error UI should still render cleanly.
 
-2. [ ] Implement the info icon + popover UI:
+2. [x] Implement the info icon + popover UI:
    - Documentation to read (repeat):
      - MUI Popover component: https://llms.mui.com/material-ui/6.4.12/components/popover.md
      - MUI Popover API: https://llms.mui.com/material-ui/6.4.12/api/popover.md
@@ -370,7 +386,7 @@ Replace the inline agent description block with an info icon and popover that re
      - `<IconButton size="small" aria-label="Agent info" data-testid="agent-info" onClick={...} />`
      - `<Popover open={Boolean(anchorEl)} anchorEl={anchorEl} onClose={handleClose}>...</Popover>`
 
-3. [ ] Test (unit/client): Info icon renders for selected agent
+3. [x] Test (unit/client): Info icon renders for selected agent
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Location:
@@ -382,7 +398,7 @@ Replace the inline agent description block with an info icon and popover that re
    - Snippet example:
      - `expect(await screen.findByTestId('agent-info')).toBeInTheDocument();`
 
-4. [ ] Test (unit/client): Popover shows Markdown description
+4. [x] Test (unit/client): Popover shows Markdown description
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Location:
@@ -395,7 +411,7 @@ Replace the inline agent description block with an info icon and popover that re
      - `await user.click(screen.getByTestId('agent-info'));`
      - `expect(screen.getByText('Hello')).toBeInTheDocument();`
 
-5. [ ] Test (unit/client): Warnings list renders in popover
+5. [x] Test (unit/client): Warnings list renders in popover
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Location:
@@ -407,7 +423,7 @@ Replace the inline agent description block with an info icon and popover that re
    - Snippet example:
      - `expect(screen.getByText('Warning text')).toBeInTheDocument();`
 
-6. [ ] Test (unit/client): Empty-state message
+6. [x] Test (unit/client): Empty-state message
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Location:
@@ -419,7 +435,7 @@ Replace the inline agent description block with an info icon and popover that re
    - Snippet example:
      - `expect(screen.getByText('No description or warnings are available')).toBeInTheDocument();`
 
-7. [ ] Test (unit/client): Agents fetch error hides or disables info icon
+7. [x] Test (unit/client): Agents fetch error hides or disables info icon
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Location:
@@ -431,7 +447,7 @@ Replace the inline agent description block with an info icon and popover that re
    - Snippet example:
      - `expect(screen.queryByTestId('agent-info')).toBeNull();`
 
-8. [ ] Test (unit/client): Inline warnings/description removed
+8. [x] Test (unit/client): Inline warnings/description removed
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Location:
@@ -443,7 +459,7 @@ Replace the inline agent description block with an info icon and popover that re
    - Snippet example:
      - `expect(screen.queryByTestId('agent-description')).toBeNull();`
 
-9. [ ] Capture UI screenshots (required for this task):
+9. [x] Capture UI screenshots (required for this task):
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
    - Files to add:
@@ -453,7 +469,7 @@ Replace the inline agent description block with an info icon and popover that re
    - Use Playwright MCP to capture the Agents page with the info popover open.
    - Move the screenshot into `planning/0000028-agents-chat-gui-consistency-data/` as `0000028-2-agents-popover.png`.
 
-10. [ ] Documentation update: `projectStructure.md` (after new files are added)
+10. [x] Documentation update: `projectStructure.md` (after new files are added)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location:
@@ -467,7 +483,7 @@ Replace the inline agent description block with an info icon and popover that re
    - Snippet example:
      - `client/src/test/agentsPage.descriptionPopover.test.tsx`
 
-11. [ ] Documentation update: `design.md`
+11. [x] Documentation update: `design.md`
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -477,7 +493,7 @@ Replace the inline agent description block with an info icon and popover that re
    - Snippet example:
      - `- Agents page uses an info popover to show agent description + warnings.`
 
-12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+12. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI/options: https://prettier.io/docs/options
@@ -489,48 +505,67 @@ Replace the inline agent description block with an info icon and popover that re
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
-5. [ ] `npm run test --workspace client -- agentsPage.descriptionPopover`
+5. [x] `npm run test --workspace client -- agentsPage.descriptionPopover`
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
-6. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
-7. [ ] `npm run compose:build`
+7. [x] `npm run compose:build`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] `npm run compose:up`
+8. [x] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-9. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, open the info popover, verify Markdown renders, warnings list displays, empty-state appears for agents without metadata, and confirm the debug console shows no errors.
+9. [x] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, open the info popover, verify Markdown renders, warnings list displays, empty-state appears for agents without metadata, and confirm the debug console shows no errors.
    - Capture a Playwright MCP screenshot of the open popover and confirm the image is stored under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` before moving/recording it.
    - Expected log lines (debug console):
      - `DEV-0000028[T2] agent info popover opened` appears when the info popover is opened.
-10. [ ] `npm run compose:down`
+10. [x] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
 #### Implementation notes
 
-- (fill in during execution)
+- Reviewed `AgentsPage.tsx` for the inline description/warnings panel and current Markdown usage to replace with a popover.
+- Added an info icon next to the Agent selector, wired it to a Popover, and moved description/warnings content into the popover with empty-state messaging and logging.
+- Updated Agents description tests to cover info icon rendering, popover description/warnings, empty-state messaging, error handling, and removal of inline content.
+- Captured the Agents info popover screenshot and moved it into the planning data folder.
+- Updated `projectStructure.md` with the Task 2 popover screenshot.
+- Renamed the description test file to `agentsPage.descriptionPopover.test.tsx` to align with the focused Jest run.
+- Added an Agents UI note in `design.md` describing the info popover behavior.
+- Ran lint + format checks; lint reported existing server import-order warnings, and Prettier required formatting updates which were applied and rechecked.
+- `npm run build --workspace server` completed successfully for Task 2.
+- `npm run build --workspace client` completed successfully for Task 2 (chunk size warning only).
+- `npm run test --workspace server` completed successfully for Task 2.
+- `npm run test --workspace client` completed successfully for Task 2.
+- `npm run test --workspace client -- agentsPage.descriptionPopover` completed successfully.
+- `npm run e2e` completed successfully for Task 2.
+- `npm run compose:build` completed successfully for Task 2.
+- `npm run compose:up` completed successfully for Task 2.
+- Manual Playwright check at `http://host.docker.internal:5001/agents` confirmed the info popover renders agent descriptions, with `DEV-0000028[T2] agent info popover opened` in the console and no console errors.
+- Captured a fresh Task 2 popover screenshot and moved it into `planning/0000028-agents-chat-gui-consistency-data/0000028-2-agents-popover.png`.
+- All available agents had descriptions, so the empty-state message was not visible during manual verification; unit coverage still asserts the empty-state rendering path.
+- `npm run compose:down` completed successfully for Task 2.
 
 ---
 
 ### 3. Client: Agents control rows layout
 
-- Task Status: **__to_do__**
-- Git Commits: **__to_do__**
+- Task Status: **__done__**
+- Git Commits: **cc80949, 637ee94**
 
 #### Overview
 
@@ -553,7 +588,7 @@ Align Agents controls so the Command selector and Execute button share a row, an
 
 #### Subtasks
 
-1. [ ] Review current Agents controls layout:
+1. [x] Review current Agents controls layout:
    - Documentation to read (repeat):
      - MUI Stack API: https://llms.mui.com/material-ui/6.4.12/api/stack.md
      - MUI Button API: https://llms.mui.com/material-ui/6.4.12/api/button.md
@@ -565,7 +600,7 @@ Align Agents controls so the Command selector and Execute button share a row, an
      - Command selector and Execute command button are on the same row.
      - Instruction input and the Send/Stop action share the same row.
 
-2. [ ] Implement the control row layout changes:
+2. [x] Implement the control row layout changes:
    - Documentation to read (repeat):
      - MUI Stack API: https://llms.mui.com/material-ui/6.4.12/api/stack.md
      - MUI Box API: https://llms.mui.com/material-ui/6.4.12/api/box.md
@@ -587,7 +622,7 @@ Align Agents controls so the Command selector and Execute button share a row, an
    - Snippet to apply (example row):
      - `<Stack direction={{ xs: 'column', md: 'row' }} spacing={1} alignItems="center">...`)
 
-3. [ ] Test (unit/client): Command row layout
+3. [x] Test (unit/client): Command row layout
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Location:
@@ -599,7 +634,7 @@ Align Agents controls so the Command selector and Execute button share a row, an
    - Snippet example:
      - `expect(commandRow).toContainElement(screen.getByTestId('agent-command-execute'));`
 
-4. [ ] Test (unit/client): Instruction row layout
+4. [x] Test (unit/client): Instruction row layout
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Location:
@@ -611,7 +646,7 @@ Align Agents controls so the Command selector and Execute button share a row, an
    - Snippet example:
      - `expect(instructionRow).toContainElement(screen.getByTestId('agent-send'));`
 
-5. [ ] Test (unit/client): Stop button moved to instruction row
+5. [x] Test (unit/client): Stop button moved to instruction row
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Location:
@@ -623,7 +658,7 @@ Align Agents controls so the Command selector and Execute button share a row, an
    - Snippet example:
      - `expect(headerRow.querySelector('[data-testid="agent-stop"]')).toBeNull();`
 
-6. [ ] Capture UI screenshots (required for this task):
+6. [x] Capture UI screenshots (required for this task):
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
    - Files to add:
@@ -637,7 +672,7 @@ Align Agents controls so the Command selector and Execute button share a row, an
      - `0000028-3-agents-controls.png`
      - `0000028-3-agents-controls-mobile.png`
 
-7. [ ] Documentation update: `projectStructure.md` (after screenshots are added)
+7. [x] Documentation update: `projectStructure.md` (after screenshots are added)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location:
@@ -651,7 +686,7 @@ Align Agents controls so the Command selector and Execute button share a row, an
    - Snippet example:
      - `planning/0000028-agents-chat-gui-consistency-data/0000028-3-agents-controls-mobile.png`
 
-8. [ ] Documentation update: `design.md`
+8. [x] Documentation update: `design.md`
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -661,7 +696,7 @@ Align Agents controls so the Command selector and Execute button share a row, an
    - Snippet example:
      - `- Agents controls are arranged as two rows on desktop, stacked on mobile.`
 
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+9. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI/options: https://prettier.io/docs/options
@@ -673,49 +708,66 @@ Align Agents controls so the Command selector and Execute button share a row, an
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
-5. [ ] `npm run test --workspace client -- agentsPage.layoutWrap`
+5. [x] `npm run test --workspace client -- agentsPage.layoutWrap`
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
-6. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
-7. [ ] `npm run compose:build`
+7. [x] `npm run compose:build`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] `npm run compose:up`
+8. [x] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-9. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, verify the two-row layout on desktop, stacked layout on small viewport, and confirm the debug console shows no errors.
+9. [x] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, verify the two-row layout on desktop, stacked layout on small viewport, and confirm the debug console shows no errors.
    - Capture Playwright MCP screenshots for desktop and small viewport layouts; confirm the images are stored under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` before moving/recording them.
    - Expected log lines (debug console):
      - `DEV-0000028[T3] agents controls layout mode` appears with `mode: 'row'` on desktop.
      - `DEV-0000028[T3] agents controls layout mode` appears with `mode: 'stacked'` after resizing to a small viewport.
-10. [ ] `npm run compose:down`
+10. [x] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
 #### Implementation notes
 
-- (fill in during execution)
+- Reviewed `AgentsPage.tsx` control stacks to locate the command/execute and instruction/send layout blocks to reflow into rows.
+- Restructured Agents command and instruction controls into responsive row/stack layouts, moving Stop into the instruction action slot and logging `DEV-0000028[T3] agents controls layout mode`.
+- Expanded `agentsPage.layoutWrap.test.tsx` to assert the command row, instruction row, and Stop button relocation.
+- Captured Task 3 desktop and mobile Agents control layout screenshots and moved them into the planning data folder.
+- Updated `projectStructure.md` with the Task 3 control layout screenshots.
+- Documented the Agents control row layout behavior in `design.md`.
+- Ran `npm run lint --workspaces` (existing server import-order warnings only) and `npm run format --workspaces` followed by `npm run format:check --workspaces`.
+- `npm run build --workspace server` completed successfully for Task 3.
+- `npm run build --workspace client` completed successfully for Task 3 (chunk size warning only).
+- `npm run test --workspace server` completed successfully for Task 3.
+- `npm run test --workspace client` completed successfully for Task 3.
+- `npm run test --workspace client -- agentsPage.layoutWrap` completed successfully.
+- `npm run e2e` completed successfully for Task 3.
+- `npm run compose:build` completed successfully for Task 3.
+- `npm run compose:up` completed successfully for Task 3.
+- Manual Playwright check at `http://host.docker.internal:5001/agents` confirmed the desktop two-row controls and stacked mobile layout; console logs showed `DEV-0000028[T3] agents controls layout mode` during resize with no console errors.
+- Captured fresh Task 3 desktop and mobile control layout screenshots and moved them into `planning/0000028-agents-chat-gui-consistency-data/`.
+- `npm run compose:down` completed successfully for Task 3.
 
 ---
 
 ### 4. Client: Agents send/stop width stability
 
-- Task Status: **__to_do__**
-- Git Commits: **__to_do__**
+- Task Status: **__done__**
+- Git Commits: **673006a, 48786af**
 
 #### Overview
 
@@ -737,7 +789,7 @@ Ensure the Send/Stop action slot keeps a stable width so the row does not shift 
 
 #### Subtasks
 
-1. [ ] Review Send/Stop rendering conditions and current button layout:
+1. [x] Review Send/Stop rendering conditions and current button layout:
    - Documentation to read (repeat):
      - MUI Button API: https://llms.mui.com/material-ui/6.4.12/api/button.md
    - Files to read:
@@ -748,7 +800,7 @@ Ensure the Send/Stop action slot keeps a stable width so the row does not shift 
      - Send/Stop use the same width so the row does not shift when toggling.
      - Only one of Send/Stop is shown at a time in the action slot.
 
-2. [ ] Implement fixed-width Send/Stop slot:
+2. [x] Implement fixed-width Send/Stop slot:
    - Documentation to read (repeat):
      - MUI Stack API: https://llms.mui.com/material-ui/6.4.12/api/stack.md
      - MUI Box API: https://llms.mui.com/material-ui/6.4.12/api/box.md
@@ -764,7 +816,7 @@ Ensure the Send/Stop action slot keeps a stable width so the row does not shift 
    - Snippet to apply (example):
      - `<Box sx={{ minWidth: 120 }}>...</Box>` wrapping the Send/Stop slot
 
-3. [ ] Test (unit/client): Action slot fixed width
+3. [x] Test (unit/client): Action slot fixed width
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Location:
@@ -776,7 +828,7 @@ Ensure the Send/Stop action slot keeps a stable width so the row does not shift 
    - Snippet example:
      - `expect(actionSlot).toHaveStyle({ minWidth: '120px' });`
 
-4. [ ] Test (unit/client): Single action rendered
+4. [x] Test (unit/client): Single action rendered
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Location:
@@ -788,7 +840,7 @@ Ensure the Send/Stop action slot keeps a stable width so the row does not shift 
    - Snippet example:
      - `expect(screen.queryByTestId('agent-stop')).toBeNull();`
 
-5. [ ] Capture UI screenshots (required for this task):
+5. [x] Capture UI screenshots (required for this task):
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
    - Files to add:
@@ -798,7 +850,7 @@ Ensure the Send/Stop action slot keeps a stable width so the row does not shift 
    - Use Playwright MCP to capture the instruction row showing the fixed-width Send/Stop slot.
    - Move the screenshot into `planning/0000028-agents-chat-gui-consistency-data/` as `0000028-4-agents-send-stop-width.png`.
 
-6. [ ] Documentation update: `projectStructure.md` (after screenshots are added)
+6. [x] Documentation update: `projectStructure.md` (after screenshots are added)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location:
@@ -811,7 +863,7 @@ Ensure the Send/Stop action slot keeps a stable width so the row does not shift 
    - Snippet example:
      - `planning/0000028-agents-chat-gui-consistency-data/0000028-4-agents-send-stop-width.png`
 
-7. [ ] Documentation update: `design.md`
+7. [x] Documentation update: `design.md`
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -821,7 +873,7 @@ Ensure the Send/Stop action slot keeps a stable width so the row does not shift 
    - Snippet example:
      - `- Agents Send/Stop uses a fixed-width action slot to prevent layout shift.`
 
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+8. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI/options: https://prettier.io/docs/options
@@ -833,49 +885,66 @@ Ensure the Send/Stop action slot keeps a stable width so the row does not shift 
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
-5. [ ] `npm run test --workspace client -- agentsPage.layoutWrap`
+5. [x] `npm run test --workspace client -- agentsPage.layoutWrap`
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
-6. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
-7. [ ] `npm run compose:build`
+7. [x] `npm run compose:build`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] `npm run compose:up`
+8. [x] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-9. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, toggle between Send/Stop, confirm row width stays stable, and confirm the debug console shows no errors.
+9. [x] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, toggle between Send/Stop, confirm row width stays stable, and confirm the debug console shows no errors.
    - Capture a Playwright MCP screenshot showing the fixed-width Send/Stop slot; confirm the image is stored under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` before moving/recording it.
    - Expected log lines (debug console):
      - `DEV-0000028[T4] agents action slot state` appears with `showStop: false` when idle.
      - `DEV-0000028[T4] agents action slot state` appears with `showStop: true` after triggering Stop.
-10. [ ] `npm run compose:down`
+10. [x] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
 #### Implementation notes
 
-- (fill in during execution)
+- Reviewed the Send/Stop rendering logic and action slot container in `AgentsPage.tsx`.
+- Added a fixed-width action slot, single-button rendering, and `DEV-0000028[T4] agents action slot state` logging.
+- Expanded `agentsPage.layoutWrap.test.tsx` with action slot width and single-action assertions.
+- Captured the Task 4 Send/Stop width screenshot and moved it into the planning data folder.
+- Updated `projectStructure.md` with the Task 4 Send/Stop width screenshot entry.
+- Documented the fixed-width Send/Stop action slot in `design.md`.
+- Ran `npm run lint --workspaces` (existing server import-order warnings only) and `npm run format --workspaces` followed by `npm run format:check --workspaces`.
+- `npm run build --workspace server` completed successfully for Task 4.
+- `npm run build --workspace client` completed successfully for Task 4 (chunk size warning only).
+- `npm run test --workspace server` completed successfully for Task 4.
+- `npm run test --workspace client` completed successfully for Task 4.
+- `npm run test --workspace client -- agentsPage.layoutWrap` completed successfully.
+- `npm run e2e` completed successfully for Task 4.
+- `npm run compose:build` completed successfully for Task 4.
+- `npm run compose:up` completed successfully for Task 4.
+- Manual Playwright-MCP check completed; Send/Stop toggled via the planning agent command and the action-slot log appeared for both idle and inflight states.
+- Updated the Task 4 Send/Stop width screenshot from `playwright-output-local/playwright-output-local/0000028-4-agents-send-stop-width.png`.
+- `npm run compose:down` completed successfully for Task 4.
 
 ---
 
 ### 5. Client: Agents working-folder picker reuse
 
-- Task Status: **__to_do__**
-- Git Commits: **__to_do__**
+- Task Status: **__done__**
+- Git Commits: **e098241**
 
 #### Overview
 
@@ -898,7 +967,7 @@ Add a “Choose folder…” button next to the Agents working-folder input and 
 
 #### Subtasks
 
-1. [ ] Review the existing directory picker implementation:
+1. [x] Review the existing directory picker implementation:
    - Documentation to read (repeat):
      - MUI Dialogs component: https://llms.mui.com/material-ui/6.4.12/components/dialogs.md
    - Files to read:
@@ -913,7 +982,7 @@ Add a “Choose folder…” button next to the Agents working-folder input and 
      - Selecting a folder fills the working-folder input with the absolute host path.
      - Cancel closes the dialog without changing the input value.
 
-2. [ ] Reuse the picker for Agents:
+2. [x] Reuse the picker for Agents:
    - Documentation to read (repeat):
      - MUI Dialogs component: https://llms.mui.com/material-ui/6.4.12/components/dialogs.md
      - MUI Dialog API: https://llms.mui.com/material-ui/6.4.12/api/dialog.md
@@ -936,7 +1005,7 @@ Add a “Choose folder…” button next to the Agents working-folder input and 
      - `<Button variant="outlined" size="small" onClick={() => setDirPickerOpen(true)}>Choose folder…</Button>`
      - `<DirectoryPickerDialog open={dirPickerOpen} path={workingFolder} onClose={...} onPick={(path) => setWorkingFolder(path)} />`
 
-3. [ ] Test (unit/client): Picker opens
+3. [x] Test (unit/client): Picker opens
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Location:
@@ -948,7 +1017,7 @@ Add a “Choose folder…” button next to the Agents working-folder input and 
    - Snippet example:
      - `await user.click(screen.getByRole('button', { name: /choose folder/i }));`
 
-4. [ ] Test (unit/client): Select folder updates input
+4. [x] Test (unit/client): Select folder updates input
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Location:
@@ -960,7 +1029,7 @@ Add a “Choose folder…” button next to the Agents working-folder input and 
    - Snippet example:
      - `expect(screen.getByTestId('agent-working-folder')).toHaveValue('/data/repo');`
 
-5. [ ] Test (unit/client): Cancel keeps input value
+5. [x] Test (unit/client): Cancel keeps input value
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Location:
@@ -972,7 +1041,7 @@ Add a “Choose folder…” button next to the Agents working-folder input and 
    - Snippet example:
      - `await user.click(screen.getByRole('button', { name: /cancel/i }));`
 
-6. [ ] Test (unit/client): Picker error does not wipe value
+6. [x] Test (unit/client): Picker error does not wipe value
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Location:
@@ -984,7 +1053,7 @@ Add a “Choose folder…” button next to the Agents working-folder input and 
    - Snippet example:
      - `mockFetch.mockResolvedValueOnce(mockErrorResponse({ status: 'error', code: 'NOT_FOUND' }));`
 
-7. [ ] Test (unit/client): Run validation error does not wipe value
+7. [x] Test (unit/client): Run validation error does not wipe value
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Location:
@@ -996,7 +1065,7 @@ Add a “Choose folder…” button next to the Agents working-folder input and 
    - Snippet example:
      - `expect(screen.getByTestId('agent-working-folder')).toHaveValue('/data/repo');`
 
-8. [ ] Capture UI screenshots (required for this task):
+8. [x] Capture UI screenshots (required for this task):
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
    - Files to add:
@@ -1006,7 +1075,7 @@ Add a “Choose folder…” button next to the Agents working-folder input and 
    - Use Playwright MCP to capture the Agents page with the picker dialog open.
    - Move the screenshot into `planning/0000028-agents-chat-gui-consistency-data/` as `0000028-5-agents-folder-picker.png`.
 
-9. [ ] Documentation update: `projectStructure.md` (after new files are added)
+9. [x] Documentation update: `projectStructure.md` (after new files are added)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -1020,7 +1089,7 @@ Add a “Choose folder…” button next to the Agents working-folder input and 
    - Snippet example:
      - `client/src/test/agentsPage.workingFolderPicker.test.tsx`
 
-10. [ ] Documentation update: `design.md`
+10. [x] Documentation update: `design.md`
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -1030,7 +1099,7 @@ Add a “Choose folder…” button next to the Agents working-folder input and 
    - Snippet example:
      - `- Agents page reuses the Ingest directory picker for working_folder selection.`
 
-11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+11. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI/options: https://prettier.io/docs/options
@@ -1042,50 +1111,93 @@ Add a “Choose folder…” button next to the Agents working-folder input and 
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
-5. [ ] `npm run test --workspace client -- agentsPage.workingFolderPicker`
+5. [x] `npm run test --workspace client -- agentsPage.workingFolderPicker`
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
-6. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
-7. [ ] `npm run compose:build`
+7. [x] `npm run compose:build`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] `npm run compose:up`
+8. [x] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-9. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, open the Agents working-folder picker, select a folder, cancel, confirm value persistence, and confirm the debug console shows no errors.
+9. [x] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, open the Agents working-folder picker, select a folder, cancel, confirm value persistence, and confirm the debug console shows no errors.
    - Capture a Playwright MCP screenshot with the folder picker dialog open; confirm the image is stored under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` before moving/recording it.
    - Expected log lines (debug console):
      - `DEV-0000028[T5] agents folder picker opened` appears when the dialog opens.
      - `DEV-0000028[T5] agents folder picker picked` appears after choosing a folder and includes the selected path.
      - `DEV-0000028[T5] agents folder picker cancelled` appears after canceling the dialog.
-10. [ ] `npm run compose:down`
+10. [x] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
 #### Implementation notes
 
-- (fill in during execution)
+- Reviewed `DirectoryPickerDialog`, `ingestDirsApi`, `IngestForm`, and the Agents working_folder field to confirm dialog reuse and current state management.
+- `npm run lint --workspaces` completed with existing server import-order warnings only.
+- `npm run format:check --workspaces` completed successfully.
+- Reused the ingest directory picker in Agents with a new Choose folder button, open/pick/cancel handlers, and T5 log lines.
+- `npm run lint --workspaces` completed with existing server import-order warnings only after the picker wiring.
+- `npm run format:check --workspaces` completed successfully after the picker wiring.
+- Added a working-folder picker test to verify the dialog opens from the Agents page.
+- `npm run lint --workspaces` completed with existing server import-order warnings only after the picker-open test.
+- `npm run format:check --workspaces` completed successfully after the picker-open test.
+- Added a picker navigation test to ensure selecting a folder updates the working_folder input.
+- `npm run lint --workspaces` completed with existing server import-order warnings only after the picker selection test.
+- `npm run format --workspaces` fixed formatting, followed by a clean `npm run format:check --workspaces`.
+- Added a picker close-path test to ensure cancel keeps the working_folder value unchanged.
+- `npm run lint --workspaces` completed with existing server import-order warnings only after the cancel test.
+- `npm run format:check --workspaces` completed successfully after the cancel test.
+- Added a picker error test to ensure ingest/dirs failures do not clear the working_folder value.
+- `npm run lint --workspaces` completed with existing server import-order warnings only after the error test.
+- `npm run format --workspaces` fixed formatting, followed by a clean `npm run format:check --workspaces`.
+- Added a run validation test to confirm WORKING_FOLDER_INVALID errors preserve the working_folder value.
+- `npm run lint --workspaces` completed with existing server import-order warnings only after the run validation test.
+- `npm run format:check --workspaces` completed successfully after the run validation test.
+- Captured the Task 5 folder picker screenshot with the dialog open and copied it to the planning data folder.
+- `npm run lint --workspaces` completed with existing server import-order warnings only after the screenshot capture.
+- `npm run format:check --workspaces` completed successfully after the screenshot capture.
+- Updated `projectStructure.md` with the new working-folder picker test and screenshot entries.
+- `npm run lint --workspaces` completed with existing server import-order warnings only after the project structure update.
+- `npm run format:check --workspaces` completed successfully after the project structure update.
+- Documented the Agents working-folder picker reuse in `design.md`.
+- `npm run lint --workspaces` completed with existing server import-order warnings only after the design update.
+- `npm run format:check --workspaces` completed successfully after the design update.
+- `npm run lint --workspaces` completed with existing server import-order warnings only for the final Task 5 lint pass.
+- `npm run format:check --workspaces` completed successfully for the final Task 5 format check.
+- `npm run build --workspace server` completed successfully for Task 5 testing.
+- `npm run build --workspace client` completed successfully for Task 5 testing (chunk size warning only).
+- `npm run test --workspace server` completed successfully for Task 5 testing (needed extended timeout).
+- Updated the working-folder picker test to wait for agent selection and enabled state before opening the dialog, then asserted the dialog role.
+- `npm run test --workspace client` completed successfully for Task 5 testing.
+- `npm run test --workspace client -- agentsPage.workingFolderPicker` completed successfully for Task 5 testing (existing act warnings logged).
+- `npm run e2e` completed successfully for Task 5 testing.
+- `npm run compose:build` completed successfully for Task 5 testing.
+- `npm run compose:up` completed successfully for Task 5 testing.
+- Manual Playwright-MCP check completed: opened the folder picker, selected `/Users/danielstapleton/Documents/dev/codeinfo2`, cancelled on the second open to confirm persistence, and captured `planning/0000028-agents-chat-gui-consistency-data/0000028-5-agents-folder-picker.png` with the dialog open.
+- `npm run compose:down` completed successfully for Task 5 testing.
+- Pending: build/test/e2e/compose steps for Task 5 are still outstanding.
 
 ---
 
 ### 6. Client: Control sizing + variant consistency (Chat + Agents)
 
-- Task Status: **__to_do__**
-- Git Commits: **__to_do__**
+- Task Status: **__done__**
+- Git Commits: **093038f**
 
 #### Overview
 
@@ -1107,7 +1219,7 @@ Standardize sizing and button variants across Chat and Agents so all controls us
 
 #### Subtasks
 
-1. [ ] Inventory current control sizes and variants on each page:
+1. [x] Inventory current control sizes and variants on each page:
    - Documentation to read (repeat):
      - MUI Button API: https://llms.mui.com/material-ui/6.4.12/api/button.md
      - MUI TextField API: https://llms.mui.com/material-ui/6.4.12/api/text-field.md
@@ -1123,7 +1235,7 @@ Standardize sizing and button variants across Chat and Agents so all controls us
    - Snippet to locate (current buttons):
      - `data-testid="agent-send"`, `data-testid="agent-stop"`, `data-testid="agent-command-execute"`
 
-2. [ ] Apply size and variant updates across Chat and Agents:
+2. [x] Apply size and variant updates across Chat and Agents:
    - Documentation to read (repeat):
      - MUI Button API: https://llms.mui.com/material-ui/6.4.12/api/button.md
      - MUI TextField API: https://llms.mui.com/material-ui/6.4.12/api/text-field.md
@@ -1143,7 +1255,7 @@ Standardize sizing and button variants across Chat and Agents so all controls us
      - `<Button variant="contained" size="small" data-testid="agent-send">Send</Button>`
      - `<Button variant="contained" color="error" size="small" data-testid="agent-stop">Stop</Button>`
 
-3. [ ] Test (unit/client): Chat control sizes/variants
+3. [x] Test (unit/client): Chat control sizes/variants
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Location:
@@ -1156,7 +1268,7 @@ Standardize sizing and button variants across Chat and Agents so all controls us
      - `expect(sendButton).toHaveClass('MuiButton-contained');`
      - `expect(stopButton).toHaveClass('MuiButton-contained', { exact: false });`
 
-4. [ ] Test (unit/client): Agents control sizes/variants
+4. [x] Test (unit/client): Agents control sizes/variants
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Location:
@@ -1168,7 +1280,7 @@ Standardize sizing and button variants across Chat and Agents so all controls us
    - Snippet example:
      - `expect(executeButton).toHaveClass('MuiButton-contained');`
 
-5. [ ] Capture UI screenshots (required for this task):
+5. [x] Capture UI screenshots (required for this task):
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
    - Files to add:
@@ -1183,7 +1295,7 @@ Standardize sizing and button variants across Chat and Agents so all controls us
      - `0000028-6-chat-sizing.png`
      - `0000028-6-agents-sizing.png`
 
-6. [ ] Documentation update: `design.md`
+6. [x] Documentation update: `design.md`
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location:
@@ -1195,7 +1307,7 @@ Standardize sizing and button variants across Chat and Agents so all controls us
    - Snippet example:
      - `- Chat/Agents controls use size="small" and contained/outlined variants.`
 
-7. [ ] Documentation update: `projectStructure.md` (after screenshots are added)
+7. [x] Documentation update: `projectStructure.md` (after screenshots are added)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location:
@@ -1209,7 +1321,7 @@ Standardize sizing and button variants across Chat and Agents so all controls us
    - Snippet example:
      - `planning/0000028-agents-chat-gui-consistency-data/0000028-6-agents-sizing.png`
 
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+8. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI/options: https://prettier.io/docs/options
@@ -1221,39 +1333,70 @@ Standardize sizing and button variants across Chat and Agents so all controls us
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, verify Chat/Agents controls use `size="small"`, primary/secondary variants match the rules, Stop uses `contained` + `error`, and confirm the debug console shows no errors.
+8. [x] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, verify Chat/Agents controls use `size="small"`, primary/secondary variants match the rules, Stop uses `contained` + `error`, and confirm the debug console shows no errors.
    - Capture Playwright MCP screenshots for Chat and Agents controls and confirm the images are stored under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` before moving/recording them.
    - Expected log lines (debug console):
      - `DEV-0000028[T6] chat controls sizing applied` appears after the Chat page renders.
      - `DEV-0000028[T6] agents controls sizing applied` appears after the Agents page renders.
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
 #### Implementation notes
 
-- (fill in during execution)
+- Reviewed Chat and Agents control rows to inventory current size/variant usage.
+- `npm run lint --workspaces` completed with existing server import-order warnings only after subtask 1.
+- `npm run format:check --workspaces` completed successfully after subtask 1.
+- Applied `size="small"` and variant updates across Chat and Agents controls, including Stop `contained` + `error`, and added the T6 sizing log lines.
+- `npm run lint --workspaces` completed with existing server import-order warnings only after subtask 2.
+- `npm run format:check --workspaces` completed successfully after subtask 2.
+- Updated Chat page tests to assert size="small" controls and contained/outlined variants for Send/Stop/New conversation.
+- `npm run lint --workspaces` completed with existing server import-order warnings only after subtask 3.
+- `npm run format --workspaces` fixed formatting, followed by a clean `npm run format:check --workspaces`.
+- Updated Agents layout tests to assert size="small" inputs and contained/outlined variants, plus stop button error styling.
+- `npm run lint --workspaces` completed with existing server import-order warnings only after subtask 4.
+- `npm run format --workspaces` fixed formatting, followed by a clean `npm run format:check --workspaces`.
+- Captured the Chat and Agents sizing screenshots and moved them into the planning data folder.
+- `npm run lint --workspaces` completed with existing server import-order warnings only after subtask 5.
+- `npm run format:check --workspaces` completed successfully after subtask 5.
+- Documented the shared Chat/Agents sizing + variant baseline in `design.md`.
+- `npm run lint --workspaces` completed with existing server import-order warnings only after subtask 6.
+- `npm run format:check --workspaces` completed successfully after subtask 6.
+- Updated `projectStructure.md` with the new Chat/Agents sizing screenshots.
+- `npm run lint --workspaces` completed with existing server import-order warnings only after subtask 7.
+- `npm run format:check --workspaces` completed successfully after subtask 7.
+- `npm run lint --workspaces` completed with existing server import-order warnings only after subtask 8.
+- `npm run format:check --workspaces` completed successfully after subtask 8.
+- `npm run build --workspace server` completed successfully for Task 6 testing.
+- `npm run build --workspace client` completed successfully for Task 6 testing (chunk size warning only).
+- `npm run test --workspace server` completed successfully for Task 6 testing (extended timeout).
+- `npm run test --workspace client` completed successfully for Task 6 testing (existing experimental VM module warnings).
+- `npm run e2e` completed successfully for Task 6 testing.
+- `npm run compose:build` completed successfully for Task 6 testing.
+- `npm run compose:up` completed successfully for Task 6 testing.
+- Manual Playwright-MCP check completed: verified `DEV-0000028[T6] chat controls sizing applied` and `DEV-0000028[T6] agents controls sizing applied` logs and captured the sizing screenshots.
+- `npm run compose:down` completed successfully for Task 6 testing.
 
 ---
 
@@ -1261,8 +1404,8 @@ Standardize sizing and button variants across Chat and Agents so all controls us
 
 ### 7. Client: Control sizing + variant consistency (LM Studio + Ingest)
 
-- Task Status: **__to_do__**
-- Git Commits: **__to_do__**
+- Task Status: **__done__**
+- Git Commits: b93bb08
 
 #### Overview
 
@@ -1284,7 +1427,7 @@ Standardize sizing and button variants across LM Studio and Ingest so controls u
 
 #### Subtasks
 
-1. [ ] Inventory current control sizes and variants on each page:
+1. [x] Inventory current control sizes and variants on each page:
    - Documentation to read (repeat):
      - MUI Button API: https://llms.mui.com/material-ui/6.4.12/api/button.md
      - MUI TextField API: https://llms.mui.com/material-ui/6.4.12/api/text-field.md
@@ -1299,7 +1442,7 @@ Standardize sizing and button variants across LM Studio and Ingest so controls u
    - Snippet to locate (current buttons):
      - `data-testid="ingest-run"` (or Start ingest button) and LM Studio action buttons
 
-2. [ ] Apply size and variant updates across LM Studio and Ingest:
+2. [x] Apply size and variant updates across LM Studio and Ingest:
    - Documentation to read (repeat):
      - MUI Button API: https://llms.mui.com/material-ui/6.4.12/api/button.md
      - MUI TextField API: https://llms.mui.com/material-ui/6.4.12/api/text-field.md
@@ -1317,7 +1460,7 @@ Standardize sizing and button variants across LM Studio and Ingest so controls u
    - Snippet to apply (example):
      - `<Button variant="contained" size="small">Start ingest</Button>`
 
-3. [ ] Test (unit/client): LM Studio control sizes/variants
+3. [x] Test (unit/client): LM Studio control sizes/variants
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Location:
@@ -1329,7 +1472,7 @@ Standardize sizing and button variants across LM Studio and Ingest so controls u
    - Snippet example:
      - `expect(resetButton).toHaveClass('MuiButton-outlined');`
 
-4. [ ] Test (unit/client): Ingest control sizes/variants
+4. [x] Test (unit/client): Ingest control sizes/variants
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Location:
@@ -1341,7 +1484,7 @@ Standardize sizing and button variants across LM Studio and Ingest so controls u
    - Snippet example:
      - `expect(chooseFolderButton).toHaveClass('MuiButton-outlined');`
 
-5. [ ] Capture UI screenshots (required for this task):
+5. [x] Capture UI screenshots (required for this task):
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
    - Files to add:
@@ -1356,7 +1499,7 @@ Standardize sizing and button variants across LM Studio and Ingest so controls u
      - `0000028-7-lmstudio-sizing.png`
      - `0000028-7-ingest-sizing.png`
 
-6. [ ] Documentation update: `design.md`
+6. [x] Documentation update: `design.md`
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location:
@@ -1368,7 +1511,7 @@ Standardize sizing and button variants across LM Studio and Ingest so controls u
    - Snippet example:
      - `- LM Studio/Ingest controls use size="small" with contained/outlined variants.`
 
-7. [ ] Documentation update: `projectStructure.md` (after screenshots are added)
+7. [x] Documentation update: `projectStructure.md` (after screenshots are added)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location:
@@ -1382,7 +1525,7 @@ Standardize sizing and button variants across LM Studio and Ingest so controls u
    - Snippet example:
      - `planning/0000028-agents-chat-gui-consistency-data/0000028-7-lmstudio-sizing.png`
 
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+8. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI/options: https://prettier.io/docs/options
@@ -1394,46 +1537,77 @@ Standardize sizing and button variants across LM Studio and Ingest so controls u
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, verify LM Studio and Ingest controls use `size="small"`, primary/secondary variants match the rules, and confirm the debug console shows no errors.
+8. [x] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, verify LM Studio and Ingest controls use `size="small"`, primary/secondary variants match the rules, and confirm the debug console shows no errors.
    - Capture Playwright MCP screenshots for LM Studio and Ingest controls and confirm the images are stored under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` before moving/recording them.
    - Expected log lines (debug console):
      - `DEV-0000028[T7] lmstudio controls sizing applied` appears after the LM Studio page renders.
      - `DEV-0000028[T7] ingest controls sizing applied` appears after the Ingest page renders.
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
 #### Implementation notes
 
-- (fill in during execution)
+- Attempted to push the Task 7 status update; push failed due to missing GitHub credentials/upstream.
+- Reviewed `LmStudioPage` and `IngestForm` control sizing/variant usage to identify required updates.
+- `npm run lint --workspaces` completed with existing server import-order warnings only after subtask 1.
+- `npm run format:check --workspaces` completed successfully after subtask 1.
+- Applied size="small" and variant updates on LM Studio/Ingest controls and added the T7 sizing log lines.
+- `npm run lint --workspaces` completed with existing server import-order warnings only after subtask 2.
+- `npm run format:check --workspaces` completed successfully after subtask 2.
+- Added LM Studio test coverage for size="small" inputs and contained/outlined button variants.
+- Added Ingest form test coverage for size="small" inputs and contained/outlined button variants.
+- `npm run lint --workspaces` completed with existing server import-order warnings only after subtask 3/4.
+- `npm run format:check --workspaces` completed successfully after subtask 3/4.
+- Captured LM Studio/Ingest sizing screenshots via Playwright MCP and moved them into the planning data folder.
+- `npm run lint --workspaces` completed with existing server import-order warnings only after subtask 5.
+- `npm run format:check --workspaces` completed successfully after subtask 5.
+- Documented the LM Studio/Ingest sizing + variant baseline in `design.md`.
+- `npm run lint --workspaces` completed with existing server import-order warnings only after subtask 6.
+- `npm run format:check --workspaces` completed successfully after subtask 6.
+- Updated `projectStructure.md` with the Task 7 LM Studio/Ingest screenshots.
+- `npm run lint --workspaces` completed with existing server import-order warnings only after subtask 7.
+- `npm run format:check --workspaces` completed successfully after subtask 7.
+- `npm run lint --workspaces` completed with existing server import-order warnings only after subtask 8.
+- `npm run format:check --workspaces` completed successfully after subtask 8.
+- `npm run build --workspace server` completed successfully for Task 7 testing.
+- `npm run build --workspace client` completed successfully for Task 7 testing (chunk size warning only).
+- `npm run test --workspace server` required extended timeout (initial 120s/240s runs timed out) and then completed successfully.
+- `npm run test --workspace client` completed successfully (existing experimental VM module + act warnings only).
+- `npm run e2e` completed successfully.
+- `npm run compose:build` completed successfully (client chunk size warning only).
+- `npm run compose:up` completed successfully for Task 7 testing.
+- Manual Playwright-MCP check completed: verified `DEV-0000028[T7] lmstudio controls sizing applied` and `DEV-0000028[T7] ingest controls sizing applied` logs, no console errors, and captured the sizing screenshots.
+- `npm run compose:down` completed successfully for Task 7 testing.
+- Push attempt after Task 7 implementation commit failed due to missing GitHub credentials.
 
 ---
 
 ### 8. Final: Verify acceptance criteria + full regression
 
-- Task Status: **__to_do__**
-- Git Commits: **__to_do__**
+- Task Status: **__done__**
+- Git Commits: 9336a1b
 
 #### Overview
 
@@ -1452,7 +1626,7 @@ Validate the full story requirements end-to-end and capture final evidence, incl
 
 #### Subtasks
 
-1. [ ] Documentation update: `README.md`
+1. [x] Documentation update: `README.md`
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location:
@@ -1461,7 +1635,7 @@ Validate the full story requirements end-to-end and capture final evidence, incl
      - Add/adjust any README guidance introduced by this story (UI consistency notes, new screenshots if relevant).
    - Snippet example:
      - `- Agents page uses an info popover for agent metadata.`
-2. [ ] Documentation update: `design.md`
+2. [x] Documentation update: `design.md`
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
      - Mermaid: Context7 `/mermaid-js/mermaid`
@@ -1471,7 +1645,7 @@ Validate the full story requirements end-to-end and capture final evidence, incl
      - Add/adjust design notes and mermaid diagrams impacted by UI consistency changes.
    - Snippet example:
      - `- Agents layout now groups command + execute and instruction + send rows.`
-3. [ ] Documentation update: `projectStructure.md` (after test screenshots are captured)
+3. [x] Documentation update: `projectStructure.md` (after test screenshots are captured)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location:
@@ -1483,7 +1657,7 @@ Validate the full story requirements end-to-end and capture final evidence, incl
      - Keeps the repo map accurate after final verification artifacts are added.
    - Snippet example:
      - `test-results/screenshots/0000028-8-chat-final.png`
-4. [ ] Add a regression-baseline log line used for final verification:
+4. [x] Add a regression-baseline log line used for final verification:
    - Files to edit:
      - `client/src/App.tsx`
    - Implementation details:
@@ -1493,14 +1667,14 @@ Validate the full story requirements end-to-end and capture final evidence, incl
    - Snippet example:
      - `logInfo('DEV-0000028[T8] regression baseline ready', { page: 'app-shell' });`
 
-5. [ ] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
+5. [x] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Files to edit: none (comment only)
    - Snippet example:
      - `- Updated Agents info popover, working-folder picker, and control sizing consistency.`
 
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+6. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI/options: https://prettier.io/docs/options
@@ -1512,42 +1686,42 @@ Validate the full story requirements end-to-end and capture final evidence, incl
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
    - Snippet to run:
      - `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
    - Snippet to run:
      - `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
    - Snippet to run:
      - `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Snippet to run:
      - `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
    - Snippet to run:
      - `npm run e2e`
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
    - Snippet to run:
      - `npm run compose:build`
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
    - Snippet to run:
      - `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, verify all acceptance criteria, run a quick regression sweep, capture screenshots to `./test-results/screenshots/`, and confirm the debug console shows no errors.
+8. [x] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, verify all acceptance criteria, run a quick regression sweep, capture screenshots to `./test-results/screenshots/`, and confirm the debug console shows no errors.
    - Each screenshot should be named `0000028-8-<short-name>.png`.
    - Capture Playwright MCP screenshots for every acceptance-criteria UI state and confirm the images are stored under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` before moving/recording them.
    - Expected log lines (debug console):
@@ -1558,12 +1732,68 @@ Validate the full story requirements end-to-end and capture final evidence, incl
      - `test-results/screenshots/0000028-8-<short-name>.png`
    - Snippet example:
      - `test-results/screenshots/0000028-8-agents-final.png`
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
 #### Implementation notes
 
-- (fill in during execution)
+- Push attempt after setting Task 8 in progress failed due to missing GitHub credentials.
+- Updated `README.md` with Agents UI notes covering the info popover and Choose folder dialog.
+- Expanded `design.md` with Agents layout, info popover, and folder picker notes.
+- Updated `projectStructure.md` with Task 8 verification screenshots.
+- Added the `DEV-0000028[T8] regression baseline ready` log in `App.tsx`.
+- `npm run lint --workspaces` completed with existing server import-order warnings only after subtask 4.
+- `npm run format:check --workspaces` completed successfully after subtask 4.
+- Drafted PR comment summary covering Tasks 1-7 UI consistency updates, new logs/tests, and documentation/screenshot evidence.
+- PR comment:
+  - Align Chat/Agents transcript panels to fill viewport height with flex + minHeight adjustments, plus verification tests and screenshots.
+  - Replaced Agents inline description with an info popover, tightened control rows (Command+Execute, Instruction+Send/Stop), and fixed Send/Stop width stability.
+  - Added Agents working-folder picker reusing the Ingest dialog, including tests and UI evidence.
+  - Standardized sizing/variant rules across Chat, Agents, LM Studio, and Ingest controls (size="small", contained primaries, outlined secondaries, Stop contained error) with updated tests and screenshots.
+  - Updated design/project structure docs to reflect new UI rules and captured screenshots across tasks.
+- `npm run lint --workspaces` completed with existing server import-order warnings only after subtask 6.
+- `npm run format:check --workspaces` completed successfully after subtask 6.
+- `npm run build --workspace server` completed successfully for Task 8 testing.
+- `npm run build --workspace client` completed successfully for Task 8 testing (chunk size warning only).
+- `npm run test --workspace server` completed successfully for Task 8 testing (extended timeout).
+- `npm run test --workspace client` completed successfully for Task 8 testing (existing experimental VM module warnings only).
+- `npm run e2e` completed successfully for Task 8 testing.
+- `npm run compose:build` completed successfully for Task 8 testing (chunk size warning only).
+- `npm run compose:up` completed successfully for Task 8 testing.
+- Manual Playwright-MCP check completed: verified `DEV-0000028[T8] regression baseline ready`, no console errors, and captured final screenshots for Chat, Agents, Agents popover, Agents folder picker, LM Studio, and Ingest.
+- `npm run compose:down` completed successfully for Task 8 testing.
+
+---
+
+## Code Review Summary (Main → Story Branch)
+
+### Scope reviewed
+
+- UI layout + sizing changes across Chat, Agents, LM Studio, and Ingest pages.
+- New Agents info popover, command/instruction row layout, Send/Stop width stability, and working-folder picker reuse.
+- Updated tests, logs, and screenshots tied to Tasks 1–8.
+
+### Checks performed
+
+- Code quality: validated component state handling, popover/picker wiring, and log usage for clarity.
+- Maintainability: confirmed shared directory picker reuse avoids duplication and updated tests cover new behavior.
+- Performance: new logs are mount/interaction scoped; no new heavy rendering paths introduced.
+- Security: no new data ingestion or privileged access; UI-only changes reuse existing endpoints.
+- Best practices: sizing/variant consistency enforced with MUI props; tests assert class changes where needed.
+
+### Acceptance criteria verification
+
+- Agents description moved to an info popover with warnings + empty-state message.
+- Agents controls reorganized into command/execute and instruction/send rows; Send/Stop width is stable.
+- Chat/Agents transcript panels fill the viewport with no gap.
+- Agents working-folder uses the Ingest directory picker; Chat keeps no working-folder control (per scope).
+- Controls across Chat/Agents/LM Studio/Ingest now use `size="small"` with consistent primary/secondary variants and Stop as contained error.
+- UI screenshots captured for every task and final verification.
+
+### Result
+
+- No blocking issues found. Code changes align with the story scope and acceptance criteria.
+- Push attempt after Task 8 implementation commit failed due to missing GitHub credentials.
 
 ---

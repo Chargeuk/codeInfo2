@@ -56,6 +56,12 @@ export default function LmStudioPage() {
     }
   }, [isError]);
 
+  useEffect(() => {
+    logger('info', 'DEV-0000028[T7] lmstudio controls sizing applied', {
+      page: 'lmstudio',
+    });
+  }, [logger]);
+
   const statusText = useMemo(() => {
     if (state.status === 'loading') return 'Checking…';
     if (state.status === 'error')
@@ -125,19 +131,35 @@ export default function LmStudioPage() {
         helperText={`Default: ${DEFAULT_LM_URL}`}
         aria-describedby="lmstudio-status"
         fullWidth
+        size="small"
       />
       <Stack
         direction={isSmall ? 'column' : 'row'}
         spacing={1}
         alignItems={isSmall ? 'stretch' : 'center'}
       >
-        <Button variant="contained" onClick={handleCheck} disabled={isLoading}>
+        <Button
+          variant="contained"
+          onClick={handleCheck}
+          disabled={isLoading}
+          size="small"
+        >
           Check status
         </Button>
-        <Button variant="outlined" onClick={handleReset} disabled={isLoading}>
+        <Button
+          variant="outlined"
+          onClick={handleReset}
+          disabled={isLoading}
+          size="small"
+        >
           Reset to default
         </Button>
-        <Button variant="text" onClick={handleRefresh} disabled={isLoading}>
+        <Button
+          variant="outlined"
+          onClick={handleRefresh}
+          disabled={isLoading}
+          size="small"
+        >
           Refresh models
         </Button>
       </Stack>

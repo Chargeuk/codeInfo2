@@ -327,7 +327,7 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
    - Description:
      - Add a short section describing per-agent flow transcript persistence and include a Mermaid sequence diagram showing flow steps writing to both flow and agent conversations.
 
-10. [ ] Documentation update: `projectStructure.md` (after new files are added)
+10. [x] Documentation update: `projectStructure.md` (after new files are added)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location:
@@ -370,7 +370,7 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
 7. [x] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, run a flow, open the agent conversation in the Agents sidebar, confirm the transcript includes the flow’s user + assistant turns, then open the Flows page and confirm the merged flow transcript (with command metadata) is intact, and confirm the debug console shows no errors.
+8. [x] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, run a flow, open the agent conversation in the Agents sidebar, confirm the transcript includes the flow’s user + assistant turns, then open the Flows page and confirm the merged flow transcript (with command metadata) is intact, and confirm the debug console shows no errors.
    - Confirm server logs include `flows.agent.turn_persisted` entries for each agent step with the expected `agentConversationId`, `agentType`, and `role` values (use `docker compose logs --tail=200 server`).
    - Capture Playwright MCP screenshots for the agent transcript and the flow transcript, confirm they appear under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local`, then move/rename them to:
      - `planning/0000029-flow-agent-transcripts-and-inflight-hydration-data/0000029-1-agent-transcripts.png`
@@ -468,7 +468,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
      - Treat the snapshot as authoritative; detection must not introduce new helper utilities unless necessary.
      - Detection rules:
        - If `data.inflight.assistantText` is non-empty, treat any matching assistant turn as already-present.
-       - If `data.inflight.assistantText` is empty, treat any assistant turn with `status` of `failed` or `stopped` and a `createdAt` at/after `data.inflight.startedAt` as already-present.
+     - If `data.inflight.assistantText` is empty, treat any assistant turn with `status` of `ok`, `failed`, or `stopped` and a `createdAt` at/after `data.inflight.startedAt` as already-present.
      - Matching guidance (for junior devs):
        - Compare `assistantText` against the persisted assistant `content` using a simple `includes` or `startsWith` check, and only within turns whose `createdAt` is at/after `startedAt`.
        - Keep logic inline in `fetchSnapshot` to avoid new helpers.
@@ -577,7 +577,22 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
    - Purpose:
      - Confirms the corner case where inflight finalization is already in the snapshot.
 
-10. [ ] Test (unit/client): Overlay appears when snapshot has no inflight assistant
+10. [ ] Test (unit/client): No overlay when snapshot has ok final assistant with empty text
+    - Documentation to read (repeat):
+      - Jest: Context7 `/jestjs/jest`
+    - Test type:
+      - Unit test (client)
+    - Files to read:
+      - `client/src/test/useConversationTurns.refresh.test.ts`
+    - Files to edit:
+      - `client/src/test/useConversationTurns.refresh.test.ts`
+    - Description:
+      - Mock `data.inflight.assistantText` as empty and include an assistant turn with `status: 'ok'` and `createdAt` >= `data.inflight.startedAt`, then assert the overlay is cleared (no extra inflight bubble).
+      - Assert the log line `DEV-0000029:T2:inflight_overlay_decision` includes `overlayApplied: false`.
+    - Purpose:
+      - Covers the finalized-success edge case when assistant content is empty.
+
+11. [ ] Test (unit/client): Overlay appears when snapshot has no inflight assistant
     - Documentation to read (repeat):
       - Jest: Context7 `/jestjs/jest`
     - Test type:
@@ -592,7 +607,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
     - Purpose:
       - Validates the happy-path overlay behavior for thinking-only inflight runs.
 
-11. [ ] Test (unit/client): Inflight ID change resets overlay
+12. [ ] Test (unit/client): Inflight ID change resets overlay
     - Documentation to read (repeat):
       - Jest: Context7 `/jestjs/jest`
     - Test type:
@@ -607,7 +622,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
     - Purpose:
       - Prevents multiple inflight bubbles when a new run starts.
 
-12. [ ] Test (unit/client): Hydration keeps assistant history when inflight bubble is empty
+13. [ ] Test (unit/client): Hydration keeps assistant history when inflight bubble is empty
     - Documentation to read (repeat):
       - Jest: Context7 `/jestjs/jest`
     - Test type:
@@ -622,7 +637,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
    - Purpose:
      - Proves the de-duplication fix prevents history loss when inflight content is empty.
 
-13. [ ] Test (integration/server): Inflight final status yields assistant turn even with empty assistantText
+14. [ ] Test (integration/server): Inflight final status yields assistant turn even with empty assistantText
     - Documentation to read (repeat):
       - Node.js test runner: https://nodejs.org/api/test.html
     - Test type:
@@ -633,12 +648,12 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
     - Files to edit:
       - `server/src/test/integration/conversations.turns.test.ts`
     - Description:
-      - Create an inflight run without assistant deltas, call `markInflightFinal` with `status: 'failed'` (or `stopped`), then GET `/conversations/:id/turns` and assert an assistant turn is present with empty content and matching status.
+      - Create an inflight run without assistant deltas, call `markInflightFinal` with `status: 'ok'`, then GET `/conversations/:id/turns` and assert an assistant turn is present with empty content and matching status.
       - Use the existing inflight-only snapshot test as a template and reuse its cleanup pattern.
     - Purpose:
       - Confirms server snapshots always expose final inflight assistant turns for hydration edge cases.
 
-14. [ ] Documentation update: `design.md` (mermaid diagram)
+15. [ ] Documentation update: `design.md` (mermaid diagram)
    - Documentation to read (repeat):
      - Mermaid: Context7 `/mermaid-js/mermaid`
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -647,7 +662,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
    - Description:
      - Add a Mermaid sequence diagram showing snapshot-first hydration with a conditional inflight overlay.
 
-15. [ ] Documentation update: `projectStructure.md` (after new files are added)
+16. [ ] Documentation update: `projectStructure.md` (after new files are added)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location:
@@ -656,7 +671,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
      - Update the repo tree to include (after the manual Playwright screenshot is captured in Testing step 8):
        - `planning/0000029-flow-agent-transcripts-and-inflight-hydration-data/0000029-2-inflight-hydration.png`
 
-16. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+17. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI/options: https://prettier.io/docs/options

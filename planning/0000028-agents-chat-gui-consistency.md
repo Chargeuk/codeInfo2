@@ -1196,7 +1196,7 @@ Add a “Choose folder…” button next to the Agents working-folder input and 
 
 ### 6. Client: Control sizing + variant consistency (Chat + Agents)
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **__to_do__**
 
 #### Overview

@@ -1744,6 +1744,29 @@ flowchart TD
   Hydrate --> UI
 ```
 
+### Inflight snapshot hydration overlay (client)
+
+- `useConversationTurns` treats the REST snapshot as the base transcript and only overlays an inflight assistant bubble when the snapshot does not already include an assistant turn at/after `inflight.startedAt`.
+- `useChatStream.hydrateInflightSnapshot` is invoked only when the overlay is needed, preventing duplicate assistant bubbles while preserving history during inflight runs.
+
+```mermaid
+sequenceDiagram
+  participant UI as Chat/Agents/Flows UI
+  participant REST as REST /conversations/:id/turns
+  participant Turns as useConversationTurns
+  participant Stream as useChatStream
+
+  UI->>REST: GET /conversations/:id/turns
+  REST-->>Turns: { items, inflight? }
+  Turns->>Turns: detect assistantPresent (createdAt >= inflight.startedAt)
+  Turns->>Stream: hydrateHistory(items)
+  alt assistantPresent
+    Note over Turns,Stream: overlay skipped
+  else no assistant
+    Turns->>Stream: hydrateInflightSnapshot(inflight)
+  end
+```
+
 ### Client streaming logs (WS observability)
 
 - The Chat UI emits explicit `chat.ws.client_*` log entries from the WebSocket hook so end-to-end streaming can be verified via the `/logs` store.

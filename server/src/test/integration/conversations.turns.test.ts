@@ -203,6 +203,45 @@ test('inflight snapshot omits command metadata when absent', async () => {
   }
 });
 
+test('inflight final status yields assistant turn even with empty assistantText', async () => {
+  createInflight({
+    conversationId: 'c1',
+    inflightId: 'i1',
+    provider: 'lmstudio',
+    model: 'llama',
+    source: 'REST',
+    userTurn: {
+      content: 'hello',
+      createdAt: new Date('2025-01-04T00:00:00.000Z').toISOString(),
+    },
+  });
+  markInflightFinal({
+    conversationId: 'c1',
+    inflightId: 'i1',
+    status: 'ok',
+    finalizedAt: new Date('2025-01-04T00:00:01.000Z').toISOString(),
+  });
+
+  try {
+    const res = await request(
+      appWith({
+        findConversationById: async () => ({ _id: 'c1', archivedAt: null }),
+        listAllTurns: async () => ({ items: [] }),
+      }),
+    )
+      .get('/conversations/c1/turns')
+      .expect(200);
+
+    const assistant = res.body.items.find(
+      (turn: { role?: string }) => turn.role === 'assistant',
+    );
+    assert.equal(assistant?.content, '');
+    assert.equal(assistant?.status, 'ok');
+  } finally {
+    cleanupInflight({ conversationId: 'c1', inflightId: 'i1' });
+  }
+});
+
 test('returns full history when no inflight exists', async () => {
   const turns: TurnSummary[] = [
     {

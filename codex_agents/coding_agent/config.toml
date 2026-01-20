@@ -31,7 +31,7 @@ tool_timeout_sec = 1800
 command = "npx"
 args    = ["-y", "mcp-remote", "http://playwright-mcp:8931/mcp", "--allow-http"]
 startup_timeout_sec = 60
-tool_timeout_sec = 3600
+tool_timeout_sec = 180
 
 [projects]
 [projects."/data"]

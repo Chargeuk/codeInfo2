@@ -140,6 +140,11 @@
       "type": "message",
       "role": "user",
       "content": ["Ensure each task has specific log lines to add that will be tested for during the Manual Playwright-MCP check step. These log lines should be detailed in the subtasks and will confirm events are triggered as expected. Include updates to the Manual Playwright-MCP check to check for these specific log lines and what the expected outcome is. Commit after making any changes."]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": ["Ensure any task that updates the front end has detail within the Manual Playwright-MCP check to take a screenshot that is to be checked by the agent to ensure the gui meets the expectations set within the task. This is especially important for the last overall story check task as all acceptance that can be confirmed in the gui needs to be checked with screenshots as well as any other appropriate techniques. Ensure that there is detail in the Manual Playwright-MCP check step detailing that the screenshots will be stored within the /Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local folder as it is mapped within docker-compose.local.yml. Commit after making any changes."]
     }
   ]
 }

@@ -162,17 +162,22 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
 
 #### Documentation Locations
 
-- Express routing (server handlers): Context7 `/expressjs/express/v5.1.0`
-- Node.js test runner: https://nodejs.org/api/test.html
-- Mermaid diagrams: Context7 `/mermaid-js/mermaid`
+- Express routing (server handlers): Context7 `/expressjs/express/v5.1.0` (Express 5 route handler signatures + async handlers)
+- Node.js test runner: https://nodejs.org/api/test.html (`node:test` usage, `test`/`describe`/`it` aliases)
+- Supertest HTTP assertions: https://github.com/forwardemail/supertest (request/expect patterns for integration tests)
+- ws WebSocket client/server: https://www.npmjs.com/package/ws (WS client API used by test harness)
+- Mermaid diagrams: Context7 `/mermaid-js/mermaid` (sequence diagram syntax for design updates)
 - Mermaid sequence diagram reference (DeepWiki): `mermaid-js/mermaid` (sequence diagram syntax)
-- Mermaid 11.12.1 release notes: https://github.com/mermaid-js/mermaid/releases/tag/mermaid%4011.12.1
-- Playwright docs: Context7 `/microsoft/playwright` (manual verification + screenshots)
-- Docker/Compose docs: Context7 `/docker/docs` (compose checks in testing steps)
-- npm run-script docs: https://docs.npmjs.com/cli/v9/commands/npm-run-script (build/test scripts)
-- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface (lint command behavior)
-- Prettier CLI: https://prettier.io/docs/cli (format check/write behavior)
-- Markdown Guide: https://www.markdownguide.org/basic-syntax/ (documentation updates)
+- Mermaid 11.12.1 release notes: https://github.com/mermaid-js/mermaid/releases/tag/mermaid%4011.12.1 (confirm version-specific syntax)
+- Playwright docs: Context7 `/microsoft/playwright` (browser automation for manual verification)
+- Playwright Page screenshot API: https://playwright.dev/docs/api/class-page (page.screenshot usage for evidence capture)
+- Docker/Compose docs: Context7 `/docker/docs` (compose CLI behavior for local testing)
+- Docker Compose CLI reference: https://docs.docker.com/reference/cli/docker/compose/ (build/up/down commands in testing)
+- Docker Compose logs: https://docs.docker.com/reference/cli/docker/compose/logs/ (log inspection during manual checks)
+- npm run-script docs: https://docs.npmjs.com/cli/v9/commands/npm-run-script (workspace script execution)
+- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface (lint options + exit codes)
+- Prettier CLI: https://prettier.io/docs/cli (`--check` vs `--write` formatting flows)
+- Markdown Guide: https://www.markdownguide.org/basic-syntax/ (documentation updates syntax)
 
 #### Subtasks
 
@@ -361,18 +366,26 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
 
 #### Documentation Locations
 
-- React state + effects guidance: Context7 `/websites/react_dev`
-- Jest docs: Context7 `/jestjs/jest` (client tests)
-- Jest 30.2.0 release notes: https://github.com/jestjs/jest/releases/tag/v30.2.0
-- Mermaid diagrams: Context7 `/mermaid-js/mermaid`
+- React state + effects guidance: Context7 `/websites/react_dev` (useEffect cleanup + async fetch patterns)
+- React Testing Library: https://testing-library.com/docs/react-testing-library/intro/ (render/screen queries used in tests)
+- Testing Library user-event: https://testing-library.com/docs/user-event/intro (userEvent.setup + interaction simulation)
+- Jest DOM matchers: https://testing-library.com/docs/ecosystem-jest-dom/ (custom matchers like toBeInTheDocument)
+- React Router data routers: https://reactrouter.com/api/data-routers/createMemoryRouter/ (createMemoryRouter/RouterProvider test setup)
+- Jest docs: Context7 `/jestjs/jest` (test structure, async matchers)
+- Jest Getting Started: https://jestjs.io/docs/getting-started (CLI usage + matcher patterns)
+- Jest 30.2.0 release notes: https://github.com/jestjs/jest/releases/tag/v30.2.0 (version-specific changes)
+- Mermaid diagrams: Context7 `/mermaid-js/mermaid` (sequence diagram syntax for design updates)
 - Mermaid sequence diagram reference (DeepWiki): `mermaid-js/mermaid` (sequence diagram syntax)
-- Mermaid 11.12.1 release notes: https://github.com/mermaid-js/mermaid/releases/tag/mermaid%4011.12.1
-- Playwright docs: Context7 `/microsoft/playwright` (manual verification + screenshots)
-- Docker/Compose docs: Context7 `/docker/docs` (compose checks in testing steps)
-- npm run-script docs: https://docs.npmjs.com/cli/v9/commands/npm-run-script (build/test scripts)
-- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface (lint command behavior)
-- Prettier CLI: https://prettier.io/docs/cli (format check/write behavior)
-- Markdown Guide: https://www.markdownguide.org/basic-syntax/ (documentation updates)
+- Mermaid 11.12.1 release notes: https://github.com/mermaid-js/mermaid/releases/tag/mermaid%4011.12.1 (confirm version-specific syntax)
+- Playwright docs: Context7 `/microsoft/playwright` (browser automation for manual verification)
+- Playwright Page screenshot API: https://playwright.dev/docs/api/class-page (page.screenshot usage for evidence capture)
+- Docker/Compose docs: Context7 `/docker/docs` (compose CLI behavior for local testing)
+- Docker Compose CLI reference: https://docs.docker.com/reference/cli/docker/compose/ (build/up/down commands in testing)
+- Docker Compose logs: https://docs.docker.com/reference/cli/docker/compose/logs/ (log inspection during manual checks)
+- npm run-script docs: https://docs.npmjs.com/cli/v9/commands/npm-run-script (workspace script execution)
+- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface (lint options + exit codes)
+- Prettier CLI: https://prettier.io/docs/cli (`--check` vs `--write` formatting flows)
+- Markdown Guide: https://www.markdownguide.org/basic-syntax/ (documentation updates syntax)
 
 #### Subtasks
 
@@ -590,17 +603,21 @@ Validate the full story requirements end-to-end and capture final evidence, incl
 
 #### Documentation Locations
 
-- Docker/Compose docs: Context7 `/docker/docs`
-- Playwright docs: Context7 `/microsoft/playwright`
-- Husky docs: https://typicode.github.io/husky/get-started.html
-- Mermaid docs: Context7 `/mermaid-js/mermaid`
+- Docker Compose CLI reference: https://docs.docker.com/reference/cli/docker/compose/ (build/up/down commands in testing)
+- Docker Compose logs: https://docs.docker.com/reference/cli/docker/compose/logs/ (log inspection during manual checks)
+- Docker/Compose docs: Context7 `/docker/docs` (compose CLI behavior for local testing)
+- Playwright docs: Context7 `/microsoft/playwright` (browser automation for manual verification)
+- Playwright Page screenshot API: https://playwright.dev/docs/api/class-page (page.screenshot usage for evidence capture)
+- Husky docs: https://typicode.github.io/husky/get-started.html (pre-commit hook behavior)
+- Mermaid docs: Context7 `/mermaid-js/mermaid` (sequence diagram syntax)
 - Mermaid sequence diagram reference (DeepWiki): `mermaid-js/mermaid` (sequence diagram syntax)
-- Mermaid 11.12.1 release notes: https://github.com/mermaid-js/mermaid/releases/tag/mermaid%4011.12.1
-- Jest docs: Context7 `/jestjs/jest`
-- Jest 30.2.0 release notes: https://github.com/jestjs/jest/releases/tag/v30.2.0
-- Cucumber guides: https://cucumber.io/docs/guides/
-- npm run-script docs: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-- Markdown Guide: https://www.markdownguide.org/basic-syntax/
+- Mermaid 11.12.1 release notes: https://github.com/mermaid-js/mermaid/releases/tag/mermaid%4011.12.1 (confirm version-specific syntax)
+- Jest docs: Context7 `/jestjs/jest` (test structure, async matchers)
+- Jest Getting Started: https://jestjs.io/docs/getting-started (CLI usage + matcher patterns)
+- Jest 30.2.0 release notes: https://github.com/jestjs/jest/releases/tag/v30.2.0 (version-specific changes)
+- Cucumber guides: https://cucumber.io/docs/guides/ (BDD feature/test guidance)
+- npm run-script docs: https://docs.npmjs.com/cli/v9/commands/npm-run-script (workspace script execution)
+- Markdown Guide: https://www.markdownguide.org/basic-syntax/ (documentation updates syntax)
 
 #### Subtasks
 

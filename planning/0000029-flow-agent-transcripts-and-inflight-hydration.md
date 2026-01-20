@@ -774,7 +774,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
 
 ### 3. Final: Verify acceptance criteria + full regression
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **__to_do__**
 
 #### Overview

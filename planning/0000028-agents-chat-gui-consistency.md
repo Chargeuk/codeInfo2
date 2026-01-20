@@ -1606,7 +1606,7 @@ Standardize sizing and button variants across LM Studio and Ingest so controls u
 
 ### 8. Final: Verify acceptance criteria + full regression
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **__to_do__**
 
 #### Overview

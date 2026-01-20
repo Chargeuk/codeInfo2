@@ -976,8 +976,8 @@ Remove the redundant `console.log` from flow agent turn persistence logging whil
 
 ### 5. Docs: Clarify Compose flow directory
 
-- Task Status: **__in_progress__**
-- Git Commits: **__to_do__**
+- Task Status: **__done__**
+- Git Commits: b5c7256, af8ae63
 
 #### Overview
 

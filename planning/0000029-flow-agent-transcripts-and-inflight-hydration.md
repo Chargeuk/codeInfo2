@@ -910,7 +910,7 @@ Validate the full story requirements end-to-end and capture final evidence, incl
 - Summary: flow steps now persist per-agent transcripts alongside the flow transcript; inflight snapshot hydration is snapshot-first with a single overlay bubble; added client/server tests plus documentation + screenshots for validation.
 - PR comment draft: Verified flow agent transcript persistence and inflight hydration behavior; updated snapshot overlay logic/tests, added server inflight-final coverage, and captured manual screenshots for chat/flows/agents alongside build/test regressions.
 - `git push` failed due to missing GitHub credentials in the environment.
-- Blocker: No additional task entries remain in this story plan; need a new task defined before proceeding.
+- Blocker (resolved): Additional tasks exist in this plan (Task 4: Reduce flow persistence log noise; Task 5: Docs: Clarify Compose flow directory). Proceeded with Task 4; Task 5 remains pending.
 
 ---
 
@@ -976,7 +976,7 @@ Remove the redundant `console.log` from flow agent turn persistence logging whil
 
 ### 5. Docs: Clarify Compose flow directory
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **__to_do__**
 
 #### Overview

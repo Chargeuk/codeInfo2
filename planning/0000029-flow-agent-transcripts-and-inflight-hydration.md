@@ -342,6 +342,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
      - React hooks guidance: Context7 `/websites/react_dev`
    - Files to read:
      - `client/src/hooks/useConversationTurns.ts`
+     - `client/src/hooks/useChatStream.ts`
      - `client/src/test/useConversationTurns.refresh.test.ts`
      - `client/src/test/useConversationTurns.commandMetadata.test.ts`
    - Snippet to locate (snapshot + inflight state):
@@ -358,11 +359,22 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
      - `client/src/hooks/useConversationTurns.ts`
    - Implementation details:
      - After fetching `/conversations/:id/turns`, treat the returned `items` as the authoritative turns list.
-     - Determine whether the snapshot already includes an assistant turn for `inflightId` (non-empty text or finalized status).
-     - Only keep an overlay inflight assistant bubble when no assistant turn exists for the current inflight run.
+     - Determine whether the snapshot already includes an assistant turn for the active inflight run:
+       - If `data.inflight.assistantText` is non-empty, treat any matching assistant turn as already-present.
+       - If `data.inflight.assistantText` is empty, treat any assistant turn with `status` of `failed` or `stopped` and a `createdAt` at/after `data.inflight.startedAt` as already-present.
+     - Only keep an overlay inflight assistant bubble when no assistant turn exists for the current inflight run (set `inflight` to `null` when already present).
      - When `inflightId` changes, clear any prior overlay state before applying the new inflight bubble.
 
-3. [ ] Test (unit/client): Snapshot retains assistant history during inflight thinking
+3. [ ] Update hydration de-duplication so empty inflight bubbles do not drop history:
+   - Documentation to read (repeat):
+     - React hooks guidance: Context7 `/websites/react_dev`
+   - Files to edit:
+     - `client/src/hooks/useChatStream.ts`
+   - Implementation details:
+     - In `hydrateHistory`, only treat a `processing` message as a replacement candidate when the existing message content is non-empty.
+     - This prevents an empty inflight bubble from matching every assistant message and removing history during hydration.
+
+4. [ ] Test (unit/client): Snapshot retains assistant history during inflight thinking
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Location:
@@ -372,7 +384,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
    - Purpose:
      - Prevents dropping assistant history when inflight output is empty.
 
-4. [ ] Test (unit/client): No duplicate assistant bubble when snapshot includes inflight assistant
+5. [ ] Test (unit/client): No duplicate assistant bubble when snapshot includes inflight assistant
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Location:
@@ -382,7 +394,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
    - Purpose:
      - Ensures the snapshot remains the single source of truth when assistant text exists.
 
-5. [ ] Test (unit/client): Inflight ID change resets overlay
+6. [ ] Test (unit/client): Inflight ID change resets overlay
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Location:
@@ -392,7 +404,17 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
    - Purpose:
      - Prevents multiple inflight bubbles when a new run starts.
 
-6. [ ] Capture UI screenshot (required for this task):
+7. [ ] Test (unit/client): Hydration keeps assistant history when inflight bubble is empty
+   - Documentation to read (repeat):
+     - Jest: Context7 `/jestjs/jest`
+   - Location:
+     - `client/src/test/useChatStream.hydration.test.tsx` (new)
+   - Description:
+     - Seed `useChatStream` with an empty processing assistant bubble, hydrate history with multiple assistant turns, and assert all assistant turns remain.
+   - Purpose:
+     - Proves the de-duplication fix prevents history loss when inflight content is empty.
+
+8. [ ] Capture UI screenshot (required for this task):
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
    - Files to add:
@@ -400,7 +422,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
    - Description:
      - Use Playwright MCP to capture a second-window view during an in-progress run showing prior assistant history plus a single inflight bubble.
 
-7. [ ] Documentation update: `design.md` (mermaid diagram)
+9. [ ] Documentation update: `design.md` (mermaid diagram)
    - Documentation to read (repeat):
      - Mermaid: Context7 `/mermaid-js/mermaid`
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -409,7 +431,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
    - Description:
      - Add a Mermaid sequence diagram showing snapshot-first hydration with a conditional inflight overlay.
 
-8. [ ] Documentation update: `projectStructure.md` (after new files are added)
+10. [ ] Documentation update: `projectStructure.md` (after new files are added)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location:
@@ -417,8 +439,9 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
    - Description:
      - Update the repo tree to include:
        - `planning/0000029-flow-agent-transcripts-and-inflight-hydration-data/0000029-2-inflight-hydration.png`
+       - `client/src/test/useChatStream.hydration.test.tsx`
 
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI/options: https://prettier.io/docs/options

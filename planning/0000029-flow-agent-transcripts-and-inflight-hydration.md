@@ -165,6 +165,7 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
 - Express routing (server handlers): Context7 `/expressjs/express/v5.1.0`
 - Node.js test runner: https://nodejs.org/api/test.html
 - Mermaid diagrams: Context7 `/mermaid-js/mermaid`
+- Mermaid sequence diagram reference (DeepWiki): `mermaid-js/mermaid` (docs/syntax/sequenceDiagram.md)
 - Mermaid 11.12.1 release notes: https://github.com/mermaid-js/mermaid/releases/tag/mermaid%4011.12.1
 - Playwright docs: Context7 `/microsoft/playwright` (manual verification + screenshots)
 - Docker/Compose docs: Context7 `/docker/docs` (compose checks in testing steps)
@@ -195,66 +196,90 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
 2. [ ] Persist per-agent flow turns in Mongo-backed storage:
    - Documentation to read (repeat):
      - Express routing: Context7 `/expressjs/express/v5.1.0`
+   - Files to read:
+     - `server/src/flows/service.ts`
+     - `server/src/flows/flowState.ts`
+     - `server/src/mongo/repo.ts`
    - Files to edit:
      - `server/src/flows/service.ts`
-     - `server/src/mongo/repo.ts` (only if helper updates are needed)
+   - Snippet to locate (existing helpers + state):
+     - `persistFlowTurn(...)` (writes `appendTurn` + `updateConversationMeta`)
+     - `runFlowInstruction(...)` around `skipPersistence: true`
+     - `getAgentKey(...)` / `agentConversationState`
    - Implementation details:
-     - When a flow step runs for an agent, append the user + assistant turns to that agent’s conversation ID (from `agentConversationState` / `flags.flow.agentConversations`).
-     - Ensure Mongo persistence updates `lastMessageAt` for the agent conversation.
-     - Do **not** change the merged flow conversation behavior or existing `flags.flow` structure.
+     - Reuse the existing `persistFlowTurn(...)` helper to write **both** the flow conversation and the per-agent conversation.
+     - After the existing flow `userPersisted`/`assistantPersisted` calls, add a second pair of `persistFlowTurn` calls with `conversationId: params.agentConversationId`.
+     - Keep `skipPersistence: true` in `chat.run()` so the agent conversation is **only** persisted via these explicit calls.
+     - Preserve existing flow behavior: do not change the merged flow conversation, and do not alter `flags.flow` structure.
+     - Reuse the existing `command` metadata payload (no new metadata shaping).
+     - Do **not** call `markInflightPersisted` for the agent conversation (inflight tracking stays on the flow conversation only).
 
 3. [ ] Mirror per-agent flow persistence for memory fallback:
    - Documentation to read (repeat):
      - Express routing: Context7 `/expressjs/express/v5.1.0`
+   - Files to read:
+     - `server/src/flows/service.ts`
+     - `server/src/chat/memoryPersistence.ts`
    - Files to edit:
      - `server/src/flows/service.ts`
-     - `server/src/chat/memoryPersistence.ts` (if helper changes are needed)
+   - Snippet to locate (memory helpers):
+     - `recordMemoryTurn(...)` and `updateMemoryConversationMeta(...)`
    - Implementation details:
-     - Ensure the memory persistence path records per-agent user + assistant turns for flow steps.
-     - Keep memory conversation metadata in sync with Mongo behavior (title, lastMessageAt, provider/model fields).
+     - Confirm the new per-agent `persistFlowTurn(...)` calls run in memory mode (test mode or Mongo down) and write to `memoryTurns`.
+     - Use the existing `recordMemoryTurn(...)` behavior without adding new helper functions.
+     - Keep memory conversation metadata aligned with Mongo behavior by relying on `updateMemoryConversationMeta(...)` in the existing helper.
 
-4. [ ] Test (integration/server): Per-agent transcript populated (single agent)
+4. [ ] Add server log line for per-agent persistence:
+   - Documentation to read (repeat):
+     - Express routing: Context7 `/expressjs/express/v5.1.0`
+   - Files to read:
+     - `server/src/flows/service.ts`
+     - `server/src/logging/append.ts`
+   - Files to edit:
+     - `server/src/flows/service.ts`
+   - Snippet to locate (existing flow logs):
+     - `message: 'flows.resume.state_saved'`
+     - `message: 'flows.run.started'`
+   - Implementation details:
+     - Add a log entry `flows.agent.turn_persisted` after each per-agent `persistFlowTurn(...)` call.
+     - Include context: `{ flowConversationId, agentConversationId, agentType, identifier, role, turnId }`.
+
+5. [ ] Test (integration/server): Per-agent transcript populated (single agent)
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-   - Location:
-     - `server/src/test/integration/flows.run.loop.test.ts` (extend existing integration suite)
+   - Files to read:
+     - `server/src/test/integration/flows.run.loop.test.ts`
+     - `server/src/flows/service.ts` (for `getAgentKey(...)` + `agentConversationState` usage)
+   - Files to edit:
+     - `server/src/test/integration/flows.run.loop.test.ts`
    - Description:
-     - Start a flow with a single agent step, run it, fetch the agent conversation ID from `flags.flow.agentConversations`, and assert user + assistant turns were persisted.
+     - Start a flow with a single agent step, read `memoryConversations.get(flowConversationId)?.flags?.flow?.agentConversations`, then assert the mapped agent conversation ID has both a user turn and assistant turn in `memoryTurns`.
    - Purpose:
      - Confirms per-agent conversations are no longer empty after flow runs.
 
-5. [ ] Test (integration/server): Multi-agent isolation
+6. [ ] Test (integration/server): Multi-agent isolation
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-   - Location:
+   - Files to read:
+     - `server/src/test/integration/flows.run.loop.test.ts`
+   - Files to edit:
      - `server/src/test/integration/flows.run.loop.test.ts`
    - Description:
-     - Run a flow with two different agent identifiers and assert each agent conversation only contains turns for its own steps.
+     - Run a flow with two different agent identifiers, capture both agent conversation IDs from `flags.flow.agentConversations`, and assert each `memoryTurns` entry only includes the step content for that agent.
    - Purpose:
      - Ensures turns don’t leak across agents in multi-agent flows.
 
-6. [ ] Test (integration/server): Flow conversation remains merged
+7. [ ] Test (integration/server): Flow conversation remains merged
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-   - Location:
+   - Files to read:
+     - `server/src/test/integration/flows.run.loop.test.ts`
+   - Files to edit:
      - `server/src/test/integration/flows.run.loop.test.ts`
    - Description:
-     - Run a flow with multiple steps and assert the flow conversation (the main `conversationId`) still contains the merged transcript with command metadata.
+     - Run a multi-step flow and assert the main flow conversation `memoryTurns` still includes the full merged transcript, including `turn.command` metadata for flow steps.
    - Purpose:
      - Confirms per-agent persistence does not alter the merged flow conversation structure.
-
-7. [ ] Capture UI screenshots (required for this task):
-   - Documentation to read (repeat):
-     - Playwright: Context7 `/microsoft/playwright`
-   - Files to add:
-     - `planning/0000029-flow-agent-transcripts-and-inflight-hydration-data/0000029-1-agent-transcripts.png`
-     - `planning/0000029-flow-agent-transcripts-and-inflight-hydration-data/0000029-1-flow-transcript.png`
-   - Description:
-     - Use Playwright MCP to capture the Agents sidebar showing a flow-generated agent conversation with its transcript visible.
-     - Capture a second screenshot on the Flows page showing the merged flow conversation transcript.
-   - Purpose:
-     - Provides visual evidence the agent transcript is now populated.
-     - Confirms the flow transcript remains intact in the Flows UI.
 
 8. [ ] Documentation update: `design.md` (mermaid diagram)
    - Documentation to read (repeat):
@@ -271,7 +296,7 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
    - Location:
      - `projectStructure.md`
    - Description:
-     - Update the repo tree to include:
+     - Update the repo tree to include (after the manual Playwright screenshots are captured in Testing step 8):
        - `planning/0000029-flow-agent-transcripts-and-inflight-hydration-data/0000029-1-agent-transcripts.png`
        - `planning/0000029-flow-agent-transcripts-and-inflight-hydration-data/0000029-1-flow-transcript.png`
 
@@ -309,7 +334,10 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, run a flow, open the agent conversation in the Agents sidebar, confirm the transcript includes the flow’s user + assistant turns, then open the Flows page and confirm the merged flow transcript (with command metadata) is intact, and confirm the debug console shows no errors.
-   - Capture Playwright MCP screenshots for the agent transcript and the flow transcript, and confirm they are stored under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` before moving/recording them.
+   - Confirm server logs include `flows.agent.turn_persisted` entries for each agent step with the expected `agentConversationId`, `agentType`, and `role` values (use `docker compose logs --tail=200 server`).
+   - Capture Playwright MCP screenshots for the agent transcript and the flow transcript, confirm they appear under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local`, then move/rename them to:
+     - `planning/0000029-flow-agent-transcripts-and-inflight-hydration-data/0000029-1-agent-transcripts.png`
+     - `planning/0000029-flow-agent-transcripts-and-inflight-hydration-data/0000029-1-flow-transcript.png`
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
 9. [ ] `npm run compose:down`
@@ -337,6 +365,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
 - Jest docs: Context7 `/jestjs/jest` (client tests)
 - Jest 30.2.0 release notes: https://github.com/jestjs/jest/releases/tag/v30.2.0
 - Mermaid diagrams: Context7 `/mermaid-js/mermaid`
+- Mermaid sequence diagram reference (DeepWiki): `mermaid-js/mermaid` (docs/syntax/sequenceDiagram.md)
 - Mermaid 11.12.1 release notes: https://github.com/mermaid-js/mermaid/releases/tag/mermaid%4011.12.1
 - Playwright docs: Context7 `/microsoft/playwright` (manual verification + screenshots)
 - Docker/Compose docs: Context7 `/docker/docs` (compose checks in testing steps)
@@ -355,8 +384,10 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
      - `client/src/hooks/useChatStream.ts`
      - `client/src/test/useConversationTurns.refresh.test.ts`
      - `client/src/test/useConversationTurns.commandMetadata.test.ts`
+     - `client/src/test/chatPage.inflightSnapshotRefreshMerge.test.tsx`
    - Snippet to locate (snapshot + inflight state):
-     - `setTurns(...)` and `setInflight(...)` in the refresh path
+     - `fetchSnapshot(...)`, `setTurns(...)`, and `setInflight(...)` in the refresh path
+     - `hydrateHistory(...)` merge logic in `useChatStream`
    - Story requirements to repeat here so they are not missed:
      - REST snapshot is always the base transcript state.
      - Overlay only one inflight assistant bubble if snapshot lacks inflight assistant output.
@@ -365,8 +396,13 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
 2. [ ] Add snapshot inflight-assistant detection logic:
    - Documentation to read (repeat):
      - React hooks guidance: Context7 `/websites/react_dev`
+   - Files to read:
+     - `client/src/hooks/useConversationTurns.ts`
    - Files to edit:
      - `client/src/hooks/useConversationTurns.ts`
+   - Snippet to locate (inflight payload):
+     - `type InflightSnapshot` (fields: `assistantText`, `startedAt`, `inflightId`)
+     - `const inflight = data.inflight ? (...) : null;`
    - Implementation details:
      - Reuse the existing `data.inflight` snapshot fields (`assistantText`, `startedAt`) and the hydrated turn list to determine if an inflight assistant turn already exists.
      - Treat the snapshot as authoritative; detection must not introduce new helper utilities unless necessary.
@@ -377,8 +413,13 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
 3. [ ] Apply snapshot-first overlay state rules:
    - Documentation to read (repeat):
      - React hooks guidance: Context7 `/websites/react_dev`
+   - Files to read:
+     - `client/src/hooks/useConversationTurns.ts`
    - Files to edit:
      - `client/src/hooks/useConversationTurns.ts`
+   - Snippet to locate (state updates):
+     - `setInflight(inflight);`
+     - `setTurns(dedupeTurns(chronological));`
    - Implementation details:
      - After fetching `/conversations/:id/turns`, treat the returned `items` as the authoritative turns list.
      - Only keep an overlay inflight assistant bubble when no assistant turn exists for the current inflight run (set `inflight` to `null` when already present).
@@ -386,67 +427,91 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
 4. [ ] Reset overlay when the inflight run changes:
    - Documentation to read (repeat):
      - React hooks guidance: Context7 `/websites/react_dev`
+   - Files to read:
+     - `client/src/hooks/useConversationTurns.ts`
    - Files to edit:
      - `client/src/hooks/useConversationTurns.ts`
+   - Snippet to locate (refresh flow):
+     - `const inflight = data.inflight ? (...) : null;`
    - Implementation details:
      - When `inflightId` changes between refreshes, clear any prior overlay state before applying the new inflight bubble.
 
 5. [ ] Update hydration de-duplication so empty inflight bubbles do not drop history:
    - Documentation to read (repeat):
      - React hooks guidance: Context7 `/websites/react_dev`
+   - Files to read:
+     - `client/src/hooks/useChatStream.ts`
    - Files to edit:
      - `client/src/hooks/useChatStream.ts`
+   - Snippet to locate (dedupe window):
+     - `normalizeMessageContent(...)` in `hydrateHistory`
+     - `if (match.streamStatus === 'processing') { ... }`
    - Implementation details:
      - In `hydrateHistory`, only treat a `processing` message as a replacement candidate when the existing message content is non-empty.
      - This prevents an empty inflight bubble from matching every assistant message and removing history during hydration.
 
-6. [ ] Test (unit/client): Snapshot retains assistant history during inflight thinking
+6. [ ] Add client log line for overlay decisions:
+   - Documentation to read (repeat):
+     - React hooks guidance: Context7 `/websites/react_dev`
+   - Files to read:
+     - `client/src/hooks/useConversationTurns.ts`
+     - `client/src/logging/logger.ts`
+   - Files to edit:
+     - `client/src/hooks/useConversationTurns.ts`
+   - Snippet to locate (existing log calls):
+     - `log('info', 'DEV-0000024:T7:rest_usage_mapped', ...)`
+   - Implementation details:
+     - Add `log('info', 'DEV-0000029:T2:inflight_overlay_decision', { inflightId, overlayApplied, assistantPresent })` after the snapshot + inflight decision is computed.
+     - `overlayApplied` should be `true` only when the UI will render a new inflight bubble.
+     - `assistantPresent` should indicate whether a matching assistant turn already exists in the snapshot.
+
+7. [ ] Test (unit/client): Snapshot retains assistant history during inflight thinking
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
-   - Location:
+   - Files to read:
+     - `client/src/test/useConversationTurns.refresh.test.ts`
+   - Files to edit:
      - `client/src/test/useConversationTurns.refresh.test.ts`
    - Description:
      - Mock a snapshot containing prior assistant turns plus an inflight payload with empty assistant text; ensure the assistant history remains in `turns` and only one inflight bubble is shown.
    - Purpose:
      - Prevents dropping assistant history when inflight output is empty.
 
-7. [ ] Test (unit/client): No duplicate assistant bubble when snapshot includes inflight assistant
+8. [ ] Test (unit/client): No duplicate assistant bubble when snapshot includes inflight assistant
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
-   - Location:
+   - Files to read:
+     - `client/src/test/useConversationTurns.refresh.test.ts`
+   - Files to edit:
      - `client/src/test/useConversationTurns.refresh.test.ts`
    - Description:
      - Mock a snapshot where the inflight assistant turn is already present and ensure the overlay does not add another assistant bubble.
    - Purpose:
      - Ensures the snapshot remains the single source of truth when assistant text exists.
 
-8. [ ] Test (unit/client): Inflight ID change resets overlay
+9. [ ] Test (unit/client): Inflight ID change resets overlay
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
-   - Location:
+   - Files to read:
+     - `client/src/test/useConversationTurns.refresh.test.ts`
+   - Files to edit:
      - `client/src/test/useConversationTurns.refresh.test.ts`
    - Description:
      - Simulate two refreshes with different `inflightId` values and assert the overlay state is replaced, not stacked.
    - Purpose:
      - Prevents multiple inflight bubbles when a new run starts.
 
-9. [ ] Test (unit/client): Hydration keeps assistant history when inflight bubble is empty
+10. [ ] Test (unit/client): Hydration keeps assistant history when inflight bubble is empty
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
-   - Location:
+   - Files to read:
+     - `client/src/test/chatPage.inflightSnapshotRefreshMerge.test.tsx`
+   - Files to edit:
      - `client/src/test/chatPage.inflightSnapshotRefreshMerge.test.tsx` (extend existing inflight snapshot merge suite)
    - Description:
      - Seed `useChatStream` with an empty processing assistant bubble, hydrate history with multiple assistant turns, and assert all assistant turns remain.
    - Purpose:
      - Proves the de-duplication fix prevents history loss when inflight content is empty.
-
-10. [ ] Capture UI screenshot (required for this task):
-   - Documentation to read (repeat):
-     - Playwright: Context7 `/microsoft/playwright`
-   - Files to add:
-     - `planning/0000029-flow-agent-transcripts-and-inflight-hydration-data/0000029-2-inflight-hydration.png`
-   - Description:
-     - Use Playwright MCP to capture a second-window view during an in-progress run showing prior assistant history plus a single inflight bubble.
 
 11. [ ] Documentation update: `design.md` (mermaid diagram)
    - Documentation to read (repeat):
@@ -463,7 +528,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
    - Location:
      - `projectStructure.md`
    - Description:
-     - Update the repo tree to include:
+     - Update the repo tree to include (after the manual Playwright screenshot is captured in Testing step 8):
        - `planning/0000029-flow-agent-transcripts-and-inflight-hydration-data/0000029-2-inflight-hydration.png`
 
 13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
@@ -500,7 +565,8 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, start a run in one window, open a second window mid-run, verify prior assistant turns remain visible with exactly one inflight bubble, and confirm the debug console shows no errors.
-   - Capture a Playwright MCP screenshot and confirm it is stored under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` before moving/recording it.
+   - Confirm the browser console logs include `DEV-0000029:T2:inflight_overlay_decision` with `overlayApplied: true` when the snapshot lacks assistant output, and `overlayApplied: false` when the snapshot already includes assistant text.
+   - Capture a Playwright MCP screenshot and confirm it is stored under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` before moving/recording it to `planning/0000029-flow-agent-transcripts-and-inflight-hydration-data/0000029-2-inflight-hydration.png`.
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
 9. [ ] `npm run compose:down`
@@ -528,6 +594,7 @@ Validate the full story requirements end-to-end and capture final evidence, incl
 - Playwright docs: Context7 `/microsoft/playwright`
 - Husky docs: https://typicode.github.io/husky/get-started.html
 - Mermaid docs: Context7 `/mermaid-js/mermaid`
+- Mermaid sequence diagram reference (DeepWiki): `mermaid-js/mermaid` (docs/syntax/sequenceDiagram.md)
 - Mermaid 11.12.1 release notes: https://github.com/mermaid-js/mermaid/releases/tag/mermaid%4011.12.1
 - Jest docs: Context7 `/jestjs/jest`
 - Jest 30.2.0 release notes: https://github.com/jestjs/jest/releases/tag/v30.2.0
@@ -602,6 +669,8 @@ Validate the full story requirements end-to-end and capture final evidence, incl
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, verify all acceptance criteria, run a quick regression sweep, capture screenshots to `./test-results/screenshots/`, and confirm the debug console shows no errors.
+   - Confirm server logs include `flows.agent.turn_persisted` during flow runs (use `docker compose logs --tail=200 server`).
+   - Confirm browser console logs include `DEV-0000029:T2:inflight_overlay_decision` for inflight hydration checks.
    - Each screenshot should be named `0000029-3-<short-name>.png`.
    - Capture Playwright MCP screenshots for every acceptance-criteria UI state and confirm the images are stored under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` before moving/recording them.
    - Documentation to read (repeat):

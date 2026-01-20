@@ -66,7 +66,7 @@ Resolved:
 - Persist per-agent flow conversations the same way as direct agent runs (full duplication of that agent’s portion of the flow transcript).
 - No UI cue is needed to indicate duplication.
 - Flow-created agent conversations should remain visible in the Agents sidebar (and will be persisted).
-- Use the REST snapshot as the source of truth and only merge in-progress output from the AI.
+- Use the REST snapshot as the source of truth and only overlay in-progress output from the AI when needed.
 - If the REST snapshot already includes inflight assistant text (non-empty assistantText or finalized status), skip the overlay to avoid duplicate bubbles.
 - Only one processing bubble should exist at a time; use the newest inflight snapshot by `seq`, and replace the processing bubble when the inflight ID changes.
 

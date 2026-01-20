@@ -686,6 +686,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
 8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, start a run in one window, open a second window mid-run, verify prior assistant turns remain visible with exactly one inflight bubble, and confirm the debug console shows no errors.
    - Confirm the browser console logs include `DEV-0000029:T2:inflight_overlay_decision` with `overlayApplied: true` when the snapshot lacks assistant output, and `overlayApplied: false` when the snapshot already includes assistant text.
    - Capture a Playwright MCP screenshot and confirm it is stored under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` before moving/recording it to `planning/0000029-flow-agent-transcripts-and-inflight-hydration-data/0000029-2-inflight-hydration.png`.
+   - Review the screenshot to confirm the UI matches the expected transcript + single inflight bubble state.
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
 9. [ ] `npm run compose:down`
@@ -806,6 +807,7 @@ Validate the full story requirements end-to-end and capture final evidence, incl
    - Confirm browser console logs include `DEV-0000029:T2:inflight_overlay_decision` for inflight hydration checks and that both `overlayApplied: true` and `overlayApplied: false` appear across the run lifecycle.
    - Each screenshot should be named `0000029-3-<short-name>.png`.
    - Capture Playwright MCP screenshots for every acceptance-criteria UI state and confirm the images are stored under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` before moving/recording them.
+   - Review each screenshot to confirm the GUI matches the acceptance criteria and regression expectations.
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
 9. [ ] `npm run compose:down`

@@ -127,6 +127,17 @@ External reference check:
 
 ---
 
+## Message Contracts & Storage Impact
+
+- No new API message contracts or storage schema changes are required for this story.
+- Existing flow/chat/agent contracts already carry the data we need:
+  - Flow run responses already include `conversationId`, `inflightId`, and `modelId`.
+  - Conversations already support `flowName` and `flags.flow` for per-agent mappings.
+  - Inflight snapshots already include assistant text/status and command metadata in the `/conversations/:id/turns` response.
+- The fix should reuse the current contracts and persistence shape by ensuring per-agent flow turns are written and the client hydration logic uses the REST snapshot as the single source of truth.
+
+---
+
 ## Implementation Plan
 
 Tasks will be defined after we agree on the desired behavior for the two issues above.

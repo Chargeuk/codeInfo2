@@ -20,6 +20,20 @@
             "label": "Main loop",
             "steps": [
                 {
+                    "type": "llm",
+                    "label": "Double check plan",
+                    "agentType": "coding_agent",
+                    "identifier": "coder",
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": [
+                                "Please re-read the next plan to be worked on, even if you have read it before you MUST double check to see if tasks have been added to it or if anything has changed. You must ensure you fully understand the plan and it's remaining tasks before proceeding. You MUST Read the plan and CANNOT assume you understand it from before. You MUST read the whole plan again even if you have read it before. Once you have done this, give me a summary of the remaining work."
+                            ]
+                        }
+                    ]
+                },
+                {
                     "type": "startLoop",
                     "label": "Execution loop",
                     "steps": [

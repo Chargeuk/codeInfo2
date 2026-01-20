@@ -11,8 +11,6 @@ Story convention (important for this repo’s planning style):
 - Each task’s **Documentation Locations** section must contain **external** references only (website docs, Context7 library docs, MUI MCP docs, Deepwiki MCP docs when available).
 - Any repo file paths that must be read/edited belong in the relevant **Subtask** under “Files to read” / “Files to edit”.
 
----
-
 ## Description
 
 Flow runs currently create per-agent conversations that appear in the Agents sidebar, but those conversations are empty because turns are only persisted to the flow conversation. Separately, opening a second window during an active run (Agents/Flows/Chat, which all use the same hydration hook) drops previously generated assistant messages and shows only user turns plus the in-flight thinking bubble. This story will ensure per-agent flow conversations contain the expected transcript, and that in-flight snapshot hydration preserves prior assistant output when viewing a run mid-stream from another window. The intended behavior is to treat the REST snapshot as the source of truth and only overlay a single in-flight assistant bubble when the current run is still processing and the snapshot does not already contain that assistant text.
@@ -33,7 +31,6 @@ Visual reference (missing assistant history during inflight view):
 - `planning/0000029-flow-agent-transcripts-and-inflight-hydration-data/missing-agent-turns.png` shows an Agents conversation opened mid-run in a second window: only the user messages and the current processing/thought bubble appear, while prior assistant replies are missing from the transcript.
 
 ---
-
 ## Acceptance Criteria
 
 - After a flow run completes, each per-agent conversation shown in the Agents sidebar contains the full transcript for that agent:
@@ -913,5 +910,96 @@ Validate the full story requirements end-to-end and capture final evidence, incl
 - Summary: flow steps now persist per-agent transcripts alongside the flow transcript; inflight snapshot hydration is snapshot-first with a single overlay bubble; added client/server tests plus documentation + screenshots for validation.
 - PR comment draft: Verified flow agent transcript persistence and inflight hydration behavior; updated snapshot overlay logic/tests, added server inflight-final coverage, and captured manual screenshots for chat/flows/agents alongside build/test regressions.
 - `git push` failed due to missing GitHub credentials in the environment.
+- Blocker: No additional task entries remain in this story plan; need a new task defined before proceeding.
+
+---
+
+### 4. Server: Reduce flow persistence log noise
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Remove the redundant `console.log` from flow agent turn persistence logging while keeping structured logs (`append` + `baseLogger`) intact to avoid duplicate output and reduce noise.
+
+#### Documentation Locations
+
+- Node.js console API: https://nodejs.org/api/console.html (console output behavior)
+- Pino logger: https://getpino.io/#/docs/api (structured logging best practices)
+- Markdown Guide: https://www.markdownguide.org/basic-syntax/ (documentation edits if needed)
+
+#### Subtasks
+
+1. [ ] Review flow persistence logging implementation.
+   - Files to read:
+     - `server/src/flows/service.ts`
+     - `server/src/logging/index.ts`
+   - Snippet to locate:
+     - `logAgentTurnPersisted`
+   - Goal:
+     - Confirm current log targets (`append`, `baseLogger`, `console.log`).
+
+2. [ ] Remove redundant console output.
+   - Files to edit:
+     - `server/src/flows/service.ts`
+   - Description:
+     - Remove `console.log` from `logAgentTurnPersisted` while leaving structured logs intact.
+
+3. [ ] Documentation check (if needed).
+   - Location:
+     - `design.md`
+   - Description:
+     - Confirm log pipeline documentation remains accurate; update only if console output was previously mentioned.
+
+4. [ ] Run full linting.
+   - Snippet to run:
+     - `npm run lint --workspaces`
+
+#### Testing
+
+1. [ ] `npm run test --workspace server -- flows.run.loop.test.ts`
+   - Documentation to read:
+     - Node.js test runner: https://nodejs.org/api/test.html
+
+#### Implementation notes
+
+- (fill in during execution)
+
+---
+
+### 5. Docs: Clarify Compose flow directory
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Document that Docker Compose config sets `FLOWS_DIR` to `flows-sandbox` so flow discovery in Compose uses the sandbox definitions rather than `flows/`.
+
+#### Documentation Locations
+
+- Docker Compose env vars: https://docs.docker.com/compose/environment-variables/ (service env configuration)
+- Markdown Guide: https://www.markdownguide.org/basic-syntax/ (documentation edits)
+
+#### Subtasks
+
+1. [ ] Update Compose behavior docs.
+   - Files to edit:
+     - `README.md`
+   - Description:
+     - Note that Compose mounts `flows-sandbox` and sets `FLOWS_DIR=/app/flows-sandbox` for safe defaults.
+
+2. [ ] Run full linting.
+   - Snippet to run:
+     - `npm run lint --workspaces`
+
+#### Testing
+
+1. [ ] No runtime tests required (documentation-only change).
+
+#### Implementation notes
+
+- (fill in during execution)
 
 ---

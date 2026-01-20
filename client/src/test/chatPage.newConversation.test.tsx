@@ -63,6 +63,10 @@ describe('Chat page new conversation control', () => {
     const newConversationButton = screen.getByRole('button', {
       name: /new conversation/i,
     });
+    expect(newConversationButton).toHaveClass(
+      'MuiButton-outlined',
+      'MuiButton-sizeSmall',
+    );
 
     await act(async () => {
       await user.click(newConversationButton);

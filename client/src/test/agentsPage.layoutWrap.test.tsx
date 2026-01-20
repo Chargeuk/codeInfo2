@@ -174,4 +174,55 @@ describe('Agents page layout wrap', () => {
     expect(within(actionSlot).getByTestId('agent-send')).toBeInTheDocument();
     expect(within(actionSlot).queryByTestId('agent-stop')).toBeNull();
   });
+
+  it('applies size="small" and variant rules to agent controls', async () => {
+    mockAgentsFetch();
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    const agentSelect = await screen.findByTestId('agent-select');
+    const agentSelectRoot = agentSelect.closest('.MuiInputBase-root');
+    expect(agentSelectRoot).toHaveClass('MuiInputBase-sizeSmall');
+
+    const commandSelect = await screen.findByTestId('agent-command-select');
+    const commandSelectRoot = commandSelect.closest('.MuiInputBase-root');
+    expect(commandSelectRoot).toHaveClass('MuiInputBase-sizeSmall');
+
+    const workingFolder = await screen.findByTestId('agent-working-folder');
+    const workingFolderRoot = workingFolder.closest('.MuiInputBase-root');
+    expect(workingFolderRoot).toHaveClass('MuiInputBase-sizeSmall');
+
+    const instructionInput = await screen.findByTestId('agent-input');
+    const instructionRoot = instructionInput.closest('.MuiInputBase-root');
+    expect(instructionRoot).toHaveClass('MuiInputBase-sizeSmall');
+
+    const executeButton = await screen.findByTestId('agent-command-execute');
+    expect(executeButton).toHaveClass(
+      'MuiButton-contained',
+      'MuiButton-sizeSmall',
+    );
+
+    const newConversationButton = screen.getByRole('button', {
+      name: /new conversation/i,
+    });
+    expect(newConversationButton).toHaveClass(
+      'MuiButton-outlined',
+      'MuiButton-sizeSmall',
+    );
+
+    const chooseFolderButton = screen.getByTestId(
+      'agent-working-folder-picker',
+    );
+    expect(chooseFolderButton).toHaveClass(
+      'MuiButton-outlined',
+      'MuiButton-sizeSmall',
+    );
+
+    const sendButton = await screen.findByTestId('agent-send');
+    expect(sendButton).toHaveClass(
+      'MuiButton-contained',
+      'MuiButton-sizeSmall',
+    );
+  });
 });

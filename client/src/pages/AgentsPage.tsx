@@ -269,6 +269,12 @@ export default function AgentsPage() {
     });
   }, [controlsLayoutMode, log]);
 
+  useEffect(() => {
+    log('info', 'DEV-0000028[T6] agents controls sizing applied', {
+      page: 'agents',
+    });
+  }, [log]);
+
   const handleOpenDirPicker = () => {
     log('info', 'DEV-0000028[T5] agents folder picker opened', {
       source: 'agents',
@@ -1777,6 +1783,7 @@ export default function AgentsPage() {
                       <Button
                         type="button"
                         variant="outlined"
+                        size="small"
                         onClick={() => {
                           resetConversation();
                           inputRef.current?.focus();
@@ -1852,6 +1859,7 @@ export default function AgentsPage() {
                     <Button
                       type="button"
                       variant="contained"
+                      size="small"
                       disabled={
                         !selectedCommandName ||
                         isSending ||
@@ -1936,6 +1944,7 @@ export default function AgentsPage() {
                       fullWidth
                       multiline
                       minRows={2}
+                      size="small"
                       label="Instruction"
                       placeholder="Type your instruction"
                       value={input}
@@ -1958,7 +1967,9 @@ export default function AgentsPage() {
                         {showStop ? (
                           <Button
                             type="button"
-                            variant="outlined"
+                            variant="contained"
+                            color="error"
+                            size="small"
                             onClick={handleStopClick}
                             data-testid="agent-stop"
                           >
@@ -1968,6 +1979,7 @@ export default function AgentsPage() {
                           <Button
                             type="submit"
                             variant="contained"
+                            size="small"
                             disabled={
                               controlsDisabled ||
                               isSending ||

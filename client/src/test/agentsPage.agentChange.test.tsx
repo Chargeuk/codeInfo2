@@ -177,6 +177,11 @@ describe('Agents page - agent change', () => {
 
     const stop = await screen.findByTestId('agent-stop');
     await waitFor(() => expect(stop).toBeEnabled());
+    expect(stop).toHaveClass(
+      'MuiButton-contained',
+      'MuiButton-containedError',
+      'MuiButton-sizeSmall',
+    );
     expect(screen.getByText('Do work')).toBeInTheDocument();
 
     const agentSelect = screen.getByRole('combobox', { name: /agent/i });

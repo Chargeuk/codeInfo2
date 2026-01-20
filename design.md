@@ -271,6 +271,7 @@ sequenceDiagram
 
 - Route `/chat` surfaces the chat shell; controls sit at the top with Provider/Model selectors implemented as MUI `TextField` with `select` enabled (avoids label clipping seen with raw `FormControl + InputLabel + Select`). The first available provider is auto-selected and the first model for that provider auto-selects when data loads; provider locks after the first message while model can still change.
 - Codex-only controls live in a collapsible (collapsed by default) **Codex flags** panel rendered under the Provider/Model row whenever `provider === 'codex'`. The panel defaults come from `Codex_*` env-driven defaults (surfaced via `/chat/models`), exposes `sandboxMode`, `approvalPolicy`, `modelReasoningEffort`, plus **Enable network access** and **Enable web search** toggles; unchanged defaults are omitted from the `/chat` payload so the server can apply env defaults, while user-changed flags are sent. The controls reset to their defaults on provider changes or when **New conversation** is clicked while preserving choices during an active Codex session. Any `codexWarnings` returned by `/chat/models?provider=codex` render a warning banner above the flags panel.
+- Chat/Agents controls use `size="small"` with contained primary actions, outlined secondary actions, and Stop styled as contained error.
 
 #### Codex reasoning effort flow
 

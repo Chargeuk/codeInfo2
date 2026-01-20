@@ -1219,7 +1219,7 @@ Standardize sizing and button variants across Chat and Agents so all controls us
 
 #### Subtasks
 
-1. [ ] Inventory current control sizes and variants on each page:
+1. [x] Inventory current control sizes and variants on each page:
    - Documentation to read (repeat):
      - MUI Button API: https://llms.mui.com/material-ui/6.4.12/api/button.md
      - MUI TextField API: https://llms.mui.com/material-ui/6.4.12/api/text-field.md
@@ -1235,7 +1235,7 @@ Standardize sizing and button variants across Chat and Agents so all controls us
    - Snippet to locate (current buttons):
      - `data-testid="agent-send"`, `data-testid="agent-stop"`, `data-testid="agent-command-execute"`
 
-2. [ ] Apply size and variant updates across Chat and Agents:
+2. [x] Apply size and variant updates across Chat and Agents:
    - Documentation to read (repeat):
      - MUI Button API: https://llms.mui.com/material-ui/6.4.12/api/button.md
      - MUI TextField API: https://llms.mui.com/material-ui/6.4.12/api/text-field.md
@@ -1255,7 +1255,7 @@ Standardize sizing and button variants across Chat and Agents so all controls us
      - `<Button variant="contained" size="small" data-testid="agent-send">Send</Button>`
      - `<Button variant="contained" color="error" size="small" data-testid="agent-stop">Stop</Button>`
 
-3. [ ] Test (unit/client): Chat control sizes/variants
+3. [x] Test (unit/client): Chat control sizes/variants
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Location:
@@ -1268,7 +1268,7 @@ Standardize sizing and button variants across Chat and Agents so all controls us
      - `expect(sendButton).toHaveClass('MuiButton-contained');`
      - `expect(stopButton).toHaveClass('MuiButton-contained', { exact: false });`
 
-4. [ ] Test (unit/client): Agents control sizes/variants
+4. [x] Test (unit/client): Agents control sizes/variants
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Location:
@@ -1280,7 +1280,7 @@ Standardize sizing and button variants across Chat and Agents so all controls us
    - Snippet example:
      - `expect(executeButton).toHaveClass('MuiButton-contained');`
 
-5. [ ] Capture UI screenshots (required for this task):
+5. [x] Capture UI screenshots (required for this task):
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
    - Files to add:
@@ -1295,7 +1295,7 @@ Standardize sizing and button variants across Chat and Agents so all controls us
      - `0000028-6-chat-sizing.png`
      - `0000028-6-agents-sizing.png`
 
-6. [ ] Documentation update: `design.md`
+6. [x] Documentation update: `design.md`
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location:
@@ -1307,7 +1307,7 @@ Standardize sizing and button variants across Chat and Agents so all controls us
    - Snippet example:
      - `- Chat/Agents controls use size="small" and contained/outlined variants.`
 
-7. [ ] Documentation update: `projectStructure.md` (after screenshots are added)
+7. [x] Documentation update: `projectStructure.md` (after screenshots are added)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location:
@@ -1321,7 +1321,7 @@ Standardize sizing and button variants across Chat and Agents so all controls us
    - Snippet example:
      - `planning/0000028-agents-chat-gui-consistency-data/0000028-6-agents-sizing.png`
 
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+8. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI/options: https://prettier.io/docs/options
@@ -1333,39 +1333,70 @@ Standardize sizing and button variants across Chat and Agents so all controls us
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, verify Chat/Agents controls use `size="small"`, primary/secondary variants match the rules, Stop uses `contained` + `error`, and confirm the debug console shows no errors.
+8. [x] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, verify Chat/Agents controls use `size="small"`, primary/secondary variants match the rules, Stop uses `contained` + `error`, and confirm the debug console shows no errors.
    - Capture Playwright MCP screenshots for Chat and Agents controls and confirm the images are stored under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` before moving/recording them.
    - Expected log lines (debug console):
      - `DEV-0000028[T6] chat controls sizing applied` appears after the Chat page renders.
      - `DEV-0000028[T6] agents controls sizing applied` appears after the Agents page renders.
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
 #### Implementation notes
 
-- (fill in during execution)
+- Reviewed Chat and Agents control rows to inventory current size/variant usage.
+- `npm run lint --workspaces` completed with existing server import-order warnings only after subtask 1.
+- `npm run format:check --workspaces` completed successfully after subtask 1.
+- Applied `size="small"` and variant updates across Chat and Agents controls, including Stop `contained` + `error`, and added the T6 sizing log lines.
+- `npm run lint --workspaces` completed with existing server import-order warnings only after subtask 2.
+- `npm run format:check --workspaces` completed successfully after subtask 2.
+- Updated Chat page tests to assert size="small" controls and contained/outlined variants for Send/Stop/New conversation.
+- `npm run lint --workspaces` completed with existing server import-order warnings only after subtask 3.
+- `npm run format --workspaces` fixed formatting, followed by a clean `npm run format:check --workspaces`.
+- Updated Agents layout tests to assert size="small" inputs and contained/outlined variants, plus stop button error styling.
+- `npm run lint --workspaces` completed with existing server import-order warnings only after subtask 4.
+- `npm run format --workspaces` fixed formatting, followed by a clean `npm run format:check --workspaces`.
+- Captured the Chat and Agents sizing screenshots and moved them into the planning data folder.
+- `npm run lint --workspaces` completed with existing server import-order warnings only after subtask 5.
+- `npm run format:check --workspaces` completed successfully after subtask 5.
+- Documented the shared Chat/Agents sizing + variant baseline in `design.md`.
+- `npm run lint --workspaces` completed with existing server import-order warnings only after subtask 6.
+- `npm run format:check --workspaces` completed successfully after subtask 6.
+- Updated `projectStructure.md` with the new Chat/Agents sizing screenshots.
+- `npm run lint --workspaces` completed with existing server import-order warnings only after subtask 7.
+- `npm run format:check --workspaces` completed successfully after subtask 7.
+- `npm run lint --workspaces` completed with existing server import-order warnings only after subtask 8.
+- `npm run format:check --workspaces` completed successfully after subtask 8.
+- `npm run build --workspace server` completed successfully for Task 6 testing.
+- `npm run build --workspace client` completed successfully for Task 6 testing (chunk size warning only).
+- `npm run test --workspace server` completed successfully for Task 6 testing (extended timeout).
+- `npm run test --workspace client` completed successfully for Task 6 testing (existing experimental VM module warnings).
+- `npm run e2e` completed successfully for Task 6 testing.
+- `npm run compose:build` completed successfully for Task 6 testing.
+- `npm run compose:up` completed successfully for Task 6 testing.
+- Manual Playwright-MCP check completed: verified `DEV-0000028[T6] chat controls sizing applied` and `DEV-0000028[T6] agents controls sizing applied` logs and captured the sizing screenshots.
+- `npm run compose:down` completed successfully for Task 6 testing.
 
 ---
 

@@ -208,7 +208,7 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
    - Location:
-     - `server/src/test/integration/flows.agent-transcripts.test.ts` (new)
+     - `server/src/test/integration/flows.run.loop.test.ts` (extend existing integration suite)
    - Description:
      - Start a flow with a single agent step, run it, fetch the agent conversation ID from `flags.flow.agentConversations`, and assert user + assistant turns were persisted.
    - Purpose:
@@ -218,7 +218,7 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
    - Location:
-     - `server/src/test/integration/flows.agent-transcripts.test.ts`
+     - `server/src/test/integration/flows.run.loop.test.ts`
    - Description:
      - Run a flow with two different agent identifiers and assert each agent conversation only contains turns for its own steps.
    - Purpose:
@@ -228,7 +228,7 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
    - Location:
-     - `server/src/test/integration/flows.agent-transcripts.test.ts`
+     - `server/src/test/integration/flows.run.loop.test.ts`
    - Description:
      - Run a flow with multiple steps and assert the flow conversation (the main `conversationId`) still contains the merged transcript with command metadata.
    - Purpose:
@@ -263,7 +263,6 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
      - `projectStructure.md`
    - Description:
      - Update the repo tree to include:
-       - `server/src/test/integration/flows.agent-transcripts.test.ts`
        - `planning/0000029-flow-agent-transcripts-and-inflight-hydration-data/0000029-1-agent-transcripts.png`
        - `planning/0000029-flow-agent-transcripts-and-inflight-hydration-data/0000029-1-flow-transcript.png`
 
@@ -359,6 +358,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
      - `client/src/hooks/useConversationTurns.ts`
    - Implementation details:
      - After fetching `/conversations/:id/turns`, treat the returned `items` as the authoritative turns list.
+     - Reuse the existing `data.inflight` snapshot fields (`assistantText`, `startedAt`) and the hydrated turn list to decide if an inflight assistant turn is already present (do not add a new helper unless needed).
      - Determine whether the snapshot already includes an assistant turn for the active inflight run:
        - If `data.inflight.assistantText` is non-empty, treat any matching assistant turn as already-present.
        - If `data.inflight.assistantText` is empty, treat any assistant turn with `status` of `failed` or `stopped` and a `createdAt` at/after `data.inflight.startedAt` as already-present.
@@ -408,7 +408,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Location:
-     - `client/src/test/useChatStream.hydration.test.tsx` (new)
+     - `client/src/test/chatPage.inflightSnapshotRefreshMerge.test.tsx` (extend existing inflight snapshot merge suite)
    - Description:
      - Seed `useChatStream` with an empty processing assistant bubble, hydrate history with multiple assistant turns, and assert all assistant turns remain.
    - Purpose:
@@ -439,7 +439,6 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
    - Description:
      - Update the repo tree to include:
        - `planning/0000029-flow-agent-transcripts-and-inflight-hydration-data/0000029-2-inflight-hydration.png`
-       - `client/src/test/useChatStream.hydration.test.tsx`
 
 11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):

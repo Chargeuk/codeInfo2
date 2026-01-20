@@ -444,8 +444,9 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
      - `client/src/test/useConversationTurns.commandMetadata.test.ts`
      - `client/src/test/chatPage.inflightSnapshotRefreshMerge.test.tsx`
    - Snippet to locate (snapshot + inflight state):
-     - `fetchSnapshot(...)`, `setTurns(...)`, and `setInflight(...)` in the refresh path
-     - `hydrateHistory(...)` merge logic in `useChatStream`
+   - `fetchSnapshot(...)`, `setTurns(...)`, and `setInflight(...)` in the refresh path
+   - `hydrateHistory(...)` merge logic in `useChatStream`
+   - `hydrateInflightSnapshot(...)` + `ensureAssistantMessage(...)` in `useChatStream` (existing inflight overlay path)
    - Story requirements to repeat here so they are not missed:
      - REST snapshot is always the base transcript state.
      - Overlay only one inflight assistant bubble if snapshot lacks inflight assistant output.

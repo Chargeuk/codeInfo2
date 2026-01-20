@@ -165,6 +165,7 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
 - Express routing (server handlers): Context7 `/expressjs/express/v5.1.0`
 - Node.js test runner: https://nodejs.org/api/test.html
 - Mermaid diagrams: Context7 `/mermaid-js/mermaid`
+- Mermaid 11.12.1 release notes: https://github.com/mermaid-js/mermaid/releases/tag/mermaid%4011.12.1
 - Playwright docs: Context7 `/microsoft/playwright` (manual verification + screenshots)
 - Docker/Compose docs: Context7 `/docker/docs` (compose checks in testing steps)
 - npm run-script docs: https://docs.npmjs.com/cli/v9/commands/npm-run-script (build/test scripts)
@@ -326,7 +327,9 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
 
 - React state + effects guidance: Context7 `/websites/react_dev`
 - Jest docs: Context7 `/jestjs/jest` (client tests)
+- Jest 30.2.0 release notes: https://github.com/jestjs/jest/releases/tag/v30.2.0
 - Mermaid diagrams: Context7 `/mermaid-js/mermaid`
+- Mermaid 11.12.1 release notes: https://github.com/mermaid-js/mermaid/releases/tag/mermaid%4011.12.1
 - Playwright docs: Context7 `/microsoft/playwright` (manual verification + screenshots)
 - Docker/Compose docs: Context7 `/docker/docs` (compose checks in testing steps)
 - npm run-script docs: https://docs.npmjs.com/cli/v9/commands/npm-run-script (build/test scripts)
@@ -502,7 +505,9 @@ Validate the full story requirements end-to-end and capture final evidence, incl
 - Playwright docs: Context7 `/microsoft/playwright`
 - Husky docs: https://typicode.github.io/husky/get-started.html
 - Mermaid docs: Context7 `/mermaid-js/mermaid`
+- Mermaid 11.12.1 release notes: https://github.com/mermaid-js/mermaid/releases/tag/mermaid%4011.12.1
 - Jest docs: Context7 `/jestjs/jest`
+- Jest 30.2.0 release notes: https://github.com/jestjs/jest/releases/tag/v30.2.0
 - Cucumber guides: https://cucumber.io/docs/guides/
 - npm run-script docs: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 - Markdown Guide: https://www.markdownguide.org/basic-syntax/

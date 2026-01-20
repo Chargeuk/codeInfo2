@@ -192,20 +192,37 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
      - Per-agent flow conversations must contain user + assistant turns for their steps.
      - The flow conversation remains the merged transcript and keeps command metadata.
 
-2. [ ] Persist per-agent flow turns during execution:
+2. [ ] Persist per-agent flow turns in Mongo-backed storage:
    - Documentation to read (repeat):
      - Express routing: Context7 `/expressjs/express/v5.1.0`
    - Files to edit:
      - `server/src/flows/service.ts`
-     - `server/src/chat/inflightRegistry.ts` (only if per-agent inflight persistence needs updates)
      - `server/src/mongo/repo.ts` (only if helper updates are needed)
    - Implementation details:
      - When a flow step runs for an agent, append the user + assistant turns to that agent’s conversation ID (from `agentConversationState` / `flags.flow.agentConversations`).
-     - Ensure both Mongo and memory persistence paths record these turns (mirror the existing flow conversation path).
-     - Keep `turn.command` metadata on the flow conversation, and copy it to the agent conversation turns when available so per-agent transcripts retain step context.
+     - Ensure Mongo persistence updates `lastMessageAt` for the agent conversation.
      - Do **not** change the merged flow conversation behavior or existing `flags.flow` structure.
 
-3. [ ] Test (integration/server): Per-agent transcript populated (single agent)
+3. [ ] Mirror per-agent flow persistence for memory fallback:
+   - Documentation to read (repeat):
+     - Express routing: Context7 `/expressjs/express/v5.1.0`
+   - Files to edit:
+     - `server/src/flows/service.ts`
+     - `server/src/chat/memoryPersistence.ts` (if helper changes are needed)
+   - Implementation details:
+     - Ensure the memory persistence path records per-agent user + assistant turns for flow steps.
+     - Keep memory conversation metadata in sync with Mongo behavior (title, lastMessageAt, provider/model fields).
+
+4. [ ] Copy flow command metadata to per-agent turns:
+   - Documentation to read (repeat):
+     - Express routing: Context7 `/expressjs/express/v5.1.0`
+   - Files to edit:
+     - `server/src/flows/service.ts`
+   - Implementation details:
+     - When flow steps include `turn.command`, copy the same metadata into the per-agent turns so transcript context is preserved.
+     - Preserve the existing flow conversation metadata behavior.
+
+5. [ ] Test (integration/server): Per-agent transcript populated (single agent)
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
    - Location:
@@ -215,7 +232,7 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
    - Purpose:
      - Confirms per-agent conversations are no longer empty after flow runs.
 
-4. [ ] Test (integration/server): Multi-agent isolation
+6. [ ] Test (integration/server): Multi-agent isolation
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
    - Location:
@@ -225,7 +242,7 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
    - Purpose:
      - Ensures turns don’t leak across agents in multi-agent flows.
 
-5. [ ] Test (integration/server): Flow conversation remains merged
+7. [ ] Test (integration/server): Flow conversation remains merged
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
    - Location:
@@ -235,7 +252,7 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
    - Purpose:
      - Confirms per-agent persistence does not alter the merged flow conversation structure.
 
-6. [ ] Capture UI screenshots (required for this task):
+8. [ ] Capture UI screenshots (required for this task):
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
    - Files to add:
@@ -248,7 +265,7 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
      - Provides visual evidence the agent transcript is now populated.
      - Confirms the flow transcript remains intact in the Flows UI.
 
-7. [ ] Documentation update: `design.md` (mermaid diagram)
+9. [ ] Documentation update: `design.md` (mermaid diagram)
    - Documentation to read (repeat):
      - Mermaid: Context7 `/mermaid-js/mermaid`
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -257,7 +274,7 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
    - Description:
      - Add a short section describing per-agent flow transcript persistence and include a Mermaid sequence diagram showing flow steps writing to both flow and agent conversations.
 
-8. [ ] Documentation update: `projectStructure.md` (after new files are added)
+10. [ ] Documentation update: `projectStructure.md` (after new files are added)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location:
@@ -267,7 +284,7 @@ Ensure each flow step also persists its user/assistant turns into the per-agent 
        - `planning/0000029-flow-agent-transcripts-and-inflight-hydration-data/0000029-1-agent-transcripts.png`
        - `planning/0000029-flow-agent-transcripts-and-inflight-hydration-data/0000029-1-flow-transcript.png`
 
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI/options: https://prettier.io/docs/options
@@ -354,21 +371,36 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
      - Overlay only one inflight assistant bubble if snapshot lacks inflight assistant output.
      - No duplicate assistant bubbles when snapshot already includes inflight assistant text/final state.
 
-2. [ ] Update `useConversationTurns` to use snapshot-first overlay rules:
+2. [ ] Add snapshot inflight-assistant detection logic:
+   - Documentation to read (repeat):
+     - React hooks guidance: Context7 `/websites/react_dev`
+   - Files to edit:
+     - `client/src/hooks/useConversationTurns.ts`
+   - Implementation details:
+     - Reuse the existing `data.inflight` snapshot fields (`assistantText`, `startedAt`) and the hydrated turn list to determine if an inflight assistant turn already exists.
+     - Treat the snapshot as authoritative; detection must not introduce new helper utilities unless necessary.
+     - Detection rules:
+       - If `data.inflight.assistantText` is non-empty, treat any matching assistant turn as already-present.
+       - If `data.inflight.assistantText` is empty, treat any assistant turn with `status` of `failed` or `stopped` and a `createdAt` at/after `data.inflight.startedAt` as already-present.
+
+3. [ ] Apply snapshot-first overlay state rules:
    - Documentation to read (repeat):
      - React hooks guidance: Context7 `/websites/react_dev`
    - Files to edit:
      - `client/src/hooks/useConversationTurns.ts`
    - Implementation details:
      - After fetching `/conversations/:id/turns`, treat the returned `items` as the authoritative turns list.
-     - Reuse the existing `data.inflight` snapshot fields (`assistantText`, `startedAt`) and the hydrated turn list to decide if an inflight assistant turn is already present (do not add a new helper unless needed).
-     - Determine whether the snapshot already includes an assistant turn for the active inflight run:
-       - If `data.inflight.assistantText` is non-empty, treat any matching assistant turn as already-present.
-       - If `data.inflight.assistantText` is empty, treat any assistant turn with `status` of `failed` or `stopped` and a `createdAt` at/after `data.inflight.startedAt` as already-present.
      - Only keep an overlay inflight assistant bubble when no assistant turn exists for the current inflight run (set `inflight` to `null` when already present).
-     - When `inflightId` changes, clear any prior overlay state before applying the new inflight bubble.
 
-3. [ ] Update hydration de-duplication so empty inflight bubbles do not drop history:
+4. [ ] Reset overlay when the inflight run changes:
+   - Documentation to read (repeat):
+     - React hooks guidance: Context7 `/websites/react_dev`
+   - Files to edit:
+     - `client/src/hooks/useConversationTurns.ts`
+   - Implementation details:
+     - When `inflightId` changes between refreshes, clear any prior overlay state before applying the new inflight bubble.
+
+5. [ ] Update hydration de-duplication so empty inflight bubbles do not drop history:
    - Documentation to read (repeat):
      - React hooks guidance: Context7 `/websites/react_dev`
    - Files to edit:
@@ -377,7 +409,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
      - In `hydrateHistory`, only treat a `processing` message as a replacement candidate when the existing message content is non-empty.
      - This prevents an empty inflight bubble from matching every assistant message and removing history during hydration.
 
-4. [ ] Test (unit/client): Snapshot retains assistant history during inflight thinking
+6. [ ] Test (unit/client): Snapshot retains assistant history during inflight thinking
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Location:
@@ -387,7 +419,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
    - Purpose:
      - Prevents dropping assistant history when inflight output is empty.
 
-5. [ ] Test (unit/client): No duplicate assistant bubble when snapshot includes inflight assistant
+7. [ ] Test (unit/client): No duplicate assistant bubble when snapshot includes inflight assistant
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Location:
@@ -397,7 +429,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
    - Purpose:
      - Ensures the snapshot remains the single source of truth when assistant text exists.
 
-6. [ ] Test (unit/client): Inflight ID change resets overlay
+8. [ ] Test (unit/client): Inflight ID change resets overlay
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Location:
@@ -407,7 +439,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
    - Purpose:
      - Prevents multiple inflight bubbles when a new run starts.
 
-7. [ ] Test (unit/client): Hydration keeps assistant history when inflight bubble is empty
+9. [ ] Test (unit/client): Hydration keeps assistant history when inflight bubble is empty
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
    - Location:
@@ -417,7 +449,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
    - Purpose:
      - Proves the de-duplication fix prevents history loss when inflight content is empty.
 
-8. [ ] Capture UI screenshot (required for this task):
+10. [ ] Capture UI screenshot (required for this task):
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
    - Files to add:
@@ -425,7 +457,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
    - Description:
      - Use Playwright MCP to capture a second-window view during an in-progress run showing prior assistant history plus a single inflight bubble.
 
-9. [ ] Documentation update: `design.md` (mermaid diagram)
+11. [ ] Documentation update: `design.md` (mermaid diagram)
    - Documentation to read (repeat):
      - Mermaid: Context7 `/mermaid-js/mermaid`
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
@@ -434,7 +466,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
    - Description:
      - Add a Mermaid sequence diagram showing snapshot-first hydration with a conditional inflight overlay.
 
-10. [ ] Documentation update: `projectStructure.md` (after new files are added)
+12. [ ] Documentation update: `projectStructure.md` (after new files are added)
    - Documentation to read (repeat):
      - Markdown syntax: https://www.markdownguide.org/basic-syntax/
    - Location:
@@ -443,7 +475,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
      - Update the repo tree to include:
        - `planning/0000029-flow-agent-transcripts-and-inflight-hydration-data/0000029-2-inflight-hydration.png`
 
-11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI (lint command usage): https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI/options: https://prettier.io/docs/options

@@ -448,6 +448,7 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
    - `fetchSnapshot(...)`, `setTurns(...)`, and `setInflight(...)` in the refresh path
    - `hydrateHistory(...)` merge logic in `useChatStream`
    - `hydrateInflightSnapshot(...)` + `ensureAssistantMessage(...)` in `useChatStream` (existing inflight overlay path)
+   - `/conversations/:id/turns` fetch URL (no `includeInflight` query param; inflight snapshot is always included server-side)
    - Story requirements to repeat here so they are not missed:
      - REST snapshot is always the base transcript state.
      - Overlay only one inflight assistant bubble if snapshot lacks inflight assistant output.
@@ -484,7 +485,8 @@ Make the REST snapshot the base transcript in `useConversationTurns`, then overl
      - `setInflight(inflight);`
      - `setTurns(dedupeTurns(chronological));`
    - Implementation details:
-     - After fetching `/conversations/:id/turns`, treat the returned `items` as the authoritative turns list.
+   - After fetching `/conversations/:id/turns`, treat the returned `items` as the authoritative turns list.
+    - Do **not** add an `includeInflight` query param; the server already attaches inflight data by default.
      - Only keep an overlay inflight assistant bubble when no assistant turn exists for the current inflight run (set `inflight` to `null` when already present).
      - Explicitly set `setInflight(null)` before `setTurns(...)` when the snapshot already contains an inflight assistant (so the UI never renders a second bubble).
 

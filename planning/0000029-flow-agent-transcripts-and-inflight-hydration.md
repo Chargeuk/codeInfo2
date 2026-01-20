@@ -729,8 +729,7 @@ Validate the full story requirements end-to-end and capture final evidence, incl
    - Location:
      - `projectStructure.md`
    - Description:
-     - Update the repo tree to include any new screenshots:
-       - `test-results/screenshots/0000029-3-<short-name>.png`
+     - Update the repo tree to include **every** screenshot created in Testing step 8, listing each exact file path under `test-results/screenshots/` (for example `test-results/screenshots/0000029-3-<short-name>.png`).
 
 4. [ ] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
    - Documentation to read (repeat):

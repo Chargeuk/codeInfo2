@@ -98,7 +98,7 @@
                         {
                             "role": "user",
                             "content": [
-                                "Now that everything has been implemented I want you to perform a full code review of all changes in this branch against the main branch. Please perform a standard review looking for code quality, maintainability, performance, security, and adherence to best practices. Also ensure your review checks that all acceptance criteria have been fully met. If you find issues or areas for improvement, please add tasks to the plan to fix these issues, following the same structure of previous tasks. If everything is ok, then add a section to the end of the plan detailing the changes made and the checks you performed."
+                                "Now that everything has been implemented I want you to perform a full code review of all changes in this branch against the main branch. Please perform a standard review looking for code quality, maintainability, performance, security, and adherence to best practices. Also ensure your review checks that all acceptance criteria have been fully met. If you find issues or areas for improvement, please add tasks to the plan to fix these issues, following the same structure of previous tasks. If you do add tasks, you must effectively re-add a full re-test task that will force a full re-test of the story against the acceptance (the last task before you add more work, if it is needed is likely to be a good baseline to copy) AND commit the plan. If everything is ok, then add a section to the end of the plan detailing the changes made and the checks you performed."
                             ]
                         }
                     ]

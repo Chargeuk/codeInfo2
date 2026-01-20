@@ -990,22 +990,24 @@ Document that Docker Compose config sets `FLOWS_DIR` to `flows-sandbox` so flow 
 
 #### Subtasks
 
-1. [ ] Update Compose behavior docs.
+1. [x] Update Compose behavior docs.
    - Files to edit:
      - `README.md`
    - Description:
      - Note that Compose mounts `flows-sandbox` and sets `FLOWS_DIR=/app/flows-sandbox` for safe defaults.
 
-2. [ ] Run full linting.
+2. [x] Run full linting.
    - Snippet to run:
      - `npm run lint --workspaces`
 
 #### Testing
 
-1. [ ] No runtime tests required (documentation-only change).
+1. [x] No runtime tests required (documentation-only change).
 
 #### Implementation notes
 
-- (fill in during execution)
+- Added Compose `FLOWS_DIR=/app/flows-sandbox` note to the Flows API README section.
+- `git push` failed (missing GitHub credentials in this environment).
+- Lint: `npm run lint --workspaces` (warnings only).
 
 ---

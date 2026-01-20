@@ -36,12 +36,18 @@ Visual reference (missing assistant history during inflight view):
 
 ## Acceptance Criteria
 
-- Per-agent conversations created during flows contain the expected user + assistant turns so the Agents sidebar transcript is complete after a flow run.
-- Flow conversations still retain the merged flow transcript with command metadata.
-- Opening a second window during an in-progress run shows the full transcript history (user + assistant messages) plus the current in-flight assistant output/thinking, without hiding earlier assistant responses.
-- Transcript hydration uses the REST snapshot as the base state; only the active in-flight assistant bubble is layered on top when needed.
-- When the REST snapshot already includes an inflight assistant turn (non-empty assistant text or finalized status), the UI does not duplicate the assistant bubble.
-- The fix applies consistently for Agents and Flows, and Chat if the same hydration path is used.
+- After a flow run completes, each per-agent conversation shown in the Agents sidebar contains the full transcript for that agent:
+  - All user messages and assistant replies from the flow steps that targeted that agent appear in order.
+  - The per-agent transcript is not empty and matches what the flow run produced for that agent.
+- The flow conversation still retains the merged flow transcript (including command metadata) and is unchanged in structure.
+- When a second window/tab opens during an in-progress run (Agents/Flows/Chat if it uses the same hydration path):
+  - The transcript shows all previously persisted user and assistant messages (no missing assistant replies).
+  - Exactly one in-flight assistant bubble is shown (thinking or partial text) for the current inflight run.
+- Hydration behavior is deterministic and based on the REST snapshot:
+  - The REST snapshot becomes the base transcript state every time a run is hydrated.
+  - A single in-flight assistant bubble is layered on top only when the snapshot does **not** already include an assistant turn for the inflight run.
+- If the REST snapshot already contains an assistant turn for the inflight run (non-empty assistant text or a finalized status), the UI does **not** add a duplicate assistant bubble.
+- When the inflight run changes (new `inflightId`), any previous processing bubble is replaced with the new one.
 
 ---
 

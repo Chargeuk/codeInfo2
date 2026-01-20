@@ -943,7 +943,7 @@ Ensure the Send/Stop action slot keeps a stable width so the row does not shift 
 
 ### 5. Client: Agents working-folder picker reuse
 
-- Task Status: **__in_progress__**
+- Task Status: **__done__**
 - Git Commits: **__to_do__**
 
 #### Overview
@@ -1111,37 +1111,37 @@ Add a “Choose folder…” button next to the Agents working-folder input and 
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
-5. [ ] `npm run test --workspace client -- agentsPage.workingFolderPicker`
+5. [x] `npm run test --workspace client -- agentsPage.workingFolderPicker`
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
-6. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
-7. [ ] `npm run compose:build`
+7. [x] `npm run compose:build`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] `npm run compose:up`
+8. [x] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-9. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, open the Agents working-folder picker, select a folder, cancel, confirm value persistence, and confirm the debug console shows no errors.
+9. [x] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, open the Agents working-folder picker, select a folder, cancel, confirm value persistence, and confirm the debug console shows no errors.
    - Capture a Playwright MCP screenshot with the folder picker dialog open; confirm the image is stored under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` before moving/recording it.
    - Expected log lines (debug console):
      - `DEV-0000028[T5] agents folder picker opened` appears when the dialog opens.
      - `DEV-0000028[T5] agents folder picker picked` appears after choosing a folder and includes the selected path.
      - `DEV-0000028[T5] agents folder picker cancelled` appears after canceling the dialog.
-10. [ ] `npm run compose:down`
+10. [x] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
@@ -1177,6 +1177,19 @@ Add a “Choose folder…” button next to the Agents working-folder input and 
 - Documented the Agents working-folder picker reuse in `design.md`.
 - `npm run lint --workspaces` completed with existing server import-order warnings only after the design update.
 - `npm run format:check --workspaces` completed successfully after the design update.
+- `npm run lint --workspaces` completed with existing server import-order warnings only for the final Task 5 lint pass.
+- `npm run format:check --workspaces` completed successfully for the final Task 5 format check.
+- `npm run build --workspace server` completed successfully for Task 5 testing.
+- `npm run build --workspace client` completed successfully for Task 5 testing (chunk size warning only).
+- `npm run test --workspace server` completed successfully for Task 5 testing (needed extended timeout).
+- Updated the working-folder picker test to wait for agent selection and enabled state before opening the dialog, then asserted the dialog role.
+- `npm run test --workspace client` completed successfully for Task 5 testing.
+- `npm run test --workspace client -- agentsPage.workingFolderPicker` completed successfully for Task 5 testing (existing act warnings logged).
+- `npm run e2e` completed successfully for Task 5 testing.
+- `npm run compose:build` completed successfully for Task 5 testing.
+- `npm run compose:up` completed successfully for Task 5 testing.
+- Manual Playwright-MCP check completed: opened the folder picker, selected `/Users/danielstapleton/Documents/dev/codeinfo2`, cancelled on the second open to confirm persistence, and captured `planning/0000028-agents-chat-gui-consistency-data/0000028-5-agents-folder-picker.png` with the dialog open.
+- `npm run compose:down` completed successfully for Task 5 testing.
 - Pending: build/test/e2e/compose steps for Task 5 are still outstanding.
 
 ---

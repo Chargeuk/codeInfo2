@@ -213,7 +213,7 @@ Add an optional `customTitle` field to `POST /flows/:flowName/run`, validate it 
      - Node.js test runner: https://nodejs.org/api/test.html
 4. [ ] `npm run test --workspace client`
    - Documentation to read (repeat):
-     - Jest: Context7 `/jestjs/jest`
+     - Jest: Context7 `/websites/jestjs_io_30_0`
 5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m`)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
@@ -306,7 +306,7 @@ Update the conversations list query so `agentName=__none__` and `flowName=__none
      - Node.js test runner: https://nodejs.org/api/test.html
 4. [ ] `npm run test --workspace client`
    - Documentation to read (repeat):
-     - Jest: Context7 `/jestjs/jest`
+     - Jest: Context7 `/websites/jestjs_io_30_0`
 5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m`)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
@@ -340,16 +340,16 @@ Prevent the Flows page from dropping the active conversation during a `conversat
 
 #### Documentation Locations
 
-- React hooks/state: Context7 `/websites/react_dev` (state + effects patterns)
-- Jest: Context7 `/jestjs/jest` (test structure)
+- React hooks/state: Context7 `/facebook/react/v19_2_0` (React 19.2 hooks API)
+- Jest: Context7 `/websites/jestjs_io_30_0` (test structure)
 - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/ (render + screen usage)
-- MUI Popover API (for consistent anchor config): https://llms.mui.com/material-ui/6.4.12/api/popover.md
+- MUI Popover API (closest to @mui/material 6.4.1): https://llms.mui.com/material-ui/6.4.12/api/popover.md
 
 #### Subtasks
 
 1. [ ] Review Flows page WS upsert handling and conversation list filtering:
    - Documentation to read (repeat):
-     - React hooks/state: Context7 `/websites/react_dev`
+     - React hooks/state: Context7 `/facebook/react/v19_2_0`
    - Files to read:
      - `client/src/pages/FlowsPage.tsx`
      - `client/src/hooks/useConversations.ts`
@@ -359,7 +359,7 @@ Prevent the Flows page from dropping the active conversation during a `conversat
      - `applyWsUpsert` call site
 2. [ ] Preserve `flowName` when applying WS updates:
    - Documentation to read (repeat):
-     - React hooks/state: Context7 `/websites/react_dev`
+     - React hooks/state: Context7 `/facebook/react/v19_2_0`
    - Files to edit:
      - `client/src/pages/FlowsPage.tsx`
      - `client/src/hooks/useConversations.ts`
@@ -370,7 +370,7 @@ Prevent the Flows page from dropping the active conversation during a `conversat
 3. [ ] Add/update Flows page tests for WS upserts:
    - Documentation to read (repeat):
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-     - Jest: Context7 `/jestjs/jest`
+     - Jest: Context7 `/websites/jestjs_io_30_0`
    - Files to edit:
      - `client/src/test/flowsPage.test.tsx`
      - `client/src/test/flowsPage.run.test.tsx`
@@ -403,7 +403,7 @@ Prevent the Flows page from dropping the active conversation during a `conversat
      - Node.js test runner: https://nodejs.org/api/test.html
 4. [ ] `npm run test --workspace client`
    - Documentation to read (repeat):
-     - Jest: Context7 `/jestjs/jest`
+     - Jest: Context7 `/websites/jestjs_io_30_0`
 5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m`)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
@@ -437,17 +437,17 @@ Add working-folder UI parity to the Flows page using the existing `DirectoryPick
 
 #### Documentation Locations
 
-- React hooks/state: Context7 `/websites/react_dev` (state + effects patterns)
-- Jest: Context7 `/jestjs/jest` (test structure)
+- React hooks/state: Context7 `/facebook/react/v19_2_0` (React 19.2 hooks API)
+- Jest: Context7 `/websites/jestjs_io_30_0` (test structure)
 - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-- MUI TextField API: https://llms.mui.com/material-ui/6.4.12/api/text-field.md
-- MUI Button API: https://llms.mui.com/material-ui/6.4.12/api/button.md
+- MUI TextField API (closest to @mui/material 6.4.1): https://llms.mui.com/material-ui/6.4.12/api/text-field.md
+- MUI Button API (closest to @mui/material 6.4.1): https://llms.mui.com/material-ui/6.4.12/api/button.md
 
 #### Subtasks
 
 1. [ ] Review how Agents/Ingest handle working folders and the directory picker:
    - Documentation to read (repeat):
-     - React hooks/state: Context7 `/websites/react_dev`
+     - React hooks/state: Context7 `/facebook/react/v19_2_0`
    - Files to read:
      - `client/src/pages/AgentsPage.tsx`
      - `client/src/components/ingest/DirectoryPickerDialog.tsx`
@@ -455,8 +455,8 @@ Add working-folder UI parity to the Flows page using the existing `DirectoryPick
      - `client/src/pages/FlowsPage.tsx`
 2. [ ] Add a directory picker button + dialog to FlowsPage:
    - Documentation to read (repeat):
-     - MUI TextField API: https://llms.mui.com/material-ui/6.4.12/api/text-field.md
-     - MUI Button API: https://llms.mui.com/material-ui/6.4.12/api/button.md
+     - MUI TextField API (closest to @mui/material 6.4.1): https://llms.mui.com/material-ui/6.4.12/api/text-field.md
+     - MUI Button API (closest to @mui/material 6.4.1): https://llms.mui.com/material-ui/6.4.12/api/button.md
    - Files to edit:
      - `client/src/pages/FlowsPage.tsx`
    - Implementation details:
@@ -467,7 +467,7 @@ Add working-folder UI parity to the Flows page using the existing `DirectoryPick
 3. [ ] Add/update Flows page tests for working-folder selection:
    - Documentation to read (repeat):
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-     - Jest: Context7 `/jestjs/jest`
+     - Jest: Context7 `/websites/jestjs_io_30_0`
    - Files to edit:
      - `client/src/test/flowsPage.run.test.tsx`
      - `client/src/test/flowsApi.run.payload.test.ts`
@@ -501,7 +501,7 @@ Add working-folder UI parity to the Flows page using the existing `DirectoryPick
      - Node.js test runner: https://nodejs.org/api/test.html
 4. [ ] `npm run test --workspace client`
    - Documentation to read (repeat):
-     - Jest: Context7 `/jestjs/jest`
+    - Jest: Context7 `/websites/jestjs_io_30_0`
 5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m`)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
@@ -535,27 +535,27 @@ Add the Flows page info (“i”) popover matching the Agents UI, including warn
 
 #### Documentation Locations
 
-- React hooks/state: Context7 `/websites/react_dev` (state + effects patterns)
-- Jest: Context7 `/jestjs/jest` (test structure)
+- React hooks/state: Context7 `/facebook/react/v19_2_0` (React 19.2 hooks API)
+- Jest: Context7 `/websites/jestjs_io_30_0` (test structure)
 - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-- MUI Popover API: https://llms.mui.com/material-ui/6.4.12/api/popover.md
-- MUI IconButton API: https://llms.mui.com/material-ui/6.4.12/api/icon-button.md
-- MUI Tooltip API: https://llms.mui.com/material-ui/6.4.12/api/tooltip.md
+- MUI Popover API (closest to @mui/material 6.4.1): https://llms.mui.com/material-ui/6.4.12/api/popover.md
+- MUI IconButton API (closest to @mui/material 6.4.1): https://llms.mui.com/material-ui/6.4.12/api/icon-button.md
+- MUI Tooltip API (closest to @mui/material 6.4.1): https://llms.mui.com/material-ui/6.4.12/api/tooltip.md
 
 #### Subtasks
 
 1. [ ] Review the Agents info popover implementation and Flow summary data:
    - Documentation to read (repeat):
-     - React hooks/state: Context7 `/websites/react_dev`
+     - React hooks/state: Context7 `/facebook/react/v19_2_0`
    - Files to read:
      - `client/src/pages/AgentsPage.tsx`
      - `client/src/components/Markdown.tsx`
      - `client/src/pages/FlowsPage.tsx`
 2. [ ] Implement the Flows info popover (matching Agents behavior):
    - Documentation to read (repeat):
-     - MUI Popover API: https://llms.mui.com/material-ui/6.4.12/api/popover.md
-     - MUI IconButton API: https://llms.mui.com/material-ui/6.4.12/api/icon-button.md
-     - MUI Tooltip API: https://llms.mui.com/material-ui/6.4.12/api/tooltip.md
+     - MUI Popover API (closest to @mui/material 6.4.1): https://llms.mui.com/material-ui/6.4.12/api/popover.md
+     - MUI IconButton API (closest to @mui/material 6.4.1): https://llms.mui.com/material-ui/6.4.12/api/icon-button.md
+     - MUI Tooltip API (closest to @mui/material 6.4.1): https://llms.mui.com/material-ui/6.4.12/api/tooltip.md
    - Files to edit:
      - `client/src/pages/FlowsPage.tsx`
    - Implementation details:
@@ -563,11 +563,12 @@ Add the Flows page info (“i”) popover matching the Agents UI, including warn
      - Render the description via the shared Markdown component.
      - When both warning + description are missing, show the same empty-state copy as Agents.
      - Match the popover anchoring (`anchorOrigin` bottom/left; `transformOrigin` top/left).
+     - Avoid deprecated `components`/`componentsProps` props in Tooltip/Popover; use default slots unless customization is required.
      - Remove the inline flow description + warning alert beneath the controls so the popover becomes the single source of flow details.
 3. [ ] Add/update Flows page tests for the info popover:
    - Documentation to read (repeat):
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-     - Jest: Context7 `/jestjs/jest`
+     - Jest: Context7 `/websites/jestjs_io_30_0`
    - Files to edit:
      - `client/src/test/flowsPage.test.tsx`
    - Test expectations:
@@ -601,7 +602,7 @@ Add the Flows page info (“i”) popover matching the Agents UI, including warn
      - Node.js test runner: https://nodejs.org/api/test.html
 4. [ ] `npm run test --workspace client`
    - Documentation to read (repeat):
-     - Jest: Context7 `/jestjs/jest`
+    - Jest: Context7 `/websites/jestjs_io_30_0`
 5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m`)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
@@ -635,23 +636,23 @@ Add a custom title input to Flows, send it on new runs only, and disable the fie
 
 #### Documentation Locations
 
-- React hooks/state: Context7 `/websites/react_dev` (state + effects patterns)
-- Jest: Context7 `/jestjs/jest` (test structure)
+- React hooks/state: Context7 `/facebook/react/v19_2_0` (React 19.2 hooks API)
+- Jest: Context7 `/websites/jestjs_io_30_0` (test structure)
 - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-- MUI TextField API: https://llms.mui.com/material-ui/6.4.12/api/text-field.md
+- MUI TextField API (closest to @mui/material 6.4.1): https://llms.mui.com/material-ui/6.4.12/api/text-field.md
 
 #### Subtasks
 
 1. [ ] Review flow run payload handling and Flows page run/resume logic:
    - Documentation to read (repeat):
-     - React hooks/state: Context7 `/websites/react_dev`
+     - React hooks/state: Context7 `/facebook/react/v19_2_0`
    - Files to read:
      - `client/src/pages/FlowsPage.tsx`
      - `client/src/api/flows.ts`
      - `client/src/test/flowsApi.run.payload.test.ts`
 2. [ ] Add custom title input and wire it into the run payload:
    - Documentation to read (repeat):
-     - MUI TextField API: https://llms.mui.com/material-ui/6.4.12/api/text-field.md
+     - MUI TextField API (closest to @mui/material 6.4.1): https://llms.mui.com/material-ui/6.4.12/api/text-field.md
    - Files to edit:
      - `client/src/pages/FlowsPage.tsx`
      - `client/src/api/flows.ts`
@@ -663,7 +664,7 @@ Add a custom title input to Flows, send it on new runs only, and disable the fie
 3. [ ] Update flow API + page tests for custom titles:
    - Documentation to read (repeat):
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-     - Jest: Context7 `/jestjs/jest`
+     - Jest: Context7 `/websites/jestjs_io_30_0`
    - Files to edit:
      - `client/src/test/flowsApi.run.payload.test.ts`
      - `client/src/test/flowsPage.run.test.tsx`
@@ -697,7 +698,7 @@ Add a custom title input to Flows, send it on new runs only, and disable the fie
      - Node.js test runner: https://nodejs.org/api/test.html
 4. [ ] `npm run test --workspace client`
    - Documentation to read (repeat):
-     - Jest: Context7 `/jestjs/jest`
+    - Jest: Context7 `/websites/jestjs_io_30_0`
 5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m`)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
@@ -731,23 +732,23 @@ Add a “New Flow” action that clears the active conversation and transcript w
 
 #### Documentation Locations
 
-- React hooks/state: Context7 `/websites/react_dev` (state + effects patterns)
-- Jest: Context7 `/jestjs/jest` (test structure)
+- React hooks/state: Context7 `/facebook/react/v19_2_0` (React 19.2 hooks API)
+- Jest: Context7 `/websites/jestjs_io_30_0` (test structure)
 - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-- MUI Button API: https://llms.mui.com/material-ui/6.4.12/api/button.md
+- MUI Button API (closest to @mui/material 6.4.1): https://llms.mui.com/material-ui/6.4.12/api/button.md
 
 #### Subtasks
 
 1. [ ] Review “New conversation” reset behavior in Agents/Chat:
    - Documentation to read (repeat):
-     - React hooks/state: Context7 `/websites/react_dev`
+     - React hooks/state: Context7 `/facebook/react/v19_2_0`
    - Files to read:
      - `client/src/pages/AgentsPage.tsx`
      - `client/src/pages/ChatPage.tsx`
      - `client/src/pages/FlowsPage.tsx`
 2. [ ] Implement the “New Flow” reset action:
    - Documentation to read (repeat):
-     - MUI Button API: https://llms.mui.com/material-ui/6.4.12/api/button.md
+     - MUI Button API (closest to @mui/material 6.4.1): https://llms.mui.com/material-ui/6.4.12/api/button.md
    - Files to edit:
      - `client/src/pages/FlowsPage.tsx`
    - Implementation details:
@@ -758,7 +759,7 @@ Add a “New Flow” action that clears the active conversation and transcript w
 3. [ ] Add/update Flows page tests for the reset action:
    - Documentation to read (repeat):
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-     - Jest: Context7 `/jestjs/jest`
+     - Jest: Context7 `/websites/jestjs_io_30_0`
    - Files to edit:
      - `client/src/test/flowsPage.run.test.tsx`
    - Test expectations:
@@ -791,7 +792,7 @@ Add a “New Flow” action that clears the active conversation and transcript w
      - Node.js test runner: https://nodejs.org/api/test.html
 4. [ ] `npm run test --workspace client`
    - Documentation to read (repeat):
-     - Jest: Context7 `/jestjs/jest`
+    - Jest: Context7 `/websites/jestjs_io_30_0`
 5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m`)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
@@ -829,7 +830,7 @@ Run full builds/tests, perform manual verification with Playwright MCP, ensure d
 - Playwright: Context7 `/microsoft/playwright`
 - Husky: Context7 `/typicode/husky`
 - Mermaid: Context7 `/mermaid-js/mermaid`
-- Jest: Context7 `/jestjs/jest`
+- Jest: Context7 `/websites/jestjs_io_30_0`
 - Cucumber guides: https://cucumber.io/docs/guides/
 
 #### Subtasks

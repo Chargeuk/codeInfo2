@@ -80,8 +80,10 @@ The custom name must apply to the main flow conversation and to per-agent flow c
 
 ## Questions
 
-- Should the flow info popover surface `FlowSummary.error` as a “warning” entry when `disabled === true`, or should disabled flows show a different message?
-- When no flow is selected (New Flow state), should the sidebar hide entirely or show an empty list? (Passing an empty `flowName` today shows all conversations.)
+Resolved:
+
+- Flow info popover should follow the Agents UX; when a flow is disabled and `FlowSummary.error` exists, treat the error as a warning entry in the popover (same “Warnings” section layout as Agents).
+- When no flow is selected (New Flow state), the sidebar should be hidden or explicitly empty (do **not** show all conversations). The UI must avoid passing an empty `flowName` that would load all conversations.
 
 ---
 ## Message Contracts & Storage Impact

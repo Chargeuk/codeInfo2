@@ -42,17 +42,17 @@ The custom name must apply to the main flow conversation and to per-agent flow c
 
 ## Acceptance Criteria
 
-- The Flows sidebar and transcript stay visible during live `conversation_upsert` updates; the active conversation is never cleared and no refresh is required to recover the list or transcript.
-- When applying `conversation_upsert` updates in the Flows page state, preserve the existing `flowName` if the update omits it so the conversation still matches the active flow filter and remains in the sidebar.
-- The working folder control sits on its own row beneath the flow selector and includes the same labeled text field plus **Choose folder…** button used on Agents/Ingest.
-- The working folder picker reuses the shared dialog component and `GET /ingest/dirs` endpoint so the flow picker has identical loading, error, and “Use this folder” UX to Agents/Ingest.
-- An info (“i”) icon button appears directly next to the flow selector. Clicking it opens a popover anchored bottom-left that shows (1) a **Warnings** section when warnings exist, (2) the flow description rendered as Markdown inside an outlined panel, and (3) the fallback copy: “No description or warnings are available for this flow yet.”
-- A **New Flow** button clears: active conversation, transcript state, working folder override, and custom name input (but keeps the selected flow). After clicking it, the screen shows the empty transcript/blank state and the Run button remains enabled because a flow is still selected.
-- A **Custom name** input (helper text “Optional: name for this run”) is available before starting a run. When populated, the flow conversation title in the sidebar uses this value; when empty it remains the default `Flow: <flowName>` title.
-- The custom name applies to the main flow conversation and to any per-agent flow conversations created during that run.
-- When a custom name is provided, per-agent flow conversations use the title format `<customTitle> (<identifier>)` (default remains `Flow: <flowName> (<identifier>)`).
-- The custom name is only captured when starting a new flow run and is not editable once the run begins or when resuming an existing conversation.
-- The Chat page sidebar shows only chat conversations (no agent or flow conversations). Agent conversations remain scoped to the Agents page and flow conversations remain scoped to the Flows page.
+- During an active flow run, live conversation updates (for example websocket `conversation_upsert` events) never remove the active flow conversation from the Flows sidebar; the transcript stays visible without refresh.
+- When a live update payload omits `flowName`, the Flows page keeps the previously known `flowName` so the conversation still matches the selected flow filter.
+- The working folder control appears on its own row below the Flow selector with a labeled `Working folder` text field that remains manually editable.
+- A **Choose folder…** button sits next to the working folder field and opens the same `DirectoryPickerDialog` used by Agents/Ingest; picking a folder updates the field, cancel leaves it unchanged, and loading/error states match the existing dialog UX.
+- An info (“i”) icon button appears directly next to the Flow selector. Clicking it opens a popover anchored bottom-left that shows a **Warnings** section when the flow is disabled and has `error` (display the error text as the warning), the flow description rendered as Markdown inside an outlined panel, and the fallback copy “No description or warnings are available for this flow yet.” when both are missing.
+- A **New Flow** button clears the active conversation, transcript state, working folder field, and custom name input (but keeps the selected flow). After clicking it, the empty transcript state is shown and the Run button remains enabled because a flow is still selected.
+- A **Custom name** input with helper text “Optional: name for this run” is visible before starting a run; once a run starts or a resume is selected, the field is read-only/disabled and no longer editable.
+- When a custom name is provided, the main flow conversation title uses that value; when empty it remains the default `Flow: <flowName>` title.
+- The custom name applies to per-agent flow conversations using the title format `<customTitle> (<identifier>)` (default remains `Flow: <flowName> (<identifier>)`).
+- The custom name is captured only when starting a new flow run and is not sent or changed when resuming.
+- The Chat page sidebar shows only chat conversations (no agent or flow conversations). The Agents page shows only agent conversations and the Flows page shows only flow conversations.
 
 ## Out Of Scope
 

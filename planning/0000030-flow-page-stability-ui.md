@@ -61,6 +61,16 @@ The custom name must apply to the main flow conversation and to per-agent flow c
 
 - Scope is reasonable but spans client UI, shared picker reuse, and server flow-run metadata. If delivery risk appears, split into two stories: (1) flow sidebar stability + flowName preservation, (2) UX enhancements (picker parity, info popover, custom title).
 
+## Implementation Ideas
+
+- **Flows WS stability:** Update `client/src/pages/FlowsPage.tsx` to include `flowName` when calling `applyWsUpsert`, or preserve the existing `flowName` when an upsert payload omits it. This avoids `useConversations` filtering the conversation out on live updates.
+- **New Flow empty state:** Because `useConversations` treats an empty `flowName` as “no filter” (shows all conversations), handle the New Flow state in `FlowsPage` by either (a) not invoking `useConversations` until a flow is selected or (b) explicitly hiding the list when `selectedFlowName` is empty.
+- **Working folder picker parity:** Reuse `client/src/components/ingest/DirectoryPickerDialog.tsx` and `ingestDirsApi.ts` from the Ingest/Agents patterns. Add a “Choose folder…” button next to the working folder field, and keep the field editable; cancel should be a no-op, errors should match the existing dialog UX.
+- **Flow info popover:** Add an info icon next to the Flow selector and open a MUI `Popover` with bottom-left anchoring (`anchorOrigin: bottom/left`, `transformOrigin: top/left`). Render warnings (decide if `FlowSummary.error` becomes warnings for disabled flows), Markdown description, and fallback copy.
+- **Custom title propagation:** Extend `POST /flows/:flowName/run` to accept optional `customTitle` (validated as trimmed non-empty). Update `server/src/flows/service.ts` to apply the custom title to the main flow conversation and use `<customTitle> (<identifier>)` for per-agent flow conversations, falling back to the existing `Flow: <flowName>` format.
+- **Client payloads:** Extend `client/src/api/flows.ts` and `FlowsPage` run/resume handlers to send `customTitle` only for new runs, never on resume. Ensure “New Flow” clears the input.
+- **Tests to adjust:** Update Flows page tests (`client/src/__tests__/flowsPage.*`) to cover flowName preservation, New Flow state behavior, and custom title payloads. Add/adjust server integration tests in `server/src/test/integration/flows.*` to validate new title handling and request schema.
+
 ## Questions
 
 - Should the flow info popover surface `FlowSummary.error` as a “warning” entry when `disabled === true`, or should disabled flows show a different message?

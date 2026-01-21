@@ -38,6 +38,7 @@ The custom name must apply to the main flow conversation and to per-agent flow c
 - `POST /flows/:flowName/run` validation lives in `server/src/routes/flowsRun.ts` and currently accepts `conversationId`, `working_folder`, and `resumeStepPath`. Custom title support should be added here as an optional, trimmed string.
 - The working-folder picker dialog is already shared by Agents/Ingest (`client/src/components/ingest/DirectoryPickerDialog.tsx` + `ingestDirsApi.ts`); Flows should reuse these exact pieces for parity.
 - Chat page conversation filtering uses `agentName=__none__` and `flowName=__none__`, but the server query currently overwrites `query.$or` in `server/src/mongo/repo.ts`, so the agent filter is lost. This explains agent conversations leaking into the Chat sidebar.
+- The regression was introduced when `flowName` filtering was added in `DEV-0000027 - Add flowName filtering` (commit `f7d8180`, 2026-01-17). The flowName `__none__` branch reuses `query.$or`, overwriting the earlier agentName `__none__` clause added on 2025-12-14.
 
 ## Acceptance Criteria
 

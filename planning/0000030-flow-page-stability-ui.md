@@ -121,7 +121,7 @@ The custom name must apply to the main flow conversation and to per-agent flow c
 
 #### Overview
 
-Add an optional `customTitle` field to `POST /flows/:flowName/run`, validate it with the same trim/empty rules as other optional fields, and apply it to the flow conversation title for both the main flow and per-agent flow conversations.
+Add an optional `customTitle` field to `POST /flows/:flowName/run`, validate it with the same trim/empty rules as other optional fields, and apply it to the flow conversation title for both the main flow and per-agent flow conversations. Reuse the existing `Conversation.title` field (no schema changes).
 
 #### Documentation Locations
 
@@ -137,11 +137,12 @@ Add an optional `customTitle` field to `POST /flows/:flowName/run`, validate it 
    - Files to read:
      - `server/src/routes/flowsRun.ts`
      - `server/src/flows/service.ts`
-     - `server/src/flows/types.ts`
+      - `server/src/flows/types.ts`
      - `server/src/mongo/conversation.ts`
    - Snippets to locate:
      - `validateBody` body parsing logic
      - `ensureFlowConversation` and `ensureFlowAgentConversation` title formatting
+     - `Conversation.title` field definition (confirm no schema changes needed)
 2. [ ] Extend the flow run request validator to accept `customTitle`:
    - Documentation to read (repeat):
      - Express routing + handlers: Context7 `/expressjs/express/v5.1.0`
@@ -750,6 +751,7 @@ Add a “New Flow” action that clears the active conversation and transcript w
    - Files to edit:
      - `client/src/pages/FlowsPage.tsx`
    - Implementation details:
+     - Reuse the existing `resetConversation` helper and extend it to clear `customTitle` alongside `workingFolder`.
      - Clear `activeConversationId`, transcript/messages, inflight state, `customTitle`, and `workingFolder`.
      - Keep `selectedFlowName` unchanged so the flow list and Run button stay enabled.
      - Reset any “resume” state so the next run is treated as a new flow.

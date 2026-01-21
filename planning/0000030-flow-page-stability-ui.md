@@ -102,11 +102,13 @@ The custom name must apply to the main flow conversation and to per-agent flow c
   - Client: Flows page tests for WS upsert `flowName` retention, New Flow reset behavior, custom title payload, and popover warnings/empty state (patterned after Agents popover tests).
   - Server: flows run integration tests to assert `customTitle` affects main + per-agent titles, and listConversations filtering tests for chat/agent/flow isolation.
 
-## Edge Cases & Failure Modes
+## Edge Cases and Failure Modes
 
 - `conversation_upsert` arrives without `flowName`: keep the last known `flowName` for that conversation to avoid it disappearing from the filtered sidebar.
+- `conversation_upsert` arrives with `agentName`: Flows page should ignore it so per-agent conversations do not appear in the flow sidebar.
 - “New Flow” retains the selected flow; the empty state is scoped to the transcript + active conversation only. Run remains enabled because a flow is still selected.
 - Custom title supplied but the flow run fails early: if a conversation is created, the sidebar still shows the custom title.
+- `customTitle` provided as non-string or whitespace-only: server treats it as invalid (non-string) or undefined (whitespace-only) without storing a blank title.
 - Directory picker errors (network, OUTSIDE_BASE, NOT_FOUND, NOT_DIRECTORY): display the same inline error UI as Agents/Ingest and keep the rest of the flow form usable.
 
 ---

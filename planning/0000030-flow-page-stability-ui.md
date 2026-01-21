@@ -29,6 +29,15 @@ The custom name must apply to the main flow conversation and to per-agent flow c
 - **Root cause:** The Flows page drops `flowName` when applying `conversation_upsert` updates, causing the conversation to be filtered out and the page to reset its selection.
 - **Likely fix:** Preserve or forward `flowName` during WS upsert handling so the flow conversation stays eligible for the active filter. If the WS payload ever omits `flowName`, keep the previously-known value for that conversation instead of dropping it.
 
+## Research Findings (code touchpoints)
+
+- Flows list + WS handling live in `client/src/pages/FlowsPage.tsx`; `conversation_upsert` currently forwards a payload to `applyWsUpsert` without `flowName`, so any update can drop the flow filter.
+- `client/src/hooks/useConversations.ts` treats an empty `flowName` as “no filter” (returns all conversations). To show a blank/empty state in “New Flow” mode, the UI must avoid passing an empty flowName or must explicitly hide the list when no flow is selected.
+- Flow summary data comes from `server/src/flows/discovery.ts` and contains `{ name, description, disabled, error? }`. There is no warnings array today; the info popover must decide whether to treat `error` as a warning when `disabled === true`.
+- Flow run conversations are created/titled in `server/src/flows/service.ts`: `Flow: <flowName>` for the main run and `Flow: <flowName> (<identifier>)` for per-agent flow conversations. This is the spot to apply a custom title for both.
+- `POST /flows/:flowName/run` validation lives in `server/src/routes/flowsRun.ts` and currently accepts `conversationId`, `working_folder`, and `resumeStepPath`. Custom title support should be added here as an optional, trimmed string.
+- The working-folder picker dialog is already shared by Agents/Ingest (`client/src/components/ingest/DirectoryPickerDialog.tsx` + `ingestDirsApi.ts`); Flows should reuse these exact pieces for parity.
+
 ## Acceptance Criteria
 
 - The Flows sidebar and transcript stay visible during live `conversation_upsert` updates; the active conversation is never cleared and no refresh is required to recover the list or transcript.
@@ -39,6 +48,7 @@ The custom name must apply to the main flow conversation and to per-agent flow c
 - A **New Flow** button clears: selected flow, active conversation, transcript state, working folder override, and custom name input. After clicking it, the screen shows the empty transcript/blank state and the Run button stays disabled until a flow is selected.
 - A **Custom name** input (helper text “Optional: name for this run”) is available before starting a run. When populated, the flow conversation title in the sidebar uses this value; when empty it remains the default `Flow: <flowName>` title.
 - The custom name applies to the main flow conversation and to any per-agent flow conversations created during that run.
+- When a custom name is provided, per-agent flow conversations use the title format `<customTitle> (<identifier>)` (default remains `Flow: <flowName> (<identifier>)`).
 - The custom name is only captured when starting a new flow run and is not editable once the run begins or when resuming an existing conversation.
 
 ## Out Of Scope
@@ -47,13 +57,20 @@ The custom name must apply to the main flow conversation and to per-agent flow c
 - Changing flow execution semantics, step logic, or server-side flow orchestration.
 - New persistence layers or changes to Mongo schemas beyond storing a custom title.
 
+## Scope Notes
+
+- Scope is reasonable but spans client UI, shared picker reuse, and server flow-run metadata. If delivery risk appears, split into two stories: (1) flow sidebar stability + flowName preservation, (2) UX enhancements (picker parity, info popover, custom title).
+
 ## Questions
 
+- Should the flow info popover surface `FlowSummary.error` as a “warning” entry when `disabled === true`, or should disabled flows show a different message?
+- When no flow is selected (New Flow state), should the sidebar hide entirely or show an empty list? (Passing an empty `flowName` today shows all conversations.)
 
 ---
 ## Message Contracts & Storage Impact
 
 - Add an optional `customTitle` field to `POST /flows/:flowName/run` requests (UI sends it only when starting a new run, never when resuming).
+- Validation should trim whitespace and treat an empty/whitespace-only title as “not provided” (e.g., `z.string().trim().min(1).optional()`).
 - Server uses `customTitle` (when provided) as the conversation title for the main flow run; otherwise the title remains `Flow: <flowName>`.
 - Server also applies `customTitle` to any per-agent flow conversations created during the same run.
 - Conversation documents still store `flowName` separately and flow filtering continues to rely on that field; `customTitle` only affects the displayed title.
@@ -77,6 +94,7 @@ Tasks to be defined after questions are answered. Do **not** task up yet.
 - Shows the agent description rendered as Markdown inside an outlined panel.
 - If both warnings and description are missing, displays: “No description or warnings are available for this agent yet.”
 - Uses a popover anchored to the info icon with left-bottom anchoring.
+- Use MUI Popover positioning (`anchorOrigin: { vertical: 'bottom', horizontal: 'left' }`, `transformOrigin: { vertical: 'top', horizontal: 'left' }`) so the popover behaves like other MUI info popovers.
 
 ## Reference: Directory Picker UX (must match)
 

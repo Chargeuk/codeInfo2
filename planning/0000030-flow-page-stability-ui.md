@@ -102,15 +102,6 @@ The custom name must apply to the main flow conversation and to per-agent flow c
   - Client: Flows page tests for WS upsert `flowName` retention, New Flow reset behavior, custom title payload, and popover warnings/empty state (patterned after Agents popover tests).
   - Server: flows run integration tests to assert `customTitle` affects main + per-agent titles, and listConversations filtering tests for chat/agent/flow isolation.
 
-## Questions
-
-Resolved:
-
-- Flow info popover should follow the Agents UX; when a flow is disabled and `FlowSummary.error` exists, treat the error as a warning entry in the popover (same “Warnings” section layout as Agents).
-- “New Flow” should keep the selected flow and sidebar list visible, but clear the active conversation/transcript and reset the custom name input.
-- Per-agent flow conversations remain agent-only (no `flowName`) and do not appear in flow-filtered lists.
-
----
 ## Edge Cases & Failure Modes
 
 - `conversation_upsert` arrives without `flowName`: keep the last known `flowName` for that conversation to avoid it disappearing from the filtered sidebar.

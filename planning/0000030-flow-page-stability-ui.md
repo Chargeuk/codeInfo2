@@ -36,7 +36,7 @@ The custom name must apply to the main flow conversation and to per-agent flow c
 - `client/src/hooks/useConversations.ts` treats an empty `flowName` as “no filter” (returns all conversations). Because “New Flow” should keep the selected flow, the UI must avoid clearing `selectedFlowName` and instead only reset the active conversation/transcript + custom name.
 - Flow summary data comes from `server/src/flows/discovery.ts` and contains `{ name, description, disabled, error? }`. There is no warnings array today; the info popover must decide whether to treat `error` as a warning when `disabled === true`.
 - Flow run conversations are created/titled in `server/src/flows/service.ts`: `Flow: <flowName>` for the main run and `Flow: <flowName> (<identifier>)` for per-agent flow conversations. This is the spot to apply a custom title for both.
-- Per-agent flow conversations currently set `agentName` but do **not** set `flowName` in `server/src/flows/service.ts`; confirm whether they should remain agent-only (Agents page) or also appear in flow-filtered lists.
+- Per-agent flow conversations currently set `agentName` but do **not** set `flowName` in `server/src/flows/service.ts`; keep them agent-only for this story (no change to flow list visibility).
 - `POST /flows/:flowName/run` validation lives in `server/src/routes/flowsRun.ts` and currently accepts `conversationId`, `working_folder`, and `resumeStepPath`. Custom title support should be added here as an optional, trimmed string.
 - `server/src/routes/flowsRun.ts` uses manual string trimming/empty checks (not Zod), so `customTitle` should follow the same pattern: trim and treat empty as undefined.
 - The working-folder picker dialog is already shared by Agents/Ingest (`client/src/components/ingest/DirectoryPickerDialog.tsx` + `ingestDirsApi.ts`); Flows should reuse these exact pieces for parity.
@@ -54,7 +54,7 @@ The custom name must apply to the main flow conversation and to per-agent flow c
 - **Flow run request:** `POST /flows/:flowName/run` currently accepts `conversationId`, `working_folder`, and `resumeStepPath`. Add optional `customTitle` (trimmed, non-empty string). Validation should follow the existing manual trim/empty checks in `server/src/routes/flowsRun.ts`.
 - **Flow run response:** No response changes; keep `202 { status, flowName, conversationId, inflightId, modelId }`.
 - **Conversation storage:** No new fields are required. Store the custom title in existing `Conversation.title`; keep `flowName` and `agentName` as-is for filtering, and `flags.flow` for resume state.
-- **Conversation summary + WS:** REST summary and `conversation_upsert` payloads already include `title`, `agentName?`, and `flowName?`. Custom titles flow through `title` only. If we decide to add `flowName` to per-agent flow conversations, it uses the existing optional `flowName` field (no new schema fields).
+- **Conversation summary + WS:** REST summary and `conversation_upsert` payloads already include `title`, `agentName?`, and `flowName?`. Custom titles flow through `title` only; per-agent flow conversations remain agent-only without `flowName`.
 
 ## Acceptance Criteria
 
@@ -68,6 +68,7 @@ The custom name must apply to the main flow conversation and to per-agent flow c
 - When a custom name is provided, the main flow conversation title uses that value; when empty it remains the default `Flow: <flowName>` title.
 - The custom name applies to per-agent flow conversations using the title format `<customTitle> (<identifier>)` (default remains `Flow: <flowName> (<identifier>)`).
 - The custom name is captured only when starting a new flow run and is not sent or changed when resuming.
+- Per-agent flow conversations remain agent-only (no `flowName`) and do not appear in flow-filtered sidebars; only the main flow conversation is listed in Flows.
 - The Chat page sidebar shows only chat conversations (no agent or flow conversations). The Agents page shows only agent conversations and the Flows page shows only flow conversations.
 
 ## Out Of Scope
@@ -75,6 +76,7 @@ The custom name must apply to the main flow conversation and to per-agent flow c
 - Redesigning the Flows page layout beyond the items above.
 - Changing flow execution semantics, step logic, or server-side flow orchestration.
 - New persistence layers or changes to Mongo schemas beyond storing a custom title.
+- Changing per-agent flow conversation visibility (they remain agent-only in this story).
 
 ## Scope Notes
 
@@ -87,20 +89,13 @@ The custom name must apply to the main flow conversation and to per-agent flow c
 - Biggest risk is breadth across client + server + tests; splitting UI enhancements from stability (as noted above) is the cleanest reduction if timeline is tight.
 - Avoid adding new data fields or flow execution changes to keep the story shippable in one pass.
 
-## Message Contracts & Storage Shapes (Proposed)
-
-- **New request field:** add optional `customTitle` to `POST /flows/:flowName/run` body, validated as trimmed non-empty (e.g., `z.string().trim().min(1).optional()`), and only sent for new runs (never for resume).
-- **No new response shape:** the `202` response remains `{ status, flowName, conversationId, inflightId, modelId }`.
-- **No new storage fields:** use the existing `Conversation.title` field for custom titles (and for per-agent flow titles). Keep `flowName` as-is for filtering and `agentName` for agent conversations.
-- **Flows list contract unchanged:** `GET /flows` continues to return `{ name, description, disabled, error? }`; any warning display should be derived from the existing `error` field rather than adding a new warnings array.
-
 ## Implementation Ideas
 
 - **Flows WS stability:** In `client/src/pages/FlowsPage.tsx`, pass through `event.conversation.flowName` to `applyWsUpsert` (the WS payload already includes it). If the payload omits `flowName`, merge the prior conversation’s `flowName` before filtering so the item stays in the flow list.
 - **Flow info popover parity:** Mirror the Agents page popover structure from `client/src/pages/AgentsPage.tsx` (info icon + `Popover`, warnings list, Markdown description, empty-state copy). Reuse the same `Markdown` component and warning layout to keep copy/padding consistent.
 - **Working folder picker parity:** Follow the Agents working-folder pattern: keep a controlled `workingFolder` field, add a “Choose folder…” button to open `DirectoryPickerDialog`, and reuse `ingestDirsApi.ts` for the `/ingest/dirs` fetch behavior. Cancel should keep the existing value; pick updates the field.
 - **New Flow reset logic:** Copy the Agents `resetConversation()` pattern: clear `activeConversationId`, transcript/messages, `workingFolder`, and `customTitle`, but keep `selectedFlowName` intact so the flow list and Run button stay enabled.
-- **Custom title propagation:** Extend `server/src/routes/flowsRun.ts` to parse `customTitle` with the same trim/empty rules as `conversationId` and `working_folder`, pass it to `startFlowRun`, and update `server/src/flows/service.ts` to use it for both memory and Mongo conversation titles (main flow + per-agent). Decide whether per-agent conversations should also store `flowName` (see open question).
+- **Custom title propagation:** Extend `server/src/routes/flowsRun.ts` to parse `customTitle` with the same trim/empty rules as `conversationId` and `working_folder`, pass it to `startFlowRun`, and update `server/src/flows/service.ts` to use it for both memory and Mongo conversation titles (main flow + per-agent), keeping per-agent conversations agent-only (no `flowName`).
 - **Client payloads:** Extend `client/src/api/flows.ts` and `FlowsPage` so `customTitle` is only sent when starting a new run (never on resume). Disable the input once a run starts or when resuming.
 - **Conversation filtering regression:** Update `server/src/mongo/repo.ts` to combine `agentName=__none__` and `flowName=__none__` conditions using `$and` of each `$or` block so chat-only lists exclude both agents and flows.
 - **Tests to adjust:**
@@ -113,10 +108,7 @@ Resolved:
 
 - Flow info popover should follow the Agents UX; when a flow is disabled and `FlowSummary.error` exists, treat the error as a warning entry in the popover (same “Warnings” section layout as Agents).
 - “New Flow” should keep the selected flow and sidebar list visible, but clear the active conversation/transcript and reset the custom name input.
-
-Open:
-
-- Should per-agent flow conversations remain **agent-only** (no `flowName`, shown only on Agents page), or should they also carry `flowName` so they appear in flow-filtered lists?
+- Per-agent flow conversations remain agent-only (no `flowName`) and do not appear in flow-filtered lists.
 
 ---
 ## Edge Cases & Failure Modes

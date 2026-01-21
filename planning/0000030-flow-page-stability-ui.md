@@ -81,7 +81,7 @@ The custom name must apply to the main flow conversation and to per-agent flow c
 ## Scope Notes
 
 - Scope is reasonable but spans client UI, shared picker reuse, and server flow-run metadata. If delivery risk appears, split into two stories: (1) flow sidebar stability + flowName preservation, (2) UX enhancements (picker parity, info popover, custom title).
-- Keep scope tight by reusing existing dialog/components and avoiding additional flow orchestration changes; the only server behavior change should be validation + title formatting for the flow conversations.
+- Keep scope tight by reusing existing dialog/components and avoiding additional flow orchestration changes; the only server behavior changes should be flow run validation/title formatting plus the conversation list filter fix for chat-only sidebars.
 
 ## Scope Assessment
 

@@ -152,7 +152,17 @@ Add an optional `customTitle` field to `POST /flows/:flowName/run`, validate it 
      - Treat non-string values as invalid (`invalid_request`).
      - Trim strings and set `customTitle` to `undefined` when empty.
      - Include `customTitle` in the parsed body output and in the `startFlowRun` call.
-3. [ ] Apply `customTitle` when creating flow conversations:
+3. [ ] Thread `customTitle` through flow run parameters:
+   - Documentation to read (repeat):
+     - Express routing + handlers: Context7 `/expressjs/express/v5.1.0`
+   - Files to edit:
+     - `server/src/flows/types.ts`
+     - `server/src/flows/service.ts`
+   - Implementation details:
+     - Update `FlowRunStartParams` to include `customTitle?: string`.
+     - Pass `customTitle` into `ensureFlowConversation` and `ensureAgentState` calls.
+     - Update `ensureAgentState` and `ensureFlowAgentConversation` signatures to accept the optional title.
+4. [ ] Apply `customTitle` when creating flow conversations:
    - Documentation to read (repeat):
      - Express routing + handlers: Context7 `/expressjs/express/v5.1.0`
    - Files to edit:
@@ -163,7 +173,7 @@ Add an optional `customTitle` field to `POST /flows/:flowName/run`, validate it 
      - When creating the main flow conversation, use `customTitle` as the title when provided (fallback to `Flow: <flowName>`).
      - When creating per-agent flow conversations, use `${customTitle} (${identifier})` when provided (fallback to `Flow: <flowName> (<identifier>)`).
      - Do **not** rename existing conversations; only apply the title on creation.
-4. [ ] Add integration coverage for custom titles:
+5. [ ] Add integration coverage for custom titles:
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
      - Supertest HTTP assertions: https://github.com/forwardemail/supertest
@@ -174,14 +184,14 @@ Add an optional `customTitle` field to `POST /flows/:flowName/run`, validate it 
      - The main flow conversation title reflects `customTitle` when supplied.
      - The per-agent flow conversation title includes `customTitle` + identifier.
      - Empty/whitespace `customTitle` values are ignored.
-5. [ ] Update documentation after the server change:
+6. [ ] Update documentation after the server change:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
      - `design.md` (document `customTitle` in the Flows run behavior section)
-     - `openapi.json` (add `customTitle` to `POST /flows/:flowName/run` if documented)
+     - `openapi.json` (add `customTitle` to `POST /flows/:flowName/run` request body)
      - `projectStructure.md` (only if new fixtures/files are added)
-6. [ ] Run full lint + format check:
+7. [ ] Run full lint + format check:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -351,10 +361,10 @@ Prevent the Flows page from dropping the active conversation during a `conversat
      - React hooks/state: Context7 `/websites/react_dev`
    - Files to edit:
      - `client/src/pages/FlowsPage.tsx`
-     - `client/src/hooks/useConversations.ts` (if helper changes are required)
+     - `client/src/hooks/useConversations.ts`
    - Implementation details:
      - Forward `event.conversation.flowName` when present.
-     - If the WS payload omits `flowName`, keep the existing conversation’s `flowName` before filtering.
+     - In `applyWsUpsert`, merge missing `flowName` (and `agentName`) from the existing summary before filtering.
      - Ensure per-agent conversations (with `agentName`) are still excluded from the Flows sidebar.
 3. [ ] Add/update Flows page tests for WS upserts:
    - Documentation to read (repeat):
@@ -364,7 +374,7 @@ Prevent the Flows page from dropping the active conversation during a `conversat
      - `client/src/test/flowsPage.test.tsx`
      - `client/src/test/flowsPage.run.test.tsx`
    - Test expectations:
-     - `conversation_upsert` keeps the conversation visible when `flowName` is missing from the payload.
+     - `conversation_upsert` keeps the conversation visible when `flowName` is missing from the payload (merge uses previous value).
 4. [ ] Update documentation after the client fix:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
@@ -442,16 +452,16 @@ Add working-folder UI parity to the Flows page using the existing `DirectoryPick
      - `client/src/components/ingest/DirectoryPickerDialog.tsx`
      - `client/src/components/ingest/ingestDirsApi.ts`
      - `client/src/pages/FlowsPage.tsx`
-2. [ ] Add working-folder input + picker dialog to FlowsPage:
+2. [ ] Add a directory picker button + dialog to FlowsPage:
    - Documentation to read (repeat):
      - MUI TextField API: https://llms.mui.com/material-ui/6.4.12/api/text-field.md
      - MUI Button API: https://llms.mui.com/material-ui/6.4.12/api/button.md
    - Files to edit:
      - `client/src/pages/FlowsPage.tsx`
    - Implementation details:
-     - Add controlled `workingFolder` state with a text field.
+     - Reuse the existing `workingFolder` text field; keep manual entry available.
      - Add a “Choose folder…” button to open `DirectoryPickerDialog`.
-     - Reuse `ingestDirsApi` for loading, errors, and OUTSIDE_BASE handling.
+     - Mirror Agents behavior (`handleOpenDirPicker`, `handlePickDir`, `handleCloseDirPicker`).
      - Keep the selected value on dialog cancel; update on confirm.
 3. [ ] Add/update Flows page tests for working-folder selection:
    - Documentation to read (repeat):
@@ -552,6 +562,7 @@ Add the Flows page info (“i”) popover matching the Agents UI, including warn
      - Render the description via the shared Markdown component.
      - When both warning + description are missing, show the same empty-state copy as Agents.
      - Match the popover anchoring (`anchorOrigin` bottom/left; `transformOrigin` top/left).
+     - Remove the inline flow description + warning alert beneath the controls so the popover becomes the single source of flow details.
 3. [ ] Add/update Flows page tests for the info popover:
    - Documentation to read (repeat):
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
@@ -645,8 +656,9 @@ Add a custom title input to Flows, send it on new runs only, and disable the fie
      - `client/src/api/flows.ts`
    - Implementation details:
      - Add `customTitle` state and a text input.
-     - Only send `customTitle` when starting a **new** run (not when resuming).
-     - Disable the input when resuming or when a run is in progress.
+     - Only send `customTitle` when starting a **new** conversation (`isNewConversation === true`) and not when resuming.
+     - Disable the input when resuming, when a run is in progress, or when an existing conversation is selected.
+     - Clear `customTitle` inside the existing `resetConversation` helper so New Flow + flow changes reset it.
 3. [ ] Update flow API + page tests for custom titles:
    - Documentation to read (repeat):
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/

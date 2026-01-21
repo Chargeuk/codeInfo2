@@ -37,6 +37,7 @@ The custom name must apply to the main flow conversation and to per-agent flow c
 - Flow run conversations are created/titled in `server/src/flows/service.ts`: `Flow: <flowName>` for the main run and `Flow: <flowName> (<identifier>)` for per-agent flow conversations. This is the spot to apply a custom title for both.
 - `POST /flows/:flowName/run` validation lives in `server/src/routes/flowsRun.ts` and currently accepts `conversationId`, `working_folder`, and `resumeStepPath`. Custom title support should be added here as an optional, trimmed string.
 - The working-folder picker dialog is already shared by Agents/Ingest (`client/src/components/ingest/DirectoryPickerDialog.tsx` + `ingestDirsApi.ts`); Flows should reuse these exact pieces for parity.
+- Chat page conversation filtering uses `agentName=__none__` and `flowName=__none__`, but the server query currently overwrites `query.$or` in `server/src/mongo/repo.ts`, so the agent filter is lost. This explains agent conversations leaking into the Chat sidebar.
 
 ## Acceptance Criteria
 
@@ -50,6 +51,7 @@ The custom name must apply to the main flow conversation and to per-agent flow c
 - The custom name applies to the main flow conversation and to any per-agent flow conversations created during that run.
 - When a custom name is provided, per-agent flow conversations use the title format `<customTitle> (<identifier>)` (default remains `Flow: <flowName> (<identifier>)`).
 - The custom name is only captured when starting a new flow run and is not editable once the run begins or when resuming an existing conversation.
+- The Chat page sidebar shows only chat conversations (no agent or flow conversations). Agent conversations remain scoped to the Agents page and flow conversations remain scoped to the Flows page.
 
 ## Out Of Scope
 
@@ -76,7 +78,9 @@ The custom name must apply to the main flow conversation and to per-agent flow c
 - **Flow info popover:** Add an info icon next to the Flow selector and open a MUI `Popover` with bottom-left anchoring (`anchorOrigin: bottom/left`, `transformOrigin: top/left`). Render warnings (decide if `FlowSummary.error` becomes warnings for disabled flows), Markdown description, and fallback copy.
 - **Custom title propagation:** Extend `POST /flows/:flowName/run` to accept optional `customTitle` (validated as trimmed non-empty). Update `server/src/flows/service.ts` to apply the custom title to the main flow conversation and use `<customTitle> (<identifier>)` for per-agent flow conversations, falling back to the existing `Flow: <flowName>` format.
 - **Client payloads:** Extend `client/src/api/flows.ts` and `FlowsPage` run/resume handlers to send `customTitle` only for new runs, never on resume. Ensure “New Flow” clears the input.
+- **Conversation filtering regression:** In `server/src/mongo/repo.ts`, combine the `agentName=__none__` and `flowName=__none__` filters with `$and` instead of overwriting `query.$or` so the Chat sidebar excludes both agent and flow conversations.
 - **Tests to adjust:** Update Flows page tests (`client/src/__tests__/flowsPage.*`) to cover flowName preservation, New Flow state behavior, and custom title payloads. Add/adjust server integration tests in `server/src/test/integration/flows.*` to validate new title handling and request schema.
+- **Sidebar filter tests:** Add client tests to ensure conversation sidebars are filtered correctly on Chat, Agents, and Flows pages (chat-only, agent-only, and flow-only respectively). Add server tests (or adjust existing ones) to assert `agentName=__none__` + `flowName=__none__` returns only chat conversations.
 
 ## Questions
 

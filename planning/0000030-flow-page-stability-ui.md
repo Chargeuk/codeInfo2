@@ -49,6 +49,13 @@ The custom name must apply to the main flow conversation and to per-agent flow c
 - Zod `optional()` allows `undefined` values, and `trim()` is a mutating string transform; if Zod were used for `customTitle`, `trim().min(1)` would reject whitespace-only inputs after trimming.
 - Deepwiki has not indexed `Chargeuk/codeInfo2`, so no repository wiki is available through that tool.
 
+## Message Contracts & Storage Shapes (Confirmed)
+
+- **Flow run request:** `POST /flows/:flowName/run` currently accepts `conversationId`, `working_folder`, and `resumeStepPath`. Add optional `customTitle` (trimmed, non-empty string). Validation should follow the existing manual trim/empty checks in `server/src/routes/flowsRun.ts`.
+- **Flow run response:** No response changes; keep `202 { status, flowName, conversationId, inflightId, modelId }`.
+- **Conversation storage:** No new fields are required. Store the custom title in existing `Conversation.title`; keep `flowName` and `agentName` as-is for filtering, and `flags.flow` for resume state.
+- **Conversation summary + WS:** REST summary and `conversation_upsert` payloads already include `title`, `agentName?`, and `flowName?`. Custom titles flow through `title` only. If we decide to add `flowName` to per-agent flow conversations, it uses the existing optional `flowName` field (no new schema fields).
+
 ## Acceptance Criteria
 
 - During an active flow run, live conversation updates (for example websocket `conversation_upsert` events) never remove the active flow conversation from the Flows sidebar; the transcript stays visible without refresh.
@@ -110,15 +117,6 @@ Resolved:
 Open:
 
 - Should per-agent flow conversations remain **agent-only** (no `flowName`, shown only on Agents page), or should they also carry `flowName` so they appear in flow-filtered lists?
-
----
-## Message Contracts & Storage Impact
-
-- Add an optional `customTitle` field to `POST /flows/:flowName/run` requests (UI sends it only when starting a new run, never when resuming).
-- Validation should trim whitespace and treat an empty/whitespace-only title as “not provided” (mirroring the existing manual `flowsRun` validation style).
-- Server uses `customTitle` (when provided) as the conversation title for the main flow run; otherwise the title remains `Flow: <flowName>`.
-- Server also applies `customTitle` to any per-agent flow conversations created during the same run.
-- Conversation documents still store `flowName` separately and flow filtering continues to rely on that field; `customTitle` only affects the displayed title.
 
 ---
 ## Edge Cases & Failure Modes

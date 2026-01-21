@@ -61,6 +61,13 @@ The custom name must apply to the main flow conversation and to per-agent flow c
 
 - Scope is reasonable but spans client UI, shared picker reuse, and server flow-run metadata. If delivery risk appears, split into two stories: (1) flow sidebar stability + flowName preservation, (2) UX enhancements (picker parity, info popover, custom title).
 
+## Message Contracts & Storage Shapes (Proposed)
+
+- **New request field:** add optional `customTitle` to `POST /flows/:flowName/run` body, validated as trimmed non-empty (e.g., `z.string().trim().min(1).optional()`), and only sent for new runs (never for resume).
+- **No new response shape:** the `202` response remains `{ status, flowName, conversationId, inflightId, modelId }`.
+- **No new storage fields:** use the existing `Conversation.title` field for custom titles (and for per-agent flow titles). Keep `flowName` as-is for filtering and `agentName` for agent conversations.
+- **Flows list contract unchanged:** `GET /flows` continues to return `{ name, description, disabled, error? }`; any warning display should be derived from the existing `error` field rather than adding a new warnings array.
+
 ## Implementation Ideas
 
 - **Flows WS stability:** Update `client/src/pages/FlowsPage.tsx` to include `flowName` when calling `applyWsUpsert`, or preserve the existing `flowName` when an upsert payload omits it. This avoids `useConversations` filtering the conversation out on live updates.

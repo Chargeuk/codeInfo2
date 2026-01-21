@@ -89,15 +89,16 @@ The custom name must apply to the main flow conversation and to per-agent flow c
 
 ## Implementation Ideas
 
-- **Flows WS stability:** Update `client/src/pages/FlowsPage.tsx` to include `flowName` when calling `applyWsUpsert`, or preserve the existing `flowName` when an upsert payload omits it. This avoids `useConversations` filtering the conversation out on live updates.
-- **New Flow empty state:** Keep the selected flow intact and clear only the active conversation/transcript. Do not clear the flow selector. Ensure the custom name input is reset.
-- **Working folder picker parity:** Reuse `client/src/components/ingest/DirectoryPickerDialog.tsx` and `ingestDirsApi.ts` from the Ingest/Agents patterns. Add a “Choose folder…” button next to the working folder field, and keep the field editable; cancel should be a no-op, errors should match the existing dialog UX.
-- **Flow info popover:** Add an info icon next to the Flow selector and open a MUI `Popover` with bottom-left anchoring (`anchorOrigin: bottom/left`, `transformOrigin: top/left`). Render warnings (decide if `FlowSummary.error` becomes warnings for disabled flows), Markdown description, and fallback copy.
-- **Custom title propagation:** Extend `POST /flows/:flowName/run` to accept optional `customTitle` (validated as trimmed non-empty). Update `server/src/flows/service.ts` to apply the custom title to the main flow conversation and use `<customTitle> (<identifier>)` for per-agent flow conversations, falling back to the existing `Flow: <flowName>` format.
-- **Client payloads:** Extend `client/src/api/flows.ts` and `FlowsPage` run/resume handlers to send `customTitle` only for new runs, never on resume. Ensure “New Flow” clears the input.
-- **Conversation filtering regression:** In `server/src/mongo/repo.ts`, combine the `agentName=__none__` and `flowName=__none__` filters with `$and` instead of overwriting `query.$or` so the Chat sidebar excludes both agent and flow conversations.
-- **Tests to adjust:** Update Flows page tests (`client/src/__tests__/flowsPage.*`) to cover flowName preservation, New Flow state behavior, and custom title payloads. Add/adjust server integration tests in `server/src/test/integration/flows.*` to validate new title handling and request schema.
-- **Sidebar filter tests:** Add client tests to ensure conversation sidebars are filtered correctly on Chat, Agents, and Flows pages (chat-only, agent-only, and flow-only respectively). Add server tests (or adjust existing ones) to assert `agentName=__none__` + `flowName=__none__` returns only chat conversations.
+- **Flows WS stability:** In `client/src/pages/FlowsPage.tsx`, pass through `event.conversation.flowName` to `applyWsUpsert` (the WS payload already includes it). If the payload omits `flowName`, merge the prior conversation’s `flowName` before filtering so the item stays in the flow list.
+- **Flow info popover parity:** Mirror the Agents page popover structure from `client/src/pages/AgentsPage.tsx` (info icon + `Popover`, warnings list, Markdown description, empty-state copy). Reuse the same `Markdown` component and warning layout to keep copy/padding consistent.
+- **Working folder picker parity:** Follow the Agents working-folder pattern: keep a controlled `workingFolder` field, add a “Choose folder…” button to open `DirectoryPickerDialog`, and reuse `ingestDirsApi.ts` for the `/ingest/dirs` fetch behavior. Cancel should keep the existing value; pick updates the field.
+- **New Flow reset logic:** Copy the Agents `resetConversation()` pattern: clear `activeConversationId`, transcript/messages, `workingFolder`, and `customTitle`, but keep `selectedFlowName` intact so the flow list and Run button stay enabled.
+- **Custom title propagation:** Extend `server/src/routes/flowsRun.ts` to parse `customTitle` with the same trim/empty rules as `conversationId` and `working_folder`, pass it to `startFlowRun`, and update `server/src/flows/service.ts` to use it for both memory and Mongo conversation titles (main flow + per-agent). Decide whether per-agent conversations should also store `flowName` (see open question).
+- **Client payloads:** Extend `client/src/api/flows.ts` and `FlowsPage` so `customTitle` is only sent when starting a new run (never on resume). Disable the input once a run starts or when resuming.
+- **Conversation filtering regression:** Update `server/src/mongo/repo.ts` to combine `agentName=__none__` and `flowName=__none__` conditions using `$and` of each `$or` block so chat-only lists exclude both agents and flows.
+- **Tests to adjust:**
+  - Client: Flows page tests for WS upsert `flowName` retention, New Flow reset behavior, custom title payload, and popover warnings/empty state (patterned after Agents popover tests).
+  - Server: flows run integration tests to assert `customTitle` affects main + per-agent titles, and listConversations filtering tests for chat/agent/flow isolation.
 
 ## Questions
 

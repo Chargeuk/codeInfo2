@@ -191,11 +191,17 @@ Accept `customTitle` on `POST /flows/:flowName/run` (string-only, trimmed) and t
 5. [ ] Update API documentation after the server change:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+     - Mermaid diagrams: Context7 `/mermaid-js/mermaid`
    - Files to edit:
      - `openapi.json` (add `customTitle` to `POST /flows/:flowName/run` request body)
    - Key requirements (repeat):
      - Mark `customTitle` as optional string in OpenAPI.
 6. [ ] Update `projectStructure.md` (repo root `projectStructure.md`) after any file additions/removals in this task (purpose: keep the repository tree accurate).
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+     - Mermaid diagrams: Context7 `/mermaid-js/mermaid`
+   - Files to read:
+     - `projectStructure.md` (repo root; existing tree format)
    - Files to edit:
      - `projectStructure.md` (repo root)
    - Update scope:
@@ -329,12 +335,18 @@ Use `customTitle` to set the conversation title for the main flow and per-agent 
 7. [ ] Update `design.md` (repo root `design.md`) with custom-title flow conversation behavior (purpose: document the updated flow run architecture).
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+     - Mermaid diagrams: Context7 `/mermaid-js/mermaid`
    - Files to edit:
      - `design.md` (repo root; update Flows run behavior section)
    - Key requirements (repeat):
      - Mention both main flow and per-agent title behavior.
      - Add/update a Mermaid diagram to show how custom titles are applied during flow conversation creation.
 8. [ ] Update `projectStructure.md` (repo root `projectStructure.md`) after any file additions/removals in this task (purpose: keep the repository tree accurate).
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+     - Mermaid diagrams: Context7 `/mermaid-js/mermaid`
+   - Files to read:
+     - `projectStructure.md` (repo root; existing tree format)
    - Files to edit:
      - `projectStructure.md` (repo root)
    - Update scope:
@@ -447,12 +459,18 @@ Update the conversations list query so `agentName=__none__` and `flowName=__none
 5. [ ] Update `design.md` (repo root `design.md`) with combined chat-only filter behavior (purpose: document updated conversation filtering rules).
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+     - Mermaid diagrams: Context7 `/mermaid-js/mermaid`
    - Files to edit:
      - `design.md` (repo root; update chat-only filter section)
    - Key requirements (repeat):
      - Document how `__none__` filters combine.
      - Update the Mermaid diagram that describes conversation list filtering to show combined `agentName` + `flowName` behavior.
 6. [ ] Update `projectStructure.md` (repo root `projectStructure.md`) after any file additions/removals in this task (purpose: keep the repository tree accurate).
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+     - Mermaid diagrams: Context7 `/mermaid-js/mermaid`
+   - Files to read:
+     - `projectStructure.md` (repo root; existing tree format)
    - Files to edit:
      - `projectStructure.md` (repo root)
    - Update scope:
@@ -568,12 +586,18 @@ Prevent the Flows page from dropping the active conversation during a `conversat
 5. [ ] Update `design.md` (repo root `design.md`) with WS upsert flowName merge behavior (purpose: document sidebar stability rules).
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+     - Mermaid diagrams: Context7 `/mermaid-js/mermaid`
    - Files to edit:
      - `design.md` (repo root; update WS sidebar section)
    - Key requirements (repeat):
      - Mention `flowName` merge behavior on upsert.
      - Update the Mermaid diagram that describes WS sidebar updates to include `flowName` merging.
 6. [ ] Update `projectStructure.md` (repo root `projectStructure.md`) after any file additions/removals in this task (purpose: keep the repository tree accurate).
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+     - Mermaid diagrams: Context7 `/mermaid-js/mermaid`
+   - Files to read:
+     - `projectStructure.md` (repo root; existing tree format)
    - Files to edit:
      - `projectStructure.md` (repo root)
    - Update scope:
@@ -705,6 +729,10 @@ Add working-folder UI parity to the Flows page using the existing `DirectoryPick
      - Mention parity with Agents/Ingest folder picker.
      - Add/update a Mermaid diagram that shows the Flows run form including working-folder selection.
 7. [ ] Update `projectStructure.md` (repo root `projectStructure.md`) after any file additions/removals in this task (purpose: keep the repository tree accurate).
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+   - Files to read:
+     - `projectStructure.md` (repo root; existing tree format)
    - Files to edit:
      - `projectStructure.md` (repo root)
    - Update scope:
@@ -839,6 +867,10 @@ Add the Flows page info (“i”) popover matching the Agents UI, including warn
      - Mention removal of inline flow description in favor of popover.
      - Add/update a Mermaid diagram that shows the Flows info popover in the page UX flow.
 7. [ ] Update `projectStructure.md` (repo root `projectStructure.md`) after any file additions/removals in this task (purpose: keep the repository tree accurate).
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+   - Files to read:
+     - `projectStructure.md` (repo root; existing tree format)
    - Files to edit:
      - `projectStructure.md` (repo root)
    - Update scope:
@@ -958,6 +990,10 @@ Add a custom title input field to the Flows controls, store it in local state, a
      - Document that the title is only set at run start.
      - Add/update a Mermaid diagram showing the custom title captured before starting a flow.
 6. [ ] Update `projectStructure.md` (repo root `projectStructure.md`) after any file additions/removals in this task (purpose: keep the repository tree accurate).
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+   - Files to read:
+     - `projectStructure.md` (repo root; existing tree format)
    - Files to edit:
      - `projectStructure.md` (repo root)
    - Update scope:
@@ -1084,6 +1120,10 @@ Send `customTitle` only when starting a new flow conversation and keep the paylo
      - Mention that custom title is not editable after start.
      - Add/update a Mermaid diagram that shows `customTitle` included only on new flow runs.
 7. [ ] Update `projectStructure.md` (repo root `projectStructure.md`) after any file additions/removals in this task (purpose: keep the repository tree accurate).
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+   - Files to read:
+     - `projectStructure.md` (repo root; existing tree format)
    - Files to edit:
      - `projectStructure.md` (repo root)
    - Update scope:
@@ -1211,6 +1251,10 @@ Add a “New Flow” action that clears the active conversation and transcript w
      - Call out that New Flow does not change the selected flow.
      - Add/update a Mermaid diagram that shows the New Flow reset path without changing the selected flow.
 7. [ ] Update `projectStructure.md` (repo root `projectStructure.md`) after any file additions/removals in this task (purpose: keep the repository tree accurate).
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+   - Files to read:
+     - `projectStructure.md` (repo root; existing tree format)
    - Files to edit:
      - `projectStructure.md` (repo root)
    - Update scope:
@@ -1273,6 +1317,7 @@ Run full builds/tests, perform manual verification with Playwright MCP, ensure d
 - Playwright: Context7 `/microsoft/playwright`
 - Husky: Context7 `/typicode/husky`
 - Mermaid: Context7 `/mermaid-js/mermaid`
+- Markdown Guide: https://www.markdownguide.org/basic-syntax/
 - Jest: Context7 `/websites/jestjs_io_30_0`
 - Cucumber guides: https://cucumber.io/docs/guides/
 - Node.js test runner: https://nodejs.org/api/test.html (`node:test` usage for server tests)
@@ -1284,16 +1329,25 @@ Run full builds/tests, perform manual verification with Playwright MCP, ensure d
 2. [ ] Build the client (`npm run build --workspace client`).
 3. [ ] Perform a clean Docker build (`npm run compose:build`).
 4. [ ] Update `README.md` (repo root `README.md`) with any new commands or user-facing changes from this story (purpose: keep onboarding and usage docs accurate).
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
      - `README.md` (repo root)
    - Update scope:
      - Add/adjust commands, configuration notes, or feature summaries introduced by this story.
 5. [ ] Update `design.md` (repo root `design.md`) with any required behavior or diagram updates from this story (purpose: keep architecture notes current).
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+     - Mermaid diagrams: Context7 `/mermaid-js/mermaid`
    - Files to edit:
      - `design.md` (repo root)
    - Update scope:
      - Add/update Mermaid diagrams reflecting flow-run UX, filters, and sidebar behavior changes.
 6. [ ] Update `projectStructure.md` (repo root `projectStructure.md`) with any added/removed/renamed files from this story (purpose: keep the repository tree accurate).
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+   - Files to read:
+     - `projectStructure.md` (repo root; existing tree format)
    - Files to edit:
      - `projectStructure.md` (repo root)
    - Update scope:
@@ -1301,6 +1355,8 @@ Run full builds/tests, perform manual verification with Playwright MCP, ensure d
      - Added files (if any): list each file path added in this story.
      - Removed files (if any): list each file path removed in this story.
 7. [ ] Create a pull request summary covering all changes in this story.
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
 
 #### Testing
 

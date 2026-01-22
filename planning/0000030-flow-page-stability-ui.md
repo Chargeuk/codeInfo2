@@ -176,7 +176,7 @@ Accept `customTitle` on `POST /flows/:flowName/run` (string-only, trimmed) and t
      - Ensure `startFlowRun` accepts the new field without applying it yet.
    - Key requirements (repeat):
      - No behavior changes in this subtask; only thread the type/parameter.
-4. [ ] Add integration coverage for invalid `customTitle`:
+4. [ ] Integration test (server) — `server/src/test/integration/flows.run.errors.test.ts`: reject non-string `customTitle` with `400 invalid_request` (purpose: validate request type safety).
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
      - Supertest HTTP assertions: https://github.com/forwardemail/supertest
@@ -284,20 +284,31 @@ Use `customTitle` to set the conversation title for the main flow and per-agent 
    - Key requirements (repeat):
      - Do not update existing conversation titles.
      - Keep flow conversation `flowName` behavior unchanged.
-3. [ ] Add integration coverage for custom titles:
+3. [ ] Integration test (server) — `server/src/test/integration/flows.run.basic.test.ts`: main flow conversation title reflects `customTitle` (purpose: confirm main flow naming).
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
      - Supertest HTTP assertions: https://github.com/forwardemail/supertest
    - Files to edit:
      - `server/src/test/integration/flows.run.basic.test.ts`
-     - `server/src/test/integration/flows.run.loop.test.ts`
    - Test expectations:
      - The main flow conversation title reflects `customTitle` when supplied.
+4. [ ] Integration test (server) — `server/src/test/integration/flows.run.loop.test.ts`: per-agent flow conversation title includes `customTitle` + identifier (purpose: verify per-agent naming).
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+     - Supertest HTTP assertions: https://github.com/forwardemail/supertest
+   - Files to edit:
+     - `server/src/test/integration/flows.run.loop.test.ts`
+   - Test expectations:
      - The per-agent flow conversation title includes `customTitle` + identifier.
+5. [ ] Integration test (server) — `server/src/test/integration/flows.run.basic.test.ts`: whitespace-only `customTitle` is ignored (purpose: confirm trim/empty handling).
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+     - Supertest HTTP assertions: https://github.com/forwardemail/supertest
+   - Files to edit:
+     - `server/src/test/integration/flows.run.basic.test.ts`
+   - Test expectations:
      - Empty/whitespace `customTitle` values are ignored.
-   - Key requirements (repeat):
-     - Keep existing flow run test assertions intact; only add new expectations.
-4. [ ] Update documentation after the server change:
+6. [ ] Update documentation after the server change:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -305,7 +316,7 @@ Use `customTitle` to set the conversation title for the main flow and per-agent 
      - `projectStructure.md` (only if new fixtures/files are added)
    - Key requirements (repeat):
      - Mention both main flow and per-agent title behavior.
-5. [ ] Run full lint + format check:
+7. [ ] Run full lint + format check:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -391,7 +402,7 @@ Update the conversations list query so `agentName=__none__` and `flowName=__none
      - Preserve existing behavior for single filters and explicit `agentName`/`flowName` values.
    - Key requirements (repeat):
      - Do not change sort/pagination behavior.
-3. [ ] Add/extend list-conversations tests for combined filters:
+3. [ ] Integration test (server) — `server/src/test/integration/conversations.list.test.ts`: `?agentName=__none__&flowName=__none__` returns only chat conversations (purpose: ensure chat-only filter works).
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
      - Supertest HTTP assertions: https://github.com/forwardemail/supertest
@@ -399,10 +410,15 @@ Update the conversations list query so `agentName=__none__` and `flowName=__none
      - `server/src/test/integration/conversations.list.test.ts`
    - Test expectations:
      - `?agentName=__none__&flowName=__none__` returns only chat conversations.
+4. [ ] Integration test (server) — `server/src/test/integration/conversations.list.test.ts`: `?agentName=__none__&flowName=<name>` returns non-agent flow conversations only (purpose: ensure agent exclusion stays intact).
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+     - Supertest HTTP assertions: https://github.com/forwardemail/supertest
+   - Files to edit:
+     - `server/src/test/integration/conversations.list.test.ts`
+   - Test expectations:
      - `?agentName=__none__&flowName=<name>` returns non-agent flow conversations only.
-   - Key requirements (repeat):
-     - Keep existing list tests intact; add new cases only.
-4. [ ] Update documentation after the query change:
+5. [ ] Update documentation after the query change:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -410,7 +426,7 @@ Update the conversations list query so `agentName=__none__` and `flowName=__none
      - `projectStructure.md` (only if new files are added)
    - Key requirements (repeat):
      - Document how `__none__` filters combine.
-5. [ ] Run full lint + format check:
+6. [ ] Run full lint + format check:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -499,19 +515,23 @@ Prevent the Flows page from dropping the active conversation during a `conversat
      - Ensure per-agent conversations (with `agentName`) are still excluded from the Flows sidebar.
    - Key requirements (repeat):
      - Do not add new WS event types or server changes.
-3. [ ] Add/update Flows page tests for WS upserts:
+3. [ ] Component test (client) — `client/src/test/flowsPage.test.tsx`: `conversation_upsert` missing `flowName` keeps the conversation visible (purpose: prevent sidebar drop).
    - Documentation to read (repeat):
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
      - Jest: Context7 `/websites/jestjs_io_30_0`
    - Files to edit:
      - `client/src/test/flowsPage.test.tsx`
-     - `client/src/test/flowsPage.run.test.tsx`
    - Test expectations:
      - `conversation_upsert` keeps the conversation visible when `flowName` is missing from the payload (merge uses previous value).
-     - `conversation_upsert` with `agentName` does not show in the Flows sidebar (agent-only conversations remain excluded).
-   - Key requirements (repeat):
-     - Keep existing WS tests intact; add a focused case for missing `flowName`.
-4. [ ] Update documentation after the client fix:
+4. [ ] Component test (client) — `client/src/test/flowsPage.run.test.tsx`: `conversation_upsert` with `agentName` stays excluded from the Flows sidebar (purpose: avoid agent-only leaks).
+   - Documentation to read (repeat):
+     - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+     - Jest: Context7 `/websites/jestjs_io_30_0`
+   - Files to edit:
+     - `client/src/test/flowsPage.run.test.tsx`
+   - Test expectations:
+     - `conversation_upsert` with `agentName` does not show in the Flows sidebar.
+5. [ ] Update documentation after the client fix:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -519,7 +539,7 @@ Prevent the Flows page from dropping the active conversation during a `conversat
      - `projectStructure.md` (only if new test files are added)
    - Key requirements (repeat):
      - Mention `flowName` merge behavior on upsert.
-5. [ ] Run full lint + format check:
+6. [ ] Run full lint + format check:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -574,13 +594,6 @@ Add working-folder UI parity to the Flows page using the existing `DirectoryPick
 - React hooks/state: Context7 `/facebook/react/v19_2_0` (React 19.2 hooks API)
 - Jest: Context7 `/websites/jestjs_io_30_0` (test structure)
 - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-- Node.js test runner: https://nodejs.org/api/test.html (`node:test` usage for server tests)
-- Markdown Guide: https://www.markdownguide.org/basic-syntax/ (syntax reference for docs updates)
-- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface (lint command reference)
-- Prettier CLI: https://prettier.io/docs/cli (format command reference)
-- npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script (build/test command usage)
-- Playwright: Context7 `/microsoft/playwright` (e2e command reference)
-- Docker/Compose: Context7 `/docker/docs` (compose build/up/down commands)
 - MUI TextField API (closest to @mui/material 6.4.1): https://llms.mui.com/material-ui/6.4.12/api/text-field.md
 - Node.js test runner: https://nodejs.org/api/test.html (`node:test` usage for server tests)
 - Markdown Guide: https://www.markdownguide.org/basic-syntax/ (syntax reference for docs updates)
@@ -623,20 +636,31 @@ Add working-folder UI parity to the Flows page using the existing `DirectoryPick
      - Keep the selected value on dialog cancel; update on confirm.
    - Key requirements (repeat):
      - Preserve existing `working_folder` payload wiring in `runFlow`.
-3. [ ] Add/update Flows page tests for working-folder selection:
+3. [ ] Component test (client) — `client/src/test/flowsPage.run.test.tsx`: picker selection populates the working folder input (purpose: confirm happy-path selection).
    - Documentation to read (repeat):
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
      - Jest: Context7 `/websites/jestjs_io_30_0`
    - Files to edit:
      - `client/src/test/flowsPage.run.test.tsx`
-     - `client/src/test/flowsApi.run.payload.test.ts`
    - Test expectations:
      - Opening the picker populates the input after selecting a folder.
-     - The chosen `working_folder` is sent in the flow run payload.
+4. [ ] Component test (client) — `client/src/test/flowsPage.run.test.tsx`: picker error shows inline error and preserves value (purpose: cover error-state UX).
+   - Documentation to read (repeat):
+     - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+     - Jest: Context7 `/websites/jestjs_io_30_0`
+   - Files to edit:
+     - `client/src/test/flowsPage.run.test.tsx`
+   - Test expectations:
      - Directory picker errors render the inline error state and do not clear the current `workingFolder` value.
-   - Key requirements (repeat):
-     - Keep current run/resume tests intact; add targeted cases only.
-4. [ ] Update documentation after the UI addition:
+5. [ ] Unit/API test (client) — `client/src/test/flowsApi.run.payload.test.ts`: `working_folder` is sent in the flow run payload (purpose: confirm request body).
+   - Documentation to read (repeat):
+     - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+     - Jest: Context7 `/websites/jestjs_io_30_0`
+   - Files to edit:
+     - `client/src/test/flowsApi.run.payload.test.ts`
+   - Test expectations:
+     - The chosen `working_folder` is sent in the flow run payload.
+6. [ ] Update documentation after the UI addition:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -644,7 +668,7 @@ Add working-folder UI parity to the Flows page using the existing `DirectoryPick
      - `projectStructure.md` (only if new files are added)
    - Key requirements (repeat):
      - Mention parity with Agents/Ingest folder picker.
-5. [ ] Run full lint + format check:
+7. [ ] Run full lint + format check:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -737,7 +761,7 @@ Add the Flows page info (“i”) popover matching the Agents UI, including warn
      - Remove the inline flow description + warning alert beneath the controls so the popover becomes the single source of flow details.
    - Key requirements (repeat):
      - Empty-state copy must match Agents: “No description or warnings are available for this agent yet.”
-3. [ ] Add/update Flows page tests for the info popover:
+3. [ ] Component test (client) — `client/src/test/flowsPage.test.tsx`: popover shows warnings when flow is disabled (purpose: ensure warning UX parity).
    - Documentation to read (repeat):
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
      - Jest: Context7 `/websites/jestjs_io_30_0`
@@ -745,11 +769,23 @@ Add the Flows page info (“i”) popover matching the Agents UI, including warn
      - `client/src/test/flowsPage.test.tsx`
    - Test expectations:
      - Popover shows warnings when flow is disabled.
+4. [ ] Component test (client) — `client/src/test/flowsPage.test.tsx`: popover shows Markdown description (purpose: confirm description rendering).
+   - Documentation to read (repeat):
+     - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+     - Jest: Context7 `/websites/jestjs_io_30_0`
+   - Files to edit:
+     - `client/src/test/flowsPage.test.tsx`
+   - Test expectations:
      - Popover shows description when available.
+5. [ ] Component test (client) — `client/src/test/flowsPage.test.tsx`: empty-state copy renders when no warnings/description (purpose: match Agents empty-state).
+   - Documentation to read (repeat):
+     - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+     - Jest: Context7 `/websites/jestjs_io_30_0`
+   - Files to edit:
+     - `client/src/test/flowsPage.test.tsx`
+   - Test expectations:
      - Empty-state copy renders when warnings + description are missing.
-   - Key requirements (repeat):
-     - Use the same test ids/patterns as Agents info popover where possible.
-4. [ ] Update documentation after the UI addition:
+6. [ ] Update documentation after the UI addition:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -757,7 +793,7 @@ Add the Flows page info (“i”) popover matching the Agents UI, including warn
      - `projectStructure.md` (only if new files are added)
    - Key requirements (repeat):
      - Mention removal of inline flow description in favor of popover.
-5. [ ] Run full lint + format check:
+7. [ ] Run full lint + format check:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -813,6 +849,13 @@ Add a custom title input field to the Flows controls, store it in local state, a
 - Jest: Context7 `/websites/jestjs_io_30_0` (test structure)
 - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
 - MUI TextField API (closest to @mui/material 6.4.1): https://llms.mui.com/material-ui/6.4.12/api/text-field.md
+- Node.js test runner: https://nodejs.org/api/test.html (`node:test` usage for server tests)
+- Markdown Guide: https://www.markdownguide.org/basic-syntax/ (syntax reference for docs updates)
+- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface (lint command reference)
+- Prettier CLI: https://prettier.io/docs/cli (format command reference)
+- npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script (build/test command usage)
+- Playwright: Context7 `/microsoft/playwright` (e2e command reference)
+- Docker/Compose: Context7 `/docker/docs` (compose build/up/down commands)
 
 #### Subtasks
 
@@ -834,7 +877,7 @@ Add a custom title input field to the Flows controls, store it in local state, a
      - Clear `customTitle` inside the existing `resetConversation` helper so New Flow + flow changes reset it.
    - Key requirements (repeat):
      - Do not persist custom title in local storage; keep in component state only.
-3. [ ] Add/update Flows page tests for the custom title input UI:
+3. [ ] Component test (client) — `client/src/test/flowsPage.run.test.tsx`: custom title input renders (purpose: confirm UI presence).
    - Documentation to read (repeat):
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
      - Jest: Context7 `/websites/jestjs_io_30_0`
@@ -842,10 +885,17 @@ Add a custom title input field to the Flows controls, store it in local state, a
      - `client/src/test/flowsPage.run.test.tsx`
    - Test expectations:
      - Custom title input renders.
+4. [ ] Component test (client) — `client/src/test/flowsPage.run.test.tsx`: input disables during resume/inflight states (purpose: prevent edits after start).
+   - Documentation to read (repeat):
+     - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+     - Jest: Context7 `/websites/jestjs_io_30_0`
+   - Files to edit:
+     - `client/src/test/flowsPage.run.test.tsx`
+   - Test expectations:
      - Input disables during resume/inflight states.
    - Key requirements (repeat):
      - Tests should not depend on server responses (UI-only).
-4. [ ] Update documentation after the UI addition:
+5. [ ] Update documentation after the UI addition:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -853,7 +903,7 @@ Add a custom title input field to the Flows controls, store it in local state, a
      - `projectStructure.md` (only if new files are added)
    - Key requirements (repeat):
      - Document that the title is only set at run start.
-5. [ ] Run full lint + format check:
+6. [ ] Run full lint + format check:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -908,6 +958,13 @@ Send `customTitle` only when starting a new flow conversation and keep the paylo
 - React hooks/state: Context7 `/facebook/react/v19_2_0` (React 19.2 hooks API)
 - Jest: Context7 `/websites/jestjs_io_30_0` (test structure)
 - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+- Node.js test runner: https://nodejs.org/api/test.html (`node:test` usage for server tests)
+- Markdown Guide: https://www.markdownguide.org/basic-syntax/ (syntax reference for docs updates)
+- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface (lint command reference)
+- Prettier CLI: https://prettier.io/docs/cli (format command reference)
+- npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script (build/test command usage)
+- Playwright: Context7 `/microsoft/playwright` (e2e command reference)
+- Docker/Compose: Context7 `/docker/docs` (compose build/up/down commands)
 
 #### Subtasks
 
@@ -931,19 +988,31 @@ Send `customTitle` only when starting a new flow conversation and keep the paylo
      - Include `customTitle` in the request body only when `isNewConversation === true` and `mode === 'run'`.
    - Key requirements (repeat):
      - Never send `customTitle` on resume or existing-conversation runs.
-3. [ ] Update flow API + page tests for custom title payloads:
+3. [ ] Unit/API test (client) — `client/src/test/flowsApi.run.payload.test.ts`: include `customTitle` for new runs only (purpose: verify payload on new run).
    - Documentation to read (repeat):
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
      - Jest: Context7 `/websites/jestjs_io_30_0`
    - Files to edit:
      - `client/src/test/flowsApi.run.payload.test.ts`
-     - `client/src/test/flowsPage.run.test.tsx`
    - Test expectations:
      - `customTitle` is included only for new runs.
+4. [ ] Unit/API test (client) — `client/src/test/flowsApi.run.payload.test.ts`: omit `customTitle` for resume/existing conversation runs (purpose: prevent accidental rename).
+   - Documentation to read (repeat):
+     - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+     - Jest: Context7 `/websites/jestjs_io_30_0`
+   - Files to edit:
+     - `client/src/test/flowsApi.run.payload.test.ts`
+   - Test expectations:
      - `customTitle` is omitted for resume or existing conversation runs.
-   - Key requirements (repeat):
-     - Keep existing payload tests intact; add new focused assertions.
-4. [ ] Update documentation after the payload change:
+5. [ ] Component test (client) — `client/src/test/flowsPage.run.test.tsx`: when starting a new run, the UI passes `customTitle` into `runFlow` (purpose: confirm UI wiring).
+   - Documentation to read (repeat):
+     - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+     - Jest: Context7 `/websites/jestjs_io_30_0`
+   - Files to edit:
+     - `client/src/test/flowsPage.run.test.tsx`
+   - Test expectations:
+     - The run action includes the current `customTitle` when starting a new flow.
+6. [ ] Update documentation after the payload change:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -951,7 +1020,7 @@ Send `customTitle` only when starting a new flow conversation and keep the paylo
      - `projectStructure.md` (only if new files are added)
    - Key requirements (repeat):
      - Mention that custom title is not editable after start.
-5. [ ] Run full lint + format check:
+7. [ ] Run full lint + format check:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -1038,7 +1107,7 @@ Add a “New Flow” action that clears the active conversation and transcript w
      - Reset any “resume” state so the next run is treated as a new flow.
    - Key requirements (repeat):
      - Do not clear the flow selection or flow list state.
-3. [ ] Add/update Flows page tests for the reset action:
+3. [ ] Component test (client) — `client/src/test/flowsPage.run.test.tsx`: “New Flow” clears transcript + active conversation (purpose: confirm reset behavior).
    - Documentation to read (repeat):
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
      - Jest: Context7 `/websites/jestjs_io_30_0`
@@ -1046,10 +1115,23 @@ Add a “New Flow” action that clears the active conversation and transcript w
      - `client/src/test/flowsPage.run.test.tsx`
    - Test expectations:
      - Clicking “New Flow” clears the transcript and active conversation.
+4. [ ] Component test (client) — `client/src/test/flowsPage.run.test.tsx`: selected flow remains and Run stays enabled (purpose: keep flow selection intact).
+   - Documentation to read (repeat):
+     - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+     - Jest: Context7 `/websites/jestjs_io_30_0`
+   - Files to edit:
+     - `client/src/test/flowsPage.run.test.tsx`
+   - Test expectations:
      - The selected flow remains highlighted and the Run button is still enabled.
-   - Key requirements (repeat):
-     - Ensure tests cover that `customTitle` and `workingFolder` reset.
-4. [ ] Update documentation after the UI addition:
+5. [ ] Component test (client) — `client/src/test/flowsPage.run.test.tsx`: `customTitle` + `workingFolder` reset on New Flow (purpose: clear form state).
+   - Documentation to read (repeat):
+     - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+     - Jest: Context7 `/websites/jestjs_io_30_0`
+   - Files to edit:
+     - `client/src/test/flowsPage.run.test.tsx`
+   - Test expectations:
+     - `customTitle` and `workingFolder` values reset.
+6. [ ] Update documentation after the UI addition:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -1057,7 +1139,7 @@ Add a “New Flow” action that clears the active conversation and transcript w
      - `projectStructure.md` (only if new files are added)
    - Key requirements (repeat):
      - Call out that New Flow does not change the selected flow.
-5. [ ] Run full lint + format check:
+7. [ ] Run full lint + format check:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli

@@ -208,7 +208,15 @@ Accept `customTitle` on `POST /flows/:flowName/run` (string-only, trimmed) and t
      - Add/remove/rename entries for any files changed by this task.
      - Added files (if any): list each file path added in this task.
      - Removed files (if any): list each file path removed in this task.
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+7. [ ] Add a server log line when `customTitle` validation completes (purpose: verify request validation in manual checks).
+   - Files to edit:
+     - `server/src/routes/flowsRun.ts`
+   - Log line to add:
+     - `flows.run.custom_title.validated` with fields `{ requestId, flowName, customTitleProvided, customTitleLength }`.
+   - Implementation details:
+     - Emit after `validateBody` succeeds and `customTitle` has been normalized.
+     - Set `customTitleProvided` to `true` only when a non-empty string was supplied.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -238,6 +246,7 @@ Accept `customTitle` on `POST /flows/:flowName/run` (string-only, trimmed) and t
 8. [ ] Manual Playwright-MCP check to confirm custom title runs are accepted and no regressions:
    - Use Playwright MCP against http://host.docker.internal:5001.
    - Start a flow with a custom title and confirm the run starts without error.
+   - Check server logs for `flows.run.custom_title.validated` with `customTitleProvided: true` and a non-zero `customTitleLength`.
    - Ensure there are no logged errors in the browser debug console.
 9. [ ] `npm run compose:down`
    - Documentation to read (repeat):
@@ -353,7 +362,16 @@ Use `customTitle` to set the conversation title for the main flow and per-agent 
      - Add/remove/rename entries for any files changed by this task.
      - Added files (if any): list each file path added in this task.
      - Removed files (if any): list each file path removed in this task.
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+9. [ ] Add server log lines when custom titles are applied or skipped on resume (purpose: verify title behavior in manual checks).
+   - Files to edit:
+     - `server/src/flows/service.ts`
+   - Log lines to add:
+     - `flows.run.custom_title.applied` with fields `{ flowName, conversationId, agentName, customTitle }`.
+     - `flows.run.custom_title.resume_ignored` with fields `{ flowName, conversationId, customTitle }`.
+   - Implementation details:
+     - Emit the applied log for the main flow and each agent conversation that receives a custom title.
+     - Emit the resume_ignored log when a resume request includes `customTitle` but no title change occurs.
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -385,6 +403,8 @@ Use `customTitle` to set the conversation title for the main flow and per-agent 
    - Start a flow with a custom title and confirm the main flow conversation title uses that custom title.
    - Confirm per-agent flow conversations include the custom title plus the agent identifier.
    - Resume an existing conversation with a custom title and confirm the existing title does not change.
+   - Check server logs for `flows.run.custom_title.applied` entries for the main flow and each per-agent conversation.
+   - Check server logs for `flows.run.custom_title.resume_ignored` when resuming with a custom title.
    - Ensure there are no logged errors in the browser debug console.
 9. [ ] `npm run compose:down`
    - Documentation to read (repeat):
@@ -479,7 +499,15 @@ Update the conversations list query so `agentName=__none__` and `flowName=__none
      - Add/remove/rename entries for any files changed by this task.
      - Added files (if any): list each file path added in this task.
      - Removed files (if any): list each file path removed in this task.
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+7. [ ] Add a server log line when combined chat-only filters are applied (purpose: verify filter behavior in manual checks).
+   - Files to edit:
+     - `server/src/mongo/repo.ts`
+   - Log line to add:
+     - `conversations.filter.chat_only_combined` with fields `{ agentName, flowName }`.
+   - Implementation details:
+     - Emit only when `agentName === '__none__'` and `flowName === '__none__'` are both present.
+     - Keep logging lightweight (single append per request).
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -510,6 +538,7 @@ Update the conversations list query so `agentName=__none__` and `flowName=__none
    - Use Playwright MCP against http://host.docker.internal:5001.
    - Navigate to the conversations list and enable the chat-only filter (agentName + flowName “none” state).
    - Confirm only chat conversations are listed and flow/agent conversations are excluded.
+   - Check server logs for `conversations.filter.chat_only_combined` with `agentName: '__none__'` and `flowName: '__none__'`.
    - Ensure there are no logged errors in the browser debug console.
 9. [ ] `npm run compose:down`
    - Documentation to read (repeat):
@@ -607,7 +636,14 @@ Prevent the Flows page from dropping the active conversation during a `conversat
      - Add/remove/rename entries for any files changed by this task.
      - Added files (if any): list each file path added in this task.
      - Removed files (if any): list each file path removed in this task.
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+7. [ ] Add a client log line when a WS upsert merges missing `flowName` (purpose: verify sidebar stability in manual checks).
+   - Files to edit:
+     - `client/src/hooks/useConversations.ts`
+   - Log line to add:
+     - `flows.ws.upsert.merge_flowName` with fields `{ conversationId, flowName }`.
+   - Implementation details:
+     - Emit only when the incoming upsert is missing `flowName` and the previous summary supplies it.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -638,6 +674,7 @@ Prevent the Flows page from dropping the active conversation during a `conversat
    - Use Playwright MCP against http://host.docker.internal:5001.
    - Start a flow and watch the sidebar while messages arrive; confirm the active flow conversation never disappears.
    - Trigger a run that produces multiple updates to ensure the conversation stays filtered correctly.
+   - Check the browser debug console for `flows.ws.upsert.merge_flowName` with the expected `conversationId` and `flowName`.
    - Ensure there are no logged errors in the browser debug console.
 9. [ ] `npm run compose:down`
    - Documentation to read (repeat):
@@ -743,7 +780,14 @@ Add working-folder UI parity to the Flows page using the existing `DirectoryPick
      - Add/remove/rename entries for any files changed by this task.
      - Added files (if any): list each file path added in this task.
      - Removed files (if any): list each file path removed in this task.
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+8. [ ] Add a client log line when a working folder is selected (purpose: verify picker behavior in manual checks).
+   - Files to edit:
+     - `client/src/pages/FlowsPage.tsx`
+   - Log line to add:
+     - `flows.ui.working_folder.selected` with fields `{ workingFolder }`.
+   - Implementation details:
+     - Emit when `handlePickDir` confirms a selection.
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -774,6 +818,7 @@ Add working-folder UI parity to the Flows page using the existing `DirectoryPick
    - Use Playwright MCP against http://host.docker.internal:5001.
    - Open the working-folder picker, select a folder, and confirm the input updates.
    - Cancel the picker and confirm the existing value remains unchanged.
+   - Check the browser debug console for `flows.ui.working_folder.selected` with the chosen folder path.
    - Ensure there are no logged errors in the browser debug console.
 9. [ ] `npm run compose:down`
    - Documentation to read (repeat):
@@ -882,7 +927,14 @@ Add the Flows page info (“i”) popover matching the Agents UI, including warn
      - Add/remove/rename entries for any files changed by this task.
      - Added files (if any): list each file path added in this task.
      - Removed files (if any): list each file path removed in this task.
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+8. [ ] Add a client log line when the flow info popover opens (purpose: verify popover state in manual checks).
+   - Files to edit:
+     - `client/src/pages/FlowsPage.tsx`
+   - Log line to add:
+     - `flows.ui.info_popover.opened` with fields `{ flowName, hasWarnings, hasDescription }`.
+   - Implementation details:
+     - Emit when the info icon opens the popover.
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -914,6 +966,7 @@ Add the Flows page info (“i”) popover matching the Agents UI, including warn
    - Open the info popover for a flow with warnings and confirm warnings render.
    - Open a flow with a Markdown description and confirm the description renders.
    - Open a flow with no warnings/description and confirm the empty-state copy renders.
+   - Check the browser debug console for `flows.ui.info_popover.opened` entries with the expected `hasWarnings`/`hasDescription` flags.
    - Ensure there are no logged errors in the browser debug console.
 9. [ ] `npm run compose:down`
    - Documentation to read (repeat):
@@ -1007,7 +1060,14 @@ Add a custom title input field to the Flows controls, store it in local state, a
      - Add/remove/rename entries for any files changed by this task.
      - Added files (if any): list each file path added in this task.
      - Removed files (if any): list each file path removed in this task.
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+7. [ ] Add a client log line when the custom title input is updated (purpose: verify input behavior in manual checks).
+   - Files to edit:
+     - `client/src/pages/FlowsPage.tsx`
+   - Log line to add:
+     - `flows.ui.custom_title.updated` with fields `{ customTitleLength }`.
+   - Implementation details:
+     - Emit on blur (or explicit commit) so the log fires once per input update.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -1038,6 +1098,7 @@ Add a custom title input field to the Flows controls, store it in local state, a
    - Use Playwright MCP against http://host.docker.internal:5001.
    - Confirm the custom title input renders on the Flows page.
    - Start/resume a flow and verify the input disables when a run is active or a conversation is selected.
+   - Enter a custom title, blur the field, and confirm `flows.ui.custom_title.updated` appears with a non-zero `customTitleLength`.
    - Ensure there are no logged errors in the browser debug console.
 9. [ ] `npm run compose:down`
    - Documentation to read (repeat):
@@ -1138,7 +1199,14 @@ Send `customTitle` only when starting a new flow conversation and keep the paylo
      - Add/remove/rename entries for any files changed by this task.
      - Added files (if any): list each file path added in this task.
      - Removed files (if any): list each file path removed in this task.
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+8. [ ] Add a client log line when the run payload includes or omits `customTitle` (purpose: verify payload rules in manual checks).
+   - Files to edit:
+     - `client/src/api/flows.ts`
+   - Log line to add:
+     - `flows.run.payload.custom_title_included` with fields `{ included, isNewConversation }`.
+   - Implementation details:
+     - Emit immediately before sending the request body.
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -1169,6 +1237,7 @@ Send `customTitle` only when starting a new flow conversation and keep the paylo
    - Use Playwright MCP against http://host.docker.internal:5001.
    - Start a new flow with a custom title and inspect the `/flows/:flowName/run` request payload to confirm `customTitle` is present.
    - Resume an existing flow and confirm the run payload omits `customTitle`.
+   - Check the browser debug console for `flows.run.payload.custom_title_included` with `included: true` for new runs and `included: false` for resumes.
    - Ensure there are no logged errors in the browser debug console.
 9. [ ] `npm run compose:down`
    - Documentation to read (repeat):
@@ -1270,7 +1339,14 @@ Add a “New Flow” action that clears the active conversation and transcript w
      - Add/remove/rename entries for any files changed by this task.
      - Added files (if any): list each file path added in this task.
      - Removed files (if any): list each file path removed in this task.
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+8. [ ] Add a client log line when “New Flow” resets the form (purpose: verify reset behavior in manual checks).
+   - Files to edit:
+     - `client/src/pages/FlowsPage.tsx`
+   - Log line to add:
+     - `flows.ui.new_flow_reset` with fields `{ selectedFlowName, clearedFields }`.
+   - Implementation details:
+     - Emit after `resetConversation` completes and confirm `clearedFields` includes `customTitle` and `workingFolder`.
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -1302,6 +1378,7 @@ Add a “New Flow” action that clears the active conversation and transcript w
    - Use Playwright MCP against http://host.docker.internal:5001.
    - Start a flow, set custom title + working folder, then click “New Flow”.
    - Confirm the selected flow stays highlighted, the Run button remains enabled, and the form fields reset.
+   - Check the browser debug console for `flows.ui.new_flow_reset` with `clearedFields` including `customTitle` and `workingFolder`.
    - Ensure there are no logged errors in the browser debug console.
 9. [ ] `npm run compose:down`
    - Documentation to read (repeat):
@@ -1365,7 +1442,14 @@ Run full builds/tests, perform manual verification with Playwright MCP, ensure d
 4. [ ] Create a pull request summary covering all changes in this story.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+5. [ ] Add a client log line when the Flows page is ready for manual validation (purpose: confirm QA readiness in manual checks).
+   - Files to edit:
+     - `client/src/pages/FlowsPage.tsx`
+   - Log line to add:
+     - `flows.qa.validation_ready` with fields `{ flowCount }`.
+   - Implementation details:
+     - Emit once when the flows list has loaded (non-loading state) and counts are available.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -1387,6 +1471,7 @@ Run full builds/tests, perform manual verification with Playwright MCP, ensure d
      - `0000030-10-working-folder-picker.png`
      - `0000030-10-custom-title.png`
      - `0000030-10-new-flow-reset.png`
+   - Check the browser debug console for `flows.qa.validation_ready` with a non-zero `flowCount`.
    - Ensure there are no logged errors in the browser debug console.
 9. [ ] `npm run compose:down`
 

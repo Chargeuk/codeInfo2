@@ -734,6 +734,7 @@ Add working-folder UI parity to the Flows page using the existing `DirectoryPick
    - Implementation details:
      - Reuse the existing `workingFolder` text field; keep manual entry available.
      - Add a “Choose folder…” button to open `DirectoryPickerDialog`.
+     - Place the working folder row directly beneath the Flow selector; keep the button aligned next to the input.
      - Mirror Agents behavior (`handleOpenDirPicker`, `handlePickDir`, `handleCloseDirPicker`).
      - Keep the selected value on dialog cancel; update on confirm.
    - Key requirements (repeat):
@@ -878,6 +879,7 @@ Add the Flows page info (“i”) popover matching the Agents UI, including warn
    - Files to edit:
      - `client/src/pages/FlowsPage.tsx`
    - Implementation details:
+     - Place the info icon directly next to the Flow selector (same row) and anchor the popover to it.
      - Show warnings when `disabled === true` and `error` is present.
      - Render the description via the shared Markdown component.
      - When both warning + description are missing, show the same empty-state copy as Agents.
@@ -885,7 +887,7 @@ Add the Flows page info (“i”) popover matching the Agents UI, including warn
      - Avoid deprecated `components`/`componentsProps` props in Tooltip/Popover; use default slots unless customization is required.
      - Remove the inline flow description + warning alert beneath the controls so the popover becomes the single source of flow details.
    - Key requirements (repeat):
-     - Empty-state copy must match Agents: “No description or warnings are available for this agent yet.”
+     - Empty-state copy must be: “No description or warnings are available for this flow yet.”
 3. [ ] Component test (client) — `client/src/test/flowsPage.test.tsx`: popover shows warnings when flow is disabled (purpose: ensure warning UX parity).
    - Documentation to read (repeat):
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
@@ -1022,6 +1024,7 @@ Add a custom title input field to the Flows controls, store it in local state, a
      - `client/src/pages/FlowsPage.tsx`
    - Implementation details:
      - Add `customTitle` state and a text input in the controls stack.
+     - Use helper text “Optional: name for this run”.
      - Disable the input when resuming, when a run is in progress, or when an existing conversation is selected.
      - Clear `customTitle` inside the existing `resetConversation` helper so New Flow + flow changes reset it.
    - Key requirements (repeat):
@@ -1486,11 +1489,12 @@ Run full builds/tests, perform manual verification with Playwright MCP, ensure d
 
 - 
 
-## Reference: Agents “i” button UX (must match)
+## Reference: Agents “i” button UX (structure match)
 
 - Shows **Warnings** header when warnings exist, listing each warning.
 - Shows the agent description rendered as Markdown inside an outlined panel.
-- If both warnings and description are missing, displays: “No description or warnings are available for this agent yet.”
+- If both warnings and description are missing, Agents displays: “No description or warnings are available for this agent yet.”
+- For Flows, use the same structure but replace the noun: “No description or warnings are available for this flow yet.”
 - Uses a popover anchored to the info icon with left-bottom anchoring.
 - Use MUI Popover positioning (`anchorOrigin: { vertical: 'bottom', horizontal: 'left' }`, `transformOrigin: { vertical: 'top', horizontal: 'left' }`) so the popover behaves like other MUI info popovers.
 

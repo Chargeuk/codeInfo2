@@ -1631,3 +1631,12 @@ Run full builds/tests, perform manual verification with Playwright MCP, ensure d
 - Uses the existing `DirectoryPickerDialog` component and `GET /ingest/dirs` endpoint.
 - Shows base path, current path, list of child directories, and “Use this folder” action.
 - Includes loading and error states identical to the Ingest/Agents usage.
+
+## Code Review Summary (main vs feature/0000030-flow-page-stability-ui)
+
+- Reviewed diffs for server flow run validation/title application, conversation filtering, client Flows UI state, API payloads, tests, and documentation updates.
+- Acceptance criteria confirmed: flow sidebar stability via WS `flowName` preservation; working-folder picker parity; flow info popover with warnings/Markdown/empty state; custom title capture on new runs with per-agent naming; New Flow resets transcript while keeping selection; chat-only filter excludes agents/flows.
+- Code quality & maintainability: changes are localized, reuse shared components (`DirectoryPickerDialog`, `Markdown`), and keep existing flows state patterns; logging is consistent with existing conventions.
+- Performance: no new heavy loops or polling; WS upsert merge is O(n) within existing list update and acceptable for sidebar sizes.
+- Security & validation: server trims and validates `customTitle` type; client sends customTitle only for new runs; resume behavior remains guarded by client logic and server logging.
+- Best practices: updated tests for UI/state changes, server integration tests for new validation/filters, and documentation/diagrams reflecting the new behaviors.

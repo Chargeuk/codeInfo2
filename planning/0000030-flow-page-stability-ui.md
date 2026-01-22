@@ -235,7 +235,11 @@ Accept `customTitle` on `POST /flows/:flowName/run` (string-only, trimmed) and t
 7. [ ] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] `npm run compose:down`
+8. [ ] Manual Playwright-MCP check to confirm custom title runs are accepted and no regressions:
+   - Use Playwright MCP against http://host.docker.internal:5001.
+   - Start a flow with a custom title and confirm the run starts without error.
+   - Ensure there are no logged errors in the browser debug console.
+9. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
@@ -376,7 +380,13 @@ Use `customTitle` to set the conversation title for the main flow and per-agent 
 7. [ ] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] `npm run compose:down`
+8. [ ] Manual Playwright-MCP check to confirm custom titles apply to flow conversations and resume does not rename:
+   - Use Playwright MCP against http://host.docker.internal:5001.
+   - Start a flow with a custom title and confirm the main flow conversation title uses that custom title.
+   - Confirm per-agent flow conversations include the custom title plus the agent identifier.
+   - Resume an existing conversation with a custom title and confirm the existing title does not change.
+   - Ensure there are no logged errors in the browser debug console.
+9. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
@@ -496,7 +506,12 @@ Update the conversations list query so `agentName=__none__` and `flowName=__none
 7. [ ] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] `npm run compose:down`
+8. [ ] Manual Playwright-MCP check to confirm combined chat-only filtering works and no regressions:
+   - Use Playwright MCP against http://host.docker.internal:5001.
+   - Navigate to the conversations list and enable the chat-only filter (agentName + flowName “none” state).
+   - Confirm only chat conversations are listed and flow/agent conversations are excluded.
+   - Ensure there are no logged errors in the browser debug console.
+9. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
@@ -619,7 +634,12 @@ Prevent the Flows page from dropping the active conversation during a `conversat
 7. [ ] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] `npm run compose:down`
+8. [ ] Manual Playwright-MCP check to confirm WS upserts keep flow conversations visible:
+   - Use Playwright MCP against http://host.docker.internal:5001.
+   - Start a flow and watch the sidebar while messages arrive; confirm the active flow conversation never disappears.
+   - Trigger a run that produces multiple updates to ensure the conversation stays filtered correctly.
+   - Ensure there are no logged errors in the browser debug console.
+9. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
@@ -750,7 +770,12 @@ Add working-folder UI parity to the Flows page using the existing `DirectoryPick
 7. [ ] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] `npm run compose:down`
+8. [ ] Manual Playwright-MCP check to confirm working-folder picker UX parity:
+   - Use Playwright MCP against http://host.docker.internal:5001.
+   - Open the working-folder picker, select a folder, and confirm the input updates.
+   - Cancel the picker and confirm the existing value remains unchanged.
+   - Ensure there are no logged errors in the browser debug console.
+9. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
@@ -884,7 +909,13 @@ Add the Flows page info (“i”) popover matching the Agents UI, including warn
 7. [ ] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] `npm run compose:down`
+8. [ ] Manual Playwright-MCP check to confirm flow info popover behavior:
+   - Use Playwright MCP against http://host.docker.internal:5001.
+   - Open the info popover for a flow with warnings and confirm warnings render.
+   - Open a flow with a Markdown description and confirm the description renders.
+   - Open a flow with no warnings/description and confirm the empty-state copy renders.
+   - Ensure there are no logged errors in the browser debug console.
+9. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
@@ -1003,7 +1034,12 @@ Add a custom title input field to the Flows controls, store it in local state, a
 7. [ ] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] `npm run compose:down`
+8. [ ] Manual Playwright-MCP check to confirm custom title input UX:
+   - Use Playwright MCP against http://host.docker.internal:5001.
+   - Confirm the custom title input renders on the Flows page.
+   - Start/resume a flow and verify the input disables when a run is active or a conversation is selected.
+   - Ensure there are no logged errors in the browser debug console.
+9. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
@@ -1129,7 +1165,12 @@ Send `customTitle` only when starting a new flow conversation and keep the paylo
 7. [ ] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] `npm run compose:down`
+8. [ ] Manual Playwright-MCP check to confirm `customTitle` payload rules:
+   - Use Playwright MCP against http://host.docker.internal:5001.
+   - Start a new flow with a custom title and inspect the `/flows/:flowName/run` request payload to confirm `customTitle` is present.
+   - Resume an existing flow and confirm the run payload omits `customTitle`.
+   - Ensure there are no logged errors in the browser debug console.
+9. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
@@ -1257,7 +1298,12 @@ Add a “New Flow” action that clears the active conversation and transcript w
 7. [ ] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] `npm run compose:down`
+8. [ ] Manual Playwright-MCP check to confirm “New Flow” reset behavior:
+   - Use Playwright MCP against http://host.docker.internal:5001.
+   - Start a flow, set custom title + working folder, then click “New Flow”.
+   - Confirm the selected flow stays highlighted, the Run button remains enabled, and the form fields reset.
+   - Ensure there are no logged errors in the browser debug console.
+9. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
@@ -1326,19 +1372,23 @@ Run full builds/tests, perform manual verification with Playwright MCP, ensure d
 
 #### Testing
 
-1. [ ] Build the server (`npm run build --workspace server`).
-2. [ ] Build the client (`npm run build --workspace client`).
-3. [ ] Perform a clean Docker build (`npm run compose:build`).
-4. [ ] Run client Jest tests (`npm run test --workspace client`).
-5. [ ] Run server tests (`npm run test --workspace server`).
-6. [ ] Restart the Docker environment (`npm run compose:down`, then `npm run compose:up`).
-7. [ ] Run e2e tests (`npm run e2e`).
-8. [ ] Use Playwright MCP to manually verify flows run UX and save screenshots to `test-results/screenshots/` using the naming pattern:
-   - `0000030-10-flows-run.png`
-   - `0000030-10-flow-info-popover.png`
-   - `0000030-10-working-folder-picker.png`
-   - `0000030-10-custom-title.png`
-   - `0000030-10-new-flow-reset.png`
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check to confirm story requirements and regressions:
+   - Use Playwright MCP against http://host.docker.internal:5001.
+   - Verify flows run UX and capture screenshots in `test-results/screenshots/` using:
+     - `0000030-10-flows-run.png`
+     - `0000030-10-flow-info-popover.png`
+     - `0000030-10-working-folder-picker.png`
+     - `0000030-10-custom-title.png`
+     - `0000030-10-new-flow-reset.png`
+   - Ensure there are no logged errors in the browser debug console.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 

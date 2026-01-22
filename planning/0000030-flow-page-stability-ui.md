@@ -1507,7 +1507,7 @@ Add a “New Flow” action that clears the active conversation and transcript w
 - Ran `timeout 7m npm run e2e` successfully.
 - Ran `npm run compose:build` successfully.
 - Ran `npm run compose:up` successfully.
-- Manual check required picking a valid working folder via the directory picker to avoid `WORKING_FOLDER_NOT_FOUND` errors.
+- Manual check required picking a valid working folder via the directory picker to avoid `WORKING_FOLDER_NOT_FOUND` errors. **Decision:** always use the picker for manual QA runs to ensure a valid path.
 - Manual Playwright MCP check confirmed New Flow resets fields while keeping the selected flow; captured `playwright-output-local/0000030-09-new-flow-reset.png` and observed `flows.ui.new_flow_reset` logs with no browser console errors.
 - Ran `npm run compose:down` to stop the stack.
 

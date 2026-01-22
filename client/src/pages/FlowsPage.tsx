@@ -165,6 +165,7 @@ export default function FlowsPage() {
   const [flowsLoading, setFlowsLoading] = useState(true);
   const [flowsError, setFlowsError] = useState<string | null>(null);
   const [selectedFlowName, setSelectedFlowName] = useState('');
+  const [customTitle, setCustomTitle] = useState('');
   const [flowInfoAnchorEl, setFlowInfoAnchorEl] = useState<HTMLElement | null>(
     null,
   );
@@ -249,6 +250,7 @@ export default function FlowsPage() {
       ),
     [activeConversationId, flowConversations],
   );
+  const selectedFlowHasHistory = Boolean(selectedConversation);
 
   const resumeStepPath = useMemo(() => {
     const flags = selectedConversation?.flags;
@@ -572,6 +574,7 @@ export default function FlowsPage() {
     setConversation(makeClientConversationId(), { clearMessages: true });
     setFlowModelId('unknown');
     setWorkingFolder('');
+    setCustomTitle('');
   }, [resetTurns, setConversation, stop]);
 
   const handleFlowChange = useCallback(
@@ -595,6 +598,12 @@ export default function FlowsPage() {
   };
   const handleFlowInfoClose = () => {
     setFlowInfoAnchorEl(null);
+  };
+
+  const handleCustomTitleBlur = () => {
+    log('info', 'flows.ui.custom_title.updated', {
+      customTitleLength: customTitle.length,
+    });
   };
 
   const handleSelectConversation = (conversationId: string) => {
@@ -740,6 +749,8 @@ export default function FlowsPage() {
 
   const isSending = startPending || isStreaming || status === 'sending';
   const showStop = isSending;
+  const customTitleDisabled =
+    isSending || Boolean(resumeStepPath) || selectedFlowHasHistory;
 
   return (
     <Container
@@ -956,6 +967,23 @@ export default function FlowsPage() {
                     >
                       Choose folder…
                     </Button>
+                  </Stack>
+                  <Stack
+                    direction={{ xs: 'column', sm: 'row' }}
+                    spacing={1}
+                    alignItems={{ xs: 'stretch', sm: 'flex-start' }}
+                  >
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="Custom title"
+                      value={customTitle}
+                      onChange={(event) => setCustomTitle(event.target.value)}
+                      onBlur={handleCustomTitleBlur}
+                      helperText="Optional: name for this run"
+                      disabled={customTitleDisabled}
+                      inputProps={{ 'data-testid': 'flow-custom-title' }}
+                    />
                   </Stack>
                   <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
                     <Button

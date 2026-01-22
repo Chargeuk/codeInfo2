@@ -1077,14 +1077,14 @@ Add a custom title input field to the Flows controls, store it in local state, a
 
 #### Subtasks
 
-1. [ ] Review the current Flows controls layout and reset helper:
+1. [x] Review the current Flows controls layout and reset helper:
    - Documentation to read (repeat):
      - React hooks/state: Context7 `/facebook/react/v19_2_0`
    - Files to read:
      - `client/src/pages/FlowsPage.tsx`
    - Key requirements (repeat):
      - Custom title is set only when starting a new flow; not editable afterward.
-2. [ ] Add the custom title input field and local state:
+2. [x] Add the custom title input field and local state:
    - Documentation to read (repeat):
      - MUI TextField API (closest to @mui/material 6.4.1): https://llms.mui.com/material-ui/6.4.12/api/text-field.md
    - Files to edit:
@@ -1096,7 +1096,7 @@ Add a custom title input field to the Flows controls, store it in local state, a
      - Clear `customTitle` inside the existing `resetConversation` helper so New Flow + flow changes reset it.
    - Key requirements (repeat):
      - Do not persist custom title in local storage; keep in component state only.
-3. [ ] Component test (client) — `client/src/test/flowsPage.run.test.tsx`: custom title input renders (purpose: confirm UI presence).
+3. [x] Component test (client) — `client/src/test/flowsPage.run.test.tsx`: custom title input renders (purpose: confirm UI presence).
    - Documentation to read (repeat):
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
      - Jest: Context7 `/websites/jestjs_io_30_0`
@@ -1104,7 +1104,7 @@ Add a custom title input field to the Flows controls, store it in local state, a
      - `client/src/test/flowsPage.run.test.tsx`
    - Test expectations:
      - Custom title input renders.
-4. [ ] Component test (client) — `client/src/test/flowsPage.run.test.tsx`: input disables during resume/inflight states (purpose: prevent edits after start).
+4. [x] Component test (client) — `client/src/test/flowsPage.run.test.tsx`: input disables during resume/inflight states (purpose: prevent edits after start).
    - Documentation to read (repeat):
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
      - Jest: Context7 `/websites/jestjs_io_30_0`
@@ -1114,7 +1114,7 @@ Add a custom title input field to the Flows controls, store it in local state, a
      - Input disables during resume/inflight states.
    - Key requirements (repeat):
      - Tests should not depend on server responses (UI-only).
-5. [ ] Update `design.md` (repo root `design.md`) with custom title input behavior (purpose: document the updated flow run UX).
+5. [x] Update `design.md` (repo root `design.md`) with custom title input behavior (purpose: document the updated flow run UX).
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -1122,7 +1122,7 @@ Add a custom title input field to the Flows controls, store it in local state, a
    - Key requirements (repeat):
      - Document that the title is only set at run start.
      - Add/update a Mermaid diagram showing the custom title captured before starting a flow.
-6. [ ] Update `projectStructure.md` (repo root `projectStructure.md`) after any file additions/removals in this task (purpose: keep the repository tree accurate).
+6. [x] Update `projectStructure.md` (repo root `projectStructure.md`) after any file additions/removals in this task (purpose: keep the repository tree accurate).
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to read:
@@ -1133,54 +1133,69 @@ Add a custom title input field to the Flows controls, store it in local state, a
      - Add/remove/rename entries for any files changed by this task.
      - Added files (if any): list each file path added in this task.
      - Removed files (if any): list each file path removed in this task.
-7. [ ] Add a client log line when the custom title input is updated (purpose: verify input behavior in manual checks).
+7. [x] Add a client log line when the custom title input is updated (purpose: verify input behavior in manual checks).
    - Files to edit:
      - `client/src/pages/FlowsPage.tsx`
    - Log line to add:
      - `flows.ui.custom_title.updated` with fields `{ customTitleLength }`.
    - Implementation details:
      - Emit on blur (or explicit commit) so the log fires once per input update.
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+8. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
    - Documentation to read (repeat):
      - Jest: Context7 `/websites/jestjs_io_30_0`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m`)
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m`)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] Manual Playwright-MCP check to confirm custom title input UX:
+8. [x] Manual Playwright-MCP check to confirm custom title input UX:
    - Use Playwright MCP against http://host.docker.internal:5001.
    - Confirm the custom title input renders on the Flows page.
    - Start/resume a flow and verify the input disables when a run is active or a conversation is selected.
    - Enter a custom title, blur the field, and confirm `flows.ui.custom_title.updated` appears with a non-zero `customTitleLength`.
    - Capture `0000030-07-custom-title-input.png` in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped in `docker-compose.local.yml`) and confirm the input layout matches expectations.
    - Ensure there are no logged errors in the browser debug console.
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
 #### Implementation notes
 
-- 
+- Reviewed Flows controls layout and reset helper in `FlowsPage` to ensure custom title resets with flow changes and new runs.
+- Added custom title state/input with helper text, reset logic, and disabled state for resume/inflight or existing conversations.
+- Added custom title UI tests for render and disabled behavior during resume/inflight states.
+- Documented custom title input behavior and flowchart updates in design notes.
+- No project structure updates were required for this task.
+- Added `flows.ui.custom_title.updated` logging on custom title blur with the input length.
+- Ran `npm run lint --workspaces` (existing import-order warnings only) and `npm run format:check --workspaces`; fixed client formatting with `npm run format --workspace client`.
+- Built the server workspace (`npm run build --workspace server`).
+- Built the client workspace (`npm run build --workspace client`).
+- Ran server tests (`npm run test --workspace server`).
+- Ran client tests (`npm run test --workspace client`); existing console log noise persisted.
+- Ran `timeout 7m npm run e2e` successfully (36 tests passed).
+- Ran `npm run compose:build` successfully.
+- Ran `npm run compose:up` successfully.
+- Manual Playwright MCP check on http://host.docker.internal:5001/flows confirmed custom title input rendering, disabled behavior during runs/history selection, and `flows.ui.custom_title.updated` logging; screenshot saved to `playwright-output-local/0000030-07-custom-title-input.png` with no browser console errors.
+- Ran `npm run compose:down` to stop the stack.
 
 ---
 

@@ -437,8 +437,8 @@ Use `customTitle` to set the conversation title for the main flow and per-agent 
 
 ### 3. Server: Fix chat-only conversation filtering for agent + flow
 
-- Task Status: **__in_progress__**
-- Git Commits: **__to_do__**
+- Task Status: **__done__**
+- Git Commits: 13940d5
 
 #### Overview
 

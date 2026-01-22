@@ -675,6 +675,7 @@ Prevent the Flows page from dropping the active conversation during a `conversat
    - Start a flow and watch the sidebar while messages arrive; confirm the active flow conversation never disappears.
    - Trigger a run that produces multiple updates to ensure the conversation stays filtered correctly.
    - Check the browser debug console for `flows.ws.upsert.merge_flowName` with the expected `conversationId` and `flowName`.
+   - Capture `0000030-04-ws-upsert.png` in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped in `docker-compose.local.yml`) and confirm the sidebar UI matches expectations.
    - Ensure there are no logged errors in the browser debug console.
 9. [ ] `npm run compose:down`
    - Documentation to read (repeat):
@@ -819,6 +820,7 @@ Add working-folder UI parity to the Flows page using the existing `DirectoryPick
    - Open the working-folder picker, select a folder, and confirm the input updates.
    - Cancel the picker and confirm the existing value remains unchanged.
    - Check the browser debug console for `flows.ui.working_folder.selected` with the chosen folder path.
+   - Capture `0000030-05-working-folder-picker.png` in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped in `docker-compose.local.yml`) and confirm the picker UI matches expectations.
    - Ensure there are no logged errors in the browser debug console.
 9. [ ] `npm run compose:down`
    - Documentation to read (repeat):
@@ -967,6 +969,7 @@ Add the Flows page info (“i”) popover matching the Agents UI, including warn
    - Open a flow with a Markdown description and confirm the description renders.
    - Open a flow with no warnings/description and confirm the empty-state copy renders.
    - Check the browser debug console for `flows.ui.info_popover.opened` entries with the expected `hasWarnings`/`hasDescription` flags.
+   - Capture `0000030-06-flow-info-popover.png` in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped in `docker-compose.local.yml`) and confirm the popover UI matches expectations.
    - Ensure there are no logged errors in the browser debug console.
 9. [ ] `npm run compose:down`
    - Documentation to read (repeat):
@@ -1099,6 +1102,7 @@ Add a custom title input field to the Flows controls, store it in local state, a
    - Confirm the custom title input renders on the Flows page.
    - Start/resume a flow and verify the input disables when a run is active or a conversation is selected.
    - Enter a custom title, blur the field, and confirm `flows.ui.custom_title.updated` appears with a non-zero `customTitleLength`.
+   - Capture `0000030-07-custom-title-input.png` in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped in `docker-compose.local.yml`) and confirm the input layout matches expectations.
    - Ensure there are no logged errors in the browser debug console.
 9. [ ] `npm run compose:down`
    - Documentation to read (repeat):
@@ -1238,6 +1242,7 @@ Send `customTitle` only when starting a new flow conversation and keep the paylo
    - Start a new flow with a custom title and inspect the `/flows/:flowName/run` request payload to confirm `customTitle` is present.
    - Resume an existing flow and confirm the run payload omits `customTitle`.
    - Check the browser debug console for `flows.run.payload.custom_title_included` with `included: true` for new runs and `included: false` for resumes.
+   - Capture `0000030-08-custom-title-payload.png` in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped in `docker-compose.local.yml`) and confirm the run UI matches expectations.
    - Ensure there are no logged errors in the browser debug console.
 9. [ ] `npm run compose:down`
    - Documentation to read (repeat):
@@ -1379,6 +1384,7 @@ Add a “New Flow” action that clears the active conversation and transcript w
    - Start a flow, set custom title + working folder, then click “New Flow”.
    - Confirm the selected flow stays highlighted, the Run button remains enabled, and the form fields reset.
    - Check the browser debug console for `flows.ui.new_flow_reset` with `clearedFields` including `customTitle` and `workingFolder`.
+   - Capture `0000030-09-new-flow-reset.png` in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped in `docker-compose.local.yml`) and confirm the reset UI matches expectations.
    - Ensure there are no logged errors in the browser debug console.
 9. [ ] `npm run compose:down`
    - Documentation to read (repeat):
@@ -1471,6 +1477,7 @@ Run full builds/tests, perform manual verification with Playwright MCP, ensure d
      - `0000030-10-working-folder-picker.png`
      - `0000030-10-custom-title.png`
      - `0000030-10-new-flow-reset.png`
+   - Store the screenshots in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped in `docker-compose.local.yml`) and review them to confirm the GUI matches the task expectations.
    - Check the browser debug console for `flows.qa.validation_ready` with a non-zero `flowCount`.
    - Ensure there are no logged errors in the browser debug console.
 9. [ ] `npm run compose:down`

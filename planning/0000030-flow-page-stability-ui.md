@@ -195,7 +195,11 @@ Accept `customTitle` on `POST /flows/:flowName/run` (string-only, trimmed) and t
      - `openapi.json` (add `customTitle` to `POST /flows/:flowName/run` request body)
    - Key requirements (repeat):
      - Mark `customTitle` as optional string in OpenAPI.
-6. [ ] Update `projectStructure.md` after any file additions/removals (only if new files were added/removed in this task).
+6. [ ] Update `projectStructure.md` (repo root `projectStructure.md`) after any file additions/removals in this task (purpose: keep the repository tree accurate).
+   - Files to edit:
+     - `projectStructure.md` (repo root)
+   - Update scope:
+     - Add/remove/rename entries for any files changed by this task.
 7. [ ] Run full lint + format check:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -312,15 +316,19 @@ Use `customTitle` to set the conversation title for the main flow and per-agent 
      - `server/src/test/integration/flows.run.basic.test.ts`
    - Test expectations:
      - Empty/whitespace `customTitle` values are ignored.
-6. [ ] Update design documentation after the server change:
+6. [ ] Update `design.md` (repo root `design.md`) with custom-title flow conversation behavior (purpose: document the updated flow run architecture).
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
-     - `design.md` (document `customTitle` in the Flows run behavior section)
+     - `design.md` (repo root; update Flows run behavior section)
    - Key requirements (repeat):
      - Mention both main flow and per-agent title behavior.
      - Add/update a Mermaid diagram to show how custom titles are applied during flow conversation creation.
-7. [ ] Update `projectStructure.md` after any file additions/removals (only if new files were added/removed in this task).
+7. [ ] Update `projectStructure.md` (repo root `projectStructure.md`) after any file additions/removals in this task (purpose: keep the repository tree accurate).
+   - Files to edit:
+     - `projectStructure.md` (repo root)
+   - Update scope:
+     - Add/remove/rename entries for any files changed by this task.
 8. [ ] Run full lint + format check:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -424,15 +432,19 @@ Update the conversations list query so `agentName=__none__` and `flowName=__none
      - `server/src/test/integration/conversations.list.test.ts`
    - Test expectations:
      - `?agentName=__none__&flowName=<name>` returns non-agent flow conversations only.
-5. [ ] Update design documentation after the query change:
+5. [ ] Update `design.md` (repo root `design.md`) with combined chat-only filter behavior (purpose: document updated conversation filtering rules).
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
-     - `design.md` (document combined filter behavior for chat-only lists)
+     - `design.md` (repo root; update chat-only filter section)
    - Key requirements (repeat):
      - Document how `__none__` filters combine.
      - Update the Mermaid diagram that describes conversation list filtering to show combined `agentName` + `flowName` behavior.
-6. [ ] Update `projectStructure.md` after any file additions/removals (only if new files were added/removed in this task).
+6. [ ] Update `projectStructure.md` (repo root `projectStructure.md`) after any file additions/removals in this task (purpose: keep the repository tree accurate).
+   - Files to edit:
+     - `projectStructure.md` (repo root)
+   - Update scope:
+     - Add/remove/rename entries for any files changed by this task.
 7. [ ] Run full lint + format check:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -540,15 +552,19 @@ Prevent the Flows page from dropping the active conversation during a `conversat
      - `client/src/test/flowsPage.run.test.tsx`
    - Test expectations:
      - `conversation_upsert` with `agentName` does not show in the Flows sidebar.
-5. [ ] Update design documentation after the client fix:
+5. [ ] Update `design.md` (repo root `design.md`) with WS upsert flowName merge behavior (purpose: document sidebar stability rules).
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
-     - `design.md` (document WS upsert behavior for flow sidebar)
+     - `design.md` (repo root; update WS sidebar section)
    - Key requirements (repeat):
      - Mention `flowName` merge behavior on upsert.
      - Update the Mermaid diagram that describes WS sidebar updates to include `flowName` merging.
-6. [ ] Update `projectStructure.md` after any file additions/removals (only if new files were added/removed in this task).
+6. [ ] Update `projectStructure.md` (repo root `projectStructure.md`) after any file additions/removals in this task (purpose: keep the repository tree accurate).
+   - Files to edit:
+     - `projectStructure.md` (repo root)
+   - Update scope:
+     - Add/remove/rename entries for any files changed by this task.
 7. [ ] Run full lint + format check:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -665,15 +681,19 @@ Add working-folder UI parity to the Flows page using the existing `DirectoryPick
      - `client/src/test/flowsApi.run.payload.test.ts`
    - Test expectations:
      - The chosen `working_folder` is sent in the flow run payload.
-6. [ ] Update design documentation after the UI addition:
+6. [ ] Update `design.md` (repo root `design.md`) with working-folder picker parity (purpose: document the updated Flows run form UX).
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
-     - `design.md` (note working-folder picker parity on Flows page)
+     - `design.md` (repo root; update Flows run form section)
    - Key requirements (repeat):
      - Mention parity with Agents/Ingest folder picker.
      - Add/update a Mermaid diagram that shows the Flows run form including working-folder selection.
-7. [ ] Update `projectStructure.md` after any file additions/removals (only if new files were added/removed in this task).
+7. [ ] Update `projectStructure.md` (repo root `projectStructure.md`) after any file additions/removals in this task (purpose: keep the repository tree accurate).
+   - Files to edit:
+     - `projectStructure.md` (repo root)
+   - Update scope:
+     - Add/remove/rename entries for any files changed by this task.
 8. [ ] Run full lint + format check:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -793,15 +813,19 @@ Add the Flows page info (“i”) popover matching the Agents UI, including warn
      - `client/src/test/flowsPage.test.tsx`
    - Test expectations:
      - Empty-state copy renders when warnings + description are missing.
-6. [ ] Update design documentation after the UI addition:
+6. [ ] Update `design.md` (repo root `design.md`) with flow info popover behavior (purpose: document the updated Flows UI architecture).
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
-     - `design.md` (document Flow info popover behavior)
+     - `design.md` (repo root; update Flows info popover section)
    - Key requirements (repeat):
      - Mention removal of inline flow description in favor of popover.
      - Add/update a Mermaid diagram that shows the Flows info popover in the page UX flow.
-7. [ ] Update `projectStructure.md` after any file additions/removals (only if new files were added/removed in this task).
+7. [ ] Update `projectStructure.md` (repo root `projectStructure.md`) after any file additions/removals in this task (purpose: keep the repository tree accurate).
+   - Files to edit:
+     - `projectStructure.md` (repo root)
+   - Update scope:
+     - Add/remove/rename entries for any files changed by this task.
 8. [ ] Run full lint + format check:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -906,15 +930,19 @@ Add a custom title input field to the Flows controls, store it in local state, a
      - Input disables during resume/inflight states.
    - Key requirements (repeat):
      - Tests should not depend on server responses (UI-only).
-5. [ ] Update design documentation after the UI addition:
+5. [ ] Update `design.md` (repo root `design.md`) with custom title input behavior (purpose: document the updated flow run UX).
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
-     - `design.md` (document custom title input UI)
+     - `design.md` (repo root; update Flows controls section)
    - Key requirements (repeat):
      - Document that the title is only set at run start.
      - Add/update a Mermaid diagram showing the custom title captured before starting a flow.
-6. [ ] Update `projectStructure.md` after any file additions/removals (only if new files were added/removed in this task).
+6. [ ] Update `projectStructure.md` (repo root `projectStructure.md`) after any file additions/removals in this task (purpose: keep the repository tree accurate).
+   - Files to edit:
+     - `projectStructure.md` (repo root)
+   - Update scope:
+     - Add/remove/rename entries for any files changed by this task.
 7. [ ] Run full lint + format check:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -1026,15 +1054,19 @@ Send `customTitle` only when starting a new flow conversation and keep the paylo
      - `client/src/test/flowsPage.run.test.tsx`
    - Test expectations:
      - The run action includes the current `customTitle` when starting a new flow.
-6. [ ] Update design documentation after the payload change:
+6. [ ] Update `design.md` (repo root `design.md`) with custom title payload rules (purpose: document when titles are sent).
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
-     - `design.md` (document custom title payload rules)
+     - `design.md` (repo root; update flow run payload section)
    - Key requirements (repeat):
      - Mention that custom title is not editable after start.
      - Add/update a Mermaid diagram that shows `customTitle` included only on new flow runs.
-7. [ ] Update `projectStructure.md` after any file additions/removals (only if new files were added/removed in this task).
+7. [ ] Update `projectStructure.md` (repo root `projectStructure.md`) after any file additions/removals in this task (purpose: keep the repository tree accurate).
+   - Files to edit:
+     - `projectStructure.md` (repo root)
+   - Update scope:
+     - Add/remove/rename entries for any files changed by this task.
 8. [ ] Run full lint + format check:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -1147,15 +1179,19 @@ Add a “New Flow” action that clears the active conversation and transcript w
      - `client/src/test/flowsPage.run.test.tsx`
    - Test expectations:
      - `customTitle` and `workingFolder` values reset.
-6. [ ] Update design documentation after the UI addition:
+6. [ ] Update `design.md` (repo root `design.md`) with New Flow reset behavior (purpose: document the reset flow without altering selection).
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
-     - `design.md` (document new flow reset behavior)
+     - `design.md` (repo root; update Flows reset section)
    - Key requirements (repeat):
      - Call out that New Flow does not change the selected flow.
      - Add/update a Mermaid diagram that shows the New Flow reset path without changing the selected flow.
-7. [ ] Update `projectStructure.md` after any file additions/removals (only if new files were added/removed in this task).
+7. [ ] Update `projectStructure.md` (repo root `projectStructure.md`) after any file additions/removals in this task (purpose: keep the repository tree accurate).
+   - Files to edit:
+     - `projectStructure.md` (repo root)
+   - Update scope:
+     - Add/remove/rename entries for any files changed by this task.
 8. [ ] Run full lint + format check:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -1222,9 +1258,21 @@ Run full builds/tests, perform manual verification with Playwright MCP, ensure d
 1. [ ] Build the server (`npm run build --workspace server`).
 2. [ ] Build the client (`npm run build --workspace client`).
 3. [ ] Perform a clean Docker build (`npm run compose:build`).
-4. [ ] Ensure `README.md` is updated with any required description/command changes for this story.
-5. [ ] Ensure `design.md` is updated with any required behavior or diagram updates for this story.
-6. [ ] Ensure `projectStructure.md` is updated with any added/removed/renamed files.
+4. [ ] Update `README.md` (repo root `README.md`) with any new commands or user-facing changes from this story (purpose: keep onboarding and usage docs accurate).
+   - Files to edit:
+     - `README.md` (repo root)
+   - Update scope:
+     - Add/adjust commands, configuration notes, or feature summaries introduced by this story.
+5. [ ] Update `design.md` (repo root `design.md`) with any required behavior or diagram updates from this story (purpose: keep architecture notes current).
+   - Files to edit:
+     - `design.md` (repo root)
+   - Update scope:
+     - Add/update Mermaid diagrams reflecting flow-run UX, filters, and sidebar behavior changes.
+6. [ ] Update `projectStructure.md` (repo root `projectStructure.md`) with any added/removed/renamed files from this story (purpose: keep the repository tree accurate).
+   - Files to edit:
+     - `projectStructure.md` (repo root)
+   - Update scope:
+     - Add/remove/rename entries for any files changed by this story.
 7. [ ] Create a pull request summary covering all changes in this story.
 
 #### Testing

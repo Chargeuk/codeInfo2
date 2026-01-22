@@ -135,20 +135,6 @@ Accept `customTitle` on `POST /flows/:flowName/run` (string-only, trimmed) and t
 - Jest: Context7 `/websites/jestjs_io_30_0` (client test runner reference)
 - Playwright: Context7 `/microsoft/playwright` (e2e command reference)
 - Docker/Compose: Context7 `/docker/docs` (compose build/up/down commands)
-- Markdown Guide: https://www.markdownguide.org/basic-syntax/ (syntax reference for docs updates)
-- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface (lint command reference)
-- Prettier CLI: https://prettier.io/docs/cli (format command reference)
-- npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script (build/test command usage)
-- Jest: Context7 `/websites/jestjs_io_30_0` (client test runner reference)
-- Playwright: Context7 `/microsoft/playwright` (e2e command reference)
-- Docker/Compose: Context7 `/docker/docs` (compose build/up/down commands)
-- Markdown Guide: https://www.markdownguide.org/basic-syntax/ (syntax reference for docs updates)
-- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface (lint command reference)
-- Prettier CLI: https://prettier.io/docs/cli (format command reference)
-- npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script (build/test command usage)
-- Jest: Context7 `/websites/jestjs_io_30_0` (client test runner reference)
-- Playwright: Context7 `/microsoft/playwright` (e2e command reference)
-- Docker/Compose: Context7 `/docker/docs` (compose build/up/down commands)
 
 #### Subtasks
 
@@ -263,6 +249,13 @@ Use `customTitle` to set the conversation title for the main flow and per-agent 
 - Express routing + handlers: Context7 `/expressjs/express/v5.1.0` (route handlers, async error handling)
 - Node.js test runner: https://nodejs.org/api/test.html (`node:test` usage)
 - Supertest HTTP assertions: https://github.com/forwardemail/supertest (request/expect patterns)
+- Markdown Guide: https://www.markdownguide.org/basic-syntax/ (syntax reference for docs updates)
+- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface (lint command reference)
+- Prettier CLI: https://prettier.io/docs/cli (format command reference)
+- npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script (build/test command usage)
+- Jest: Context7 `/websites/jestjs_io_30_0` (client test runner reference)
+- Playwright: Context7 `/microsoft/playwright` (e2e command reference)
+- Docker/Compose: Context7 `/docker/docs` (compose build/up/down commands)
 
 #### Subtasks
 
@@ -367,6 +360,13 @@ Update the conversations list query so `agentName=__none__` and `flowName=__none
 - Express routing + handlers: Context7 `/expressjs/express/v5.1.0` (route handlers, async error handling)
 - Node.js test runner: https://nodejs.org/api/test.html (`node:test` usage)
 - Supertest HTTP assertions: https://github.com/forwardemail/supertest (request/expect patterns)
+- Markdown Guide: https://www.markdownguide.org/basic-syntax/ (syntax reference for docs updates)
+- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface (lint command reference)
+- Prettier CLI: https://prettier.io/docs/cli (format command reference)
+- npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script (build/test command usage)
+- Jest: Context7 `/websites/jestjs_io_30_0` (client test runner reference)
+- Playwright: Context7 `/microsoft/playwright` (e2e command reference)
+- Docker/Compose: Context7 `/docker/docs` (compose build/up/down commands)
 
 #### Subtasks
 

@@ -142,6 +142,9 @@ Accept `customTitle` on `POST /flows/:flowName/run` (string-only, trimmed) and t
      - `validateBody` body parsing logic
      - `FlowRunStartParams` definition
      - `Conversation.title` field definition (confirm no schema changes needed)
+   - Key requirements (repeat):
+     - Reuse `Conversation.title` (no new schema fields).
+     - `customTitle` must be optional and trimmed; blank strings become `undefined`.
 2. [ ] Extend the flow run request validator to accept `customTitle`:
    - Documentation to read (repeat):
      - Express routing + handlers: Context7 `/expressjs/express/v5.1.0`
@@ -152,6 +155,9 @@ Accept `customTitle` on `POST /flows/:flowName/run` (string-only, trimmed) and t
      - Treat non-string values as invalid (`invalid_request`).
      - Trim strings and set `customTitle` to `undefined` when empty.
      - Include `customTitle` in the parsed body output and in the `startFlowRun` call.
+   - Key requirements (repeat):
+     - Keep validation style consistent with `working_folder`.
+     - Do not add new response fields; only pass through to `startFlowRun`.
 3. [ ] Thread `customTitle` through the flow run parameter type:
    - Documentation to read (repeat):
      - Express routing + handlers: Context7 `/expressjs/express/v5.1.0`
@@ -161,6 +167,8 @@ Accept `customTitle` on `POST /flows/:flowName/run` (string-only, trimmed) and t
    - Implementation details:
      - Update `FlowRunStartParams` to include `customTitle?: string`.
      - Ensure `startFlowRun` accepts the new field without applying it yet.
+   - Key requirements (repeat):
+     - No behavior changes in this subtask; only thread the type/parameter.
 4. [ ] Add integration coverage for invalid `customTitle`:
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
@@ -169,12 +177,16 @@ Accept `customTitle` on `POST /flows/:flowName/run` (string-only, trimmed) and t
      - `server/src/test/integration/flows.run.errors.test.ts`
    - Test expectations:
      - Non-string `customTitle` returns `400 { error: 'invalid_request' }`.
+   - Key requirements (repeat):
+     - Preserve existing error mappings; follow current `invalid_request` patterns.
 5. [ ] Update documentation after the server change:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
      - `openapi.json` (add `customTitle` to `POST /flows/:flowName/run` request body)
      - `projectStructure.md` (only if new fixtures/files are added)
+   - Key requirements (repeat):
+     - Mark `customTitle` as optional string in OpenAPI.
 6. [ ] Run full lint + format check:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -242,6 +254,8 @@ Use `customTitle` to set the conversation title for the main flow and per-agent 
      - `ensureFlowConversation`
      - `ensureFlowAgentConversation`
      - `ensureAgentState`
+   - Key requirements (repeat):
+     - Per-agent conversations remain agent-only (do not add `flowName`).
 2. [ ] Apply `customTitle` when creating flow conversations:
    - Documentation to read (repeat):
      - Express routing + handlers: Context7 `/expressjs/express/v5.1.0`
@@ -253,6 +267,9 @@ Use `customTitle` to set the conversation title for the main flow and per-agent 
      - When creating the main flow conversation, use `customTitle` when provided (fallback to `Flow: <flowName>`).
      - When creating per-agent flow conversations, use `${customTitle} (${identifier})` when provided (fallback to `Flow: <flowName> (<identifier>)`).
      - Do **not** rename existing conversations; only apply the title on creation.
+   - Key requirements (repeat):
+     - Do not update existing conversation titles.
+     - Keep flow conversation `flowName` behavior unchanged.
 3. [ ] Add integration coverage for custom titles:
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
@@ -264,12 +281,16 @@ Use `customTitle` to set the conversation title for the main flow and per-agent 
      - The main flow conversation title reflects `customTitle` when supplied.
      - The per-agent flow conversation title includes `customTitle` + identifier.
      - Empty/whitespace `customTitle` values are ignored.
+   - Key requirements (repeat):
+     - Keep existing flow run test assertions intact; only add new expectations.
 4. [ ] Update documentation after the server change:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
      - `design.md` (document `customTitle` in the Flows run behavior section)
      - `projectStructure.md` (only if new fixtures/files are added)
+   - Key requirements (repeat):
+     - Mention both main flow and per-agent title behavior.
 5. [ ] Run full lint + format check:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -337,6 +358,8 @@ Update the conversations list query so `agentName=__none__` and `flowName=__none
      - `server/src/test/integration/conversations.list.test.ts`
    - Snippet to locate:
      - `agentName` and `flowName` filter building logic
+   - Key requirements (repeat):
+     - `agentName=__none__` and `flowName=__none__` must be combinable.
 2. [ ] Combine `agentName=__none__` and `flowName=__none__` filters safely:
    - Documentation to read (repeat):
      - Express routing + handlers: Context7 `/expressjs/express/v5.1.0`
@@ -345,6 +368,8 @@ Update the conversations list query so `agentName=__none__` and `flowName=__none
    - Implementation details:
      - Build each `$or` block separately, then combine them with `$and` when both filters are present.
      - Preserve existing behavior for single filters and explicit `agentName`/`flowName` values.
+   - Key requirements (repeat):
+     - Do not change sort/pagination behavior.
 3. [ ] Add/extend list-conversations tests for combined filters:
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
@@ -354,12 +379,16 @@ Update the conversations list query so `agentName=__none__` and `flowName=__none
    - Test expectations:
      - `?agentName=__none__&flowName=__none__` returns only chat conversations.
      - `?agentName=__none__&flowName=<name>` returns non-agent flow conversations only.
+   - Key requirements (repeat):
+     - Keep existing list tests intact; add new cases only.
 4. [ ] Update documentation after the query change:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
      - `design.md` (document combined filter behavior for chat-only lists)
      - `projectStructure.md` (only if new files are added)
+   - Key requirements (repeat):
+     - Document how `__none__` filters combine.
 5. [ ] Run full lint + format check:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -428,6 +457,8 @@ Prevent the Flows page from dropping the active conversation during a `conversat
    - Snippets to locate:
      - `conversation_upsert` event handling
      - `applyWsUpsert` call site
+   - Key requirements (repeat):
+     - Flow conversations must keep `flowName` to stay in the filtered list.
 2. [ ] Preserve `flowName` when applying WS updates:
    - Documentation to read (repeat):
      - React hooks/state: Context7 `/facebook/react/v19_2_0`
@@ -438,6 +469,8 @@ Prevent the Flows page from dropping the active conversation during a `conversat
      - Forward `event.conversation.flowName` when present.
      - In `applyWsUpsert`, merge missing `flowName` (and `agentName`) from the existing summary before filtering.
      - Ensure per-agent conversations (with `agentName`) are still excluded from the Flows sidebar.
+   - Key requirements (repeat):
+     - Do not add new WS event types or server changes.
 3. [ ] Add/update Flows page tests for WS upserts:
    - Documentation to read (repeat):
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
@@ -447,12 +480,16 @@ Prevent the Flows page from dropping the active conversation during a `conversat
      - `client/src/test/flowsPage.run.test.tsx`
    - Test expectations:
      - `conversation_upsert` keeps the conversation visible when `flowName` is missing from the payload (merge uses previous value).
+   - Key requirements (repeat):
+     - Keep existing WS tests intact; add a focused case for missing `flowName`.
 4. [ ] Update documentation after the client fix:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
      - `design.md` (document WS upsert behavior for flow sidebar)
      - `projectStructure.md` (only if new test files are added)
+   - Key requirements (repeat):
+     - Mention `flowName` merge behavior on upsert.
 5. [ ] Run full lint + format check:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -521,6 +558,8 @@ Add working-folder UI parity to the Flows page using the existing `DirectoryPick
      - `client/src/components/ingest/DirectoryPickerDialog.tsx`
      - `client/src/components/ingest/ingestDirsApi.ts`
      - `client/src/pages/FlowsPage.tsx`
+   - Key requirements (repeat):
+     - Reuse existing `DirectoryPickerDialog` and `ingestDirsApi`.
 2. [ ] Add a directory picker button + dialog to FlowsPage:
    - Documentation to read (repeat):
      - MUI TextField API (closest to @mui/material 6.4.1): https://llms.mui.com/material-ui/6.4.12/api/text-field.md
@@ -532,6 +571,8 @@ Add working-folder UI parity to the Flows page using the existing `DirectoryPick
      - Add a “Choose folder…” button to open `DirectoryPickerDialog`.
      - Mirror Agents behavior (`handleOpenDirPicker`, `handlePickDir`, `handleCloseDirPicker`).
      - Keep the selected value on dialog cancel; update on confirm.
+   - Key requirements (repeat):
+     - Preserve existing `working_folder` payload wiring in `runFlow`.
 3. [ ] Add/update Flows page tests for working-folder selection:
    - Documentation to read (repeat):
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
@@ -542,12 +583,16 @@ Add working-folder UI parity to the Flows page using the existing `DirectoryPick
    - Test expectations:
      - Opening the picker populates the input after selecting a folder.
      - The chosen `working_folder` is sent in the flow run payload.
+   - Key requirements (repeat):
+     - Keep current run/resume tests intact; add targeted cases only.
 4. [ ] Update documentation after the UI addition:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
      - `design.md` (note working-folder picker parity on Flows page)
      - `projectStructure.md` (only if new files are added)
+   - Key requirements (repeat):
+     - Mention parity with Agents/Ingest folder picker.
 5. [ ] Run full lint + format check:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -616,6 +661,8 @@ Add the Flows page info (“i”) popover matching the Agents UI, including warn
      - `client/src/pages/AgentsPage.tsx`
      - `client/src/components/Markdown.tsx`
      - `client/src/pages/FlowsPage.tsx`
+   - Key requirements (repeat):
+     - Flow warnings are based on `disabled === true` with `error` text.
 2. [ ] Implement the Flows info popover (matching Agents behavior):
    - Documentation to read (repeat):
      - MUI Popover API (closest to @mui/material 6.4.1): https://llms.mui.com/material-ui/6.4.12/api/popover.md
@@ -630,6 +677,8 @@ Add the Flows page info (“i”) popover matching the Agents UI, including warn
      - Match the popover anchoring (`anchorOrigin` bottom/left; `transformOrigin` top/left).
      - Avoid deprecated `components`/`componentsProps` props in Tooltip/Popover; use default slots unless customization is required.
      - Remove the inline flow description + warning alert beneath the controls so the popover becomes the single source of flow details.
+   - Key requirements (repeat):
+     - Empty-state copy must match Agents: “No description or warnings are available for this agent yet.”
 3. [ ] Add/update Flows page tests for the info popover:
    - Documentation to read (repeat):
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
@@ -640,12 +689,16 @@ Add the Flows page info (“i”) popover matching the Agents UI, including warn
      - Popover shows warnings when flow is disabled.
      - Popover shows description when available.
      - Empty-state copy renders when warnings + description are missing.
+   - Key requirements (repeat):
+     - Use the same test ids/patterns as Agents info popover where possible.
 4. [ ] Update documentation after the UI addition:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
      - `design.md` (document Flow info popover behavior)
      - `projectStructure.md` (only if new files are added)
+   - Key requirements (repeat):
+     - Mention removal of inline flow description in favor of popover.
 5. [ ] Run full lint + format check:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -710,6 +763,8 @@ Add a custom title input field to the Flows controls, store it in local state, a
      - React hooks/state: Context7 `/facebook/react/v19_2_0`
    - Files to read:
      - `client/src/pages/FlowsPage.tsx`
+   - Key requirements (repeat):
+     - Custom title is set only when starting a new flow; not editable afterward.
 2. [ ] Add the custom title input field and local state:
    - Documentation to read (repeat):
      - MUI TextField API (closest to @mui/material 6.4.1): https://llms.mui.com/material-ui/6.4.12/api/text-field.md
@@ -719,6 +774,8 @@ Add a custom title input field to the Flows controls, store it in local state, a
      - Add `customTitle` state and a text input in the controls stack.
      - Disable the input when resuming, when a run is in progress, or when an existing conversation is selected.
      - Clear `customTitle` inside the existing `resetConversation` helper so New Flow + flow changes reset it.
+   - Key requirements (repeat):
+     - Do not persist custom title in local storage; keep in component state only.
 3. [ ] Add/update Flows page tests for the custom title input UI:
    - Documentation to read (repeat):
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
@@ -728,12 +785,16 @@ Add a custom title input field to the Flows controls, store it in local state, a
    - Test expectations:
      - Custom title input renders.
      - Input disables during resume/inflight states.
+   - Key requirements (repeat):
+     - Tests should not depend on server responses (UI-only).
 4. [ ] Update documentation after the UI addition:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
      - `design.md` (document custom title input UI)
      - `projectStructure.md` (only if new files are added)
+   - Key requirements (repeat):
+     - Document that the title is only set at run start.
 5. [ ] Run full lint + format check:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -799,6 +860,8 @@ Send `customTitle` only when starting a new flow conversation and keep the paylo
      - `client/src/pages/FlowsPage.tsx`
      - `client/src/api/flows.ts`
      - `client/src/test/flowsApi.run.payload.test.ts`
+   - Key requirements (repeat):
+     - `customTitle` must only be sent for new runs (not resumes).
 2. [ ] Add `customTitle` to the run payload logic:
    - Documentation to read (repeat):
      - React hooks/state: Context7 `/facebook/react/v19_2_0`
@@ -808,6 +871,8 @@ Send `customTitle` only when starting a new flow conversation and keep the paylo
    - Implementation details:
      - Extend the `runFlow` params to accept `customTitle?: string`.
      - Include `customTitle` in the request body only when `isNewConversation === true` and `mode === 'run'`.
+   - Key requirements (repeat):
+     - Never send `customTitle` on resume or existing-conversation runs.
 3. [ ] Update flow API + page tests for custom title payloads:
    - Documentation to read (repeat):
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
@@ -818,12 +883,16 @@ Send `customTitle` only when starting a new flow conversation and keep the paylo
    - Test expectations:
      - `customTitle` is included only for new runs.
      - `customTitle` is omitted for resume or existing conversation runs.
+   - Key requirements (repeat):
+     - Keep existing payload tests intact; add new focused assertions.
 4. [ ] Update documentation after the payload change:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
      - `design.md` (document custom title payload rules)
      - `projectStructure.md` (only if new files are added)
+   - Key requirements (repeat):
+     - Mention that custom title is not editable after start.
 5. [ ] Run full lint + format check:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -890,6 +959,8 @@ Add a “New Flow” action that clears the active conversation and transcript w
      - `client/src/pages/AgentsPage.tsx`
      - `client/src/pages/ChatPage.tsx`
      - `client/src/pages/FlowsPage.tsx`
+   - Key requirements (repeat):
+     - New Flow must keep `selectedFlowName` intact.
 2. [ ] Implement the “New Flow” reset action:
    - Documentation to read (repeat):
      - MUI Button API (closest to @mui/material 6.4.1): https://llms.mui.com/material-ui/6.4.12/api/button.md
@@ -900,6 +971,8 @@ Add a “New Flow” action that clears the active conversation and transcript w
      - Clear `activeConversationId`, transcript/messages, inflight state, `customTitle`, and `workingFolder`.
      - Keep `selectedFlowName` unchanged so the flow list and Run button stay enabled.
      - Reset any “resume” state so the next run is treated as a new flow.
+   - Key requirements (repeat):
+     - Do not clear the flow selection or flow list state.
 3. [ ] Add/update Flows page tests for the reset action:
    - Documentation to read (repeat):
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
@@ -909,12 +982,16 @@ Add a “New Flow” action that clears the active conversation and transcript w
    - Test expectations:
      - Clicking “New Flow” clears the transcript and active conversation.
      - The selected flow remains highlighted and the Run button is still enabled.
+   - Key requirements (repeat):
+     - Ensure tests cover that `customTitle` and `workingFolder` reset.
 4. [ ] Update documentation after the UI addition:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
      - `design.md` (document new flow reset behavior)
      - `projectStructure.md` (only if new files are added)
+   - Key requirements (repeat):
+     - Call out that New Flow does not change the selected flow.
 5. [ ] Run full lint + format check:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface

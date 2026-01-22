@@ -1357,7 +1357,7 @@ Send `customTitle` only when starting a new flow conversation and keep the paylo
 
 ### 9. Client: Add “New Flow” reset action
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **__to_do__**
 
 #### Overview

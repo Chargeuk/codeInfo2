@@ -129,6 +129,7 @@ Accept `customTitle` on `POST /flows/:flowName/run` (string-only, trimmed) and t
 - Node.js test runner: https://nodejs.org/api/test.html (`node:test` usage)
 - Supertest HTTP assertions: https://github.com/forwardemail/supertest (request/expect patterns)
 - Markdown Guide: https://www.markdownguide.org/basic-syntax/ (syntax reference for docs updates)
+- Mermaid diagrams: Context7 `/mermaid-js/mermaid` (diagram syntax reference)
 - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface (lint command reference)
 - Prettier CLI: https://prettier.io/docs/cli (format command reference)
 - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script (build/test command usage)
@@ -251,6 +252,7 @@ Use `customTitle` to set the conversation title for the main flow and per-agent 
 - Node.js test runner: https://nodejs.org/api/test.html (`node:test` usage)
 - Supertest HTTP assertions: https://github.com/forwardemail/supertest (request/expect patterns)
 - Markdown Guide: https://www.markdownguide.org/basic-syntax/ (syntax reference for docs updates)
+- Mermaid diagrams: Context7 `/mermaid-js/mermaid` (diagram syntax reference)
 - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface (lint command reference)
 - Prettier CLI: https://prettier.io/docs/cli (format command reference)
 - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script (build/test command usage)
@@ -317,6 +319,7 @@ Use `customTitle` to set the conversation title for the main flow and per-agent 
      - `design.md` (document `customTitle` in the Flows run behavior section)
    - Key requirements (repeat):
      - Mention both main flow and per-agent title behavior.
+     - Add/update a Mermaid diagram to show how custom titles are applied during flow conversation creation.
 7. [ ] Update `projectStructure.md` after any file additions/removals (only if new files were added/removed in this task).
 8. [ ] Run full lint + format check:
    - Documentation to read (repeat):
@@ -428,6 +431,7 @@ Update the conversations list query so `agentName=__none__` and `flowName=__none
      - `design.md` (document combined filter behavior for chat-only lists)
    - Key requirements (repeat):
      - Document how `__none__` filters combine.
+     - Update the Mermaid diagram that describes conversation list filtering to show combined `agentName` + `flowName` behavior.
 6. [ ] Update `projectStructure.md` after any file additions/removals (only if new files were added/removed in this task).
 7. [ ] Run full lint + format check:
    - Documentation to read (repeat):
@@ -487,6 +491,7 @@ Prevent the Flows page from dropping the active conversation during a `conversat
 - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/ (render + screen usage)
 - Node.js test runner: https://nodejs.org/api/test.html (`node:test` usage for server tests)
 - Markdown Guide: https://www.markdownguide.org/basic-syntax/ (syntax reference for docs updates)
+- Mermaid diagrams: Context7 `/mermaid-js/mermaid` (diagram syntax reference)
 - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface (lint command reference)
 - Prettier CLI: https://prettier.io/docs/cli (format command reference)
 - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script (build/test command usage)
@@ -542,6 +547,7 @@ Prevent the Flows page from dropping the active conversation during a `conversat
      - `design.md` (document WS upsert behavior for flow sidebar)
    - Key requirements (repeat):
      - Mention `flowName` merge behavior on upsert.
+     - Update the Mermaid diagram that describes WS sidebar updates to include `flowName` merging.
 6. [ ] Update `projectStructure.md` after any file additions/removals (only if new files were added/removed in this task).
 7. [ ] Run full lint + format check:
    - Documentation to read (repeat):
@@ -600,16 +606,10 @@ Add working-folder UI parity to the Flows page using the existing `DirectoryPick
 - Cucumber guides: https://cucumber.io/docs/guides/ (server test runner reference)
 - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
 - MUI TextField API (closest to @mui/material 6.4.1): https://llms.mui.com/material-ui/6.4.12/api/text-field.md
-- Node.js test runner: https://nodejs.org/api/test.html (`node:test` usage for server tests)
-- Markdown Guide: https://www.markdownguide.org/basic-syntax/ (syntax reference for docs updates)
-- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface (lint command reference)
-- Prettier CLI: https://prettier.io/docs/cli (format command reference)
-- npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script (build/test command usage)
-- Playwright: Context7 `/microsoft/playwright` (e2e command reference)
-- Docker/Compose: Context7 `/docker/docs` (compose build/up/down commands)
 - MUI Button API (closest to @mui/material 6.4.1): https://llms.mui.com/material-ui/6.4.12/api/button.md
 - Node.js test runner: https://nodejs.org/api/test.html (`node:test` usage for server tests)
 - Markdown Guide: https://www.markdownguide.org/basic-syntax/ (syntax reference for docs updates)
+- Mermaid diagrams: Context7 `/mermaid-js/mermaid` (diagram syntax reference)
 - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface (lint command reference)
 - Prettier CLI: https://prettier.io/docs/cli (format command reference)
 - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script (build/test command usage)
@@ -672,6 +672,7 @@ Add working-folder UI parity to the Flows page using the existing `DirectoryPick
      - `design.md` (note working-folder picker parity on Flows page)
    - Key requirements (repeat):
      - Mention parity with Agents/Ingest folder picker.
+     - Add/update a Mermaid diagram that shows the Flows run form including working-folder selection.
 7. [ ] Update `projectStructure.md` after any file additions/removals (only if new files were added/removed in this task).
 8. [ ] Run full lint + format check:
    - Documentation to read (repeat):
@@ -734,6 +735,7 @@ Add the Flows page info (“i”) popover matching the Agents UI, including warn
 - MUI Tooltip API (closest to @mui/material 6.4.1): https://llms.mui.com/material-ui/6.4.12/api/tooltip.md
 - Node.js test runner: https://nodejs.org/api/test.html (`node:test` usage for server tests)
 - Markdown Guide: https://www.markdownguide.org/basic-syntax/ (syntax reference for docs updates)
+- Mermaid diagrams: Context7 `/mermaid-js/mermaid` (diagram syntax reference)
 - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface (lint command reference)
 - Prettier CLI: https://prettier.io/docs/cli (format command reference)
 - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script (build/test command usage)
@@ -798,6 +800,7 @@ Add the Flows page info (“i”) popover matching the Agents UI, including warn
      - `design.md` (document Flow info popover behavior)
    - Key requirements (repeat):
      - Mention removal of inline flow description in favor of popover.
+     - Add/update a Mermaid diagram that shows the Flows info popover in the page UX flow.
 7. [ ] Update `projectStructure.md` after any file additions/removals (only if new files were added/removed in this task).
 8. [ ] Run full lint + format check:
    - Documentation to read (repeat):
@@ -858,6 +861,7 @@ Add a custom title input field to the Flows controls, store it in local state, a
 - MUI TextField API (closest to @mui/material 6.4.1): https://llms.mui.com/material-ui/6.4.12/api/text-field.md
 - Node.js test runner: https://nodejs.org/api/test.html (`node:test` usage for server tests)
 - Markdown Guide: https://www.markdownguide.org/basic-syntax/ (syntax reference for docs updates)
+- Mermaid diagrams: Context7 `/mermaid-js/mermaid` (diagram syntax reference)
 - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface (lint command reference)
 - Prettier CLI: https://prettier.io/docs/cli (format command reference)
 - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script (build/test command usage)
@@ -909,6 +913,7 @@ Add a custom title input field to the Flows controls, store it in local state, a
      - `design.md` (document custom title input UI)
    - Key requirements (repeat):
      - Document that the title is only set at run start.
+     - Add/update a Mermaid diagram showing the custom title captured before starting a flow.
 6. [ ] Update `projectStructure.md` after any file additions/removals (only if new files were added/removed in this task).
 7. [ ] Run full lint + format check:
    - Documentation to read (repeat):
@@ -968,6 +973,7 @@ Send `customTitle` only when starting a new flow conversation and keep the paylo
 - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
 - Node.js test runner: https://nodejs.org/api/test.html (`node:test` usage for server tests)
 - Markdown Guide: https://www.markdownguide.org/basic-syntax/ (syntax reference for docs updates)
+- Mermaid diagrams: Context7 `/mermaid-js/mermaid` (diagram syntax reference)
 - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface (lint command reference)
 - Prettier CLI: https://prettier.io/docs/cli (format command reference)
 - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script (build/test command usage)
@@ -1027,6 +1033,7 @@ Send `customTitle` only when starting a new flow conversation and keep the paylo
      - `design.md` (document custom title payload rules)
    - Key requirements (repeat):
      - Mention that custom title is not editable after start.
+     - Add/update a Mermaid diagram that shows `customTitle` included only on new flow runs.
 7. [ ] Update `projectStructure.md` after any file additions/removals (only if new files were added/removed in this task).
 8. [ ] Run full lint + format check:
    - Documentation to read (repeat):
@@ -1147,6 +1154,7 @@ Add a “New Flow” action that clears the active conversation and transcript w
      - `design.md` (document new flow reset behavior)
    - Key requirements (repeat):
      - Call out that New Flow does not change the selected flow.
+     - Add/update a Mermaid diagram that shows the New Flow reset path without changing the selected flow.
 7. [ ] Update `projectStructure.md` after any file additions/removals (only if new files were added/removed in this task).
 8. [ ] Run full lint + format check:
    - Documentation to read (repeat):

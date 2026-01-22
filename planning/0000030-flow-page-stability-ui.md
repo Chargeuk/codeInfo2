@@ -187,15 +187,15 @@ Accept `customTitle` on `POST /flows/:flowName/run` (string-only, trimmed) and t
      - Non-string `customTitle` returns `400 { error: 'invalid_request' }`.
    - Key requirements (repeat):
      - Preserve existing error mappings; follow current `invalid_request` patterns.
-5. [ ] Update documentation after the server change:
+5. [ ] Update API documentation after the server change:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
      - `openapi.json` (add `customTitle` to `POST /flows/:flowName/run` request body)
-     - `projectStructure.md` (only if new fixtures/files are added)
    - Key requirements (repeat):
      - Mark `customTitle` as optional string in OpenAPI.
-6. [ ] Run full lint + format check:
+6. [ ] Update `projectStructure.md` after any file additions/removals (only if new files were added/removed in this task).
+7. [ ] Run full lint + format check:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -310,15 +310,15 @@ Use `customTitle` to set the conversation title for the main flow and per-agent 
      - `server/src/test/integration/flows.run.basic.test.ts`
    - Test expectations:
      - Empty/whitespace `customTitle` values are ignored.
-6. [ ] Update documentation after the server change:
+6. [ ] Update design documentation after the server change:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
      - `design.md` (document `customTitle` in the Flows run behavior section)
-     - `projectStructure.md` (only if new fixtures/files are added)
    - Key requirements (repeat):
      - Mention both main flow and per-agent title behavior.
-7. [ ] Run full lint + format check:
+7. [ ] Update `projectStructure.md` after any file additions/removals (only if new files were added/removed in this task).
+8. [ ] Run full lint + format check:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -421,15 +421,15 @@ Update the conversations list query so `agentName=__none__` and `flowName=__none
      - `server/src/test/integration/conversations.list.test.ts`
    - Test expectations:
      - `?agentName=__none__&flowName=<name>` returns non-agent flow conversations only.
-5. [ ] Update documentation after the query change:
+5. [ ] Update design documentation after the query change:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
      - `design.md` (document combined filter behavior for chat-only lists)
-     - `projectStructure.md` (only if new files are added)
    - Key requirements (repeat):
      - Document how `__none__` filters combine.
-6. [ ] Run full lint + format check:
+6. [ ] Update `projectStructure.md` after any file additions/removals (only if new files were added/removed in this task).
+7. [ ] Run full lint + format check:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -535,15 +535,15 @@ Prevent the Flows page from dropping the active conversation during a `conversat
      - `client/src/test/flowsPage.run.test.tsx`
    - Test expectations:
      - `conversation_upsert` with `agentName` does not show in the Flows sidebar.
-5. [ ] Update documentation after the client fix:
+5. [ ] Update design documentation after the client fix:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
      - `design.md` (document WS upsert behavior for flow sidebar)
-     - `projectStructure.md` (only if new test files are added)
    - Key requirements (repeat):
      - Mention `flowName` merge behavior on upsert.
-6. [ ] Run full lint + format check:
+6. [ ] Update `projectStructure.md` after any file additions/removals (only if new files were added/removed in this task).
+7. [ ] Run full lint + format check:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -665,15 +665,15 @@ Add working-folder UI parity to the Flows page using the existing `DirectoryPick
      - `client/src/test/flowsApi.run.payload.test.ts`
    - Test expectations:
      - The chosen `working_folder` is sent in the flow run payload.
-6. [ ] Update documentation after the UI addition:
+6. [ ] Update design documentation after the UI addition:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
      - `design.md` (note working-folder picker parity on Flows page)
-     - `projectStructure.md` (only if new files are added)
    - Key requirements (repeat):
      - Mention parity with Agents/Ingest folder picker.
-7. [ ] Run full lint + format check:
+7. [ ] Update `projectStructure.md` after any file additions/removals (only if new files were added/removed in this task).
+8. [ ] Run full lint + format check:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -791,15 +791,15 @@ Add the Flows page info (“i”) popover matching the Agents UI, including warn
      - `client/src/test/flowsPage.test.tsx`
    - Test expectations:
      - Empty-state copy renders when warnings + description are missing.
-6. [ ] Update documentation after the UI addition:
+6. [ ] Update design documentation after the UI addition:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
      - `design.md` (document Flow info popover behavior)
-     - `projectStructure.md` (only if new files are added)
    - Key requirements (repeat):
      - Mention removal of inline flow description in favor of popover.
-7. [ ] Run full lint + format check:
+7. [ ] Update `projectStructure.md` after any file additions/removals (only if new files were added/removed in this task).
+8. [ ] Run full lint + format check:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -902,15 +902,15 @@ Add a custom title input field to the Flows controls, store it in local state, a
      - Input disables during resume/inflight states.
    - Key requirements (repeat):
      - Tests should not depend on server responses (UI-only).
-5. [ ] Update documentation after the UI addition:
+5. [ ] Update design documentation after the UI addition:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
      - `design.md` (document custom title input UI)
-     - `projectStructure.md` (only if new files are added)
    - Key requirements (repeat):
      - Document that the title is only set at run start.
-6. [ ] Run full lint + format check:
+6. [ ] Update `projectStructure.md` after any file additions/removals (only if new files were added/removed in this task).
+7. [ ] Run full lint + format check:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -1020,15 +1020,15 @@ Send `customTitle` only when starting a new flow conversation and keep the paylo
      - `client/src/test/flowsPage.run.test.tsx`
    - Test expectations:
      - The run action includes the current `customTitle` when starting a new flow.
-6. [ ] Update documentation after the payload change:
+6. [ ] Update design documentation after the payload change:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
      - `design.md` (document custom title payload rules)
-     - `projectStructure.md` (only if new files are added)
    - Key requirements (repeat):
      - Mention that custom title is not editable after start.
-7. [ ] Run full lint + format check:
+7. [ ] Update `projectStructure.md` after any file additions/removals (only if new files were added/removed in this task).
+8. [ ] Run full lint + format check:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -1140,15 +1140,15 @@ Add a “New Flow” action that clears the active conversation and transcript w
      - `client/src/test/flowsPage.run.test.tsx`
    - Test expectations:
      - `customTitle` and `workingFolder` values reset.
-6. [ ] Update documentation after the UI addition:
+6. [ ] Update design documentation after the UI addition:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
      - `design.md` (document new flow reset behavior)
-     - `projectStructure.md` (only if new files are added)
    - Key requirements (repeat):
      - Call out that New Flow does not change the selected flow.
-7. [ ] Run full lint + format check:
+7. [ ] Update `projectStructure.md` after any file additions/removals (only if new files were added/removed in this task).
+8. [ ] Run full lint + format check:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli

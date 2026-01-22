@@ -128,6 +128,27 @@ Accept `customTitle` on `POST /flows/:flowName/run` (string-only, trimmed) and t
 - Express routing + handlers: Context7 `/expressjs/express/v5.1.0` (route handlers, async error handling)
 - Node.js test runner: https://nodejs.org/api/test.html (`node:test` usage)
 - Supertest HTTP assertions: https://github.com/forwardemail/supertest (request/expect patterns)
+- Markdown Guide: https://www.markdownguide.org/basic-syntax/ (syntax reference for docs updates)
+- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface (lint command reference)
+- Prettier CLI: https://prettier.io/docs/cli (format command reference)
+- npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script (build/test command usage)
+- Jest: Context7 `/websites/jestjs_io_30_0` (client test runner reference)
+- Playwright: Context7 `/microsoft/playwright` (e2e command reference)
+- Docker/Compose: Context7 `/docker/docs` (compose build/up/down commands)
+- Markdown Guide: https://www.markdownguide.org/basic-syntax/ (syntax reference for docs updates)
+- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface (lint command reference)
+- Prettier CLI: https://prettier.io/docs/cli (format command reference)
+- npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script (build/test command usage)
+- Jest: Context7 `/websites/jestjs_io_30_0` (client test runner reference)
+- Playwright: Context7 `/microsoft/playwright` (e2e command reference)
+- Docker/Compose: Context7 `/docker/docs` (compose build/up/down commands)
+- Markdown Guide: https://www.markdownguide.org/basic-syntax/ (syntax reference for docs updates)
+- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface (lint command reference)
+- Prettier CLI: https://prettier.io/docs/cli (format command reference)
+- npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script (build/test command usage)
+- Jest: Context7 `/websites/jestjs_io_30_0` (client test runner reference)
+- Playwright: Context7 `/microsoft/playwright` (e2e command reference)
+- Docker/Compose: Context7 `/docker/docs` (compose build/up/down commands)
 
 #### Subtasks
 
@@ -444,6 +465,13 @@ Prevent the Flows page from dropping the active conversation during a `conversat
 - React hooks/state: Context7 `/facebook/react/v19_2_0` (React 19.2 hooks API)
 - Jest: Context7 `/websites/jestjs_io_30_0` (test structure)
 - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/ (render + screen usage)
+- Node.js test runner: https://nodejs.org/api/test.html (`node:test` usage for server tests)
+- Markdown Guide: https://www.markdownguide.org/basic-syntax/ (syntax reference for docs updates)
+- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface (lint command reference)
+- Prettier CLI: https://prettier.io/docs/cli (format command reference)
+- npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script (build/test command usage)
+- Playwright: Context7 `/microsoft/playwright` (e2e command reference)
+- Docker/Compose: Context7 `/docker/docs` (compose build/up/down commands)
 
 #### Subtasks
 
@@ -545,8 +573,29 @@ Add working-folder UI parity to the Flows page using the existing `DirectoryPick
 - React hooks/state: Context7 `/facebook/react/v19_2_0` (React 19.2 hooks API)
 - Jest: Context7 `/websites/jestjs_io_30_0` (test structure)
 - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+- Node.js test runner: https://nodejs.org/api/test.html (`node:test` usage for server tests)
+- Markdown Guide: https://www.markdownguide.org/basic-syntax/ (syntax reference for docs updates)
+- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface (lint command reference)
+- Prettier CLI: https://prettier.io/docs/cli (format command reference)
+- npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script (build/test command usage)
+- Playwright: Context7 `/microsoft/playwright` (e2e command reference)
+- Docker/Compose: Context7 `/docker/docs` (compose build/up/down commands)
 - MUI TextField API (closest to @mui/material 6.4.1): https://llms.mui.com/material-ui/6.4.12/api/text-field.md
+- Node.js test runner: https://nodejs.org/api/test.html (`node:test` usage for server tests)
+- Markdown Guide: https://www.markdownguide.org/basic-syntax/ (syntax reference for docs updates)
+- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface (lint command reference)
+- Prettier CLI: https://prettier.io/docs/cli (format command reference)
+- npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script (build/test command usage)
+- Playwright: Context7 `/microsoft/playwright` (e2e command reference)
+- Docker/Compose: Context7 `/docker/docs` (compose build/up/down commands)
 - MUI Button API (closest to @mui/material 6.4.1): https://llms.mui.com/material-ui/6.4.12/api/button.md
+- Node.js test runner: https://nodejs.org/api/test.html (`node:test` usage for server tests)
+- Markdown Guide: https://www.markdownguide.org/basic-syntax/ (syntax reference for docs updates)
+- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface (lint command reference)
+- Prettier CLI: https://prettier.io/docs/cli (format command reference)
+- npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script (build/test command usage)
+- Playwright: Context7 `/microsoft/playwright` (e2e command reference)
+- Docker/Compose: Context7 `/docker/docs` (compose build/up/down commands)
 
 #### Subtasks
 
@@ -651,6 +700,13 @@ Add the Flows page info (“i”) popover matching the Agents UI, including warn
 - MUI Popover API (closest to @mui/material 6.4.1): https://llms.mui.com/material-ui/6.4.12/api/popover.md
 - MUI IconButton API (closest to @mui/material 6.4.1): https://llms.mui.com/material-ui/6.4.12/api/icon-button.md
 - MUI Tooltip API (closest to @mui/material 6.4.1): https://llms.mui.com/material-ui/6.4.12/api/tooltip.md
+- Node.js test runner: https://nodejs.org/api/test.html (`node:test` usage for server tests)
+- Markdown Guide: https://www.markdownguide.org/basic-syntax/ (syntax reference for docs updates)
+- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface (lint command reference)
+- Prettier CLI: https://prettier.io/docs/cli (format command reference)
+- npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script (build/test command usage)
+- Playwright: Context7 `/microsoft/playwright` (e2e command reference)
+- Docker/Compose: Context7 `/docker/docs` (compose build/up/down commands)
 
 #### Subtasks
 
@@ -949,6 +1005,13 @@ Add a “New Flow” action that clears the active conversation and transcript w
 - Jest: Context7 `/websites/jestjs_io_30_0` (test structure)
 - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
 - MUI Button API (closest to @mui/material 6.4.1): https://llms.mui.com/material-ui/6.4.12/api/button.md
+- Node.js test runner: https://nodejs.org/api/test.html (`node:test` usage for server tests)
+- Markdown Guide: https://www.markdownguide.org/basic-syntax/ (syntax reference for docs updates)
+- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface (lint command reference)
+- Prettier CLI: https://prettier.io/docs/cli (format command reference)
+- npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script (build/test command usage)
+- Playwright: Context7 `/microsoft/playwright` (e2e command reference)
+- Docker/Compose: Context7 `/docker/docs` (compose build/up/down commands)
 
 #### Subtasks
 
@@ -1050,6 +1113,8 @@ Run full builds/tests, perform manual verification with Playwright MCP, ensure d
 - Mermaid: Context7 `/mermaid-js/mermaid`
 - Jest: Context7 `/websites/jestjs_io_30_0`
 - Cucumber guides: https://cucumber.io/docs/guides/
+- Node.js test runner: https://nodejs.org/api/test.html (`node:test` usage for server tests)
+- npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script (build/test command usage)
 
 #### Subtasks
 

@@ -38,12 +38,69 @@ const routes = [
   },
 ];
 
+const defaultDirs = {
+  base: '/base',
+  path: '/base',
+  dirs: ['repo'],
+};
+
 function mockJsonResponse(payload: unknown, init?: { status?: number }) {
   return Promise.resolve({
     ok: (init?.status ?? 200) >= 200 && (init?.status ?? 200) < 300,
     status: init?.status ?? 200,
     json: async () => payload,
   } as Response);
+}
+
+function mockFlowsFetch(options?: {
+  dirs?: typeof defaultDirs | ((path: string | undefined) => unknown) | unknown;
+}) {
+  mockFetch.mockImplementation((url: RequestInfo | URL) => {
+    const target = typeof url === 'string' ? url : url.toString();
+
+    if (target.includes('/health')) {
+      return mockJsonResponse({ mongoConnected: true });
+    }
+
+    if (target.includes('/flows') && !target.includes('/run')) {
+      return mockJsonResponse({
+        flows: [{ name: 'daily', description: 'Daily flow', disabled: false }],
+      });
+    }
+
+    if (target.includes('/conversations/') && target.includes('/turns')) {
+      return mockJsonResponse({ items: [] });
+    }
+
+    if (target.includes('/conversations')) {
+      return mockJsonResponse({
+        items: [
+          {
+            conversationId: 'flow-1',
+            title: 'Flow: daily',
+            provider: 'codex',
+            model: 'gpt-5',
+            source: 'REST',
+            lastMessageAt: new Date().toISOString(),
+            archived: false,
+            flowName: 'daily',
+            flags: {},
+          },
+        ],
+      });
+    }
+
+    if (target.includes('/ingest/dirs')) {
+      const path = new URL(target).searchParams.get('path') ?? undefined;
+      const dirs =
+        typeof options?.dirs === 'function'
+          ? options.dirs(path)
+          : (options?.dirs ?? defaultDirs);
+      return mockJsonResponse(dirs);
+    }
+
+    return mockJsonResponse({});
+  });
 }
 
 function emitWsEvent(event: Record<string, unknown>) {
@@ -135,6 +192,62 @@ describe('Flows page run/resume controls', () => {
       expect(body.conversationId).toBe('flow-1');
       expect(body.working_folder).toBe('/tmp/work');
     });
+  });
+
+  it('writes the selected folder into the working folder input', async () => {
+    const user = userEvent.setup();
+
+    mockFlowsFetch({
+      dirs: (path) => {
+        if (path === '/base/repo') {
+          return { base: '/base', path: '/base/repo', dirs: [] };
+        }
+        return defaultDirs;
+      },
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+    render(<RouterProvider router={router} />);
+
+    await screen.findByText('Flow: daily');
+
+    await act(async () => {
+      await user.click(screen.getByTestId('flow-working-folder-picker'));
+    });
+
+    const childDir = await screen.findByRole('button', { name: 'repo' });
+    await act(async () => {
+      await user.click(childDir);
+    });
+
+    await act(async () => {
+      await user.click(screen.getByRole('button', { name: 'Use this folder' }));
+    });
+
+    const workingFolder = await screen.findByTestId('flow-working-folder');
+    expect(workingFolder).toHaveValue('/base/repo');
+  });
+
+  it('keeps the working folder value on picker errors', async () => {
+    const user = userEvent.setup();
+    mockFlowsFetch({ dirs: { status: 'error', code: 'NOT_FOUND' } });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+    render(<RouterProvider router={router} />);
+
+    await screen.findByText('Flow: daily');
+
+    const workingFolder = await screen.findByTestId('flow-working-folder');
+    await user.type(workingFolder, '/existing/path');
+
+    await act(async () => {
+      await user.click(screen.getByTestId('flow-working-folder-picker'));
+    });
+
+    await screen.findByText(/unable to list directories/i);
+    expect(screen.getByTestId('flow-working-folder')).toHaveValue(
+      '/existing/path',
+    );
   });
 
   it('includes resumeStepPath when resuming a flow', async () => {

@@ -1744,6 +1744,21 @@ sequenceDiagram
   Store->>Store: apply flow filter + sort
 ```
 
+### Flows run form (working folder picker)
+
+- The Flows run form mirrors Agents/Ingest working-folder selection using `DirectoryPickerDialog` and `/ingest/dirs`.
+- Users can type a path manually or choose a folder from the picker; cancelling leaves the existing value intact.
+- Selecting a folder logs `flows.ui.working_folder.selected` with the chosen path.
+
+```mermaid
+flowchart LR
+  FlowSelect[Flow selector] --> WorkingFolder[Working folder input]
+  WorkingFolder --> Picker[Choose folder…]
+  Picker --> Dialog[DirectoryPickerDialog]
+  Dialog -->|pick folder| WorkingFolder
+  Dialog -->|cancel| WorkingFolder
+```
+
 ### Agents transcript pipeline (client)
 
 - Agents use the same WebSocket transcript merge logic as Chat:

@@ -753,7 +753,7 @@ Add working-folder UI parity to the Flows page using the existing `DirectoryPick
 
 #### Subtasks
 
-1. [ ] Review how Agents/Ingest handle working folders and the directory picker:
+1. [x] Review how Agents/Ingest handle working folders and the directory picker:
    - Documentation to read (repeat):
      - React hooks/state: Context7 `/facebook/react/v19_2_0`
    - Files to read:
@@ -763,7 +763,7 @@ Add working-folder UI parity to the Flows page using the existing `DirectoryPick
      - `client/src/pages/FlowsPage.tsx`
    - Key requirements (repeat):
      - Reuse existing `DirectoryPickerDialog` and `ingestDirsApi`.
-2. [ ] Add a directory picker button + dialog to FlowsPage:
+2. [x] Add a directory picker button + dialog to FlowsPage:
    - Documentation to read (repeat):
      - MUI TextField API (closest to @mui/material 6.4.1): https://llms.mui.com/material-ui/6.4.12/api/text-field.md
      - MUI Button API (closest to @mui/material 6.4.1): https://llms.mui.com/material-ui/6.4.12/api/button.md
@@ -777,7 +777,7 @@ Add working-folder UI parity to the Flows page using the existing `DirectoryPick
      - Keep the selected value on dialog cancel; update on confirm.
    - Key requirements (repeat):
      - Preserve existing `working_folder` payload wiring in `runFlow`.
-3. [ ] Component test (client) — `client/src/test/flowsPage.run.test.tsx`: picker selection populates the working folder input (purpose: confirm happy-path selection).
+3. [x] Component test (client) — `client/src/test/flowsPage.run.test.tsx`: picker selection populates the working folder input (purpose: confirm happy-path selection).
    - Documentation to read (repeat):
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
      - Jest: Context7 `/websites/jestjs_io_30_0`
@@ -785,7 +785,7 @@ Add working-folder UI parity to the Flows page using the existing `DirectoryPick
      - `client/src/test/flowsPage.run.test.tsx`
    - Test expectations:
      - Opening the picker populates the input after selecting a folder.
-4. [ ] Component test (client) — `client/src/test/flowsPage.run.test.tsx`: picker error shows inline error and preserves value (purpose: cover error-state UX).
+4. [x] Component test (client) — `client/src/test/flowsPage.run.test.tsx`: picker error shows inline error and preserves value (purpose: cover error-state UX).
    - Documentation to read (repeat):
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
      - Jest: Context7 `/websites/jestjs_io_30_0`
@@ -793,7 +793,7 @@ Add working-folder UI parity to the Flows page using the existing `DirectoryPick
      - `client/src/test/flowsPage.run.test.tsx`
    - Test expectations:
      - Directory picker errors render the inline error state and do not clear the current `workingFolder` value.
-5. [ ] Unit/API test (client) — `client/src/test/flowsApi.run.payload.test.ts`: `working_folder` is sent in the flow run payload (purpose: confirm request body).
+5. [x] Unit/API test (client) — `client/src/test/flowsApi.run.payload.test.ts`: `working_folder` is sent in the flow run payload (purpose: confirm request body).
    - Documentation to read (repeat):
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
      - Jest: Context7 `/websites/jestjs_io_30_0`
@@ -801,7 +801,7 @@ Add working-folder UI parity to the Flows page using the existing `DirectoryPick
      - `client/src/test/flowsApi.run.payload.test.ts`
    - Test expectations:
      - The chosen `working_folder` is sent in the flow run payload.
-6. [ ] Update `design.md` (repo root `design.md`) with working-folder picker parity (purpose: document the updated Flows run form UX).
+6. [x] Update `design.md` (repo root `design.md`) with working-folder picker parity (purpose: document the updated Flows run form UX).
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -809,7 +809,7 @@ Add working-folder UI parity to the Flows page using the existing `DirectoryPick
    - Key requirements (repeat):
      - Mention parity with Agents/Ingest folder picker.
      - Add/update a Mermaid diagram that shows the Flows run form including working-folder selection.
-7. [ ] Update `projectStructure.md` (repo root `projectStructure.md`) after any file additions/removals in this task (purpose: keep the repository tree accurate).
+7. [x] Update `projectStructure.md` (repo root `projectStructure.md`) after any file additions/removals in this task (purpose: keep the repository tree accurate).
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to read:
@@ -820,54 +820,68 @@ Add working-folder UI parity to the Flows page using the existing `DirectoryPick
      - Add/remove/rename entries for any files changed by this task.
      - Added files (if any): list each file path added in this task.
      - Removed files (if any): list each file path removed in this task.
-8. [ ] Add a client log line when a working folder is selected (purpose: verify picker behavior in manual checks).
+8. [x] Add a client log line when a working folder is selected (purpose: verify picker behavior in manual checks).
    - Files to edit:
      - `client/src/pages/FlowsPage.tsx`
    - Log line to add:
      - `flows.ui.working_folder.selected` with fields `{ workingFolder }`.
    - Implementation details:
      - Emit when `handlePickDir` confirms a selection.
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+9. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
    - Documentation to read (repeat):
     - Jest: Context7 `/websites/jestjs_io_30_0`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m`)
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m`)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] Manual Playwright-MCP check to confirm working-folder picker UX parity:
+8. [x] Manual Playwright-MCP check to confirm working-folder picker UX parity:
    - Use Playwright MCP against http://host.docker.internal:5001.
    - Open the working-folder picker, select a folder, and confirm the input updates.
    - Cancel the picker and confirm the existing value remains unchanged.
    - Check the browser debug console for `flows.ui.working_folder.selected` with the chosen folder path.
    - Capture `0000030-05-working-folder-picker.png` in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped in `docker-compose.local.yml`) and confirm the picker UI matches expectations.
    - Ensure there are no logged errors in the browser debug console.
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
 #### Implementation notes
 
-- 
+- Reviewed Agents working-folder picker wiring and ingest directory picker components for reuse.
+- Added Flows working-folder picker button/dialog with selection logging.
+- Added Flows working-folder picker success/error tests; run payload test already covered working_folder.
+- Documented Flows working-folder picker parity in design notes with a Mermaid diagram.
+- No project structure updates required for this task.
+- Lint still reports existing import-order warnings; format check passed.
+- Built server workspace (`npm run build --workspace server`).
+- Built client workspace (`npm run build --workspace client`).
+- Ran server tests (`npm run test --workspace server`).
+- Ran client tests (`npm run test --workspace client`); existing console log output persists.
+- Ran e2e suite (`npm run e2e`).
+- Ran `npm run compose:build` successfully.
+- Ran `npm run compose:up` successfully.
+- Manual Playwright check confirmed picker selection/cancel behavior, logged `flows.ui.working_folder.selected`, captured `playwright-output-local/0000030-05-working-folder-picker.png`, and saw no console errors.
+- Ran `npm run compose:down` to stop the stack.
 
 ---
 

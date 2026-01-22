@@ -30,6 +30,7 @@ import {
 import { FlowApiError, listFlows, runFlow } from '../api/flows';
 import Markdown from '../components/Markdown';
 import ConversationList from '../components/chat/ConversationList';
+import DirectoryPickerDialog from '../components/ingest/DirectoryPickerDialog';
 import useChatStream, { ChatMessage, ToolCall } from '../hooks/useChatStream';
 import useChatWs, { type ChatWsServerEvent } from '../hooks/useChatWs';
 import useConversationTurns, {
@@ -162,6 +163,7 @@ export default function FlowsPage() {
   const [selectedFlowName, setSelectedFlowName] = useState('');
 
   const [workingFolder, setWorkingFolder] = useState('');
+  const [dirPickerOpen, setDirPickerOpen] = useState(false);
   const [startPending, setStartPending] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
   const [flowModelId, setFlowModelId] = useState('unknown');
@@ -355,6 +357,20 @@ export default function FlowsPage() {
   useEffect(() => {
     log('info', 'flows.ui.opened');
   }, [log]);
+
+  const handleOpenDirPicker = () => {
+    setDirPickerOpen(true);
+  };
+
+  const handlePickDir = (path: string) => {
+    setWorkingFolder(path);
+    log('info', 'flows.ui.working_folder.selected', { workingFolder: path });
+    setDirPickerOpen(false);
+  };
+
+  const handleCloseDirPicker = () => {
+    setDirPickerOpen(false);
+  };
 
   const loadFlows = useCallback(async () => {
     setFlowsLoading(true);
@@ -872,6 +888,12 @@ export default function FlowsPage() {
                         </MenuItem>
                       ))}
                     </TextField>
+                  </Stack>
+                  <Stack
+                    direction={{ xs: 'column', sm: 'row' }}
+                    spacing={1}
+                    alignItems={{ xs: 'stretch', sm: 'flex-start' }}
+                  >
                     <TextField
                       fullWidth
                       size="small"
@@ -880,50 +902,60 @@ export default function FlowsPage() {
                       onChange={(event) => setWorkingFolder(event.target.value)}
                       inputProps={{ 'data-testid': 'flow-working-folder' }}
                     />
-                    <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
-                      <Button
-                        type="button"
-                        variant="outlined"
-                        onClick={() => startFlowRun('run')}
-                        disabled={
-                          !selectedFlowName ||
-                          flowsLoading ||
-                          selectedFlowDisabled ||
-                          startPending ||
-                          persistenceUnavailable ||
-                          !wsTranscriptReady
-                        }
-                        data-testid="flow-run"
-                      >
-                        Run
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outlined"
-                        onClick={() => startFlowRun('resume')}
-                        disabled={
-                          !selectedFlowName ||
-                          flowsLoading ||
-                          selectedFlowDisabled ||
-                          startPending ||
-                          !resumeStepPath ||
-                          persistenceUnavailable ||
-                          !wsTranscriptReady
-                        }
-                        data-testid="flow-resume"
-                      >
-                        Resume
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outlined"
-                        onClick={handleStopClick}
-                        disabled={!showStop}
-                        data-testid="flow-stop"
-                      >
-                        Stop
-                      </Button>
-                    </Stack>
+                    <Button
+                      type="button"
+                      variant="outlined"
+                      size="small"
+                      onClick={handleOpenDirPicker}
+                      data-testid="flow-working-folder-picker"
+                      sx={{ flexShrink: 0 }}
+                    >
+                      Choose folder…
+                    </Button>
+                  </Stack>
+                  <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
+                    <Button
+                      type="button"
+                      variant="outlined"
+                      onClick={() => startFlowRun('run')}
+                      disabled={
+                        !selectedFlowName ||
+                        flowsLoading ||
+                        selectedFlowDisabled ||
+                        startPending ||
+                        persistenceUnavailable ||
+                        !wsTranscriptReady
+                      }
+                      data-testid="flow-run"
+                    >
+                      Run
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outlined"
+                      onClick={() => startFlowRun('resume')}
+                      disabled={
+                        !selectedFlowName ||
+                        flowsLoading ||
+                        selectedFlowDisabled ||
+                        startPending ||
+                        !resumeStepPath ||
+                        persistenceUnavailable ||
+                        !wsTranscriptReady
+                      }
+                      data-testid="flow-resume"
+                    >
+                      Resume
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outlined"
+                      onClick={handleStopClick}
+                      disabled={!showStop}
+                      data-testid="flow-stop"
+                    >
+                      Stop
+                    </Button>
                   </Stack>
                   {selectedFlow?.description && (
                     <Typography color="text.secondary" variant="body2">
@@ -944,6 +976,12 @@ export default function FlowsPage() {
                       Resume step path: {resumeStepPath.join(' / ')}
                     </Typography>
                   )}
+                  <DirectoryPickerDialog
+                    open={dirPickerOpen}
+                    path={workingFolder}
+                    onClose={handleCloseDirPicker}
+                    onPick={handlePickDir}
+                  />
                 </Stack>
               </Box>
 

@@ -208,14 +208,6 @@ Accept `customTitle` on `POST /flows/:flowName/run` (string-only, trimmed) and t
      - Add/remove/rename entries for any files changed by this task.
      - Added files (if any): list each file path added in this task.
      - Removed files (if any): list each file path removed in this task.
-7. [ ] Run full lint + format check:
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier CLI: https://prettier.io/docs/cli
-   - Snippet to run:
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -242,6 +234,10 @@ Accept `customTitle` on `POST /flows/:flowName/run` (string-only, trimmed) and t
 8. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
+9. [ ] Run lint + format checks (`npm run lint --workspaces`, `npm run format:check --workspaces`).
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier CLI: https://prettier.io/docs/cli
 
 #### Implementation notes
 
@@ -353,14 +349,6 @@ Use `customTitle` to set the conversation title for the main flow and per-agent 
      - Add/remove/rename entries for any files changed by this task.
      - Added files (if any): list each file path added in this task.
      - Removed files (if any): list each file path removed in this task.
-9. [ ] Run full lint + format check:
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier CLI: https://prettier.io/docs/cli
-   - Snippet to run:
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -387,6 +375,10 @@ Use `customTitle` to set the conversation title for the main flow and per-agent 
 8. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
+9. [ ] Run lint + format checks (`npm run lint --workspaces`, `npm run format:check --workspaces`).
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier CLI: https://prettier.io/docs/cli
 
 #### Implementation notes
 
@@ -477,14 +469,6 @@ Update the conversations list query so `agentName=__none__` and `flowName=__none
      - Add/remove/rename entries for any files changed by this task.
      - Added files (if any): list each file path added in this task.
      - Removed files (if any): list each file path removed in this task.
-7. [ ] Run full lint + format check:
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier CLI: https://prettier.io/docs/cli
-   - Snippet to run:
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -511,6 +495,10 @@ Update the conversations list query so `agentName=__none__` and `flowName=__none
 8. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
+9. [ ] Run lint + format checks (`npm run lint --workspaces`, `npm run format:check --workspaces`).
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier CLI: https://prettier.io/docs/cli
 
 #### Implementation notes
 
@@ -604,14 +592,6 @@ Prevent the Flows page from dropping the active conversation during a `conversat
      - Add/remove/rename entries for any files changed by this task.
      - Added files (if any): list each file path added in this task.
      - Removed files (if any): list each file path removed in this task.
-7. [ ] Run full lint + format check:
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier CLI: https://prettier.io/docs/cli
-   - Snippet to run:
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -638,6 +618,10 @@ Prevent the Flows page from dropping the active conversation during a `conversat
 8. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
+9. [ ] Run lint + format checks (`npm run lint --workspaces`, `npm run format:check --workspaces`).
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier CLI: https://prettier.io/docs/cli
 
 #### Implementation notes
 
@@ -739,14 +723,6 @@ Add working-folder UI parity to the Flows page using the existing `DirectoryPick
      - Add/remove/rename entries for any files changed by this task.
      - Added files (if any): list each file path added in this task.
      - Removed files (if any): list each file path removed in this task.
-8. [ ] Run full lint + format check:
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier CLI: https://prettier.io/docs/cli
-   - Snippet to run:
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -773,6 +749,10 @@ Add working-folder UI parity to the Flows page using the existing `DirectoryPick
 8. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
+9. [ ] Run lint + format checks (`npm run lint --workspaces`, `npm run format:check --workspaces`).
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier CLI: https://prettier.io/docs/cli
 
 #### Implementation notes
 
@@ -877,14 +857,6 @@ Add the Flows page info (“i”) popover matching the Agents UI, including warn
      - Add/remove/rename entries for any files changed by this task.
      - Added files (if any): list each file path added in this task.
      - Removed files (if any): list each file path removed in this task.
-8. [ ] Run full lint + format check:
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier CLI: https://prettier.io/docs/cli
-   - Snippet to run:
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -911,6 +883,10 @@ Add the Flows page info (“i”) popover matching the Agents UI, including warn
 8. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
+9. [ ] Run lint + format checks (`npm run lint --workspaces`, `npm run format:check --workspaces`).
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier CLI: https://prettier.io/docs/cli
 
 #### Implementation notes
 
@@ -1000,14 +976,6 @@ Add a custom title input field to the Flows controls, store it in local state, a
      - Add/remove/rename entries for any files changed by this task.
      - Added files (if any): list each file path added in this task.
      - Removed files (if any): list each file path removed in this task.
-7. [ ] Run full lint + format check:
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier CLI: https://prettier.io/docs/cli
-   - Snippet to run:
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -1034,6 +1002,10 @@ Add a custom title input field to the Flows controls, store it in local state, a
 8. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
+9. [ ] Run lint + format checks (`npm run lint --workspaces`, `npm run format:check --workspaces`).
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier CLI: https://prettier.io/docs/cli
 
 #### Implementation notes
 
@@ -1130,14 +1102,6 @@ Send `customTitle` only when starting a new flow conversation and keep the paylo
      - Add/remove/rename entries for any files changed by this task.
      - Added files (if any): list each file path added in this task.
      - Removed files (if any): list each file path removed in this task.
-8. [ ] Run full lint + format check:
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier CLI: https://prettier.io/docs/cli
-   - Snippet to run:
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -1164,6 +1128,10 @@ Send `customTitle` only when starting a new flow conversation and keep the paylo
 8. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
+9. [ ] Run lint + format checks (`npm run lint --workspaces`, `npm run format:check --workspaces`).
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier CLI: https://prettier.io/docs/cli
 
 #### Implementation notes
 
@@ -1261,13 +1229,6 @@ Add a “New Flow” action that clears the active conversation and transcript w
      - Add/remove/rename entries for any files changed by this task.
      - Added files (if any): list each file path added in this task.
      - Removed files (if any): list each file path removed in this task.
-8. [ ] Run full lint + format check:
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier CLI: https://prettier.io/docs/cli
-   - Snippet to run:
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
 
 #### Testing
 
@@ -1295,6 +1256,13 @@ Add a “New Flow” action that clears the active conversation and transcript w
 8. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
+9. [ ] Run full lint + format check:
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier CLI: https://prettier.io/docs/cli
+   - Snippet to run:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
 
 #### Implementation notes
 
@@ -1325,17 +1293,14 @@ Run full builds/tests, perform manual verification with Playwright MCP, ensure d
 
 #### Subtasks
 
-1. [ ] Build the server (`npm run build --workspace server`).
-2. [ ] Build the client (`npm run build --workspace client`).
-3. [ ] Perform a clean Docker build (`npm run compose:build`).
-4. [ ] Update `README.md` (repo root `README.md`) with any new commands or user-facing changes from this story (purpose: keep onboarding and usage docs accurate).
+1. [ ] Update `README.md` (repo root `README.md`) with any new commands or user-facing changes from this story (purpose: keep onboarding and usage docs accurate).
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
      - `README.md` (repo root)
    - Update scope:
      - Add/adjust commands, configuration notes, or feature summaries introduced by this story.
-5. [ ] Update `design.md` (repo root `design.md`) with any required behavior or diagram updates from this story (purpose: keep architecture notes current).
+2. [ ] Update `design.md` (repo root `design.md`) with any required behavior or diagram updates from this story (purpose: keep architecture notes current).
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
      - Mermaid diagrams: Context7 `/mermaid-js/mermaid`
@@ -1343,7 +1308,7 @@ Run full builds/tests, perform manual verification with Playwright MCP, ensure d
      - `design.md` (repo root)
    - Update scope:
      - Add/update Mermaid diagrams reflecting flow-run UX, filters, and sidebar behavior changes.
-6. [ ] Update `projectStructure.md` (repo root `projectStructure.md`) with any added/removed/renamed files from this story (purpose: keep the repository tree accurate).
+3. [ ] Update `projectStructure.md` (repo root `projectStructure.md`) with any added/removed/renamed files from this story (purpose: keep the repository tree accurate).
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to read:
@@ -1354,17 +1319,20 @@ Run full builds/tests, perform manual verification with Playwright MCP, ensure d
      - Add/remove/rename entries for any files changed by this story.
      - Added files (if any): list each file path added in this story.
      - Removed files (if any): list each file path removed in this story.
-7. [ ] Create a pull request summary covering all changes in this story.
+4. [ ] Create a pull request summary covering all changes in this story.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
 
 #### Testing
 
-1. [ ] Run client Jest tests (`npm run test --workspace client`).
-2. [ ] Run server tests (`npm run test --workspace server`).
-3. [ ] Restart the Docker environment (`npm run compose:down`, then `npm run compose:up`).
-4. [ ] Run e2e tests (`npm run e2e`).
-5. [ ] Use Playwright MCP to manually verify flows run UX and save screenshots to `test-results/screenshots/` using the naming pattern:
+1. [ ] Build the server (`npm run build --workspace server`).
+2. [ ] Build the client (`npm run build --workspace client`).
+3. [ ] Perform a clean Docker build (`npm run compose:build`).
+4. [ ] Run client Jest tests (`npm run test --workspace client`).
+5. [ ] Run server tests (`npm run test --workspace server`).
+6. [ ] Restart the Docker environment (`npm run compose:down`, then `npm run compose:up`).
+7. [ ] Run e2e tests (`npm run e2e`).
+8. [ ] Use Playwright MCP to manually verify flows run UX and save screenshots to `test-results/screenshots/` using the naming pattern:
    - `0000030-10-flows-run.png`
    - `0000030-10-flow-info-popover.png`
    - `0000030-10-working-folder-picker.png`

@@ -1040,6 +1040,13 @@ Add the Flows page info (“i”) popover matching the Agents UI, including warn
 - Ran `npm run lint --workspaces` (existing import-order warnings only) and `npm run format:check --workspaces`; fixed client formatting with `npm run format --workspace client`.
 - Built the server workspace (`npm run build --workspace server`).
 - Built the client workspace (`npm run build --workspace client`).
+- Ran server tests (`npm run test --workspace server`).
+- Ran client tests (`npm run test --workspace client`); existing console warnings persisted.
+- Ran `timeout 7m npm run e2e` successfully.
+- Ran `npm run compose:build` successfully.
+- Ran `npm run compose:up` successfully.
+- Manual Playwright MCP check on http://host.docker.internal:5001 confirmed flows UX; captured `playwright-output-local/0000030-10-flows-run.png`, `playwright-output-local/0000030-10-flow-info-popover.png`, `playwright-output-local/0000030-10-working-folder-picker.png`, `playwright-output-local/0000030-10-custom-title.png`, and `playwright-output-local/0000030-10-new-flow-reset.png`, observed `flows.qa.validation_ready` and no browser console errors.
+- Ran `npm run compose:down` to stop the stack.
 - Ran server tests (`npm run test --workspace server`); first run timed out at 120s, rerun completed successfully.
 - Ran client tests (`npm run test --workspace client`); existing console log noise persisted.
 - Ran `timeout 7m npm run e2e` successfully (36 tests passed).
@@ -1536,14 +1543,14 @@ Run full builds/tests, perform manual verification with Playwright MCP, ensure d
 
 #### Subtasks
 
-1. [ ] Update `README.md` (repo root `README.md`) with any new commands or user-facing changes from this story (purpose: keep onboarding and usage docs accurate).
+1. [x] Update `README.md` (repo root `README.md`) with any new commands or user-facing changes from this story (purpose: keep onboarding and usage docs accurate).
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
      - `README.md` (repo root)
    - Update scope:
      - Add/adjust commands, configuration notes, or feature summaries introduced by this story.
-2. [ ] Update `design.md` (repo root `design.md`) with any required behavior or diagram updates from this story (purpose: keep architecture notes current).
+2. [x] Update `design.md` (repo root `design.md`) with any required behavior or diagram updates from this story (purpose: keep architecture notes current).
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
      - Mermaid diagrams: Context7 `/mermaid-js/mermaid`
@@ -1551,7 +1558,7 @@ Run full builds/tests, perform manual verification with Playwright MCP, ensure d
      - `design.md` (repo root)
    - Update scope:
      - Add/update Mermaid diagrams reflecting flow-run UX, filters, and sidebar behavior changes.
-3. [ ] Update `projectStructure.md` (repo root `projectStructure.md`) with any added/removed/renamed files from this story (purpose: keep the repository tree accurate).
+3. [x] Update `projectStructure.md` (repo root `projectStructure.md`) with any added/removed/renamed files from this story (purpose: keep the repository tree accurate).
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to read:
@@ -1562,31 +1569,31 @@ Run full builds/tests, perform manual verification with Playwright MCP, ensure d
      - Add/remove/rename entries for any files changed by this story.
      - Added files (if any): list each file path added in this story.
      - Removed files (if any): list each file path removed in this story.
-4. [ ] Create a pull request summary covering all changes in this story.
+4. [x] Create a pull request summary covering all changes in this story.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-5. [ ] Add a client log line when the Flows page is ready for manual validation (purpose: confirm QA readiness in manual checks).
+5. [x] Add a client log line when the Flows page is ready for manual validation (purpose: confirm QA readiness in manual checks).
    - Files to edit:
      - `client/src/pages/FlowsPage.tsx`
    - Log line to add:
      - `flows.qa.validation_ready` with fields `{ flowCount }`.
    - Implementation details:
      - Emit once when the flows list has loaded (non-loading state) and counts are available.
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+6. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check to confirm story requirements and regressions:
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check to confirm story requirements and regressions:
    - Use Playwright MCP against http://host.docker.internal:5001.
    - Verify flows run UX and capture screenshots in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped in `docker-compose.local.yml`) using:
      - `0000030-10-flows-run.png`
@@ -1597,11 +1604,18 @@ Run full builds/tests, perform manual verification with Playwright MCP, ensure d
    - Review the stored screenshots to confirm the GUI matches the task expectations.
    - Check the browser debug console for `flows.qa.validation_ready` with a non-zero `flowCount`.
    - Ensure there are no logged errors in the browser debug console.
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- 
+- Updated README Flows page description to mention custom title, info popover, and New Flow reset behavior.
+- Confirmed design notes already captured all Flow stability + UX changes; no additional updates needed.
+- Verified projectStructure tree requires no updates for this story.
+- PR summary: Stabilized Flows sidebar updates by preserving flowName on WS upserts and fixing chat-only flow/agent filtering; added flow info popovers, working-folder picker, custom titles (UI + payload + server validation/title apply), and a New Flow reset that clears transcript/form state without changing selection. Added client/server tests to cover flowName merging, directory picker behavior, custom title validation/naming, custom title payload rules, and New Flow resets. Documented new flow UX in design notes and refreshed README flow description. Completed full build/test/compose verification and manual Playwright checks with screenshots.
+- Added `flows.qa.validation_ready` logging once flows finish loading, including the flow count.
+- Ran `npm run lint --workspaces` (existing import-order warnings only) and `npm run format:check --workspaces` successfully.
+- Built the server workspace (`npm run build --workspace server`).
+- Built the client workspace (`npm run build --workspace client`).
 
 ## Reference: Agents “i” button UX (structure match)
 

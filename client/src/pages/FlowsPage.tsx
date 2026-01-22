@@ -346,6 +346,7 @@ export default function FlowsPage() {
 
   const [drawerTopOffsetPx, setDrawerTopOffsetPx] = useState(0);
   const chatColumnRef = useRef<HTMLDivElement | null>(null);
+  const qaLogSentRef = useRef(false);
 
   useLayoutEffect(() => {
     const updateOffset = () => {
@@ -376,6 +377,14 @@ export default function FlowsPage() {
   useEffect(() => {
     log('info', 'flows.ui.opened');
   }, [log]);
+
+  useEffect(() => {
+    if (qaLogSentRef.current) return;
+    if (flowsLoading) return;
+    if (flowsError) return;
+    qaLogSentRef.current = true;
+    log('info', 'flows.qa.validation_ready', { flowCount: flows.length });
+  }, [flows.length, flowsError, flowsLoading, log]);
 
   const handleOpenDirPicker = () => {
     setDirPickerOpen(true);

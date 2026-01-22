@@ -297,6 +297,7 @@ export default function FlowsPage() {
             archived: event.conversation.archived,
             flags: event.conversation.flags,
             agentName: event.conversation.agentName,
+            flowName: event.conversation.flowName,
           });
           return;
         }

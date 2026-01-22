@@ -600,7 +600,7 @@ Prevent the Flows page from dropping the active conversation during a `conversat
 
 #### Subtasks
 
-1. [ ] Review Flows page WS upsert handling and conversation list filtering:
+1. [x] Review Flows page WS upsert handling and conversation list filtering:
    - Documentation to read (repeat):
      - React hooks/state: Context7 `/facebook/react/v19_2_0`
    - Files to read:
@@ -611,7 +611,7 @@ Prevent the Flows page from dropping the active conversation during a `conversat
      - `applyWsUpsert` call site
    - Key requirements (repeat):
      - Flow conversations must keep `flowName` to stay in the filtered list.
-2. [ ] Preserve `flowName` when applying WS updates:
+2. [x] Preserve `flowName` when applying WS updates:
    - Documentation to read (repeat):
      - React hooks/state: Context7 `/facebook/react/v19_2_0`
    - Files to edit:
@@ -623,7 +623,7 @@ Prevent the Flows page from dropping the active conversation during a `conversat
      - Ensure per-agent conversations (with `agentName`) are still excluded from the Flows sidebar.
    - Key requirements (repeat):
      - Do not add new WS event types or server changes.
-3. [ ] Component test (client) — `client/src/test/flowsPage.test.tsx`: `conversation_upsert` missing `flowName` keeps the conversation visible (purpose: prevent sidebar drop).
+3. [x] Component test (client) — `client/src/test/flowsPage.test.tsx`: `conversation_upsert` missing `flowName` keeps the conversation visible (purpose: prevent sidebar drop).
    - Documentation to read (repeat):
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
      - Jest: Context7 `/websites/jestjs_io_30_0`
@@ -631,7 +631,7 @@ Prevent the Flows page from dropping the active conversation during a `conversat
      - `client/src/test/flowsPage.test.tsx`
    - Test expectations:
      - `conversation_upsert` keeps the conversation visible when `flowName` is missing from the payload (merge uses previous value).
-4. [ ] Component test (client) — `client/src/test/flowsPage.run.test.tsx`: `conversation_upsert` with `agentName` stays excluded from the Flows sidebar (purpose: avoid agent-only leaks).
+4. [x] Component test (client) — `client/src/test/flowsPage.run.test.tsx`: `conversation_upsert` with `agentName` stays excluded from the Flows sidebar (purpose: avoid agent-only leaks).
    - Documentation to read (repeat):
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
      - Jest: Context7 `/websites/jestjs_io_30_0`
@@ -639,7 +639,7 @@ Prevent the Flows page from dropping the active conversation during a `conversat
      - `client/src/test/flowsPage.run.test.tsx`
    - Test expectations:
      - `conversation_upsert` with `agentName` does not show in the Flows sidebar.
-5. [ ] Update `design.md` (repo root `design.md`) with WS upsert flowName merge behavior (purpose: document sidebar stability rules).
+5. [x] Update `design.md` (repo root `design.md`) with WS upsert flowName merge behavior (purpose: document sidebar stability rules).
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
      - Mermaid diagrams: Context7 `/mermaid-js/mermaid`
@@ -648,7 +648,7 @@ Prevent the Flows page from dropping the active conversation during a `conversat
    - Key requirements (repeat):
      - Mention `flowName` merge behavior on upsert.
      - Update the Mermaid diagram that describes WS sidebar updates to include `flowName` merging.
-6. [ ] Update `projectStructure.md` (repo root `projectStructure.md`) after any file additions/removals in this task (purpose: keep the repository tree accurate).
+6. [x] Update `projectStructure.md` (repo root `projectStructure.md`) after any file additions/removals in this task (purpose: keep the repository tree accurate).
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
      - Mermaid diagrams: Context7 `/mermaid-js/mermaid`
@@ -660,54 +660,68 @@ Prevent the Flows page from dropping the active conversation during a `conversat
      - Add/remove/rename entries for any files changed by this task.
      - Added files (if any): list each file path added in this task.
      - Removed files (if any): list each file path removed in this task.
-7. [ ] Add a client log line when a WS upsert merges missing `flowName` (purpose: verify sidebar stability in manual checks).
+7. [x] Add a client log line when a WS upsert merges missing `flowName` (purpose: verify sidebar stability in manual checks).
    - Files to edit:
      - `client/src/hooks/useConversations.ts`
    - Log line to add:
      - `flows.ws.upsert.merge_flowName` with fields `{ conversationId, flowName }`.
    - Implementation details:
      - Emit only when the incoming upsert is missing `flowName` and the previous summary supplies it.
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+8. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
    - Documentation to read (repeat):
      - Jest: Context7 `/websites/jestjs_io_30_0`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m`)
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m`)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] Manual Playwright-MCP check to confirm WS upserts keep flow conversations visible:
+8. [x] Manual Playwright-MCP check to confirm WS upserts keep flow conversations visible:
    - Use Playwright MCP against http://host.docker.internal:5001.
    - Start a flow and watch the sidebar while messages arrive; confirm the active flow conversation never disappears.
    - Trigger a run that produces multiple updates to ensure the conversation stays filtered correctly.
    - Check the browser debug console for `flows.ws.upsert.merge_flowName` with the expected `conversationId` and `flowName`.
    - Capture `0000030-04-ws-upsert.png` in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped in `docker-compose.local.yml`) and confirm the sidebar UI matches expectations.
    - Ensure there are no logged errors in the browser debug console.
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
 #### Implementation notes
 
-- 
+- Reviewed FlowsPage WS upsert handling and useConversations flow filtering logic.
+- Forwarded `flowName` on Flows page upserts and merged missing flow/agent names in `applyWsUpsert` with a merge log.
+- Added Flows page tests for missing flowName upserts and agent-only upsert exclusion.
+- Documented the flowName merge behavior and added a Flows sidebar WS diagram in design notes.
+- No project structure updates required for this task.
+- Lint still reports existing import-order warnings; format check passed after running Prettier.
+- Built server workspace (`npm run build --workspace server`).
+- Built client workspace (`npm run build --workspace client`).
+- Ran server tests (`npm run test --workspace server`).
+- Ran client tests (`npm run test --workspace client`); console log output persists as in existing suites.
+- Ran e2e suite (`npm run e2e`).
+- Ran `npm run compose:build` successfully.
+- Ran `npm run compose:up` successfully.
+- Manual Playwright check confirmed flow sidebar stability, captured `playwright-output-local/0000030-04-ws-upsert.png`, and observed `flows.ws.upsert.merge_flowName` in console with no console errors.
+- Ran `npm run compose:down` to stop the stack.
 
 ---
 

@@ -1725,6 +1725,25 @@ sequenceDiagram
   UI->>Store: applyWsDelete(conversationId)
 ```
 
+### Flows sidebar WS feed (flow-filtered)
+
+- The Flows sidebar also subscribes to `subscribe_sidebar`.
+- `conversation_upsert` events with `agentName` are ignored on the Flows page.
+- When a `conversation_upsert` payload omits `flowName`, `useConversations.applyWsUpsert` merges the prior summary’s `flowName` (and `agentName`) before filtering so flow conversations do not drop out of the list.
+- When a merge happens, the client logs `flows.ws.upsert.merge_flowName` with the restored `flowName`.
+
+```mermaid
+sequenceDiagram
+  participant UI as Flows UI
+  participant WS as WS (/ws)
+  participant Store as Sidebar state (useConversations)
+
+  UI->>WS: subscribe_sidebar
+  WS-->>UI: conversation_upsert(conv missing flowName)
+  UI->>Store: merge flowName from cached summary
+  Store->>Store: apply flow filter + sort
+```
+
 ### Agents transcript pipeline (client)
 
 - Agents use the same WebSocket transcript merge logic as Chat:

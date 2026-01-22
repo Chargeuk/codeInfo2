@@ -727,8 +727,8 @@ Prevent the Flows page from dropping the active conversation during a `conversat
 
 ### 5. Client: Add working-folder picker to Flows page
 
-- Task Status: **__in_progress__**
-- Git Commits: **__to_do__**
+- Task Status: **__done__**
+- Git Commits: 04c0462
 
 #### Overview
 

@@ -518,7 +518,6 @@ Prevent the Flows page from dropping the active conversation during a `conversat
    - Files to read:
      - `client/src/pages/FlowsPage.tsx`
      - `client/src/hooks/useConversations.ts`
-     - `client/src/hooks/useConversationSidebar.ts`
    - Snippets to locate:
      - `conversation_upsert` event handling
      - `applyWsUpsert` call site

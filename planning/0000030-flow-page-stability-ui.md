@@ -887,8 +887,8 @@ Add working-folder UI parity to the Flows page using the existing `DirectoryPick
 
 ### 6. Client: Add flow info popover
 
-- Task Status: **__in_progress__**
-- Git Commits: **__to_do__**
+- Task Status: **__done__**
+- Git Commits: f7d3b16
 
 #### Overview
 

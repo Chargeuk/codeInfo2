@@ -576,7 +576,7 @@ Update the conversations list query so `agentName=__none__` and `flowName=__none
 
 ### 4. Client: Preserve flowName on WS upserts
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **__to_do__**
 
 #### Overview

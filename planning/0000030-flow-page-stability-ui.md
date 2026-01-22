@@ -1052,8 +1052,8 @@ Add the Flows page info (“i”) popover matching the Agents UI, including warn
 
 ### 7. Client: Add custom title input UI
 
-- Task Status: **__in_progress__**
-- Git Commits: **__to_do__**
+- Task Status: **__done__**
+- Git Commits: 180f17b
 
 #### Overview
 

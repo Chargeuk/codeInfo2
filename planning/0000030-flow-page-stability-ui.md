@@ -1381,7 +1381,7 @@ Add a “New Flow” action that clears the active conversation and transcript w
 
 #### Subtasks
 
-1. [ ] Review “New conversation” reset behavior in Agents/Chat:
+1. [x] Review “New conversation” reset behavior in Agents/Chat:
    - Documentation to read (repeat):
      - React hooks/state: Context7 `/facebook/react/v19_2_0`
    - Files to read:
@@ -1390,7 +1390,7 @@ Add a “New Flow” action that clears the active conversation and transcript w
      - `client/src/pages/FlowsPage.tsx`
    - Key requirements (repeat):
      - New Flow must keep `selectedFlowName` intact.
-2. [ ] Implement the “New Flow” reset action:
+2. [x] Implement the “New Flow” reset action:
    - Documentation to read (repeat):
      - MUI Button API (closest to @mui/material 6.4.1): https://llms.mui.com/material-ui/6.4.12/api/button.md
    - Files to edit:
@@ -1402,7 +1402,7 @@ Add a “New Flow” action that clears the active conversation and transcript w
      - Reset any “resume” state so the next run is treated as a new flow.
    - Key requirements (repeat):
      - Do not clear the flow selection or flow list state.
-3. [ ] Component test (client) — `client/src/test/flowsPage.run.test.tsx`: “New Flow” clears transcript + active conversation (purpose: confirm reset behavior).
+3. [x] Component test (client) — `client/src/test/flowsPage.run.test.tsx`: “New Flow” clears transcript + active conversation (purpose: confirm reset behavior).
    - Documentation to read (repeat):
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
      - Jest: Context7 `/websites/jestjs_io_30_0`
@@ -1410,7 +1410,7 @@ Add a “New Flow” action that clears the active conversation and transcript w
      - `client/src/test/flowsPage.run.test.tsx`
    - Test expectations:
      - Clicking “New Flow” clears the transcript and active conversation.
-4. [ ] Component test (client) — `client/src/test/flowsPage.run.test.tsx`: selected flow remains and Run stays enabled (purpose: keep flow selection intact).
+4. [x] Component test (client) — `client/src/test/flowsPage.run.test.tsx`: selected flow remains and Run stays enabled (purpose: keep flow selection intact).
    - Documentation to read (repeat):
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
      - Jest: Context7 `/websites/jestjs_io_30_0`
@@ -1418,7 +1418,7 @@ Add a “New Flow” action that clears the active conversation and transcript w
      - `client/src/test/flowsPage.run.test.tsx`
    - Test expectations:
      - The selected flow remains highlighted and the Run button is still enabled.
-5. [ ] Component test (client) — `client/src/test/flowsPage.run.test.tsx`: `customTitle` + `workingFolder` reset on New Flow (purpose: clear form state).
+5. [x] Component test (client) — `client/src/test/flowsPage.run.test.tsx`: `customTitle` + `workingFolder` reset on New Flow (purpose: clear form state).
    - Documentation to read (repeat):
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
      - Jest: Context7 `/websites/jestjs_io_30_0`
@@ -1426,7 +1426,7 @@ Add a “New Flow” action that clears the active conversation and transcript w
      - `client/src/test/flowsPage.run.test.tsx`
    - Test expectations:
      - `customTitle` and `workingFolder` values reset.
-6. [ ] Update `design.md` (repo root `design.md`) with New Flow reset behavior (purpose: document the reset flow without altering selection).
+6. [x] Update `design.md` (repo root `design.md`) with New Flow reset behavior (purpose: document the reset flow without altering selection).
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -1434,7 +1434,7 @@ Add a “New Flow” action that clears the active conversation and transcript w
    - Key requirements (repeat):
      - Call out that New Flow does not change the selected flow.
      - Add/update a Mermaid diagram that shows the New Flow reset path without changing the selected flow.
-7. [ ] Update `projectStructure.md` (repo root `projectStructure.md`) after any file additions/removals in this task (purpose: keep the repository tree accurate).
+7. [x] Update `projectStructure.md` (repo root `projectStructure.md`) after any file additions/removals in this task (purpose: keep the repository tree accurate).
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to read:
@@ -1445,55 +1445,70 @@ Add a “New Flow” action that clears the active conversation and transcript w
      - Add/remove/rename entries for any files changed by this task.
      - Added files (if any): list each file path added in this task.
      - Removed files (if any): list each file path removed in this task.
-8. [ ] Add a client log line when “New Flow” resets the form (purpose: verify reset behavior in manual checks).
+8. [x] Add a client log line when “New Flow” resets the form (purpose: verify reset behavior in manual checks).
    - Files to edit:
      - `client/src/pages/FlowsPage.tsx`
    - Log line to add:
      - `flows.ui.new_flow_reset` with fields `{ selectedFlowName, clearedFields }`.
    - Implementation details:
      - Emit after `resetConversation` completes and confirm `clearedFields` includes `customTitle` and `workingFolder`.
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+9. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
    - Documentation to read (repeat):
     - Jest: Context7 `/websites/jestjs_io_30_0`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m`)
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m`)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] Manual Playwright-MCP check to confirm “New Flow” reset behavior:
+8. [x] Manual Playwright-MCP check to confirm “New Flow” reset behavior:
    - Use Playwright MCP against http://host.docker.internal:5001.
    - Start a flow, set custom title + working folder, then click “New Flow”.
    - Confirm the selected flow stays highlighted, the Run button remains enabled, and the form fields reset.
    - Check the browser debug console for `flows.ui.new_flow_reset` with `clearedFields` including `customTitle` and `workingFolder`.
    - Capture `0000030-09-new-flow-reset.png` in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped in `docker-compose.local.yml`) and confirm the reset UI matches expectations.
    - Ensure there are no logged errors in the browser debug console.
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
 #### Implementation notes
 
-- 
+- Reviewed Agents/Chat reset handlers to mirror clearing transcript state while keeping selection logic intact for Flows.
+- Added a New Flow reset handler with auto-select suppression, field resets, and new log emission.
+- Added FlowsPage tests for New Flow clearing transcript, preserving selection/Run enablement, and resetting custom title/working folder.
+- Documented the New Flow reset behavior and flowchart in design notes.
+- Confirmed no project structure updates were required for this task.
+- Added `flows.ui.new_flow_reset` logging after the New Flow reset action.
+- Ran `npm run lint --workspaces` (existing import-order warnings only) and `npm run format:check --workspaces`; fixed client formatting with `npm run format --workspace client`.
+- Built the server workspace (`npm run build --workspace server`).
+- Built the client workspace (`npm run build --workspace client`).
+- Ran `timeout 7m npm run test --workspace server` successfully.
+- Ran `npm run test --workspace client`; existing console log noise persisted.
+- Ran `timeout 7m npm run e2e` successfully.
+- Ran `npm run compose:build` successfully.
+- Ran `npm run compose:up` successfully.
+- Manual Playwright MCP check confirmed New Flow resets fields while keeping the selected flow; captured `playwright-output-local/0000030-09-new-flow-reset.png` and observed `flows.ui.new_flow_reset` logs with no browser console errors.
+- Ran `npm run compose:down` to stop the stack.
 
 ---
 

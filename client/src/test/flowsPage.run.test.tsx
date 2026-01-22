@@ -395,6 +395,196 @@ describe('Flows page run/resume controls', () => {
     });
   });
 
+  it('clears transcript and active conversation on New Flow', async () => {
+    const user = userEvent.setup();
+    const now = new Date().toISOString();
+
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const target = typeof url === 'string' ? url : url.toString();
+
+      if (target.includes('/health')) {
+        return mockJsonResponse({ mongoConnected: true });
+      }
+
+      if (target.includes('/flows') && !target.includes('/run')) {
+        return mockJsonResponse({
+          flows: [
+            { name: 'daily', description: 'Daily flow', disabled: false },
+          ],
+        });
+      }
+
+      if (target.includes('/conversations/flow-1/turns')) {
+        return mockJsonResponse({
+          items: [
+            {
+              conversationId: 'flow-1',
+              role: 'assistant',
+              content: 'Hello from flow',
+              model: 'gpt-5',
+              provider: 'codex',
+              toolCalls: null,
+              status: 'ok',
+              createdAt: now,
+            },
+          ],
+        });
+      }
+
+      if (target.includes('/conversations')) {
+        return mockJsonResponse({
+          items: [
+            {
+              conversationId: 'flow-1',
+              title: 'Flow: daily',
+              provider: 'codex',
+              model: 'gpt-5',
+              source: 'REST',
+              lastMessageAt: now,
+              archived: false,
+              flowName: 'daily',
+              flags: { flow: { stepPath: [0] } },
+            },
+          ],
+        });
+      }
+
+      return mockJsonResponse({});
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+    render(<RouterProvider router={router} />);
+
+    expect(await screen.findByText('Hello from flow')).toBeInTheDocument();
+
+    const newFlowButton = await screen.findByTestId('flow-new');
+    await user.click(newFlowButton);
+
+    expect(
+      await screen.findByText(
+        'Transcript will appear here once a flow run starts.',
+      ),
+    ).toBeInTheDocument();
+    await waitFor(() =>
+      expect(screen.getByTestId('flow-custom-title')).toBeEnabled(),
+    );
+  });
+
+  it('keeps the selected flow and run button enabled after New Flow', async () => {
+    const user = userEvent.setup();
+    const now = new Date().toISOString();
+
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const target = typeof url === 'string' ? url : url.toString();
+
+      if (target.includes('/health')) {
+        return mockJsonResponse({ mongoConnected: true });
+      }
+
+      if (target.includes('/flows') && !target.includes('/run')) {
+        return mockJsonResponse({
+          flows: [
+            { name: 'daily', description: 'Daily flow', disabled: false },
+          ],
+        });
+      }
+
+      if (target.includes('/conversations/') && target.includes('/turns')) {
+        return mockJsonResponse({ items: [] });
+      }
+
+      if (target.includes('/conversations')) {
+        return mockJsonResponse({
+          items: [
+            {
+              conversationId: 'flow-1',
+              title: 'Flow: daily',
+              provider: 'codex',
+              model: 'gpt-5',
+              source: 'REST',
+              lastMessageAt: now,
+              archived: false,
+              flowName: 'daily',
+              flags: {},
+            },
+          ],
+        });
+      }
+
+      return mockJsonResponse({});
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+    render(<RouterProvider router={router} />);
+
+    await screen.findByText('Flow: daily');
+
+    const newFlowButton = await screen.findByTestId('flow-new');
+    await user.click(newFlowButton);
+
+    expect(screen.getByText('Flow: daily')).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTestId('flow-run')).toBeEnabled());
+  });
+
+  it('resets custom title and working folder on New Flow', async () => {
+    const user = userEvent.setup();
+    const now = new Date().toISOString();
+
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const target = typeof url === 'string' ? url : url.toString();
+
+      if (target.includes('/health')) {
+        return mockJsonResponse({ mongoConnected: true });
+      }
+
+      if (target.includes('/flows') && !target.includes('/run')) {
+        return mockJsonResponse({
+          flows: [
+            { name: 'daily', description: 'Daily flow', disabled: false },
+          ],
+        });
+      }
+
+      if (target.includes('/conversations/') && target.includes('/turns')) {
+        return mockJsonResponse({ items: [] });
+      }
+
+      if (target.includes('/conversations')) {
+        return mockJsonResponse({
+          items: [
+            {
+              conversationId: 'flow-1',
+              title: 'Flow: daily',
+              provider: 'codex',
+              model: 'gpt-5',
+              source: 'REST',
+              lastMessageAt: now,
+              archived: false,
+              flowName: 'daily',
+              flags: {},
+            },
+          ],
+        });
+      }
+
+      return mockJsonResponse({});
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+    render(<RouterProvider router={router} />);
+
+    const customTitleInput = await screen.findByTestId('flow-custom-title');
+    const workingFolderInput = await screen.findByTestId('flow-working-folder');
+    await user.type(customTitleInput, 'Daily prep');
+    await user.type(workingFolderInput, '/tmp/work');
+
+    const newFlowButton = await screen.findByTestId('flow-new');
+    await user.click(newFlowButton);
+
+    expect(screen.getByTestId('flow-custom-title')).toHaveValue('');
+    expect(screen.getByTestId('flow-working-folder')).toHaveValue('');
+  });
+
   it('writes the selected folder into the working folder input', async () => {
     const user = userEvent.setup();
 

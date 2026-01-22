@@ -1766,6 +1766,20 @@ flowchart LR
   NewRun -- No --> PayloadNoTitle[Omit customTitle]
 ```
 
+### Flows “New Flow” reset
+
+- The New Flow button clears the active conversation/transcript for a fresh run while keeping the selected flow intact.
+- The reset clears `customTitle`, `workingFolder`, and resume state without removing the flow list selection.
+- After reset, the UI logs `flows.ui.new_flow_reset` with the selected flow name and cleared fields.
+
+```mermaid
+flowchart LR
+  SelectedFlow[Selected flow] --> NewFlow[New Flow button]
+  NewFlow --> ClearState[Clear transcript + active conversation]
+  ClearState --> KeepFlow[Keep selected flow]
+  ClearState --> ResetFields[Reset customTitle + workingFolder]
+```
+
 ### Flows info popover
 
 - The Flows page replaces inline description/disabled warnings with an info popover anchored to the Flow selector.

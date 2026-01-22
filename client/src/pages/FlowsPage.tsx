@@ -166,6 +166,7 @@ export default function FlowsPage() {
   const [flowsError, setFlowsError] = useState<string | null>(null);
   const [selectedFlowName, setSelectedFlowName] = useState('');
   const [customTitle, setCustomTitle] = useState('');
+  const [suppressAutoSelect, setSuppressAutoSelect] = useState(false);
   const [flowInfoAnchorEl, setFlowInfoAnchorEl] = useState<HTMLElement | null>(
     null,
   );
@@ -439,6 +440,7 @@ export default function FlowsPage() {
 
   useEffect(() => {
     if (!selectedFlowName.trim()) return;
+    if (suppressAutoSelect) return;
     if (!activeConversationId && flowConversations.length > 0) {
       const first = flowConversations[0];
       setActiveConversationId(first.conversationId);
@@ -449,6 +451,7 @@ export default function FlowsPage() {
     flowConversations,
     selectedFlowName,
     setConversation,
+    suppressAutoSelect,
   ]);
 
   useEffect(() => {
@@ -461,6 +464,7 @@ export default function FlowsPage() {
     resetTurns();
     setActiveConversationId(undefined);
     setConversation(makeClientConversationId(), { clearMessages: true });
+    setSuppressAutoSelect(false);
   }, [
     activeConversationId,
     flowConversations,
@@ -577,14 +581,30 @@ export default function FlowsPage() {
     setCustomTitle('');
   }, [resetTurns, setConversation, stop]);
 
+  const handleNewFlowReset = useCallback(() => {
+    setSuppressAutoSelect(true);
+    resetConversation();
+    log('info', 'flows.ui.new_flow_reset', {
+      selectedFlowName,
+      clearedFields: [
+        'activeConversationId',
+        'messages',
+        'resumeStepPath',
+        'customTitle',
+        'workingFolder',
+      ],
+    });
+  }, [log, resetConversation, selectedFlowName, setSuppressAutoSelect]);
+
   const handleFlowChange = useCallback(
     (event: ChangeEvent<HTMLInputElement>) => {
       const next = event.target.value;
       if (next === selectedFlowName) return;
       setSelectedFlowName(next);
+      setSuppressAutoSelect(false);
       resetConversation();
     },
-    [resetConversation, selectedFlowName],
+    [resetConversation, selectedFlowName, setSuppressAutoSelect],
   );
 
   const handleFlowInfoOpen = (event: MouseEvent<HTMLElement>) => {
@@ -610,6 +630,7 @@ export default function FlowsPage() {
     if (conversationId === activeConversationId) return;
     stop();
     resetTurns();
+    setSuppressAutoSelect(false);
     setConversation(conversationId, { clearMessages: true });
     const summary = flowConversations.find(
       (conversation) => conversation.conversationId === conversationId,
@@ -652,6 +673,8 @@ export default function FlowsPage() {
         return;
       }
       if (mode === 'resume' && !resumeStepPath) return;
+
+      setSuppressAutoSelect(false);
 
       log(
         'info',
@@ -749,6 +772,7 @@ export default function FlowsPage() {
       selectedFlowDisabled,
       selectedFlowName,
       setConversation,
+      setSuppressAutoSelect,
       stop,
       subscribeConversation,
       workingFolder,
@@ -995,6 +1019,15 @@ export default function FlowsPage() {
                     />
                   </Stack>
                   <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
+                    <Button
+                      type="button"
+                      variant="outlined"
+                      onClick={handleNewFlowReset}
+                      disabled={!selectedFlowName || flowsLoading}
+                      data-testid="flow-new"
+                    >
+                      New Flow
+                    </Button>
                     <Button
                       type="button"
                       variant="outlined"

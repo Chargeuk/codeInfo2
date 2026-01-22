@@ -133,6 +133,7 @@ Accept `customTitle` on `POST /flows/:flowName/run` (string-only, trimmed) and t
 - Prettier CLI: https://prettier.io/docs/cli (format command reference)
 - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script (build/test command usage)
 - Jest: Context7 `/websites/jestjs_io_30_0` (client test runner reference)
+- Cucumber guides: https://cucumber.io/docs/guides/ (server test runner reference)
 - Playwright: Context7 `/microsoft/playwright` (e2e command reference)
 - Docker/Compose: Context7 `/docker/docs` (compose build/up/down commands)
 
@@ -254,6 +255,7 @@ Use `customTitle` to set the conversation title for the main flow and per-agent 
 - Prettier CLI: https://prettier.io/docs/cli (format command reference)
 - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script (build/test command usage)
 - Jest: Context7 `/websites/jestjs_io_30_0` (client test runner reference)
+- Cucumber guides: https://cucumber.io/docs/guides/ (server test runner reference)
 - Playwright: Context7 `/microsoft/playwright` (e2e command reference)
 - Docker/Compose: Context7 `/docker/docs` (compose build/up/down commands)
 
@@ -376,6 +378,7 @@ Update the conversations list query so `agentName=__none__` and `flowName=__none
 - Prettier CLI: https://prettier.io/docs/cli (format command reference)
 - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script (build/test command usage)
 - Jest: Context7 `/websites/jestjs_io_30_0` (client test runner reference)
+- Cucumber guides: https://cucumber.io/docs/guides/ (server test runner reference)
 - Playwright: Context7 `/microsoft/playwright` (e2e command reference)
 - Docker/Compose: Context7 `/docker/docs` (compose build/up/down commands)
 
@@ -480,6 +483,7 @@ Prevent the Flows page from dropping the active conversation during a `conversat
 
 - React hooks/state: Context7 `/facebook/react/v19_2_0` (React 19.2 hooks API)
 - Jest: Context7 `/websites/jestjs_io_30_0` (test structure)
+- Cucumber guides: https://cucumber.io/docs/guides/ (server test runner reference)
 - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/ (render + screen usage)
 - Node.js test runner: https://nodejs.org/api/test.html (`node:test` usage for server tests)
 - Markdown Guide: https://www.markdownguide.org/basic-syntax/ (syntax reference for docs updates)
@@ -593,6 +597,7 @@ Add working-folder UI parity to the Flows page using the existing `DirectoryPick
 
 - React hooks/state: Context7 `/facebook/react/v19_2_0` (React 19.2 hooks API)
 - Jest: Context7 `/websites/jestjs_io_30_0` (test structure)
+- Cucumber guides: https://cucumber.io/docs/guides/ (server test runner reference)
 - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
 - MUI TextField API (closest to @mui/material 6.4.1): https://llms.mui.com/material-ui/6.4.12/api/text-field.md
 - Node.js test runner: https://nodejs.org/api/test.html (`node:test` usage for server tests)
@@ -722,6 +727,7 @@ Add the Flows page info (“i”) popover matching the Agents UI, including warn
 
 - React hooks/state: Context7 `/facebook/react/v19_2_0` (React 19.2 hooks API)
 - Jest: Context7 `/websites/jestjs_io_30_0` (test structure)
+- Cucumber guides: https://cucumber.io/docs/guides/ (server test runner reference)
 - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
 - MUI Popover API (closest to @mui/material 6.4.1): https://llms.mui.com/material-ui/6.4.12/api/popover.md
 - MUI IconButton API (closest to @mui/material 6.4.1): https://llms.mui.com/material-ui/6.4.12/api/icon-button.md
@@ -847,6 +853,7 @@ Add a custom title input field to the Flows controls, store it in local state, a
 
 - React hooks/state: Context7 `/facebook/react/v19_2_0` (React 19.2 hooks API)
 - Jest: Context7 `/websites/jestjs_io_30_0` (test structure)
+- Cucumber guides: https://cucumber.io/docs/guides/ (server test runner reference)
 - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
 - MUI TextField API (closest to @mui/material 6.4.1): https://llms.mui.com/material-ui/6.4.12/api/text-field.md
 - Node.js test runner: https://nodejs.org/api/test.html (`node:test` usage for server tests)
@@ -957,6 +964,7 @@ Send `customTitle` only when starting a new flow conversation and keep the paylo
 
 - React hooks/state: Context7 `/facebook/react/v19_2_0` (React 19.2 hooks API)
 - Jest: Context7 `/websites/jestjs_io_30_0` (test structure)
+- Cucumber guides: https://cucumber.io/docs/guides/ (server test runner reference)
 - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
 - Node.js test runner: https://nodejs.org/api/test.html (`node:test` usage for server tests)
 - Markdown Guide: https://www.markdownguide.org/basic-syntax/ (syntax reference for docs updates)
@@ -1074,6 +1082,7 @@ Add a “New Flow” action that clears the active conversation and transcript w
 
 - React hooks/state: Context7 `/facebook/react/v19_2_0` (React 19.2 hooks API)
 - Jest: Context7 `/websites/jestjs_io_30_0` (test structure)
+- Cucumber guides: https://cucumber.io/docs/guides/ (server test runner reference)
 - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
 - MUI Button API (closest to @mui/material 6.4.1): https://llms.mui.com/material-ui/6.4.12/api/button.md
 - Node.js test runner: https://nodejs.org/api/test.html (`node:test` usage for server tests)

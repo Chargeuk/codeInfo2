@@ -460,7 +460,7 @@ Update the conversations list query so `agentName=__none__` and `flowName=__none
 
 #### Subtasks
 
-1. [ ] Review conversation list query construction:
+1. [x] Review conversation list query construction:
    - Documentation to read (repeat):
      - Express routing + handlers: Context7 `/expressjs/express/v5.1.0`
    - Files to read:
@@ -471,7 +471,7 @@ Update the conversations list query so `agentName=__none__` and `flowName=__none
      - `agentName` and `flowName` filter building logic
    - Key requirements (repeat):
      - `agentName=__none__` and `flowName=__none__` must be combinable.
-2. [ ] Combine `agentName=__none__` and `flowName=__none__` filters safely:
+2. [x] Combine `agentName=__none__` and `flowName=__none__` filters safely:
    - Documentation to read (repeat):
      - Express routing + handlers: Context7 `/expressjs/express/v5.1.0`
    - Files to edit:
@@ -481,7 +481,7 @@ Update the conversations list query so `agentName=__none__` and `flowName=__none
      - Preserve existing behavior for single filters and explicit `agentName`/`flowName` values.
    - Key requirements (repeat):
      - Do not change sort/pagination behavior.
-3. [ ] Integration test (server) — `server/src/test/integration/conversations.list.test.ts`: `?agentName=__none__&flowName=__none__` returns only chat conversations (purpose: ensure chat-only filter works).
+3. [x] Integration test (server) — `server/src/test/integration/conversations.list.test.ts`: `?agentName=__none__&flowName=__none__` returns only chat conversations (purpose: ensure chat-only filter works).
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
      - Supertest HTTP assertions: https://github.com/forwardemail/supertest
@@ -489,7 +489,7 @@ Update the conversations list query so `agentName=__none__` and `flowName=__none
      - `server/src/test/integration/conversations.list.test.ts`
    - Test expectations:
      - `?agentName=__none__&flowName=__none__` returns only chat conversations.
-4. [ ] Integration test (server) — `server/src/test/integration/conversations.list.test.ts`: `?agentName=__none__&flowName=<name>` returns non-agent flow conversations only (purpose: ensure agent exclusion stays intact).
+4. [x] Integration test (server) — `server/src/test/integration/conversations.list.test.ts`: `?agentName=__none__&flowName=<name>` returns non-agent flow conversations only (purpose: ensure agent exclusion stays intact).
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
      - Supertest HTTP assertions: https://github.com/forwardemail/supertest
@@ -497,7 +497,7 @@ Update the conversations list query so `agentName=__none__` and `flowName=__none
      - `server/src/test/integration/conversations.list.test.ts`
    - Test expectations:
      - `?agentName=__none__&flowName=<name>` returns non-agent flow conversations only.
-5. [ ] Update `design.md` (repo root `design.md`) with combined chat-only filter behavior (purpose: document updated conversation filtering rules).
+5. [x] Update `design.md` (repo root `design.md`) with combined chat-only filter behavior (purpose: document updated conversation filtering rules).
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
      - Mermaid diagrams: Context7 `/mermaid-js/mermaid`
@@ -506,7 +506,7 @@ Update the conversations list query so `agentName=__none__` and `flowName=__none
    - Key requirements (repeat):
      - Document how `__none__` filters combine.
      - Update the Mermaid diagram that describes conversation list filtering to show combined `agentName` + `flowName` behavior.
-6. [ ] Update `projectStructure.md` (repo root `projectStructure.md`) after any file additions/removals in this task (purpose: keep the repository tree accurate).
+6. [x] Update `projectStructure.md` (repo root `projectStructure.md`) after any file additions/removals in this task (purpose: keep the repository tree accurate).
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
      - Mermaid diagrams: Context7 `/mermaid-js/mermaid`
@@ -518,7 +518,7 @@ Update the conversations list query so `agentName=__none__` and `flowName=__none
      - Add/remove/rename entries for any files changed by this task.
      - Added files (if any): list each file path added in this task.
      - Removed files (if any): list each file path removed in this task.
-7. [ ] Add a server log line when combined chat-only filters are applied (purpose: verify filter behavior in manual checks).
+7. [x] Add a server log line when combined chat-only filters are applied (purpose: verify filter behavior in manual checks).
    - Files to edit:
      - `server/src/mongo/repo.ts`
    - Log line to add:
@@ -526,46 +526,51 @@ Update the conversations list query so `agentName=__none__` and `flowName=__none
    - Implementation details:
      - Emit only when `agentName === '__none__'` and `flowName === '__none__'` are both present.
      - Keep logging lightweight (single append per request).
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+8. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
    - Documentation to read (repeat):
      - Jest: Context7 `/websites/jestjs_io_30_0`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m`)
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m`)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] Manual Playwright-MCP check to confirm combined chat-only filtering works and no regressions:
+8. [x] Manual Playwright-MCP check to confirm combined chat-only filtering works and no regressions:
    - Use Playwright MCP against http://host.docker.internal:5001.
    - Navigate to the conversations list and enable the chat-only filter (agentName + flowName “none” state).
    - Confirm only chat conversations are listed and flow/agent conversations are excluded.
    - Check server logs for `conversations.filter.chat_only_combined` with `agentName: '__none__'` and `flowName: '__none__'`.
    - Ensure there are no logged errors in the browser debug console.
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
 #### Implementation notes
 
-- 
+- Combined agent/flow __none__ filters in repo query with a new chat-only log line.
+- Added chat-only filter coverage to conversations list integration tests.
+- Updated design doc filter description + diagram; no project structure updates required.
+- Lint still reports existing import-order warnings; format checks now pass.
+- Manual chat-only check verified logs for `conversations.filter.chat_only_combined` and no browser console errors.
+- Ran `npm run compose:down` to stop the stack after manual verification.
 
 ---
 

@@ -156,7 +156,7 @@ sequenceDiagram
 - Repository helpers in `server/src/mongo/repo.ts` handle create/update/archive/restore, append turns, and cursor pagination for conversation listings (newest-first by `lastMessageAt`). Turn snapshots now return the full newest-first history (no pagination) and merge in-flight turns when present.
 - Conversations can be tagged with `agentName` so the normal Chat history stays clean (no `agentName`) while agent UIs filter to a specific `agentName` value.
 - Conversations can be tagged with `flowName` to mark flow runs; summaries and WS sidebar payloads surface it for flow history isolation.
-- `GET /conversations` supports `flowName=<name>` for exact matches and `flowName=__none__` to return only conversations without a flow tag.
+- `GET /conversations` supports `flowName=<name>` for exact matches and `flowName=__none__` to return only conversations without a flow tag; combine `agentName=__none__` + `flowName=__none__` for chat-only views.
 - HTTP endpoints (`server/src/routes/conversations.ts`) expose list/create/archive/restore and turn append/list. `GET /conversations` supports a 3-state filter via `state=active|archived|all` (default `active`); legacy `archived=true` remains supported and maps to `state=all`. Chat POST now requires `{ conversationId, message, provider, model, flags? }`; the server loads stored turns, streams to LM Studio or Codex, then appends user/assistant/tool turns and updates `lastMessageAt`. Archived conversations return 410 on append.
 - Bulk conversation endpoints (`POST /conversations/bulk/archive|restore|delete`) use validate-first semantics: if any ids are missing (or if delete includes non-archived conversations), the server returns `409 BATCH_CONFLICT` and performs no writes. Hard delete is archived-only and deletes turns first to avoid orphaned turn documents.
 - MCP tool `codebase_question` mirrors the same persistence, storing MCP-sourced conversations/turns (including tool calls) unless the conversation is archived. MCP response payloads return answer-only segments (no reasoning/vector-summary data). Codex uses a persisted `threadId` flag for follow-ups; LM Studio uses stored turns for the `conversationId`.
@@ -169,10 +169,12 @@ Legacy note: the REST polling flow below remains for status snapshots, but the i
 
 ```mermaid
 flowchart LR
-  Chat[Chat history] -->|GET /conversations?agentName=__none__| Q1[Repo filter: agentName missing/empty]
+  Chat[Chat history] -->|GET /conversations?agentName=__none__&flowName=__none__| Q1[Repo filter: agentName missing/empty AND flowName missing/empty]
   Agents[Agents history] -->|GET /conversations?agentName=<agentName>| Q2[Repo filter: agentName == <agentName>]
+  Flows[Flows history] -->|GET /conversations?flowName=<flowName>| Q3[Repo filter: flowName == <flowName>]
   Q1 --> Conv[Conversation docs]
   Q2 --> Conv
+  Q3 --> Conv
 ```
 
 ```mermaid

@@ -258,27 +258,48 @@ export async function listConversations(
     query.archivedAt = { $ne: null };
   }
 
-  if (params.agentName !== undefined) {
-    if (params.agentName === '__none__') {
-      query.$or = [
-        { agentName: { $exists: false } },
-        { agentName: null },
-        { agentName: '' },
-      ];
-    } else {
-      query.agentName = params.agentName;
-    }
-  }
+  const agentName = params.agentName;
+  const flowName = params.flowName;
+  const agentNoneFilter = [
+    { agentName: { $exists: false } },
+    { agentName: null },
+    { agentName: '' },
+  ];
+  const flowNoneFilter = [
+    { flowName: { $exists: false } },
+    { flowName: null },
+    { flowName: '' },
+  ];
+  const hasAgentNoneFilter = agentName === '__none__';
+  const hasFlowNoneFilter = flowName === '__none__';
 
-  if (params.flowName !== undefined) {
-    if (params.flowName === '__none__') {
-      query.$or = [
-        { flowName: { $exists: false } },
-        { flowName: null },
-        { flowName: '' },
-      ];
-    } else {
-      query.flowName = params.flowName;
+  if (hasAgentNoneFilter && hasFlowNoneFilter) {
+    query.$and = [{ $or: agentNoneFilter }, { $or: flowNoneFilter }];
+    append({
+      level: 'info',
+      message: 'conversations.filter.chat_only_combined',
+      timestamp: new Date().toISOString(),
+      source: 'server',
+      context: {
+        agentName,
+        flowName,
+      },
+    });
+  } else {
+    if (agentName !== undefined) {
+      if (hasAgentNoneFilter) {
+        query.$or = agentNoneFilter;
+      } else {
+        query.agentName = agentName;
+      }
+    }
+
+    if (flowName !== undefined) {
+      if (hasFlowNoneFilter) {
+        query.$or = flowNoneFilter;
+      } else {
+        query.flowName = flowName;
+      }
     }
   }
 

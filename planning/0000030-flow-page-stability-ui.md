@@ -508,6 +508,7 @@ Prevent the Flows page from dropping the active conversation during a `conversat
      - `client/src/test/flowsPage.run.test.tsx`
    - Test expectations:
      - `conversation_upsert` keeps the conversation visible when `flowName` is missing from the payload (merge uses previous value).
+     - `conversation_upsert` with `agentName` does not show in the Flows sidebar (agent-only conversations remain excluded).
    - Key requirements (repeat):
      - Keep existing WS tests intact; add a focused case for missing `flowName`.
 4. [ ] Update documentation after the client fix:
@@ -632,6 +633,7 @@ Add working-folder UI parity to the Flows page using the existing `DirectoryPick
    - Test expectations:
      - Opening the picker populates the input after selecting a folder.
      - The chosen `working_folder` is sent in the flow run payload.
+     - Directory picker errors render the inline error state and do not clear the current `workingFolder` value.
    - Key requirements (repeat):
      - Keep current run/resume tests intact; add targeted cases only.
 4. [ ] Update documentation after the UI addition:

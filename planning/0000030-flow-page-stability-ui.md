@@ -316,7 +316,15 @@ Use `customTitle` to set the conversation title for the main flow and per-agent 
      - `server/src/test/integration/flows.run.basic.test.ts`
    - Test expectations:
      - Empty/whitespace `customTitle` values are ignored.
-6. [ ] Update `design.md` (repo root `design.md`) with custom-title flow conversation behavior (purpose: document the updated flow run architecture).
+6. [ ] Integration test (server) — `server/src/test/integration/flows.run.resume.test.ts`: existing conversation title is not renamed when `customTitle` is provided on resume (purpose: enforce “no renames” rule).
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+     - Supertest HTTP assertions: https://github.com/forwardemail/supertest
+   - Files to edit:
+     - `server/src/test/integration/flows.run.resume.test.ts`
+   - Test expectations:
+     - Existing conversation title remains unchanged after a resume request that includes `customTitle`.
+7. [ ] Update `design.md` (repo root `design.md`) with custom-title flow conversation behavior (purpose: document the updated flow run architecture).
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -324,12 +332,12 @@ Use `customTitle` to set the conversation title for the main flow and per-agent 
    - Key requirements (repeat):
      - Mention both main flow and per-agent title behavior.
      - Add/update a Mermaid diagram to show how custom titles are applied during flow conversation creation.
-7. [ ] Update `projectStructure.md` (repo root `projectStructure.md`) after any file additions/removals in this task (purpose: keep the repository tree accurate).
+8. [ ] Update `projectStructure.md` (repo root `projectStructure.md`) after any file additions/removals in this task (purpose: keep the repository tree accurate).
    - Files to edit:
      - `projectStructure.md` (repo root)
    - Update scope:
      - Add/remove/rename entries for any files changed by this task.
-8. [ ] Run full lint + format check:
+9. [ ] Run full lint + format check:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli

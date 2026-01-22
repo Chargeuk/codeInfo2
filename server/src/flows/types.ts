@@ -26,6 +26,7 @@ export type FlowRunStartParams = {
   conversationId?: string;
   working_folder?: string;
   resumeStepPath?: number[];
+  customTitle?: string;
   source: 'REST' | 'MCP';
   inflightId?: string;
   chatFactory?: FlowChatFactory;

@@ -1,0 +1,56 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "CodeInfo2 API",
+    "version": "0.0.0"
+  },
+  "paths": {
+    "/flows/{flowName}/run": {
+      "post": {
+        "parameters": [
+          {
+            "name": "flowName",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "conversationId": {
+                    "type": "string"
+                  },
+                  "working_folder": {
+                    "type": "string"
+                  },
+                  "resumeStepPath": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  },
+                  "customTitle": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Flow run started"
+          }
+        }
+      }
+    }
+  }
+}

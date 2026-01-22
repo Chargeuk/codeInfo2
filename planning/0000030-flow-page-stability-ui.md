@@ -140,7 +140,7 @@ Accept `customTitle` on `POST /flows/:flowName/run` (string-only, trimmed) and t
 
 #### Subtasks
 
-1. [ ] Review the current flow run request validation and parameter types:
+1. [x] Review the current flow run request validation and parameter types:
    - Documentation to read (repeat):
      - Express routing + handlers: Context7 `/expressjs/express/v5.1.0`
    - Files to read:
@@ -154,7 +154,7 @@ Accept `customTitle` on `POST /flows/:flowName/run` (string-only, trimmed) and t
    - Key requirements (repeat):
      - Reuse `Conversation.title` (no new schema fields).
      - `customTitle` must be optional and trimmed; blank strings become `undefined`.
-2. [ ] Extend the flow run request validator to accept `customTitle`:
+2. [x] Extend the flow run request validator to accept `customTitle`:
    - Documentation to read (repeat):
      - Express routing + handlers: Context7 `/expressjs/express/v5.1.0`
    - Files to edit:
@@ -167,7 +167,7 @@ Accept `customTitle` on `POST /flows/:flowName/run` (string-only, trimmed) and t
    - Key requirements (repeat):
      - Keep validation style consistent with `working_folder`.
      - Do not add new response fields; only pass through to `startFlowRun`.
-3. [ ] Thread `customTitle` through the flow run parameter type:
+3. [x] Thread `customTitle` through the flow run parameter type:
    - Documentation to read (repeat):
      - Express routing + handlers: Context7 `/expressjs/express/v5.1.0`
    - Files to edit:
@@ -178,7 +178,7 @@ Accept `customTitle` on `POST /flows/:flowName/run` (string-only, trimmed) and t
      - Ensure `startFlowRun` accepts the new field without applying it yet.
    - Key requirements (repeat):
      - No behavior changes in this subtask; only thread the type/parameter.
-4. [ ] Integration test (server) — `server/src/test/integration/flows.run.errors.test.ts`: reject non-string `customTitle` with `400 invalid_request` (purpose: validate request type safety).
+4. [x] Integration test (server) — `server/src/test/integration/flows.run.errors.test.ts`: reject non-string `customTitle` with `400 invalid_request` (purpose: validate request type safety).
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
      - Supertest HTTP assertions: https://github.com/forwardemail/supertest
@@ -188,7 +188,7 @@ Accept `customTitle` on `POST /flows/:flowName/run` (string-only, trimmed) and t
      - Non-string `customTitle` returns `400 { error: 'invalid_request' }`.
    - Key requirements (repeat):
      - Preserve existing error mappings; follow current `invalid_request` patterns.
-5. [ ] Update API documentation after the server change:
+5. [x] Update API documentation after the server change:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
      - Mermaid diagrams: Context7 `/mermaid-js/mermaid`
@@ -196,7 +196,7 @@ Accept `customTitle` on `POST /flows/:flowName/run` (string-only, trimmed) and t
      - `openapi.json` (add `customTitle` to `POST /flows/:flowName/run` request body)
    - Key requirements (repeat):
      - Mark `customTitle` as optional string in OpenAPI.
-6. [ ] Update `projectStructure.md` (repo root `projectStructure.md`) after any file additions/removals in this task (purpose: keep the repository tree accurate).
+6. [x] Update `projectStructure.md` (repo root `projectStructure.md`) after any file additions/removals in this task (purpose: keep the repository tree accurate).
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
      - Mermaid diagrams: Context7 `/mermaid-js/mermaid`
@@ -208,7 +208,7 @@ Accept `customTitle` on `POST /flows/:flowName/run` (string-only, trimmed) and t
      - Add/remove/rename entries for any files changed by this task.
      - Added files (if any): list each file path added in this task.
      - Removed files (if any): list each file path removed in this task.
-7. [ ] Add a server log line when `customTitle` validation completes (purpose: verify request validation in manual checks).
+7. [x] Add a server log line when `customTitle` validation completes (purpose: verify request validation in manual checks).
    - Files to edit:
      - `server/src/routes/flowsRun.ts`
    - Log line to add:
@@ -216,45 +216,59 @@ Accept `customTitle` on `POST /flows/:flowName/run` (string-only, trimmed) and t
    - Implementation details:
      - Emit after `validateBody` succeeds and `customTitle` has been normalized.
      - Set `customTitleProvided` to `true` only when a non-empty string was supplied.
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+8. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
    - Documentation to read (repeat):
      - Jest: Context7 `/websites/jestjs_io_30_0`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m`)
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m`)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] Manual Playwright-MCP check to confirm custom title runs are accepted and no regressions:
+8. [x] Manual Playwright-MCP check to confirm custom title runs are accepted and no regressions:
    - Use Playwright MCP against http://host.docker.internal:5001.
    - Start a flow with a custom title and confirm the run starts without error.
    - Check server logs for `flows.run.custom_title.validated` with `customTitleProvided: true` and a non-zero `customTitleLength`.
    - Ensure there are no logged errors in the browser debug console.
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
 #### Implementation notes
 
-- 
+- Reviewed flow run validation and parameter types for `customTitle` support.
+- Added request validation, normalization, and logging for `customTitle`, and threaded it through `FlowRunStartParams`.
+- Added integration coverage for non-string `customTitle` rejection.
+- Updated `openapi.json` stub to document the optional `customTitle` field on flow runs.
+- Confirmed no project structure entries needed updating for this task.
+- Ran lint and format checks; lint reported existing import-order warnings.
+- Built server workspace (`npm run build --workspace server`).
+- Built client workspace (`npm run build --workspace client`).
+- Ran server tests (`npm run test --workspace server`), required extended timeout to complete.
+- Ran client tests (`npm run test --workspace client`); existing console warnings observed.
+- Ran e2e suite (`npm run e2e`); initial re-embed test flake resolved on rerun.
+- Ran `npm run compose:build` successfully.
+- Ran `npm run compose:up` successfully.
+- Verified flow run via Playwright MCP with customTitle; server logs show `flows.run.custom_title.validated` and no console errors.
+- Ran `npm run compose:down` successfully.
 
 ---
 

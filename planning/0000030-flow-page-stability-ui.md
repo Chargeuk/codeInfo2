@@ -200,6 +200,8 @@ Accept `customTitle` on `POST /flows/:flowName/run` (string-only, trimmed) and t
      - `projectStructure.md` (repo root)
    - Update scope:
      - Add/remove/rename entries for any files changed by this task.
+     - Added files (if any): list each file path added in this task.
+     - Removed files (if any): list each file path removed in this task.
 7. [ ] Run full lint + format check:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -337,6 +339,8 @@ Use `customTitle` to set the conversation title for the main flow and per-agent 
      - `projectStructure.md` (repo root)
    - Update scope:
      - Add/remove/rename entries for any files changed by this task.
+     - Added files (if any): list each file path added in this task.
+     - Removed files (if any): list each file path removed in this task.
 9. [ ] Run full lint + format check:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -453,6 +457,8 @@ Update the conversations list query so `agentName=__none__` and `flowName=__none
      - `projectStructure.md` (repo root)
    - Update scope:
      - Add/remove/rename entries for any files changed by this task.
+     - Added files (if any): list each file path added in this task.
+     - Removed files (if any): list each file path removed in this task.
 7. [ ] Run full lint + format check:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -572,6 +578,8 @@ Prevent the Flows page from dropping the active conversation during a `conversat
      - `projectStructure.md` (repo root)
    - Update scope:
      - Add/remove/rename entries for any files changed by this task.
+     - Added files (if any): list each file path added in this task.
+     - Removed files (if any): list each file path removed in this task.
 7. [ ] Run full lint + format check:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -701,6 +709,8 @@ Add working-folder UI parity to the Flows page using the existing `DirectoryPick
      - `projectStructure.md` (repo root)
    - Update scope:
      - Add/remove/rename entries for any files changed by this task.
+     - Added files (if any): list each file path added in this task.
+     - Removed files (if any): list each file path removed in this task.
 8. [ ] Run full lint + format check:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -833,6 +843,8 @@ Add the Flows page info (“i”) popover matching the Agents UI, including warn
      - `projectStructure.md` (repo root)
    - Update scope:
      - Add/remove/rename entries for any files changed by this task.
+     - Added files (if any): list each file path added in this task.
+     - Removed files (if any): list each file path removed in this task.
 8. [ ] Run full lint + format check:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -950,6 +962,8 @@ Add a custom title input field to the Flows controls, store it in local state, a
      - `projectStructure.md` (repo root)
    - Update scope:
      - Add/remove/rename entries for any files changed by this task.
+     - Added files (if any): list each file path added in this task.
+     - Removed files (if any): list each file path removed in this task.
 7. [ ] Run full lint + format check:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -1074,6 +1088,8 @@ Send `customTitle` only when starting a new flow conversation and keep the paylo
      - `projectStructure.md` (repo root)
    - Update scope:
      - Add/remove/rename entries for any files changed by this task.
+     - Added files (if any): list each file path added in this task.
+     - Removed files (if any): list each file path removed in this task.
 8. [ ] Run full lint + format check:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -1199,6 +1215,8 @@ Add a “New Flow” action that clears the active conversation and transcript w
      - `projectStructure.md` (repo root)
    - Update scope:
      - Add/remove/rename entries for any files changed by this task.
+     - Added files (if any): list each file path added in this task.
+     - Removed files (if any): list each file path removed in this task.
 8. [ ] Run full lint + format check:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -1280,6 +1298,8 @@ Run full builds/tests, perform manual verification with Playwright MCP, ensure d
      - `projectStructure.md` (repo root)
    - Update scope:
      - Add/remove/rename entries for any files changed by this story.
+     - Added files (if any): list each file path added in this story.
+     - Removed files (if any): list each file path removed in this story.
 7. [ ] Create a pull request summary covering all changes in this story.
 
 #### Testing

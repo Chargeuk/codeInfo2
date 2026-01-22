@@ -360,21 +360,45 @@ export function useConversations(params?: {
 
   const applyWsUpsert = useCallback(
     (conversation: ConversationSummary) => {
-      setConversations((prev) =>
-        dedupeAndSort(
+      setConversations((prev) => {
+        const existing = prev.find(
+          (c) => c.conversationId === conversation.conversationId,
+        );
+        const flowName =
+          conversation.flowName !== undefined
+            ? conversation.flowName
+            : existing?.flowName;
+        const agentName =
+          conversation.agentName !== undefined
+            ? conversation.agentName
+            : existing?.agentName;
+
+        if (conversation.flowName === undefined && existing?.flowName) {
+          log('info', 'flows.ws.upsert.merge_flowName', {
+            conversationId: conversation.conversationId,
+            flowName: existing.flowName,
+          });
+        }
+
+        const merged: ConversationSummary = {
+          ...existing,
+          ...conversation,
+          source: conversation.source ?? existing?.source ?? 'REST',
+          flowName,
+          agentName,
+        };
+
+        return dedupeAndSort(
           applyFilter([
-            {
-              ...conversation,
-              source: conversation.source ?? 'REST',
-            },
+            merged,
             ...prev.filter(
               (c) => c.conversationId !== conversation.conversationId,
             ),
           ]),
-        ),
-      );
+        );
+      });
     },
-    [applyFilter, dedupeAndSort],
+    [applyFilter, dedupeAndSort, log],
   );
 
   const applyWsDelete = useCallback(

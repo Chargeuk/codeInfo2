@@ -157,11 +157,12 @@ test('flow loops until break answer matches breakOn', async () => {
     },
     async ({ baseUrl, wsUrl }) => {
       const conversationId = 'flow-loop-conv-1';
+      const customTitle = 'Loop Custom Title';
       sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
 
       await supertest(baseUrl)
         .post('/flows/loop-break/run')
-        .send({ conversationId })
+        .send({ conversationId, customTitle })
         .expect(202);
 
       const turns = await waitForTurns(
@@ -191,7 +192,13 @@ test('flow loops until break answer matches breakOn', async () => {
       assert.equal(innerBreakTurns.length, 2);
       assert.equal(breakAnswers.length, 4);
       assert.equal(outerBreakCount, 2);
-      cleanupMemory(conversationId);
+      const agentConversationId = getAgentConversationId(
+        conversationId,
+        'coding_agent:outer',
+      );
+      const agentConversation = memoryConversations.get(agentConversationId);
+      assert.equal(agentConversation?.title, `${customTitle} (outer)`);
+      cleanupMemory(conversationId, agentConversationId);
     },
   );
 });

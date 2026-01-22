@@ -12,6 +12,7 @@ type FlowRunBody = {
   conversationId?: unknown;
   working_folder?: unknown;
   resumeStepPath?: unknown;
+  customTitle?: unknown;
 };
 
 const isFlowRunError = (err: unknown): err is FlowRunError =>
@@ -25,6 +26,7 @@ const validateBody = (
   conversationId?: string;
   working_folder?: string;
   resumeStepPath?: number[];
+  customTitle?: string;
 } => {
   const candidate = (body ?? {}) as FlowRunBody;
 
@@ -68,7 +70,18 @@ const validateBody = (
     ? rawResumeStepPath
     : undefined;
 
-  return { conversationId, working_folder, resumeStepPath };
+  const rawCustomTitle = candidate.customTitle;
+  if (rawCustomTitle !== undefined && rawCustomTitle !== null) {
+    if (typeof rawCustomTitle !== 'string') {
+      throw new Error('customTitle must be a string');
+    }
+  }
+  const customTitle =
+    typeof rawCustomTitle === 'string' && rawCustomTitle.trim().length > 0
+      ? rawCustomTitle.trim()
+      : undefined;
+
+  return { conversationId, working_folder, resumeStepPath, customTitle };
 };
 
 export function createFlowsRunRouter(
@@ -97,6 +110,7 @@ export function createFlowsRunRouter(
       conversationId?: string;
       working_folder?: string;
       resumeStepPath?: number[];
+      customTitle?: string;
     };
     try {
       parsedBody = validateBody(req.body);
@@ -106,12 +120,23 @@ export function createFlowsRunRouter(
         .json({ error: 'invalid_request', message: (err as Error).message });
     }
 
+    baseLogger.info(
+      {
+        requestId,
+        flowName,
+        customTitleProvided: Boolean(parsedBody.customTitle),
+        customTitleLength: parsedBody.customTitle?.length ?? 0,
+      },
+      'flows.run.custom_title.validated',
+    );
+
     try {
       const result = await deps.startFlowRun({
         flowName,
         conversationId: parsedBody.conversationId,
         working_folder: parsedBody.working_folder,
         resumeStepPath: parsedBody.resumeStepPath,
+        customTitle: parsedBody.customTitle,
         source: 'REST',
       });
 

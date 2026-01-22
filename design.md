@@ -49,7 +49,9 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 ## Flows (run core)
 
 - `POST /flows/:flowName/run` validates the flow file on disk (hot-reload per run) and returns `202 { status: "started", flowName, conversationId, inflightId, modelId }`.
-- Flow runs create a conversation titled `Flow: <name>` and set `flowName` for sidebar filtering.
+- Flow runs create a conversation titled `customTitle` when provided (fallback `Flow: <name>`) and set `flowName` for sidebar filtering.
+- Per-agent flow conversations use `${customTitle} (<identifier>)` when provided (fallback `Flow: <name> (<identifier>)`) and remain agent-only (no `flowName`).
+- Resume requests never rename existing flow or per-agent conversation titles; `customTitle` applies only on creation.
 - Core execution supports `llm`, `startLoop`, `break`, and `command` steps; unsupported step types return `400 { error: "invalid_request" }`.
 - `startLoop` executes its nested steps repeatedly, tracking a loop stack with `loopStepPath` and iteration count; `break` exits only the nearest loop.
 - `break` asks the configured agent to answer JSON `{ "answer": "yes" | "no" }` and fails the step (turn_final status `failed`) if the response is invalid.
@@ -60,6 +62,16 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - Resume state is stored on the flow conversation as `flags.flow` with `{ stepPath, loopStack, agentConversations, agentThreads }`, and each save emits `flows.resume.state_saved`.
 - Resume runs accept `resumeStepPath`, log `flows.resume.requested`, and validate path indices; mismatched agent conversation mappings return `agent_mismatch`.
 - Working folder validation mirrors agent runs and surfaces `WORKING_FOLDER_INVALID` / `WORKING_FOLDER_NOT_FOUND` for invalid input.
+
+```mermaid
+flowchart TD
+  Start[Start flow run] --> TitleCheck{customTitle provided?}
+  TitleCheck -- Yes --> MainTitle[Main title = customTitle]
+  TitleCheck -- No --> MainFallback[Main title = Flow: <flowName>]
+  MainTitle --> AgentTitle[Per-agent title = customTitle (identifier)]
+  MainFallback --> AgentFallback[Per-agent title = Flow: <flowName> (identifier)]
+  Resume[Resume flow run] --> KeepTitle[Keep existing titles]
+```
 
 ```mermaid
 sequenceDiagram
@@ -144,7 +156,7 @@ sequenceDiagram
 - Repository helpers in `server/src/mongo/repo.ts` handle create/update/archive/restore, append turns, and cursor pagination for conversation listings (newest-first by `lastMessageAt`). Turn snapshots now return the full newest-first history (no pagination) and merge in-flight turns when present.
 - Conversations can be tagged with `agentName` so the normal Chat history stays clean (no `agentName`) while agent UIs filter to a specific `agentName` value.
 - Conversations can be tagged with `flowName` to mark flow runs; summaries and WS sidebar payloads surface it for flow history isolation.
-- `GET /conversations` supports `flowName=<name>` for exact matches and `flowName=__none__` to return only conversations without a flow tag.
+- `GET /conversations` supports `flowName=<name>` for exact matches and `flowName=__none__` to return only conversations without a flow tag; combine `agentName=__none__` + `flowName=__none__` for chat-only views.
 - HTTP endpoints (`server/src/routes/conversations.ts`) expose list/create/archive/restore and turn append/list. `GET /conversations` supports a 3-state filter via `state=active|archived|all` (default `active`); legacy `archived=true` remains supported and maps to `state=all`. Chat POST now requires `{ conversationId, message, provider, model, flags? }`; the server loads stored turns, streams to LM Studio or Codex, then appends user/assistant/tool turns and updates `lastMessageAt`. Archived conversations return 410 on append.
 - Bulk conversation endpoints (`POST /conversations/bulk/archive|restore|delete`) use validate-first semantics: if any ids are missing (or if delete includes non-archived conversations), the server returns `409 BATCH_CONFLICT` and performs no writes. Hard delete is archived-only and deletes turns first to avoid orphaned turn documents.
 - MCP tool `codebase_question` mirrors the same persistence, storing MCP-sourced conversations/turns (including tool calls) unless the conversation is archived. MCP response payloads return answer-only segments (no reasoning/vector-summary data). Codex uses a persisted `threadId` flag for follow-ups; LM Studio uses stored turns for the `conversationId`.
@@ -157,10 +169,12 @@ Legacy note: the REST polling flow below remains for status snapshots, but the i
 
 ```mermaid
 flowchart LR
-  Chat[Chat history] -->|GET /conversations?agentName=__none__| Q1[Repo filter: agentName missing/empty]
+  Chat[Chat history] -->|GET /conversations?agentName=__none__&flowName=__none__| Q1[Repo filter: agentName missing/empty AND flowName missing/empty]
   Agents[Agents history] -->|GET /conversations?agentName=<agentName>| Q2[Repo filter: agentName == <agentName>]
+  Flows[Flows history] -->|GET /conversations?flowName=<flowName>| Q3[Repo filter: flowName == <flowName>]
   Q1 --> Conv[Conversation docs]
   Q2 --> Conv
+  Q3 --> Conv
 ```
 
 ```mermaid
@@ -1709,6 +1723,77 @@ sequenceDiagram
 
   WS-->>UI: conversation_delete(conversationId)
   UI->>Store: applyWsDelete(conversationId)
+```
+
+### Flows sidebar WS feed (flow-filtered)
+
+- The Flows sidebar also subscribes to `subscribe_sidebar`.
+- `conversation_upsert` events with `agentName` are ignored on the Flows page.
+- When a `conversation_upsert` payload omits `flowName`, `useConversations.applyWsUpsert` merges the prior summary’s `flowName` (and `agentName`) before filtering so flow conversations do not drop out of the list.
+- When a merge happens, the client logs `flows.ws.upsert.merge_flowName` with the restored `flowName`.
+
+```mermaid
+sequenceDiagram
+  participant UI as Flows UI
+  participant WS as WS (/ws)
+  participant Store as Sidebar state (useConversations)
+
+  UI->>WS: subscribe_sidebar
+  WS-->>UI: conversation_upsert(conv missing flowName)
+  UI->>Store: merge flowName from cached summary
+  Store->>Store: apply flow filter + sort
+```
+
+### Flows run form (working folder picker)
+
+- The Flows run form mirrors Agents/Ingest working-folder selection using `DirectoryPickerDialog` and `/ingest/dirs`.
+- Users can type a path manually or choose a folder from the picker; cancelling leaves the existing value intact.
+- Selecting a folder logs `flows.ui.working_folder.selected` with the chosen path.
+- The optional custom title input is captured before running a flow and is not editable after a run starts.
+- `customTitle` is only included in the run payload for brand-new runs; resume or existing-conversation runs omit it.
+
+```mermaid
+flowchart LR
+  FlowSelect[Flow selector] --> WorkingFolder[Working folder input]
+  FlowSelect --> CustomTitle[Custom title input]
+  WorkingFolder --> Picker[Choose folder…]
+  Picker --> Dialog[DirectoryPickerDialog]
+  Dialog -->|pick folder| WorkingFolder
+  Dialog -->|cancel| WorkingFolder
+  CustomTitle --> RunFlow[Start flow run]
+  RunFlow --> NewRun{New run?}
+  NewRun -- Yes --> PayloadTitle[Include customTitle in payload]
+  NewRun -- No --> PayloadNoTitle[Omit customTitle]
+```
+
+### Flows “New Flow” reset
+
+- The New Flow button clears the active conversation/transcript for a fresh run while keeping the selected flow intact.
+- The reset clears `customTitle`, `workingFolder`, and resume state without removing the flow list selection.
+- After reset, the UI logs `flows.ui.new_flow_reset` with the selected flow name and cleared fields.
+
+```mermaid
+flowchart LR
+  SelectedFlow[Selected flow] --> NewFlow[New Flow button]
+  NewFlow --> ClearState[Clear transcript + active conversation]
+  ClearState --> KeepFlow[Keep selected flow]
+  ClearState --> ResetFields[Reset customTitle + workingFolder]
+```
+
+### Flows info popover
+
+- The Flows page replaces inline description/disabled warnings with an info popover anchored to the Flow selector.
+- The popover shows warnings when a flow is disabled and an error message is available.
+- Flow descriptions render via the shared Markdown component; when both warnings/description are missing, the empty-state message appears.
+- Opening the popover logs `flows.ui.info_popover.opened` with `flowName`, `hasWarnings`, and `hasDescription`.
+
+```mermaid
+flowchart LR
+  FlowSelect[Flow selector] --> InfoIcon[Info button]
+  InfoIcon --> Popover[Flow info popover]
+  Popover --> Warnings[Warnings (disabled + error)]
+  Popover --> Description[Markdown description]
+  Popover --> Empty[Empty-state message]
 ```
 
 ### Agents transcript pipeline (client)

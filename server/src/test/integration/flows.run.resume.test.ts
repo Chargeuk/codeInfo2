@@ -99,6 +99,8 @@ test('startFlowRun resumes after resumeStepPath', async () => {
   process.env.FLOWS_DIR = tmpDir;
 
   const conversationId = 'flow-resume-conv-1';
+  const originalTitle = 'Flow: resume-basic';
+  const customTitle = 'Resume Custom Title';
   const captured: string[] = [];
 
   class TrackingChat extends ChatInterface {
@@ -121,7 +123,7 @@ test('startFlowRun resumes after resumeStepPath', async () => {
     _id: conversationId,
     provider: 'codex',
     model: 'gpt-5.2-codex',
-    title: 'Flow: resume-basic',
+    title: originalTitle,
     flowName: 'resume-basic',
     source: 'REST',
     flags: {
@@ -143,12 +145,15 @@ test('startFlowRun resumes after resumeStepPath', async () => {
       flowName: 'resume-basic',
       conversationId,
       resumeStepPath: [0],
+      customTitle,
       source: 'REST',
       chatFactory: () => new TrackingChat(),
     });
 
     await waitFor(() => captured.length === 1);
     assert.equal(captured[0], 'Step 2');
+    const conversation = memoryConversations.get(conversationId);
+    assert.equal(conversation?.title, originalTitle);
   } finally {
     memoryConversations.delete(conversationId);
     memoryTurns.delete(conversationId);

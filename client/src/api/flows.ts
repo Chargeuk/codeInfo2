@@ -115,6 +115,9 @@ export async function listFlows(): Promise<{ flows: FlowSummary[] }> {
 export async function runFlow(params: {
   flowName: string;
   conversationId?: string;
+  customTitle?: string;
+  isNewConversation?: boolean;
+  mode?: 'run' | 'resume';
   working_folder?: string;
   resumeStepPath?: number[];
   signal?: AbortSignal;
@@ -126,6 +129,17 @@ export async function runFlow(params: {
   modelId: string;
 }> {
   log('info', 'flows.api.run', { flowName: params.flowName });
+  const trimmedCustomTitle = params.customTitle?.trim();
+  const shouldIncludeCustomTitle =
+    Boolean(trimmedCustomTitle) &&
+    params.isNewConversation === true &&
+    (params.mode ?? 'run') === 'run';
+
+  log('info', 'flows.run.payload.custom_title_included', {
+    included: shouldIncludeCustomTitle,
+    isNewConversation: params.isNewConversation === true,
+  });
+
   const res = await fetch(
     new URL(
       `/flows/${encodeURIComponent(params.flowName)}/run`,
@@ -137,6 +151,9 @@ export async function runFlow(params: {
       body: JSON.stringify({
         ...(params.conversationId
           ? { conversationId: params.conversationId }
+          : {}),
+        ...(shouldIncludeCustomTitle
+          ? { customTitle: trimmedCustomTitle }
           : {}),
         ...(params.working_folder?.trim()
           ? { working_folder: params.working_folder }

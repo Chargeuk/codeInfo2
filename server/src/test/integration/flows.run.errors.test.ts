@@ -116,6 +116,38 @@ test('POST /flows/:flowName/run returns 400 for invalid flow files', async () =>
   }
 });
 
+test('POST /flows/:flowName/run returns 400 for non-string customTitle', async () => {
+  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const prevFlowsDir = process.env.FLOWS_DIR;
+  const repoRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../../../',
+  );
+  const tmpDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-custom-title-'),
+  );
+  await fs.cp(fixturesDir, tmpDir, { recursive: true });
+  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+  process.env.FLOWS_DIR = tmpDir;
+  const app = makeApp();
+
+  try {
+    const res = await supertest(app)
+      .post('/flows/llm-basic/run')
+      .send({ customTitle: 123 });
+    assert.equal(res.status, 400);
+    assert.equal(res.body.error, 'invalid_request');
+  } finally {
+    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    if (prevFlowsDir) {
+      process.env.FLOWS_DIR = prevFlowsDir;
+    } else {
+      delete process.env.FLOWS_DIR;
+    }
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
 test('POST /flows/:flowName/run returns 410 when conversation is archived', async () => {
   const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const prevFlowsDir = process.env.FLOWS_DIR;

@@ -92,6 +92,7 @@ test('POST /flows/:flowName/run starts a flow run and streams events', async () 
   const ws = await connectWs({ baseUrl });
 
   const conversationId = 'flow-basic-conv-1';
+  const customTitle = 'Custom Flow Title';
 
   try {
     sendJson(ws, { type: 'subscribe_conversation', conversationId });
@@ -142,7 +143,7 @@ test('POST /flows/:flowName/run starts a flow run and streams events', async () 
 
     const res = await supertest(baseUrl)
       .post('/flows/llm-basic/run')
-      .send({ conversationId })
+      .send({ conversationId, customTitle })
       .expect(202);
 
     assert.equal(res.body.status, 'started');
@@ -160,12 +161,75 @@ test('POST /flows/:flowName/run starts a flow run and streams events', async () 
 
     const conversation = memoryConversations.get(conversationId);
     assert.ok(conversation);
-    assert.equal(conversation?.title, 'Flow: llm-basic');
+    assert.equal(conversation?.title, customTitle);
     assert.equal(conversation?.flowName, 'llm-basic');
   } finally {
     memoryConversations.delete(conversationId);
     memoryTurns.delete(conversationId);
     await closeWs(ws);
+    await wsHandle.close();
+    await new Promise<void>((resolve) => httpServer.close(() => resolve()));
+    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    if (prevFlowsDir) {
+      process.env.FLOWS_DIR = prevFlowsDir;
+    } else {
+      delete process.env.FLOWS_DIR;
+    }
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('POST /flows/:flowName/run ignores whitespace customTitle', async () => {
+  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const prevFlowsDir = process.env.FLOWS_DIR;
+  const repoRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../../../',
+  );
+  const fixturesDir = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../fixtures/flows',
+  );
+  const tmpDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-run-whitespace-'),
+  );
+  await fs.cp(fixturesDir, tmpDir, { recursive: true });
+
+  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+  process.env.FLOWS_DIR = tmpDir;
+
+  const app = express();
+  app.use(
+    createFlowsRunRouter({
+      startFlowRun: (params) =>
+        startFlowRun({
+          ...params,
+          chatFactory: () => new StreamingChat(),
+        }),
+    }),
+  );
+
+  const httpServer = http.createServer(app);
+  const wsHandle = attachWs({ httpServer });
+  await new Promise<void>((resolve) => httpServer.listen(0, resolve));
+  const address = httpServer.address();
+  assert(address && typeof address === 'object');
+  const baseUrl = `http://127.0.0.1:${address.port}`;
+
+  const conversationId = 'flow-basic-conv-whitespace';
+
+  try {
+    await supertest(baseUrl)
+      .post('/flows/llm-basic/run')
+      .send({ conversationId, customTitle: '   ' })
+      .expect(202);
+
+    const conversation = memoryConversations.get(conversationId);
+    assert.ok(conversation);
+    assert.equal(conversation?.title, 'Flow: llm-basic');
+  } finally {
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
     await wsHandle.close();
     await new Promise<void>((resolve) => httpServer.close(() => resolve()));
     process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;

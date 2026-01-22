@@ -27,6 +27,28 @@ const appWith = (
   return app;
 };
 
+const applyConversationFilters = (
+  items: ConversationSummary[],
+  params: { agentName?: string; flowName?: string },
+) => {
+  let filtered = items;
+  if (params.agentName !== undefined) {
+    if (params.agentName === '__none__') {
+      filtered = filtered.filter((item) => !item.agentName);
+    } else {
+      filtered = filtered.filter((item) => item.agentName === params.agentName);
+    }
+  }
+  if (params.flowName !== undefined) {
+    if (params.flowName === '__none__') {
+      filtered = filtered.filter((item) => !item.flowName);
+    } else {
+      filtered = filtered.filter((item) => item.flowName === params.flowName);
+    }
+  }
+  return filtered;
+};
+
 test('lists conversations newest-first with nextCursor when page is full', async () => {
   const calls: unknown[] = [];
   const items: ConversationSummary[] = [
@@ -223,6 +245,64 @@ test('flowName=__none__ forwards sentinel to repo layer', async () => {
 
   assert.equal(Array.isArray(res.body.items), true);
   assert.equal((calls[0] as { flowName?: string }).flowName, '__none__');
+});
+
+test('agentName=__none__&flowName=__none__ returns only chat conversations', async () => {
+  const items: ConversationSummary[] = [
+    baseItem,
+    { ...baseItem, conversationId: 'c2', flowName: 'demo-flow' },
+    { ...baseItem, conversationId: 'c3', agentName: 'coding_agent' },
+    {
+      ...baseItem,
+      conversationId: 'c4',
+      agentName: 'coding_agent',
+      flowName: 'demo-flow',
+    },
+  ];
+
+  const res = await request(
+    appWith({
+      listConversations: async (params) => ({
+        items: applyConversationFilters(items, params),
+      }),
+    }),
+  )
+    .get('/conversations?agentName=__none__&flowName=__none__')
+    .expect(200);
+
+  assert.deepEqual(
+    res.body.items.map((c: { conversationId: string }) => c.conversationId),
+    ['c1'],
+  );
+});
+
+test('agentName=__none__&flowName=<name> returns non-agent flow conversations only', async () => {
+  const items: ConversationSummary[] = [
+    baseItem,
+    { ...baseItem, conversationId: 'c2', flowName: 'demo-flow' },
+    { ...baseItem, conversationId: 'c3', agentName: 'coding_agent' },
+    {
+      ...baseItem,
+      conversationId: 'c4',
+      agentName: 'coding_agent',
+      flowName: 'demo-flow',
+    },
+  ];
+
+  const res = await request(
+    appWith({
+      listConversations: async (params) => ({
+        items: applyConversationFilters(items, params),
+      }),
+    }),
+  )
+    .get('/conversations?agentName=__none__&flowName=demo-flow')
+    .expect(200);
+
+  assert.deepEqual(
+    res.body.items.map((c: { conversationId: string }) => c.conversationId),
+    ['c2'],
+  );
 });
 
 test('invalid state query returns 400 VALIDATION_FAILED', async () => {

@@ -98,6 +98,20 @@ const isSafeCommandName = (raw: string): boolean => {
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   Boolean(value) && typeof value === 'object';
 
+const buildFlowConversationTitle = (params: {
+  flowName: string;
+  customTitle?: string;
+}) => params.customTitle ?? `Flow: ${params.flowName}`;
+
+const buildFlowAgentConversationTitle = (params: {
+  flowName: string;
+  identifier: string;
+  customTitle?: string;
+}) =>
+  params.customTitle
+    ? `${params.customTitle} (${params.identifier})`
+    : `Flow: ${params.flowName} (${params.identifier})`;
+
 const normalizeNumberArray = (value: unknown): number[] => {
   if (!Array.isArray(value)) return [];
   return value.filter(
@@ -166,9 +180,14 @@ const ensureFlowConversation = async (params: {
   conversationId: string;
   flowName: string;
   modelId: string;
+  customTitle?: string;
   source: 'REST' | 'MCP';
 }): Promise<void> => {
   const now = new Date();
+  const title = buildFlowConversationTitle({
+    flowName: params.flowName,
+    customTitle: params.customTitle,
+  });
   if (shouldUseMemoryPersistence()) {
     const existing = memoryConversations.get(params.conversationId);
     if (existing) {
@@ -183,7 +202,7 @@ const ensureFlowConversation = async (params: {
       _id: params.conversationId,
       provider: 'codex',
       model: params.modelId,
-      title: `Flow: ${params.flowName}`,
+      title,
       flowName: params.flowName,
       source: params.source,
       flags: {},
@@ -192,6 +211,17 @@ const ensureFlowConversation = async (params: {
       createdAt: now,
       updatedAt: now,
     } as Conversation);
+    if (params.customTitle) {
+      baseLogger.info(
+        {
+          flowName: params.flowName,
+          conversationId: params.conversationId,
+          agentName: undefined,
+          customTitle: params.customTitle,
+        },
+        'flows.run.custom_title.applied',
+      );
+    }
     return;
   }
 
@@ -204,12 +234,23 @@ const ensureFlowConversation = async (params: {
     conversationId: params.conversationId,
     provider: 'codex',
     model: params.modelId,
-    title: `Flow: ${params.flowName}`,
+    title,
     flowName: params.flowName,
     source: params.source,
     flags: {},
     lastMessageAt: now,
   });
+  if (params.customTitle) {
+    baseLogger.info(
+      {
+        flowName: params.flowName,
+        conversationId: params.conversationId,
+        agentName: undefined,
+        customTitle: params.customTitle,
+      },
+      'flows.run.custom_title.applied',
+    );
+  }
 };
 
 const ensureFlowAgentConversation = async (params: {
@@ -218,9 +259,15 @@ const ensureFlowAgentConversation = async (params: {
   agentType: string;
   identifier: string;
   modelId: string;
+  customTitle?: string;
   source: 'REST' | 'MCP';
 }): Promise<void> => {
   const now = new Date();
+  const title = buildFlowAgentConversationTitle({
+    flowName: params.flowName,
+    identifier: params.identifier,
+    customTitle: params.customTitle,
+  });
   if (shouldUseMemoryPersistence()) {
     const existing = memoryConversations.get(params.conversationId);
     if (existing) return;
@@ -228,7 +275,7 @@ const ensureFlowAgentConversation = async (params: {
       _id: params.conversationId,
       provider: 'codex',
       model: params.modelId,
-      title: `Flow: ${params.flowName} (${params.identifier})`,
+      title,
       agentName: params.agentType,
       source: params.source,
       flags: {},
@@ -237,6 +284,17 @@ const ensureFlowAgentConversation = async (params: {
       createdAt: now,
       updatedAt: now,
     } as Conversation);
+    if (params.customTitle) {
+      baseLogger.info(
+        {
+          flowName: params.flowName,
+          conversationId: params.conversationId,
+          agentName: params.agentType,
+          customTitle: params.customTitle,
+        },
+        'flows.run.custom_title.applied',
+      );
+    }
     return;
   }
 
@@ -249,12 +307,23 @@ const ensureFlowAgentConversation = async (params: {
     conversationId: params.conversationId,
     provider: 'codex',
     model: params.modelId,
-    title: `Flow: ${params.flowName} (${params.identifier})`,
+    title,
     agentName: params.agentType,
     source: params.source,
     flags: {},
     lastMessageAt: now,
   });
+  if (params.customTitle) {
+    baseLogger.info(
+      {
+        flowName: params.flowName,
+        conversationId: params.conversationId,
+        agentName: params.agentType,
+        customTitle: params.customTitle,
+      },
+      'flows.run.custom_title.applied',
+    );
+  }
 };
 
 const flowsDirForRun = () => {
@@ -295,6 +364,7 @@ const ensureAgentState = async (params: {
   identifier: string;
   flowName: string;
   modelId: string;
+  customTitle?: string;
   source: 'REST' | 'MCP';
 }): Promise<{ state: FlowAgentState; isNew: boolean }> => {
   const key = getAgentKey(params.agentType, params.identifier);
@@ -306,6 +376,7 @@ const ensureAgentState = async (params: {
       agentType: params.agentType,
       identifier: params.identifier,
       modelId: params.modelId,
+      customTitle: params.customTitle,
       source: params.source,
     });
     return { state: existing, isNew: false };
@@ -321,6 +392,7 @@ const ensureAgentState = async (params: {
     agentType: params.agentType,
     identifier: params.identifier,
     modelId: params.modelId,
+    customTitle: params.customTitle,
     source: params.source,
   });
   return { state, isNew: true };
@@ -1146,6 +1218,7 @@ async function runFlowUnlocked(params: {
   chatFactory?: FlowChatFactory;
   resumeState?: FlowResumeState | null;
   resumeStepPath?: number[];
+  customTitle?: string;
 }) {
   const discovered = await discoverAgents();
   const agentByName = new Map(discovered.map((agent) => [agent.name, agent]));
@@ -1193,6 +1266,7 @@ async function runFlowUnlocked(params: {
       identifier: instructionParams.identifier,
       flowName: params.flowName,
       modelId,
+      customTitle: params.customTitle,
       source: params.source,
     });
     if (isNew) {
@@ -1637,6 +1711,17 @@ export async function startFlowRun(
       throw toFlowRunError('CONVERSATION_ARCHIVED');
     }
 
+    if (resumeStepPath && params.customTitle && existingConversation) {
+      baseLogger.info(
+        {
+          flowName,
+          conversationId,
+          customTitle: params.customTitle,
+        },
+        'flows.run.custom_title.resume_ignored',
+      );
+    }
+
     resumeState = parseFlowResumeState(
       (existingConversation?.flags ?? undefined) as
         | Record<string, unknown>
@@ -1676,6 +1761,7 @@ export async function startFlowRun(
       conversationId,
       flowName,
       modelId,
+      customTitle: params.customTitle,
       source: params.source,
     });
 
@@ -1709,6 +1795,7 @@ export async function startFlowRun(
         chatFactory: params.chatFactory,
         resumeState,
         resumeStepPath,
+        customTitle: params.customTitle,
       });
     } catch (err) {
       if ((err as FlowRunError | undefined)?.code) {

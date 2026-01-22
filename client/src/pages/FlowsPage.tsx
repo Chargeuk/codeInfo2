@@ -1,5 +1,6 @@
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import MenuIcon from '@mui/icons-material/Menu';
 import {
   Alert,
@@ -12,14 +13,17 @@ import {
   IconButton,
   MenuItem,
   Paper,
+  Popover,
   Stack,
   TextField,
   Typography,
+  Tooltip,
   useMediaQuery,
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import {
   type ChangeEvent,
+  type MouseEvent,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -30,6 +34,7 @@ import {
 import { FlowApiError, listFlows, runFlow } from '../api/flows';
 import Markdown from '../components/Markdown';
 import ConversationList from '../components/chat/ConversationList';
+import DirectoryPickerDialog from '../components/ingest/DirectoryPickerDialog';
 import useChatStream, { ChatMessage, ToolCall } from '../hooks/useChatStream';
 import useChatWs, { type ChatWsServerEvent } from '../hooks/useChatWs';
 import useConversationTurns, {
@@ -160,8 +165,14 @@ export default function FlowsPage() {
   const [flowsLoading, setFlowsLoading] = useState(true);
   const [flowsError, setFlowsError] = useState<string | null>(null);
   const [selectedFlowName, setSelectedFlowName] = useState('');
+  const [customTitle, setCustomTitle] = useState('');
+  const [suppressAutoSelect, setSuppressAutoSelect] = useState(false);
+  const [flowInfoAnchorEl, setFlowInfoAnchorEl] = useState<HTMLElement | null>(
+    null,
+  );
 
   const [workingFolder, setWorkingFolder] = useState('');
+  const [dirPickerOpen, setDirPickerOpen] = useState(false);
   const [startPending, setStartPending] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
   const [flowModelId, setFlowModelId] = useState('unknown');
@@ -216,8 +227,17 @@ export default function FlowsPage() {
     () => flows.find((flow) => flow.name === selectedFlowName),
     [flows, selectedFlowName],
   );
+  const flowDescription = selectedFlow?.description?.trim();
+  const flowWarnings =
+    selectedFlow?.disabled && selectedFlow?.error ? [selectedFlow.error] : [];
+  const flowInfoOpen = Boolean(flowInfoAnchorEl);
+  const flowInfoId = flowInfoOpen ? 'flow-info-popover' : undefined;
+  const flowInfoDisabled = flowsLoading || !selectedFlowName;
+  const showFlowInfoButton = !flowsError;
+  const flowInfoEmpty = !flowDescription && flowWarnings.length === 0;
+  const flowInfoEmptyMessage =
+    'No description or warnings are available for this flow yet.';
   const selectedFlowDisabled = Boolean(selectedFlow?.disabled);
-  const selectedFlowError = selectedFlow?.error;
 
   const flowConversations = useMemo(
     () => (selectedFlowName.trim() ? conversations : []),
@@ -231,6 +251,7 @@ export default function FlowsPage() {
       ),
     [activeConversationId, flowConversations],
   );
+  const selectedFlowHasHistory = Boolean(selectedConversation);
 
   const resumeStepPath = useMemo(() => {
     const flags = selectedConversation?.flags;
@@ -297,6 +318,7 @@ export default function FlowsPage() {
             archived: event.conversation.archived,
             flags: event.conversation.flags,
             agentName: event.conversation.agentName,
+            flowName: event.conversation.flowName,
           });
           return;
         }
@@ -324,6 +346,7 @@ export default function FlowsPage() {
 
   const [drawerTopOffsetPx, setDrawerTopOffsetPx] = useState(0);
   const chatColumnRef = useRef<HTMLDivElement | null>(null);
+  const qaLogSentRef = useRef(false);
 
   useLayoutEffect(() => {
     const updateOffset = () => {
@@ -354,6 +377,28 @@ export default function FlowsPage() {
   useEffect(() => {
     log('info', 'flows.ui.opened');
   }, [log]);
+
+  useEffect(() => {
+    if (qaLogSentRef.current) return;
+    if (flowsLoading) return;
+    if (flowsError) return;
+    qaLogSentRef.current = true;
+    log('info', 'flows.qa.validation_ready', { flowCount: flows.length });
+  }, [flows.length, flowsError, flowsLoading, log]);
+
+  const handleOpenDirPicker = () => {
+    setDirPickerOpen(true);
+  };
+
+  const handlePickDir = (path: string) => {
+    setWorkingFolder(path);
+    log('info', 'flows.ui.working_folder.selected', { workingFolder: path });
+    setDirPickerOpen(false);
+  };
+
+  const handleCloseDirPicker = () => {
+    setDirPickerOpen(false);
+  };
 
   const loadFlows = useCallback(async () => {
     setFlowsLoading(true);
@@ -404,6 +449,7 @@ export default function FlowsPage() {
 
   useEffect(() => {
     if (!selectedFlowName.trim()) return;
+    if (suppressAutoSelect) return;
     if (!activeConversationId && flowConversations.length > 0) {
       const first = flowConversations[0];
       setActiveConversationId(first.conversationId);
@@ -414,6 +460,7 @@ export default function FlowsPage() {
     flowConversations,
     selectedFlowName,
     setConversation,
+    suppressAutoSelect,
   ]);
 
   useEffect(() => {
@@ -426,6 +473,7 @@ export default function FlowsPage() {
     resetTurns();
     setActiveConversationId(undefined);
     setConversation(makeClientConversationId(), { clearMessages: true });
+    setSuppressAutoSelect(false);
   }, [
     activeConversationId,
     flowConversations,
@@ -539,22 +587,59 @@ export default function FlowsPage() {
     setConversation(makeClientConversationId(), { clearMessages: true });
     setFlowModelId('unknown');
     setWorkingFolder('');
+    setCustomTitle('');
   }, [resetTurns, setConversation, stop]);
+
+  const handleNewFlowReset = useCallback(() => {
+    setSuppressAutoSelect(true);
+    resetConversation();
+    log('info', 'flows.ui.new_flow_reset', {
+      selectedFlowName,
+      clearedFields: [
+        'activeConversationId',
+        'messages',
+        'resumeStepPath',
+        'customTitle',
+        'workingFolder',
+      ],
+    });
+  }, [log, resetConversation, selectedFlowName, setSuppressAutoSelect]);
 
   const handleFlowChange = useCallback(
     (event: ChangeEvent<HTMLInputElement>) => {
       const next = event.target.value;
       if (next === selectedFlowName) return;
       setSelectedFlowName(next);
+      setSuppressAutoSelect(false);
       resetConversation();
     },
-    [resetConversation, selectedFlowName],
+    [resetConversation, selectedFlowName, setSuppressAutoSelect],
   );
+
+  const handleFlowInfoOpen = (event: MouseEvent<HTMLElement>) => {
+    if (flowInfoDisabled) return;
+    setFlowInfoAnchorEl(event.currentTarget);
+    log('info', 'flows.ui.info_popover.opened', {
+      flowName: selectedFlowName,
+      hasWarnings: flowWarnings.length > 0,
+      hasDescription: Boolean(flowDescription),
+    });
+  };
+  const handleFlowInfoClose = () => {
+    setFlowInfoAnchorEl(null);
+  };
+
+  const handleCustomTitleBlur = () => {
+    log('info', 'flows.ui.custom_title.updated', {
+      customTitleLength: customTitle.length,
+    });
+  };
 
   const handleSelectConversation = (conversationId: string) => {
     if (conversationId === activeConversationId) return;
     stop();
     resetTurns();
+    setSuppressAutoSelect(false);
     setConversation(conversationId, { clearMessages: true });
     const summary = flowConversations.find(
       (conversation) => conversation.conversationId === conversationId,
@@ -598,6 +683,8 @@ export default function FlowsPage() {
       }
       if (mode === 'resume' && !resumeStepPath) return;
 
+      setSuppressAutoSelect(false);
+
       log(
         'info',
         mode === 'resume' ? 'flows.ui.resume_clicked' : 'flows.ui.run_clicked',
@@ -612,6 +699,9 @@ export default function FlowsPage() {
           ? activeConversationId
           : makeClientConversationId();
       const isNewConversation = nextConversationId !== activeConversationId;
+      const trimmedCustomTitle = customTitle.trim();
+      const shouldIncludeCustomTitle =
+        mode === 'run' && isNewConversation && trimmedCustomTitle.length > 0;
 
       if (isNewConversation) {
         setConversation(nextConversationId, { clearMessages: true });
@@ -624,6 +714,11 @@ export default function FlowsPage() {
         const result = await runFlow({
           flowName: selectedFlowName,
           conversationId: nextConversationId,
+          customTitle: shouldIncludeCustomTitle
+            ? trimmedCustomTitle
+            : undefined,
+          isNewConversation,
+          mode,
           working_folder: workingFolder.trim() || undefined,
           resumeStepPath: mode === 'resume' ? resumeStepPath : undefined,
         });
@@ -676,6 +771,7 @@ export default function FlowsPage() {
     },
     [
       activeConversationId,
+      customTitle,
       hydrateHistory,
       log,
       messages,
@@ -685,6 +781,7 @@ export default function FlowsPage() {
       selectedFlowDisabled,
       selectedFlowName,
       setConversation,
+      setSuppressAutoSelect,
       stop,
       subscribeConversation,
       workingFolder,
@@ -694,6 +791,8 @@ export default function FlowsPage() {
 
   const isSending = startPending || isStreaming || status === 'sending';
   const showStop = isSending;
+  const customTitleDisabled =
+    isSending || Boolean(resumeStepPath) || selectedFlowHasHistory;
 
   return (
     <Container
@@ -871,6 +970,27 @@ export default function FlowsPage() {
                         </MenuItem>
                       ))}
                     </TextField>
+                    {showFlowInfoButton ? (
+                      <Tooltip title="Flow info">
+                        <span>
+                          <IconButton
+                            aria-describedby={flowInfoId}
+                            onClick={handleFlowInfoOpen}
+                            disabled={flowInfoDisabled}
+                            size="small"
+                            data-testid="flow-info"
+                          >
+                            <InfoOutlinedIcon fontSize="small" />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                    ) : null}
+                  </Stack>
+                  <Stack
+                    direction={{ xs: 'column', sm: 'row' }}
+                    spacing={1}
+                    alignItems={{ xs: 'stretch', sm: 'flex-start' }}
+                  >
                     <TextField
                       fullWidth
                       size="small"
@@ -879,61 +999,87 @@ export default function FlowsPage() {
                       onChange={(event) => setWorkingFolder(event.target.value)}
                       inputProps={{ 'data-testid': 'flow-working-folder' }}
                     />
-                    <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
-                      <Button
-                        type="button"
-                        variant="outlined"
-                        onClick={() => startFlowRun('run')}
-                        disabled={
-                          !selectedFlowName ||
-                          flowsLoading ||
-                          selectedFlowDisabled ||
-                          startPending ||
-                          persistenceUnavailable ||
-                          !wsTranscriptReady
-                        }
-                        data-testid="flow-run"
-                      >
-                        Run
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outlined"
-                        onClick={() => startFlowRun('resume')}
-                        disabled={
-                          !selectedFlowName ||
-                          flowsLoading ||
-                          selectedFlowDisabled ||
-                          startPending ||
-                          !resumeStepPath ||
-                          persistenceUnavailable ||
-                          !wsTranscriptReady
-                        }
-                        data-testid="flow-resume"
-                      >
-                        Resume
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="outlined"
-                        onClick={handleStopClick}
-                        disabled={!showStop}
-                        data-testid="flow-stop"
-                      >
-                        Stop
-                      </Button>
-                    </Stack>
+                    <Button
+                      type="button"
+                      variant="outlined"
+                      size="small"
+                      onClick={handleOpenDirPicker}
+                      data-testid="flow-working-folder-picker"
+                      sx={{ flexShrink: 0 }}
+                    >
+                      Choose folder…
+                    </Button>
                   </Stack>
-                  {selectedFlow?.description && (
-                    <Typography color="text.secondary" variant="body2">
-                      {selectedFlow.description}
-                    </Typography>
-                  )}
-                  {selectedFlowDisabled && selectedFlowError && (
-                    <Alert severity="warning" data-testid="flow-disabled">
-                      {selectedFlowError}
-                    </Alert>
-                  )}
+                  <Stack
+                    direction={{ xs: 'column', sm: 'row' }}
+                    spacing={1}
+                    alignItems={{ xs: 'stretch', sm: 'flex-start' }}
+                  >
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="Custom title"
+                      value={customTitle}
+                      onChange={(event) => setCustomTitle(event.target.value)}
+                      onBlur={handleCustomTitleBlur}
+                      helperText="Optional: name for this run"
+                      disabled={customTitleDisabled}
+                      inputProps={{ 'data-testid': 'flow-custom-title' }}
+                    />
+                  </Stack>
+                  <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
+                    <Button
+                      type="button"
+                      variant="outlined"
+                      onClick={handleNewFlowReset}
+                      disabled={!selectedFlowName || flowsLoading}
+                      data-testid="flow-new"
+                    >
+                      New Flow
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outlined"
+                      onClick={() => startFlowRun('run')}
+                      disabled={
+                        !selectedFlowName ||
+                        flowsLoading ||
+                        selectedFlowDisabled ||
+                        startPending ||
+                        persistenceUnavailable ||
+                        !wsTranscriptReady
+                      }
+                      data-testid="flow-run"
+                    >
+                      Run
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outlined"
+                      onClick={() => startFlowRun('resume')}
+                      disabled={
+                        !selectedFlowName ||
+                        flowsLoading ||
+                        selectedFlowDisabled ||
+                        startPending ||
+                        !resumeStepPath ||
+                        persistenceUnavailable ||
+                        !wsTranscriptReady
+                      }
+                      data-testid="flow-resume"
+                    >
+                      Resume
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outlined"
+                      onClick={handleStopClick}
+                      disabled={!showStop}
+                      data-testid="flow-stop"
+                    >
+                      Stop
+                    </Button>
+                  </Stack>
                   {resumeStepPath && (
                     <Typography
                       color="text.secondary"
@@ -943,6 +1089,58 @@ export default function FlowsPage() {
                       Resume step path: {resumeStepPath.join(' / ')}
                     </Typography>
                   )}
+                  <DirectoryPickerDialog
+                    open={dirPickerOpen}
+                    path={workingFolder}
+                    onClose={handleCloseDirPicker}
+                    onPick={handlePickDir}
+                  />
+                  <Popover
+                    id={flowInfoId}
+                    open={flowInfoOpen}
+                    anchorEl={flowInfoAnchorEl}
+                    onClose={handleFlowInfoClose}
+                    anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+                    transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+                    data-testid="flow-info-popover"
+                  >
+                    <Stack spacing={1} sx={{ p: 2, maxWidth: 360 }}>
+                      {flowWarnings.length > 0 ? (
+                        <Stack spacing={0.5} data-testid="flow-warnings">
+                          <Typography variant="subtitle2" color="warning.main">
+                            Warnings
+                          </Typography>
+                          {flowWarnings.map((warning) => (
+                            <Typography
+                              key={warning}
+                              variant="body2"
+                              color="warning.main"
+                            >
+                              {warning}
+                            </Typography>
+                          ))}
+                        </Stack>
+                      ) : null}
+                      {flowDescription ? (
+                        <Paper
+                          variant="outlined"
+                          sx={{ p: 1.5 }}
+                          data-testid="flow-description"
+                        >
+                          <Markdown content={flowDescription} />
+                        </Paper>
+                      ) : null}
+                      {flowInfoEmpty ? (
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          data-testid="flow-info-empty"
+                        >
+                          {flowInfoEmptyMessage}
+                        </Typography>
+                      ) : null}
+                    </Stack>
+                  </Popover>
                 </Stack>
               </Box>
 

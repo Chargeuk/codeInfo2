@@ -1749,7 +1749,8 @@ sequenceDiagram
 - The Flows run form mirrors Agents/Ingest working-folder selection using `DirectoryPickerDialog` and `/ingest/dirs`.
 - Users can type a path manually or choose a folder from the picker; cancelling leaves the existing value intact.
 - Selecting a folder logs `flows.ui.working_folder.selected` with the chosen path.
-- The optional custom title input is captured before running a flow and is only applied when starting a new run (not editable after).
+- The optional custom title input is captured before running a flow and is not editable after a run starts.
+- `customTitle` is only included in the run payload for brand-new runs; resume or existing-conversation runs omit it.
 
 ```mermaid
 flowchart LR
@@ -1760,6 +1761,9 @@ flowchart LR
   Dialog -->|pick folder| WorkingFolder
   Dialog -->|cancel| WorkingFolder
   CustomTitle --> RunFlow[Start flow run]
+  RunFlow --> NewRun{New run?}
+  NewRun -- Yes --> PayloadTitle[Include customTitle in payload]
+  NewRun -- No --> PayloadNoTitle[Omit customTitle]
 ```
 
 ### Flows info popover

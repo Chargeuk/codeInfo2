@@ -46,4 +46,46 @@ describe('Flows API runFlow payload', () => {
     expect(body).not.toHaveProperty('working_folder');
     expect(body).not.toHaveProperty('resumeStepPath');
   });
+
+  it('includes customTitle only for new runs', async () => {
+    await runFlow({
+      flowName: 'daily',
+      customTitle: '  Morning brief  ',
+      isNewConversation: true,
+      mode: 'run',
+    });
+
+    const [, init] = mockFetch.mock.calls[0] as [unknown, RequestInit];
+    const body = JSON.parse(init.body as string) as Record<string, unknown>;
+    expect(body.customTitle).toBe('Morning brief');
+  });
+
+  it('omits customTitle for resumes or existing conversations', async () => {
+    await runFlow({
+      flowName: 'daily',
+      customTitle: 'Resume title',
+      isNewConversation: false,
+      mode: 'resume',
+      resumeStepPath: [0],
+    });
+
+    const [, init] = mockFetch.mock.calls[0] as [unknown, RequestInit];
+    const body = JSON.parse(init.body as string) as Record<string, unknown>;
+    expect(body).not.toHaveProperty('customTitle');
+
+    mockFetch.mockClear();
+    await runFlow({
+      flowName: 'daily',
+      customTitle: 'Existing conversation',
+      isNewConversation: false,
+      mode: 'run',
+    });
+
+    const [, nextInit] = mockFetch.mock.calls[0] as [unknown, RequestInit];
+    const nextBody = JSON.parse(nextInit.body as string) as Record<
+      string,
+      unknown
+    >;
+    expect(nextBody).not.toHaveProperty('customTitle');
+  });
 });

@@ -667,6 +667,9 @@ export default function FlowsPage() {
           ? activeConversationId
           : makeClientConversationId();
       const isNewConversation = nextConversationId !== activeConversationId;
+      const trimmedCustomTitle = customTitle.trim();
+      const shouldIncludeCustomTitle =
+        mode === 'run' && isNewConversation && trimmedCustomTitle.length > 0;
 
       if (isNewConversation) {
         setConversation(nextConversationId, { clearMessages: true });
@@ -679,6 +682,11 @@ export default function FlowsPage() {
         const result = await runFlow({
           flowName: selectedFlowName,
           conversationId: nextConversationId,
+          customTitle: shouldIncludeCustomTitle
+            ? trimmedCustomTitle
+            : undefined,
+          isNewConversation,
+          mode,
           working_folder: workingFolder.trim() || undefined,
           resumeStepPath: mode === 'resume' ? resumeStepPath : undefined,
         });
@@ -731,6 +739,7 @@ export default function FlowsPage() {
     },
     [
       activeConversationId,
+      customTitle,
       hydrateHistory,
       log,
       messages,

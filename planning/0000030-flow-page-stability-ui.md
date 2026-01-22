@@ -1225,7 +1225,7 @@ Send `customTitle` only when starting a new flow conversation and keep the paylo
 
 #### Subtasks
 
-1. [ ] Review flow run payload handling:
+1. [x] Review flow run payload handling:
    - Documentation to read (repeat):
      - React hooks/state: Context7 `/facebook/react/v19_2_0`
    - Files to read:
@@ -1234,7 +1234,7 @@ Send `customTitle` only when starting a new flow conversation and keep the paylo
      - `client/src/test/flowsApi.run.payload.test.ts`
    - Key requirements (repeat):
      - `customTitle` must only be sent for new runs (not resumes).
-2. [ ] Add `customTitle` to the run payload logic:
+2. [x] Add `customTitle` to the run payload logic:
    - Documentation to read (repeat):
      - React hooks/state: Context7 `/facebook/react/v19_2_0`
    - Files to edit:
@@ -1245,7 +1245,7 @@ Send `customTitle` only when starting a new flow conversation and keep the paylo
      - Include `customTitle` in the request body only when `isNewConversation === true` and `mode === 'run'`.
    - Key requirements (repeat):
      - Never send `customTitle` on resume or existing-conversation runs.
-3. [ ] Unit/API test (client) — `client/src/test/flowsApi.run.payload.test.ts`: include `customTitle` for new runs only (purpose: verify payload on new run).
+3. [x] Unit/API test (client) — `client/src/test/flowsApi.run.payload.test.ts`: include `customTitle` for new runs only (purpose: verify payload on new run).
    - Documentation to read (repeat):
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
      - Jest: Context7 `/websites/jestjs_io_30_0`
@@ -1253,7 +1253,7 @@ Send `customTitle` only when starting a new flow conversation and keep the paylo
      - `client/src/test/flowsApi.run.payload.test.ts`
    - Test expectations:
      - `customTitle` is included only for new runs.
-4. [ ] Unit/API test (client) — `client/src/test/flowsApi.run.payload.test.ts`: omit `customTitle` for resume/existing conversation runs (purpose: prevent accidental rename).
+4. [x] Unit/API test (client) — `client/src/test/flowsApi.run.payload.test.ts`: omit `customTitle` for resume/existing conversation runs (purpose: prevent accidental rename).
    - Documentation to read (repeat):
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
      - Jest: Context7 `/websites/jestjs_io_30_0`
@@ -1261,7 +1261,7 @@ Send `customTitle` only when starting a new flow conversation and keep the paylo
      - `client/src/test/flowsApi.run.payload.test.ts`
    - Test expectations:
      - `customTitle` is omitted for resume or existing conversation runs.
-5. [ ] Component test (client) — `client/src/test/flowsPage.run.test.tsx`: when starting a new run, the UI passes `customTitle` into `runFlow` (purpose: confirm UI wiring).
+5. [x] Component test (client) — `client/src/test/flowsPage.run.test.tsx`: when starting a new run, the UI passes `customTitle` into `runFlow` (purpose: confirm UI wiring).
    - Documentation to read (repeat):
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
      - Jest: Context7 `/websites/jestjs_io_30_0`
@@ -1269,7 +1269,7 @@ Send `customTitle` only when starting a new flow conversation and keep the paylo
      - `client/src/test/flowsPage.run.test.tsx`
    - Test expectations:
      - The run action includes the current `customTitle` when starting a new flow.
-6. [ ] Update `design.md` (repo root `design.md`) with custom title payload rules (purpose: document when titles are sent).
+6. [x] Update `design.md` (repo root `design.md`) with custom title payload rules (purpose: document when titles are sent).
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -1277,7 +1277,7 @@ Send `customTitle` only when starting a new flow conversation and keep the paylo
    - Key requirements (repeat):
      - Mention that custom title is not editable after start.
      - Add/update a Mermaid diagram that shows `customTitle` included only on new flow runs.
-7. [ ] Update `projectStructure.md` (repo root `projectStructure.md`) after any file additions/removals in this task (purpose: keep the repository tree accurate).
+7. [x] Update `projectStructure.md` (repo root `projectStructure.md`) after any file additions/removals in this task (purpose: keep the repository tree accurate).
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to read:
@@ -1288,54 +1288,70 @@ Send `customTitle` only when starting a new flow conversation and keep the paylo
      - Add/remove/rename entries for any files changed by this task.
      - Added files (if any): list each file path added in this task.
      - Removed files (if any): list each file path removed in this task.
-8. [ ] Add a client log line when the run payload includes or omits `customTitle` (purpose: verify payload rules in manual checks).
+8. [x] Add a client log line when the run payload includes or omits `customTitle` (purpose: verify payload rules in manual checks).
    - Files to edit:
      - `client/src/api/flows.ts`
    - Log line to add:
      - `flows.run.payload.custom_title_included` with fields `{ included, isNewConversation }`.
    - Implementation details:
      - Emit immediately before sending the request body.
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+9. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
    - Documentation to read (repeat):
      - Jest: Context7 `/websites/jestjs_io_30_0`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m`)
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m`)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] Manual Playwright-MCP check to confirm `customTitle` payload rules:
+8. [x] Manual Playwright-MCP check to confirm `customTitle` payload rules:
    - Use Playwright MCP against http://host.docker.internal:5001.
    - Start a new flow with a custom title and inspect the `/flows/:flowName/run` request payload to confirm `customTitle` is present.
    - Resume an existing flow and confirm the run payload omits `customTitle`.
    - Check the browser debug console for `flows.run.payload.custom_title_included` with `included: true` for new runs and `included: false` for resumes.
    - Capture `0000030-08-custom-title-payload.png` in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped in `docker-compose.local.yml`) and confirm the run UI matches expectations.
    - Ensure there are no logged errors in the browser debug console.
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
 #### Implementation notes
 
-- 
+- Reviewed FlowsPage run handling, flow API payload construction, and current payload tests to scope where customTitle should be threaded for new runs only.
+- Threaded `customTitle` through FlowsPage and `runFlow`, ensuring payload inclusion only when starting a new run with a new conversation.
+- Added runFlow payload tests for customTitle inclusion on new runs and omission for resume/existing conversations.
+- Added a FlowsPage run test covering customTitle being passed when starting a brand-new run.
+- Updated design notes and diagram to show customTitle payload rules for new runs only.
+- Confirmed no project structure updates were needed for this task.
+- Added `flows.run.payload.custom_title_included` logging before flow run requests.
+- Ran `npm run lint --workspaces` (existing import-order warnings only) and `npm run format:check --workspaces`; fixed client formatting with `npm run format --workspace client`.
+- Built the server workspace (`npm run build --workspace server`).
+- Built the client workspace (`npm run build --workspace client`).
+- Ran server tests (`npm run test --workspace server`); first run timed out at 120s, reran with `timeout 7m` successfully.
+- Ran client tests (`npm run test --workspace client`); existing console log noise persisted.
+- Ran `timeout 7m npm run e2e` successfully.
+- Ran `npm run compose:build` successfully.
+- Ran `npm run compose:up` successfully.
+- Manual Playwright MCP check confirmed customTitle payload inclusion on new runs and omission on resume; captured `playwright-output-local/0000030-08-custom-title-payload.png` and observed `flows.run.payload.custom_title_included` logs with no console errors.
+- Ran `npm run compose:down` to stop the stack.
 
 ---
 

@@ -336,6 +336,65 @@ describe('Flows page run/resume controls', () => {
     });
   });
 
+  it('includes customTitle when starting a new flow run', async () => {
+    const user = userEvent.setup();
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const target = typeof url === 'string' ? url : url.toString();
+
+      if (target.includes('/health')) {
+        return mockJsonResponse({ mongoConnected: true });
+      }
+
+      if (target.includes('/flows') && !target.includes('/run')) {
+        return mockJsonResponse({
+          flows: [
+            { name: 'daily', description: 'Daily flow', disabled: false },
+          ],
+        });
+      }
+
+      if (target.includes('/conversations/') && target.includes('/turns')) {
+        return mockJsonResponse({ items: [] });
+      }
+
+      if (target.includes('/conversations')) {
+        return mockJsonResponse({ items: [] });
+      }
+
+      if (target.includes('/flows/daily/run')) {
+        return mockJsonResponse({
+          status: 'started',
+          flowName: 'daily',
+          conversationId: 'flow-1',
+          inflightId: 'i1',
+          modelId: 'gpt-5',
+        });
+      }
+
+      return mockJsonResponse({});
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+    render(<RouterProvider router={router} />);
+
+    const titleInput = await screen.findByTestId('flow-custom-title');
+    await user.type(titleInput, 'Daily recap');
+
+    const runButton = await screen.findByTestId('flow-run');
+    await waitFor(() => expect(runButton).toBeEnabled());
+    await user.click(runButton);
+
+    await waitFor(() => {
+      const runCall = mockFetch.mock.calls.find(([url]) =>
+        String(url).includes('/flows/daily/run'),
+      );
+      expect(runCall).toBeTruthy();
+      const [, init] = runCall as [unknown, RequestInit];
+      const body = JSON.parse(init.body as string) as Record<string, unknown>;
+      expect(body.customTitle).toBe('Daily recap');
+    });
+  });
+
   it('writes the selected folder into the working folder input', async () => {
     const user = userEvent.setup();
 

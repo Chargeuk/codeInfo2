@@ -114,14 +114,14 @@ The custom name must apply to the main flow conversation and to per-agent flow c
 ---
 ## Implementation Plan
 
-### 1. Server: Add custom title support to flow runs
+### 1. Server: Validate customTitle on flow run requests
 
 - Task Status: **__to_do__**
 - Git Commits: **__to_do__**
 
 #### Overview
 
-Add an optional `customTitle` field to `POST /flows/:flowName/run`, validate it with the same trim/empty rules as other optional fields, and apply it to the flow conversation title for both the main flow and per-agent flow conversations. Reuse the existing `Conversation.title` field (no schema changes).
+Accept `customTitle` on `POST /flows/:flowName/run` (string-only, trimmed) and thread it through `FlowRunStartParams` so downstream services can use it. Reuse the existing `Conversation.title` field (no schema changes).
 
 #### Documentation Locations
 
@@ -131,17 +131,16 @@ Add an optional `customTitle` field to `POST /flows/:flowName/run`, validate it 
 
 #### Subtasks
 
-1. [ ] Review the current flow run request validation and title creation flow:
+1. [ ] Review the current flow run request validation and parameter types:
    - Documentation to read (repeat):
      - Express routing + handlers: Context7 `/expressjs/express/v5.1.0`
    - Files to read:
      - `server/src/routes/flowsRun.ts`
-     - `server/src/flows/service.ts`
-      - `server/src/flows/types.ts`
+     - `server/src/flows/types.ts`
      - `server/src/mongo/conversation.ts`
    - Snippets to locate:
      - `validateBody` body parsing logic
-     - `ensureFlowConversation` and `ensureFlowAgentConversation` title formatting
+     - `FlowRunStartParams` definition
      - `Conversation.title` field definition (confirm no schema changes needed)
 2. [ ] Extend the flow run request validator to accept `customTitle`:
    - Documentation to read (repeat):
@@ -153,7 +152,7 @@ Add an optional `customTitle` field to `POST /flows/:flowName/run`, validate it 
      - Treat non-string values as invalid (`invalid_request`).
      - Trim strings and set `customTitle` to `undefined` when empty.
      - Include `customTitle` in the parsed body output and in the `startFlowRun` call.
-3. [ ] Thread `customTitle` through flow run parameters:
+3. [ ] Thread `customTitle` through the flow run parameter type:
    - Documentation to read (repeat):
      - Express routing + handlers: Context7 `/expressjs/express/v5.1.0`
    - Files to edit:
@@ -161,38 +160,22 @@ Add an optional `customTitle` field to `POST /flows/:flowName/run`, validate it 
      - `server/src/flows/service.ts`
    - Implementation details:
      - Update `FlowRunStartParams` to include `customTitle?: string`.
-     - Pass `customTitle` into `ensureFlowConversation` and `ensureAgentState` calls.
-     - Update `ensureAgentState` and `ensureFlowAgentConversation` signatures to accept the optional title.
-4. [ ] Apply `customTitle` when creating flow conversations:
-   - Documentation to read (repeat):
-     - Express routing + handlers: Context7 `/expressjs/express/v5.1.0`
-   - Files to edit:
-     - `server/src/flows/types.ts`
-     - `server/src/flows/service.ts`
-   - Implementation details:
-     - Update the `startFlowRun` parameter type to accept `customTitle?: string`.
-     - When creating the main flow conversation, use `customTitle` as the title when provided (fallback to `Flow: <flowName>`).
-     - When creating per-agent flow conversations, use `${customTitle} (${identifier})` when provided (fallback to `Flow: <flowName> (<identifier>)`).
-     - Do **not** rename existing conversations; only apply the title on creation.
-5. [ ] Add integration coverage for custom titles:
+     - Ensure `startFlowRun` accepts the new field without applying it yet.
+4. [ ] Add integration coverage for invalid `customTitle`:
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
      - Supertest HTTP assertions: https://github.com/forwardemail/supertest
    - Files to edit:
-     - `server/src/test/integration/flows.run.basic.test.ts`
-     - `server/src/test/integration/flows.run.loop.test.ts`
+     - `server/src/test/integration/flows.run.errors.test.ts`
    - Test expectations:
-     - The main flow conversation title reflects `customTitle` when supplied.
-     - The per-agent flow conversation title includes `customTitle` + identifier.
-     - Empty/whitespace `customTitle` values are ignored.
-6. [ ] Update documentation after the server change:
+     - Non-string `customTitle` returns `400 { error: 'invalid_request' }`.
+5. [ ] Update documentation after the server change:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
-     - `design.md` (document `customTitle` in the Flows run behavior section)
      - `openapi.json` (add `customTitle` to `POST /flows/:flowName/run` request body)
      - `projectStructure.md` (only if new fixtures/files are added)
-7. [ ] Run full lint + format check:
+6. [ ] Run full lint + format check:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -223,7 +206,7 @@ Add an optional `customTitle` field to `POST /flows/:flowName/run`, validate it 
 7. [ ] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] Manual check: start a flow run with `customTitle`, confirm the Flows sidebar title and per-agent titles reflect the custom value.
+8. [ ] Manual check: start a flow run with `customTitle`, confirm the request is accepted.
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
 9. [ ] `npm run compose:down`
@@ -236,7 +219,105 @@ Add an optional `customTitle` field to `POST /flows/:flowName/run`, validate it 
 
 ---
 
-### 2. Server: Fix chat-only conversation filtering for agent + flow
+### 2. Server: Apply customTitle to flow conversation titles
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Use `customTitle` to set the conversation title for the main flow and per-agent flow conversations, falling back to `Flow: <flowName>` when absent.
+
+#### Documentation Locations
+
+- Express routing + handlers: Context7 `/expressjs/express/v5.1.0` (route handlers, async error handling)
+- Node.js test runner: https://nodejs.org/api/test.html (`node:test` usage)
+- Supertest HTTP assertions: https://github.com/forwardemail/supertest (request/expect patterns)
+
+#### Subtasks
+
+1. [ ] Review flow conversation creation helpers:
+   - Documentation to read (repeat):
+     - Express routing + handlers: Context7 `/expressjs/express/v5.1.0`
+   - Files to read:
+     - `server/src/flows/service.ts`
+   - Snippets to locate:
+     - `ensureFlowConversation`
+     - `ensureFlowAgentConversation`
+     - `ensureAgentState`
+2. [ ] Apply `customTitle` when creating flow conversations:
+   - Documentation to read (repeat):
+     - Express routing + handlers: Context7 `/expressjs/express/v5.1.0`
+   - Files to edit:
+     - `server/src/flows/service.ts`
+   - Implementation details:
+     - Pass `customTitle` into `ensureFlowConversation` and `ensureAgentState` calls.
+     - Update `ensureAgentState` and `ensureFlowAgentConversation` signatures to accept the optional title.
+     - When creating the main flow conversation, use `customTitle` when provided (fallback to `Flow: <flowName>`).
+     - When creating per-agent flow conversations, use `${customTitle} (${identifier})` when provided (fallback to `Flow: <flowName> (<identifier>)`).
+     - Do **not** rename existing conversations; only apply the title on creation.
+3. [ ] Add integration coverage for custom titles:
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+     - Supertest HTTP assertions: https://github.com/forwardemail/supertest
+   - Files to edit:
+     - `server/src/test/integration/flows.run.basic.test.ts`
+     - `server/src/test/integration/flows.run.loop.test.ts`
+   - Test expectations:
+     - The main flow conversation title reflects `customTitle` when supplied.
+     - The per-agent flow conversation title includes `customTitle` + identifier.
+     - Empty/whitespace `customTitle` values are ignored.
+4. [ ] Update documentation after the server change:
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+   - Files to edit:
+     - `design.md` (document `customTitle` in the Flows run behavior section)
+     - `projectStructure.md` (only if new fixtures/files are added)
+5. [ ] Run full lint + format check:
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier CLI: https://prettier.io/docs/cli
+   - Snippet to run:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+2. [ ] `npm run build --workspace client`
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+3. [ ] `npm run test --workspace server`
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+4. [ ] `npm run test --workspace client`
+   - Documentation to read (repeat):
+     - Jest: Context7 `/websites/jestjs_io_30_0`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m`)
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
+6. [ ] `npm run compose:build`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+7. [ ] `npm run compose:up`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+8. [ ] Manual check: run a flow with `customTitle`, confirm the Flows sidebar title and per-agent titles reflect the custom value.
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
+9. [ ] `npm run compose:down`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+
+#### Implementation notes
+
+- 
+
+---
+
+### 3. Server: Fix chat-only conversation filtering for agent + flow
 
 - Task Status: **__to_do__**
 - Git Commits: **__to_do__**
@@ -329,7 +410,7 @@ Update the conversations list query so `agentName=__none__` and `flowName=__none
 
 ---
 
-### 3. Client: Preserve flowName on WS upserts
+### 4. Client: Preserve flowName on WS upserts
 
 - Task Status: **__to_do__**
 - Git Commits: **__to_do__**
@@ -426,7 +507,7 @@ Prevent the Flows page from dropping the active conversation during a `conversat
 
 ---
 
-### 4. Client: Add working-folder picker to Flows page
+### 5. Client: Add working-folder picker to Flows page
 
 - Task Status: **__to_do__**
 - Git Commits: **__to_do__**
@@ -524,7 +605,7 @@ Add working-folder UI parity to the Flows page using the existing `DirectoryPick
 
 ---
 
-### 5. Client: Add flow info popover
+### 6. Client: Add flow info popover
 
 - Task Status: **__to_do__**
 - Git Commits: **__to_do__**
@@ -625,14 +706,14 @@ Add the Flows page info (“i”) popover matching the Agents UI, including warn
 
 ---
 
-### 6. Client: Add custom title input + payload
+### 7. Client: Add custom title input UI
 
 - Task Status: **__to_do__**
 - Git Commits: **__to_do__**
 
 #### Overview
 
-Add a custom title input to Flows, send it on new runs only, and disable the field during active/resume runs so the title is immutable once started.
+Add a custom title input field to the Flows controls, store it in local state, and reset it alongside other flow form fields.
 
 #### Documentation Locations
 
@@ -643,39 +724,34 @@ Add a custom title input to Flows, send it on new runs only, and disable the fie
 
 #### Subtasks
 
-1. [ ] Review flow run payload handling and Flows page run/resume logic:
+1. [ ] Review the current Flows controls layout and reset helper:
    - Documentation to read (repeat):
      - React hooks/state: Context7 `/facebook/react/v19_2_0`
    - Files to read:
      - `client/src/pages/FlowsPage.tsx`
-     - `client/src/api/flows.ts`
-     - `client/src/test/flowsApi.run.payload.test.ts`
-2. [ ] Add custom title input and wire it into the run payload:
+2. [ ] Add the custom title input field and local state:
    - Documentation to read (repeat):
      - MUI TextField API (closest to @mui/material 6.4.1): https://llms.mui.com/material-ui/6.4.12/api/text-field.md
    - Files to edit:
      - `client/src/pages/FlowsPage.tsx`
-     - `client/src/api/flows.ts`
    - Implementation details:
-     - Add `customTitle` state and a text input.
-     - Only send `customTitle` when starting a **new** conversation (`isNewConversation === true`) and not when resuming.
+     - Add `customTitle` state and a text input in the controls stack.
      - Disable the input when resuming, when a run is in progress, or when an existing conversation is selected.
      - Clear `customTitle` inside the existing `resetConversation` helper so New Flow + flow changes reset it.
-3. [ ] Update flow API + page tests for custom titles:
+3. [ ] Add/update Flows page tests for the custom title input UI:
    - Documentation to read (repeat):
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
      - Jest: Context7 `/websites/jestjs_io_30_0`
    - Files to edit:
-     - `client/src/test/flowsApi.run.payload.test.ts`
      - `client/src/test/flowsPage.run.test.tsx`
    - Test expectations:
-     - `customTitle` is included only for new runs.
-     - The input disables during resume/inflight states.
+     - Custom title input renders.
+     - Input disables during resume/inflight states.
 4. [ ] Update documentation after the UI addition:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
-     - `design.md` (document custom title behavior)
+     - `design.md` (document custom title input UI)
      - `projectStructure.md` (only if new files are added)
 5. [ ] Run full lint + format check:
    - Documentation to read (repeat):
@@ -698,7 +774,100 @@ Add a custom title input to Flows, send it on new runs only, and disable the fie
      - Node.js test runner: https://nodejs.org/api/test.html
 4. [ ] `npm run test --workspace client`
    - Documentation to read (repeat):
-    - Jest: Context7 `/websites/jestjs_io_30_0`
+     - Jest: Context7 `/websites/jestjs_io_30_0`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m`)
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
+6. [ ] `npm run compose:build`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+7. [ ] `npm run compose:up`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+8. [ ] Manual check: confirm the custom title input appears on the Flows page.
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
+9. [ ] `npm run compose:down`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+
+#### Implementation notes
+
+- 
+
+---
+
+### 8. Client: Send customTitle in flow run payload
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Send `customTitle` only when starting a new flow conversation and keep the payload empty for resumes or existing conversations.
+
+#### Documentation Locations
+
+- React hooks/state: Context7 `/facebook/react/v19_2_0` (React 19.2 hooks API)
+- Jest: Context7 `/websites/jestjs_io_30_0` (test structure)
+- React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+
+#### Subtasks
+
+1. [ ] Review flow run payload handling:
+   - Documentation to read (repeat):
+     - React hooks/state: Context7 `/facebook/react/v19_2_0`
+   - Files to read:
+     - `client/src/pages/FlowsPage.tsx`
+     - `client/src/api/flows.ts`
+     - `client/src/test/flowsApi.run.payload.test.ts`
+2. [ ] Add `customTitle` to the run payload logic:
+   - Documentation to read (repeat):
+     - React hooks/state: Context7 `/facebook/react/v19_2_0`
+   - Files to edit:
+     - `client/src/pages/FlowsPage.tsx`
+     - `client/src/api/flows.ts`
+   - Implementation details:
+     - Extend the `runFlow` params to accept `customTitle?: string`.
+     - Include `customTitle` in the request body only when `isNewConversation === true` and `mode === 'run'`.
+3. [ ] Update flow API + page tests for custom title payloads:
+   - Documentation to read (repeat):
+     - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+     - Jest: Context7 `/websites/jestjs_io_30_0`
+   - Files to edit:
+     - `client/src/test/flowsApi.run.payload.test.ts`
+     - `client/src/test/flowsPage.run.test.tsx`
+   - Test expectations:
+     - `customTitle` is included only for new runs.
+     - `customTitle` is omitted for resume or existing conversation runs.
+4. [ ] Update documentation after the payload change:
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+   - Files to edit:
+     - `design.md` (document custom title payload rules)
+     - `projectStructure.md` (only if new files are added)
+5. [ ] Run full lint + format check:
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier CLI: https://prettier.io/docs/cli
+   - Snippet to run:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+2. [ ] `npm run build --workspace client`
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+3. [ ] `npm run test --workspace server`
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+4. [ ] `npm run test --workspace client`
+   - Documentation to read (repeat):
+     - Jest: Context7 `/websites/jestjs_io_30_0`
 5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m`)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
@@ -721,7 +890,7 @@ Add a custom title input to Flows, send it on new runs only, and disable the fie
 
 ---
 
-### 7. Client: Add “New Flow” reset action
+### 9. Client: Add “New Flow” reset action
 
 - Task Status: **__to_do__**
 - Git Commits: **__to_do__**
@@ -815,7 +984,7 @@ Add a “New Flow” action that clears the active conversation and transcript w
 
 ---
 
-### 8. Final Task: Validate, document, and summarize
+### 10. Final Task: Validate, document, and summarize
 
 - Task Status: **__to_do__**
 - Git Commits: **__to_do__**
@@ -850,11 +1019,11 @@ Run full builds/tests, perform manual verification with Playwright MCP, ensure d
 3. [ ] Restart the Docker environment (`npm run compose:down`, then `npm run compose:up`).
 4. [ ] Run e2e tests (`npm run e2e`).
 5. [ ] Use Playwright MCP to manually verify flows run UX and save screenshots to `test-results/screenshots/` using the naming pattern:
-   - `0000030-8-flows-run.png`
-   - `0000030-8-flow-info-popover.png`
-   - `0000030-8-working-folder-picker.png`
-   - `0000030-8-custom-title.png`
-   - `0000030-8-new-flow-reset.png`
+   - `0000030-10-flows-run.png`
+   - `0000030-10-flow-info-popover.png`
+   - `0000030-10-working-folder-picker.png`
+   - `0000030-10-custom-title.png`
+   - `0000030-10-new-flow-reset.png`
 
 #### Implementation notes
 

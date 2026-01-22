@@ -1759,6 +1759,22 @@ flowchart LR
   Dialog -->|cancel| WorkingFolder
 ```
 
+### Flows info popover
+
+- The Flows page replaces inline description/disabled warnings with an info popover anchored to the Flow selector.
+- The popover shows warnings when a flow is disabled and an error message is available.
+- Flow descriptions render via the shared Markdown component; when both warnings/description are missing, the empty-state message appears.
+- Opening the popover logs `flows.ui.info_popover.opened` with `flowName`, `hasWarnings`, and `hasDescription`.
+
+```mermaid
+flowchart LR
+  FlowSelect[Flow selector] --> InfoIcon[Info button]
+  InfoIcon --> Popover[Flow info popover]
+  Popover --> Warnings[Warnings (disabled + error)]
+  Popover --> Description[Markdown description]
+  Popover --> Empty[Empty-state message]
+```
+
 ### Agents transcript pipeline (client)
 
 - Agents use the same WebSocket transcript merge logic as Chat:

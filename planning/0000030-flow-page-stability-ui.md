@@ -914,7 +914,7 @@ Add the Flows page info (“i”) popover matching the Agents UI, including warn
 
 #### Subtasks
 
-1. [ ] Review the Agents info popover implementation and Flow summary data:
+1. [x] Review the Agents info popover implementation and Flow summary data:
    - Documentation to read (repeat):
      - React hooks/state: Context7 `/facebook/react/v19_2_0`
    - Files to read:
@@ -923,7 +923,7 @@ Add the Flows page info (“i”) popover matching the Agents UI, including warn
      - `client/src/pages/FlowsPage.tsx`
    - Key requirements (repeat):
      - Flow warnings are based on `disabled === true` with `error` text.
-2. [ ] Implement the Flows info popover (matching Agents behavior):
+2. [x] Implement the Flows info popover (matching Agents behavior):
    - Documentation to read (repeat):
      - MUI Popover API (closest to @mui/material 6.4.1): https://llms.mui.com/material-ui/6.4.12/api/popover.md
      - MUI IconButton API (closest to @mui/material 6.4.1): https://llms.mui.com/material-ui/6.4.12/api/icon-button.md
@@ -940,7 +940,7 @@ Add the Flows page info (“i”) popover matching the Agents UI, including warn
      - Remove the inline flow description + warning alert beneath the controls so the popover becomes the single source of flow details.
    - Key requirements (repeat):
      - Empty-state copy must be: “No description or warnings are available for this flow yet.”
-3. [ ] Component test (client) — `client/src/test/flowsPage.test.tsx`: popover shows warnings when flow is disabled (purpose: ensure warning UX parity).
+3. [x] Component test (client) — `client/src/test/flowsPage.test.tsx`: popover shows warnings when flow is disabled (purpose: ensure warning UX parity).
    - Documentation to read (repeat):
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
      - Jest: Context7 `/websites/jestjs_io_30_0`
@@ -948,7 +948,7 @@ Add the Flows page info (“i”) popover matching the Agents UI, including warn
      - `client/src/test/flowsPage.test.tsx`
    - Test expectations:
      - Popover shows warnings when flow is disabled.
-4. [ ] Component test (client) — `client/src/test/flowsPage.test.tsx`: popover shows Markdown description (purpose: confirm description rendering).
+4. [x] Component test (client) — `client/src/test/flowsPage.test.tsx`: popover shows Markdown description (purpose: confirm description rendering).
    - Documentation to read (repeat):
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
      - Jest: Context7 `/websites/jestjs_io_30_0`
@@ -956,7 +956,7 @@ Add the Flows page info (“i”) popover matching the Agents UI, including warn
      - `client/src/test/flowsPage.test.tsx`
    - Test expectations:
      - Popover shows description when available.
-5. [ ] Component test (client) — `client/src/test/flowsPage.test.tsx`: empty-state copy renders when no warnings/description (purpose: match Agents empty-state).
+5. [x] Component test (client) — `client/src/test/flowsPage.test.tsx`: empty-state copy renders when no warnings/description (purpose: match Agents empty-state).
    - Documentation to read (repeat):
      - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/
      - Jest: Context7 `/websites/jestjs_io_30_0`
@@ -964,7 +964,7 @@ Add the Flows page info (“i”) popover matching the Agents UI, including warn
      - `client/src/test/flowsPage.test.tsx`
    - Test expectations:
      - Empty-state copy renders when warnings + description are missing.
-6. [ ] Update `design.md` (repo root `design.md`) with flow info popover behavior (purpose: document the updated Flows UI architecture).
+6. [x] Update `design.md` (repo root `design.md`) with flow info popover behavior (purpose: document the updated Flows UI architecture).
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -972,7 +972,7 @@ Add the Flows page info (“i”) popover matching the Agents UI, including warn
    - Key requirements (repeat):
      - Mention removal of inline flow description in favor of popover.
      - Add/update a Mermaid diagram that shows the Flows info popover in the page UX flow.
-7. [ ] Update `projectStructure.md` (repo root `projectStructure.md`) after any file additions/removals in this task (purpose: keep the repository tree accurate).
+7. [x] Update `projectStructure.md` (repo root `projectStructure.md`) after any file additions/removals in this task (purpose: keep the repository tree accurate).
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to read:
@@ -983,41 +983,41 @@ Add the Flows page info (“i”) popover matching the Agents UI, including warn
      - Add/remove/rename entries for any files changed by this task.
      - Added files (if any): list each file path added in this task.
      - Removed files (if any): list each file path removed in this task.
-8. [ ] Add a client log line when the flow info popover opens (purpose: verify popover state in manual checks).
+8. [x] Add a client log line when the flow info popover opens (purpose: verify popover state in manual checks).
    - Files to edit:
      - `client/src/pages/FlowsPage.tsx`
    - Log line to add:
      - `flows.ui.info_popover.opened` with fields `{ flowName, hasWarnings, hasDescription }`.
    - Implementation details:
      - Emit when the info icon opens the popover.
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+9. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
    - Documentation to read (repeat):
     - Jest: Context7 `/websites/jestjs_io_30_0`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m`)
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m`)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] Manual Playwright-MCP check to confirm flow info popover behavior:
+8. [x] Manual Playwright-MCP check to confirm flow info popover behavior:
    - Use Playwright MCP against http://host.docker.internal:5001.
    - Open the info popover for a flow with warnings and confirm warnings render.
    - Open a flow with a Markdown description and confirm the description renders.
@@ -1025,13 +1025,28 @@ Add the Flows page info (“i”) popover matching the Agents UI, including warn
    - Check the browser debug console for `flows.ui.info_popover.opened` entries with the expected `hasWarnings`/`hasDescription` flags.
    - Capture `0000030-06-flow-info-popover.png` in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped in `docker-compose.local.yml`) and confirm the popover UI matches expectations.
    - Ensure there are no logged errors in the browser debug console.
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
 #### Implementation notes
 
-- 
+- Reviewed the Agents info popover wiring alongside the Flows page and shared Markdown component to mirror behavior for warnings, descriptions, and empty states.
+- Added the Flows info icon + popover, rendering warnings and Markdown descriptions with an empty-state fallback, and removed the inline description/alert.
+- Added client tests covering flow info popover warnings, Markdown description rendering, and empty-state messaging.
+- Documented the new Flows info popover behavior and flowchart in design notes.
+- No project structure updates were required for this task.
+- Added `flows.ui.info_popover.opened` logging when the Flow info popover opens.
+- Ran `npm run lint --workspaces` (existing import-order warnings only) and `npm run format:check --workspaces`; fixed client formatting with `npm run format --workspace client`.
+- Built the server workspace (`npm run build --workspace server`).
+- Built the client workspace (`npm run build --workspace client`).
+- Ran server tests (`npm run test --workspace server`); first run timed out at 120s, rerun completed successfully.
+- Ran client tests (`npm run test --workspace client`); existing console log noise persisted.
+- Ran `timeout 7m npm run e2e` successfully (36 tests passed).
+- Ran `npm run compose:build` successfully.
+- Ran `npm run compose:up` successfully.
+- Manual Playwright MCP check on http://host.docker.internal:5001/flows confirmed warning, description, and empty-state popover content; console logs showed `flows.ui.info_popover.opened`, no browser errors, and screenshot saved to `playwright-output-local/0000030-06-flow-info-popover.png`.
+- Ran `npm run compose:down` to stop the stack.
 
 ---
 

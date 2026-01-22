@@ -1,5 +1,11 @@
 import { jest } from '@jest/globals';
-import { act, render, screen, waitFor } from '@testing-library/react';
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from '@testing-library/react';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 
 const mockFetch = jest.fn();
@@ -275,5 +281,141 @@ describe('Flows page basics', () => {
     });
 
     await screen.findByText('Flow: daily updated');
+  });
+});
+
+describe('Flows info popover', () => {
+  it('shows warnings when the flow is disabled', async () => {
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const target = typeof url === 'string' ? url : url.toString();
+
+      if (target.includes('/health')) {
+        return mockJsonResponse({ mongoConnected: true });
+      }
+
+      if (target.includes('/flows')) {
+        return mockJsonResponse({
+          flows: [
+            {
+              name: 'broken_flow',
+              description: 'Broken flow',
+              disabled: true,
+              error: 'Failed to parse flow JSON',
+            },
+          ],
+        });
+      }
+
+      if (target.includes('/conversations/') && target.includes('/turns')) {
+        return mockJsonResponse({ items: [] });
+      }
+
+      if (target.includes('/conversations')) {
+        return mockJsonResponse({ items: [] });
+      }
+
+      return mockJsonResponse({});
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+    render(<RouterProvider router={router} />);
+
+    const flowSelect = await screen.findByTestId('flow-select');
+    await waitFor(() =>
+      expect((flowSelect as HTMLInputElement).value).toBe('broken_flow'),
+    );
+
+    fireEvent.click(screen.getByTestId('flow-info'));
+
+    const popover = await screen.findByTestId('flow-info-popover');
+    expect(popover).toBeInTheDocument();
+    expect(screen.getByTestId('flow-warnings')).toHaveTextContent('Warnings');
+    expect(screen.getByText('Failed to parse flow JSON')).toBeInTheDocument();
+  });
+
+  it('shows the Markdown description when available', async () => {
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const target = typeof url === 'string' ? url : url.toString();
+
+      if (target.includes('/health')) {
+        return mockJsonResponse({ mongoConnected: true });
+      }
+
+      if (target.includes('/flows')) {
+        return mockJsonResponse({
+          flows: [
+            {
+              name: 'daily',
+              description: 'Run the **daily** flow.',
+              disabled: false,
+            },
+          ],
+        });
+      }
+
+      if (target.includes('/conversations/') && target.includes('/turns')) {
+        return mockJsonResponse({ items: [] });
+      }
+
+      if (target.includes('/conversations')) {
+        return mockJsonResponse({ items: [] });
+      }
+
+      return mockJsonResponse({});
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+    render(<RouterProvider router={router} />);
+
+    const flowSelect = await screen.findByTestId('flow-select');
+    await waitFor(() =>
+      expect((flowSelect as HTMLInputElement).value).toBe('daily'),
+    );
+
+    fireEvent.click(screen.getByTestId('flow-info'));
+
+    const description = await screen.findByTestId('flow-description');
+    expect(description).toHaveTextContent('Run the daily flow.');
+  });
+
+  it('shows the empty-state copy when no warnings or description', async () => {
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const target = typeof url === 'string' ? url : url.toString();
+
+      if (target.includes('/health')) {
+        return mockJsonResponse({ mongoConnected: true });
+      }
+
+      if (target.includes('/flows')) {
+        return mockJsonResponse({
+          flows: [{ name: 'simple_flow', disabled: false }],
+        });
+      }
+
+      if (target.includes('/conversations/') && target.includes('/turns')) {
+        return mockJsonResponse({ items: [] });
+      }
+
+      if (target.includes('/conversations')) {
+        return mockJsonResponse({ items: [] });
+      }
+
+      return mockJsonResponse({});
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+    render(<RouterProvider router={router} />);
+
+    const flowSelect = await screen.findByTestId('flow-select');
+    await waitFor(() =>
+      expect((flowSelect as HTMLInputElement).value).toBe('simple_flow'),
+    );
+
+    fireEvent.click(screen.getByTestId('flow-info'));
+
+    const emptyState = await screen.findByTestId('flow-info-empty');
+    expect(emptyState).toHaveTextContent(
+      'No description or warnings are available for this flow yet.',
+    );
   });
 });

@@ -1,5 +1,6 @@
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import ErrorOutlineIcon from '@mui/icons-material/ErrorOutline';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import MenuIcon from '@mui/icons-material/Menu';
 import {
   Alert,
@@ -12,14 +13,17 @@ import {
   IconButton,
   MenuItem,
   Paper,
+  Popover,
   Stack,
   TextField,
   Typography,
+  Tooltip,
   useMediaQuery,
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import {
   type ChangeEvent,
+  type MouseEvent,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -161,6 +165,9 @@ export default function FlowsPage() {
   const [flowsLoading, setFlowsLoading] = useState(true);
   const [flowsError, setFlowsError] = useState<string | null>(null);
   const [selectedFlowName, setSelectedFlowName] = useState('');
+  const [flowInfoAnchorEl, setFlowInfoAnchorEl] = useState<HTMLElement | null>(
+    null,
+  );
 
   const [workingFolder, setWorkingFolder] = useState('');
   const [dirPickerOpen, setDirPickerOpen] = useState(false);
@@ -218,8 +225,17 @@ export default function FlowsPage() {
     () => flows.find((flow) => flow.name === selectedFlowName),
     [flows, selectedFlowName],
   );
+  const flowDescription = selectedFlow?.description?.trim();
+  const flowWarnings =
+    selectedFlow?.disabled && selectedFlow?.error ? [selectedFlow.error] : [];
+  const flowInfoOpen = Boolean(flowInfoAnchorEl);
+  const flowInfoId = flowInfoOpen ? 'flow-info-popover' : undefined;
+  const flowInfoDisabled = flowsLoading || !selectedFlowName;
+  const showFlowInfoButton = !flowsError;
+  const flowInfoEmpty = !flowDescription && flowWarnings.length === 0;
+  const flowInfoEmptyMessage =
+    'No description or warnings are available for this flow yet.';
   const selectedFlowDisabled = Boolean(selectedFlow?.disabled);
-  const selectedFlowError = selectedFlow?.error;
 
   const flowConversations = useMemo(
     () => (selectedFlowName.trim() ? conversations : []),
@@ -568,6 +584,19 @@ export default function FlowsPage() {
     [resetConversation, selectedFlowName],
   );
 
+  const handleFlowInfoOpen = (event: MouseEvent<HTMLElement>) => {
+    if (flowInfoDisabled) return;
+    setFlowInfoAnchorEl(event.currentTarget);
+    log('info', 'flows.ui.info_popover.opened', {
+      flowName: selectedFlowName,
+      hasWarnings: flowWarnings.length > 0,
+      hasDescription: Boolean(flowDescription),
+    });
+  };
+  const handleFlowInfoClose = () => {
+    setFlowInfoAnchorEl(null);
+  };
+
   const handleSelectConversation = (conversationId: string) => {
     if (conversationId === activeConversationId) return;
     stop();
@@ -888,6 +917,21 @@ export default function FlowsPage() {
                         </MenuItem>
                       ))}
                     </TextField>
+                    {showFlowInfoButton ? (
+                      <Tooltip title="Flow info">
+                        <span>
+                          <IconButton
+                            aria-describedby={flowInfoId}
+                            onClick={handleFlowInfoOpen}
+                            disabled={flowInfoDisabled}
+                            size="small"
+                            data-testid="flow-info"
+                          >
+                            <InfoOutlinedIcon fontSize="small" />
+                          </IconButton>
+                        </span>
+                      </Tooltip>
+                    ) : null}
                   </Stack>
                   <Stack
                     direction={{ xs: 'column', sm: 'row' }}
@@ -957,16 +1001,6 @@ export default function FlowsPage() {
                       Stop
                     </Button>
                   </Stack>
-                  {selectedFlow?.description && (
-                    <Typography color="text.secondary" variant="body2">
-                      {selectedFlow.description}
-                    </Typography>
-                  )}
-                  {selectedFlowDisabled && selectedFlowError && (
-                    <Alert severity="warning" data-testid="flow-disabled">
-                      {selectedFlowError}
-                    </Alert>
-                  )}
                   {resumeStepPath && (
                     <Typography
                       color="text.secondary"
@@ -982,6 +1016,52 @@ export default function FlowsPage() {
                     onClose={handleCloseDirPicker}
                     onPick={handlePickDir}
                   />
+                  <Popover
+                    id={flowInfoId}
+                    open={flowInfoOpen}
+                    anchorEl={flowInfoAnchorEl}
+                    onClose={handleFlowInfoClose}
+                    anchorOrigin={{ vertical: 'bottom', horizontal: 'left' }}
+                    transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+                    data-testid="flow-info-popover"
+                  >
+                    <Stack spacing={1} sx={{ p: 2, maxWidth: 360 }}>
+                      {flowWarnings.length > 0 ? (
+                        <Stack spacing={0.5} data-testid="flow-warnings">
+                          <Typography variant="subtitle2" color="warning.main">
+                            Warnings
+                          </Typography>
+                          {flowWarnings.map((warning) => (
+                            <Typography
+                              key={warning}
+                              variant="body2"
+                              color="warning.main"
+                            >
+                              {warning}
+                            </Typography>
+                          ))}
+                        </Stack>
+                      ) : null}
+                      {flowDescription ? (
+                        <Paper
+                          variant="outlined"
+                          sx={{ p: 1.5 }}
+                          data-testid="flow-description"
+                        >
+                          <Markdown content={flowDescription} />
+                        </Paper>
+                      ) : null}
+                      {flowInfoEmpty ? (
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          data-testid="flow-info-empty"
+                        >
+                          {flowInfoEmptyMessage}
+                        </Typography>
+                      ) : null}
+                    </Stack>
+                  </Popover>
                 </Stack>
               </Box>
 

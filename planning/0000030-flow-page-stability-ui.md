@@ -1471,13 +1471,13 @@ Run full builds/tests, perform manual verification with Playwright MCP, ensure d
 7. [ ] `npm run compose:up`
 8. [ ] Manual Playwright-MCP check to confirm story requirements and regressions:
    - Use Playwright MCP against http://host.docker.internal:5001.
-   - Verify flows run UX and capture screenshots in `test-results/screenshots/` using:
+   - Verify flows run UX and capture screenshots in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped in `docker-compose.local.yml`) using:
      - `0000030-10-flows-run.png`
      - `0000030-10-flow-info-popover.png`
      - `0000030-10-working-folder-picker.png`
      - `0000030-10-custom-title.png`
      - `0000030-10-new-flow-reset.png`
-   - Store the screenshots in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped in `docker-compose.local.yml`) and review them to confirm the GUI matches the task expectations.
+   - Review the stored screenshots to confirm the GUI matches the task expectations.
    - Check the browser debug console for `flows.qa.validation_ready` with a non-zero `flowCount`.
    - Ensure there are no logged errors in the browser debug console.
 9. [ ] `npm run compose:down`

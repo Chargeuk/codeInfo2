@@ -298,7 +298,7 @@ Use `customTitle` to set the conversation title for the main flow and per-agent 
 
 #### Subtasks
 
-1. [ ] Review flow conversation creation helpers:
+1. [x] Review flow conversation creation helpers:
    - Documentation to read (repeat):
      - Express routing + handlers: Context7 `/expressjs/express/v5.1.0`
    - Files to read:
@@ -309,7 +309,7 @@ Use `customTitle` to set the conversation title for the main flow and per-agent 
      - `ensureAgentState`
    - Key requirements (repeat):
      - Per-agent conversations remain agent-only (do not add `flowName`).
-2. [ ] Apply `customTitle` when creating flow conversations:
+2. [x] Apply `customTitle` when creating flow conversations:
    - Documentation to read (repeat):
      - Express routing + handlers: Context7 `/expressjs/express/v5.1.0`
    - Files to edit:
@@ -323,7 +323,7 @@ Use `customTitle` to set the conversation title for the main flow and per-agent 
    - Key requirements (repeat):
      - Do not update existing conversation titles.
      - Keep flow conversation `flowName` behavior unchanged.
-3. [ ] Integration test (server) — `server/src/test/integration/flows.run.basic.test.ts`: main flow conversation title reflects `customTitle` (purpose: confirm main flow naming).
+3. [x] Integration test (server) — `server/src/test/integration/flows.run.basic.test.ts`: main flow conversation title reflects `customTitle` (purpose: confirm main flow naming).
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
      - Supertest HTTP assertions: https://github.com/forwardemail/supertest
@@ -331,7 +331,7 @@ Use `customTitle` to set the conversation title for the main flow and per-agent 
      - `server/src/test/integration/flows.run.basic.test.ts`
    - Test expectations:
      - The main flow conversation title reflects `customTitle` when supplied.
-4. [ ] Integration test (server) — `server/src/test/integration/flows.run.loop.test.ts`: per-agent flow conversation title includes `customTitle` + identifier (purpose: verify per-agent naming).
+4. [x] Integration test (server) — `server/src/test/integration/flows.run.loop.test.ts`: per-agent flow conversation title includes `customTitle` + identifier (purpose: verify per-agent naming).
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
      - Supertest HTTP assertions: https://github.com/forwardemail/supertest
@@ -339,7 +339,7 @@ Use `customTitle` to set the conversation title for the main flow and per-agent 
      - `server/src/test/integration/flows.run.loop.test.ts`
    - Test expectations:
      - The per-agent flow conversation title includes `customTitle` + identifier.
-5. [ ] Integration test (server) — `server/src/test/integration/flows.run.basic.test.ts`: whitespace-only `customTitle` is ignored (purpose: confirm trim/empty handling).
+5. [x] Integration test (server) — `server/src/test/integration/flows.run.basic.test.ts`: whitespace-only `customTitle` is ignored (purpose: confirm trim/empty handling).
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
      - Supertest HTTP assertions: https://github.com/forwardemail/supertest
@@ -347,7 +347,7 @@ Use `customTitle` to set the conversation title for the main flow and per-agent 
      - `server/src/test/integration/flows.run.basic.test.ts`
    - Test expectations:
      - Empty/whitespace `customTitle` values are ignored.
-6. [ ] Integration test (server) — `server/src/test/integration/flows.run.resume.test.ts`: existing conversation title is not renamed when `customTitle` is provided on resume (purpose: enforce “no renames” rule).
+6. [x] Integration test (server) — `server/src/test/integration/flows.run.resume.test.ts`: existing conversation title is not renamed when `customTitle` is provided on resume (purpose: enforce “no renames” rule).
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
      - Supertest HTTP assertions: https://github.com/forwardemail/supertest
@@ -355,7 +355,7 @@ Use `customTitle` to set the conversation title for the main flow and per-agent 
      - `server/src/test/integration/flows.run.resume.test.ts`
    - Test expectations:
      - Existing conversation title remains unchanged after a resume request that includes `customTitle`.
-7. [ ] Update `design.md` (repo root `design.md`) with custom-title flow conversation behavior (purpose: document the updated flow run architecture).
+7. [x] Update `design.md` (repo root `design.md`) with custom-title flow conversation behavior (purpose: document the updated flow run architecture).
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
      - Mermaid diagrams: Context7 `/mermaid-js/mermaid`
@@ -364,7 +364,7 @@ Use `customTitle` to set the conversation title for the main flow and per-agent 
    - Key requirements (repeat):
      - Mention both main flow and per-agent title behavior.
      - Add/update a Mermaid diagram to show how custom titles are applied during flow conversation creation.
-8. [ ] Update `projectStructure.md` (repo root `projectStructure.md`) after any file additions/removals in this task (purpose: keep the repository tree accurate).
+8. [x] Update `projectStructure.md` (repo root `projectStructure.md`) after any file additions/removals in this task (purpose: keep the repository tree accurate).
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
      - Mermaid diagrams: Context7 `/mermaid-js/mermaid`
@@ -376,7 +376,7 @@ Use `customTitle` to set the conversation title for the main flow and per-agent 
      - Add/remove/rename entries for any files changed by this task.
      - Added files (if any): list each file path added in this task.
      - Removed files (if any): list each file path removed in this task.
-9. [ ] Add server log lines when custom titles are applied or skipped on resume (purpose: verify title behavior in manual checks).
+9. [x] Add server log lines when custom titles are applied or skipped on resume (purpose: verify title behavior in manual checks).
    - Files to edit:
      - `server/src/flows/service.ts`
    - Log lines to add:
@@ -385,34 +385,34 @@ Use `customTitle` to set the conversation title for the main flow and per-agent 
    - Implementation details:
      - Emit the applied log for the main flow and each agent conversation that receives a custom title.
      - Emit the resume_ignored log when a resume request includes `customTitle` but no title change occurs.
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+10. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
    - Documentation to read (repeat):
      - Jest: Context7 `/websites/jestjs_io_30_0`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m`)
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m`)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] Manual Playwright-MCP check to confirm custom titles apply to flow conversations and resume does not rename:
+8. [x] Manual Playwright-MCP check to confirm custom titles apply to flow conversations and resume does not rename:
    - Use Playwright MCP against http://host.docker.internal:5001.
    - Start a flow with a custom title and confirm the main flow conversation title uses that custom title.
    - Confirm per-agent flow conversations include the custom title plus the agent identifier.
@@ -420,13 +420,18 @@ Use `customTitle` to set the conversation title for the main flow and per-agent 
    - Check server logs for `flows.run.custom_title.applied` entries for the main flow and each per-agent conversation.
    - Check server logs for `flows.run.custom_title.resume_ignored` when resuming with a custom title.
    - Ensure there are no logged errors in the browser debug console.
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
 #### Implementation notes
 
-- 
+- Applied customTitle naming for main and per-agent flow conversations and added applied/resume log lines.
+- Updated flow run integration tests to cover customTitle naming, whitespace ignore, and resume no-rename behavior.
+- Updated design notes and Mermaid diagram for customTitle title selection; no project structure changes needed.
+- Ran lint (existing import-order warnings) and format check; applied Prettier write to fix loop test formatting.
+- Built server/client, ran server/client tests, and completed e2e (ingest cases skipped by suite).
+- Completed manual Playwright check for main/per-agent titles and resume ignore; server logs show applied/resume_ignored entries.
 
 ---
 

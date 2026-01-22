@@ -206,10 +206,7 @@ Accept `customTitle` on `POST /flows/:flowName/run` (string-only, trimmed) and t
 7. [ ] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] Manual check: start a flow run with `customTitle`, confirm the request is accepted.
-   - Documentation to read (repeat):
-     - Playwright: Context7 `/microsoft/playwright`
-9. [ ] `npm run compose:down`
+8. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
@@ -304,10 +301,7 @@ Use `customTitle` to set the conversation title for the main flow and per-agent 
 7. [ ] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] Manual check: run a flow with `customTitle`, confirm the Flows sidebar title and per-agent titles reflect the custom value.
-   - Documentation to read (repeat):
-     - Playwright: Context7 `/microsoft/playwright`
-9. [ ] `npm run compose:down`
+8. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
@@ -397,10 +391,7 @@ Update the conversations list query so `agentName=__none__` and `flowName=__none
 7. [ ] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] Manual check: open Chat sidebar with `flowName=__none__` + `agentName=__none__` filters and confirm only chat conversations are listed.
-   - Documentation to read (repeat):
-     - Playwright: Context7 `/microsoft/playwright`
-9. [ ] `npm run compose:down`
+8. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
@@ -424,7 +415,6 @@ Prevent the Flows page from dropping the active conversation during a `conversat
 - React hooks/state: Context7 `/facebook/react/v19_2_0` (React 19.2 hooks API)
 - Jest: Context7 `/websites/jestjs_io_30_0` (test structure)
 - React Testing Library: https://testing-library.com/docs/react-testing-library/intro/ (render + screen usage)
-- MUI Popover API (closest to @mui/material 6.4.1): https://llms.mui.com/material-ui/6.4.12/api/popover.md
 
 #### Subtasks
 
@@ -494,10 +484,7 @@ Prevent the Flows page from dropping the active conversation during a `conversat
 7. [ ] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] Manual check: run a flow, wait for a streamed update, and confirm the Flows sidebar + transcript remain visible (no reset) when WS updates arrive.
-   - Documentation to read (repeat):
-     - Playwright: Context7 `/microsoft/playwright`
-9. [ ] `npm run compose:down`
+8. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
@@ -592,10 +579,7 @@ Add working-folder UI parity to the Flows page using the existing `DirectoryPick
 7. [ ] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] Manual check: open Flows page, open the directory picker, select a folder, and confirm the selected path appears in the working folder input.
-   - Documentation to read (repeat):
-     - Playwright: Context7 `/microsoft/playwright`
-9. [ ] `npm run compose:down`
+8. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
@@ -693,10 +677,7 @@ Add the Flows page info (“i”) popover matching the Agents UI, including warn
 7. [ ] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] Manual check: open the Flows info popover and confirm warnings, description, and empty-state behaviors.
-   - Documentation to read (repeat):
-     - Playwright: Context7 `/microsoft/playwright`
-9. [ ] `npm run compose:down`
+8. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
@@ -784,10 +765,7 @@ Add a custom title input field to the Flows controls, store it in local state, a
 7. [ ] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] Manual check: confirm the custom title input appears on the Flows page.
-   - Documentation to read (repeat):
-     - Playwright: Context7 `/microsoft/playwright`
-9. [ ] `npm run compose:down`
+8. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
@@ -877,10 +855,7 @@ Send `customTitle` only when starting a new flow conversation and keep the paylo
 7. [ ] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] Manual check: start a new flow with a custom title and confirm it appears in the Flows sidebar after the run starts.
-   - Documentation to read (repeat):
-     - Playwright: Context7 `/microsoft/playwright`
-9. [ ] `npm run compose:down`
+8. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
@@ -971,10 +946,7 @@ Add a “New Flow” action that clears the active conversation and transcript w
 7. [ ] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] Manual check: click “New Flow” after a run and confirm the transcript clears while the flow selection remains.
-   - Documentation to read (repeat):
-     - Playwright: Context7 `/microsoft/playwright`
-9. [ ] `npm run compose:down`
+8. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 

@@ -1515,7 +1515,7 @@ Add a “New Flow” action that clears the active conversation and transcript w
 
 ### 10. Final Task: Validate, document, and summarize
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **__to_do__**
 
 #### Overview

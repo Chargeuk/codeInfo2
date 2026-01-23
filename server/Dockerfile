@@ -44,6 +44,7 @@ RUN apt-get update && apt-get install -y \
     git \
     git-lfs \
     jq \
+    netcat-openbsd \
     ripgrep \
     fd-find \
     bat \

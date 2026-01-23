@@ -2,6 +2,7 @@
 setlocal
 
 set "DEFAULT_GCF_PORT=24875"
+set "GIT_CREDENTIAL_FORWARDER_DEBUG=true"
 if not "%~1"=="" (
   set "GIT_CREDENTIAL_FORWARDER_PORT=%~1"
 ) else (

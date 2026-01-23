@@ -68,6 +68,10 @@ RUN npm install -g mcp-remote
 RUN npm install -g @upstash/context7-mcp
 RUN npm install -g @mui/mcp@latest
 RUN npm install -g @playwright/mcp@latest
+RUN npm install -g git-credential-forwarder
+
+# Use the forwarder for any user inside the container.
+RUN git config --system credential.helper '!f(){ gcf-client $*; }; f'
 
 ENV CODEINFO_CODEX_HOME=/app/codex
 ENV PORT=5010

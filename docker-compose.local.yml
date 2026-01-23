@@ -36,6 +36,7 @@ services:
       - MCP_PORT=5011 # Codex-only MCP JSON-RPC port
       - AGENTS_MCP_PORT=5012
       - MONGO_URI=mongodb://host.docker.internal:27417/db?directConnection=true
+      - GIT_CREDENTIAL_FORWARDER_SERVER=host.docker.internal:24875
     volumes:
       - ./logs:/app/logs
       - ${HOST_INGEST_DIR}:${CODEINFO_CODEX_WORKDIR}

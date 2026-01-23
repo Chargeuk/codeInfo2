@@ -234,6 +234,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚  â”‚  â”œâ”€ 0000029-1-flow-transcript.png â€” Flow transcript evidence
 â”‚  â”‚  â””â”€ 0000029-2-inflight-hydration.png â€” Inflight snapshot overlay evidence
 â”‚  â”œâ”€ 0000029-flow-agent-transcripts-and-inflight-hydration.md â€” plan for story 0000029
+â”‚  â”œâ”€ 0000031-codex-device-auth-relogin.md â€” plan for story 0000031
 â”‚  â””â”€ plan_format.md â€” planning template/instructions
 â”œâ”€ test-results/ â€” test artifacts (screenshots, reports)
 â”‚  â””â”€ screenshots/ â€” manual verification screenshots

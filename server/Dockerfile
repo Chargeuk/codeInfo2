@@ -51,6 +51,9 @@ RUN apt-get update && apt-get install -y \
     less \
     && rm -rf /var/lib/apt/lists/*
 
+# Debian installs fd-find as fdfind; provide fd for tooling expectations.
+RUN ln -s /usr/bin/fdfind /usr/local/bin/fd
+
 COPY --from=build /app/node_modules /app/node_modules
 COPY --from=build /app/common /app/common
 COPY --from=build /app/server/dist ./dist

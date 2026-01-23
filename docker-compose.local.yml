@@ -7,6 +7,7 @@ services:
       context: .
       dockerfile: server/Dockerfile
     image: codeinfo2-server-local
+    user: "${CODEINFO_DOCKER_UID:-1000}:${CODEINFO_DOCKER_GID:-1000}"
     ports:
       - '5510:5010'
       - '5511:5011'
@@ -161,6 +162,7 @@ services:
   playwright-mcp:
     container_name: codeinfo2-playwright-mcp-local
     image: mcr.microsoft.com/playwright/mcp:latest
+    user: "${CODEINFO_DOCKER_UID:-1000}:${CODEINFO_DOCKER_GID:-1000}"
     entrypoint: ['node', 'cli.js']
     command: ['--host', '0.0.0.0', '--headless', '--browser', 'chromium', '--no-sandbox', '--isolated', '--port', '8931', '--allowed-hosts', '*']
     ports:

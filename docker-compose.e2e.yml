@@ -7,6 +7,7 @@ services:
       context: .
       dockerfile: server/Dockerfile
     image: codeinfo2-server-e2e
+    user: "${CODEINFO_DOCKER_UID:-1000}:${CODEINFO_DOCKER_GID:-1000}"
     ports:
       - '6010:5010'
       - '6011:5011'

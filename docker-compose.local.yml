@@ -7,10 +7,12 @@ services:
       context: .
       dockerfile: server/Dockerfile
     image: codeinfo2-server-local
+    user: "${CODEINFO_DOCKER_UID:-1000}:${CODEINFO_DOCKER_GID:-1000}"
     ports:
       - '5510:5010'
       - '5511:5011'
       - '5512:5012'
+      - '9222:9222'
     networks:
       - internal
     env_file:
@@ -35,6 +37,7 @@ services:
       - MCP_PORT=5011 # Codex-only MCP JSON-RPC port
       - AGENTS_MCP_PORT=5012
       - MONGO_URI=mongodb://host.docker.internal:27417/db?directConnection=true
+      - GIT_CREDENTIAL_FORWARDER_SERVER=host.docker.internal:24875
     volumes:
       - ./logs:/app/logs
       - ${HOST_INGEST_DIR}:${CODEINFO_CODEX_WORKDIR}
@@ -161,6 +164,7 @@ services:
   playwright-mcp:
     container_name: codeinfo2-playwright-mcp-local
     image: mcr.microsoft.com/playwright/mcp:latest
+    user: "${CODEINFO_DOCKER_UID:-1000}:${CODEINFO_DOCKER_GID:-1000}"
     entrypoint: ['node', 'cli.js']
     command: ['--host', '0.0.0.0', '--headless', '--browser', 'chromium', '--no-sandbox', '--isolated', '--port', '8931', '--allowed-hosts', '*']
     ports:

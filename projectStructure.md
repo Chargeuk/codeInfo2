@@ -14,6 +14,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”œâ”€ .prettierrc â€” Prettier settings
 â”œâ”€ AGENTS.md â€” agent workflow rules
 â”œâ”€ README.md â€” repo overview and commands
+â”œâ”€ start-gcf-server.sh â€” macOS/Linux helper to install/run git-credential-forwarder
 â”œâ”€ logs/ â€” runtime server log output (gitignored, host-mounted)
 â”œâ”€ design.md â€” design notes and diagrams
 â”œâ”€ flows/ â€” flow JSON definitions (hot-reloaded, user-managed; resolved as sibling to codex_agents by default)
@@ -232,6 +233,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚  â”‚  â”œâ”€ 0000029-1-flow-transcript.png â€” Flow transcript evidence
 â”‚  â”‚  â””â”€ 0000029-2-inflight-hydration.png â€” Inflight snapshot overlay evidence
 â”‚  â”œâ”€ 0000029-flow-agent-transcripts-and-inflight-hydration.md â€” plan for story 0000029
+â”‚  â”œâ”€ 0000031-codex-device-auth-relogin.md â€” plan for story 0000031
 â”‚  â””â”€ plan_format.md â€” planning template/instructions
 â”œâ”€ test-results/ â€” test artifacts (screenshots, reports)
 â”‚  â””â”€ screenshots/ â€” manual verification screenshots
@@ -250,6 +252,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚  â”œâ”€ .env.local â€” server local overrides (ignored by git consumers)
 â”‚  â”œâ”€ .prettierignore â€” server-specific Prettier ignore
 â”‚  â”œâ”€ Dockerfile â€” server image build
+â”‚  â”œâ”€ entrypoint.sh â€” server startup script (launches headless Chrome + API)
 â”‚  â”œâ”€ cucumber.js â€” Cucumber config
 â”‚  â”œâ”€ package.json â€” server workspace manifest
 â”‚  â”œâ”€ tsconfig.json â€” TS config for server

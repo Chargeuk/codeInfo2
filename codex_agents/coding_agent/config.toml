@@ -33,6 +33,15 @@ args    = ["-y", "mcp-remote", "http://playwright-mcp:8931/mcp", "--allow-http"]
 startup_timeout_sec = 60
 tool_timeout_sec = 180
 
+[mcp_servers."chrome-devtools"]
+command = "npx"
+args = [
+"-y",
+"chrome-devtools-mcp@latest",
+"--browser-url=http://localhost:9222"
+]
+startup_timeout_sec = 20
+
 [projects]
 [projects."/data"]
 trust_level = "trusted"

@@ -19,6 +19,11 @@ command = 'npx'
 url = "https://mcp.deepwiki.com/mcp"
 startup_timeout_sec = 20.0
 
+[mcp_servers.chrome_devtools]
+command = "npx"
+args = ["-y", "chrome-devtools-mcp@latest", "--browser-url=http://127.0.0.1:9222"]
+startup_timeout_sec = 20.0
+
 [mcp_servers.code_info]
 command = "npx"
 args    = ["-y", "mcp-remote", "http://localhost:5010/mcp"]

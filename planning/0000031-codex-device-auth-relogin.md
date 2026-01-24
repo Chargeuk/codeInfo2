@@ -121,4 +121,548 @@ This story does **not** add new business features; it only improves how the syst
 
 ## Implementation Plan
 
-Tasks will be added later once this plan is approved.
+### 1. Server: Device-auth endpoint request/response + CLI parsing
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Add `POST /codex/device-auth` that validates the target (chat or agent), runs `codex login --device-auth` with the correct `CODEX_HOME`, parses the verification URL + user code from stdout, and returns the success payload needed by the UI.
+
+#### Documentation Locations
+
+- Codex auth + device auth: https://developers.openai.com/codex/auth
+- Codex CLI reference (`codex login`): https://developers.openai.com/codex/cli/reference
+- Node.js child_process: https://nodejs.org/api/child_process.html
+- Express routing + handlers: Context7 `/expressjs/express/v5.1.0`
+- Node.js test runner: https://nodejs.org/api/test.html
+- Supertest HTTP assertions: https://github.com/forwardemail/supertest
+- Markdown Guide: https://www.markdownguide.org/basic-syntax/
+- Mermaid diagrams: Context7 `/mermaid-js/mermaid`
+- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+- Prettier CLI: https://prettier.io/docs/cli
+- npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+- Jest: Context7 `/websites/jestjs_io_30_0`
+- Cucumber guides: https://cucumber.io/docs/guides/
+- Playwright: Context7 `/microsoft/playwright`
+- Docker/Compose: Context7 `/docker/docs`
+
+#### Subtasks
+
+1. [ ] Review the existing Codex config + agent discovery paths:
+   - Documentation to read (repeat):
+     - Express routing + handlers: Context7 `/expressjs/express/v5.1.0`
+   - Files to read:
+     - `server/src/index.ts`
+     - `server/src/config/codexConfig.ts`
+     - `server/src/providers/codexDetection.ts`
+     - `server/src/providers/codexRegistry.ts`
+     - `server/src/agents/discovery.ts`
+   - Snippets to locate:
+     - `resolveCodexHome`, `getCodexHome`
+     - `detectCodexForHome`
+     - `discoverAgents` return shape (`name`, `home`)
+   - Key requirements (repeat):
+     - Chat targets use the server Codex home.
+     - Agent targets resolve the agent home by name (error when missing).
+2. [ ] Add the device-auth route handler:
+   - Documentation to read (repeat):
+     - Express routing + handlers: Context7 `/expressjs/express/v5.1.0`
+   - Files to edit:
+     - `server/src/routes/codexDeviceAuth.ts` (new)
+     - `server/src/index.ts`
+   - Implementation details:
+     - Export `createCodexDeviceAuthRouter` and mount at `/codex`.
+     - Accept body `{ target: 'chat' | 'agent', agentName?: string }`.
+     - Validate `target` as a trimmed string; reject missing/unknown values with `400 { error: 'invalid_request' }`.
+     - When `target === 'agent'`, require a non-empty `agentName` that matches a discovered agent; return `404 { error: 'invalid_request', reason: 'agent not found' }` if missing.
+     - Build a response `{ status: 'completed', verificationUrl, userCode, expiresInSec?, target, agentName? }`.
+3. [ ] Implement the CLI runner + stdout parser:
+   - Documentation to read (repeat):
+     - Codex CLI reference (`codex login`): https://developers.openai.com/codex/cli/reference
+     - Node.js child_process: https://nodejs.org/api/child_process.html
+   - Files to edit:
+     - `server/src/routes/codexDeviceAuth.ts` (or a new helper in `server/src/utils/codexDeviceAuth.ts` if preferred)
+   - Implementation details:
+     - Run `codex login --device-auth` with `CODEX_HOME=<resolved home>` and inherit `process.env`.
+     - Capture stdout/stderr, and parse for a verification URL and user code (regex-based).
+     - If parsing fails, return `500 { error: 'device_auth_output_invalid' }` and log the raw output.
+     - Map non-zero exits to a clear error (`device_auth_failed`) and include “Enable device code login in ChatGPT settings” in the message when relevant.
+   - Key requirements (repeat):
+     - The endpoint must never auto-retry; it should return a clear error and allow the UI to retry.
+4. [ ] Add a server integration test for the endpoint:
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+     - Supertest HTTP assertions: https://github.com/forwardemail/supertest
+   - Files to edit:
+     - `server/src/test/integration/codex.device-auth.test.ts` (new)
+   - Test expectations:
+     - `target=chat` returns `200` with parsed `verificationUrl` + `userCode` when the CLI output is stubbed.
+     - `target=agent` with an unknown `agentName` returns `404 invalid_request`.
+   - Key requirements (repeat):
+     - Stub `child_process` spawn/exec output so tests do not call the real CLI.
+5. [ ] Update API documentation after the server change:
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+     - Mermaid diagrams: Context7 `/mermaid-js/mermaid`
+   - Files to edit:
+     - `openapi.json` (add `POST /codex/device-auth` request/response schema)
+   - Key requirements (repeat):
+     - Request body includes `target` + optional `agentName`.
+     - Response includes `verificationUrl`, `userCode`, optional `expiresInSec`.
+6. [ ] Update `projectStructure.md` after any file additions/removals in this task:
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+     - Mermaid diagrams: Context7 `/mermaid-js/mermaid`
+   - Files to read:
+     - `projectStructure.md`
+   - Files to edit:
+     - `projectStructure.md`
+   - Update scope:
+     - Add/remove/rename entries for any files changed by this task.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier CLI: https://prettier.io/docs/cli
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+2. [ ] `npm run build --workspace client`
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+3. [ ] `npm run compose:build:clean`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+4. [ ] `npm run compose:up`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+5. [ ] `npm run test --workspace server`
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+6. [ ] `npm run compose:down`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+
+#### Implementation notes
+
+- 
+
+---
+
+### 2. Server: Persist auth + refresh Codex availability after login
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Ensure device-auth writes credentials to disk (`cli_auth_credentials_store = "file"`), refresh Codex availability after login, and propagate `auth.json` to all agent homes when the chat target is selected.
+
+#### Documentation Locations
+
+- Codex auth + device auth: https://developers.openai.com/codex/auth
+- Codex CLI reference (`codex login`): https://developers.openai.com/codex/cli/reference
+- Node.js fs/promises: https://nodejs.org/api/fs.html
+- Express routing + handlers: Context7 `/expressjs/express/v5.1.0`
+- Node.js test runner: https://nodejs.org/api/test.html
+- Markdown Guide: https://www.markdownguide.org/basic-syntax/
+- Mermaid diagrams: Context7 `/mermaid-js/mermaid`
+- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+- Prettier CLI: https://prettier.io/docs/cli
+- npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+- Jest: Context7 `/websites/jestjs_io_30_0`
+- Cucumber guides: https://cucumber.io/docs/guides/
+- Playwright: Context7 `/microsoft/playwright`
+- Docker/Compose: Context7 `/docker/docs`
+
+#### Subtasks
+
+1. [ ] Review Codex config and agent auth seeding helpers:
+   - Documentation to read (repeat):
+     - Node.js fs/promises: https://nodejs.org/api/fs.html
+   - Files to read:
+     - `server/src/config/codexConfig.ts`
+     - `server/src/providers/codexDetection.ts`
+     - `server/src/agents/authSeed.ts`
+     - `server/src/agents/discovery.ts`
+   - Snippets to locate:
+     - `getCodexConfigPathForHome`
+     - `ensureAgentAuthSeeded`
+   - Key requirements (repeat):
+     - Device-auth must persist credentials to `auth.json` for the target home.
+     - Chat target must copy updated auth to every agent home (overwrite allowed).
+2. [ ] Add a helper to enforce `cli_auth_credentials_store = "file"`:
+   - Documentation to read (repeat):
+     - Codex auth + device auth: https://developers.openai.com/codex/auth
+   - Files to edit:
+     - `server/src/config/codexConfig.ts`
+   - Implementation details:
+     - Read the target `config.toml` and ensure the `cli_auth_credentials_store` setting is present (append or update in-place).
+     - If the file cannot be updated, return a clear error that persistence is unavailable.
+   - Key requirements (repeat):
+     - Keep changes minimal and avoid rewriting unrelated config contents.
+3. [ ] Propagate auth after device-auth completes:
+   - Documentation to read (repeat):
+     - Node.js fs/promises: https://nodejs.org/api/fs.html
+   - Files to edit:
+     - `server/src/agents/authSeed.ts` (add overwrite-capable copy helper)
+     - `server/src/routes/codexDeviceAuth.ts`
+   - Implementation details:
+     - When `target === 'chat'`, copy `auth.json` from the primary Codex home to every agent home (overwrite existing files).
+     - When `target === 'agent'`, update only the selected agent home.
+     - Log copy failures and return a warning in the response when propagation fails.
+4. [ ] Refresh Codex availability after login:
+   - Documentation to read (repeat):
+     - Codex auth + device auth: https://developers.openai.com/codex/auth
+   - Files to edit:
+     - `server/src/providers/codexDetection.ts`
+     - `server/src/providers/codexRegistry.ts`
+     - `server/src/routes/codexDeviceAuth.ts`
+   - Implementation details:
+     - Re-run detection for the updated target home and update the registry so `/chat/providers` shows availability without restart.
+   - Key requirements (repeat):
+     - Do not change existing provider response shapes.
+5. [ ] Add a focused unit test for the auth propagation helper:
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+   - Files to edit:
+     - `server/src/test/unit/agents.authSeed.test.ts` (new or existing)
+   - Test expectations:
+     - When `overwrite=true`, the helper replaces an existing agent `auth.json` with the primary file.
+6. [ ] Update `projectStructure.md` after any file additions/removals in this task.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+2. [ ] `npm run build --workspace client`
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+3. [ ] `npm run compose:build:clean`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+4. [ ] `npm run compose:up`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+5. [ ] `npm run test --workspace server`
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+6. [ ] `npm run compose:down`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+
+#### Implementation notes
+
+- 
+
+---
+
+### 3. Client: Codex device-auth API helper
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Create a client API helper for `POST /codex/device-auth` with typed request/response handling and consistent error mapping for the UI dialog.
+
+#### Documentation Locations
+
+- Fetch API: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
+- Codex auth + device auth: https://developers.openai.com/codex/auth
+- TypeScript: https://www.typescriptlang.org/docs/
+- Markdown Guide: https://www.markdownguide.org/basic-syntax/
+- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+- Prettier CLI: https://prettier.io/docs/cli
+- npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+- Jest: Context7 `/websites/jestjs_io_30_0`
+- Playwright: Context7 `/microsoft/playwright`
+- Docker/Compose: Context7 `/docker/docs`
+
+#### Subtasks
+
+1. [ ] Review existing API helpers and error handling patterns:
+   - Files to read:
+     - `client/src/api/agents.ts`
+     - `client/src/api/baseUrl.ts`
+     - `client/src/hooks/useChatModel.ts`
+   - Key requirements (repeat):
+     - Reuse existing `getApiBaseUrl` and error pattern from `agents.ts`.
+2. [ ] Add a Codex device-auth API module:
+   - Files to edit:
+     - `client/src/api/codex.ts` (new)
+   - Implementation details:
+     - Export `postCodexDeviceAuth` that accepts `{ target: 'chat' | 'agent', agentName?: string }`.
+     - Parse success responses to `{ status, verificationUrl, userCode, expiresInSec?, target, agentName? }`.
+     - Throw a typed error object on non-200 responses (include `status` + `message`).
+3. [ ] Add a focused client unit test for the API helper:
+   - Files to edit:
+     - `client/src/test/codexDeviceAuthApi.test.ts` (new)
+   - Test expectations:
+     - `postCodexDeviceAuth` returns parsed data on 200.
+     - Non-200 response throws a typed error with `status`.
+4. [ ] Update `projectStructure.md` after any file additions/removals in this task.
+5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run compose:build:clean`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test --workspace client`
+6. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- 
+
+---
+
+### 4. Client: CodexDeviceAuthDialog component
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Build a reusable dialog component that runs device-auth, shows loading/error/success states, and provides copy actions for the verification URL and user code.
+
+#### Documentation Locations
+
+- MUI Dialog + Button + Select patterns: MUI MCP
+- React state + effect hooks: https://react.dev/reference/react
+- Clipboard API: https://developer.mozilla.org/en-US/docs/Web/API/Clipboard_API
+- Markdown Guide: https://www.markdownguide.org/basic-syntax/
+- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+- Prettier CLI: https://prettier.io/docs/cli
+- npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+- Jest: Context7 `/websites/jestjs_io_30_0`
+- Playwright: Context7 `/microsoft/playwright`
+- Docker/Compose: Context7 `/docker/docs`
+
+#### Subtasks
+
+1. [ ] Review existing dialog components for layout and state patterns:
+   - Files to read:
+     - `client/src/components/ingest/DirectoryPickerDialog.tsx`
+     - `client/src/components/chat/CodexFlagsPanel.tsx` (UI style parity)
+   - Key requirements (repeat):
+     - Dialog should be centered and keyboard-accessible.
+     - Inputs should be disabled while a request is in flight.
+2. [ ] Implement `CodexDeviceAuthDialog`:
+   - Files to edit:
+     - `client/src/components/codex/CodexDeviceAuthDialog.tsx` (new)
+   - Component props:
+     - `open`, `onClose`, `defaultTarget`, `agents`, `onSuccess?`.
+   - Implementation details:
+     - Render a target selector with options `Chat` and `Agent: <name>`.
+     - Call `postCodexDeviceAuth` on “Start device auth”.
+     - Show `verificationUrl`, `userCode`, and `expiresInSec` on success.
+     - Provide copy buttons for URL + code (use `navigator.clipboard` with a fallback message when unavailable).
+     - Display errors inline and allow retry without closing the dialog.
+3. [ ] Add unit tests for the dialog:
+   - Files to edit:
+     - `client/src/test/codexDeviceAuthDialog.test.tsx` (new)
+   - Test expectations:
+     - Button disables while request is pending.
+     - Success state renders the URL and code.
+     - Error state renders the message and re-enables Start.
+4. [ ] Update `projectStructure.md` after any file additions/removals in this task.
+5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run compose:build:clean`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test --workspace client`
+6. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- 
+
+---
+
+### 5. Client: Chat page device-auth entry point
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Expose the re-authenticate button in Chat when Codex is selected + available, default the dialog target to Chat, and pass the available agent list to the dialog.
+
+#### Documentation Locations
+
+- MUI Button + Dialog patterns: MUI MCP
+- React state + effect hooks: https://react.dev/reference/react
+- Fetch API: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
+- Markdown Guide: https://www.markdownguide.org/basic-syntax/
+- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+- Prettier CLI: https://prettier.io/docs/cli
+- npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+- Jest: Context7 `/websites/jestjs_io_30_0`
+- Playwright: Context7 `/microsoft/playwright`
+- Docker/Compose: Context7 `/docker/docs`
+
+#### Subtasks
+
+1. [ ] Review Chat page provider state and action layout:
+   - Files to read:
+     - `client/src/pages/ChatPage.tsx`
+     - `client/src/hooks/useChatModel.ts`
+     - `client/src/api/agents.ts`
+   - Key requirements (repeat):
+     - Button only appears when provider === `codex` and Codex is available.
+2. [ ] Add the dialog wiring to Chat:
+   - Files to edit:
+     - `client/src/pages/ChatPage.tsx`
+   - Implementation details:
+     - Fetch agents (via `listAgents`) when opening the dialog.
+     - Pass `defaultTarget='chat'` and the agents list into `CodexDeviceAuthDialog`.
+     - Hide the button when provider is LM Studio or Codex unavailable.
+3. [ ] Add/extend chat page tests for the new button/dialog:
+   - Files to edit:
+     - `client/src/test/chatPage.provider.test.tsx` (or new `chatPage.deviceAuth.test.tsx`)
+   - Test expectations:
+     - Button only renders when `provider=codex` and `available=true`.
+     - Clicking opens the dialog with Chat as the default target.
+4. [ ] Update `projectStructure.md` after any file additions/removals in this task.
+5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run compose:build:clean`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test --workspace client`
+6. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- 
+
+---
+
+### 6. Client: Agents page device-auth entry point
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Show the re-authenticate button on Agents when a selection is active and Codex is available, default the dialog target to the selected agent, and re-use the page’s agent list for the dialog.
+
+#### Documentation Locations
+
+- MUI Button + Dialog patterns: MUI MCP
+- React state + effect hooks: https://react.dev/reference/react
+- Fetch API: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
+- Markdown Guide: https://www.markdownguide.org/basic-syntax/
+- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+- Prettier CLI: https://prettier.io/docs/cli
+- npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+- Jest: Context7 `/websites/jestjs_io_30_0`
+- Playwright: Context7 `/microsoft/playwright`
+- Docker/Compose: Context7 `/docker/docs`
+
+#### Subtasks
+
+1. [ ] Review Agents page selection + provider availability sources:
+   - Files to read:
+     - `client/src/pages/AgentsPage.tsx`
+     - `client/src/hooks/useChatModel.ts` (provider availability)
+     - `client/src/api/agents.ts`
+   - Key requirements (repeat):
+     - Button appears only when `selectedAgentName` is set and Codex is available.
+2. [ ] Add a Codex availability check for Agents:
+   - Files to edit:
+     - `client/src/pages/AgentsPage.tsx` (or new `client/src/hooks/useCodexAvailability.ts` if preferred)
+   - Implementation details:
+     - Query `/chat/providers` and read the Codex `available` flag.
+     - Cache the result to avoid repeated fetches while idle.
+3. [ ] Wire the dialog into Agents:
+   - Files to edit:
+     - `client/src/pages/AgentsPage.tsx`
+   - Implementation details:
+     - Reuse the existing `agents` list for the dialog options.
+     - Pass `defaultTarget` as the selected agent.
+     - Hide the button when no agent is selected or Codex is unavailable.
+4. [ ] Add/extend Agents page tests for the new button/dialog:
+   - Files to edit:
+     - `client/src/test/agentsPage.agentChange.test.tsx` (or new `agentsPage.deviceAuth.test.tsx`)
+   - Test expectations:
+     - Button only renders when an agent is selected and Codex is available.
+     - Dialog defaults to `Agent: <selected>`.
+5. [ ] Update `projectStructure.md` after any file additions/removals in this task.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run compose:build:clean`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test --workspace client`
+6. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- 
+
+---
+
+### 7. Final Task: Validate, document, and summarize
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Validate the story end-to-end, run clean builds/tests, update documentation, and prepare the pull request summary.
+
+#### Documentation Locations
+
+- Docker/Compose: Context7 `/docker/docs`
+- Playwright: Context7 `/microsoft/playwright`
+- Husky: Context7 `/typicode/husky`
+- Mermaid: Context7 `/mermaid-js/mermaid`
+- Jest: Context7 `/jestjs/jest`
+- Cucumber guides: https://cucumber.io/docs/guides/
+
+#### Subtasks
+
+1. [ ] Build the server
+2. [ ] Build the client
+3. [ ] Perform a clean Docker build
+4. [ ] Ensure `README.md` is updated with any new commands or behavior changes
+5. [ ] Ensure `design.md` reflects the device-auth flow (include diagrams if added)
+6. [ ] Ensure `projectStructure.md` reflects all new/updated files
+7. [ ] Create a PR summary comment covering all changes in this story
+
+#### Testing
+
+1. [ ] Run the client Jest tests
+2. [ ] Run the server Cucumber tests
+3. [ ] Restart the Docker environment
+4. [ ] Run the e2e tests
+5. [ ] Use Playwright MCP to manually verify:
+   - Chat page shows the device-auth button for Codex and the dialog works.
+   - Agents page shows the device-auth button for a selected agent and the dialog works.
+   - Save screenshots to `test-results/screenshots` using the required naming convention.
+
+#### Implementation notes
+
+- 
+
+---

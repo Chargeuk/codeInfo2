@@ -206,7 +206,7 @@ Create a reusable helper that runs `codex login --device-auth`, parses the verif
     - Add entries for:
       - `server/src/utils/codexDeviceAuth.ts`
       - `server/src/test/unit/codexDeviceAuth.test.ts`
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -390,7 +390,7 @@ Add `POST /codex/device-auth` that validates the target (chat or agent), calls t
      - `design.md`
    - Description & purpose:
      - Add a concise sequence/flow diagram showing the device-auth request, Codex CLI interaction, and auth propagation.
-12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
+12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -504,7 +504,7 @@ Ensure the Codex config enforces `cli_auth_credentials_store = "file"` so device
     - Update repo root `projectStructure.md` with any files added/removed/renamed in this task.
     - Add entries for:
       - `server/src/test/unit/codexConfig.device-auth.test.ts`
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -617,7 +617,7 @@ Copy refreshed `auth.json` to agent homes when targeting chat, and refresh Codex
     - Update repo root `projectStructure.md` with any files added/removed/renamed in this task.
     - Add entries for new files created in this task, including:
       - `server/src/test/unit/agents.authSeed.test.ts` (if created)
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -726,7 +726,7 @@ Create a client API helper for `POST /codex/device-auth` with typed request/resp
     - Add entries for:
       - `client/src/api/codex.ts`
       - `client/src/test/codexDeviceAuthApi.test.ts`
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -883,7 +883,7 @@ Build a reusable dialog component that runs device-auth, shows loading/error/suc
     - Add entries for:
       - `client/src/components/codex/CodexDeviceAuthDialog.tsx`
       - `client/src/test/codexDeviceAuthDialog.test.tsx`
-11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
+11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -996,7 +996,7 @@ Expose the re-authenticate button in Chat when Codex is selected + available, de
     - Update repo root `projectStructure.md` with any files added/removed/renamed in this task.
     - Add entries for new files created in this task, including:
       - `client/src/test/chatPage.deviceAuth.test.tsx` (if created)
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -1116,7 +1116,7 @@ Show the re-authenticate button on Agents when a selection is active and Codex i
     - Update repo root `projectStructure.md` with any files added/removed/renamed in this task.
     - Add entries for new files created in this task, including:
       - `client/src/test/agentsPage.deviceAuth.test.tsx` (if created)
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -1198,6 +1198,16 @@ Validate the story end-to-end, run clean builds/tests, update documentation, and
      - `test-results/screenshots/`
    - Snippets to locate:
      - Final task acceptance criteria for summary scope
+5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier CLI: https://prettier.io/docs/cli
+   - Files to read:
+     - `package.json`
+     - `server/package.json`
+     - `client/package.json`
+   - Snippets to locate:
+     - Root `lint`, `lint:fix`, `format:check`, and `format` scripts
 
 #### Testing
 

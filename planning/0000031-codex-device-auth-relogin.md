@@ -136,9 +136,6 @@ Create a reusable helper that runs `codex login --device-auth`, parses the verif
 - Codex auth + device auth: https://developers.openai.com/codex/auth
 - Codex CLI reference (`codex login`): https://developers.openai.com/codex/cli/reference
 - Node.js child_process: https://nodejs.org/api/child_process.html
-- Codex auth + device auth: https://developers.openai.com/codex/auth
-- Codex CLI reference (`codex login`): https://developers.openai.com/codex/cli/reference
-- Node.js child_process: https://nodejs.org/api/child_process.html
 - Node.js test runner: https://nodejs.org/api/test.html
 - Supertest HTTP assertions: https://github.com/forwardemail/supertest
 - Markdown Guide: https://www.markdownguide.org/basic-syntax/

@@ -7,6 +7,12 @@ export GIT_CREDENTIAL_FORWARDER_DEBUG="true"
 GCF_GIT_PATH="$(command -v git)"
 if command -v cygpath >/dev/null 2>&1; then
   GCF_GIT_PATH="$(cygpath -w "$GCF_GIT_PATH")"
+  if command -v cmd.exe >/dev/null 2>&1; then
+    GCF_GIT_PATH_SHORT="$(cmd.exe /c "for %I in (\"$GCF_GIT_PATH\") do @echo %~sI" | tr -d '\r')"
+    if [ -n "$GCF_GIT_PATH_SHORT" ]; then
+      GCF_GIT_PATH="$GCF_GIT_PATH_SHORT"
+    fi
+  fi
 fi
 export GIT_CREDENTIAL_FORWARDER_GIT_PATH="$GCF_GIT_PATH"
 

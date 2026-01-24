@@ -137,6 +137,7 @@ Create a reusable helper that runs `codex login --device-auth`, parses the verif
 - Codex CLI reference (`codex login`): https://developers.openai.com/codex/cli/reference
 - Node.js child_process: https://nodejs.org/download/release/v22.19.0/docs/api/child_process.html
 - Node.js test runner: https://nodejs.org/api/test.html
+- Pino logger: https://getpino.io/#/
 - Markdown Guide: https://www.markdownguide.org/basic-syntax/
 - Mermaid diagrams: Context7 `/mermaid-js/mermaid`
 - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -173,28 +174,40 @@ Create a reusable helper that runs `codex login --device-auth`, parses the verif
      - Capture stdout/stderr, parse verification URL + user code from stdout (regex-based), and return a structured result.
      - Expose a small pure parser function so unit tests can validate regex parsing with fixture output.
      - Do not attempt to manage process lifetime beyond starting it; avoid extra logic beyond parsing.
-3. [ ] Unit test (server) — parser extracts device-auth data:
+3. [ ] Add device-auth helper log lines:
+   - Documentation to read (repeat):
+     - Pino logger: https://getpino.io/#/
+   - Files to read:
+     - `server/src/logger.ts`
+   - Files to edit:
+     - `server/src/utils/codexDeviceAuth.ts` (new)
+   - Implementation details:
+     - Log when the CLI process starts: `DEV-0000031:T1:codex_device_auth_cli_start`.
+     - Log when parsing succeeds: `DEV-0000031:T1:codex_device_auth_cli_parsed` (include booleans for `hasVerificationUrl`, `hasUserCode`, `hasExpiresInSec`).
+     - Log when the CLI fails or parsing fails: `DEV-0000031:T1:codex_device_auth_cli_failed` (include `exitCode` and a sanitized error summary).
+     - Do not log the verification URL or user code values.
+4. [ ] Unit test (server) — parser extracts device-auth data:
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
    - Files to edit:
      - `server/src/test/unit/codexDeviceAuth.test.ts` (new)
    - Description & purpose:
      - Feed sample CLI stdout into the parser and assert it returns `verificationUrl` + `userCode`.
-4. [ ] Unit test (server) — parser rejects missing fields:
+5. [ ] Unit test (server) — parser rejects missing fields:
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
    - Files to edit:
      - `server/src/test/unit/codexDeviceAuth.test.ts` (new)
    - Description & purpose:
      - Provide stdout missing `verificationUrl` or `userCode` and assert the parser returns an error.
-5. [ ] Unit test (server) — runner reports non-zero exit:
+6. [ ] Unit test (server) — runner reports non-zero exit:
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
    - Files to edit:
      - `server/src/test/unit/codexDeviceAuth.test.ts` (new)
    - Description & purpose:
      - Simulate child process exit code != 0 and assert a distinct error is returned.
-6. [ ] Update `projectStructure.md` after any file additions/removals in this task.
+7. [ ] Update `projectStructure.md` after any file additions/removals in this task.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to read:
@@ -206,7 +219,7 @@ Create a reusable helper that runs `codex login --device-auth`, parses the verif
     - Add entries for:
       - `server/src/utils/codexDeviceAuth.ts`
       - `server/src/test/unit/codexDeviceAuth.test.ts`
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -244,7 +257,7 @@ Create a reusable helper that runs `codex login --device-auth`, parses the verif
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
      - Docker Compose docs: https://docs.docker.com/compose/
-8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001) to confirm no regressions:
+8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001) to confirm device-auth route logging:
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
      - Playwright docs (intro): https://playwright.dev/docs/intro
@@ -252,6 +265,10 @@ Create a reusable helper that runs `codex login --device-auth`, parses the verif
      - Chat and Agents pages load without errors.
      - No errors appear in the Playwright debug console.
      - Device-auth UI is not expected yet (helper-only change).
+     - Trigger device-auth via `POST /codex/device-auth` (use the browser console fetch once the route exists) and confirm logs:
+       - `DEV-0000031:T1:codex_device_auth_cli_start` appears when the CLI spawn begins.
+       - `DEV-0000031:T1:codex_device_auth_cli_parsed` appears on successful parsing.
+       - `DEV-0000031:T1:codex_device_auth_cli_failed` appears only if the CLI or parsing fails.
 9. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
@@ -280,6 +297,7 @@ Add `POST /codex/device-auth` that validates the target (chat or agent), calls t
 - Express 5 API reference: https://expressjs.com/en/5x/api.html
 - Node.js test runner: https://nodejs.org/api/test.html
 - Supertest HTTP assertions: https://github.com/forwardemail/supertest
+- Pino logger: https://getpino.io/#/
 - Markdown Guide: https://www.markdownguide.org/basic-syntax/
 - Mermaid diagrams: Context7 `/mermaid-js/mermaid`
 - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -325,8 +343,12 @@ Add `POST /codex/device-auth` that validates the target (chat or agent), calls t
      - When `target === 'agent'`, require a non-empty `agentName` that matches a discovered agent; return `404 { error: 'not_found' }` if missing.
      - If the Codex CLI is not available, return `503 { error: 'codex_unavailable', reason }` to align with other providers.
      - Call the helper from Task 1 and build `{ status: 'completed', verificationUrl, userCode, expiresInSec?, target, agentName? }`.
-     - Avoid logging `verificationUrl`/`userCode` in request/response logs; log only booleans or lengths.
-     - Log request start + success/failure with `baseLogger` including `requestId`, `target`, and `agentName`.
+   - Avoid logging `verificationUrl`/`userCode` in request/response logs; log only booleans or lengths.
+   - Log request start + success/failure with `baseLogger` including `requestId`, `target`, and `agentName`.
+   - Log lines to add:
+     - `DEV-0000031:T2:codex_device_auth_request_received` when the route is hit.
+     - `DEV-0000031:T2:codex_device_auth_request_completed` when a 200 response is returned.
+     - `DEV-0000031:T2:codex_device_auth_request_failed` for validation/Codex errors (include `status` + `error`).
 3. [ ] Integration test (server) — happy path for chat target:
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
@@ -444,14 +466,17 @@ Add `POST /codex/device-auth` that validates the target (chat or agent), calls t
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
      - Docker Compose docs: https://docs.docker.com/compose/
-8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001) to confirm no regressions:
+8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001) to confirm config persistence logging:
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
      - Playwright docs (intro): https://playwright.dev/docs/intro
    - Checks:
      - Chat and Agents pages load without errors.
      - No errors appear in the Playwright debug console.
-     - Device-auth UI is not expected yet (route-only change).
+     - Trigger `POST /codex/device-auth` via browser console fetch and confirm logs:
+       - `DEV-0000031:T2:codex_device_auth_request_received` appears for the request.
+       - `DEV-0000031:T2:codex_device_auth_request_completed` appears on success **or**
+       - `DEV-0000031:T2:codex_device_auth_request_failed` appears with `status` when validation/Codex errors occur.
 9. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
@@ -477,6 +502,7 @@ Ensure the Codex config enforces `cli_auth_credentials_store = "file"` so device
 - Codex auth + device auth: https://developers.openai.com/codex/auth
 - Codex config reference (`cli_auth_credentials_store`): https://developers.openai.com/codex/config-reference/
 - Node.js fs/promises: https://nodejs.org/api/fs.html
+- Pino logger: https://getpino.io/#/
 - Markdown Guide: https://www.markdownguide.org/basic-syntax/
 - Mermaid diagrams: Context7 `/mermaid-js/mermaid`
 - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -511,21 +537,32 @@ Ensure the Codex config enforces `cli_auth_credentials_store = "file"` so device
      - If the file cannot be updated, return a clear error that persistence is unavailable.
    - Key requirements (repeat):
      - Keep changes minimal and avoid rewriting unrelated config contents.
-3. [ ] Unit test (server) — writes file-store setting when missing:
+3. [ ] Add config persistence log line:
+   - Documentation to read (repeat):
+     - Pino logger: https://getpino.io/#/
+   - Files to read:
+     - `server/src/logger.ts`
+   - Files to edit:
+     - `server/src/config/codexConfig.ts`
+   - Implementation details:
+     - Log when the config helper enforces file storage: `DEV-0000031:T3:codex_device_auth_config_persisted`.
+     - Include `changed: true|false` and `configPath` in context.
+     - Do not log config contents or secrets.
+4. [ ] Unit test (server) — writes file-store setting when missing:
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
    - Files to edit:
      - `server/src/test/unit/codexConfig.device-auth.test.ts` (new)
    - Description & purpose:
      - When missing, the helper writes `cli_auth_credentials_store = "file"` into a temp config file.
-4. [ ] Unit test (server) — leaves existing setting unchanged:
+5. [ ] Unit test (server) — leaves existing setting unchanged:
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
    - Files to edit:
      - `server/src/test/unit/codexConfig.device-auth.test.ts` (new)
    - Description & purpose:
      - When already present, the helper leaves the file unchanged.
-5. [ ] Update `projectStructure.md` after any file additions/removals in this task.
+6. [ ] Update `projectStructure.md` after any file additions/removals in this task.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to read:
@@ -536,7 +573,7 @@ Ensure the Codex config enforces `cli_auth_credentials_store = "file"` so device
     - Update repo root `projectStructure.md` with any files added/removed/renamed in this task.
     - Add entries for:
       - `server/src/test/unit/codexConfig.device-auth.test.ts`
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -574,14 +611,15 @@ Ensure the Codex config enforces `cli_auth_credentials_store = "file"` so device
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
      - Docker Compose docs: https://docs.docker.com/compose/
-8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001) to confirm no regressions:
+8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001) to confirm propagation logging:
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
      - Playwright docs (intro): https://playwright.dev/docs/intro
    - Checks:
      - Chat and Agents pages load without errors.
      - No errors appear in the Playwright debug console.
-     - Device-auth UI is not expected yet (config helper change).
+     - Trigger `POST /codex/device-auth` and confirm log line:
+       - `DEV-0000031:T3:codex_device_auth_config_persisted` appears with `changed` set appropriately.
 9. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
@@ -607,6 +645,7 @@ Copy refreshed `auth.json` to agent homes when targeting chat, and refresh Codex
 - Codex auth + device auth: https://developers.openai.com/codex/auth
 - Node.js fs/promises: https://nodejs.org/api/fs.html
 - Express routing + handlers: Context7 `/expressjs/express/v5.1.0`
+- Pino logger: https://getpino.io/#/
 - Markdown Guide: https://www.markdownguide.org/basic-syntax/
 - Mermaid diagrams: Context7 `/mermaid-js/mermaid`
 - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -643,8 +682,10 @@ Copy refreshed `auth.json` to agent homes when targeting chat, and refresh Codex
    - Implementation details:
      - When `target === 'chat'`, copy `auth.json` from the primary Codex home to every discovered agent home (overwrite existing files).
      - Use `discoverAgents()` to enumerate agent homes (no special-case logic for disabled agents).
-     - When `target === 'agent'`, update only the selected agent home.
-     - Log copy failures; do not add new response fields for propagation warnings.
+   - When `target === 'agent'`, update only the selected agent home.
+   - Log copy failures; do not add new response fields for propagation warnings.
+   - Log line to add:
+     - `DEV-0000031:T4:codex_device_auth_propagated` with `target`, `agentName`, and `agentCount`.
 3. [ ] Refresh Codex availability after login:
    - Documentation to read (repeat):
      - Codex auth + device auth: https://developers.openai.com/codex/auth
@@ -653,8 +694,10 @@ Copy refreshed `auth.json` to agent homes when targeting chat, and refresh Codex
      - `server/src/providers/codexRegistry.ts`
      - `server/src/routes/codexDeviceAuth.ts`
    - Implementation details:
-     - Re-run detection for the updated **primary** Codex home and update the registry so `/chat/providers` shows availability without restart.
-     - Do not change global detection when the target is an agent-only auth refresh.
+   - Re-run detection for the updated **primary** Codex home and update the registry so `/chat/providers` shows availability without restart.
+   - Do not change global detection when the target is an agent-only auth refresh.
+   - Log line to add:
+     - `DEV-0000031:T4:codex_device_auth_availability_refreshed` with `available` and `codexHome`.
 4. [ ] Unit test (server) — overwrite agent auth:
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
@@ -718,14 +761,19 @@ Copy refreshed `auth.json` to agent homes when targeting chat, and refresh Codex
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
      - Docker Compose docs: https://docs.docker.com/compose/
-8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001) to confirm no regressions:
+8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001) to confirm client API logging:
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
      - Playwright docs (intro): https://playwright.dev/docs/intro
    - Checks:
      - Chat and Agents pages load without errors.
      - No errors appear in the Playwright debug console.
-     - Device-auth UI is not expected yet (server propagation change only).
+     - Trigger `POST /codex/device-auth` with target `chat` and confirm logs:
+       - `DEV-0000031:T4:codex_device_auth_propagated` with `agentCount` >= 0.
+       - `DEV-0000031:T4:codex_device_auth_availability_refreshed` when target is `chat`.
+     - Trigger `POST /codex/device-auth` with target `agent` and confirm:
+       - `DEV-0000031:T4:codex_device_auth_propagated` shows the selected agent name.
+       - No `DEV-0000031:T4:codex_device_auth_availability_refreshed` log is emitted for agent-only refresh.
 9. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
@@ -784,7 +832,20 @@ Create a client API helper for `POST /codex/device-auth` with typed request/resp
      - Export `postCodexDeviceAuth` that accepts `{ target: 'chat' | 'agent', agentName?: string }`.
      - Parse success responses to `{ status, verificationUrl, userCode, expiresInSec?, target, agentName? }`.
      - Throw a typed error object on non-200 responses (include `status` + `message`), preferring `message`/`reason` fields when provided.
-3. [ ] Unit test (client) — API helper success response:
+3. [ ] Add API helper log lines:
+   - Documentation to read (repeat):
+     - Fetch API: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
+   - Files to read:
+     - `client/src/logging/logger.ts`
+   - Files to edit:
+     - `client/src/api/codex.ts` (new)
+   - Implementation details:
+     - Use `createLogger('codex-device-auth-api')` to emit client logs.
+     - Log `DEV-0000031:T5:codex_device_auth_api_request` before calling `fetch` (include `target` + `agentNamePresent`).
+     - Log `DEV-0000031:T5:codex_device_auth_api_response` on success (include `status`).
+     - Log `DEV-0000031:T5:codex_device_auth_api_error` on non-200 responses (include `status` + `error`).
+     - Do not log `verificationUrl` or `userCode` values.
+4. [ ] Unit test (client) — API helper success response:
    - Documentation to read (repeat):
      - Jest: Context7 `/websites/jestjs_io_30_0`
      - Jest docs: https://jestjs.io/docs/getting-started
@@ -792,7 +853,7 @@ Create a client API helper for `POST /codex/device-auth` with typed request/resp
      - `client/src/test/codexDeviceAuthApi.test.ts` (new)
    - Description & purpose:
      - `postCodexDeviceAuth` returns parsed data on 200.
-4. [ ] Unit test (client) — API helper non-200 error:
+5. [ ] Unit test (client) — API helper non-200 error:
    - Documentation to read (repeat):
      - Jest: Context7 `/websites/jestjs_io_30_0`
      - Jest docs: https://jestjs.io/docs/getting-started
@@ -800,7 +861,7 @@ Create a client API helper for `POST /codex/device-auth` with typed request/resp
      - `client/src/test/codexDeviceAuthApi.test.ts` (new)
    - Description & purpose:
      - Non-200 response throws a typed error with `status`.
-5. [ ] Unit test (client) — API helper reason mapping:
+6. [ ] Unit test (client) — API helper reason mapping:
    - Documentation to read (repeat):
      - Jest: Context7 `/websites/jestjs_io_30_0`
      - Jest docs: https://jestjs.io/docs/getting-started
@@ -808,7 +869,7 @@ Create a client API helper for `POST /codex/device-auth` with typed request/resp
      - `client/src/test/codexDeviceAuthApi.test.ts` (new)
    - Description & purpose:
      - When the response includes `reason`, the error message uses it.
-6. [ ] Update `projectStructure.md` after any file additions/removals in this task.
+7. [ ] Update `projectStructure.md` after any file additions/removals in this task.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to read:
@@ -820,7 +881,7 @@ Create a client API helper for `POST /codex/device-auth` with typed request/resp
     - Add entries for:
       - `client/src/api/codex.ts`
       - `client/src/test/codexDeviceAuthApi.test.ts`
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -858,14 +919,17 @@ Create a client API helper for `POST /codex/device-auth` with typed request/resp
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
      - Docker Compose docs: https://docs.docker.com/compose/
-8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001) to confirm no regressions:
+8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001) to confirm dialog logging:
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
      - Playwright docs (intro): https://playwright.dev/docs/intro
    - Checks:
      - Chat and Agents pages load without errors.
      - No errors appear in the Playwright debug console.
-     - Device-auth UI is not expected yet (API helper change only).
+     - Trigger device-auth via a UI flow once available and confirm client logs:
+       - `DEV-0000031:T5:codex_device_auth_api_request` when the API call starts.
+       - `DEV-0000031:T5:codex_device_auth_api_response` on success **or**
+       - `DEV-0000031:T5:codex_device_auth_api_error` on non-200 responses.
 9. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
@@ -934,11 +998,15 @@ Build a reusable dialog component that runs device-auth, shows loading/error/suc
      - Call `postCodexDeviceAuth` on “Start device auth”.
       - Show `verificationUrl`, `userCode`, and `expiresInSec` on success.
       - Provide copy buttons for URL + code (use `navigator.clipboard` with a fallback message when unavailable).
-     - Display errors inline (including “Enable device code login in ChatGPT settings” when provided) and allow retry without closing the dialog.
+   - Display errors inline (including “Enable device code login in ChatGPT settings” when provided) and allow retry without closing the dialog.
       - Provide a clear close action (dialog close button + ESC/backdrop).
       - Ensure `onClose` handles `escapeKeyDown` and `backdropClick` reasons so standard close behaviors work.
       - Invoke `onSuccess` so parent pages can refresh provider availability.
       - Follow the async dialog state pattern from `DirectoryPickerDialog` (loading → success/error) instead of inventing new UI flows.
+   - Log lines to add (use `createLogger('codex-device-auth-dialog')`):
+     - `DEV-0000031:T6:codex_device_auth_dialog_open` when the dialog opens.
+     - `DEV-0000031:T6:codex_device_auth_dialog_success` after a successful response.
+     - `DEV-0000031:T6:codex_device_auth_dialog_error` when the API call fails.
 3. [ ] Unit test (client) — dialog pending state:
    - Documentation to read (repeat):
      - Jest: Context7 `/websites/jestjs_io_30_0`
@@ -1053,7 +1121,10 @@ Build a reusable dialog component that runs device-auth, shows loading/error/suc
    - Checks:
      - Chat and Agents pages load without errors.
      - No errors appear in the Playwright debug console.
-     - Device-auth UI is not expected yet (dialog component only, not wired).
+     - Open the device-auth dialog (once wired) and confirm client logs:
+       - `DEV-0000031:T6:codex_device_auth_dialog_open` when the dialog opens.
+       - `DEV-0000031:T6:codex_device_auth_dialog_success` after successful device-auth.
+       - `DEV-0000031:T6:codex_device_auth_dialog_error` when the API call fails.
 9. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
@@ -1112,11 +1183,14 @@ Expose the re-authenticate button in Chat when Codex is selected + available, de
    - Files to edit:
      - `client/src/pages/ChatPage.tsx`
    - Implementation details:
-     - Use the `providers` list from `useChatModel` to determine Codex availability (not the model `available` flag).
-     - Fetch agents (via `listAgents`) when opening the dialog.
-     - Pass `defaultTarget='chat'` and the agents list into `CodexDeviceAuthDialog`.
-     - On dialog success, call `refreshProviders` (and `refreshModels` when Codex is selected) so availability updates immediately.
-     - Hide the button when provider is LM Studio or Codex unavailable.
+   - Use the `providers` list from `useChatModel` to determine Codex availability (not the model `available` flag).
+   - Fetch agents (via `listAgents`) when opening the dialog.
+   - Pass `defaultTarget='chat'` and the agents list into `CodexDeviceAuthDialog`.
+   - On dialog success, call `refreshProviders` (and `refreshModels` when Codex is selected) so availability updates immediately.
+   - Hide the button when provider is LM Studio or Codex unavailable.
+   - Log lines to add (use `createLogger('codex-device-auth-chat')`):
+     - `DEV-0000031:T7:codex_device_auth_chat_button_click` when the Chat re-auth button is clicked.
+     - `DEV-0000031:T7:codex_device_auth_chat_success` after a successful device-auth refresh.
 3. [ ] UI test (client) — Chat shows device-auth button for Codex:
    - Documentation to read (repeat):
      - Jest: Context7 `/websites/jestjs_io_30_0`
@@ -1190,13 +1264,16 @@ Expose the re-authenticate button in Chat when Codex is selected + available, de
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
      - Docker Compose docs: https://docs.docker.com/compose/
-8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001) to confirm Chat device-auth UI:
+8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001) to confirm Chat device-auth UI + logs:
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
      - Playwright docs (intro): https://playwright.dev/docs/intro
    - Checks:
      - Chat page shows the Codex device-auth button when Codex is selected.
      - Opening the dialog defaults the target to Chat.
+     - Confirm client logs:
+       - `DEV-0000031:T7:codex_device_auth_chat_button_click` when the button is clicked.
+       - `DEV-0000031:T7:codex_device_auth_chat_success` after the dialog succeeds.
      - No errors appear in the Playwright debug console.
 9. [ ] `npm run compose:down`
    - Documentation to read (repeat):
@@ -1264,10 +1341,13 @@ Show the re-authenticate button on Agents when a selection is active and Codex i
    - Files to edit:
      - `client/src/pages/AgentsPage.tsx`
    - Implementation details:
-     - Reuse the existing `agents` list for the dialog options.
-     - Pass `defaultTarget` as the selected agent.
-     - On dialog success, refresh Codex availability so the button state updates.
-     - Hide the button when no agent is selected or Codex is unavailable.
+   - Reuse the existing `agents` list for the dialog options.
+   - Pass `defaultTarget` as the selected agent.
+   - On dialog success, refresh Codex availability so the button state updates.
+   - Hide the button when no agent is selected or Codex is unavailable.
+   - Log lines to add (use `createLogger('codex-device-auth-agents')`):
+     - `DEV-0000031:T8:codex_device_auth_agents_button_click` when the Agents re-auth button is clicked.
+     - `DEV-0000031:T8:codex_device_auth_agents_success` after a successful device-auth refresh.
 4. [ ] UI test (client) — Agents shows device-auth button:
    - Documentation to read (repeat):
      - Jest: Context7 `/websites/jestjs_io_30_0`
@@ -1341,13 +1421,16 @@ Show the re-authenticate button on Agents when a selection is active and Codex i
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
      - Docker Compose docs: https://docs.docker.com/compose/
-8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001) to confirm Agents device-auth UI:
+8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001) to confirm Agents device-auth UI + logs:
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
      - Playwright docs (intro): https://playwright.dev/docs/intro
    - Checks:
      - Agents page shows the Codex device-auth button for a selected agent.
      - Dialog defaults the target to the selected agent.
+     - Confirm client logs:
+       - `DEV-0000031:T8:codex_device_auth_agents_button_click` when the button is clicked.
+       - `DEV-0000031:T8:codex_device_auth_agents_success` after the dialog succeeds.
      - No errors appear in the Playwright debug console.
 9. [ ] `npm run compose:down`
    - Documentation to read (repeat):
@@ -1412,11 +1495,21 @@ Validate the story end-to-end, run clean builds/tests, update documentation, and
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to read:
-     - `planning/0000031-codex-device-auth-relogin.md`
-     - `test-results/screenshots/`
+    - `planning/0000031-codex-device-auth-relogin.md`
+    - `test-results/screenshots/`
    - Snippets to locate:
      - Final task acceptance criteria for summary scope
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+5. [ ] Add final validation log line for manual checks:
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+   - Files to read:
+     - `client/src/logging/logger.ts`
+   - Files to edit:
+     - `client/src/pages/LogsPage.tsx`
+   - Implementation details:
+     - Emit `DEV-0000031:T9:codex_device_auth_validation_started` when `?validation=codex-device-auth` is present on the Logs page.
+     - Include `route` and `validation` in context; avoid any sensitive payloads.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -1461,9 +1554,11 @@ Validate the story end-to-end, run clean builds/tests, update documentation, and
    - Checks:
      - Chat page shows the Codex device-auth button when Codex is selected.
      - Dialog starts device-auth, shows the verification URL + user code, and allows copy actions.
-     - Agents page shows the Codex device-auth button for a selected agent and defaults to that agent.
-     - No errors appear in the Playwright debug console.
-     - Save screenshots to `test-results/screenshots` using the required naming convention.
+    - Agents page shows the Codex device-auth button for a selected agent and defaults to that agent.
+    - No errors appear in the Playwright debug console.
+    - Save screenshots to `test-results/screenshots` using the required naming convention.
+     - Open `/logs?validation=codex-device-auth` and confirm log:
+       - `DEV-0000031:T9:codex_device_auth_validation_started` appears once per page load.
 9. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`

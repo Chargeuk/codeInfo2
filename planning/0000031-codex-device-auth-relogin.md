@@ -182,7 +182,16 @@ Create a reusable helper that runs `codex login --device-auth`, parses the verif
      - Parser extracts `verificationUrl` + `userCode` from example device-auth output.
      - Runner returns an error when output is missing required fields.
 4. [ ] Update `projectStructure.md` after any file additions/removals in this task.
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+   - Files to read:
+     - `projectStructure.md`
+   - Files to edit:
+     - `projectStructure.md`
 5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier CLI: https://prettier.io/docs/cli
 
 #### Testing
 
@@ -288,7 +297,16 @@ Add `POST /codex/device-auth` that validates the target (chat or agent), calls t
      - Request body includes `target` + optional `agentName`.
      - Response includes `verificationUrl`, `userCode`, optional `expiresInSec`.
 5. [ ] Update `projectStructure.md` after any file additions/removals in this task.
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+   - Files to read:
+     - `projectStructure.md`
+   - Files to edit:
+     - `projectStructure.md`
 6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier CLI: https://prettier.io/docs/cli
 
 #### Testing
 
@@ -369,7 +387,16 @@ Ensure the Codex config enforces `cli_auth_credentials_store = "file"` so device
    - Test expectations:
      - When missing, the helper writes `cli_auth_credentials_store = "file"` into a temp config file.
 4. [ ] Update `projectStructure.md` after any file additions/removals in this task.
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+   - Files to read:
+     - `projectStructure.md`
+   - Files to edit:
+     - `projectStructure.md`
 5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier CLI: https://prettier.io/docs/cli
 
 #### Testing
 
@@ -452,7 +479,16 @@ Copy refreshed `auth.json` to agent homes when targeting chat, and refresh Codex
    - Test expectations:
      - When `overwrite=true`, the helper replaces an existing agent `auth.json` with the primary file.
 5. [ ] Update `projectStructure.md` after any file additions/removals in this task.
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+   - Files to read:
+     - `projectStructure.md`
+   - Files to edit:
+     - `projectStructure.md`
 6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier CLI: https://prettier.io/docs/cli
 
 #### Testing
 
@@ -494,6 +530,9 @@ Create a client API helper for `POST /codex/device-auth` with typed request/resp
 #### Subtasks
 
 1. [ ] Review existing API helpers and error handling patterns:
+   - Documentation to read (repeat):
+     - Fetch API: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
+     - TypeScript: https://www.typescriptlang.org/docs/
    - Files to read:
      - `client/src/api/agents.ts`
      - `client/src/api/baseUrl.ts`
@@ -501,6 +540,9 @@ Create a client API helper for `POST /codex/device-auth` with typed request/resp
    - Key requirements (repeat):
      - Reuse existing `getApiBaseUrl` and error pattern from `agents.ts`.
 2. [ ] Add a Codex device-auth API module:
+   - Documentation to read (repeat):
+     - Fetch API: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
+     - TypeScript: https://www.typescriptlang.org/docs/
    - Files to edit:
      - `client/src/api/codex.ts` (new)
    - Implementation details:
@@ -508,13 +550,24 @@ Create a client API helper for `POST /codex/device-auth` with typed request/resp
      - Parse success responses to `{ status, verificationUrl, userCode, expiresInSec?, target, agentName? }`.
      - Throw a typed error object on non-200 responses (include `status` + `message`), preferring `message`/`reason` fields when provided.
 3. [ ] Add a focused client unit test for the API helper:
+   - Documentation to read (repeat):
+     - Jest: Context7 `/websites/jestjs_io_30_0`
    - Files to edit:
      - `client/src/test/codexDeviceAuthApi.test.ts` (new)
    - Test expectations:
      - `postCodexDeviceAuth` returns parsed data on 200.
      - Non-200 response throws a typed error with `status`.
 4. [ ] Update `projectStructure.md` after any file additions/removals in this task.
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+   - Files to read:
+     - `projectStructure.md`
+   - Files to edit:
+     - `projectStructure.md`
 5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier CLI: https://prettier.io/docs/cli
 
 #### Testing
 
@@ -559,6 +612,9 @@ Build a reusable dialog component that runs device-auth, shows loading/error/suc
 #### Subtasks
 
 1. [ ] Review existing dialog components for layout and state patterns:
+   - Documentation to read (repeat):
+     - MUI Dialog API: https://mui.com/material-ui/api/dialog/
+     - MUI Select API (MenuItem children requirement): https://mui.com/material-ui/api/select/
    - Files to read:
      - `client/src/components/ingest/DirectoryPickerDialog.tsx`
      - `client/src/components/chat/CodexFlagsPanel.tsx` (UI style parity)
@@ -566,6 +622,10 @@ Build a reusable dialog component that runs device-auth, shows loading/error/suc
      - Dialog should be centered and keyboard-accessible.
      - Inputs should be disabled while a request is in flight.
 2. [ ] Implement `CodexDeviceAuthDialog`:
+   - Documentation to read (repeat):
+     - MUI Dialog API: https://mui.com/material-ui/api/dialog/
+     - MUI Select + TextField select pattern: https://mui.com/material-ui/react-select/
+     - Clipboard API: https://developer.mozilla.org/en-US/docs/Web/API/Clipboard_API
    - Files to edit:
      - `client/src/components/codex/CodexDeviceAuthDialog.tsx` (new)
    - Component props:
@@ -583,6 +643,8 @@ Build a reusable dialog component that runs device-auth, shows loading/error/suc
       - Invoke `onSuccess` so parent pages can refresh provider availability.
       - Follow the async dialog state pattern from `DirectoryPickerDialog` (loading → success/error) instead of inventing new UI flows.
 3. [ ] Add unit tests for the dialog:
+   - Documentation to read (repeat):
+     - Jest: Context7 `/websites/jestjs_io_30_0`
    - Files to edit:
      - `client/src/test/codexDeviceAuthDialog.test.tsx` (new)
    - Test expectations:
@@ -590,7 +652,16 @@ Build a reusable dialog component that runs device-auth, shows loading/error/suc
      - Success state renders the URL and code.
      - Error state renders the message and re-enables Start.
 4. [ ] Update `projectStructure.md` after any file additions/removals in this task.
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+   - Files to read:
+     - `projectStructure.md`
+   - Files to edit:
+     - `projectStructure.md`
 5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier CLI: https://prettier.io/docs/cli
 
 #### Testing
 
@@ -634,6 +705,9 @@ Expose the re-authenticate button in Chat when Codex is selected + available, de
 #### Subtasks
 
 1. [ ] Review Chat page provider state and action layout:
+   - Documentation to read (repeat):
+     - MUI Button + Dialog patterns: MUI MCP
+     - MUI Dialog API: https://mui.com/material-ui/api/dialog/
    - Files to read:
      - `client/src/pages/ChatPage.tsx`
      - `client/src/hooks/useChatModel.ts`
@@ -641,6 +715,9 @@ Expose the re-authenticate button in Chat when Codex is selected + available, de
    - Key requirements (repeat):
      - Button only appears when provider === `codex` and Codex is available.
 2. [ ] Add the dialog wiring to Chat:
+   - Documentation to read (repeat):
+     - MUI Button + Dialog patterns: MUI MCP
+     - MUI Select + TextField select pattern: https://mui.com/material-ui/react-select/
    - Files to edit:
      - `client/src/pages/ChatPage.tsx`
    - Implementation details:
@@ -650,13 +727,24 @@ Expose the re-authenticate button in Chat when Codex is selected + available, de
      - On dialog success, call `refreshProviders` (and `refreshModels` when Codex is selected) so availability updates immediately.
      - Hide the button when provider is LM Studio or Codex unavailable.
 3. [ ] Add/extend chat page tests for the new button/dialog:
+   - Documentation to read (repeat):
+     - Jest: Context7 `/websites/jestjs_io_30_0`
    - Files to edit:
      - `client/src/test/chatPage.provider.test.tsx` (or new `chatPage.deviceAuth.test.tsx`)
    - Test expectations:
      - Button only renders when `provider=codex` and `available=true`.
      - Clicking opens the dialog with Chat as the default target.
 4. [ ] Update `projectStructure.md` after any file additions/removals in this task.
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+   - Files to read:
+     - `projectStructure.md`
+   - Files to edit:
+     - `projectStructure.md`
 5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier CLI: https://prettier.io/docs/cli
 
 #### Testing
 
@@ -700,6 +788,9 @@ Show the re-authenticate button on Agents when a selection is active and Codex i
 #### Subtasks
 
 1. [ ] Review Agents page selection + provider availability sources:
+   - Documentation to read (repeat):
+     - MUI Button + Dialog patterns: MUI MCP
+     - MUI Dialog API: https://mui.com/material-ui/api/dialog/
    - Files to read:
      - `client/src/pages/AgentsPage.tsx`
      - `client/src/hooks/useChatModel.ts` (provider availability)
@@ -707,12 +798,17 @@ Show the re-authenticate button on Agents when a selection is active and Codex i
    - Key requirements (repeat):
      - Button appears only when `selectedAgentName` is set and Codex is available.
 2. [ ] Add a Codex availability check for Agents:
+   - Documentation to read (repeat):
+     - MUI Button + Dialog patterns: MUI MCP
    - Files to edit:
      - `client/src/pages/AgentsPage.tsx`
    - Implementation details:
      - Reuse `useChatModel` to access `providers` + `refreshProviders`.
      - Derive Codex availability from the `providers` list instead of adding a new fetch hook.
 3. [ ] Wire the dialog into Agents:
+   - Documentation to read (repeat):
+     - MUI Button + Dialog patterns: MUI MCP
+     - MUI Select + TextField select pattern: https://mui.com/material-ui/react-select/
    - Files to edit:
      - `client/src/pages/AgentsPage.tsx`
    - Implementation details:
@@ -721,13 +817,24 @@ Show the re-authenticate button on Agents when a selection is active and Codex i
      - On dialog success, refresh Codex availability so the button state updates.
      - Hide the button when no agent is selected or Codex is unavailable.
 4. [ ] Add/extend Agents page tests for the new button/dialog:
+   - Documentation to read (repeat):
+     - Jest: Context7 `/websites/jestjs_io_30_0`
    - Files to edit:
      - `client/src/test/agentsPage.agentChange.test.tsx` (or new `agentsPage.deviceAuth.test.tsx`)
    - Test expectations:
      - Button only renders when an agent is selected and Codex is available.
      - Dialog defaults to `Agent: <selected>`.
 5. [ ] Update `projectStructure.md` after any file additions/removals in this task.
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+   - Files to read:
+     - `projectStructure.md`
+   - Files to edit:
+     - `projectStructure.md`
 6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier CLI: https://prettier.io/docs/cli
 
 #### Testing
 
@@ -765,20 +872,51 @@ Validate the story end-to-end, run clean builds/tests, update documentation, and
 #### Subtasks
 
 1. [ ] Build the server
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 2. [ ] Build the client
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 3. [ ] Perform a clean Docker build
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
 4. [ ] Ensure `README.md` is updated with any new commands or behavior changes
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+   - Files to edit:
+     - `README.md`
 5. [ ] Ensure `design.md` reflects the device-auth flow (include diagrams if added)
+   - Documentation to read (repeat):
+     - Mermaid: Context7 `/mermaid-js/mermaid`
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+   - Files to edit:
+     - `design.md`
 6. [ ] Ensure `projectStructure.md` reflects all new/updated files
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+   - Files to edit:
+     - `projectStructure.md`
 7. [ ] Create a PR summary comment covering all changes in this story
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
 
 #### Testing
 
 1. [ ] Run the client Jest tests
+   - Documentation to read (repeat):
+     - Jest: Context7 `/jestjs/jest`
 2. [ ] Run the server Cucumber tests
+   - Documentation to read (repeat):
+     - Cucumber guides: https://cucumber.io/docs/guides/
 3. [ ] Restart the Docker environment
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
 4. [ ] Run the e2e tests
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
 5. [ ] Use Playwright MCP to manually verify:
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
    - Chat page shows the device-auth button for Codex and the dialog works.
    - Agents page shows the device-auth button for a selected agent and the dialog works.
    - Save screenshots to `test-results/screenshots` using the required naming convention.

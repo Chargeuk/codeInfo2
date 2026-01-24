@@ -109,7 +109,7 @@ This story does **not** add new business features; it only improves how the syst
 
 - Device-auth is not enabled in ChatGPT settings → endpoint returns an actionable error in the dialog and includes “Enable device code login in ChatGPT settings”.
 - `config.toml` cannot be updated to `cli_auth_credentials_store = "file"` → return an error stating credentials cannot be persisted.
-- `target = agent` with an unknown `agentName` → return a 404/invalid_request error so the UI can prompt the user to pick a valid agent.
+- `target = agent` with an unknown `agentName` → return `404 { error: 'not_found' }` so the UI can prompt the user to pick a valid agent.
 - CLI output does not include a parsable verification URL or user code → return a clear error (“device auth output not recognized”) and log the raw output for debugging.
 - Device code expires (15-minute timeout) or authorization is declined → CLI exits with an error; surface a “device code expired or was declined” message and allow retry.
 - Codex CLI not found or exits non-zero → surface a distinct error code so UI can display “Codex unavailable.”
@@ -172,12 +172,16 @@ Add `POST /codex/device-auth` that validates the target (chat or agent), runs `c
    - Files to edit:
      - `server/src/routes/codexDeviceAuth.ts` (new)
      - `server/src/index.ts`
+     - `server/src/logger.ts` (for `resolveLogConfig`)
    - Implementation details:
      - Export `createCodexDeviceAuthRouter` and mount at `/codex`.
+     - Apply the JSON body limit using `resolveLogConfig().maxClientBytes` (match agents/flows routes).
      - Accept body `{ target: 'chat' | 'agent', agentName?: string }`.
      - Validate `target` as a trimmed string; reject missing/unknown values with `400 { error: 'invalid_request' }`.
-     - When `target === 'agent'`, require a non-empty `agentName` that matches a discovered agent; return `404 { error: 'invalid_request', reason: 'agent not found' }` if missing.
+     - When `target === 'agent'`, require a non-empty `agentName` that matches a discovered agent; return `404 { error: 'not_found' }` if missing.
+     - If the Codex CLI is not available, return `503 { error: 'codex_unavailable', reason }` to align with other providers.
      - Build a response `{ status: 'completed', verificationUrl, userCode, expiresInSec?, target, agentName? }`.
+     - Log request start + success/failure with `baseLogger` including `requestId`, `target`, and `agentName`.
 3. [ ] Implement the CLI runner + stdout parser:
    - Documentation to read (repeat):
      - Codex CLI reference (`codex login`): https://developers.openai.com/codex/cli/reference
@@ -187,6 +191,7 @@ Add `POST /codex/device-auth` that validates the target (chat or agent), runs `c
    - Implementation details:
      - Run `codex login --device-auth` with `CODEX_HOME=<resolved home>` and inherit `process.env`.
      - Capture stdout/stderr, and parse for a verification URL and user code (regex-based).
+     - As soon as both values are parsed, respond to the HTTP request without waiting for the CLI to exit; allow the child process to continue and log its final exit status.
      - If parsing fails, return `500 { error: 'device_auth_output_invalid' }` and log the raw output.
      - Map non-zero exits to a clear error (`device_auth_failed`) and include “Enable device code login in ChatGPT settings” in the message when relevant.
    - Key requirements (repeat):
@@ -199,9 +204,9 @@ Add `POST /codex/device-auth` that validates the target (chat or agent), runs `c
      - `server/src/test/integration/codex.device-auth.test.ts` (new)
    - Test expectations:
      - `target=chat` returns `200` with parsed `verificationUrl` + `userCode` when the CLI output is stubbed.
-     - `target=agent` with an unknown `agentName` returns `404 invalid_request`.
+     - `target=agent` with an unknown `agentName` returns `404 not_found`.
    - Key requirements (repeat):
-     - Stub `child_process` spawn/exec output so tests do not call the real CLI.
+     - Stub `child_process` spawn/exec output using `node:test` mocks so tests do not call the real CLI.
 5. [ ] Update API documentation after the server change:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
@@ -311,8 +316,10 @@ Ensure device-auth writes credentials to disk (`cli_auth_credentials_store = "fi
    - Files to edit:
      - `server/src/agents/authSeed.ts` (add overwrite-capable copy helper)
      - `server/src/routes/codexDeviceAuth.ts`
+     - `server/src/agents/discovery.ts`
    - Implementation details:
      - When `target === 'chat'`, copy `auth.json` from the primary Codex home to every agent home (overwrite existing files).
+     - Use `discoverAgents()` to enumerate agent homes; skip disabled agents if appropriate.
      - When `target === 'agent'`, update only the selected agent home.
      - Log copy failures and return a warning in the response when propagation fails.
 4. [ ] Refresh Codex availability after login:
@@ -323,7 +330,8 @@ Ensure device-auth writes credentials to disk (`cli_auth_credentials_store = "fi
      - `server/src/providers/codexRegistry.ts`
      - `server/src/routes/codexDeviceAuth.ts`
    - Implementation details:
-     - Re-run detection for the updated target home and update the registry so `/chat/providers` shows availability without restart.
+     - Re-run detection for the updated **primary** Codex home and update the registry so `/chat/providers` shows availability without restart.
+     - Do not change global detection when the target is an agent-only auth refresh.
    - Key requirements (repeat):
      - Do not change existing provider response shapes.
 5. [ ] Add a focused unit test for the auth propagation helper:
@@ -400,7 +408,7 @@ Create a client API helper for `POST /codex/device-auth` with typed request/resp
    - Implementation details:
      - Export `postCodexDeviceAuth` that accepts `{ target: 'chat' | 'agent', agentName?: string }`.
      - Parse success responses to `{ status, verificationUrl, userCode, expiresInSec?, target, agentName? }`.
-     - Throw a typed error object on non-200 responses (include `status` + `message`).
+     - Throw a typed error object on non-200 responses (include `status` + `message`), preferring `message`/`reason` fields when provided.
 3. [ ] Add a focused client unit test for the API helper:
    - Files to edit:
      - `client/src/test/codexDeviceAuthApi.test.ts` (new)

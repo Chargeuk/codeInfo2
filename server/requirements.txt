@@ -1,0 +1,13 @@
+requests
+pyyaml
+toml
+jsonschema
+rich
+python-dotenv
+pydantic
+tenacity
+httpx
+python-dateutil
+beautifulsoup4
+lxml
+pandas

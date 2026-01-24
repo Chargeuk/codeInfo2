@@ -88,10 +88,10 @@ RUN npx playwright install chromium
 
 RUN npm install -g @openai/codex
 RUN npm install -g mcp-remote
-RUN npm install -g @upstash/context7-mcp
-RUN npm install -g @mui/mcp@latest
-RUN npm install -g @playwright/mcp@latest
-RUN npm install -g chrome-devtools-mcp
+RUN npm install -g --force @upstash/context7-mcp
+RUN npm install -g --force @mui/mcp@latest
+RUN npm install -g --force @playwright/mcp@latest
+RUN npm install -g --force chrome-devtools-mcp
 RUN npm install -g git-credential-forwarder
 
 # Use the forwarder for any user inside the container.

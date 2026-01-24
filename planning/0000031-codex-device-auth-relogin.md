@@ -311,6 +311,7 @@ Ensure device-auth writes credentials to disk (`cli_auth_credentials_store = "fi
      - `server/src/config/codexConfig.ts`
    - Implementation details:
      - Read the target `config.toml` and ensure the `cli_auth_credentials_store` setting is present (append or update in-place).
+     - Note from Codex docs: `file` stores credentials in `auth.json` under `CODEX_HOME` (treat it as a secret; never commit).
      - If the file cannot be updated, return a clear error that persistence is unavailable.
    - Key requirements (repeat):
      - Keep changes minimal and avoid rewriting unrelated config contents.

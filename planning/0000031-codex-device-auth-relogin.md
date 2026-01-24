@@ -52,6 +52,9 @@ This story does **not** add new business features; it only improves how the syst
 
 ## Questions
 
+- Should we **force** `cli_auth_credentials_store = "file"` in the server + agent Codex configs to guarantee `auth.json`, or should we respect keyring/auto and surface a UX warning when file storage is not available?
+- Do we want the dialog to include a short “enable device code login in ChatGPT settings” helper link, or is a plain error message sufficient?
+
 ---
 
 ## Documentation Locations (for later tasks)
@@ -64,9 +67,20 @@ This story does **not** add new business features; it only improves how the syst
 
 ---
 
+## Research Findings (2026-01-24)
+
+- Codex device code login requires enabling device code login in ChatGPT security settings (or workspace admin permissions).
+- Codex can store credentials in `auth.json` under `CODEX_HOME` **or** in the OS keyring; `cli_auth_credentials_store` controls `file`, `keyring`, or `auto` behavior.
+- `codex login --device-auth` prints the verification URL + user code to **stdout** and does not provide JSON/machine-readable output.
+- `codex login status` can be used to confirm credentials exist after the flow completes.
+
+---
+
 ## Implementation Ideas (high-level)
 
 - **Device-auth endpoint:** Add `POST /codex/device-auth` that runs `codex login --device-auth` and returns `{ status, verificationUrl, userCode, expiresInSec?, target }` once the CLI completes. The body should be `{ target: "chat" | "agent", agentName?: string }`, and the server resolves the Codex home (no raw paths from the client).
+- **Capture login output:** Parse the device-auth prompt from **stdout** (no JSON output available) to extract `verificationUrl` and `userCode` for the UI.
+- **Credential storage:** Ensure the Codex home used by the server/agent is configured with `cli_auth_credentials_store = "file"` so `auth.json` is written and can be copied to agent homes; otherwise document/handle keyring-only storage.
 - **UI action visibility:** Add a shared “Re-authenticate (device auth)” control on Chat and Agents pages that is shown **only** when Codex is the selected provider and Codex is available; hide it otherwise.
 - **Dialog flow:** Implement a reusable centered dialog component that manages the device-auth steps (idle → in-flight → success/error). While the request is in flight, show a spinner; on success, show verification URL + code (with copy buttons) and a toast.
 - **Target selection:** Include a selector in the dialog for Chat vs specific Agent home; default to the page context but allow switching before issuing the login request.
@@ -83,7 +97,8 @@ This story does **not** add new business features; it only improves how the syst
 
 ## Edge Cases and Failure Modes
 
-- Device-auth is not enabled in ChatGPT settings → endpoint returns an actionable error in the dialog.
+- Device-auth is not enabled in ChatGPT settings → endpoint returns an actionable error in the dialog and suggests enabling device code login.
+- `cli_auth_credentials_store` set to `keyring`/`auto` in a container without keyring support → login succeeds but `auth.json` is not written; decide whether to force `file` or display instructions.
 - Codex CLI not found or exits non-zero → surface a distinct error code so UI can display “Codex unavailable.”
 - Auth error appears mid-run → run fails as it does today; user can re-auth via the always-available dialog.
 - Multiple concurrent requests trigger device-auth → allow it (no rate-limit), but ensure dialog messaging is clear.

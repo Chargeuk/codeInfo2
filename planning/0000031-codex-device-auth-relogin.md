@@ -172,23 +172,35 @@ Create a reusable helper that runs `codex login --device-auth`, parses the verif
      - Capture stdout/stderr, parse verification URL + user code from stdout (regex-based), and return a structured result.
      - Expose a small pure parser function so unit tests can validate regex parsing with fixture output.
      - Do not attempt to manage process lifetime beyond starting it; avoid extra logic beyond parsing.
-3. [ ] Add unit tests for parsing + runner behavior:
+3. [ ] Unit test (server) — parser extracts device-auth data:
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
    - Files to edit:
      - `server/src/test/unit/codexDeviceAuth.test.ts` (new)
-   - Test expectations:
-     - Parser extracts `verificationUrl` + `userCode` from example device-auth output.
-     - Runner returns an error when output is missing required fields.
-     - Runner returns a distinct error when the CLI process exits non-zero.
-4. [ ] Update `projectStructure.md` after any file additions/removals in this task.
+   - Description & purpose:
+     - Feed sample CLI stdout into the parser and assert it returns `verificationUrl` + `userCode`.
+4. [ ] Unit test (server) — parser rejects missing fields:
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+   - Files to edit:
+     - `server/src/test/unit/codexDeviceAuth.test.ts` (new)
+   - Description & purpose:
+     - Provide stdout missing `verificationUrl` or `userCode` and assert the parser returns an error.
+5. [ ] Unit test (server) — runner reports non-zero exit:
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+   - Files to edit:
+     - `server/src/test/unit/codexDeviceAuth.test.ts` (new)
+   - Description & purpose:
+     - Simulate child process exit code != 0 and assert a distinct error is returned.
+6. [ ] Update `projectStructure.md` after any file additions/removals in this task.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to read:
      - `projectStructure.md`
    - Files to edit:
      - `projectStructure.md`
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -283,21 +295,49 @@ Add `POST /codex/device-auth` that validates the target (chat or agent), calls t
      - If the Codex CLI is not available, return `503 { error: 'codex_unavailable', reason }` to align with other providers.
      - Call the helper from Task 1 and build `{ status: 'completed', verificationUrl, userCode, expiresInSec?, target, agentName? }`.
      - Log request start + success/failure with `baseLogger` including `requestId`, `target`, and `agentName`.
-3. [ ] Add a server integration test for the route:
+3. [ ] Integration test (server) — happy path for chat target:
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
      - Supertest HTTP assertions: https://github.com/forwardemail/supertest
    - Files to edit:
      - `server/src/test/integration/codex.device-auth.test.ts` (new)
-   - Test expectations:
+   - Description & purpose:
      - `target=chat` returns `200` with parsed `verificationUrl` + `userCode` when the helper is stubbed.
+4. [ ] Integration test (server) — unknown agentName:
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+     - Supertest HTTP assertions: https://github.com/forwardemail/supertest
+   - Files to edit:
+     - `server/src/test/integration/codex.device-auth.test.ts` (new)
+   - Description & purpose:
      - `target=agent` with an unknown `agentName` returns `404 not_found`.
+5. [ ] Integration test (server) — invalid/missing target:
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+     - Supertest HTTP assertions: https://github.com/forwardemail/supertest
+   - Files to edit:
+     - `server/src/test/integration/codex.device-auth.test.ts` (new)
+   - Description & purpose:
      - Missing `target` or unsupported `target` returns `400 invalid_request`.
+6. [ ] Integration test (server) — missing agentName:
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+     - Supertest HTTP assertions: https://github.com/forwardemail/supertest
+   - Files to edit:
+     - `server/src/test/integration/codex.device-auth.test.ts` (new)
+   - Description & purpose:
      - `target=agent` without `agentName` returns `400 invalid_request`.
+7. [ ] Integration test (server) — Codex unavailable:
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+     - Supertest HTTP assertions: https://github.com/forwardemail/supertest
+   - Files to edit:
+     - `server/src/test/integration/codex.device-auth.test.ts` (new)
+   - Description & purpose:
      - When the helper reports Codex unavailable, return `503 codex_unavailable`.
    - Key requirements (repeat):
      - Stub the helper so tests do not call the real CLI.
-4. [ ] Update API documentation after the server change:
+8. [ ] Update API documentation after the server change:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
      - Mermaid diagrams: Context7 `/mermaid-js/mermaid`
@@ -306,14 +346,14 @@ Add `POST /codex/device-auth` that validates the target (chat or agent), calls t
    - Key requirements (repeat):
      - Request body includes `target` + optional `agentName`.
      - Response includes `verificationUrl`, `userCode`, optional `expiresInSec`.
-5. [ ] Update `projectStructure.md` after any file additions/removals in this task.
+9. [ ] Update `projectStructure.md` after any file additions/removals in this task.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to read:
      - `projectStructure.md`
    - Files to edit:
      - `projectStructure.md`
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -395,22 +435,28 @@ Ensure the Codex config enforces `cli_auth_credentials_store = "file"` so device
      - If the file cannot be updated, return a clear error that persistence is unavailable.
    - Key requirements (repeat):
      - Keep changes minimal and avoid rewriting unrelated config contents.
-3. [ ] Add a unit test for the config enforcement helper:
+3. [ ] Unit test (server) — writes file-store setting when missing:
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
    - Files to edit:
      - `server/src/test/unit/codexConfig.device-auth.test.ts` (new)
-   - Test expectations:
+   - Description & purpose:
      - When missing, the helper writes `cli_auth_credentials_store = "file"` into a temp config file.
+4. [ ] Unit test (server) — leaves existing setting unchanged:
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+   - Files to edit:
+     - `server/src/test/unit/codexConfig.device-auth.test.ts` (new)
+   - Description & purpose:
      - When already present, the helper leaves the file unchanged.
-4. [ ] Update `projectStructure.md` after any file additions/removals in this task.
+5. [ ] Update `projectStructure.md` after any file additions/removals in this task.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to read:
      - `projectStructure.md`
    - Files to edit:
      - `projectStructure.md`
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -491,22 +537,28 @@ Copy refreshed `auth.json` to agent homes when targeting chat, and refresh Codex
    - Implementation details:
      - Re-run detection for the updated **primary** Codex home and update the registry so `/chat/providers` shows availability without restart.
      - Do not change global detection when the target is an agent-only auth refresh.
-4. [ ] Add a unit test for auth propagation overwrite:
+4. [ ] Unit test (server) — overwrite agent auth:
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
    - Files to edit:
      - `server/src/test/unit/agents.authSeed.test.ts` (new or existing)
-   - Test expectations:
+   - Description & purpose:
      - When `overwrite=true`, the helper replaces an existing agent `auth.json` with the primary file.
+5. [ ] Unit test (server) — single-agent targeting:
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+   - Files to edit:
+     - `server/src/test/unit/agents.authSeed.test.ts` (new or existing)
+   - Description & purpose:
      - When targeting a single agent, only that agent home is updated.
-5. [ ] Update `projectStructure.md` after any file additions/removals in this task.
+6. [ ] Update `projectStructure.md` after any file additions/removals in this task.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to read:
      - `projectStructure.md`
    - Files to edit:
      - `projectStructure.md`
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -573,24 +625,38 @@ Create a client API helper for `POST /codex/device-auth` with typed request/resp
      - Export `postCodexDeviceAuth` that accepts `{ target: 'chat' | 'agent', agentName?: string }`.
      - Parse success responses to `{ status, verificationUrl, userCode, expiresInSec?, target, agentName? }`.
      - Throw a typed error object on non-200 responses (include `status` + `message`), preferring `message`/`reason` fields when provided.
-3. [ ] Add a focused client unit test for the API helper:
+3. [ ] Unit test (client) — API helper success response:
    - Documentation to read (repeat):
      - Jest: Context7 `/websites/jestjs_io_30_0`
      - Jest docs: https://jestjs.io/docs/getting-started
    - Files to edit:
      - `client/src/test/codexDeviceAuthApi.test.ts` (new)
-   - Test expectations:
+   - Description & purpose:
      - `postCodexDeviceAuth` returns parsed data on 200.
+4. [ ] Unit test (client) — API helper non-200 error:
+   - Documentation to read (repeat):
+     - Jest: Context7 `/websites/jestjs_io_30_0`
+     - Jest docs: https://jestjs.io/docs/getting-started
+   - Files to edit:
+     - `client/src/test/codexDeviceAuthApi.test.ts` (new)
+   - Description & purpose:
      - Non-200 response throws a typed error with `status`.
+5. [ ] Unit test (client) — API helper reason mapping:
+   - Documentation to read (repeat):
+     - Jest: Context7 `/websites/jestjs_io_30_0`
+     - Jest docs: https://jestjs.io/docs/getting-started
+   - Files to edit:
+     - `client/src/test/codexDeviceAuthApi.test.ts` (new)
+   - Description & purpose:
      - When the response includes `reason`, the error message uses it.
-4. [ ] Update `projectStructure.md` after any file additions/removals in this task.
+6. [ ] Update `projectStructure.md` after any file additions/removals in this task.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to read:
      - `projectStructure.md`
    - Files to edit:
      - `projectStructure.md`
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -672,25 +738,46 @@ Build a reusable dialog component that runs device-auth, shows loading/error/suc
       - Ensure `onClose` handles `escapeKeyDown` and `backdropClick` reasons so standard close behaviors work.
       - Invoke `onSuccess` so parent pages can refresh provider availability.
       - Follow the async dialog state pattern from `DirectoryPickerDialog` (loading → success/error) instead of inventing new UI flows.
-3. [ ] Add unit tests for the dialog:
+3. [ ] Unit test (client) — dialog pending state:
    - Documentation to read (repeat):
      - Jest: Context7 `/websites/jestjs_io_30_0`
      - Jest docs: https://jestjs.io/docs/getting-started
    - Files to edit:
      - `client/src/test/codexDeviceAuthDialog.test.tsx` (new)
-   - Test expectations:
+   - Description & purpose:
      - Button disables while request is pending.
+4. [ ] Unit test (client) — dialog success state:
+   - Documentation to read (repeat):
+     - Jest: Context7 `/websites/jestjs_io_30_0`
+     - Jest docs: https://jestjs.io/docs/getting-started
+   - Files to edit:
+     - `client/src/test/codexDeviceAuthDialog.test.tsx` (new)
+   - Description & purpose:
      - Success state renders the URL and code.
+5. [ ] Unit test (client) — dialog error state:
+   - Documentation to read (repeat):
+     - Jest: Context7 `/websites/jestjs_io_30_0`
+     - Jest docs: https://jestjs.io/docs/getting-started
+   - Files to edit:
+     - `client/src/test/codexDeviceAuthDialog.test.tsx` (new)
+   - Description & purpose:
      - Error state renders the message and re-enables Start.
+6. [ ] Unit test (client) — dialog close after error:
+   - Documentation to read (repeat):
+     - Jest: Context7 `/websites/jestjs_io_30_0`
+     - Jest docs: https://jestjs.io/docs/getting-started
+   - Files to edit:
+     - `client/src/test/codexDeviceAuthDialog.test.tsx` (new)
+   - Description & purpose:
      - Close button invokes `onClose` even after an error state.
-4. [ ] Update `projectStructure.md` after any file additions/removals in this task.
+7. [ ] Update `projectStructure.md` after any file additions/removals in this task.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to read:
      - `projectStructure.md`
    - Files to edit:
      - `projectStructure.md`
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -762,24 +849,38 @@ Expose the re-authenticate button in Chat when Codex is selected + available, de
      - Pass `defaultTarget='chat'` and the agents list into `CodexDeviceAuthDialog`.
      - On dialog success, call `refreshProviders` (and `refreshModels` when Codex is selected) so availability updates immediately.
      - Hide the button when provider is LM Studio or Codex unavailable.
-3. [ ] Add/extend chat page tests for the new button/dialog:
+3. [ ] UI test (client) — Chat shows device-auth button for Codex:
    - Documentation to read (repeat):
      - Jest: Context7 `/websites/jestjs_io_30_0`
      - Jest docs: https://jestjs.io/docs/getting-started
    - Files to edit:
      - `client/src/test/chatPage.provider.test.tsx` (or new `chatPage.deviceAuth.test.tsx`)
-   - Test expectations:
+   - Description & purpose:
      - Button only renders when `provider=codex` and `available=true`.
+4. [ ] UI test (client) — Chat dialog defaults to Chat target:
+   - Documentation to read (repeat):
+     - Jest: Context7 `/websites/jestjs_io_30_0`
+     - Jest docs: https://jestjs.io/docs/getting-started
+   - Files to edit:
+     - `client/src/test/chatPage.provider.test.tsx` (or new `chatPage.deviceAuth.test.tsx`)
+   - Description & purpose:
      - Clicking opens the dialog with Chat as the default target.
+5. [ ] UI test (client) — Chat hides button when Codex unavailable:
+   - Documentation to read (repeat):
+     - Jest: Context7 `/websites/jestjs_io_30_0`
+     - Jest docs: https://jestjs.io/docs/getting-started
+   - Files to edit:
+     - `client/src/test/chatPage.provider.test.tsx` (or new `chatPage.deviceAuth.test.tsx`)
+   - Description & purpose:
      - Button is hidden when provider is LM Studio or Codex is unavailable.
-4. [ ] Update `projectStructure.md` after any file additions/removals in this task.
+6. [ ] Update `projectStructure.md` after any file additions/removals in this task.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to read:
      - `projectStructure.md`
    - Files to edit:
      - `projectStructure.md`
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -858,24 +959,38 @@ Show the re-authenticate button on Agents when a selection is active and Codex i
      - Pass `defaultTarget` as the selected agent.
      - On dialog success, refresh Codex availability so the button state updates.
      - Hide the button when no agent is selected or Codex is unavailable.
-4. [ ] Add/extend Agents page tests for the new button/dialog:
+4. [ ] UI test (client) — Agents shows device-auth button:
    - Documentation to read (repeat):
      - Jest: Context7 `/websites/jestjs_io_30_0`
      - Jest docs: https://jestjs.io/docs/getting-started
    - Files to edit:
      - `client/src/test/agentsPage.agentChange.test.tsx` (or new `agentsPage.deviceAuth.test.tsx`)
-   - Test expectations:
+   - Description & purpose:
      - Button only renders when an agent is selected and Codex is available.
+5. [ ] UI test (client) — Agents dialog defaults to selected agent:
+   - Documentation to read (repeat):
+     - Jest: Context7 `/websites/jestjs_io_30_0`
+     - Jest docs: https://jestjs.io/docs/getting-started
+   - Files to edit:
+     - `client/src/test/agentsPage.agentChange.test.tsx` (or new `agentsPage.deviceAuth.test.tsx`)
+   - Description & purpose:
      - Dialog defaults to `Agent: <selected>`.
+6. [ ] UI test (client) — Agents hides button when unavailable:
+   - Documentation to read (repeat):
+     - Jest: Context7 `/websites/jestjs_io_30_0`
+     - Jest docs: https://jestjs.io/docs/getting-started
+   - Files to edit:
+     - `client/src/test/agentsPage.agentChange.test.tsx` (or new `agentsPage.deviceAuth.test.tsx`)
+   - Description & purpose:
      - Button is hidden when Codex is unavailable or no agent is selected.
-5. [ ] Update `projectStructure.md` after any file additions/removals in this task.
+7. [ ] Update `projectStructure.md` after any file additions/removals in this task.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to read:
      - `projectStructure.md`
    - Files to edit:
      - `projectStructure.md`
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli

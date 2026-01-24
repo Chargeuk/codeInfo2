@@ -6,12 +6,10 @@ export GIT_CREDENTIAL_FORWARDER_PORT="${1:-$DEFAULT_GCF_PORT}"
 export GIT_CREDENTIAL_FORWARDER_DEBUG="true"
 GCF_GIT_PATH="$(command -v git)"
 if command -v cygpath >/dev/null 2>&1; then
-  GCF_GIT_PATH="$(cygpath -w "$GCF_GIT_PATH")"
-  if command -v cmd.exe >/dev/null 2>&1; then
-    GCF_GIT_PATH_SHORT="$(cmd.exe /c "for %I in (\"$GCF_GIT_PATH\") do @echo %~sI" | tr -d '\r')"
-    if [ -n "$GCF_GIT_PATH_SHORT" ]; then
-      GCF_GIT_PATH="$GCF_GIT_PATH_SHORT"
-    fi
+  if GCF_GIT_PATH_SHORT="$(cygpath -w -s "$GCF_GIT_PATH" 2>/dev/null)"; then
+    GCF_GIT_PATH="$GCF_GIT_PATH_SHORT"
+  else
+    GCF_GIT_PATH="$(cygpath -w "$GCF_GIT_PATH")"
   fi
 fi
 export GIT_CREDENTIAL_FORWARDER_GIT_PATH="$GCF_GIT_PATH"

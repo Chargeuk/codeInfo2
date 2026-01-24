@@ -159,6 +159,8 @@ Add `POST /codex/device-auth` that validates the target (chat or agent), runs `c
      - `server/src/providers/codexDetection.ts`
      - `server/src/providers/codexRegistry.ts`
      - `server/src/agents/discovery.ts`
+     - `server/src/agents/authSeed.ts` (existing auth copy logic)
+     - `server/src/utils/codexAuthCopy.ts` (host → container auth copy)
    - Snippets to locate:
      - `resolveCodexHome`, `getCodexHome`
      - `detectCodexForHome`
@@ -293,6 +295,7 @@ Ensure device-auth writes credentials to disk (`cli_auth_credentials_store = "fi
      - `server/src/config/codexConfig.ts`
      - `server/src/providers/codexDetection.ts`
      - `server/src/agents/authSeed.ts`
+     - `server/src/utils/codexAuthCopy.ts`
      - `server/src/agents/discovery.ts`
    - Snippets to locate:
      - `getCodexConfigPathForHome`
@@ -477,6 +480,7 @@ Build a reusable dialog component that runs device-auth, shows loading/error/suc
       - Display errors inline (including “Enable device code login in ChatGPT settings” when provided) and allow retry without closing the dialog.
       - Provide a clear close action (dialog close button + ESC/backdrop).
       - Invoke `onSuccess` so parent pages can refresh provider availability.
+      - Follow the async dialog state pattern from `DirectoryPickerDialog` (loading → success/error) instead of inventing new UI flows.
 3. [ ] Add unit tests for the dialog:
    - Files to edit:
      - `client/src/test/codexDeviceAuthDialog.test.tsx` (new)
@@ -599,10 +603,10 @@ Show the re-authenticate button on Agents when a selection is active and Codex i
      - Button appears only when `selectedAgentName` is set and Codex is available.
 2. [ ] Add a Codex availability check for Agents:
    - Files to edit:
-     - `client/src/pages/AgentsPage.tsx` (or new `client/src/hooks/useCodexAvailability.ts` if preferred)
+     - `client/src/pages/AgentsPage.tsx`
    - Implementation details:
-     - Query `/chat/providers` and read the Codex `available` flag.
-     - Cache the result to avoid repeated fetches while idle.
+     - Reuse `useChatModel` to access `providers` + `refreshProviders`.
+     - Derive Codex availability from the `providers` list instead of adding a new fetch hook.
 3. [ ] Wire the dialog into Agents:
    - Files to edit:
      - `client/src/pages/AgentsPage.tsx`

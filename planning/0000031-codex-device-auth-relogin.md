@@ -143,7 +143,7 @@ Create a reusable helper that runs `codex login --device-auth`, parses the verif
 - Prettier CLI: https://prettier.io/docs/cli
 - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 - Jest: Context7 `/websites/jestjs_io_30_0`
-- Jest docs: https://jestjs.io/docs/getting-started
+     - Jest docs: https://jestjs.io/docs/getting-started
 - Cucumber guides: https://cucumber.io/docs/guides/10-minute-tutorial/
 - Playwright: Context7 `/microsoft/playwright`
 - Playwright docs (intro): https://playwright.dev/docs/intro
@@ -180,6 +180,7 @@ Create a reusable helper that runs `codex login --device-auth`, parses the verif
    - Test expectations:
      - Parser extracts `verificationUrl` + `userCode` from example device-auth output.
      - Runner returns an error when output is missing required fields.
+     - Runner returns a distinct error when the CLI process exits non-zero.
 4. [ ] Update `projectStructure.md` after any file additions/removals in this task.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
@@ -245,7 +246,7 @@ Add `POST /codex/device-auth` that validates the target (chat or agent), calls t
 - Prettier CLI: https://prettier.io/docs/cli
 - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 - Jest: Context7 `/websites/jestjs_io_30_0`
-- Jest docs: https://jestjs.io/docs/getting-started
+     - Jest docs: https://jestjs.io/docs/getting-started
 - Cucumber guides: https://cucumber.io/docs/guides/10-minute-tutorial/
 - Playwright: Context7 `/microsoft/playwright`
 - Playwright docs (intro): https://playwright.dev/docs/intro
@@ -291,6 +292,9 @@ Add `POST /codex/device-auth` that validates the target (chat or agent), calls t
    - Test expectations:
      - `target=chat` returns `200` with parsed `verificationUrl` + `userCode` when the helper is stubbed.
      - `target=agent` with an unknown `agentName` returns `404 not_found`.
+     - Missing `target` or unsupported `target` returns `400 invalid_request`.
+     - `target=agent` without `agentName` returns `400 invalid_request`.
+     - When the helper reports Codex unavailable, return `503 codex_unavailable`.
    - Key requirements (repeat):
      - Stub the helper so tests do not call the real CLI.
 4. [ ] Update API documentation after the server change:
@@ -364,7 +368,7 @@ Ensure the Codex config enforces `cli_auth_credentials_store = "file"` so device
 - Prettier CLI: https://prettier.io/docs/cli
 - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 - Jest: Context7 `/websites/jestjs_io_30_0`
-- Jest docs: https://jestjs.io/docs/getting-started
+     - Jest docs: https://jestjs.io/docs/getting-started
 - Cucumber guides: https://cucumber.io/docs/guides/10-minute-tutorial/
 - Playwright: Context7 `/microsoft/playwright`
 - Playwright docs (intro): https://playwright.dev/docs/intro
@@ -398,6 +402,7 @@ Ensure the Codex config enforces `cli_auth_credentials_store = "file"` so device
      - `server/src/test/unit/codexConfig.device-auth.test.ts` (new)
    - Test expectations:
      - When missing, the helper writes `cli_auth_credentials_store = "file"` into a temp config file.
+     - When already present, the helper leaves the file unchanged.
 4. [ ] Update `projectStructure.md` after any file additions/removals in this task.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
@@ -445,7 +450,7 @@ Copy refreshed `auth.json` to agent homes when targeting chat, and refresh Codex
 - Prettier CLI: https://prettier.io/docs/cli
 - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 - Jest: Context7 `/websites/jestjs_io_30_0`
-- Jest docs: https://jestjs.io/docs/getting-started
+     - Jest docs: https://jestjs.io/docs/getting-started
 - Cucumber guides: https://cucumber.io/docs/guides/10-minute-tutorial/
 - Playwright: Context7 `/microsoft/playwright`
 - Playwright docs (intro): https://playwright.dev/docs/intro
@@ -493,6 +498,7 @@ Copy refreshed `auth.json` to agent homes when targeting chat, and refresh Codex
      - `server/src/test/unit/agents.authSeed.test.ts` (new or existing)
    - Test expectations:
      - When `overwrite=true`, the helper replaces an existing agent `auth.json` with the primary file.
+     - When targeting a single agent, only that agent home is updated.
 5. [ ] Update `projectStructure.md` after any file additions/removals in this task.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
@@ -539,7 +545,7 @@ Create a client API helper for `POST /codex/device-auth` with typed request/resp
 - Prettier CLI: https://prettier.io/docs/cli
 - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 - Jest: Context7 `/websites/jestjs_io_30_0`
-- Jest docs: https://jestjs.io/docs/getting-started
+     - Jest docs: https://jestjs.io/docs/getting-started
 - Playwright: Context7 `/microsoft/playwright`
 - Playwright docs (intro): https://playwright.dev/docs/intro
 - Docker/Compose: Context7 `/docker/docs`
@@ -570,12 +576,13 @@ Create a client API helper for `POST /codex/device-auth` with typed request/resp
 3. [ ] Add a focused client unit test for the API helper:
    - Documentation to read (repeat):
      - Jest: Context7 `/websites/jestjs_io_30_0`
-- Jest docs: https://jestjs.io/docs/getting-started
+     - Jest docs: https://jestjs.io/docs/getting-started
    - Files to edit:
      - `client/src/test/codexDeviceAuthApi.test.ts` (new)
    - Test expectations:
      - `postCodexDeviceAuth` returns parsed data on 200.
      - Non-200 response throws a typed error with `status`.
+     - When the response includes `reason`, the error message uses it.
 4. [ ] Update `projectStructure.md` after any file additions/removals in this task.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
@@ -626,7 +633,7 @@ Build a reusable dialog component that runs device-auth, shows loading/error/suc
 - Prettier CLI: https://prettier.io/docs/cli
 - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 - Jest: Context7 `/websites/jestjs_io_30_0`
-- Jest docs: https://jestjs.io/docs/getting-started
+     - Jest docs: https://jestjs.io/docs/getting-started
 - Playwright: Context7 `/microsoft/playwright`
 - Playwright docs (intro): https://playwright.dev/docs/intro
 - Docker/Compose: Context7 `/docker/docs`
@@ -668,13 +675,14 @@ Build a reusable dialog component that runs device-auth, shows loading/error/suc
 3. [ ] Add unit tests for the dialog:
    - Documentation to read (repeat):
      - Jest: Context7 `/websites/jestjs_io_30_0`
-- Jest docs: https://jestjs.io/docs/getting-started
+     - Jest docs: https://jestjs.io/docs/getting-started
    - Files to edit:
      - `client/src/test/codexDeviceAuthDialog.test.tsx` (new)
    - Test expectations:
      - Button disables while request is pending.
      - Success state renders the URL and code.
      - Error state renders the message and re-enables Start.
+     - Close button invokes `onClose` even after an error state.
 4. [ ] Update `projectStructure.md` after any file additions/removals in this task.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
@@ -724,7 +732,7 @@ Expose the re-authenticate button in Chat when Codex is selected + available, de
 - Prettier CLI: https://prettier.io/docs/cli
 - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 - Jest: Context7 `/websites/jestjs_io_30_0`
-- Jest docs: https://jestjs.io/docs/getting-started
+     - Jest docs: https://jestjs.io/docs/getting-started
 - Playwright: Context7 `/microsoft/playwright`
 - Playwright docs (intro): https://playwright.dev/docs/intro
 - Docker/Compose: Context7 `/docker/docs`
@@ -757,12 +765,13 @@ Expose the re-authenticate button in Chat when Codex is selected + available, de
 3. [ ] Add/extend chat page tests for the new button/dialog:
    - Documentation to read (repeat):
      - Jest: Context7 `/websites/jestjs_io_30_0`
-- Jest docs: https://jestjs.io/docs/getting-started
+     - Jest docs: https://jestjs.io/docs/getting-started
    - Files to edit:
      - `client/src/test/chatPage.provider.test.tsx` (or new `chatPage.deviceAuth.test.tsx`)
    - Test expectations:
      - Button only renders when `provider=codex` and `available=true`.
      - Clicking opens the dialog with Chat as the default target.
+     - Button is hidden when provider is LM Studio or Codex is unavailable.
 4. [ ] Update `projectStructure.md` after any file additions/removals in this task.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
@@ -812,7 +821,7 @@ Show the re-authenticate button on Agents when a selection is active and Codex i
 - Prettier CLI: https://prettier.io/docs/cli
 - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 - Jest: Context7 `/websites/jestjs_io_30_0`
-- Jest docs: https://jestjs.io/docs/getting-started
+     - Jest docs: https://jestjs.io/docs/getting-started
 - Playwright: Context7 `/microsoft/playwright`
 - Playwright docs (intro): https://playwright.dev/docs/intro
 - Docker/Compose: Context7 `/docker/docs`
@@ -852,12 +861,13 @@ Show the re-authenticate button on Agents when a selection is active and Codex i
 4. [ ] Add/extend Agents page tests for the new button/dialog:
    - Documentation to read (repeat):
      - Jest: Context7 `/websites/jestjs_io_30_0`
-- Jest docs: https://jestjs.io/docs/getting-started
+     - Jest docs: https://jestjs.io/docs/getting-started
    - Files to edit:
      - `client/src/test/agentsPage.agentChange.test.tsx` (or new `agentsPage.deviceAuth.test.tsx`)
    - Test expectations:
      - Button only renders when an agent is selected and Codex is available.
      - Dialog defaults to `Agent: <selected>`.
+     - Button is hidden when Codex is unavailable or no agent is selected.
 5. [ ] Update `projectStructure.md` after any file additions/removals in this task.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
@@ -903,7 +913,7 @@ Validate the story end-to-end, run clean builds/tests, update documentation, and
 - Husky: Context7 `/typicode/husky`
 - Mermaid: Context7 `/mermaid-js/mermaid`
 - Jest: Context7 `/jestjs/jest`
-- Jest docs: https://jestjs.io/docs/getting-started
+     - Jest docs: https://jestjs.io/docs/getting-started
 - Cucumber guides: https://cucumber.io/docs/guides/10-minute-tutorial/
 
 #### Subtasks
@@ -943,7 +953,7 @@ Validate the story end-to-end, run clean builds/tests, update documentation, and
 1. [ ] Run the client Jest tests
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
-- Jest docs: https://jestjs.io/docs/getting-started
+     - Jest docs: https://jestjs.io/docs/getting-started
 2. [ ] Run the server Cucumber tests
    - Documentation to read (repeat):
      - Cucumber guides: https://cucumber.io/docs/guides/10-minute-tutorial/

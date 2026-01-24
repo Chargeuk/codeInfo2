@@ -144,7 +144,8 @@ Create a reusable helper that runs `codex login --device-auth`, parses the verif
 - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 - Jest: Context7 `/websites/jestjs_io_30_0`
      - Jest docs: https://jestjs.io/docs/getting-started
-- Cucumber guides: https://cucumber.io/docs/guides/10-minute-tutorial/
+- Cucumber guides (overview): https://cucumber.io/docs/guides/
+- Cucumber guides (tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/
 - Playwright: Context7 `/microsoft/playwright`
 - Playwright docs (intro): https://playwright.dev/docs/intro
 - Docker/Compose: Context7 `/docker/docs`
@@ -259,7 +260,8 @@ Add `POST /codex/device-auth` that validates the target (chat or agent), calls t
 - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 - Jest: Context7 `/websites/jestjs_io_30_0`
      - Jest docs: https://jestjs.io/docs/getting-started
-- Cucumber guides: https://cucumber.io/docs/guides/10-minute-tutorial/
+- Cucumber guides (overview): https://cucumber.io/docs/guides/
+- Cucumber guides (tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/
 - Playwright: Context7 `/microsoft/playwright`
 - Playwright docs (intro): https://playwright.dev/docs/intro
 - Docker/Compose: Context7 `/docker/docs`
@@ -409,7 +411,8 @@ Ensure the Codex config enforces `cli_auth_credentials_store = "file"` so device
 - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 - Jest: Context7 `/websites/jestjs_io_30_0`
      - Jest docs: https://jestjs.io/docs/getting-started
-- Cucumber guides: https://cucumber.io/docs/guides/10-minute-tutorial/
+- Cucumber guides (overview): https://cucumber.io/docs/guides/
+- Cucumber guides (tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/
 - Playwright: Context7 `/microsoft/playwright`
 - Playwright docs (intro): https://playwright.dev/docs/intro
 - Docker/Compose: Context7 `/docker/docs`
@@ -497,7 +500,8 @@ Copy refreshed `auth.json` to agent homes when targeting chat, and refresh Codex
 - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 - Jest: Context7 `/websites/jestjs_io_30_0`
      - Jest docs: https://jestjs.io/docs/getting-started
-- Cucumber guides: https://cucumber.io/docs/guides/10-minute-tutorial/
+- Cucumber guides (overview): https://cucumber.io/docs/guides/
+- Cucumber guides (tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/
 - Playwright: Context7 `/microsoft/playwright`
 - Playwright docs (intro): https://playwright.dev/docs/intro
 - Docker/Compose: Context7 `/docker/docs`
@@ -1029,7 +1033,8 @@ Validate the story end-to-end, run clean builds/tests, update documentation, and
 - Mermaid: Context7 `/mermaid-js/mermaid`
 - Jest: Context7 `/jestjs/jest`
      - Jest docs: https://jestjs.io/docs/getting-started
-- Cucumber guides: https://cucumber.io/docs/guides/10-minute-tutorial/
+- Cucumber guides (overview): https://cucumber.io/docs/guides/
+- Cucumber guides (tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/
 
 #### Subtasks
 
@@ -1071,7 +1076,8 @@ Validate the story end-to-end, run clean builds/tests, update documentation, and
      - Jest docs: https://jestjs.io/docs/getting-started
 2. [ ] Run the server Cucumber tests
    - Documentation to read (repeat):
-     - Cucumber guides: https://cucumber.io/docs/guides/10-minute-tutorial/
+     - Cucumber guides (overview): https://cucumber.io/docs/guides/
+- Cucumber guides (tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/
 3. [ ] Restart the Docker environment
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`

@@ -3,6 +3,8 @@ services:
     build:
       context: .
       dockerfile: server/Dockerfile
+      args:
+        HOME: ${HOME}
     image: codeinfo2-server
     user: "${CODEINFO_DOCKER_UID:-1000}:${CODEINFO_DOCKER_GID:-1000}"
     ports:

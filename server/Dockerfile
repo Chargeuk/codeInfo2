@@ -23,6 +23,9 @@ COPY server ./server
 RUN npm run build --workspace common && npm run build --workspace server
 
 FROM node:22-slim AS runtime
+ARG HOME
+RUN mkdir -p ${HOME}/tmp
+RUN mkdir -p ${HOME}/.docker
 # Install prerequisites
 RUN apt-get update && apt-get install -y \
     curl \
@@ -109,6 +112,8 @@ COPY --from=build /app/config.toml.example /app/server/config.toml.example
 # Use the forwarder for any user inside the container.
 RUN git config --system credential.helper '!f(){ gcf-client $*; }; f'
 
+# Make HOME and all subfolders read/write for all users
+RUN chmod -R 777 "${HOME}"
 ENV CODEINFO_CODEX_HOME=/app/codex
 ENV PORT=5010
 EXPOSE 5010

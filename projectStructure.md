@@ -252,6 +252,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚  â”œâ”€ .env.local â€” server local overrides (ignored by git consumers)
 â”‚  â”œâ”€ .prettierignore â€” server-specific Prettier ignore
 â”‚  â”œâ”€ Dockerfile â€” server image build
+â”‚  â”œâ”€ entrypoint.sh â€” server startup script (launches headless Chrome + API)
 â”‚  â”œâ”€ cucumber.js â€” Cucumber config
 â”‚  â”œâ”€ package.json â€” server workspace manifest
 â”‚  â”œâ”€ tsconfig.json â€” TS config for server

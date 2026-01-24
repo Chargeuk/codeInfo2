@@ -34,6 +34,12 @@ RUN echo \
   "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian \
   $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
 
+# Add Google Chrome repository
+RUN curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /etc/apt/keyrings/google-chrome.gpg
+RUN echo \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" \
+  | tee /etc/apt/sources.list.d/google-chrome.list > /dev/null
+
 # Install Docker CLI + Compose plugin
 RUN apt-get update && apt-get install -y docker-ce-cli docker-compose-plugin
 
@@ -61,6 +67,7 @@ RUN apt-get update && apt-get install -y \
     nano \
     rsync \
     tzdata \
+    google-chrome-stable \
     && rm -rf /var/lib/apt/lists/*
 
 # Debian installs fd-find as fdfind; provide fd for tooling expectations.
@@ -70,6 +77,7 @@ COPY --from=build /app/node_modules /app/node_modules
 COPY --from=build /app/common /app/common
 COPY --from=build /app/server/dist ./dist
 COPY --from=build /app/server/package*.json ./
+COPY --from=build /app/server/entrypoint.sh ./entrypoint.sh
 COPY --from=build /app/config.toml.example /app/server/config.toml.example
 
 # Set Playwright to use the browsers installed during build AFTER node_modules are in place to ensure the correct version is used
@@ -83,6 +91,7 @@ RUN npm install -g mcp-remote
 RUN npm install -g @upstash/context7-mcp
 RUN npm install -g @mui/mcp@latest
 RUN npm install -g @playwright/mcp@latest
+RUN npm install -g chrome-devtools-mcp
 RUN npm install -g git-credential-forwarder
 
 # Use the forwarder for any user inside the container.
@@ -91,4 +100,6 @@ RUN git config --system credential.helper '!f(){ gcf-client $*; }; f'
 ENV CODEINFO_CODEX_HOME=/app/codex
 ENV PORT=5010
 EXPOSE 5010
-CMD ["node", "dist/index.js"]
+EXPOSE 9222
+RUN chmod +x ./entrypoint.sh
+CMD ["./entrypoint.sh"]

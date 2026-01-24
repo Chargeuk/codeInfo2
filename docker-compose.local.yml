@@ -12,6 +12,7 @@ services:
       - '5510:5010'
       - '5511:5011'
       - '5512:5012'
+      - '9222:9222'
     networks:
       - internal
     env_file:

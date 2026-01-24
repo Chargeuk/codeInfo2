@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 set -e
 
-CHROME_BIN="${CHROME_BIN:-/usr/bin/google-chrome}"
+CHROME_BIN="${CHROME_BIN:-/usr/bin/chromium}"
 CHROME_REMOTE_DEBUG_PORT="${CHROME_REMOTE_DEBUG_PORT:-9222}"
 CHROME_REMOTE_DEBUG_ADDRESS="${CHROME_REMOTE_DEBUG_ADDRESS:-0.0.0.0}"
 CHROME_USER_DATA_DIR="${CHROME_USER_DATA_DIR:-/tmp/chrome-profile}"

@@ -34,12 +34,6 @@ RUN echo \
   "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian \
   $(lsb_release -cs) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
 
-# Add Google Chrome repository
-RUN curl -fsSL https://dl.google.com/linux/linux_signing_key.pub | gpg --dearmor -o /etc/apt/keyrings/google-chrome.gpg
-RUN echo \
-  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/google-chrome.gpg] http://dl.google.com/linux/chrome/deb/ stable main" \
-  | tee /etc/apt/sources.list.d/google-chrome.list > /dev/null
-
 # Install Docker CLI + Compose plugin
 RUN apt-get update && apt-get install -y docker-ce-cli docker-compose-plugin
 
@@ -67,11 +61,14 @@ RUN apt-get update && apt-get install -y \
     nano \
     rsync \
     tzdata \
-    google-chrome-stable \
+    chromium \
     && rm -rf /var/lib/apt/lists/*
 
 # Debian installs fd-find as fdfind; provide fd for tooling expectations.
 RUN ln -s /usr/bin/fdfind /usr/local/bin/fd
+
+# Align Chrome binary name for tooling that expects google-chrome.
+RUN ln -s /usr/bin/chromium /usr/bin/google-chrome
 
 COPY --from=build /app/node_modules /app/node_modules
 COPY --from=build /app/common /app/common

@@ -277,6 +277,7 @@ Add `POST /codex/device-auth` that validates the target (chat or agent), calls t
    - Files to read:
      - `server/src/index.ts`
      - `server/src/logger.ts`
+     - `server/src/routes/logs.ts` (redaction helper pattern)
      - `server/src/routes/agentsRun.ts`
      - `server/src/routes/flowsRun.ts`
      - `server/src/routes/chatProviders.ts`
@@ -293,11 +294,13 @@ Add `POST /codex/device-auth` that validates the target (chat or agent), calls t
    - Implementation details:
      - Export `createCodexDeviceAuthRouter` and mount at `/codex`.
      - Apply the JSON body limit using `resolveLogConfig().maxClientBytes` (match agents/flows routes).
+     - Add the `entity.too.large` guard pattern used by other routes to return `400 { error: 'payload too large' }`.
      - Accept body `{ target: 'chat' | 'agent', agentName?: string }`.
      - Validate `target` as a trimmed string; reject missing/unknown values with `400 { error: 'invalid_request' }`.
      - When `target === 'agent'`, require a non-empty `agentName` that matches a discovered agent; return `404 { error: 'not_found' }` if missing.
      - If the Codex CLI is not available, return `503 { error: 'codex_unavailable', reason }` to align with other providers.
      - Call the helper from Task 1 and build `{ status: 'completed', verificationUrl, userCode, expiresInSec?, target, agentName? }`.
+     - Avoid logging `verificationUrl`/`userCode` in request/response logs; log only booleans or lengths.
      - Log request start + success/failure with `baseLogger` including `requestId`, `target`, and `agentName`.
 3. [ ] Integration test (server) — happy path for chat target:
    - Documentation to read (repeat):
@@ -339,9 +342,17 @@ Add `POST /codex/device-auth` that validates the target (chat or agent), calls t
      - `server/src/test/integration/codex.device-auth.test.ts` (new)
    - Description & purpose:
      - When the helper reports Codex unavailable, return `503 codex_unavailable`.
+8. [ ] Integration test (server) — payload too large:
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+     - Supertest HTTP assertions: https://github.com/forwardemail/supertest
+   - Files to edit:
+     - `server/src/test/integration/codex.device-auth.test.ts` (new)
+   - Description & purpose:
+     - Oversized JSON payload returns `400 { error: 'payload too large' }`.
    - Key requirements (repeat):
      - Stub the helper so tests do not call the real CLI.
-8. [ ] Update API documentation after the server change:
+9. [ ] Update API documentation after the server change:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
      - Mermaid diagrams: Context7 `/mermaid-js/mermaid`
@@ -350,7 +361,7 @@ Add `POST /codex/device-auth` that validates the target (chat or agent), calls t
    - Key requirements (repeat):
      - Request body includes `target` + optional `agentName`.
      - Response includes `verificationUrl`, `userCode`, optional `expiresInSec`.
-9. [ ] Update `projectStructure.md` after any file additions/removals in this task.
+10. [ ] Update `projectStructure.md` after any file additions/removals in this task.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to read:
@@ -359,7 +370,7 @@ Add `POST /codex/device-auth` that validates the target (chat or agent), calls t
      - `projectStructure.md`
    - Description & purpose:
      - Update repo root `projectStructure.md` with any files added/removed/renamed in this task.
-10. [ ] Update `design.md` with device-auth architecture + mermaid diagram:
+11. [ ] Update `design.md` with device-auth architecture + mermaid diagram:
    - Documentation to read (repeat):
      - Mermaid diagrams: Context7 `/mermaid-js/mermaid`
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
@@ -367,7 +378,7 @@ Add `POST /codex/device-auth` that validates the target (chat or agent), calls t
      - `design.md`
    - Description & purpose:
      - Add a concise sequence/flow diagram showing the device-auth request, Codex CLI interaction, and auth propagation.
-11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
+12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli

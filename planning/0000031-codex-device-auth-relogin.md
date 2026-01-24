@@ -93,10 +93,13 @@ This story does **not** add new business features; it only improves how the syst
 
 ---
 
-## Message Contracts & Storage Shapes (planned)
+## Message Contracts & Storage Shapes
 
-- **Device-auth response (HTTP):** `{ status: "completed", verificationUrl: string, userCode: string, expiresInSec?: number, target: "chat" | "agent", agentName?: string }`.
-- **No DB schema changes:** auth state remains in Codex `auth.json` and existing config paths.
+- **New request (HTTP):** `POST /codex/device-auth` body `{ target: "chat" | "agent", agentName?: string }`.
+- **New response (HTTP 200/202):** `{ status: "completed", verificationUrl: string, userCode: string, expiresInSec?: number, target: "chat" | "agent", agentName?: string }`.
+- **Existing provider contracts:** keep `/chat/providers` and `/chat/models` shapes unchanged (`ChatProviderInfo`, `ChatModelsResponse`), so Codex availability still uses `available`, `toolsAvailable`, and `reason` fields.
+- **Streaming contracts:** no new WS event types; device-auth is a normal HTTP call and chat/agent streams continue to use existing event shapes.
+- **Storage shapes:** no Mongo changes; credentials remain in `auth.json` under the resolved Codex home (and optional keyring depending on `cli_auth_credentials_store`).
 
 ---
 

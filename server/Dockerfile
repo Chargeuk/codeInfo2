@@ -50,6 +50,17 @@ RUN apt-get update && apt-get install -y \
     bat \
     tree \
     less \
+    procps \
+    iproute2 \
+    dnsutils \
+    openssl \
+    openssh-client \
+    unzip \
+    zip \
+    vim-tiny \
+    nano \
+    rsync \
+    tzdata \
     && rm -rf /var/lib/apt/lists/*
 
 # Debian installs fd-find as fdfind; provide fd for tooling expectations.

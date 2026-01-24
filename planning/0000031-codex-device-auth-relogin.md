@@ -42,6 +42,7 @@ This story does **not** add new business features; it only improves how the syst
 - Changes to Codex CLI internals or custom forks of the Codex CLI.
 - New UI flows for API-key authentication.
 - Non-Codex auth problems unrelated to refresh-token expiry.
+- Detection or special handling of specific Codex auth failure strings (we rely on the always-available re-auth dialog instead).
 - Persisting device-auth state in Mongo beyond existing `auth.json` caching.
 
 ---
@@ -58,18 +59,17 @@ This story does **not** add new business features; it only improves how the syst
 - Codex CLI reference (`codex login`): https://developers.openai.com/codex/cli/reference
 - Node child_process (spawning CLI): https://nodejs.org/api/child_process.html
 - Express route handlers: Context7 `/expressjs/express/v5.1.0`
-- MUI Alert/Banner + Button patterns: MUI MCP
+- MUI Dialog + Button + Select patterns: MUI MCP
 
 ---
 
 ## Implementation Ideas (high-level)
 
 - **Device-auth endpoint:** Add a server endpoint to run `codex login --device-auth`, capture stdout for the verification URL + code, and return them as JSON. Support a `codexHome` override so agents can re-auth their own home (and chat uses the main home).
-- **UI action:** Add a shared “Re-authenticate (device auth)” control on Chat/Agents/Flows pages that is always visible for Codex runs (and still show failure messaging when `CODEX_AUTH_EXPIRED` is received).
+- **UI action:** Add a shared “Re-authenticate (device auth)” control on Chat/Agents/Flows pages that is always visible for Codex runs.
 - **Dialog flow:** Implement a reusable centered dialog component that manages the device-auth steps (idle → requested → code shown → user confirms complete/error). The dialog owns its status state rather than using a global timestamp.
 - **Target selection:** Include a selector in the dialog for Chat vs specific Agent home; default to the page context but allow switching before issuing the login request.
-- **Retry flow:** Keep the request payload/flags available so a user can click “Retry” after re-auth completes; do not auto-retry.
-- **Telemetry/logging:** Add a log marker to confirm auth-expired detection and device-auth flow start/finish.
+- **Telemetry/logging:** Add a log marker to confirm device-auth flow start/finish.
 
 ---
 

@@ -46,9 +46,9 @@ If SourceTree is pointed at the WSL repo and shows `start-gcf-server.sh` (or oth
 Recommended config:
 
 ```sh
-# Windows Git (SourceTree) - ignore file mode changes
-git -C //wsl$/Ubuntu/home/d_a_s/code/codeInfo2 config --global core.filemode false
-git -C //wsl$/Ubuntu/home/d_a_s/code/codeInfo2 config --unset core.filemode
+# Windows Git (SourceTree) - ignore file mode changes globally, then clear any repo-local override
+git -C //wsl$/<Distro>/home/<user>/path/to/repo config --global core.filemode false
+git -C //wsl$/<Distro>/home/<user>/path/to/repo config --unset core.filemode
 
 # WSL Git - keep executable bit tracking
 git config --global core.filemode true
@@ -57,7 +57,7 @@ git config --global core.filemode true
 After updating, reset the file in Windows Git to clear the status:
 
 ```sh
-git -C //wsl$/Ubuntu/home/d_a_s/code/codeInfo2 checkout -- start-gcf-server.sh
+git -C //wsl$/<Distro>/home/<user>/path/to/repo checkout -- start-gcf-server.sh
 ```
 
 ## Codex agents (folder layout)

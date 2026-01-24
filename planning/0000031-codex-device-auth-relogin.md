@@ -172,7 +172,7 @@ Create a reusable helper that runs `codex login --device-auth`, parses the verif
      - Spawn `codex login --device-auth` with `CODEX_HOME=<resolved home>` and inherited env.
      - Capture stdout/stderr, parse verification URL + user code from stdout (regex-based), and return a structured result.
      - Expose a small pure parser function so unit tests can validate regex parsing with fixture output.
-     - Keep running the child process after parsing and log the final exit status.
+     - Do not attempt to manage process lifetime beyond starting it; avoid extra logic beyond parsing.
 3. [ ] Add unit tests for parsing + runner behavior:
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
@@ -430,10 +430,10 @@ Copy refreshed `auth.json` to agent homes when targeting chat, and refresh Codex
      - `server/src/routes/codexDeviceAuth.ts`
      - `server/src/agents/discovery.ts`
    - Implementation details:
-     - When `target === 'chat'`, copy `auth.json` from the primary Codex home to every agent home (overwrite existing files).
-     - Use `discoverAgents()` to enumerate agent homes; skip disabled agents if appropriate.
+     - When `target === 'chat'`, copy `auth.json` from the primary Codex home to every discovered agent home (overwrite existing files).
+     - Use `discoverAgents()` to enumerate agent homes (no special-case logic for disabled agents).
      - When `target === 'agent'`, update only the selected agent home.
-     - Log copy failures and return a warning in the response when propagation fails.
+     - Log copy failures; do not add new response fields for propagation warnings.
 3. [ ] Refresh Codex availability after login:
    - Documentation to read (repeat):
      - Codex auth + device auth: https://developers.openai.com/codex/auth

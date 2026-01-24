@@ -136,6 +136,7 @@ Add `POST /codex/device-auth` that validates the target (chat or agent), runs `c
 - Codex CLI reference (`codex login`): https://developers.openai.com/codex/cli/reference
 - Node.js child_process: https://nodejs.org/api/child_process.html
 - Express routing + handlers: Context7 `/expressjs/express/v5.1.0`
+- Express 5 API reference: https://expressjs.com/en/5x/api.html
 - Node.js test runner: https://nodejs.org/api/test.html
 - Supertest HTTP assertions: https://github.com/forwardemail/supertest
 - Markdown Guide: https://www.markdownguide.org/basic-syntax/
@@ -447,6 +448,8 @@ Build a reusable dialog component that runs device-auth, shows loading/error/suc
 
 #### Documentation Locations
 
+- MUI Dialog API: https://mui.com/material-ui/api/dialog/
+- MUI Select + TextField select pattern: https://mui.com/material-ui/react-select/
 - MUI Dialog + Button + Select patterns: MUI MCP
 - React state + effect hooks: https://react.dev/reference/react
 - Clipboard API: https://developer.mozilla.org/en-US/docs/Web/API/Clipboard_API
@@ -474,6 +477,7 @@ Build a reusable dialog component that runs device-auth, shows loading/error/suc
      - `open`, `onClose`, `defaultTarget`, `agents`, `onSuccess?`.
    - Implementation details:
      - Render a target selector with options `Chat` and `Agent: <name>`.
+     - Use the `TextField select` pattern with `MenuItem` entries (matches existing Chat/Agents selects).
      - Call `postCodexDeviceAuth` on “Start device auth”.
       - Show `verificationUrl`, `userCode`, and `expiresInSec` on success.
       - Provide copy buttons for URL + code (use `navigator.clipboard` with a fallback message when unavailable).
@@ -518,6 +522,8 @@ Expose the re-authenticate button in Chat when Codex is selected + available, de
 #### Documentation Locations
 
 - MUI Button + Dialog patterns: MUI MCP
+- MUI Dialog API: https://mui.com/material-ui/api/dialog/
+- MUI Select + TextField select pattern: https://mui.com/material-ui/react-select/
 - React state + effect hooks: https://react.dev/reference/react
 - Fetch API: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
 - Markdown Guide: https://www.markdownguide.org/basic-syntax/
@@ -582,6 +588,8 @@ Show the re-authenticate button on Agents when a selection is active and Codex i
 #### Documentation Locations
 
 - MUI Button + Dialog patterns: MUI MCP
+- MUI Dialog API: https://mui.com/material-ui/api/dialog/
+- MUI Select + TextField select pattern: https://mui.com/material-ui/react-select/
 - React state + effect hooks: https://react.dev/reference/react
 - Fetch API: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
 - Markdown Guide: https://www.markdownguide.org/basic-syntax/

@@ -173,6 +173,8 @@ Create a reusable helper that runs `codex login --device-auth`, parses the verif
      - Spawn `codex login --device-auth` with `CODEX_HOME=<resolved home>` and inherited env.
      - Capture stdout/stderr, parse verification URL + user code from stdout (regex-based), and return a structured result.
      - Expose a small pure parser function so unit tests can validate regex parsing with fixture output.
+     - When parsing fails, return the error message `device auth output not recognized` and include a truncated stdout sample in logs (never in API responses).
+     - When stderr contains an expired/declined message, return the error message `device code expired or was declined`.
      - Do not attempt to manage process lifetime beyond starting it; avoid extra logic beyond parsing.
 3. [ ] Add device-auth helper log lines:
    - Documentation to read (repeat):
@@ -207,6 +209,7 @@ Create a reusable helper that runs `codex login --device-auth`, parses the verif
      - `server/src/test/unit/codexDeviceAuth.test.ts` (new)
    - Description & purpose:
      - Simulate child process exit code != 0 and assert a distinct error is returned.
+     - Cover stderr that includes an expired/declined device-code message and assert the error message is `device code expired or was declined`.
 7. [ ] Update `projectStructure.md` after any file additions/removals in this task.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
@@ -257,19 +260,7 @@ Create a reusable helper that runs `codex login --device-auth`, parses the verif
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
      - Docker Compose docs: https://docs.docker.com/compose/
-8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001) to confirm device-auth route logging:
-   - Documentation to read (repeat):
-     - Playwright: Context7 `/microsoft/playwright`
-     - Playwright docs (intro): https://playwright.dev/docs/intro
-   - Checks:
-     - Chat and Agents pages load without errors.
-     - No errors appear in the Playwright debug console.
-     - Device-auth UI is not expected yet (helper-only change).
-     - Trigger device-auth via `POST /codex/device-auth` (use the browser console fetch once the route exists) and confirm logs:
-       - `DEV-0000031:T1:codex_device_auth_cli_start` appears when the CLI spawn begins.
-       - `DEV-0000031:T1:codex_device_auth_cli_parsed` appears on successful parsing.
-       - `DEV-0000031:T1:codex_device_auth_cli_failed` appears only if the CLI or parsing fails.
-9. [ ] `npm run compose:down`
+8. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
      - Docker Compose docs: https://docs.docker.com/compose/
@@ -343,6 +334,7 @@ Add `POST /codex/device-auth` that validates the target (chat or agent), calls t
      - When `target === 'agent'`, require a non-empty `agentName` that matches a discovered agent; return `404 { error: 'not_found' }` if missing.
      - If the Codex CLI is not available, return `503 { error: 'codex_unavailable', reason }` to align with other providers.
      - Call the helper from Task 1 and build `{ status: 'completed', verificationUrl, userCode, expiresInSec?, target, agentName? }`.
+     - If the helper returns `device auth output not recognized` or `device code expired or was declined`, return `400 { error: 'invalid_request', message }` so the dialog can show the message and allow retry.
    - Avoid logging `verificationUrl`/`userCode` in request/response logs; log only booleans or lengths.
    - Log request start + success/failure with `baseLogger` including `requestId`, `target`, and `agentName`.
    - Log lines to add:
@@ -466,18 +458,7 @@ Add `POST /codex/device-auth` that validates the target (chat or agent), calls t
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
      - Docker Compose docs: https://docs.docker.com/compose/
-8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001) to confirm config persistence logging:
-   - Documentation to read (repeat):
-     - Playwright: Context7 `/microsoft/playwright`
-     - Playwright docs (intro): https://playwright.dev/docs/intro
-   - Checks:
-     - Chat and Agents pages load without errors.
-     - No errors appear in the Playwright debug console.
-     - Trigger `POST /codex/device-auth` via browser console fetch and confirm logs:
-       - `DEV-0000031:T2:codex_device_auth_request_received` appears for the request.
-       - `DEV-0000031:T2:codex_device_auth_request_completed` appears on success **or**
-       - `DEV-0000031:T2:codex_device_auth_request_failed` appears with `status` when validation/Codex errors occur.
-9. [ ] `npm run compose:down`
+8. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
      - Docker Compose docs: https://docs.docker.com/compose/
@@ -611,16 +592,7 @@ Ensure the Codex config enforces `cli_auth_credentials_store = "file"` so device
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
      - Docker Compose docs: https://docs.docker.com/compose/
-8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001) to confirm propagation logging:
-   - Documentation to read (repeat):
-     - Playwright: Context7 `/microsoft/playwright`
-     - Playwright docs (intro): https://playwright.dev/docs/intro
-   - Checks:
-     - Chat and Agents pages load without errors.
-     - No errors appear in the Playwright debug console.
-     - Trigger `POST /codex/device-auth` and confirm log line:
-       - `DEV-0000031:T3:codex_device_auth_config_persisted` appears with `changed` set appropriately.
-9. [ ] `npm run compose:down`
+8. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
      - Docker Compose docs: https://docs.docker.com/compose/
@@ -761,20 +733,7 @@ Copy refreshed `auth.json` to agent homes when targeting chat, and refresh Codex
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
      - Docker Compose docs: https://docs.docker.com/compose/
-8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001) to confirm client API logging:
-   - Documentation to read (repeat):
-     - Playwright: Context7 `/microsoft/playwright`
-     - Playwright docs (intro): https://playwright.dev/docs/intro
-   - Checks:
-     - Chat and Agents pages load without errors.
-     - No errors appear in the Playwright debug console.
-     - Trigger `POST /codex/device-auth` with target `chat` and confirm logs:
-       - `DEV-0000031:T4:codex_device_auth_propagated` with `agentCount` >= 0.
-       - `DEV-0000031:T4:codex_device_auth_availability_refreshed` when target is `chat`.
-     - Trigger `POST /codex/device-auth` with target `agent` and confirm:
-       - `DEV-0000031:T4:codex_device_auth_propagated` shows the selected agent name.
-       - No `DEV-0000031:T4:codex_device_auth_availability_refreshed` log is emitted for agent-only refresh.
-9. [ ] `npm run compose:down`
+8. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
      - Docker Compose docs: https://docs.docker.com/compose/
@@ -919,19 +878,7 @@ Create a client API helper for `POST /codex/device-auth` with typed request/resp
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
      - Docker Compose docs: https://docs.docker.com/compose/
-8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001) to confirm dialog logging:
-   - Documentation to read (repeat):
-     - Playwright: Context7 `/microsoft/playwright`
-     - Playwright docs (intro): https://playwright.dev/docs/intro
-   - Checks:
-     - Chat and Agents pages load without errors.
-     - No errors appear in the Playwright debug console.
-     - Trigger device-auth via a UI flow once available and confirm client logs:
-       - `DEV-0000031:T5:codex_device_auth_api_request` when the API call starts.
-       - `DEV-0000031:T5:codex_device_auth_api_response` on success **or**
-       - `DEV-0000031:T5:codex_device_auth_api_error` on non-200 responses.
-     - Capture a baseline Chat page screenshot to confirm no UI regressions and save it under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped via `docker-compose.local.yml`).
-9. [ ] `npm run compose:down`
+8. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
      - Docker Compose docs: https://docs.docker.com/compose/
@@ -1115,19 +1062,7 @@ Build a reusable dialog component that runs device-auth, shows loading/error/suc
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
      - Docker Compose docs: https://docs.docker.com/compose/
-8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001) to confirm no regressions:
-   - Documentation to read (repeat):
-     - Playwright: Context7 `/microsoft/playwright`
-     - Playwright docs (intro): https://playwright.dev/docs/intro
-   - Checks:
-     - Chat and Agents pages load without errors.
-     - No errors appear in the Playwright debug console.
-     - Open the device-auth dialog (once wired) and confirm client logs:
-       - `DEV-0000031:T6:codex_device_auth_dialog_open` when the dialog opens.
-       - `DEV-0000031:T6:codex_device_auth_dialog_success` after successful device-auth.
-       - `DEV-0000031:T6:codex_device_auth_dialog_error` when the API call fails.
-     - Capture screenshots of the dialog UI states and save them under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped via `docker-compose.local.yml`) for GUI review.
-9. [ ] `npm run compose:down`
+8. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
      - Docker Compose docs: https://docs.docker.com/compose/
@@ -1493,8 +1428,6 @@ Validate the story end-to-end, run clean builds/tests, update documentation, and
      - `projectStructure.md`
    - Description & purpose:
      - Update repo root `projectStructure.md` tree for all files added/removed in this story.
-   - Description & purpose:
-     - Update repo root `projectStructure.md` with any files added/removed/renamed in this task.
 4. [ ] Create a PR summary comment covering all changes in this story
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
@@ -1503,17 +1436,7 @@ Validate the story end-to-end, run clean builds/tests, update documentation, and
     - `test-results/screenshots/`
    - Snippets to locate:
      - Final task acceptance criteria for summary scope
-5. [ ] Add final validation log line for manual checks:
-   - Documentation to read (repeat):
-     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-   - Files to read:
-     - `client/src/logging/logger.ts`
-   - Files to edit:
-     - `client/src/pages/LogsPage.tsx`
-   - Implementation details:
-     - Emit `DEV-0000031:T9:codex_device_auth_validation_started` when `?validation=codex-device-auth` is present on the Logs page.
-     - Include `route` and `validation` in context; avoid any sensitive payloads.
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -1562,8 +1485,6 @@ Validate the story end-to-end, run clean builds/tests, update documentation, and
      - No errors appear in the Playwright debug console.
      - Capture screenshots for all UI acceptance checks above and save them under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped via `docker-compose.local.yml`).
      - Also save the required naming-convention copies to `test-results/screenshots` for the PR checklist.
-     - Open `/logs?validation=codex-device-auth` and confirm log:
-       - `DEV-0000031:T9:codex_device_auth_validation_started` appears once per page load.
 9. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`

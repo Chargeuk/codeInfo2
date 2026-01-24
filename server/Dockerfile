@@ -75,8 +75,8 @@ RUN ln -s /usr/bin/fdfind /usr/local/bin/fd
 RUN ln -s /usr/bin/chromium /usr/bin/google-chrome
 
 # Add a small Python toolbox for agent automation (scripts, parsing, API calls).
-RUN python3 -m pip install --no-cache-dir --upgrade pip && \
-    python3 -m pip install --no-cache-dir \
+RUN python3 -m pip install --no-cache-dir --upgrade pip --break-system-packages && \
+    python3 -m pip install --no-cache-dir --break-system-packages \
       requests \
       pyyaml \
       toml \

@@ -1,6 +1,16 @@
+# syntax=docker/dockerfile:1.7
 FROM node:22-slim AS deps
 WORKDIR /app
 ENV HUSKY=0
+COPY package*.json ./
+COPY package-lock.json ./
+COPY common/package*.json ./common/
+COPY server/package*.json ./server/
+RUN npm ci --workspaces --include-workspace-root --ignore-scripts --no-audit --no-fund
+FROM node:22-slim AS build
+WORKDIR /app
+ENV HUSKY=0
+COPY --from=deps /app/node_modules /app/node_modules
 COPY package*.json ./
 COPY package-lock.json ./
 COPY common/package*.json ./common/
@@ -10,10 +20,6 @@ COPY tsconfig*.json ./
 COPY tsconfig.base.json ./
 COPY common ./common
 COPY server ./server
-RUN npm ci --workspaces --include-workspace-root --ignore-scripts --no-audit --no-fund
-FROM node:22-slim AS build
-WORKDIR /app
-COPY --from=deps /app .
 RUN npm run build --workspace common && npm run build --workspace server
 
 FROM node:22-slim AS runtime
@@ -39,7 +45,9 @@ RUN apt-get update && apt-get install -y docker-ce-cli docker-compose-plugin
 
 WORKDIR /app/server
 ENV HUSKY=0
-RUN apt-get update && apt-get install -y \
+RUN --mount=type=cache,target=/var/cache/apt,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,sharing=locked \
+    apt-get update && apt-get install -y \
     curl \
     git \
     git-lfs \
@@ -55,6 +63,10 @@ RUN apt-get update && apt-get install -y \
     dnsutils \
     openssl \
     openssh-client \
+    python3 \
+    python3-dev \
+    python3-pip \
+    python3-venv \
     unzip \
     zip \
     vim-tiny \
@@ -70,26 +82,29 @@ RUN ln -s /usr/bin/fdfind /usr/local/bin/fd
 # Align Chrome binary name for tooling that expects google-chrome.
 RUN ln -s /usr/bin/chromium /usr/bin/google-chrome
 
+# Add Python tooling in an isolated, cacheable layer.
+COPY server/requirements.txt /tmp/requirements.txt
+RUN --mount=type=cache,target=/root/.cache/pip \
+    python3 -m pip install --break-system-packages --upgrade pip && \
+    python3 -m pip install --break-system-packages -r /tmp/requirements.txt
+
+# Install global CLI tooling in a cacheable layer.
+COPY server/npm-global.txt /tmp/npm-global.txt
+RUN --mount=type=cache,target=/root/.npm \
+    xargs -r npm install -g --force < /tmp/npm-global.txt
+
+# Set Playwright to use the browsers installed during build.
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+# Install Playwright system dependencies and browsers.
+RUN npx playwright install-deps chromium
+RUN npx playwright install chromium
+
 COPY --from=build /app/node_modules /app/node_modules
 COPY --from=build /app/common /app/common
 COPY --from=build /app/server/dist ./dist
 COPY --from=build /app/server/package*.json ./
 COPY --from=build /app/server/entrypoint.sh ./entrypoint.sh
 COPY --from=build /app/config.toml.example /app/server/config.toml.example
-
-# Set Playwright to use the browsers installed during build AFTER node_modules are in place to ensure the correct version is used
-ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
-# Install Playwright system dependencies and browsers
-RUN npx playwright install-deps chromium
-RUN npx playwright install chromium
-
-RUN npm install -g @openai/codex
-RUN npm install -g mcp-remote
-RUN npm install -g --force @upstash/context7-mcp
-RUN npm install -g --force @mui/mcp@latest
-RUN npm install -g --force @playwright/mcp@latest
-RUN npm install -g --force chrome-devtools-mcp
-RUN npm install -g git-credential-forwarder
 
 # Use the forwarder for any user inside the container.
 RUN git config --system credential.helper '!f(){ gcf-client $*; }; f'

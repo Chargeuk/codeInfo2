@@ -1,0 +1,7 @@
+@openai/codex
+mcp-remote
+@upstash/context7-mcp
+@mui/mcp@latest
+@playwright/mcp@latest
+chrome-devtools-mcp
+git-credential-forwarder

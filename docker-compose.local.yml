@@ -10,7 +10,7 @@ services:
     user: "${CODEINFO_DOCKER_UID:-1000}:${CODEINFO_DOCKER_GID:-1000}"
     group_add:
       # Allow non-root user to access /var/run/docker.sock for Testcontainers.
-      - "${CODEINFO_DOCKER_SOCK_GID:-${CODEINFO_DOCKER_GID:-1000}}"
+      - "${CODEINFO_DOCKER_SOCK_GID:-0}"
     ports:
       - '5510:5010'
       - '5511:5011'

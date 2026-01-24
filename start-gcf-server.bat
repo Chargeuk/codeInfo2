@@ -4,6 +4,7 @@ setlocal
 set "DEFAULT_GCF_PORT=24875"
 set "GIT_CREDENTIAL_FORWARDER_DEBUG=true"
 set "PATH=C:\Program Files\Git\mingw64\bin;%PATH%"
+set "GIT_CREDENTIAL_FORWARDER_GIT_PATH=C:\Program Files\Git\mingw64\bin\git.exe"
 if not "%~1"=="" (
   set "GIT_CREDENTIAL_FORWARDER_PORT=%~1"
 ) else (

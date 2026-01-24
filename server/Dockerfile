@@ -88,7 +88,8 @@ RUN python3 -m pip install --no-cache-dir --upgrade pip && \
       httpx \
       python-dateutil \
       beautifulsoup4 \
-      lxml
+      lxml \
+      pandas
 
 COPY --from=build /app/node_modules /app/node_modules
 COPY --from=build /app/common /app/common

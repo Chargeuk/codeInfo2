@@ -803,7 +803,32 @@ Build a reusable dialog component that runs device-auth, shows loading/error/suc
      - `client/src/test/codexDeviceAuthDialog.test.tsx` (new)
    - Description & purpose:
      - Close button invokes `onClose` even after an error state.
-7. [ ] Update `projectStructure.md` after any file additions/removals in this task.
+7. [ ] Unit test (client) — dialog copy buttons:
+   - Documentation to read (repeat):
+     - Jest: Context7 `/websites/jestjs_io_30_0`
+     - Jest docs: https://jestjs.io/docs/getting-started
+     - Clipboard API: https://developer.mozilla.org/en-US/docs/Web/API/Clipboard_API
+   - Files to edit:
+     - `client/src/test/codexDeviceAuthDialog.test.tsx` (new)
+   - Description & purpose:
+     - Clicking copy buttons uses the clipboard API for `verificationUrl` and `userCode`.
+8. [ ] Unit test (client) — dialog target change:
+   - Documentation to read (repeat):
+     - Jest: Context7 `/websites/jestjs_io_30_0`
+     - Jest docs: https://jestjs.io/docs/getting-started
+   - Files to edit:
+     - `client/src/test/codexDeviceAuthDialog.test.tsx` (new)
+   - Description & purpose:
+     - Selecting a different target updates the request payload before starting device auth.
+9. [ ] Unit test (client) — expiresInSec display:
+   - Documentation to read (repeat):
+     - Jest: Context7 `/websites/jestjs_io_30_0`
+     - Jest docs: https://jestjs.io/docs/getting-started
+   - Files to edit:
+     - `client/src/test/codexDeviceAuthDialog.test.tsx` (new)
+   - Description & purpose:
+     - When the API response includes `expiresInSec`, the dialog renders the expiry text.
+10. [ ] Update `projectStructure.md` after any file additions/removals in this task.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to read:
@@ -812,7 +837,7 @@ Build a reusable dialog component that runs device-auth, shows loading/error/suc
      - `projectStructure.md`
    - Description & purpose:
      - Update repo root `projectStructure.md` with any files added/removed/renamed in this task.
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
+11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli

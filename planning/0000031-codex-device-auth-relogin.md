@@ -154,7 +154,7 @@ Create a reusable helper that runs `codex login --device-auth`, parses the verif
 
 #### Subtasks
 
-1. [ ] Review Codex CLI + config helpers used for spawning:
+1. [x] Review Codex CLI + config helpers used for spawning:
    - Documentation to read (repeat):
      - Codex CLI reference (`codex login`): https://developers.openai.com/codex/cli/reference
    - Files to read:
@@ -164,7 +164,9 @@ Create a reusable helper that runs `codex login --device-auth`, parses the verif
    - Snippets to locate:
      - `buildCodexOptions` env handling
      - CLI detection logic (`command -v codex`)
-2. [ ] Add a CLI device-auth helper:
+   - Notes:
+     - Reviewed existing Codex config and CLI detection helpers for env handling and availability checks.
+2. [x] Add a CLI device-auth helper:
    - Documentation to read (repeat):
      - Node.js child_process: https://nodejs.org/download/release/v22.19.0/docs/api/child_process.html
    - Files to edit:
@@ -176,7 +178,7 @@ Create a reusable helper that runs `codex login --device-auth`, parses the verif
      - When parsing fails, return the error message `device auth output not recognized` and include a truncated stdout sample in logs (never in API responses).
      - When stderr contains an expired/declined message, return the error message `device code expired or was declined`.
      - Do not attempt to manage process lifetime beyond starting it; avoid extra logic beyond parsing.
-3. [ ] Add device-auth helper log lines:
+3. [x] Add device-auth helper log lines:
    - Documentation to read (repeat):
      - Pino logger: https://getpino.io/#/
    - Files to read:
@@ -188,21 +190,21 @@ Create a reusable helper that runs `codex login --device-auth`, parses the verif
      - Log when parsing succeeds: `DEV-0000031:T1:codex_device_auth_cli_parsed` (include booleans for `hasVerificationUrl`, `hasUserCode`, `hasExpiresInSec`).
      - Log when the CLI fails or parsing fails: `DEV-0000031:T1:codex_device_auth_cli_failed` (include `exitCode` and a sanitized error summary).
      - Do not log the verification URL or user code values.
-4. [ ] Unit test (server) — parser extracts device-auth data:
+4. [x] Unit test (server) — parser extracts device-auth data:
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
    - Files to edit:
      - `server/src/test/unit/codexDeviceAuth.test.ts` (new)
    - Description & purpose:
      - Feed sample CLI stdout into the parser and assert it returns `verificationUrl` + `userCode`.
-5. [ ] Unit test (server) — parser rejects missing fields:
+5. [x] Unit test (server) — parser rejects missing fields:
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
    - Files to edit:
      - `server/src/test/unit/codexDeviceAuth.test.ts` (new)
    - Description & purpose:
      - Provide stdout missing `verificationUrl` or `userCode` and assert the parser returns an error.
-6. [ ] Unit test (server) — runner reports non-zero exit:
+6. [x] Unit test (server) — runner reports non-zero exit:
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
    - Files to edit:
@@ -210,7 +212,7 @@ Create a reusable helper that runs `codex login --device-auth`, parses the verif
    - Description & purpose:
      - Simulate child process exit code != 0 and assert a distinct error is returned.
      - Cover stderr that includes an expired/declined device-code message and assert the error message is `device code expired or was declined`.
-7. [ ] Update `projectStructure.md` after any file additions/removals in this task.
+7. [x] Update `projectStructure.md` after any file additions/removals in this task.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to read:
@@ -222,7 +224,7 @@ Create a reusable helper that runs `codex login --device-auth`, parses the verif
     - Add entries for:
       - `server/src/utils/codexDeviceAuth.ts`
       - `server/src/test/unit/codexDeviceAuth.test.ts`
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+8. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -235,10 +237,10 @@ Create a reusable helper that runs `codex login --device-auth`, parses the verif
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 3. [ ] `npm run test --workspace server`
@@ -268,6 +270,15 @@ Create a reusable helper that runs `codex login --device-auth`, parses the verif
 #### Implementation notes
 
 - 2026-01-24: Task 1 marked in progress.
+- 2026-01-24: Reviewed Codex config/detection helpers for CLI spawn context.
+- 2026-01-24: Lint shows pre-existing import/order warnings in server test/ingest files; format check clean.
+- 2026-01-24: Added `codexDeviceAuth` helper with parsing, sanitized logging, and error mapping; added unit tests for parse and failure cases.
+- 2026-01-24: Ran format after initial check flagged new helper; formatting now applied.
+- 2026-01-24: Updated `projectStructure.md` with new helper and unit test entries.
+- 2026-01-24: Lint still reports pre-existing import/order warnings; format check passes after running Prettier.
+- 2026-01-24: Server build succeeded (`npm run build --workspace server`).
+- 2026-01-24: Client build succeeded (`npm run build --workspace client`), with existing chunk size warnings.
+- 2026-01-24: Server tests blocked — Cucumber integration suite fails to connect to Chroma (Docker unavailable: `docker ps` permission denied). Ran with `TMPDIR=/tmp` to avoid mkdtemp errors; unit tests ran but integration tests failed due to missing Chroma.
 
 ---
 

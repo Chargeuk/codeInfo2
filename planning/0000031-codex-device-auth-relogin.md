@@ -225,21 +225,37 @@ Create a reusable helper that runs `codex login --device-auth`, parses the verif
 2. [ ] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-3. [ ] `npm run compose:build:clean`
-   - Documentation to read (repeat):
-     - Docker/Compose: Context7 `/docker/docs`
-- Docker Compose docs: https://docs.docker.com/compose/
-4. [ ] `npm run compose:up`
-   - Documentation to read (repeat):
-     - Docker/Compose: Context7 `/docker/docs`
-- Docker Compose docs: https://docs.docker.com/compose/
-5. [ ] `npm run test --workspace server`
+3. [ ] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-6. [ ] `npm run compose:down`
+4. [ ] `npm run test --workspace client`
+   - Documentation to read (repeat):
+     - Jest: Context7 `/websites/jestjs_io_30_0`
+     - Jest docs: https://jestjs.io/docs/getting-started
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
+     - Playwright docs (intro): https://playwright.dev/docs/intro
+6. [ ] `npm run compose:build`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-- Docker Compose docs: https://docs.docker.com/compose/
+     - Docker Compose docs: https://docs.docker.com/compose/
+7. [ ] `npm run compose:up`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+     - Docker Compose docs: https://docs.docker.com/compose/
+8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001) to confirm no regressions:
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
+     - Playwright docs (intro): https://playwright.dev/docs/intro
+   - Checks:
+     - Chat and Agents pages load without errors.
+     - No errors appear in the Playwright debug console.
+     - Device-auth UI is not expected yet (helper-only change).
+9. [ ] `npm run compose:down`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+     - Docker Compose docs: https://docs.docker.com/compose/
 
 #### Implementation notes
 
@@ -409,21 +425,37 @@ Add `POST /codex/device-auth` that validates the target (chat or agent), calls t
 2. [ ] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-3. [ ] `npm run compose:build:clean`
-   - Documentation to read (repeat):
-     - Docker/Compose: Context7 `/docker/docs`
-- Docker Compose docs: https://docs.docker.com/compose/
-4. [ ] `npm run compose:up`
-   - Documentation to read (repeat):
-     - Docker/Compose: Context7 `/docker/docs`
-- Docker Compose docs: https://docs.docker.com/compose/
-5. [ ] `npm run test --workspace server`
+3. [ ] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-6. [ ] `npm run compose:down`
+4. [ ] `npm run test --workspace client`
+   - Documentation to read (repeat):
+     - Jest: Context7 `/websites/jestjs_io_30_0`
+     - Jest docs: https://jestjs.io/docs/getting-started
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
+     - Playwright docs (intro): https://playwright.dev/docs/intro
+6. [ ] `npm run compose:build`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-- Docker Compose docs: https://docs.docker.com/compose/
+     - Docker Compose docs: https://docs.docker.com/compose/
+7. [ ] `npm run compose:up`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+     - Docker Compose docs: https://docs.docker.com/compose/
+8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001) to confirm no regressions:
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
+     - Playwright docs (intro): https://playwright.dev/docs/intro
+   - Checks:
+     - Chat and Agents pages load without errors.
+     - No errors appear in the Playwright debug console.
+     - Device-auth UI is not expected yet (route-only change).
+9. [ ] `npm run compose:down`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+     - Docker Compose docs: https://docs.docker.com/compose/
 
 #### Implementation notes
 
@@ -518,11 +550,42 @@ Ensure the Codex config enforces `cli_auth_credentials_store = "file"` so device
 #### Testing
 
 1. [ ] `npm run build --workspace server`
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 2. [ ] `npm run build --workspace client`
-3. [ ] `npm run compose:build:clean`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test --workspace server`
-6. [ ] `npm run compose:down`
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+3. [ ] `npm run test --workspace server`
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+4. [ ] `npm run test --workspace client`
+   - Documentation to read (repeat):
+     - Jest: Context7 `/websites/jestjs_io_30_0`
+     - Jest docs: https://jestjs.io/docs/getting-started
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
+     - Playwright docs (intro): https://playwright.dev/docs/intro
+6. [ ] `npm run compose:build`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+     - Docker Compose docs: https://docs.docker.com/compose/
+7. [ ] `npm run compose:up`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+     - Docker Compose docs: https://docs.docker.com/compose/
+8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001) to confirm no regressions:
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
+     - Playwright docs (intro): https://playwright.dev/docs/intro
+   - Checks:
+     - Chat and Agents pages load without errors.
+     - No errors appear in the Playwright debug console.
+     - Device-auth UI is not expected yet (config helper change).
+9. [ ] `npm run compose:down`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+     - Docker Compose docs: https://docs.docker.com/compose/
 
 #### Implementation notes
 
@@ -631,11 +694,42 @@ Copy refreshed `auth.json` to agent homes when targeting chat, and refresh Codex
 #### Testing
 
 1. [ ] `npm run build --workspace server`
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 2. [ ] `npm run build --workspace client`
-3. [ ] `npm run compose:build:clean`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test --workspace server`
-6. [ ] `npm run compose:down`
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+3. [ ] `npm run test --workspace server`
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+4. [ ] `npm run test --workspace client`
+   - Documentation to read (repeat):
+     - Jest: Context7 `/websites/jestjs_io_30_0`
+     - Jest docs: https://jestjs.io/docs/getting-started
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
+     - Playwright docs (intro): https://playwright.dev/docs/intro
+6. [ ] `npm run compose:build`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+     - Docker Compose docs: https://docs.docker.com/compose/
+7. [ ] `npm run compose:up`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+     - Docker Compose docs: https://docs.docker.com/compose/
+8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001) to confirm no regressions:
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
+     - Playwright docs (intro): https://playwright.dev/docs/intro
+   - Checks:
+     - Chat and Agents pages load without errors.
+     - No errors appear in the Playwright debug console.
+     - Device-auth UI is not expected yet (server propagation change only).
+9. [ ] `npm run compose:down`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+     - Docker Compose docs: https://docs.docker.com/compose/
 
 #### Implementation notes
 
@@ -740,11 +834,42 @@ Create a client API helper for `POST /codex/device-auth` with typed request/resp
 #### Testing
 
 1. [ ] `npm run build --workspace server`
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 2. [ ] `npm run build --workspace client`
-3. [ ] `npm run compose:build:clean`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test --workspace client`
-6. [ ] `npm run compose:down`
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+3. [ ] `npm run test --workspace server`
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+4. [ ] `npm run test --workspace client`
+   - Documentation to read (repeat):
+     - Jest: Context7 `/websites/jestjs_io_30_0`
+     - Jest docs: https://jestjs.io/docs/getting-started
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
+     - Playwright docs (intro): https://playwright.dev/docs/intro
+6. [ ] `npm run compose:build`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+     - Docker Compose docs: https://docs.docker.com/compose/
+7. [ ] `npm run compose:up`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+     - Docker Compose docs: https://docs.docker.com/compose/
+8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001) to confirm no regressions:
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
+     - Playwright docs (intro): https://playwright.dev/docs/intro
+   - Checks:
+     - Chat and Agents pages load without errors.
+     - No errors appear in the Playwright debug console.
+     - Device-auth UI is not expected yet (API helper change only).
+9. [ ] `npm run compose:down`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+     - Docker Compose docs: https://docs.docker.com/compose/
 
 #### Implementation notes
 
@@ -897,11 +1022,42 @@ Build a reusable dialog component that runs device-auth, shows loading/error/suc
 #### Testing
 
 1. [ ] `npm run build --workspace server`
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 2. [ ] `npm run build --workspace client`
-3. [ ] `npm run compose:build:clean`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test --workspace client`
-6. [ ] `npm run compose:down`
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+3. [ ] `npm run test --workspace server`
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+4. [ ] `npm run test --workspace client`
+   - Documentation to read (repeat):
+     - Jest: Context7 `/websites/jestjs_io_30_0`
+     - Jest docs: https://jestjs.io/docs/getting-started
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
+     - Playwright docs (intro): https://playwright.dev/docs/intro
+6. [ ] `npm run compose:build`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+     - Docker Compose docs: https://docs.docker.com/compose/
+7. [ ] `npm run compose:up`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+     - Docker Compose docs: https://docs.docker.com/compose/
+8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001) to confirm no regressions:
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
+     - Playwright docs (intro): https://playwright.dev/docs/intro
+   - Checks:
+     - Chat and Agents pages load without errors.
+     - No errors appear in the Playwright debug console.
+     - Device-auth UI is not expected yet (dialog component only, not wired).
+9. [ ] `npm run compose:down`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+     - Docker Compose docs: https://docs.docker.com/compose/
 
 #### Implementation notes
 
@@ -1010,11 +1166,42 @@ Expose the re-authenticate button in Chat when Codex is selected + available, de
 #### Testing
 
 1. [ ] `npm run build --workspace server`
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 2. [ ] `npm run build --workspace client`
-3. [ ] `npm run compose:build:clean`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test --workspace client`
-6. [ ] `npm run compose:down`
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+3. [ ] `npm run test --workspace server`
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+4. [ ] `npm run test --workspace client`
+   - Documentation to read (repeat):
+     - Jest: Context7 `/websites/jestjs_io_30_0`
+     - Jest docs: https://jestjs.io/docs/getting-started
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
+     - Playwright docs (intro): https://playwright.dev/docs/intro
+6. [ ] `npm run compose:build`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+     - Docker Compose docs: https://docs.docker.com/compose/
+7. [ ] `npm run compose:up`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+     - Docker Compose docs: https://docs.docker.com/compose/
+8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001) to confirm Chat device-auth UI:
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
+     - Playwright docs (intro): https://playwright.dev/docs/intro
+   - Checks:
+     - Chat page shows the Codex device-auth button when Codex is selected.
+     - Opening the dialog defaults the target to Chat.
+     - No errors appear in the Playwright debug console.
+9. [ ] `npm run compose:down`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+     - Docker Compose docs: https://docs.docker.com/compose/
 
 #### Implementation notes
 
@@ -1130,11 +1317,42 @@ Show the re-authenticate button on Agents when a selection is active and Codex i
 #### Testing
 
 1. [ ] `npm run build --workspace server`
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 2. [ ] `npm run build --workspace client`
-3. [ ] `npm run compose:build:clean`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test --workspace client`
-6. [ ] `npm run compose:down`
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+3. [ ] `npm run test --workspace server`
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+4. [ ] `npm run test --workspace client`
+   - Documentation to read (repeat):
+     - Jest: Context7 `/websites/jestjs_io_30_0`
+     - Jest docs: https://jestjs.io/docs/getting-started
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
+     - Playwright docs (intro): https://playwright.dev/docs/intro
+6. [ ] `npm run compose:build`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+     - Docker Compose docs: https://docs.docker.com/compose/
+7. [ ] `npm run compose:up`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+     - Docker Compose docs: https://docs.docker.com/compose/
+8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001) to confirm Agents device-auth UI:
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
+     - Playwright docs (intro): https://playwright.dev/docs/intro
+   - Checks:
+     - Agents page shows the Codex device-auth button for a selected agent.
+     - Dialog defaults the target to the selected agent.
+     - No errors appear in the Playwright debug console.
+9. [ ] `npm run compose:down`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+     - Docker Compose docs: https://docs.docker.com/compose/
 
 #### Implementation notes
 
@@ -1211,54 +1429,45 @@ Validate the story end-to-end, run clean builds/tests, update documentation, and
 
 #### Testing
 
-1. [ ] Build the server
+1. [ ] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-   - Files to read:
-     - `package.json`
-     - `server/package.json`
-   - Snippets to locate:
-     - `build` script for the server workspace
-2. [ ] Build the client
+2. [ ] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-   - Files to read:
-     - `package.json`
-     - `client/package.json`
-   - Snippets to locate:
-     - `build` script for the client workspace
-3. [ ] Perform a clean Docker build
+3. [ ] `npm run test --workspace server`
    - Documentation to read (repeat):
-     - Docker/Compose: Context7 `/docker/docs`
-     - Docker Compose docs: https://docs.docker.com/compose/
-   - Files to read:
-     - `package.json`
-     - `docker-compose.yml`
-   - Snippets to locate:
-     - `compose:build:clean` script at the repo root
-4. [ ] Run the client Jest tests
+     - Node.js test runner: https://nodejs.org/api/test.html
+4. [ ] `npm run test --workspace client`
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
      - Jest docs: https://jestjs.io/docs/getting-started
-5. [ ] Run the server Cucumber tests
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
    - Documentation to read (repeat):
-     - Cucumber guides (overview): https://cucumber.io/docs/guides/
-     - Cucumber guides (tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/
-6. [ ] Restart the Docker environment
+     - Playwright: Context7 `/microsoft/playwright`
+     - Playwright docs (intro): https://playwright.dev/docs/intro
+6. [ ] `npm run compose:build`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
      - Docker Compose docs: https://docs.docker.com/compose/
-7. [ ] Run the e2e tests
+7. [ ] `npm run compose:up`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+     - Docker Compose docs: https://docs.docker.com/compose/
+8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001) to confirm device-auth flow + regressions:
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
      - Playwright docs (intro): https://playwright.dev/docs/intro
-8. [ ] Use Playwright MCP to manually verify:
+   - Checks:
+     - Chat page shows the Codex device-auth button when Codex is selected.
+     - Dialog starts device-auth, shows the verification URL + user code, and allows copy actions.
+     - Agents page shows the Codex device-auth button for a selected agent and defaults to that agent.
+     - No errors appear in the Playwright debug console.
+     - Save screenshots to `test-results/screenshots` using the required naming convention.
+9. [ ] `npm run compose:down`
    - Documentation to read (repeat):
-     - Playwright: Context7 `/microsoft/playwright`
-     - Playwright docs (intro): https://playwright.dev/docs/intro
-   - Chat page shows the device-auth button for Codex and the dialog works.
-   - Agents page shows the device-auth button for a selected agent and the dialog works.
-   - Save screenshots to `test-results/screenshots` using the required naming convention.
+     - Docker/Compose: Context7 `/docker/docs`
+     - Docker Compose docs: https://docs.docker.com/compose/
 
 #### Implementation notes
 

@@ -55,6 +55,10 @@ RUN apt-get update && apt-get install -y \
     dnsutils \
     openssl \
     openssh-client \
+    python3 \
+    python3-dev \
+    python3-pip \
+    python3-venv \
     unzip \
     zip \
     vim-tiny \
@@ -69,6 +73,16 @@ RUN ln -s /usr/bin/fdfind /usr/local/bin/fd
 
 # Align Chrome binary name for tooling that expects google-chrome.
 RUN ln -s /usr/bin/chromium /usr/bin/google-chrome
+
+# Add a small Python toolbox for agent automation (scripts, parsing, API calls).
+RUN python3 -m pip install --no-cache-dir --upgrade pip && \
+    python3 -m pip install --no-cache-dir \
+      requests \
+      pyyaml \
+      toml \
+      jsonschema \
+      rich \
+      python-dotenv
 
 COPY --from=build /app/node_modules /app/node_modules
 COPY --from=build /app/common /app/common

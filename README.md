@@ -34,6 +34,27 @@ npm install
 - Behaviour when missing: if the CLI, `auth.json`, or `config.toml` are absent (and no host auth is available to copy), Codex stays disabled; startup logs explain which prerequisite is missing and the chat UI shows a disabled-state banner.
 - Chat defaults: Codex runs with `workingDirectory=/data`, `skipGitRepoCheck:true`, and requires MCP tools declared under `[mcp_servers.codeinfo_host]` / `[mcp_servers.codeinfo_docker]` in `config.toml`.
 
+## WSL + SourceTree (Windows Git)
+
+If SourceTree is pointed at the WSL repo and shows `start-gcf-server.sh` (or other files) as modified while WSL Git shows a clean tree, it is usually a **file mode** mismatch (Windows Git does not track executable bits).
+
+Recommended config:
+
+```sh
+# Windows Git (SourceTree) - ignore file mode changes
+git -C //wsl$/Ubuntu/home/d_a_s/code/codeInfo2 config --global core.filemode false
+git -C //wsl$/Ubuntu/home/d_a_s/code/codeInfo2 config --unset core.filemode
+
+# WSL Git - keep executable bit tracking
+git config --global core.filemode true
+```
+
+After updating, reset the file in Windows Git to clear the status:
+
+```sh
+git -C //wsl$/Ubuntu/home/d_a_s/code/codeInfo2 checkout -- start-gcf-server.sh
+```
+
 ## Codex agents (folder layout)
 
 Agents are discovered from the directory set by `CODEINFO_CODEX_AGENT_HOME`. Each direct subfolder is treated as an agent when it contains a `config.toml` file.

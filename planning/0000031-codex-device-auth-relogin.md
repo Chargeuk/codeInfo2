@@ -76,15 +76,20 @@ This story does **not** add new business features; it only improves how the syst
 
 ---
 
-## Implementation Ideas (high-level)
+## Implementation Ideas
 
-- **Device-auth endpoint:** Add `POST /codex/device-auth` that runs `codex login --device-auth` and returns `{ status, verificationUrl, userCode, expiresInSec?, target }` once the CLI completes. The body should be `{ target: "chat" | "agent", agentName?: string }`, and the server resolves the Codex home (no raw paths from the client).
-- **Capture login output:** Parse the device-auth prompt from **stdout** (no JSON output available) to extract `verificationUrl` and `userCode` for the UI.
-- **Credential storage:** Ensure the Codex home used by the server/agent is configured with `cli_auth_credentials_store = "file"` so `auth.json` is written and can be copied to agent homes; otherwise document/handle keyring-only storage.
-- **UI action visibility:** Add a shared “Re-authenticate (device auth)” control on Chat and Agents pages that is shown **only** when Codex is the selected provider and Codex is available; hide it otherwise.
-- **Dialog flow:** Implement a reusable centered dialog component that manages the device-auth steps (idle → in-flight → success/error). While the request is in flight, show a spinner; on success, show verification URL + code (with copy buttons) and a toast.
-- **Target selection:** Include a selector in the dialog for Chat vs specific Agent home; default to the page context but allow switching before issuing the login request.
-- **Telemetry/logging:** Add structured logs for start/success/error with target info and duration.
+- **Server endpoint (new):** Add `POST /codex/device-auth` under `server/src/routes` (new router or in `chat.ts`) that validates `{ target: "chat" | "agent", agentName? }`, resolves the Codex home via `server/src/config/codexConfig.ts`, and spawns `codex login --device-auth` with `CODEX_HOME` set to that home.
+- **Stdout parsing:** Capture CLI **stdout** and parse the verification URL + user code from the device-auth prompt (no JSON output available) before returning `{ status, verificationUrl, userCode, expiresInSec?, target, agentName? }`.
+- **Credential storage policy:** Ensure `cli_auth_credentials_store = "file"` in the target Codex `config.toml` so `auth.json` is written in containers; if we keep `keyring/auto`, return a warning to the UI when `auth.json` is missing.
+- **Detection refresh:** After login, refresh `CodexDetection` in `server/src/providers/codexRegistry.ts` (and any `codexAvailability` helpers) so `/chat/providers` reports Codex available without a restart.
+- **Agent propagation:** If login is done for chat, call `server/src/agents/authSeed.ts` to copy the updated `auth.json` into each agent home; if login is done for an agent, also update the primary home or explicitly document the expected propagation behavior.
+- **Client API helper:** Add a small client API wrapper for `POST /codex/device-auth` and error shapes alongside existing fetch helpers (`client/src/api/*`).
+- **Dialog component:** Create a reusable `CodexDeviceAuthDialog` (e.g., `client/src/components/codex/`) using MUI Dialog patterns (similar to `DirectoryPickerDialog`) with target selector, start button, loading state, and success/error panel.
+- **Chat integration:** In `client/src/pages/ChatPage.tsx`, show the **Re-authenticate (device auth)** action only when `useChatModel` provider is Codex and `available=true`; wire the dialog to default target `Chat`.
+- **Agents integration:** In `client/src/pages/AgentsPage.tsx`, show the action only when an agent is selected and Codex is available; populate the target selector with agents from `/agents` and default to the selected agent.
+- **Flows behavior:** No Flows-page UI changes (out of scope), but server-side auth propagation should cover flow steps that run via agents.
+- **UX messaging:** On failure, surface a clear error (e.g., device auth disabled, Codex CLI missing) and optionally include guidance text from the Questions section.
+- **Tests (outline):** Extend existing chat/agents page tests to assert button visibility and dialog flow; add a server route unit/integration test for `POST /codex/device-auth` using a stubbed CLI invocation.
 
 ---
 

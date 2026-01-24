@@ -355,7 +355,15 @@ Add `POST /codex/device-auth` that validates the target (chat or agent), calls t
      - `projectStructure.md`
    - Files to edit:
      - `projectStructure.md`
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
+10. [ ] Update `design.md` with device-auth architecture + mermaid diagram:
+   - Documentation to read (repeat):
+     - Mermaid diagrams: Context7 `/mermaid-js/mermaid`
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+   - Files to edit:
+     - `design.md`
+   - Description & purpose:
+     - Add a concise sequence/flow diagram showing the device-auth request, Codex CLI interaction, and auth propagation.
+11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli

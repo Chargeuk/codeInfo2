@@ -14,7 +14,6 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”œâ”€ .prettierrc â€” Prettier settings
 â”œâ”€ AGENTS.md â€” agent workflow rules
 â”œâ”€ README.md â€” repo overview and commands
-â”œâ”€ start-gcf-server.bat â€” Windows helper to install/run git-credential-forwarder
 â”œâ”€ start-gcf-server.sh â€” macOS/Linux helper to install/run git-credential-forwarder
 â”œâ”€ logs/ â€” runtime server log output (gitignored, host-mounted)
 â”œâ”€ design.md â€” design notes and diagrams

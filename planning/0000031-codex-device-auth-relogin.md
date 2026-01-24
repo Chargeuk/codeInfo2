@@ -210,6 +210,12 @@ Create a reusable helper that runs `codex login --device-auth`, parses the verif
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
+   - Files to read:
+     - `package.json`
+     - `server/package.json`
+     - `client/package.json`
+   - Snippets to locate:
+     - Root `lint` and `format:check` scripts
 
 #### Testing
 
@@ -388,6 +394,12 @@ Add `POST /codex/device-auth` that validates the target (chat or agent), calls t
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
+   - Files to read:
+     - `package.json`
+     - `server/package.json`
+     - `client/package.json`
+   - Snippets to locate:
+     - Root `lint` and `format:check` scripts
 
 #### Testing
 
@@ -496,6 +508,12 @@ Ensure the Codex config enforces `cli_auth_credentials_store = "file"` so device
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
+   - Files to read:
+     - `package.json`
+     - `server/package.json`
+     - `client/package.json`
+   - Snippets to locate:
+     - Root `lint` and `format:check` scripts
 
 #### Testing
 
@@ -603,6 +621,12 @@ Copy refreshed `auth.json` to agent homes when targeting chat, and refresh Codex
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
+   - Files to read:
+     - `package.json`
+     - `server/package.json`
+     - `client/package.json`
+   - Snippets to locate:
+     - Root `lint` and `format:check` scripts
 
 #### Testing
 
@@ -706,6 +730,12 @@ Create a client API helper for `POST /codex/device-auth` with typed request/resp
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
+   - Files to read:
+     - `package.json`
+     - `server/package.json`
+     - `client/package.json`
+   - Snippets to locate:
+     - Root `lint` and `format:check` scripts
 
 #### Testing
 
@@ -857,6 +887,12 @@ Build a reusable dialog component that runs device-auth, shows loading/error/suc
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
+   - Files to read:
+     - `package.json`
+     - `server/package.json`
+     - `client/package.json`
+   - Snippets to locate:
+     - Root `lint` and `format:check` scripts
 
 #### Testing
 
@@ -964,6 +1000,12 @@ Expose the re-authenticate button in Chat when Codex is selected + available, de
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
+   - Files to read:
+     - `package.json`
+     - `server/package.json`
+     - `client/package.json`
+   - Snippets to locate:
+     - Root `lint` and `format:check` scripts
 
 #### Testing
 
@@ -1078,6 +1120,12 @@ Show the re-authenticate button on Agents when a selection is active and Codex i
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
+   - Files to read:
+     - `package.json`
+     - `server/package.json`
+     - `client/package.json`
+   - Snippets to locate:
+     - Root `lint` and `format:check` scripts
 
 #### Testing
 
@@ -1121,13 +1169,28 @@ Validate the story end-to-end, run clean builds/tests, update documentation, and
 1. [ ] Build the server
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+   - Files to read:
+     - `package.json`
+     - `server/package.json`
+   - Snippets to locate:
+     - `build` script for the server workspace
 2. [ ] Build the client
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+   - Files to read:
+     - `package.json`
+     - `client/package.json`
+   - Snippets to locate:
+     - `build` script for the client workspace
 3. [ ] Perform a clean Docker build
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
      - Docker Compose docs: https://docs.docker.com/compose/
+   - Files to read:
+     - `package.json`
+     - `docker-compose.yml`
+   - Snippets to locate:
+     - `compose:build:clean` script at the repo root
 4. [ ] Ensure `README.md` is updated with any new commands or behavior changes
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
@@ -1155,6 +1218,11 @@ Validate the story end-to-end, run clean builds/tests, update documentation, and
 7. [ ] Create a PR summary comment covering all changes in this story
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+   - Files to read:
+     - `planning/0000031-codex-device-auth-relogin.md`
+     - `test-results/screenshots/`
+   - Snippets to locate:
+     - Final task acceptance criteria for summary scope
 
 #### Testing
 

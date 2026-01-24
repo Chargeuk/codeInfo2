@@ -464,9 +464,11 @@ Build a reusable dialog component that runs device-auth, shows loading/error/suc
    - Implementation details:
      - Render a target selector with options `Chat` and `Agent: <name>`.
      - Call `postCodexDeviceAuth` on “Start device auth”.
-     - Show `verificationUrl`, `userCode`, and `expiresInSec` on success.
-     - Provide copy buttons for URL + code (use `navigator.clipboard` with a fallback message when unavailable).
-     - Display errors inline and allow retry without closing the dialog.
+      - Show `verificationUrl`, `userCode`, and `expiresInSec` on success.
+      - Provide copy buttons for URL + code (use `navigator.clipboard` with a fallback message when unavailable).
+      - Display errors inline (including “Enable device code login in ChatGPT settings” when provided) and allow retry without closing the dialog.
+      - Provide a clear close action (dialog close button + ESC/backdrop).
+      - Invoke `onSuccess` so parent pages can refresh provider availability.
 3. [ ] Add unit tests for the dialog:
    - Files to edit:
      - `client/src/test/codexDeviceAuthDialog.test.tsx` (new)
@@ -527,8 +529,10 @@ Expose the re-authenticate button in Chat when Codex is selected + available, de
    - Files to edit:
      - `client/src/pages/ChatPage.tsx`
    - Implementation details:
+     - Use the `providers` list from `useChatModel` to determine Codex availability (not the model `available` flag).
      - Fetch agents (via `listAgents`) when opening the dialog.
      - Pass `defaultTarget='chat'` and the agents list into `CodexDeviceAuthDialog`.
+     - On dialog success, call `refreshProviders` (and `refreshModels` when Codex is selected) so availability updates immediately.
      - Hide the button when provider is LM Studio or Codex unavailable.
 3. [ ] Add/extend chat page tests for the new button/dialog:
    - Files to edit:
@@ -597,6 +601,7 @@ Show the re-authenticate button on Agents when a selection is active and Codex i
    - Implementation details:
      - Reuse the existing `agents` list for the dialog options.
      - Pass `defaultTarget` as the selected agent.
+     - On dialog success, refresh Codex availability so the button state updates.
      - Hide the button when no agent is selected or Codex is unavailable.
 4. [ ] Add/extend Agents page tests for the new button/dialog:
    - Files to edit:

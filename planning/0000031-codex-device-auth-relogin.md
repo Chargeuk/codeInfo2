@@ -64,7 +64,7 @@ This story does **not** add new business features; it only improves how the syst
 - Codex auth + device auth: https://developers.openai.com/codex/auth
 - Codex CLI reference (`codex login`): https://developers.openai.com/codex/cli/reference
 - Codex config reference (`cli_auth_credentials_store`): https://developers.openai.com/codex/config-reference/
-- Node child_process (spawning CLI): https://nodejs.org/api/child_process.html
+- Node child_process (spawning CLI): https://nodejs.org/download/release/v22.19.0/docs/api/child_process.html
 - Express route handlers: Context7 `/expressjs/express/v5.1.0`
 - MUI Dialog + Button + Select patterns: MUI MCP
 
@@ -135,18 +135,20 @@ Create a reusable helper that runs `codex login --device-auth`, parses the verif
 
 - Codex auth + device auth: https://developers.openai.com/codex/auth
 - Codex CLI reference (`codex login`): https://developers.openai.com/codex/cli/reference
-- Node.js child_process: https://nodejs.org/api/child_process.html
+- Node.js child_process: https://nodejs.org/download/release/v22.19.0/docs/api/child_process.html
 - Node.js test runner: https://nodejs.org/api/test.html
-- Supertest HTTP assertions: https://github.com/forwardemail/supertest
 - Markdown Guide: https://www.markdownguide.org/basic-syntax/
 - Mermaid diagrams: Context7 `/mermaid-js/mermaid`
 - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI: https://prettier.io/docs/cli
 - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 - Jest: Context7 `/websites/jestjs_io_30_0`
-- Cucumber guides: https://cucumber.io/docs/guides/
+- Jest docs: https://jestjs.io/docs/getting-started
+- Cucumber guides: https://cucumber.io/docs/guides/10-minute-tutorial/
 - Playwright: Context7 `/microsoft/playwright`
+- Playwright docs (intro): https://playwright.dev/docs/intro
 - Docker/Compose: Context7 `/docker/docs`
+- Docker Compose docs: https://docs.docker.com/compose/
 
 #### Subtasks
 
@@ -162,7 +164,7 @@ Create a reusable helper that runs `codex login --device-auth`, parses the verif
      - CLI detection logic (`command -v codex`)
 2. [ ] Add a CLI device-auth helper:
    - Documentation to read (repeat):
-     - Node.js child_process: https://nodejs.org/api/child_process.html
+     - Node.js child_process: https://nodejs.org/download/release/v22.19.0/docs/api/child_process.html
    - Files to edit:
      - `server/src/utils/codexDeviceAuth.ts` (new)
    - Implementation details:
@@ -201,15 +203,18 @@ Create a reusable helper that runs `codex login --device-auth`, parses the verif
 3. [ ] `npm run compose:build:clean`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
+- Docker Compose docs: https://docs.docker.com/compose/
 4. [ ] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
+- Docker Compose docs: https://docs.docker.com/compose/
 5. [ ] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
 6. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
+- Docker Compose docs: https://docs.docker.com/compose/
 
 #### Implementation notes
 
@@ -233,15 +238,19 @@ Add `POST /codex/device-auth` that validates the target (chat or agent), calls t
 - Express routing + handlers: Context7 `/expressjs/express/v5.1.0`
 - Express 5 API reference: https://expressjs.com/en/5x/api.html
 - Node.js test runner: https://nodejs.org/api/test.html
+- Supertest HTTP assertions: https://github.com/forwardemail/supertest
 - Markdown Guide: https://www.markdownguide.org/basic-syntax/
 - Mermaid diagrams: Context7 `/mermaid-js/mermaid`
 - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI: https://prettier.io/docs/cli
 - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 - Jest: Context7 `/websites/jestjs_io_30_0`
-- Cucumber guides: https://cucumber.io/docs/guides/
+- Jest docs: https://jestjs.io/docs/getting-started
+- Cucumber guides: https://cucumber.io/docs/guides/10-minute-tutorial/
 - Playwright: Context7 `/microsoft/playwright`
+- Playwright docs (intro): https://playwright.dev/docs/intro
 - Docker/Compose: Context7 `/docker/docs`
+- Docker Compose docs: https://docs.docker.com/compose/
 
 #### Subtasks
 
@@ -316,15 +325,18 @@ Add `POST /codex/device-auth` that validates the target (chat or agent), calls t
 3. [ ] `npm run compose:build:clean`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
+- Docker Compose docs: https://docs.docker.com/compose/
 4. [ ] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
+- Docker Compose docs: https://docs.docker.com/compose/
 5. [ ] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
 6. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
+- Docker Compose docs: https://docs.docker.com/compose/
 
 #### Implementation notes
 
@@ -352,9 +364,12 @@ Ensure the Codex config enforces `cli_auth_credentials_store = "file"` so device
 - Prettier CLI: https://prettier.io/docs/cli
 - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 - Jest: Context7 `/websites/jestjs_io_30_0`
-- Cucumber guides: https://cucumber.io/docs/guides/
+- Jest docs: https://jestjs.io/docs/getting-started
+- Cucumber guides: https://cucumber.io/docs/guides/10-minute-tutorial/
 - Playwright: Context7 `/microsoft/playwright`
+- Playwright docs (intro): https://playwright.dev/docs/intro
 - Docker/Compose: Context7 `/docker/docs`
+- Docker Compose docs: https://docs.docker.com/compose/
 
 #### Subtasks
 
@@ -430,9 +445,12 @@ Copy refreshed `auth.json` to agent homes when targeting chat, and refresh Codex
 - Prettier CLI: https://prettier.io/docs/cli
 - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 - Jest: Context7 `/websites/jestjs_io_30_0`
-- Cucumber guides: https://cucumber.io/docs/guides/
+- Jest docs: https://jestjs.io/docs/getting-started
+- Cucumber guides: https://cucumber.io/docs/guides/10-minute-tutorial/
 - Playwright: Context7 `/microsoft/playwright`
+- Playwright docs (intro): https://playwright.dev/docs/intro
 - Docker/Compose: Context7 `/docker/docs`
+- Docker Compose docs: https://docs.docker.com/compose/
 
 #### Subtasks
 
@@ -515,21 +533,24 @@ Create a client API helper for `POST /codex/device-auth` with typed request/resp
 
 - Fetch API: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
 - Codex auth + device auth: https://developers.openai.com/codex/auth
-- TypeScript: https://www.typescriptlang.org/docs/
+- TypeScript handbook (Everyday Types): https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
 - Markdown Guide: https://www.markdownguide.org/basic-syntax/
 - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI: https://prettier.io/docs/cli
 - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 - Jest: Context7 `/websites/jestjs_io_30_0`
+- Jest docs: https://jestjs.io/docs/getting-started
 - Playwright: Context7 `/microsoft/playwright`
+- Playwright docs (intro): https://playwright.dev/docs/intro
 - Docker/Compose: Context7 `/docker/docs`
+- Docker Compose docs: https://docs.docker.com/compose/
 
 #### Subtasks
 
 1. [ ] Review existing API helpers and error handling patterns:
    - Documentation to read (repeat):
      - Fetch API: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
-     - TypeScript: https://www.typescriptlang.org/docs/
+     - TypeScript handbook (Everyday Types): https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - Files to read:
      - `client/src/api/agents.ts`
      - `client/src/api/baseUrl.ts`
@@ -539,7 +560,7 @@ Create a client API helper for `POST /codex/device-auth` with typed request/resp
 2. [ ] Add a Codex device-auth API module:
    - Documentation to read (repeat):
      - Fetch API: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
-     - TypeScript: https://www.typescriptlang.org/docs/
+     - TypeScript handbook (Everyday Types): https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
    - Files to edit:
      - `client/src/api/codex.ts` (new)
    - Implementation details:
@@ -549,6 +570,7 @@ Create a client API helper for `POST /codex/device-auth` with typed request/resp
 3. [ ] Add a focused client unit test for the API helper:
    - Documentation to read (repeat):
      - Jest: Context7 `/websites/jestjs_io_30_0`
+- Jest docs: https://jestjs.io/docs/getting-started
    - Files to edit:
      - `client/src/test/codexDeviceAuthApi.test.ts` (new)
    - Test expectations:
@@ -596,15 +618,19 @@ Build a reusable dialog component that runs device-auth, shows loading/error/suc
 - MUI Select + TextField select pattern: https://mui.com/material-ui/react-select/
 - MUI Select API (MenuItem children requirement): https://mui.com/material-ui/api/select/
 - MUI Dialog + Button + Select patterns: MUI MCP
-- React state + effect hooks: https://react.dev/reference/react
+- React useState: https://react.dev/reference/react/useState
+- React useEffect: https://react.dev/reference/react/useEffect
 - Clipboard API: https://developer.mozilla.org/en-US/docs/Web/API/Clipboard_API
 - Markdown Guide: https://www.markdownguide.org/basic-syntax/
 - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI: https://prettier.io/docs/cli
 - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 - Jest: Context7 `/websites/jestjs_io_30_0`
+- Jest docs: https://jestjs.io/docs/getting-started
 - Playwright: Context7 `/microsoft/playwright`
+- Playwright docs (intro): https://playwright.dev/docs/intro
 - Docker/Compose: Context7 `/docker/docs`
+- Docker Compose docs: https://docs.docker.com/compose/
 
 #### Subtasks
 
@@ -642,6 +668,7 @@ Build a reusable dialog component that runs device-auth, shows loading/error/suc
 3. [ ] Add unit tests for the dialog:
    - Documentation to read (repeat):
      - Jest: Context7 `/websites/jestjs_io_30_0`
+- Jest docs: https://jestjs.io/docs/getting-started
    - Files to edit:
      - `client/src/test/codexDeviceAuthDialog.test.tsx` (new)
    - Test expectations:
@@ -689,15 +716,19 @@ Expose the re-authenticate button in Chat when Codex is selected + available, de
 - MUI Button + Dialog patterns: MUI MCP
 - MUI Dialog API: https://mui.com/material-ui/api/dialog/
 - MUI Select + TextField select pattern: https://mui.com/material-ui/react-select/
-- React state + effect hooks: https://react.dev/reference/react
+- React useState: https://react.dev/reference/react/useState
+- React useEffect: https://react.dev/reference/react/useEffect
 - Fetch API: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
 - Markdown Guide: https://www.markdownguide.org/basic-syntax/
 - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI: https://prettier.io/docs/cli
 - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 - Jest: Context7 `/websites/jestjs_io_30_0`
+- Jest docs: https://jestjs.io/docs/getting-started
 - Playwright: Context7 `/microsoft/playwright`
+- Playwright docs (intro): https://playwright.dev/docs/intro
 - Docker/Compose: Context7 `/docker/docs`
+- Docker Compose docs: https://docs.docker.com/compose/
 
 #### Subtasks
 
@@ -726,6 +757,7 @@ Expose the re-authenticate button in Chat when Codex is selected + available, de
 3. [ ] Add/extend chat page tests for the new button/dialog:
    - Documentation to read (repeat):
      - Jest: Context7 `/websites/jestjs_io_30_0`
+- Jest docs: https://jestjs.io/docs/getting-started
    - Files to edit:
      - `client/src/test/chatPage.provider.test.tsx` (or new `chatPage.deviceAuth.test.tsx`)
    - Test expectations:
@@ -772,15 +804,19 @@ Show the re-authenticate button on Agents when a selection is active and Codex i
 - MUI Button + Dialog patterns: MUI MCP
 - MUI Dialog API: https://mui.com/material-ui/api/dialog/
 - MUI Select + TextField select pattern: https://mui.com/material-ui/react-select/
-- React state + effect hooks: https://react.dev/reference/react
+- React useState: https://react.dev/reference/react/useState
+- React useEffect: https://react.dev/reference/react/useEffect
 - Fetch API: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
 - Markdown Guide: https://www.markdownguide.org/basic-syntax/
 - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI: https://prettier.io/docs/cli
 - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 - Jest: Context7 `/websites/jestjs_io_30_0`
+- Jest docs: https://jestjs.io/docs/getting-started
 - Playwright: Context7 `/microsoft/playwright`
+- Playwright docs (intro): https://playwright.dev/docs/intro
 - Docker/Compose: Context7 `/docker/docs`
+- Docker Compose docs: https://docs.docker.com/compose/
 
 #### Subtasks
 
@@ -816,6 +852,7 @@ Show the re-authenticate button on Agents when a selection is active and Codex i
 4. [ ] Add/extend Agents page tests for the new button/dialog:
    - Documentation to read (repeat):
      - Jest: Context7 `/websites/jestjs_io_30_0`
+- Jest docs: https://jestjs.io/docs/getting-started
    - Files to edit:
      - `client/src/test/agentsPage.agentChange.test.tsx` (or new `agentsPage.deviceAuth.test.tsx`)
    - Test expectations:
@@ -860,11 +897,14 @@ Validate the story end-to-end, run clean builds/tests, update documentation, and
 #### Documentation Locations
 
 - Docker/Compose: Context7 `/docker/docs`
+- Docker Compose docs: https://docs.docker.com/compose/
 - Playwright: Context7 `/microsoft/playwright`
+- Playwright docs (intro): https://playwright.dev/docs/intro
 - Husky: Context7 `/typicode/husky`
 - Mermaid: Context7 `/mermaid-js/mermaid`
 - Jest: Context7 `/jestjs/jest`
-- Cucumber guides: https://cucumber.io/docs/guides/
+- Jest docs: https://jestjs.io/docs/getting-started
+- Cucumber guides: https://cucumber.io/docs/guides/10-minute-tutorial/
 
 #### Subtasks
 
@@ -877,6 +917,7 @@ Validate the story end-to-end, run clean builds/tests, update documentation, and
 3. [ ] Perform a clean Docker build
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
+- Docker Compose docs: https://docs.docker.com/compose/
 4. [ ] Ensure `README.md` is updated with any new commands or behavior changes
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
@@ -902,18 +943,22 @@ Validate the story end-to-end, run clean builds/tests, update documentation, and
 1. [ ] Run the client Jest tests
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
+- Jest docs: https://jestjs.io/docs/getting-started
 2. [ ] Run the server Cucumber tests
    - Documentation to read (repeat):
-     - Cucumber guides: https://cucumber.io/docs/guides/
+     - Cucumber guides: https://cucumber.io/docs/guides/10-minute-tutorial/
 3. [ ] Restart the Docker environment
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
+- Docker Compose docs: https://docs.docker.com/compose/
 4. [ ] Run the e2e tests
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
+- Playwright docs (intro): https://playwright.dev/docs/intro
 5. [ ] Use Playwright MCP to manually verify:
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
+- Playwright docs (intro): https://playwright.dev/docs/intro
    - Chat page shows the device-auth button for Codex and the dialog works.
    - Agents page shows the device-auth button for a selected agent and the dialog works.
    - Save screenshots to `test-results/screenshots` using the required naming convention.

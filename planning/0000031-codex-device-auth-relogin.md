@@ -109,6 +109,9 @@ This story does **not** add new business features; it only improves how the syst
 
 - Device-auth is not enabled in ChatGPT settings → endpoint returns an actionable error in the dialog and includes “Enable device code login in ChatGPT settings”.
 - `config.toml` cannot be updated to `cli_auth_credentials_store = "file"` → return an error stating credentials cannot be persisted.
+- `target = agent` with an unknown `agentName` → return a 404/invalid_request error so the UI can prompt the user to pick a valid agent.
+- CLI output does not include a parsable verification URL or user code → return a clear error (“device auth output not recognized”) and log the raw output for debugging.
+- Device code expires (15-minute timeout) or authorization is declined → CLI exits with an error; surface a “device code expired or was declined” message and allow retry.
 - Codex CLI not found or exits non-zero → surface a distinct error code so UI can display “Codex unavailable.”
 - Auth error appears mid-run → run fails as it does today; user can re-auth via the always-available dialog.
 - Multiple concurrent requests trigger device-auth → allow it (no rate-limit), but ensure dialog messaging is clear.

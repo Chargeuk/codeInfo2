@@ -930,6 +930,7 @@ Create a client API helper for `POST /codex/device-auth` with typed request/resp
        - `DEV-0000031:T5:codex_device_auth_api_request` when the API call starts.
        - `DEV-0000031:T5:codex_device_auth_api_response` on success **or**
        - `DEV-0000031:T5:codex_device_auth_api_error` on non-200 responses.
+     - Capture a baseline Chat page screenshot to confirm no UI regressions and save it under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped via `docker-compose.local.yml`).
 9. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
@@ -1125,6 +1126,7 @@ Build a reusable dialog component that runs device-auth, shows loading/error/suc
        - `DEV-0000031:T6:codex_device_auth_dialog_open` when the dialog opens.
        - `DEV-0000031:T6:codex_device_auth_dialog_success` after successful device-auth.
        - `DEV-0000031:T6:codex_device_auth_dialog_error` when the API call fails.
+     - Capture screenshots of the dialog UI states and save them under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped via `docker-compose.local.yml`) for GUI review.
 9. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
@@ -1275,6 +1277,7 @@ Expose the re-authenticate button in Chat when Codex is selected + available, de
        - `DEV-0000031:T7:codex_device_auth_chat_button_click` when the button is clicked.
        - `DEV-0000031:T7:codex_device_auth_chat_success` after the dialog succeeds.
      - No errors appear in the Playwright debug console.
+     - Capture screenshots of the Chat button + dialog state and save them under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped via `docker-compose.local.yml`) for GUI review.
 9. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
@@ -1432,6 +1435,7 @@ Show the re-authenticate button on Agents when a selection is active and Codex i
        - `DEV-0000031:T8:codex_device_auth_agents_button_click` when the button is clicked.
        - `DEV-0000031:T8:codex_device_auth_agents_success` after the dialog succeeds.
      - No errors appear in the Playwright debug console.
+     - Capture screenshots of the Agents button + dialog state and save them under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped via `docker-compose.local.yml`) for GUI review.
 9. [ ] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
@@ -1554,9 +1558,10 @@ Validate the story end-to-end, run clean builds/tests, update documentation, and
    - Checks:
      - Chat page shows the Codex device-auth button when Codex is selected.
      - Dialog starts device-auth, shows the verification URL + user code, and allows copy actions.
-    - Agents page shows the Codex device-auth button for a selected agent and defaults to that agent.
-    - No errors appear in the Playwright debug console.
-    - Save screenshots to `test-results/screenshots` using the required naming convention.
+     - Agents page shows the Codex device-auth button for a selected agent and defaults to that agent.
+     - No errors appear in the Playwright debug console.
+     - Capture screenshots for all UI acceptance checks above and save them under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped via `docker-compose.local.yml`).
+     - Also save the required naming-convention copies to `test-results/screenshots` for the PR checklist.
      - Open `/logs?validation=codex-device-auth` and confirm log:
        - `DEV-0000031:T9:codex_device_auth_validation_started` appears once per page load.
 9. [ ] `npm run compose:down`

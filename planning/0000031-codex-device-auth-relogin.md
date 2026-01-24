@@ -124,7 +124,7 @@ This story does **not** add new business features; it only improves how the syst
 
 ### 1. Server: Device-auth CLI parsing helper
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **__to_do__**
 
 #### Overview
@@ -267,7 +267,7 @@ Create a reusable helper that runs `codex login --device-auth`, parses the verif
 
 #### Implementation notes
 
-- 
+- 2026-01-24: Task 1 marked in progress.
 
 ---
 

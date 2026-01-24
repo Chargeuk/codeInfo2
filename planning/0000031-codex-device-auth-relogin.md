@@ -25,14 +25,16 @@ This story does **not** add new business features; it only improves how the syst
 
 ## Acceptance Criteria
 
-- A **Re-authenticate (device auth)** action is available on Chat and Agents pages **only when Codex is the selected provider and Codex is available** (not only after failures).
-- Clicking the action opens a centered dialog that drives device-auth and exposes a selector for which agent or chat session is being authenticated.
-- The dialog defaults the target to the current page (Chat or the selected Agent), but allows the user to change it before starting device-auth.
-- A user can trigger device-auth login from the dialog, and the server responds with the verification URL and code once device-auth completes.
-- The device-auth login flow writes updated credentials into the Codex home used by the server container and by each agent’s Codex home.
-- After device-auth completes, the UI can retry the run without manual container access (manual retry only; no auto-retry).
-- The solution works when the agent is run via a direct message, a command, or a flow step.
-- The feature is gated for Codex-only paths and does not affect LM Studio runs.
+- Chat page shows a **Re-authenticate (device auth)** button only when the provider dropdown is set to **Codex** *and* `/chat/providers` reports Codex `available=true`; hide it when the provider is LM Studio or Codex is unavailable.
+- Agents page shows the same button only when an agent is selected and Codex is available; Agents continue to use Codex as the provider and do not gain a new provider selector.
+- Clicking the button opens a centered modal titled **Codex device auth** with: a target selector (`Chat` or `Agent: <name>`), a **Start device auth** button, and a close action.
+- The target selector defaults to the current context (Chat page → `Chat`, Agents page → selected agent) and can be changed before starting.
+- On **Start device auth**, the client sends `POST /codex/device-auth` with `{ target: "chat" }` or `{ target: "agent", agentName: "<selected>" }`; the modal shows a loading state and disables inputs until the request finishes.
+- On success, the modal displays the `verificationUrl` and `userCode` returned by the server (plus `expiresInSec` if provided) and offers copy actions for both values.
+- If the request fails, the modal shows a clear error message and re-enables **Start device auth** so the user can retry.
+- Successful device-auth writes updated credentials to the server Codex home (Chat) and the selected agent Codex home; subsequent agent runs (direct message, command, or flow step) use the updated auth without manual container access.
+- The dialog never auto-retries a chat/agent run; users manually re-send their message or command after authenticating.
+- No LM Studio UI or behavior changes occur; the button and dialog are Codex-only.
 
 ---
 
@@ -49,8 +51,6 @@ This story does **not** add new business features; it only improves how the syst
 ---
 
 ## Questions
-
-- None.
 
 ---
 

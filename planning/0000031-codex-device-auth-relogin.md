@@ -198,11 +198,14 @@ Create a reusable helper that runs `codex login --device-auth`, parses the verif
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to read:
-     - `projectStructure.md`
-   - Files to edit:
-     - `projectStructure.md`
-   - Description & purpose:
-     - Update repo root `projectStructure.md` with any files added/removed/renamed in this task.
+   - `projectStructure.md`
+  - Files to edit:
+    - `projectStructure.md`
+  - Description & purpose:
+    - Update repo root `projectStructure.md` with any files added/removed/renamed in this task.
+    - Add entries for:
+      - `server/src/utils/codexDeviceAuth.ts`
+      - `server/src/test/unit/codexDeviceAuth.test.ts`
 7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -365,11 +368,14 @@ Add `POST /codex/device-auth` that validates the target (chat or agent), calls t
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to read:
-     - `projectStructure.md`
-   - Files to edit:
-     - `projectStructure.md`
-   - Description & purpose:
-     - Update repo root `projectStructure.md` with any files added/removed/renamed in this task.
+   - `projectStructure.md`
+  - Files to edit:
+    - `projectStructure.md`
+  - Description & purpose:
+    - Update repo root `projectStructure.md` with any files added/removed/renamed in this task.
+    - Add entries for:
+      - `server/src/routes/codexDeviceAuth.ts`
+      - `server/src/test/integration/codex.device-auth.test.ts`
 11. [ ] Update `design.md` with device-auth architecture + mermaid diagram:
    - Documentation to read (repeat):
      - Mermaid diagrams: Context7 `/mermaid-js/mermaid`
@@ -479,11 +485,13 @@ Ensure the Codex config enforces `cli_auth_credentials_store = "file"` so device
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to read:
-     - `projectStructure.md`
-   - Files to edit:
-     - `projectStructure.md`
-   - Description & purpose:
-     - Update repo root `projectStructure.md` with any files added/removed/renamed in this task.
+   - `projectStructure.md`
+  - Files to edit:
+    - `projectStructure.md`
+  - Description & purpose:
+    - Update repo root `projectStructure.md` with any files added/removed/renamed in this task.
+    - Add entries for:
+      - `server/src/test/unit/codexConfig.device-auth.test.ts`
 6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -584,11 +592,13 @@ Copy refreshed `auth.json` to agent homes when targeting chat, and refresh Codex
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to read:
-     - `projectStructure.md`
-   - Files to edit:
-     - `projectStructure.md`
-   - Description & purpose:
-     - Update repo root `projectStructure.md` with any files added/removed/renamed in this task.
+   - `projectStructure.md`
+  - Files to edit:
+    - `projectStructure.md`
+  - Description & purpose:
+    - Update repo root `projectStructure.md` with any files added/removed/renamed in this task.
+    - Add entries for new files created in this task, including:
+      - `server/src/test/unit/agents.authSeed.test.ts` (if created)
 7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -684,11 +694,14 @@ Create a client API helper for `POST /codex/device-auth` with typed request/resp
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to read:
-     - `projectStructure.md`
-   - Files to edit:
-     - `projectStructure.md`
-   - Description & purpose:
-     - Update repo root `projectStructure.md` with any files added/removed/renamed in this task.
+   - `projectStructure.md`
+  - Files to edit:
+    - `projectStructure.md`
+  - Description & purpose:
+    - Update repo root `projectStructure.md` with any files added/removed/renamed in this task.
+    - Add entries for:
+      - `client/src/api/codex.ts`
+      - `client/src/test/codexDeviceAuthApi.test.ts`
 7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -832,11 +845,14 @@ Build a reusable dialog component that runs device-auth, shows loading/error/suc
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to read:
-     - `projectStructure.md`
-   - Files to edit:
-     - `projectStructure.md`
-   - Description & purpose:
-     - Update repo root `projectStructure.md` with any files added/removed/renamed in this task.
+   - `projectStructure.md`
+  - Files to edit:
+    - `projectStructure.md`
+  - Description & purpose:
+    - Update repo root `projectStructure.md` with any files added/removed/renamed in this task.
+    - Add entries for:
+      - `client/src/components/codex/CodexDeviceAuthDialog.tsx`
+      - `client/src/test/codexDeviceAuthDialog.test.tsx`
 11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -937,11 +953,13 @@ Expose the re-authenticate button in Chat when Codex is selected + available, de
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to read:
-     - `projectStructure.md`
-   - Files to edit:
-     - `projectStructure.md`
-   - Description & purpose:
-     - Update repo root `projectStructure.md` with any files added/removed/renamed in this task.
+   - `projectStructure.md`
+  - Files to edit:
+    - `projectStructure.md`
+  - Description & purpose:
+    - Update repo root `projectStructure.md` with any files added/removed/renamed in this task.
+    - Add entries for new files created in this task, including:
+      - `client/src/test/chatPage.deviceAuth.test.tsx` (if created)
 7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -1049,11 +1067,13 @@ Show the re-authenticate button on Agents when a selection is active and Codex i
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to read:
-     - `projectStructure.md`
-   - Files to edit:
-     - `projectStructure.md`
-   - Description & purpose:
-     - Update repo root `projectStructure.md` with any files added/removed/renamed in this task.
+   - `projectStructure.md`
+  - Files to edit:
+    - `projectStructure.md`
+  - Description & purpose:
+    - Update repo root `projectStructure.md` with any files added/removed/renamed in this task.
+    - Add entries for new files created in this task, including:
+      - `client/src/test/agentsPage.deviceAuth.test.tsx` (if created)
 8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface

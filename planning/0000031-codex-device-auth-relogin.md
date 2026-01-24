@@ -201,6 +201,8 @@ Create a reusable helper that runs `codex login --device-auth`, parses the verif
      - `projectStructure.md`
    - Files to edit:
      - `projectStructure.md`
+   - Description & purpose:
+     - Update repo root `projectStructure.md` with any files added/removed/renamed in this task.
 7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -355,6 +357,8 @@ Add `POST /codex/device-auth` that validates the target (chat or agent), calls t
      - `projectStructure.md`
    - Files to edit:
      - `projectStructure.md`
+   - Description & purpose:
+     - Update repo root `projectStructure.md` with any files added/removed/renamed in this task.
 10. [ ] Update `design.md` with device-auth architecture + mermaid diagram:
    - Documentation to read (repeat):
      - Mermaid diagrams: Context7 `/mermaid-js/mermaid`
@@ -467,6 +471,8 @@ Ensure the Codex config enforces `cli_auth_credentials_store = "file"` so device
      - `projectStructure.md`
    - Files to edit:
      - `projectStructure.md`
+   - Description & purpose:
+     - Update repo root `projectStructure.md` with any files added/removed/renamed in this task.
 6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -570,6 +576,8 @@ Copy refreshed `auth.json` to agent homes when targeting chat, and refresh Codex
      - `projectStructure.md`
    - Files to edit:
      - `projectStructure.md`
+   - Description & purpose:
+     - Update repo root `projectStructure.md` with any files added/removed/renamed in this task.
 7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -668,6 +676,8 @@ Create a client API helper for `POST /codex/device-auth` with typed request/resp
      - `projectStructure.md`
    - Files to edit:
      - `projectStructure.md`
+   - Description & purpose:
+     - Update repo root `projectStructure.md` with any files added/removed/renamed in this task.
 7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -789,6 +799,8 @@ Build a reusable dialog component that runs device-auth, shows loading/error/suc
      - `projectStructure.md`
    - Files to edit:
      - `projectStructure.md`
+   - Description & purpose:
+     - Update repo root `projectStructure.md` with any files added/removed/renamed in this task.
 8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -892,6 +904,8 @@ Expose the re-authenticate button in Chat when Codex is selected + available, de
      - `projectStructure.md`
    - Files to edit:
      - `projectStructure.md`
+   - Description & purpose:
+     - Update repo root `projectStructure.md` with any files added/removed/renamed in this task.
 7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -1002,6 +1016,8 @@ Show the re-authenticate button on Agents when a selection is active and Codex i
      - `projectStructure.md`
    - Files to edit:
      - `projectStructure.md`
+   - Description & purpose:
+     - Update repo root `projectStructure.md` with any files added/removed/renamed in this task.
 8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -1040,7 +1056,7 @@ Validate the story end-to-end, run clean builds/tests, update documentation, and
 - Husky: Context7 `/typicode/husky`
 - Mermaid: Context7 `/mermaid-js/mermaid`
 - Jest: Context7 `/jestjs/jest`
-     - Jest docs: https://jestjs.io/docs/getting-started
+- Jest docs: https://jestjs.io/docs/getting-started
 - Cucumber guides (overview): https://cucumber.io/docs/guides/
 - Cucumber guides (tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/
 
@@ -1055,23 +1071,31 @@ Validate the story end-to-end, run clean builds/tests, update documentation, and
 3. [ ] Perform a clean Docker build
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-- Docker Compose docs: https://docs.docker.com/compose/
+     - Docker Compose docs: https://docs.docker.com/compose/
 4. [ ] Ensure `README.md` is updated with any new commands or behavior changes
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
      - `README.md`
+   - Description & purpose:
+     - Update repo root `README.md` with any new device-auth commands or behavior changes.
 5. [ ] Ensure `design.md` reflects the device-auth flow (include diagrams if added)
    - Documentation to read (repeat):
      - Mermaid: Context7 `/mermaid-js/mermaid`
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
      - `design.md`
+   - Description & purpose:
+     - Add/update device-auth architecture description and any required Mermaid diagrams.
 6. [ ] Ensure `projectStructure.md` reflects all new/updated files
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
      - `projectStructure.md`
+   - Description & purpose:
+     - Update repo root `projectStructure.md` tree for all files added/removed in this story.
+   - Description & purpose:
+     - Update repo root `projectStructure.md` with any files added/removed/renamed in this task.
 7. [ ] Create a PR summary comment covering all changes in this story
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/

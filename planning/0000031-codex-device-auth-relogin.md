@@ -1166,6 +1166,41 @@ Validate the story end-to-end, run clean builds/tests, update documentation, and
 
 #### Subtasks
 
+1. [ ] Ensure `README.md` is updated with any new commands or behavior changes
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+   - Files to edit:
+     - `README.md`
+   - Description & purpose:
+     - Update repo root `README.md` with any new device-auth commands or behavior changes.
+2. [ ] Ensure `design.md` reflects the device-auth flow (include diagrams if added)
+   - Documentation to read (repeat):
+     - Mermaid: Context7 `/mermaid-js/mermaid`
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+   - Files to edit:
+     - `design.md`
+   - Description & purpose:
+     - Add/update device-auth architecture description and any required Mermaid diagrams.
+3. [ ] Ensure `projectStructure.md` reflects all new/updated files
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+   - Files to edit:
+     - `projectStructure.md`
+   - Description & purpose:
+     - Update repo root `projectStructure.md` tree for all files added/removed in this story.
+   - Description & purpose:
+     - Update repo root `projectStructure.md` with any files added/removed/renamed in this task.
+4. [ ] Create a PR summary comment covering all changes in this story
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+   - Files to read:
+     - `planning/0000031-codex-device-auth-relogin.md`
+     - `test-results/screenshots/`
+   - Snippets to locate:
+     - Final task acceptance criteria for summary scope
+
+#### Testing
+
 1. [ ] Build the server
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
@@ -1191,61 +1226,26 @@ Validate the story end-to-end, run clean builds/tests, update documentation, and
      - `docker-compose.yml`
    - Snippets to locate:
      - `compose:build:clean` script at the repo root
-4. [ ] Ensure `README.md` is updated with any new commands or behavior changes
-   - Documentation to read (repeat):
-     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-   - Files to edit:
-     - `README.md`
-   - Description & purpose:
-     - Update repo root `README.md` with any new device-auth commands or behavior changes.
-5. [ ] Ensure `design.md` reflects the device-auth flow (include diagrams if added)
-   - Documentation to read (repeat):
-     - Mermaid: Context7 `/mermaid-js/mermaid`
-     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-   - Files to edit:
-     - `design.md`
-   - Description & purpose:
-     - Add/update device-auth architecture description and any required Mermaid diagrams.
-6. [ ] Ensure `projectStructure.md` reflects all new/updated files
-   - Documentation to read (repeat):
-     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-   - Files to edit:
-     - `projectStructure.md`
-   - Description & purpose:
-     - Update repo root `projectStructure.md` tree for all files added/removed in this story.
-   - Description & purpose:
-     - Update repo root `projectStructure.md` with any files added/removed/renamed in this task.
-7. [ ] Create a PR summary comment covering all changes in this story
-   - Documentation to read (repeat):
-     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-   - Files to read:
-     - `planning/0000031-codex-device-auth-relogin.md`
-     - `test-results/screenshots/`
-   - Snippets to locate:
-     - Final task acceptance criteria for summary scope
-
-#### Testing
-
-1. [ ] Run the client Jest tests
+4. [ ] Run the client Jest tests
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
      - Jest docs: https://jestjs.io/docs/getting-started
-2. [ ] Run the server Cucumber tests
+5. [ ] Run the server Cucumber tests
    - Documentation to read (repeat):
      - Cucumber guides (overview): https://cucumber.io/docs/guides/
-- Cucumber guides (tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/
-3. [ ] Restart the Docker environment
+     - Cucumber guides (tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/
+6. [ ] Restart the Docker environment
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-- Docker Compose docs: https://docs.docker.com/compose/
-4. [ ] Run the e2e tests
+     - Docker Compose docs: https://docs.docker.com/compose/
+7. [ ] Run the e2e tests
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
-- Playwright docs (intro): https://playwright.dev/docs/intro
-5. [ ] Use Playwright MCP to manually verify:
+     - Playwright docs (intro): https://playwright.dev/docs/intro
+8. [ ] Use Playwright MCP to manually verify:
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
-- Playwright docs (intro): https://playwright.dev/docs/intro
+     - Playwright docs (intro): https://playwright.dev/docs/intro
    - Chat page shows the device-auth button for Codex and the dialog works.
    - Agents page shows the device-auth button for a selected agent and the dialog works.
    - Save screenshots to `test-results/screenshots` using the required naming convention.

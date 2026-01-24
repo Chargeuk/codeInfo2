@@ -27,6 +27,7 @@ export GIT_CREDENTIAL_FORWARDER_DEBUG="true"
 
 GCF_GIT_PATH="$(command -v git)"
 if command -v cygpath >/dev/null 2>&1; then
+  # Prefer short mixed paths (8.3) for Windows compatibility; fall back to full mixed path.
   if GCF_GIT_PATH_MIXED="$(cygpath -m -s "$GCF_GIT_PATH" 2>/dev/null)"; then
     GCF_GIT_PATH="$GCF_GIT_PATH_MIXED"
   elif GCF_GIT_PATH_MIXED="$(cygpath -m "$GCF_GIT_PATH" 2>/dev/null)"; then

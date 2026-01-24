@@ -63,6 +63,7 @@ This story does **not** add new business features; it only improves how the syst
 
 - Codex auth + device auth: https://developers.openai.com/codex/auth
 - Codex CLI reference (`codex login`): https://developers.openai.com/codex/cli/reference
+- Codex config reference (`cli_auth_credentials_store`): https://developers.openai.com/codex/config-reference/
 - Node child_process (spawning CLI): https://nodejs.org/api/child_process.html
 - Express route handlers: Context7 `/expressjs/express/v5.1.0`
 - MUI Dialog + Button + Select patterns: MUI MCP
@@ -451,6 +452,7 @@ Build a reusable dialog component that runs device-auth, shows loading/error/suc
 
 - MUI Dialog API: https://mui.com/material-ui/api/dialog/
 - MUI Select + TextField select pattern: https://mui.com/material-ui/react-select/
+- MUI Select API (MenuItem children requirement): https://mui.com/material-ui/api/select/
 - MUI Dialog + Button + Select patterns: MUI MCP
 - React state + effect hooks: https://react.dev/reference/react
 - Clipboard API: https://developer.mozilla.org/en-US/docs/Web/API/Clipboard_API
@@ -479,11 +481,13 @@ Build a reusable dialog component that runs device-auth, shows loading/error/suc
    - Implementation details:
      - Render a target selector with options `Chat` and `Agent: <name>`.
      - Use the `TextField select` pattern with `MenuItem` entries (matches existing Chat/Agents selects).
+     - Ensure `MenuItem` entries are direct children of the select (per MUI Select API requirements).
      - Call `postCodexDeviceAuth` on “Start device auth”.
       - Show `verificationUrl`, `userCode`, and `expiresInSec` on success.
       - Provide copy buttons for URL + code (use `navigator.clipboard` with a fallback message when unavailable).
-      - Display errors inline (including “Enable device code login in ChatGPT settings” when provided) and allow retry without closing the dialog.
+     - Display errors inline (including “Enable device code login in ChatGPT settings” when provided) and allow retry without closing the dialog.
       - Provide a clear close action (dialog close button + ESC/backdrop).
+      - Ensure `onClose` handles `escapeKeyDown` and `backdropClick` reasons so standard close behaviors work.
       - Invoke `onSuccess` so parent pages can refresh provider availability.
       - Follow the async dialog state pattern from `DirectoryPickerDialog` (loading → success/error) instead of inventing new UI flows.
 3. [ ] Add unit tests for the dialog:

@@ -1326,7 +1326,7 @@ Expose the re-authenticate button in Chat when Codex is selected + available, de
 
 ### 8. Client: Agents page device-auth entry point
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **__to_do__**
 
 #### Overview

@@ -2195,7 +2195,7 @@ Render the verification URL as a clickable link (opens in a new tab) and render 
 
 ### 14. Final Task: Re-validate after parsing hardening
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **__to_do__**
 
 #### Overview

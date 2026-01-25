@@ -296,7 +296,7 @@ Create a reusable helper that runs `codex login --device-auth`, parses the verif
 
 ### 2. Server: Device-auth route contract
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **__to_do__**
 
 #### Overview
@@ -488,7 +488,7 @@ Add `POST /codex/device-auth` that validates the target (chat or agent), calls t
 
 #### Implementation notes
 
-- 
+- 2026-01-25: Task 2 marked in progress.
 
 ---
 

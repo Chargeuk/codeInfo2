@@ -31,6 +31,67 @@ const routes = [
   },
 ];
 
+function mockChatProvidersFetch(options: {
+  providers: Array<{
+    id: string;
+    label: string;
+    available: boolean;
+    toolsAvailable: boolean;
+    reason?: string;
+  }>;
+  modelsProvider: string;
+  agents?: Array<{ name: string }>;
+}) {
+  mockFetch.mockImplementation((url: RequestInfo | URL) => {
+    const href = typeof url === 'string' ? url : url.toString();
+    if (href.includes('/health')) {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({ mongoConnected: true }),
+      }) as unknown as Response;
+    }
+    if (href.includes('/conversations') && href.includes('pageSize')) {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({ items: [], nextCursor: null }),
+      }) as unknown as Response;
+    }
+    if (href.includes('/chat/providers')) {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({ providers: options.providers }),
+      }) as unknown as Response;
+    }
+    if (href.includes('/chat/models')) {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          provider: options.modelsProvider,
+          available: true,
+          toolsAvailable: true,
+          models: [{ key: 'm1', displayName: 'Model 1', type: 'gguf' }],
+        }),
+      }) as unknown as Response;
+    }
+    if (href.endsWith('/agents')) {
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({ agents: options.agents ?? [] }),
+      }) as unknown as Response;
+    }
+    return Promise.resolve({
+      ok: true,
+      status: 200,
+      json: async () => ({}),
+    }) as unknown as Response;
+  });
+}
+
 describe('Chat provider selection (WS transport)', () => {
   it('shows Codex as unavailable with guidance banner', async () => {
     mockFetch.mockImplementation((url: RequestInfo | URL) => {
@@ -103,6 +164,93 @@ describe('Chat provider selection (WS transport)', () => {
     expect(banner).toHaveTextContent('Compose mounts');
     const link = within(banner).getByRole('link', { name: /codex \(cli\)/i });
     expect(link).toHaveAttribute('href', expect.stringContaining('#codex-cli'));
+  });
+
+  it('shows device-auth button when Codex is selected and available', async () => {
+    mockChatProvidersFetch({
+      providers: [
+        {
+          id: 'codex',
+          label: 'OpenAI Codex',
+          available: true,
+          toolsAvailable: true,
+        },
+        {
+          id: 'lmstudio',
+          label: 'LM Studio',
+          available: true,
+          toolsAvailable: true,
+        },
+      ],
+      modelsProvider: 'codex',
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const button = await screen.findByRole('button', {
+      name: /re-authenticate \(device auth\)/i,
+    });
+    expect(button).toBeInTheDocument();
+  });
+
+  it('opens device-auth dialog with Chat selected by default', async () => {
+    const user = userEvent.setup();
+    mockChatProvidersFetch({
+      providers: [
+        {
+          id: 'codex',
+          label: 'OpenAI Codex',
+          available: true,
+          toolsAvailable: true,
+        },
+      ],
+      modelsProvider: 'codex',
+      agents: [{ name: 'alpha' }],
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    await user.click(
+      await screen.findByRole('button', {
+        name: /re-authenticate \(device auth\)/i,
+      }),
+    );
+
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    const targetSelect = screen.getByRole('combobox', { name: /target/i });
+    expect(targetSelect).toHaveTextContent('Chat');
+  });
+
+  it('hides device-auth button when Codex is unavailable', async () => {
+    mockChatProvidersFetch({
+      providers: [
+        {
+          id: 'lmstudio',
+          label: 'LM Studio',
+          available: true,
+          toolsAvailable: true,
+        },
+        {
+          id: 'codex',
+          label: 'OpenAI Codex',
+          available: false,
+          toolsAvailable: false,
+        },
+      ],
+      modelsProvider: 'lmstudio',
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    await screen.findByRole('combobox', { name: /provider/i });
+    expect(
+      screen.queryByRole('button', {
+        name: /re-authenticate \(device auth\)/i,
+      }),
+    ).not.toBeInTheDocument();
   });
 
   it('keeps Provider/Model selects visible when models are empty', async () => {

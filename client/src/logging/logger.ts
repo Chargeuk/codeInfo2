@@ -48,6 +48,8 @@ export function createLogger(
   routeProvider: () => string = () => window.location.pathname,
 ) {
   const clientId = resolveStableClientId();
+  const resolvedSource: LogEntry['source'] =
+    source === 'client-flows' || source === 'client' ? source : 'client';
   return (
     level: LogLevel,
     message: string,
@@ -58,11 +60,15 @@ export function createLogger(
       level: resolvedLevel,
       message,
       timestamp: new Date().toISOString(),
-      source,
+      source: resolvedSource,
       route: routeProvider(),
       userAgent: navigator.userAgent,
       correlationId: crypto.randomUUID?.(),
-      context: { ...context, clientId },
+      context: {
+        ...context,
+        clientId,
+        ...(resolvedSource !== source ? { loggerSource: source } : {}),
+      },
     };
     // tee to console for dev ergonomics
     // eslint-disable-next-line no-console

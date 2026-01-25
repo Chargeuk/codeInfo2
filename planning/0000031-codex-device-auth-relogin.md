@@ -499,10 +499,15 @@ Add `POST /codex/device-auth` that validates the target (chat or agent), calls t
 - 2026-01-25: Server build (`npm run build --workspace server`) succeeded after fixing device-auth test typings.
 - 2026-01-25: Client build (`npm run build --workspace client`) succeeded with existing chunk-size warnings.
 - 2026-01-25: `TMPDIR=/tmp npm run test --workspace server` passed (unit + integration + cucumber).
+- 2026-01-25: `TMPDIR=/tmp npm run test --workspace client` passed (console logging noise expected).
 - 2026-01-25: `TMPDIR=/tmp npm run test --workspace client` passed (act warnings from MUI transitions and console logging expected).
 - 2026-01-25: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run e2e` passed (36 tests).
 - 2026-01-25: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run compose:build` succeeded.
 - 2026-01-25: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run compose:up` brought services to healthy.
+- 2026-01-25: Normalized client log sources to avoid `/logs` 400s while keeping custom logger IDs in context.
+- 2026-01-25: Rebuilt compose images after client logging update.
+- 2026-01-25: Recreated compose stack after client logging update.
+- 2026-01-25: Blocker — manual device-auth check stalls at "Waiting for device auth…" because `/codex/device-auth` never returns (CLI appears to wait for completion), so verification URL/user code + success log cannot be observed.
 - 2026-01-25: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run compose:down` stopped the stack.
 - 2026-01-25: `TMPDIR=/tmp npm run test --workspace client` passed (console logging noise expected).
 - 2026-01-25: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run e2e` passed (36 tests).
@@ -649,6 +654,8 @@ Ensure the Codex config enforces `cli_auth_credentials_store = "file"` so device
 - 2026-01-25: Updated `projectStructure.md` with the new device-auth config test entry.
 - 2026-01-25: `npm run lint --workspaces` still reports pre-existing import/order warnings; `npm run format --workspaces` fixed formatting and `format:check` passes.
 - 2026-01-25: Server build (`npm run build --workspace server`) succeeded.
+- 2026-01-25: Client build (`npm run build --workspace client`) succeeded with existing chunk-size warning.
+- 2026-01-25: `TMPDIR=/tmp npm run test --workspace server` passed (unit + integration + cucumber).
 - 2026-01-25: Client build (`npm run build --workspace client`) succeeded with existing chunk-size warning.
 - 2026-01-25: `TMPDIR=/tmp npm run test --workspace server` passed (unit + integration + cucumber).
 - 2026-01-25: Client build (`npm run build --workspace client`) succeeded with existing chunk-size warning.
@@ -1159,6 +1166,7 @@ Build a reusable dialog component that runs device-auth, shows loading/error/suc
 - 2026-01-25: Added a `.gitignore` exception so `client/src/components/codex` is tracked without affecting the root `codex/` ignore.
 - 2026-01-25: `npm run lint --workspaces` still reports pre-existing import/order warnings; `npm run format --workspaces` resolved formatting and `format:check` passes.
 - 2026-01-25: Server build (`npm run build --workspace server`) succeeded.
+- 2026-01-25: Server build (`npm run build --workspace server`) succeeded.
 
 ---
 
@@ -1192,7 +1200,7 @@ Expose the re-authenticate button in Chat when Codex is selected + available, de
 
 #### Subtasks
 
-1. [ ] Review Chat page provider state and action layout:
+1. [x] Review Chat page provider state and action layout:
    - Documentation to read (repeat):
      - MUI Button + Dialog patterns: MUI MCP
      - MUI Dialog API: https://mui.com/material-ui/api/dialog/
@@ -1202,7 +1210,7 @@ Expose the re-authenticate button in Chat when Codex is selected + available, de
      - `client/src/api/agents.ts`
    - Key requirements (repeat):
      - Button only appears when provider === `codex` and Codex is available.
-2. [ ] Add the dialog wiring to Chat:
+2. [x] Add the dialog wiring to Chat:
    - Documentation to read (repeat):
      - MUI Button + Dialog patterns: MUI MCP
      - MUI Select + TextField select pattern: https://mui.com/material-ui/react-select/
@@ -1217,7 +1225,7 @@ Expose the re-authenticate button in Chat when Codex is selected + available, de
    - Log lines to add (use `createLogger('codex-device-auth-chat')`):
      - `DEV-0000031:T7:codex_device_auth_chat_button_click` when the Chat re-auth button is clicked.
      - `DEV-0000031:T7:codex_device_auth_chat_success` after a successful device-auth refresh.
-3. [ ] UI test (client) — Chat shows device-auth button for Codex:
+3. [x] UI test (client) — Chat shows device-auth button for Codex:
    - Documentation to read (repeat):
      - Jest: Context7 `/websites/jestjs_io_30_0`
      - Jest docs: https://jestjs.io/docs/getting-started
@@ -1225,7 +1233,7 @@ Expose the re-authenticate button in Chat when Codex is selected + available, de
      - `client/src/test/chatPage.provider.test.tsx` (or new `chatPage.deviceAuth.test.tsx`)
    - Description & purpose:
      - Button only renders when `provider=codex` and `available=true`.
-4. [ ] UI test (client) — Chat dialog defaults to Chat target:
+4. [x] UI test (client) — Chat dialog defaults to Chat target:
    - Documentation to read (repeat):
      - Jest: Context7 `/websites/jestjs_io_30_0`
      - Jest docs: https://jestjs.io/docs/getting-started
@@ -1233,7 +1241,7 @@ Expose the re-authenticate button in Chat when Codex is selected + available, de
      - `client/src/test/chatPage.provider.test.tsx` (or new `chatPage.deviceAuth.test.tsx`)
    - Description & purpose:
      - Clicking opens the dialog with Chat as the default target.
-5. [ ] UI test (client) — Chat hides button when Codex unavailable:
+5. [x] UI test (client) — Chat hides button when Codex unavailable:
    - Documentation to read (repeat):
      - Jest: Context7 `/websites/jestjs_io_30_0`
      - Jest docs: https://jestjs.io/docs/getting-started
@@ -1241,7 +1249,7 @@ Expose the re-authenticate button in Chat when Codex is selected + available, de
      - `client/src/test/chatPage.provider.test.tsx` (or new `chatPage.deviceAuth.test.tsx`)
    - Description & purpose:
      - Button is hidden when provider is LM Studio or Codex is unavailable.
-6. [ ] Update `projectStructure.md` after any file additions/removals in this task.
+6. [x] Update `projectStructure.md` after any file additions/removals in this task.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to read:
@@ -1252,7 +1260,7 @@ Expose the re-authenticate button in Chat when Codex is selected + available, de
     - Update repo root `projectStructure.md` with any files added/removed/renamed in this task.
     - Add entries for new files created in this task, including:
       - `client/src/test/chatPage.deviceAuth.test.tsx` (if created)
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+7. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -1265,28 +1273,28 @@ Expose the re-authenticate button in Chat when Codex is selected + available, de
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
    - Documentation to read (repeat):
      - Jest: Context7 `/websites/jestjs_io_30_0`
      - Jest docs: https://jestjs.io/docs/getting-started
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
      - Playwright docs (intro): https://playwright.dev/docs/intro
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
      - Docker Compose docs: https://docs.docker.com/compose/
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
      - Docker Compose docs: https://docs.docker.com/compose/
@@ -1309,7 +1317,10 @@ Expose the re-authenticate button in Chat when Codex is selected + available, de
 
 #### Implementation notes
 
-- 
+- 2026-01-25: Reviewed Chat provider state/layout, `useChatModel` availability handling, and agent list fetch patterns.
+- 2026-01-25: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run e2e` passed (36 tests).
+- 2026-01-25: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run compose:build` succeeded.
+- 2026-01-25: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run compose:up` brought services to healthy.
 
 ---
 
@@ -1467,7 +1478,10 @@ Show the re-authenticate button on Agents when a selection is active and Codex i
 
 #### Implementation notes
 
-- 
+- 2026-01-25: Added Chat page device-auth button and dialog wiring with agent fetch, logging, and provider refresh hooks.
+- 2026-01-25: Added Chat provider tests for device-auth button visibility and dialog default target.
+- 2026-01-25: No new files added; projectStructure update not required for Task 7.
+- 2026-01-25: `npm run lint --workspaces` still reports pre-existing import/order warnings; `npm run format --workspaces` resolved formatting and `format:check` passes.
 
 ---
 

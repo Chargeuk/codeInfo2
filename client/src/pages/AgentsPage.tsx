@@ -46,6 +46,7 @@ import {
   runAgentInstruction,
   AgentApiError,
 } from '../api/agents';
+import CodexDeviceAuthDialog from '../components/codex/CodexDeviceAuthDialog';
 import Markdown from '../components/Markdown';
 import ConversationList from '../components/chat/ConversationList';
 import DirectoryPickerDialog from '../components/ingest/DirectoryPickerDialog';
@@ -61,6 +62,7 @@ import useConversationTurns, {
   StoredTurn,
 } from '../hooks/useConversationTurns';
 import useConversations from '../hooks/useConversations';
+import useChatModel from '../hooks/useChatModel';
 import usePersistenceStatus from '../hooks/usePersistenceStatus';
 import { createLogger } from '../logging/logger';
 
@@ -151,6 +153,8 @@ export default function AgentsPage() {
     string | undefined
   >(undefined);
 
+  const { providers, refreshProviders } = useChatModel();
+
   const [commands, setCommands] = useState<
     Array<{ name: string; description: string; disabled: boolean }>
   >([]);
@@ -214,6 +218,7 @@ export default function AgentsPage() {
   const [agentInfoAnchorEl, setAgentInfoAnchorEl] =
     useState<HTMLElement | null>(null);
   const actionSlotMinWidth = 120;
+  const [deviceAuthOpen, setDeviceAuthOpen] = useState(false);
 
   const [startPending, setStartPending] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
@@ -256,6 +261,27 @@ export default function AgentsPage() {
       : `calc(100% - ${theme.spacing(3)})`;
 
   const log = useMemo(() => createLogger('client'), []);
+  const deviceAuthLog = useMemo(
+    () => createLogger('codex-device-auth-agents'),
+    [],
+  );
+  const codexProvider = useMemo(
+    () => providers.find((entry) => entry.id === 'codex'),
+    [providers],
+  );
+  const canShowDeviceAuth =
+    Boolean(selectedAgentName) && Boolean(codexProvider?.available);
+  const deviceAuthDefaultTarget = useMemo(
+    () =>
+      selectedAgentName
+        ? ({ target: 'agent', agentName: selectedAgentName } as const)
+        : ({ target: 'chat' } as const),
+    [selectedAgentName],
+  );
+  const deviceAuthAgents = useMemo(
+    () => agents.map((agent) => ({ name: agent.name })),
+    [agents],
+  );
 
   useEffect(() => {
     log('info', 'DEV-0000028[T1] agents transcript layout ready', {
@@ -291,6 +317,23 @@ export default function AgentsPage() {
   const handleCloseDirPicker = () => {
     log('info', 'DEV-0000028[T5] agents folder picker cancelled');
     setDirPickerOpen(false);
+  };
+
+  const handleDeviceAuthOpen = () => {
+    deviceAuthLog(
+      'info',
+      'DEV-0000031:T8:codex_device_auth_agents_button_click',
+    );
+    setDeviceAuthOpen(true);
+  };
+
+  const handleDeviceAuthClose = () => {
+    setDeviceAuthOpen(false);
+  };
+
+  const handleDeviceAuthSuccess = () => {
+    deviceAuthLog('info', 'DEV-0000031:T8:codex_device_auth_agents_success');
+    void refreshProviders();
   };
 
   useEffect(() => {
@@ -1779,7 +1822,7 @@ export default function AgentsPage() {
                       </IconButton>
                     ) : null}
 
-                    <Stack direction="row" spacing={1} sx={{ flexShrink: 0 }}>
+                    <Stack spacing={1} sx={{ flexShrink: 0 }}>
                       <Button
                         type="button"
                         variant="outlined"
@@ -1793,6 +1836,18 @@ export default function AgentsPage() {
                       >
                         New conversation
                       </Button>
+                      {canShowDeviceAuth ? (
+                        <Button
+                          type="button"
+                          variant="outlined"
+                          color="secondary"
+                          size="small"
+                          onClick={handleDeviceAuthOpen}
+                          disabled={agentsLoading}
+                        >
+                          Re-authenticate (device auth)
+                        </Button>
+                      ) : null}
                     </Stack>
                   </Stack>
 
@@ -2001,6 +2056,13 @@ export default function AgentsPage() {
                     path={workingFolder}
                     onClose={handleCloseDirPicker}
                     onPick={handlePickDir}
+                  />
+                  <CodexDeviceAuthDialog
+                    open={deviceAuthOpen}
+                    onClose={handleDeviceAuthClose}
+                    defaultTarget={deviceAuthDefaultTarget}
+                    agents={deviceAuthAgents}
+                    onSuccess={handleDeviceAuthSuccess}
                   />
                 </Stack>
               </Box>

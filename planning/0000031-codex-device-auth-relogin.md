@@ -504,6 +504,7 @@ Add `POST /codex/device-auth` that validates the target (chat or agent), calls t
 - 2026-01-25: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run e2e` passed (36 tests).
 - 2026-01-25: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run compose:build` succeeded.
 - 2026-01-25: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run compose:up` brought services to healthy.
+- 2026-01-25: Manual Agents device-auth check shows the button and dialog default to the selected agent, but device-auth request stalls at “Waiting for device auth…” so success log cannot be confirmed.
 - 2026-01-25: Normalized client log sources to avoid `/logs` 400s while keeping custom logger IDs in context.
 - 2026-01-25: Rebuilt compose images after client logging update.
 - 2026-01-25: Recreated compose stack after client logging update.
@@ -1354,7 +1355,7 @@ Show the re-authenticate button on Agents when a selection is active and Codex i
 
 #### Subtasks
 
-1. [ ] Review Agents page selection + provider availability sources:
+1. [x] Review Agents page selection + provider availability sources:
    - Documentation to read (repeat):
      - MUI Button + Dialog patterns: MUI MCP
      - MUI Dialog API: https://mui.com/material-ui/api/dialog/
@@ -1364,7 +1365,7 @@ Show the re-authenticate button on Agents when a selection is active and Codex i
      - `client/src/api/agents.ts`
    - Key requirements (repeat):
      - Button appears only when `selectedAgentName` is set and Codex is available.
-2. [ ] Add a Codex availability check for Agents:
+2. [x] Add a Codex availability check for Agents:
    - Documentation to read (repeat):
      - MUI Button + Dialog patterns: MUI MCP
    - Files to edit:
@@ -1372,7 +1373,7 @@ Show the re-authenticate button on Agents when a selection is active and Codex i
    - Implementation details:
      - Reuse `useChatModel` to access `providers` + `refreshProviders`.
      - Derive Codex availability from the `providers` list instead of adding a new fetch hook.
-3. [ ] Wire the dialog into Agents:
+3. [x] Wire the dialog into Agents:
    - Documentation to read (repeat):
      - MUI Button + Dialog patterns: MUI MCP
      - MUI Select + TextField select pattern: https://mui.com/material-ui/react-select/
@@ -1386,7 +1387,7 @@ Show the re-authenticate button on Agents when a selection is active and Codex i
    - Log lines to add (use `createLogger('codex-device-auth-agents')`):
      - `DEV-0000031:T8:codex_device_auth_agents_button_click` when the Agents re-auth button is clicked.
      - `DEV-0000031:T8:codex_device_auth_agents_success` after a successful device-auth refresh.
-4. [ ] UI test (client) — Agents shows device-auth button:
+4. [x] UI test (client) — Agents shows device-auth button:
    - Documentation to read (repeat):
      - Jest: Context7 `/websites/jestjs_io_30_0`
      - Jest docs: https://jestjs.io/docs/getting-started
@@ -1394,7 +1395,7 @@ Show the re-authenticate button on Agents when a selection is active and Codex i
      - `client/src/test/agentsPage.agentChange.test.tsx` (or new `agentsPage.deviceAuth.test.tsx`)
    - Description & purpose:
      - Button only renders when an agent is selected and Codex is available.
-5. [ ] UI test (client) — Agents dialog defaults to selected agent:
+5. [x] UI test (client) — Agents dialog defaults to selected agent:
    - Documentation to read (repeat):
      - Jest: Context7 `/websites/jestjs_io_30_0`
      - Jest docs: https://jestjs.io/docs/getting-started
@@ -1402,7 +1403,7 @@ Show the re-authenticate button on Agents when a selection is active and Codex i
      - `client/src/test/agentsPage.agentChange.test.tsx` (or new `agentsPage.deviceAuth.test.tsx`)
    - Description & purpose:
      - Dialog defaults to `Agent: <selected>`.
-6. [ ] UI test (client) — Agents hides button when unavailable:
+6. [x] UI test (client) — Agents hides button when unavailable:
    - Documentation to read (repeat):
      - Jest: Context7 `/websites/jestjs_io_30_0`
      - Jest docs: https://jestjs.io/docs/getting-started
@@ -1410,7 +1411,7 @@ Show the re-authenticate button on Agents when a selection is active and Codex i
      - `client/src/test/agentsPage.agentChange.test.tsx` (or new `agentsPage.deviceAuth.test.tsx`)
    - Description & purpose:
      - Button is hidden when Codex is unavailable or no agent is selected.
-7. [ ] Update `projectStructure.md` after any file additions/removals in this task.
+7. [x] Update `projectStructure.md` after any file additions/removals in this task.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to read:
@@ -1421,7 +1422,7 @@ Show the re-authenticate button on Agents when a selection is active and Codex i
     - Update repo root `projectStructure.md` with any files added/removed/renamed in this task.
     - Add entries for new files created in this task, including:
       - `client/src/test/agentsPage.deviceAuth.test.tsx` (if created)
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+8. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -1434,28 +1435,28 @@ Show the re-authenticate button on Agents when a selection is active and Codex i
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
    - Documentation to read (repeat):
      - Jest: Context7 `/websites/jestjs_io_30_0`
      - Jest docs: https://jestjs.io/docs/getting-started
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
      - Playwright docs (intro): https://playwright.dev/docs/intro
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
      - Docker Compose docs: https://docs.docker.com/compose/
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
      - Docker Compose docs: https://docs.docker.com/compose/
@@ -1482,6 +1483,18 @@ Show the re-authenticate button on Agents when a selection is active and Codex i
 - 2026-01-25: Added Chat provider tests for device-auth button visibility and dialog default target.
 - 2026-01-25: No new files added; projectStructure update not required for Task 7.
 - 2026-01-25: `npm run lint --workspaces` still reports pre-existing import/order warnings; `npm run format --workspaces` resolved formatting and `format:check` passes.
+- 2026-01-25: Reviewed Agents page selection wiring, agent list fetch, and `useChatModel` provider availability hook.
+- 2026-01-25: Added Codex availability tracking via `useChatModel` and wired the device-auth dialog/button on Agents.
+- 2026-01-25: Added Agents device-auth UI tests for button visibility, default target, and Codex-unavailable behavior.
+- 2026-01-25: No new files added for Task 8; `projectStructure.md` update not required.
+- 2026-01-25: `npm run lint --workspaces` still reports pre-existing import/order warnings; `npm run format:check --workspaces` passes.
+- 2026-01-25: Server build (`npm run build --workspace server`) succeeded.
+- 2026-01-25: Client build (`npm run build --workspace client`) succeeded with existing chunk-size warnings.
+- 2026-01-25: `TMPDIR=/tmp npm run test --workspace server` passed after extending timeout (54 scenarios, 325 steps).
+- 2026-01-25: `TMPDIR=/tmp npm run test --workspace client` passed (console warnings from existing tests).
+- 2026-01-25: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run e2e` passed (36 tests).
+- 2026-01-25: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run compose:build` succeeded.
+- 2026-01-25: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run compose:up` brought services to healthy.
 
 ---
 

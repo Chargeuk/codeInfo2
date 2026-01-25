@@ -7,6 +7,7 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  Link,
   MenuItem,
   Stack,
   TextField,
@@ -215,13 +216,20 @@ export default function CodexDeviceAuthDialog({
               </Typography>
 
               <Stack direction="row" spacing={1} alignItems="center">
-                <TextField
-                  label="Verification URL"
-                  value={result.verificationUrl}
-                  fullWidth
-                  size="small"
-                  inputProps={{ readOnly: true }}
-                />
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography variant="caption" color="text.secondary">
+                    Verification URL
+                  </Typography>
+                  <Link
+                    href={result.verificationUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    underline="always"
+                    sx={{ display: 'block', wordBreak: 'break-all' }}
+                  >
+                    {result.verificationUrl}
+                  </Link>
+                </Box>
                 <Button
                   variant="outlined"
                   onClick={() =>
@@ -234,13 +242,17 @@ export default function CodexDeviceAuthDialog({
               </Stack>
 
               <Stack direction="row" spacing={1} alignItems="center">
-                <TextField
-                  label="User code"
-                  value={result.userCode}
-                  fullWidth
-                  size="small"
-                  inputProps={{ readOnly: true }}
-                />
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography variant="caption" color="text.secondary">
+                    User code
+                  </Typography>
+                  <Typography
+                    variant="body2"
+                    sx={{ fontFamily: 'monospace', wordBreak: 'break-word' }}
+                  >
+                    {result.userCode}
+                  </Typography>
+                </Box>
                 <Button
                   variant="outlined"
                   onClick={() => void handleCopy(result.userCode, 'User code')}

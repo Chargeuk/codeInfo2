@@ -2087,12 +2087,12 @@ Render the verification URL as a clickable link (opens in a new tab) and render 
 
 #### Subtasks
 
-1. [ ] Review the device-auth dialog layout:
+1. [x] Review the device-auth dialog layout:
    - Documentation to read (repeat):
      - MUI Dialog API: https://mui.com/material-ui/api/dialog/
    - Files to read:
      - `client/src/components/codex/CodexDeviceAuthDialog.tsx`
-2. [ ] Render the verification URL as a link:
+2. [x] Render the verification URL as a link:
    - Documentation to read (repeat):
      - MUI Link API: https://mui.com/material-ui/api/link/
    - Files to edit:
@@ -2101,7 +2101,7 @@ Render the verification URL as a clickable link (opens in a new tab) and render 
      - Replace the read-only TextField with a MUI `Link`.
      - Use `target="_blank"` and `rel="noreferrer"`.
      - Keep the existing Copy button beside it.
-3. [ ] Render the user code as text:
+3. [x] Render the user code as text:
    - Documentation to read (repeat):
      - MUI Typography API: https://mui.com/material-ui/api/typography/
    - Files to edit:
@@ -2110,7 +2110,7 @@ Render the verification URL as a clickable link (opens in a new tab) and render 
      - Replace the read-only TextField with a Typography block.
      - Use a monospace font style for the code.
      - Keep the existing Copy button beside it.
-4. [ ] Unit test — verification link renders with correct href/target:
+4. [x] Unit test — verification link renders with correct href/target:
    - Documentation to read (repeat):
      - Jest: Context7 `/websites/jestjs_io_30_0`
      - Jest docs: https://jestjs.io/docs/getting-started
@@ -2118,7 +2118,7 @@ Render the verification URL as a clickable link (opens in a new tab) and render 
      - `client/src/test/codexDeviceAuthDialog.test.tsx`
    - Description & purpose:
      - Ensure the link exists and points at the verification URL.
-5. [ ] Unit test — user code renders as text (not input):
+5. [x] Unit test — user code renders as text (not input):
    - Documentation to read (repeat):
      - Jest: Context7 `/websites/jestjs_io_30_0`
      - Jest docs: https://jestjs.io/docs/getting-started
@@ -2126,14 +2126,14 @@ Render the verification URL as a clickable link (opens in a new tab) and render 
      - `client/src/test/codexDeviceAuthDialog.test.tsx`
    - Description & purpose:
      - Verify the user code is rendered as text and still copyable.
-6. [ ] Update `projectStructure.md` after any file additions/removals in this task.
+6. [x] Update `projectStructure.md` after any file additions/removals in this task.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to read:
    - `projectStructure.md`
   - Files to edit:
     - `projectStructure.md`
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+7. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -2146,45 +2146,50 @@ Render the verification URL as a clickable link (opens in a new tab) and render 
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
    - Documentation to read (repeat):
      - Jest: Context7 `/websites/jestjs_io_30_0`
      - Jest docs: https://jestjs.io/docs/getting-started
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
      - Playwright docs (intro): https://playwright.dev/docs/intro
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
      - Docker Compose docs: https://docs.docker.com/compose/
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] `npm run compose:down`
+8. [x] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
 #### Implementation notes
 
-- 
- - 2026-01-25: `npm run build --workspace server` succeeded.
- - 2026-01-25: `npm run build --workspace client` succeeded (chunk size warning only).
- - 2026-01-25: `npm run test --workspace server` passed after rerunning with a longer timeout.
- - 2026-01-25: `npm run test --workspace client` passed (console warnings only).
- - 2026-01-25: `npm run e2e` completed successfully.
- - 2026-01-25: `npm run compose:build` completed successfully.
- - 2026-01-25: `npm run compose:up` started the stack successfully.
- - 2026-01-25: `npm run compose:down` stopped the stack successfully.
+- 2026-01-25: Reviewed `CodexDeviceAuthDialog` layout to plan link + text replacements.
+- 2026-01-25: Replaced verification URL TextField with a MUI Link and kept copy action.
+- 2026-01-25: Rendered user code as monospace Typography alongside the copy action.
+- 2026-01-25: Updated dialog tests to assert link attributes and text-only code rendering.
+- 2026-01-25: `projectStructure.md` unchanged because no files were added/removed.
+- 2026-01-25: `npm run lint --workspaces` passed with existing import-order warnings; `npm run format:check --workspaces` clean.
+- 2026-01-25: `npm run build --workspace server` succeeded.
+- 2026-01-25: `npm run build --workspace client` succeeded (chunk size warning only).
+- 2026-01-25: `npm run test --workspace server` passed.
+- 2026-01-25: `npm run test --workspace client` passed (console warnings only).
+- 2026-01-25: `npm run e2e` completed successfully.
+- 2026-01-25: `npm run compose:build` completed successfully.
+- 2026-01-25: `npm run compose:up` started the stack successfully.
+- 2026-01-25: `npm run compose:down` stopped the stack successfully.
 
 ---
 

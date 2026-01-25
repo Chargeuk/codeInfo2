@@ -93,11 +93,34 @@ describe('CodexDeviceAuthDialog', () => {
       screen.getByRole('button', { name: /start device auth/i }),
     );
 
-    expect(
-      await screen.findByDisplayValue('https://example.com/device'),
-    ).toBeInTheDocument();
-    expect(screen.getByDisplayValue('ABCD-EFGH')).toBeInTheDocument();
+    const link = await screen.findByRole('link', {
+      name: 'https://example.com/device',
+    });
+    expect(link).toBeInTheDocument();
+    expect(link).toHaveAttribute('href', 'https://example.com/device');
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(link).toHaveAttribute('rel', 'noreferrer');
+    expect(screen.getByText('ABCD-EFGH')).toBeInTheDocument();
     expect(screen.getByText('Expires in 120 seconds.')).toBeInTheDocument();
+  });
+
+  it('renders user code as text instead of an input', async () => {
+    const user = userEvent.setup();
+    postCodexDeviceAuth.mockResolvedValue({
+      status: 'completed',
+      target: 'chat',
+      verificationUrl: 'https://example.com/device',
+      userCode: 'ABCD-EFGH',
+    });
+
+    renderDialog();
+
+    await user.click(
+      screen.getByRole('button', { name: /start device auth/i }),
+    );
+
+    expect(await screen.findByText('ABCD-EFGH')).toBeInTheDocument();
+    expect(screen.queryByDisplayValue('ABCD-EFGH')).not.toBeInTheDocument();
   });
 
   it('shows error message and re-enables start after failure', async () => {
@@ -153,7 +176,9 @@ describe('CodexDeviceAuthDialog', () => {
       screen.getByRole('button', { name: /start device auth/i }),
     );
 
-    await screen.findByDisplayValue('https://example.com/device');
+    await screen.findByRole('link', {
+      name: 'https://example.com/device',
+    });
 
     await user.click(
       screen.getByRole('button', { name: /copy verification url/i }),

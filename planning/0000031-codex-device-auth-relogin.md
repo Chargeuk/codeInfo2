@@ -1164,7 +1164,7 @@ Build a reusable dialog component that runs device-auth, shows loading/error/suc
 
 ### 7. Client: Chat page device-auth entry point
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **__to_do__**
 
 #### Overview

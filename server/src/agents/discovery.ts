@@ -17,7 +17,9 @@ const fileExists = async (filePath: string) => {
   }
 };
 
-export const discoverAgents = async (): Promise<DiscoveredAgent[]> => {
+export const discoverAgents = async (options?: {
+  seedAuth?: boolean;
+}): Promise<DiscoveredAgent[]> => {
   const agentsHomeEnv = process.env.CODEINFO_CODEX_AGENT_HOME;
   if (!agentsHomeEnv) {
     throw new Error('CODEINFO_CODEX_AGENT_HOME is not set');
@@ -41,12 +43,14 @@ export const discoverAgents = async (): Promise<DiscoveredAgent[]> => {
 
     const warnings: string[] = [];
 
-    const seedResult = await ensureAgentAuthSeeded({
-      agentHome: home,
-      primaryCodexHome,
-      logger: baseLogger,
-    });
-    if (seedResult.warning) warnings.push(seedResult.warning);
+    if (options?.seedAuth !== false) {
+      const seedResult = await ensureAgentAuthSeeded({
+        agentHome: home,
+        primaryCodexHome,
+        logger: baseLogger,
+      });
+      if (seedResult.warning) warnings.push(seedResult.warning);
+    }
 
     let description: string | undefined;
     const hasDescription = await fileExists(descriptionPath);

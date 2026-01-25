@@ -6,7 +6,11 @@ import test, { afterEach } from 'node:test';
 
 import pino from 'pino';
 
-import { ensureAgentAuthSeeded } from '../../agents/authSeed.js';
+import {
+  copyAgentAuthFromPrimary,
+  ensureAgentAuthSeeded,
+  propagateAgentAuthFromPrimary,
+} from '../../agents/authSeed.js';
 
 const logger = pino({ level: 'silent' });
 
@@ -83,4 +87,55 @@ test('lock-protects concurrent auth seeding calls', async () => {
   assert.equal(a.seeded || b.seeded, true);
   assert.equal([a.seeded, b.seeded].filter(Boolean).length, 1);
   assert.ok(fs.existsSync(path.join(agentHome, 'auth.json')));
+});
+
+test('overwrite copy replaces existing agent auth.json when enabled', async () => {
+  const primaryCodexHome = makeTempDir('codex-primary-');
+  const agentHome = makeTempDir('codex-agent-');
+  fs.writeFileSync(path.join(primaryCodexHome, 'auth.json'), '{"token":"p"}');
+  fs.writeFileSync(path.join(agentHome, 'auth.json'), '{"token":"a"}');
+
+  const result = await copyAgentAuthFromPrimary({
+    agentHome,
+    primaryCodexHome,
+    logger,
+    overwrite: true,
+  });
+
+  assert.equal(result.warning, undefined);
+  assert.equal(result.copied, true);
+  assert.equal(
+    fs.readFileSync(path.join(agentHome, 'auth.json'), 'utf8'),
+    '{"token":"p"}',
+  );
+});
+
+test('propagation targets only the selected agent', async () => {
+  const primaryCodexHome = makeTempDir('codex-primary-');
+  const agentHomeA = makeTempDir('codex-agent-a-');
+  const agentHomeB = makeTempDir('codex-agent-b-');
+  fs.writeFileSync(path.join(primaryCodexHome, 'auth.json'), '{"token":"p"}');
+  fs.writeFileSync(path.join(agentHomeA, 'auth.json'), '{"token":"a"}');
+  fs.writeFileSync(path.join(agentHomeB, 'auth.json'), '{"token":"b"}');
+
+  const result = await propagateAgentAuthFromPrimary({
+    agents: [
+      { name: 'agent-a', home: agentHomeA },
+      { name: 'agent-b', home: agentHomeB },
+    ],
+    primaryCodexHome,
+    logger,
+    targetAgentName: 'agent-a',
+    overwrite: true,
+  });
+
+  assert.equal(result.agentCount, 1);
+  assert.equal(
+    fs.readFileSync(path.join(agentHomeA, 'auth.json'), 'utf8'),
+    '{"token":"p"}',
+  );
+  assert.equal(
+    fs.readFileSync(path.join(agentHomeB, 'auth.json'), 'utf8'),
+    '{"token":"b"}',
+  );
 });

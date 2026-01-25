@@ -685,7 +685,7 @@ Copy refreshed `auth.json` to agent homes when targeting chat, and refresh Codex
 
 #### Subtasks
 
-1. [ ] Review auth propagation + detection helpers:
+1. [x] Review auth propagation + detection helpers:
    - Documentation to read (repeat):
      - Node.js fs/promises: https://nodejs.org/api/fs.html
    - Files to read:
@@ -695,7 +695,7 @@ Copy refreshed `auth.json` to agent homes when targeting chat, and refresh Codex
      - `server/src/providers/codexDetection.ts`
      - `server/src/providers/codexRegistry.ts`
      - `server/src/routes/codexDeviceAuth.ts`
-2. [ ] Add overwrite-capable auth propagation:
+2. [x] Add overwrite-capable auth propagation:
    - Documentation to read (repeat):
      - Node.js fs/promises: https://nodejs.org/api/fs.html
    - Files to edit:
@@ -709,7 +709,7 @@ Copy refreshed `auth.json` to agent homes when targeting chat, and refresh Codex
    - Log copy failures; do not add new response fields for propagation warnings.
    - Log line to add:
      - `DEV-0000031:T4:codex_device_auth_propagated` with `target`, `agentName`, and `agentCount`.
-3. [ ] Refresh Codex availability after login:
+3. [x] Refresh Codex availability after login:
    - Documentation to read (repeat):
      - Codex auth + device auth: https://developers.openai.com/codex/auth
    - Files to edit:
@@ -721,21 +721,21 @@ Copy refreshed `auth.json` to agent homes when targeting chat, and refresh Codex
    - Do not change global detection when the target is an agent-only auth refresh.
    - Log line to add:
      - `DEV-0000031:T4:codex_device_auth_availability_refreshed` with `available` and `codexHome`.
-4. [ ] Unit test (server) — overwrite agent auth:
+4. [x] Unit test (server) — overwrite agent auth:
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
    - Files to edit:
      - `server/src/test/unit/agents.authSeed.test.ts` (new or existing)
    - Description & purpose:
      - When `overwrite=true`, the helper replaces an existing agent `auth.json` with the primary file.
-5. [ ] Unit test (server) — single-agent targeting:
+5. [x] Unit test (server) — single-agent targeting:
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
    - Files to edit:
      - `server/src/test/unit/agents.authSeed.test.ts` (new or existing)
    - Description & purpose:
      - When targeting a single agent, only that agent home is updated.
-6. [ ] Update `projectStructure.md` after any file additions/removals in this task.
+6. [x] Update `projectStructure.md` after any file additions/removals in this task.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to read:
@@ -746,7 +746,7 @@ Copy refreshed `auth.json` to agent homes when targeting chat, and refresh Codex
     - Update repo root `projectStructure.md` with any files added/removed/renamed in this task.
     - Add entries for new files created in this task, including:
       - `server/src/test/unit/agents.authSeed.test.ts` (if created)
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+7. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -759,32 +759,32 @@ Copy refreshed `auth.json` to agent homes when targeting chat, and refresh Codex
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
    - Documentation to read (repeat):
      - Jest: Context7 `/websites/jestjs_io_30_0`
      - Jest docs: https://jestjs.io/docs/getting-started
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
      - Playwright docs (intro): https://playwright.dev/docs/intro
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
      - Docker Compose docs: https://docs.docker.com/compose/
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
      - Docker Compose docs: https://docs.docker.com/compose/
-8. [ ] `npm run compose:down`
+8. [x] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
      - Docker Compose docs: https://docs.docker.com/compose/
@@ -792,6 +792,19 @@ Copy refreshed `auth.json` to agent homes when targeting chat, and refresh Codex
 #### Implementation notes
 
 - 2026-01-25: Task 4 marked in progress.
+- 2026-01-25: Reviewed auth seeding, discovery, codex detection, registry, and device-auth route helpers.
+- 2026-01-25: Added overwrite-capable auth propagation and availability refresh after device-auth.
+- 2026-01-25: Added unit coverage for overwrite propagation and single-agent targeting.
+- 2026-01-25: No new files added; projectStructure required no updates.
+- 2026-01-25: `npm run lint --workspaces` still reports pre-existing import/order warnings; `npm run format --workspaces` fixed formatting and `format:check` passes.
+- 2026-01-25: Server build (`npm run build --workspace server`) succeeded.
+- 2026-01-25: Client build (`npm run build --workspace client`) succeeded with existing chunk-size warning.
+- 2026-01-25: `TMPDIR=/tmp npm run test --workspace server` passed (unit + integration + cucumber).
+- 2026-01-25: `TMPDIR=/tmp npm run test --workspace client` passed (console logging noise expected).
+- 2026-01-25: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run e2e` passed (36 tests).
+- 2026-01-25: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run compose:build` succeeded.
+- 2026-01-25: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run compose:up` brought services to healthy.
+- 2026-01-25: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run compose:down` stopped the stack.
 
 ---
 

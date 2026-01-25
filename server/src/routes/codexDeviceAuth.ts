@@ -8,12 +8,18 @@ import {
   type Response,
 } from 'express';
 
+import { propagateAgentAuthFromPrimary } from '../agents/authSeed.js';
 import { discoverAgents } from '../agents/discovery.js';
+import { getCodexHome } from '../config/codexConfig.js';
 import { baseLogger, resolveLogConfig } from '../logger.js';
+import { refreshCodexDetection } from '../providers/codexDetection.js';
 import { runCodexDeviceAuth } from '../utils/codexDeviceAuth.js';
 
 type Deps = {
   discoverAgents: typeof discoverAgents;
+  propagateAgentAuthFromPrimary: typeof propagateAgentAuthFromPrimary;
+  refreshCodexDetection: typeof refreshCodexDetection;
+  getCodexHome: typeof getCodexHome;
   runCodexDeviceAuth: typeof runCodexDeviceAuth;
   resolveCodexCli: typeof resolveCodexCli;
 };
@@ -78,6 +84,9 @@ function parseDeviceAuthBody(body: unknown): ParsedDeviceAuth {
 export function createCodexDeviceAuthRouter(
   deps: Deps = {
     discoverAgents,
+    propagateAgentAuthFromPrimary,
+    refreshCodexDetection,
+    getCodexHome,
     runCodexDeviceAuth,
     resolveCodexCli,
   },
@@ -136,10 +145,11 @@ export function createCodexDeviceAuthRouter(
     );
 
     let agentHome: string | undefined;
+    let agentsList: Awaited<ReturnType<typeof discoverAgents>> | undefined;
     if (parsedBody.target === 'agent') {
       try {
-        const agents = await deps.discoverAgents();
-        const match = agents.find(
+        agentsList = await deps.discoverAgents();
+        const match = agentsList.find(
           (agent) => agent.name === parsedBody.agentName,
         );
         if (!match) {
@@ -207,6 +217,41 @@ export function createCodexDeviceAuthRouter(
         'DEV-0000031:T2:codex_device_auth_request_failed',
       );
       return res.status(statusCode).json(errorPayload);
+    }
+
+    if (parsedBody.target === 'chat') {
+      const agents =
+        agentsList ?? (await deps.discoverAgents({ seedAuth: false }));
+      const { agentCount } = await deps.propagateAgentAuthFromPrimary({
+        agents,
+        primaryCodexHome: deps.getCodexHome(),
+        logger: baseLogger,
+        overwrite: true,
+      });
+
+      baseLogger.info(
+        {
+          target: parsedBody.target,
+          agentName: parsedBody.agentName,
+          agentCount,
+        },
+        'DEV-0000031:T4:codex_device_auth_propagated',
+      );
+
+      const refreshed = deps.refreshCodexDetection();
+      baseLogger.info(
+        { available: refreshed.available, codexHome: deps.getCodexHome() },
+        'DEV-0000031:T4:codex_device_auth_availability_refreshed',
+      );
+    } else {
+      baseLogger.info(
+        {
+          target: parsedBody.target,
+          agentName: parsedBody.agentName,
+          agentCount: parsedBody.agentName ? 1 : 0,
+        },
+        'DEV-0000031:T4:codex_device_auth_propagated',
+      );
     }
 
     baseLogger.info(

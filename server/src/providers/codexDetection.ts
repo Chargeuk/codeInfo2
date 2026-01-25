@@ -9,7 +9,11 @@ import {
   getCodexHome,
   resolveCodexHome,
 } from '../config/codexConfig.js';
-import { CodexDetection, setCodexDetection } from './codexRegistry.js';
+import {
+  CodexDetection,
+  setCodexDetection,
+  updateCodexDetection,
+} from './codexRegistry.js';
 
 export function detectCodexForHome(codexHome: string): CodexDetection {
   const home = resolveCodexHome(codexHome);
@@ -82,6 +86,13 @@ export function detectCodex(): CodexDetection {
   };
 
   setCodexDetection(result);
+  return result;
+}
+
+export function refreshCodexDetection(): CodexDetection {
+  const home = getCodexHome();
+  const result = detectCodexForHome(home);
+  updateCodexDetection(result);
   return result;
 }
 

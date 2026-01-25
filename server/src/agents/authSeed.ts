@@ -10,6 +10,15 @@ type Params = {
 };
 
 type Result = { seeded: boolean; warning?: string };
+type CopyResult = { copied: boolean; warning?: string };
+
+type PropagateParams = {
+  agents: Array<{ name: string; home: string }>;
+  primaryCodexHome: string;
+  logger: Logger;
+  targetAgentName?: string;
+  overwrite?: boolean;
+};
 
 const fileExists = async (filePath: string) => {
   try {
@@ -74,4 +83,56 @@ export async function ensureAgentAuthSeeded({
     logger.warn({ agentHome, primaryCodexHome, err: error }, warning);
     return { seeded: false, warning };
   }
+}
+
+export async function copyAgentAuthFromPrimary({
+  agentHome,
+  primaryCodexHome,
+  logger,
+  overwrite = false,
+}: Params & { overwrite?: boolean }): Promise<CopyResult> {
+  const agentAuthPath = path.join(agentHome, 'auth.json');
+  const primaryAuthPath = path.join(primaryCodexHome, 'auth.json');
+
+  try {
+    return await withLock(agentAuthPath, async () => {
+      if (!overwrite && (await fileExists(agentAuthPath))) {
+        return { copied: false };
+      }
+      if (!(await fileExists(primaryAuthPath))) return { copied: false };
+
+      await fs.mkdir(agentHome, { recursive: true });
+      await fs.copyFile(primaryAuthPath, agentAuthPath);
+
+      return { copied: true };
+    });
+  } catch (error) {
+    const warning = `Failed to copy auth.json for agent home "${agentHome}": ${(error as Error).message}`;
+    logger.warn({ agentHome, primaryCodexHome, err: error }, warning);
+    return { copied: false, warning };
+  }
+}
+
+export async function propagateAgentAuthFromPrimary({
+  agents,
+  primaryCodexHome,
+  logger,
+  targetAgentName,
+  overwrite = false,
+}: PropagateParams): Promise<{ agentCount: number }> {
+  const filtered = targetAgentName
+    ? agents.filter((agent) => agent.name === targetAgentName)
+    : agents;
+  const agentCount = filtered.length;
+
+  for (const agent of filtered) {
+    await copyAgentAuthFromPrimary({
+      agentHome: agent.home,
+      primaryCodexHome,
+      logger,
+      overwrite,
+    });
+  }
+
+  return { agentCount };
 }

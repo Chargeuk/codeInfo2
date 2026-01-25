@@ -5,12 +5,37 @@ import express from 'express';
 import supertest from 'supertest';
 
 import type { DiscoveredAgent } from '../../agents/types.js';
+import type { CodexDetection } from '../../providers/codexRegistry.js';
 import { createCodexDeviceAuthRouter } from '../../routes/codexDeviceAuth.js';
 
 function buildApp(deps?: Parameters<typeof createCodexDeviceAuthRouter>[0]) {
   const app = express();
   app.use('/codex', createCodexDeviceAuthRouter(deps));
   return app;
+}
+
+const defaultDetection: CodexDetection = {
+  available: true,
+  authPresent: true,
+  configPresent: true,
+};
+
+function withDeps(
+  overrides?: Partial<Parameters<typeof createCodexDeviceAuthRouter>[0]>,
+): Parameters<typeof createCodexDeviceAuthRouter>[0] {
+  return {
+    discoverAgents: async () => [],
+    propagateAgentAuthFromPrimary: async () => ({ agentCount: 0 }),
+    refreshCodexDetection: () => defaultDetection,
+    getCodexHome: () => '/tmp/codex-home',
+    runCodexDeviceAuth: async () => ({
+      ok: true,
+      verificationUrl: 'https://device.test/verify',
+      userCode: 'CODE-123',
+    }),
+    resolveCodexCli: () => ({ available: true }),
+    ...overrides,
+  };
 }
 
 function makeAgent(name: string, home = '/tmp/agent-home'): DiscoveredAgent {
@@ -29,19 +54,20 @@ describe('POST /codex/device-auth', () => {
   test('returns verification data for chat target', async () => {
     let receivedHome: string | undefined;
     const res = await supertest(
-      buildApp({
-        discoverAgents: async () => [makeAgent('coding_agent')],
-        resolveCodexCli: () => ({ available: true }),
-        runCodexDeviceAuth: async (params) => {
-          receivedHome = params?.codexHome;
-          return {
-            ok: true,
-            verificationUrl: 'https://device.test/verify',
-            userCode: 'CODE-123',
-            expiresInSec: 600,
-          };
-        },
-      }),
+      buildApp(
+        withDeps({
+          discoverAgents: async () => [makeAgent('coding_agent')],
+          runCodexDeviceAuth: async (params) => {
+            receivedHome = params?.codexHome;
+            return {
+              ok: true,
+              verificationUrl: 'https://device.test/verify',
+              userCode: 'CODE-123',
+              expiresInSec: 600,
+            };
+          },
+        }),
+      ),
     )
       .post('/codex/device-auth')
       .send({ target: 'chat' });
@@ -57,13 +83,14 @@ describe('POST /codex/device-auth', () => {
 
   test('unknown agentName returns 404', async () => {
     const res = await supertest(
-      buildApp({
-        discoverAgents: async () => [makeAgent('known_agent')],
-        resolveCodexCli: () => ({ available: true }),
-        runCodexDeviceAuth: async () => {
-          throw new Error('should not run');
-        },
-      }),
+      buildApp(
+        withDeps({
+          discoverAgents: async () => [makeAgent('known_agent')],
+          runCodexDeviceAuth: async () => {
+            throw new Error('should not run');
+          },
+        }),
+      ),
     )
       .post('/codex/device-auth')
       .send({ target: 'agent', agentName: 'missing' });
@@ -99,16 +126,17 @@ describe('POST /codex/device-auth', () => {
 
   test('codex unavailable returns 503', async () => {
     const res = await supertest(
-      buildApp({
-        discoverAgents: async () => [],
-        resolveCodexCli: () => ({
-          available: false,
-          reason: 'codex not found',
+      buildApp(
+        withDeps({
+          resolveCodexCli: () => ({
+            available: false,
+            reason: 'codex not found',
+          }),
+          runCodexDeviceAuth: async () => {
+            throw new Error('should not run');
+          },
         }),
-        runCodexDeviceAuth: async () => {
-          throw new Error('should not run');
-        },
-      }),
+      ),
     )
       .post('/codex/device-auth')
       .send({ target: 'chat' });
@@ -122,14 +150,14 @@ describe('POST /codex/device-auth', () => {
 
   test('device-auth parse error returns 400 invalid_request', async () => {
     const res = await supertest(
-      buildApp({
-        discoverAgents: async () => [],
-        resolveCodexCli: () => ({ available: true }),
-        runCodexDeviceAuth: async () => ({
-          ok: false,
-          message: 'device auth output not recognized',
+      buildApp(
+        withDeps({
+          runCodexDeviceAuth: async () => ({
+            ok: false,
+            message: 'device auth output not recognized',
+          }),
         }),
-      }),
+      ),
     )
       .post('/codex/device-auth')
       .send({ target: 'chat' });

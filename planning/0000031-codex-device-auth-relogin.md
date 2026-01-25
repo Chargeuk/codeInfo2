@@ -974,8 +974,8 @@ Create a client API helper for `POST /codex/device-auth` with typed request/resp
 
 ### 6. Client: CodexDeviceAuthDialog component
 
-- Task Status: **__in_progress__**
-- Git Commits: **__to_do__**
+- Task Status: **__done__**
+- Git Commits: 2ffe048, 247378c
 
 #### Overview
 

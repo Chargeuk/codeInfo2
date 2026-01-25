@@ -1808,8 +1808,8 @@ Ensure device-auth always writes to `auth.json` by enforcing file-store config f
 
 ### 11. Final Task: Re-validate after device-auth persistence fixes
 
-- Task Status: **__in_progress__**
-- Git Commits: **__to_do__**
+- Task Status: **__done__**
+- Git Commits: 226ef04
 
 #### Overview
 

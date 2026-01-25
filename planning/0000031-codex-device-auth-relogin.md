@@ -1922,3 +1922,206 @@ Re-run the full validation suite and documentation checks after Task 10 to ensur
 - 2026-01-25: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run compose:down` stopped the stack.
 
 ---
+
+### 12. Server: Device-auth output parsing hardening
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Harden device-auth stdout parsing to strip ANSI escape codes and prevent the user-code regex from matching the word `codex`, ensuring the URL and one-time code display correctly in the UI.
+
+#### Documentation Locations
+
+- Codex auth + device auth: https://developers.openai.com/codex/auth
+- Codex CLI reference (`codex login`): https://developers.openai.com/codex/cli/reference
+- ANSI escape codes: https://en.wikipedia.org/wiki/ANSI_escape_code
+- JavaScript regex reference: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Regular_Expressions
+- Node.js test runner: https://nodejs.org/api/test.html
+- Markdown Guide: https://www.markdownguide.org/basic-syntax/
+- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+- Prettier CLI: https://prettier.io/docs/cli
+- npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+- Jest: Context7 `/websites/jestjs_io_30_0`
+     - Jest docs: https://jestjs.io/docs/getting-started
+- Playwright: Context7 `/microsoft/playwright`
+- Playwright docs (intro): https://playwright.dev/docs/intro
+- Docker/Compose: Context7 `/docker/docs`
+- Docker Compose docs: https://docs.docker.com/compose/
+
+#### Subtasks
+
+1. [ ] Review the captured device-auth CLI output and parser:
+   - Documentation to read (repeat):
+     - Codex CLI reference (`codex login`): https://developers.openai.com/codex/cli/reference
+   - Files to read:
+     - `server/src/utils/codexDeviceAuth.ts`
+     - `server/src/test/unit/codexDeviceAuth.test.ts`
+   - Notes:
+     - Use the provided CLI output sample with ANSI colors as the baseline fixture.
+2. [ ] Strip ANSI escape codes before parsing:
+   - Documentation to read (repeat):
+     - ANSI escape codes: https://en.wikipedia.org/wiki/ANSI_escape_code
+   - Files to edit:
+     - `server/src/utils/codexDeviceAuth.ts`
+   - Implementation details:
+     - Add a helper to remove ANSI color/control sequences.
+     - Ensure both stdout and stderr are normalized before regex parsing.
+3. [ ] Tighten the user-code regex:
+   - Documentation to read (repeat):
+     - JavaScript regex reference: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Regular_Expressions
+   - Files to edit:
+     - `server/src/utils/codexDeviceAuth.ts`
+   - Implementation details:
+     - Require word boundaries around `code` so `codex` cannot match.
+     - Require a minimum length (e.g., 6+ characters) to prevent one-letter captures.
+4. [ ] Unit test — ANSI + codex substring regression:
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+   - Files to edit:
+     - `server/src/test/unit/codexDeviceAuth.test.ts`
+   - Description & purpose:
+     - Feed the captured output (including ANSI reset codes) and assert the URL and full code parse correctly.
+5. [ ] Unit test — ensure `codex` does not match `code`:
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+   - Files to edit:
+     - `server/src/test/unit/codexDeviceAuth.test.ts`
+   - Description & purpose:
+     - Verify that the parser does not return `x` or similar from the word `codex`.
+6. [ ] Update `projectStructure.md` after any file additions/removals in this task.
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+   - Files to read:
+   - `projectStructure.md`
+  - Files to edit:
+    - `projectStructure.md`
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier CLI: https://prettier.io/docs/cli
+   - Files to read:
+     - `package.json`
+     - `server/package.json`
+     - `client/package.json`
+   - Snippets to locate:
+     - Root `lint` and `format:check` scripts
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+2. [ ] `npm run build --workspace client`
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+3. [ ] `npm run test --workspace server`
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+4. [ ] `npm run test --workspace client`
+   - Documentation to read (repeat):
+     - Jest: Context7 `/websites/jestjs_io_30_0`
+     - Jest docs: https://jestjs.io/docs/getting-started
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
+     - Playwright docs (intro): https://playwright.dev/docs/intro
+6. [ ] `npm run compose:build`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+     - Docker Compose docs: https://docs.docker.com/compose/
+7. [ ] `npm run compose:up`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+8. [ ] `npm run compose:down`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+
+#### Implementation notes
+
+- 
+
+---
+
+### 13. Final Task: Re-validate after parsing hardening
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Re-run the full validation suite and documentation checks after Task 12 to ensure the device-auth parsing fixes satisfy every acceptance criterion.
+
+#### Documentation Locations
+
+- Docker/Compose: Context7 `/docker/docs`
+- Docker Compose docs: https://docs.docker.com/compose/
+- Playwright: Context7 `/microsoft/playwright`
+- Playwright docs (intro): https://playwright.dev/docs/intro
+- Husky: Context7 `/typicode/husky`
+- Mermaid: Context7 `/mermaid-js/mermaid`
+- Jest: Context7 `/jestjs/jest`
+- Jest docs: https://jestjs.io/docs/getting-started
+- Cucumber guides (overview): https://cucumber.io/docs/guides/
+- Cucumber guides (tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/
+
+#### Subtasks
+
+1. [ ] Ensure `README.md` is updated with any new commands or behavior changes
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+   - Files to edit:
+     - `README.md`
+2. [ ] Ensure `design.md` is updated with any required description changes including mermaid diagrams
+   - Documentation to read (repeat):
+     - Mermaid diagrams: Context7 `/mermaid-js/mermaid`
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+   - Files to edit:
+     - `design.md`
+3. [ ] Ensure `projectStructure.md` is updated with any updated, added or removed files & folders
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+   - Files to edit:
+     - `projectStructure.md`
+4. [ ] Create a reasonable summary of all changes within this story and create a pull request comment
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+2. [ ] `npm run build --workspace client`
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+3. [ ] `npm run test --workspace server`
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+4. [ ] `npm run test --workspace client`
+   - Documentation to read (repeat):
+     - Jest: Context7 `/websites/jestjs_io_30_0`
+     - Jest docs: https://jestjs.io/docs/getting-started
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
+     - Playwright docs (intro): https://playwright.dev/docs/intro
+6. [ ] `npm run compose:build`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+     - Docker Compose docs: https://docs.docker.com/compose/
+7. [ ] `npm run compose:up`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001) to confirm device-auth flow + regressions
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
+     - Playwright docs (intro): https://playwright.dev/docs/intro
+9. [ ] `npm run compose:down`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+
+#### Implementation notes
+
+- 
+
+---

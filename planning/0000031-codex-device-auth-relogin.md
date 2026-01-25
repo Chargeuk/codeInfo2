@@ -538,14 +538,14 @@ Ensure the Codex config enforces `cli_auth_credentials_store = "file"` so device
 
 #### Subtasks
 
-1. [ ] Review Codex config helpers:
+1. [x] Review Codex config helpers:
    - Documentation to read (repeat):
      - Codex config reference (`cli_auth_credentials_store`): https://developers.openai.com/codex/config-reference/
    - Files to read:
      - `server/src/config/codexConfig.ts`
    - Snippets to locate:
      - `getCodexConfigPathForHome`
-2. [ ] Add a helper to enforce `cli_auth_credentials_store = "file"`:
+2. [x] Add a helper to enforce `cli_auth_credentials_store = "file"`:
    - Documentation to read (repeat):
      - Codex auth + device auth: https://developers.openai.com/codex/auth
    - Files to edit:
@@ -556,7 +556,7 @@ Ensure the Codex config enforces `cli_auth_credentials_store = "file"` so device
      - If the file cannot be updated, return a clear error that persistence is unavailable.
    - Key requirements (repeat):
      - Keep changes minimal and avoid rewriting unrelated config contents.
-3. [ ] Add config persistence log line:
+3. [x] Add config persistence log line:
    - Documentation to read (repeat):
      - Pino logger: https://getpino.io/#/
    - Files to read:
@@ -567,21 +567,21 @@ Ensure the Codex config enforces `cli_auth_credentials_store = "file"` so device
      - Log when the config helper enforces file storage: `DEV-0000031:T3:codex_device_auth_config_persisted`.
      - Include `changed: true|false` and `configPath` in context.
      - Do not log config contents or secrets.
-4. [ ] Unit test (server) — writes file-store setting when missing:
+4. [x] Unit test (server) — writes file-store setting when missing:
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
    - Files to edit:
      - `server/src/test/unit/codexConfig.device-auth.test.ts` (new)
    - Description & purpose:
      - When missing, the helper writes `cli_auth_credentials_store = "file"` into a temp config file.
-5. [ ] Unit test (server) — leaves existing setting unchanged:
+5. [x] Unit test (server) — leaves existing setting unchanged:
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
    - Files to edit:
      - `server/src/test/unit/codexConfig.device-auth.test.ts` (new)
    - Description & purpose:
      - When already present, the helper leaves the file unchanged.
-6. [ ] Update `projectStructure.md` after any file additions/removals in this task.
+6. [x] Update `projectStructure.md` after any file additions/removals in this task.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to read:
@@ -592,7 +592,7 @@ Ensure the Codex config enforces `cli_auth_credentials_store = "file"` so device
     - Update repo root `projectStructure.md` with any files added/removed/renamed in this task.
     - Add entries for:
       - `server/src/test/unit/codexConfig.device-auth.test.ts`
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+7. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -605,32 +605,32 @@ Ensure the Codex config enforces `cli_auth_credentials_store = "file"` so device
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
    - Documentation to read (repeat):
      - Jest: Context7 `/websites/jestjs_io_30_0`
      - Jest docs: https://jestjs.io/docs/getting-started
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
      - Playwright docs (intro): https://playwright.dev/docs/intro
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
      - Docker Compose docs: https://docs.docker.com/compose/
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
      - Docker Compose docs: https://docs.docker.com/compose/
-8. [ ] `npm run compose:down`
+8. [x] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
      - Docker Compose docs: https://docs.docker.com/compose/
@@ -638,6 +638,19 @@ Ensure the Codex config enforces `cli_auth_credentials_store = "file"` so device
 #### Implementation notes
 
 - 2026-01-25: Task 3 marked in progress.
+- 2026-01-25: Reviewed Codex config helpers and config path resolution.
+- 2026-01-25: Added `ensureCodexAuthFileStore` helper to enforce file-based auth storage with logging.
+- 2026-01-25: Added unit tests for device-auth config persistence helper.
+- 2026-01-25: Updated `projectStructure.md` with the new device-auth config test entry.
+- 2026-01-25: `npm run lint --workspaces` still reports pre-existing import/order warnings; `npm run format --workspaces` fixed formatting and `format:check` passes.
+- 2026-01-25: Server build (`npm run build --workspace server`) succeeded.
+- 2026-01-25: Client build (`npm run build --workspace client`) succeeded with existing chunk-size warning.
+- 2026-01-25: `TMPDIR=/tmp npm run test --workspace server` passed (unit + integration + cucumber).
+- 2026-01-25: `TMPDIR=/tmp npm run test --workspace client` passed (console logging noise expected).
+- 2026-01-25: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run e2e` passed (36 tests).
+- 2026-01-25: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run compose:build` succeeded.
+- 2026-01-25: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run compose:up` brought services to healthy.
+- 2026-01-25: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run compose:down` stopped the stack.
 
 ---
 

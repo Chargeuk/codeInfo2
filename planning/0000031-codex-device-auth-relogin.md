@@ -505,6 +505,15 @@ Add `POST /codex/device-auth` that validates the target (chat or agent), calls t
 - 2026-01-25: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run compose:build` succeeded.
 - 2026-01-25: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run compose:up` brought services to healthy.
 - 2026-01-25: Manual Agents device-auth check shows the button and dialog default to the selected agent, but device-auth request stalls at “Waiting for device auth…” so success log cannot be confirmed.
+- 2026-01-25: Adjusted device-auth CLI runner to resolve once verification data is parsed, then re-ran lint/format checks (lint warnings remain pre-existing).
+- 2026-01-25: Re-ran server build (`npm run build --workspace server`) after device-auth runner update.
+- 2026-01-25: Re-ran client build (`npm run build --workspace client`) after device-auth runner update.
+- 2026-01-25: Re-ran `TMPDIR=/tmp npm run test --workspace server` after device-auth runner update (54 scenarios, 325 steps).
+- 2026-01-25: Re-ran `TMPDIR=/tmp npm run test --workspace client` after device-auth runner update (console warnings expected).
+- 2026-01-25: Re-ran `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run e2e` after device-auth runner update (33 passed, 3 skipped).
+- 2026-01-25: Re-ran lint/format after parsing stderr for device-auth output; lint warnings remain pre-existing.
+- 2026-01-25: Re-ran server build after including stderr in device-auth parsing.
+- 2026-01-25: Re-ran client build after including stderr in device-auth parsing.
 - 2026-01-25: Normalized client log sources to avoid `/logs` 400s while keeping custom logger IDs in context.
 - 2026-01-25: Rebuilt compose images after client logging update.
 - 2026-01-25: Recreated compose stack after client logging update.
@@ -1173,8 +1182,8 @@ Build a reusable dialog component that runs device-auth, shows loading/error/suc
 
 ### 7. Client: Chat page device-auth entry point
 
-- Task Status: **__in_progress__**
-- Git Commits: **__to_do__**
+- Task Status: **__done__**
+- Git Commits: 0193108, 7314943
 
 #### Overview
 
@@ -1299,7 +1308,7 @@ Expose the re-authenticate button in Chat when Codex is selected + available, de
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
      - Docker Compose docs: https://docs.docker.com/compose/
-8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001) to confirm Chat device-auth UI + logs:
+8. [x] Manual Playwright-MCP check (http://host.docker.internal:5001) to confirm Chat device-auth UI + logs:
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
      - Playwright docs (intro): https://playwright.dev/docs/intro
@@ -1311,7 +1320,7 @@ Expose the re-authenticate button in Chat when Codex is selected + available, de
        - `DEV-0000031:T7:codex_device_auth_chat_success` after the dialog succeeds.
      - No errors appear in the Playwright debug console.
      - Capture screenshots of the Chat button + dialog state and save them under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped via `docker-compose.local.yml`) for GUI review.
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
      - Docker Compose docs: https://docs.docker.com/compose/
@@ -1322,13 +1331,19 @@ Expose the re-authenticate button in Chat when Codex is selected + available, de
 - 2026-01-25: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run e2e` passed (36 tests).
 - 2026-01-25: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run compose:build` succeeded.
 - 2026-01-25: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run compose:up` brought services to healthy.
+- 2026-01-25: Updated the device-auth runner to parse stdout+stderr early so verification details return without waiting for CLI exit.
+- 2026-01-25: Re-ran lint/format checks; lint warnings remain pre-existing.
+- 2026-01-25: Re-ran server + client builds, server + client tests, and e2e suite after device-auth parsing update.
+- 2026-01-25: Re-ran compose build/up and confirmed Chat device-auth dialog shows verification details; logs emitted for click + success.
+- 2026-01-25: Saved Chat button + dialog screenshots to `playwright-output-local`.
+- 2026-01-25: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run compose:down` stopped the stack.
 
 ---
 
 ### 8. Client: Agents page device-auth entry point
 
-- Task Status: **__in_progress__**
-- Git Commits: **__to_do__**
+- Task Status: **__done__**
+- Git Commits: 453f073, 84881b9, 7314943
 
 #### Overview
 
@@ -1460,7 +1475,7 @@ Show the re-authenticate button on Agents when a selection is active and Codex i
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
      - Docker Compose docs: https://docs.docker.com/compose/
-8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001) to confirm Agents device-auth UI + logs:
+8. [x] Manual Playwright-MCP check (http://host.docker.internal:5001) to confirm Agents device-auth UI + logs:
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
      - Playwright docs (intro): https://playwright.dev/docs/intro
@@ -1472,7 +1487,7 @@ Show the re-authenticate button on Agents when a selection is active and Codex i
        - `DEV-0000031:T8:codex_device_auth_agents_success` after the dialog succeeds.
      - No errors appear in the Playwright debug console.
      - Capture screenshots of the Agents button + dialog state and save them under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped via `docker-compose.local.yml`) for GUI review.
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
      - Docker Compose docs: https://docs.docker.com/compose/
@@ -1495,6 +1510,10 @@ Show the re-authenticate button on Agents when a selection is active and Codex i
 - 2026-01-25: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run e2e` passed (36 tests).
 - 2026-01-25: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run compose:build` succeeded.
 - 2026-01-25: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run compose:up` brought services to healthy.
+- 2026-01-25: Re-ran server + client builds, server + client tests, and e2e suite after device-auth parsing update.
+- 2026-01-25: Re-ran compose build/up and confirmed Agents device-auth dialog shows verification details; logs emitted for click + success.
+- 2026-01-25: Saved Agents button + dialog screenshots to `playwright-output-local`.
+- 2026-01-25: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run compose:down` stopped the stack.
 
 ---
 

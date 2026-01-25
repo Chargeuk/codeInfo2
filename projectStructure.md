@@ -86,6 +86,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 |     |- api/
 |     |  - agents.ts ? client wrapper for GET /agents and POST /agents/:agentName/run (AbortSignal supported)
 |     |  - baseUrl.ts ? runtime API base resolver (config/env/location)
+|     |  - codex.ts ? client wrapper for POST /codex/device-auth with structured errors + logging
 |     |  - flows.ts ? client wrapper for GET /flows and POST /flows/:flowName/run with structured errors + logging
 |     |- index.css ? minimal global styles (font smoothing, margin reset)
 |     |- main.tsx ? app entry with RouterProvider
@@ -125,6 +126,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 |     |     |- chatPage.provider.test.tsx ? provider dropdown, Codex disabled guidance, provider lock after first send
 |     |     |- chatPage.markdown.test.tsx ? assistant markdown rendering for lists and code fences
 |     |     |- chatPage.mermaid.test.tsx ? mermaid code fence rendering and script stripping
+|     |     |- codexDeviceAuthApi.test.ts ? codex device-auth API helper parsing + errors
 |     |     |- agentsPage.list.test.tsx ? Agents page loads agent list and populates dropdown
 |     |     |- agentsPage.descriptionPopover.test.tsx ? Agents page renders selected agent description markdown
 |     |     |- agentsPage.agentChange.test.tsx ? switching agent aborts run and resets conversation state

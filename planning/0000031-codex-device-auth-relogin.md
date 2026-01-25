@@ -1925,7 +1925,7 @@ Re-run the full validation suite and documentation checks after Task 10 to ensur
 
 ### 12. Server: Device-auth output parsing hardening
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **__to_do__**
 
 #### Overview

@@ -1653,3 +1653,218 @@ Validate the story end-to-end, run clean builds/tests, update documentation, and
 - Validated with full lint/format/build/test/e2e/compose cycles and manual Playwright checks.
 
 ---
+
+### 10. Server: Device-auth persistence + post-completion propagation
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Ensure device-auth always writes to `auth.json` by enforcing file-store config for the target Codex home, and delay propagation/availability refresh until the CLI finishes so agent homes receive the updated credentials.
+
+#### Documentation Locations
+
+- Codex auth + device auth: https://developers.openai.com/codex/auth
+- Codex config reference (`cli_auth_credentials_store`): https://developers.openai.com/codex/config-reference/
+- Node.js child_process: https://nodejs.org/api/child_process.html
+- Node.js fs/promises: https://nodejs.org/api/fs.html
+- Express routing + handlers: Context7 `/expressjs/express/v5.1.0`
+- Pino logger: https://getpino.io/#/
+- Markdown Guide: https://www.markdownguide.org/basic-syntax/
+- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+- Prettier CLI: https://prettier.io/docs/cli
+- npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+- Jest: Context7 `/websites/jestjs_io_30_0`
+     - Jest docs: https://jestjs.io/docs/getting-started
+- Cucumber guides (overview): https://cucumber.io/docs/guides/
+- Cucumber guides (tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/
+- Playwright: Context7 `/microsoft/playwright`
+- Playwright docs (intro): https://playwright.dev/docs/intro
+- Docker/Compose: Context7 `/docker/docs`
+- Docker Compose docs: https://docs.docker.com/compose/
+
+#### Subtasks
+
+1. [ ] Review device-auth runner + route integration:
+   - Documentation to read (repeat):
+     - Codex auth + device auth: https://developers.openai.com/codex/auth
+   - Files to read:
+     - `server/src/utils/codexDeviceAuth.ts`
+     - `server/src/routes/codexDeviceAuth.ts`
+     - `server/src/config/codexConfig.ts`
+     - `server/src/agents/authSeed.ts`
+2. [ ] Expose a completion signal from `runCodexDeviceAuth`:
+   - Documentation to read (repeat):
+     - Node.js child_process: https://nodejs.org/api/child_process.html
+   - Files to edit:
+     - `server/src/utils/codexDeviceAuth.ts`
+   - Implementation details:
+     - Return a structured object that includes the immediate verification details plus a `completion` promise that resolves with the final exit status.
+     - Keep the existing log lines; add a completion log entry once the CLI closes (no secrets).
+3. [ ] Enforce file-based auth storage before device-auth runs:
+   - Documentation to read (repeat):
+     - Codex config reference (`cli_auth_credentials_store`): https://developers.openai.com/codex/config-reference/
+   - Files to edit:
+     - `server/src/config/codexConfig.ts`
+     - `server/src/routes/codexDeviceAuth.ts`
+   - Implementation details:
+     - Call `ensureCodexAuthFileStore` for the target `config.toml` (primary Codex home or agent home) before invoking the CLI.
+     - If persistence cannot be enforced, return a clear error response and log the failure.
+4. [ ] Propagate auth + refresh availability after completion:
+   - Documentation to read (repeat):
+     - Node.js fs/promises: https://nodejs.org/api/fs.html
+   - Files to edit:
+     - `server/src/routes/codexDeviceAuth.ts`
+     - `server/src/agents/authSeed.ts`
+     - `server/src/providers/codexDetection.ts`
+     - `server/src/providers/codexRegistry.ts`
+   - Implementation details:
+     - After `completion` resolves successfully, propagate `auth.json` to agents (for `target=chat`) and refresh Codex availability.
+     - Run propagation/refresh in the background so the HTTP response is not blocked.
+     - Log a new completion line (e.g., `DEV-0000031:T10:codex_device_auth_completed`) with `target`, `agentName`, and `exitCode`.
+5. [ ] Unit/integration coverage for completion flow:
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+   - Files to edit:
+     - `server/src/test/unit/codexDeviceAuth.test.ts`
+     - `server/src/test/integration/codex.device-auth.test.ts`
+   - Description & purpose:
+     - Verify completion promise resolves on close and that propagation/refresh is invoked only after completion.
+6. [ ] Update `projectStructure.md` after any file additions/removals in this task.
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+   - Files to read:
+   - `projectStructure.md`
+  - Files to edit:
+    - `projectStructure.md`
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier CLI: https://prettier.io/docs/cli
+   - Files to read:
+     - `package.json`
+     - `server/package.json`
+     - `client/package.json`
+   - Snippets to locate:
+     - Root `lint` and `format:check` scripts
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+2. [ ] `npm run build --workspace client`
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+3. [ ] `npm run test --workspace server`
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+4. [ ] `npm run test --workspace client`
+   - Documentation to read (repeat):
+     - Jest: Context7 `/websites/jestjs_io_30_0`
+     - Jest docs: https://jestjs.io/docs/getting-started
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
+     - Playwright docs (intro): https://playwright.dev/docs/intro
+6. [ ] `npm run compose:build`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+     - Docker Compose docs: https://docs.docker.com/compose/
+7. [ ] `npm run compose:up`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+     - Docker Compose docs: https://docs.docker.com/compose/
+8. [ ] `npm run compose:down`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+
+#### Implementation notes
+
+- 
+
+---
+
+### 11. Final Task: Re-validate after device-auth persistence fixes
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Re-run the full validation suite and documentation checks after Task 10 to ensure the device-auth completion flow still satisfies every acceptance criterion.
+
+#### Documentation Locations
+
+- Docker/Compose: Context7 `/docker/docs`
+- Docker Compose docs: https://docs.docker.com/compose/
+- Playwright: Context7 `/microsoft/playwright`
+- Playwright docs (intro): https://playwright.dev/docs/intro
+- Husky: Context7 `/typicode/husky`
+- Mermaid: Context7 `/mermaid-js/mermaid`
+- Jest: Context7 `/jestjs/jest`
+- Jest docs: https://jestjs.io/docs/getting-started
+- Cucumber guides (overview): https://cucumber.io/docs/guides/
+- Cucumber guides (tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/
+
+#### Subtasks
+
+1. [ ] Ensure `README.md` is updated with any new commands or behavior changes
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+   - Files to edit:
+     - `README.md`
+2. [ ] Ensure `design.md` is updated with any required description changes including mermaid diagrams
+   - Documentation to read (repeat):
+     - Mermaid diagrams: Context7 `/mermaid-js/mermaid`
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+   - Files to edit:
+     - `design.md`
+3. [ ] Ensure `projectStructure.md` is updated with any updated, added or removed files & folders
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+   - Files to edit:
+     - `projectStructure.md`
+4. [ ] Create a reasonable summary of all changes within this story and create a pull request comment
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+2. [ ] `npm run build --workspace client`
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+3. [ ] `npm run test --workspace server`
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+4. [ ] `npm run test --workspace client`
+   - Documentation to read (repeat):
+     - Jest: Context7 `/websites/jestjs_io_30_0`
+     - Jest docs: https://jestjs.io/docs/getting-started
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
+     - Playwright docs (intro): https://playwright.dev/docs/intro
+6. [ ] `npm run compose:build`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+     - Docker Compose docs: https://docs.docker.com/compose/
+7. [ ] `npm run compose:up`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+     - Docker Compose docs: https://docs.docker.com/compose/
+8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001) to confirm device-auth flow + regressions
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
+     - Playwright docs (intro): https://playwright.dev/docs/intro
+9. [ ] `npm run compose:down`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+
+#### Implementation notes
+
+- 
+
+---

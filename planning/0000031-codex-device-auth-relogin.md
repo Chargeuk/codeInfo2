@@ -810,7 +810,7 @@ Copy refreshed `auth.json` to agent homes when targeting chat, and refresh Codex
 
 ### 5. Client: Codex device-auth API helper
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **__to_do__**
 
 #### Overview

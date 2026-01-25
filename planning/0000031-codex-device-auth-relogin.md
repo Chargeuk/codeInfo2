@@ -2044,14 +2044,119 @@ Harden device-auth stdout parsing to strip ANSI escape codes and prevent the use
 
 ---
 
-### 13. Final Task: Re-validate after parsing hardening
+### 13. Client: Device-auth dialog open-link button
 
 - Task Status: **__to_do__**
 - Git Commits: **__to_do__**
 
 #### Overview
 
-Re-run the full validation suite and documentation checks after Task 12 to ensure the device-auth parsing fixes satisfy every acceptance criterion.
+Add an **Open link** button beside the verification URL so users can open the Codex device-auth URL in a new browser tab while keeping the existing copy button.
+
+#### Documentation Locations
+
+- MUI Button API: https://mui.com/material-ui/api/button/
+- MUI Link API: https://mui.com/material-ui/api/link/
+- MUI IconButton API: https://mui.com/material-ui/api/icon-button/
+- MUI Dialog API: https://mui.com/material-ui/api/dialog/
+- React event handling: https://react.dev/learn/responding-to-events
+- Markdown Guide: https://www.markdownguide.org/basic-syntax/
+- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+- Prettier CLI: https://prettier.io/docs/cli
+- npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+- Jest: Context7 `/websites/jestjs_io_30_0`
+     - Jest docs: https://jestjs.io/docs/getting-started
+- Playwright: Context7 `/microsoft/playwright`
+- Playwright docs (intro): https://playwright.dev/docs/intro
+- Docker/Compose: Context7 `/docker/docs`
+- Docker Compose docs: https://docs.docker.com/compose/
+
+#### Subtasks
+
+1. [ ] Review the device-auth dialog layout:
+   - Documentation to read (repeat):
+     - MUI Dialog API: https://mui.com/material-ui/api/dialog/
+   - Files to read:
+     - `client/src/components/codex/CodexDeviceAuthDialog.tsx`
+2. [ ] Add an Open link action next to the Verification URL:
+   - Documentation to read (repeat):
+     - MUI Button API: https://mui.com/material-ui/api/button/
+   - Files to edit:
+     - `client/src/components/codex/CodexDeviceAuthDialog.tsx`
+   - Implementation details:
+     - Keep the existing Copy button.
+     - Add an **Open link** button that uses `target="_blank"` and `rel="noreferrer"`.
+     - Disable the button when the dialog has no `verificationUrl`.
+3. [ ] Unit test — open link button renders with correct href/target:
+   - Documentation to read (repeat):
+     - Jest: Context7 `/websites/jestjs_io_30_0`
+     - Jest docs: https://jestjs.io/docs/getting-started
+   - Files to edit:
+     - `client/src/test/codexDeviceAuthDialog.test.tsx`
+   - Description & purpose:
+     - Ensure the new button exists and points at the verification URL.
+4. [ ] Update `projectStructure.md` after any file additions/removals in this task.
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+   - Files to read:
+   - `projectStructure.md`
+  - Files to edit:
+    - `projectStructure.md`
+5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier CLI: https://prettier.io/docs/cli
+   - Files to read:
+     - `package.json`
+     - `server/package.json`
+     - `client/package.json`
+   - Snippets to locate:
+     - Root `lint` and `format:check` scripts
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+2. [ ] `npm run build --workspace client`
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+3. [ ] `npm run test --workspace server`
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+4. [ ] `npm run test --workspace client`
+   - Documentation to read (repeat):
+     - Jest: Context7 `/websites/jestjs_io_30_0`
+     - Jest docs: https://jestjs.io/docs/getting-started
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
+     - Playwright docs (intro): https://playwright.dev/docs/intro
+6. [ ] `npm run compose:build`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+     - Docker Compose docs: https://docs.docker.com/compose/
+7. [ ] `npm run compose:up`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+8. [ ] `npm run compose:down`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+
+#### Implementation notes
+
+- 
+
+---
+
+### 14. Final Task: Re-validate after parsing hardening
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Re-run the full validation suite and documentation checks after Tasks 12–13 to ensure the device-auth parsing fixes and open-link button satisfy every acceptance criterion.
 
 #### Documentation Locations
 

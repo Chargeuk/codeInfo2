@@ -124,8 +124,8 @@ This story does **not** add new business features; it only improves how the syst
 
 ### 1. Server: Device-auth CLI parsing helper
 
-- Task Status: **__in_progress__**
-- Git Commits: **__to_do__**
+- Task Status: **__done__**
+- Git Commits: fadc1db, 2d8606c, ab7fc53, 5622418, df0937a, 9e8eef3, 132de26, 2f2aee2, f4d4632, c20fe2a, e7736dd, ca9a2ff, 1f489cb, 1d5942e, cae96c5, 751227d, dd8a311, f4c3873, 3cb26a9, d2a98fe, bf88193, 67981cb, ac612b1, e0c7abb, 402fbc3, 00b5629, fb6e17b, 2d91c23, 720b67b, 2d3f510, 64ffdbf, 91fdb95, e881736, bfd8598, 391453b, ab990e1, 1b09636, 2c3a4c2, f5b8fa7, a90dfbd, 2774bf2, d5e253a
 
 #### Overview
 

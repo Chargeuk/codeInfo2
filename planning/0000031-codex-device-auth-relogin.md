@@ -2253,7 +2253,7 @@ Replace the verification URL + user code fields with a single read-only output b
    - Files to edit:
      - `client/src/components/codex/CodexDeviceAuthDialog.tsx`
    - Implementation details:
-     - Render rawOutput in a read-only monospace block.
+     - Render rawOutput in a read-only monospace block (no copy button).
      - Convert http/https URLs into clickable links that open in a new tab/window.
      - Keep the rest of the dialog flow (loading/error states, close/start buttons).
 5. [ ] Update tests for raw output rendering + linkification:

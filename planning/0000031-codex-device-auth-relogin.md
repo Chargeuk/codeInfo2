@@ -2044,20 +2044,20 @@ Harden device-auth stdout parsing to strip ANSI escape codes and prevent the use
 
 ---
 
-### 13. Client: Device-auth dialog open-link button
+### 13. Client: Device-auth dialog link + text presentation
 
 - Task Status: **__to_do__**
 - Git Commits: **__to_do__**
 
 #### Overview
 
-Add an **Open link** button beside the verification URL so users can open the Codex device-auth URL in a new browser tab while keeping the existing copy button.
+Render the verification URL as a clickable link (opens in a new tab) and render the one-time code as text, while keeping the existing copy buttons.
 
 #### Documentation Locations
 
 - MUI Button API: https://mui.com/material-ui/api/button/
 - MUI Link API: https://mui.com/material-ui/api/link/
-- MUI IconButton API: https://mui.com/material-ui/api/icon-button/
+- MUI Typography API: https://mui.com/material-ui/api/typography/
 - MUI Dialog API: https://mui.com/material-ui/api/dialog/
 - React event handling: https://react.dev/learn/responding-to-events
 - Markdown Guide: https://www.markdownguide.org/basic-syntax/
@@ -2078,31 +2078,48 @@ Add an **Open link** button beside the verification URL so users can open the Co
      - MUI Dialog API: https://mui.com/material-ui/api/dialog/
    - Files to read:
      - `client/src/components/codex/CodexDeviceAuthDialog.tsx`
-2. [ ] Add an Open link action next to the Verification URL:
+2. [ ] Render the verification URL as a link:
    - Documentation to read (repeat):
-     - MUI Button API: https://mui.com/material-ui/api/button/
+     - MUI Link API: https://mui.com/material-ui/api/link/
    - Files to edit:
      - `client/src/components/codex/CodexDeviceAuthDialog.tsx`
    - Implementation details:
-     - Keep the existing Copy button.
-     - Add an **Open link** button that uses `target="_blank"` and `rel="noreferrer"`.
-     - Disable the button when the dialog has no `verificationUrl`.
-3. [ ] Unit test — open link button renders with correct href/target:
+     - Replace the read-only TextField with a MUI `Link`.
+     - Use `target="_blank"` and `rel="noreferrer"`.
+     - Keep the existing Copy button beside it.
+3. [ ] Render the user code as text:
+   - Documentation to read (repeat):
+     - MUI Typography API: https://mui.com/material-ui/api/typography/
+   - Files to edit:
+     - `client/src/components/codex/CodexDeviceAuthDialog.tsx`
+   - Implementation details:
+     - Replace the read-only TextField with a Typography block.
+     - Use a monospace font style for the code.
+     - Keep the existing Copy button beside it.
+4. [ ] Unit test — verification link renders with correct href/target:
    - Documentation to read (repeat):
      - Jest: Context7 `/websites/jestjs_io_30_0`
      - Jest docs: https://jestjs.io/docs/getting-started
    - Files to edit:
      - `client/src/test/codexDeviceAuthDialog.test.tsx`
    - Description & purpose:
-     - Ensure the new button exists and points at the verification URL.
-4. [ ] Update `projectStructure.md` after any file additions/removals in this task.
+     - Ensure the link exists and points at the verification URL.
+5. [ ] Unit test — user code renders as text (not input):
+   - Documentation to read (repeat):
+     - Jest: Context7 `/websites/jestjs_io_30_0`
+     - Jest docs: https://jestjs.io/docs/getting-started
+   - Files to edit:
+     - `client/src/test/codexDeviceAuthDialog.test.tsx`
+   - Description & purpose:
+     - Verify the user code is rendered as text and still copyable.
+6. [ ] Update `projectStructure.md` after any file additions/removals in this task.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to read:
    - `projectStructure.md`
   - Files to edit:
     - `projectStructure.md`
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli

@@ -328,7 +328,7 @@ Add `POST /codex/device-auth` that validates the target (chat or agent), calls t
 
 #### Subtasks
 
-1. [ ] Review existing route and error-handling patterns:
+1. [x] Review existing route and error-handling patterns:
    - Documentation to read (repeat):
      - Express routing + handlers: Context7 `/expressjs/express/v5.1.0`
    - Files to read:
@@ -341,7 +341,7 @@ Add `POST /codex/device-auth` that validates the target (chat or agent), calls t
      - `server/src/utils/codexDeviceAuth.ts`
    - Key requirements (repeat):
      - Error responses must align with existing `invalid_request`, `not_found`, and `codex_unavailable` shapes.
-2. [ ] Add the device-auth route handler:
+2. [x] Add the device-auth route handler:
    - Documentation to read (repeat):
      - Express routing + handlers: Context7 `/expressjs/express/v5.1.0`
    - Files to edit:
@@ -364,7 +364,7 @@ Add `POST /codex/device-auth` that validates the target (chat or agent), calls t
      - `DEV-0000031:T2:codex_device_auth_request_received` when the route is hit.
      - `DEV-0000031:T2:codex_device_auth_request_completed` when a 200 response is returned.
      - `DEV-0000031:T2:codex_device_auth_request_failed` for validation/Codex errors (include `status` + `error`).
-3. [ ] Integration test (server) — happy path for chat target:
+3. [x] Integration test (server) — happy path for chat target:
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
      - Supertest HTTP assertions: https://github.com/forwardemail/supertest
@@ -372,7 +372,7 @@ Add `POST /codex/device-auth` that validates the target (chat or agent), calls t
      - `server/src/test/integration/codex.device-auth.test.ts` (new)
    - Description & purpose:
      - `target=chat` returns `200` with parsed `verificationUrl` + `userCode` when the helper is stubbed.
-4. [ ] Integration test (server) — unknown agentName:
+4. [x] Integration test (server) — unknown agentName:
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
      - Supertest HTTP assertions: https://github.com/forwardemail/supertest
@@ -380,7 +380,7 @@ Add `POST /codex/device-auth` that validates the target (chat or agent), calls t
      - `server/src/test/integration/codex.device-auth.test.ts` (new)
    - Description & purpose:
      - `target=agent` with an unknown `agentName` returns `404 not_found`.
-5. [ ] Integration test (server) — invalid/missing target:
+5. [x] Integration test (server) — invalid/missing target:
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
      - Supertest HTTP assertions: https://github.com/forwardemail/supertest
@@ -388,7 +388,7 @@ Add `POST /codex/device-auth` that validates the target (chat or agent), calls t
      - `server/src/test/integration/codex.device-auth.test.ts` (new)
    - Description & purpose:
      - Missing `target` or unsupported `target` returns `400 invalid_request`.
-6. [ ] Integration test (server) — missing agentName:
+6. [x] Integration test (server) — missing agentName:
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
      - Supertest HTTP assertions: https://github.com/forwardemail/supertest
@@ -396,7 +396,7 @@ Add `POST /codex/device-auth` that validates the target (chat or agent), calls t
      - `server/src/test/integration/codex.device-auth.test.ts` (new)
    - Description & purpose:
      - `target=agent` without `agentName` returns `400 invalid_request`.
-7. [ ] Integration test (server) — Codex unavailable:
+7. [x] Integration test (server) — Codex unavailable:
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
      - Supertest HTTP assertions: https://github.com/forwardemail/supertest
@@ -404,7 +404,7 @@ Add `POST /codex/device-auth` that validates the target (chat or agent), calls t
      - `server/src/test/integration/codex.device-auth.test.ts` (new)
    - Description & purpose:
      - When the helper reports Codex unavailable, return `503 codex_unavailable`.
-8. [ ] Integration test (server) — payload too large:
+8. [x] Integration test (server) — payload too large:
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
      - Supertest HTTP assertions: https://github.com/forwardemail/supertest
@@ -414,7 +414,7 @@ Add `POST /codex/device-auth` that validates the target (chat or agent), calls t
      - Oversized JSON payload returns `400 { error: 'payload too large' }`.
    - Key requirements (repeat):
      - Stub the helper so tests do not call the real CLI.
-9. [ ] Update API documentation after the server change:
+9. [x] Update API documentation after the server change:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
      - Mermaid diagrams: Context7 `/mermaid-js/mermaid`
@@ -423,7 +423,7 @@ Add `POST /codex/device-auth` that validates the target (chat or agent), calls t
    - Key requirements (repeat):
      - Request body includes `target` + optional `agentName`.
      - Response includes `verificationUrl`, `userCode`, optional `expiresInSec`.
-10. [ ] Update `projectStructure.md` after any file additions/removals in this task.
+10. [x] Update `projectStructure.md` after any file additions/removals in this task.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to read:
@@ -435,7 +435,7 @@ Add `POST /codex/device-auth` that validates the target (chat or agent), calls t
     - Add entries for:
       - `server/src/routes/codexDeviceAuth.ts`
       - `server/src/test/integration/codex.device-auth.test.ts`
-11. [ ] Update `design.md` with device-auth architecture + mermaid diagram:
+11. [x] Update `design.md` with device-auth architecture + mermaid diagram:
    - Documentation to read (repeat):
      - Mermaid diagrams: Context7 `/mermaid-js/mermaid`
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
@@ -443,7 +443,7 @@ Add `POST /codex/device-auth` that validates the target (chat or agent), calls t
      - `design.md`
    - Description & purpose:
      - Add a concise sequence/flow diagram showing the device-auth request, Codex CLI interaction, and auth propagation.
-12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+12. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -456,32 +456,32 @@ Add `POST /codex/device-auth` that validates the target (chat or agent), calls t
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
    - Documentation to read (repeat):
      - Jest: Context7 `/websites/jestjs_io_30_0`
      - Jest docs: https://jestjs.io/docs/getting-started
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
      - Playwright docs (intro): https://playwright.dev/docs/intro
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
      - Docker Compose docs: https://docs.docker.com/compose/
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
      - Docker Compose docs: https://docs.docker.com/compose/
-8. [ ] `npm run compose:down`
+8. [x] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
      - Docker Compose docs: https://docs.docker.com/compose/
@@ -489,6 +489,21 @@ Add `POST /codex/device-auth` that validates the target (chat or agent), calls t
 #### Implementation notes
 
 - 2026-01-25: Task 2 marked in progress.
+- 2026-01-25: Reviewed route patterns in logs, agents, flows, chat providers, and codex device-auth helper.
+- 2026-01-25: Added `/codex/device-auth` router with validation, CLI availability checks, and request logging; mounted it in `server/src/index.ts`.
+- 2026-01-25: Added integration coverage for device-auth happy path, validation errors, Codex unavailable, and payload size handling.
+- 2026-01-25: Documented the new `/codex/device-auth` API contract in `openapi.json`.
+- 2026-01-25: Updated `projectStructure.md` with the new device-auth route and integration test entries.
+- 2026-01-25: Added device-auth flow documentation and a Mermaid sequence diagram to `design.md`.
+- 2026-01-25: `npm run lint --workspaces` still reports pre-existing import/order warnings; `npm run format --workspaces` resolved formatting and `format:check` now passes.
+- 2026-01-25: Server build (`npm run build --workspace server`) succeeded after fixing device-auth test typings.
+- 2026-01-25: Client build (`npm run build --workspace client`) succeeded with existing chunk-size warnings.
+- 2026-01-25: `TMPDIR=/tmp npm run test --workspace server` passed (unit + integration + cucumber).
+- 2026-01-25: `TMPDIR=/tmp npm run test --workspace client` passed (console logging noise expected).
+- 2026-01-25: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run e2e` passed (36 tests).
+- 2026-01-25: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run compose:build` succeeded.
+- 2026-01-25: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run compose:up` brought services to healthy.
+- 2026-01-25: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run compose:down` stopped the stack.
 
 ---
 

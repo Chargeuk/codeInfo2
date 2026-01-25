@@ -491,6 +491,8 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 - server/src/test/unit/codexConfig.test.ts — verifies `buildCodexOptions({ codexHome })` resolves and injects `env.CODEX_HOME`
 - server/src/utils/codexDeviceAuth.ts — Codex device-auth CLI runner + stdout parser with sanitized logging
 - server/src/test/unit/codexDeviceAuth.test.ts — unit coverage for device-auth parsing and error handling
+- server/src/routes/codexDeviceAuth.ts — `POST /codex/device-auth` device-auth endpoint for chat/agent targets
+- server/src/test/integration/codex.device-auth.test.ts — integration coverage for device-auth route validation + responses
 - server/src/agents/types.ts — agent DTOs for discovery/service (REST-safe + internal paths)
 - server/src/agents/discovery.ts — discovers agents from `CODEINFO_CODEX_AGENT_HOME`
 - server/src/agents/authSeed.ts — best-effort copy of primary `auth.json` into agent homes (never overwrite, lock-protected)
@@ -503,6 +505,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 - server/src/agents/config.ts — minimal agent `config.toml` parsing helpers (e.g. top-level `model`)
 - server/src/agents/service.ts — shared agents service used by REST + Agents MCP (list agents + run agent instruction)
 - server/src/routes/agents.ts — `GET /agents` agent listing endpoint (REST source of truth)
+- server/src/routes/codexDeviceAuth.ts — `POST /codex/device-auth` device-auth endpoint for chat/agent targets
 - server/src/routes/agentsRun.ts — `POST /agents/:agentName/run` agent execution endpoint (REST; delegates to shared service)
 - server/src/routes/agentsCommands.ts — agent command endpoints: `GET /agents/:agentName/commands` (list) + `POST /agents/:agentName/commands/run` (execute)
 - server/src/test/unit/agents-discovery.test.ts — unit coverage for agent discovery rules (config/description/system prompt)

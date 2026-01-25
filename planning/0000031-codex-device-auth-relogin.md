@@ -1656,7 +1656,7 @@ Validate the story end-to-end, run clean builds/tests, update documentation, and
 
 ### 10. Server: Device-auth persistence + post-completion propagation
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **__to_do__**
 
 #### Overview

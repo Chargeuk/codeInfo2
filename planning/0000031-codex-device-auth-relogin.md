@@ -656,7 +656,7 @@ Ensure the Codex config enforces `cli_auth_credentials_store = "file"` so device
 
 ### 4. Server: Auth propagation + Codex availability refresh
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **__to_do__**
 
 #### Overview
@@ -791,7 +791,7 @@ Copy refreshed `auth.json` to agent homes when targeting chat, and refresh Codex
 
 #### Implementation notes
 
-- 
+- 2026-01-25: Task 4 marked in progress.
 
 ---
 

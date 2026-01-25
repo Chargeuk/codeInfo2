@@ -440,6 +440,7 @@ flowchart LR
 - The server validates the target, checks the Codex CLI presence, and resolves the target Codex home before running the CLI.
 - `codex login --device-auth` is executed with `CODEX_HOME` set to the chosen home so `auth.json` is written to the correct location.
 - The API returns `verificationUrl`, `userCode`, and optional `expiresInSec`; the UI then prompts the user to complete device auth manually.
+- After the CLI completes, the server propagates auth to agents and refreshes Codex availability in the background when targeting chat.
 
 ```mermaid
 sequenceDiagram

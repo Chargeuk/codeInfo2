@@ -2060,8 +2060,8 @@ Harden device-auth stdout parsing to strip ANSI escape codes and prevent the use
 
 ### 13. Client: Device-auth dialog link + text presentation
 
-- Task Status: **__in_progress__**
-- Git Commits: **__to_do__**
+- Task Status: **__done__**
+- Git Commits: 5e8efa8
 
 #### Overview
 

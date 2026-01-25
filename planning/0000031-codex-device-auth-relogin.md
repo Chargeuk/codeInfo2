@@ -1541,14 +1541,14 @@ Validate the story end-to-end, run clean builds/tests, update documentation, and
 
 #### Subtasks
 
-1. [ ] Ensure `README.md` is updated with any new commands or behavior changes
+1. [x] Ensure `README.md` is updated with any new commands or behavior changes
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
      - `README.md`
    - Description & purpose:
      - Update repo root `README.md` with any new device-auth commands or behavior changes.
-2. [ ] Ensure `design.md` reflects the device-auth flow (include diagrams if added)
+2. [x] Ensure `design.md` reflects the device-auth flow (include diagrams if added)
    - Documentation to read (repeat):
      - Mermaid: Context7 `/mermaid-js/mermaid`
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
@@ -1556,14 +1556,14 @@ Validate the story end-to-end, run clean builds/tests, update documentation, and
      - `design.md`
    - Description & purpose:
      - Add/update device-auth architecture description and any required Mermaid diagrams.
-3. [ ] Ensure `projectStructure.md` reflects all new/updated files
+3. [x] Ensure `projectStructure.md` reflects all new/updated files
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
      - `projectStructure.md`
    - Description & purpose:
      - Update repo root `projectStructure.md` tree for all files added/removed in this story.
-4. [ ] Create a PR summary comment covering all changes in this story
+4. [x] Create a PR summary comment covering all changes in this story
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to read:
@@ -1571,7 +1571,7 @@ Validate the story end-to-end, run clean builds/tests, update documentation, and
     - `test-results/screenshots/`
    - Snippets to locate:
      - Final task acceptance criteria for summary scope
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+5. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -1584,32 +1584,32 @@ Validate the story end-to-end, run clean builds/tests, update documentation, and
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
    - Documentation to read (repeat):
      - Jest: Context7 `/jestjs/jest`
      - Jest docs: https://jestjs.io/docs/getting-started
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
      - Playwright docs (intro): https://playwright.dev/docs/intro
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
      - Docker Compose docs: https://docs.docker.com/compose/
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
      - Docker Compose docs: https://docs.docker.com/compose/
-8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001) to confirm device-auth flow + regressions:
+8. [x] Manual Playwright-MCP check (http://host.docker.internal:5001) to confirm device-auth flow + regressions:
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
      - Playwright docs (intro): https://playwright.dev/docs/intro
@@ -1620,13 +1620,36 @@ Validate the story end-to-end, run clean builds/tests, update documentation, and
      - No errors appear in the Playwright debug console.
      - Capture screenshots for all UI acceptance checks above and save them under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped via `docker-compose.local.yml`).
      - Also save the required naming-convention copies to `test-results/screenshots` for the PR checklist.
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
      - Docker Compose docs: https://docs.docker.com/compose/
 
 #### Implementation notes
 
-- 
+- 2026-01-25: Updated `README.md` with Chat/Agents device-auth button behavior notes.
+- 2026-01-25: `npm run format:check --workspaces` passes after README update.
+- 2026-01-25: Reviewed `design.md` and confirmed the Codex device-auth flow diagram and notes already cover Task 9 requirements.
+- 2026-01-25: Reviewed `projectStructure.md`; no additional updates needed for Task 9.
+- 2026-01-25: Drafted the PR summary comment covering device-auth backend, client UI, tests, and docs.
+- 2026-01-25: `npm run lint --workspaces` reports pre-existing import/order warnings; `npm run format:check --workspaces` passes.
+- 2026-01-25: `npm run build --workspace server` succeeded for Task 9 validation.
+- 2026-01-25: `npm run build --workspace client` succeeded (existing chunk-size warning).
+- 2026-01-25: `TMPDIR=/tmp npm run test --workspace server` passed (54 scenarios).
+- 2026-01-25: `TMPDIR=/tmp npm run test --workspace client` passed (console log noise expected).
+- 2026-01-25: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run e2e` passed (36 tests).
+- 2026-01-25: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run compose:build` succeeded.
+- 2026-01-25: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run compose:up` brought services to healthy.
+- 2026-01-25: Manual Playwright check confirmed Chat/Agents device-auth dialogs show verification details with no console errors.
+- 2026-01-25: Saved Chat/Agents device-auth screenshots to `playwright-output-local` and `test-results/screenshots`.
+- 2026-01-25: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run compose:down` stopped the stack.
+
+#### PR Summary
+
+- Added Codex device-auth support on the server with CLI parsing, validation/error handling, auth persistence, and post-login propagation/availability refresh.
+- Added client device-auth API helper and dialog UI with loading/error/success states, plus Chat/Agents entry points and telemetry logging.
+- Added unit/integration tests for device-auth parsing, routes, auth propagation, and client dialog/API behavior.
+- Documented the device-auth flow in OpenAPI/design/README and refreshed project structure notes.
+- Validated with full lint/format/build/test/e2e/compose cycles and manual Playwright checks.
 
 ---

@@ -656,8 +656,8 @@ Ensure the Codex config enforces `cli_auth_credentials_store = "file"` so device
 
 ### 4. Server: Auth propagation + Codex availability refresh
 
-- Task Status: **__in_progress__**
-- Git Commits: **__to_do__**
+- Task Status: **__done__**
+- Git Commits: b658207, b1ec61d
 
 #### Overview
 
@@ -810,8 +810,8 @@ Copy refreshed `auth.json` to agent homes when targeting chat, and refresh Codex
 
 ### 5. Client: Codex device-auth API helper
 
-- Task Status: **__in_progress__**
-- Git Commits: **__to_do__**
+- Task Status: **__done__**
+- Git Commits: dc8e625, 4eb15cb
 
 #### Overview
 
@@ -835,7 +835,7 @@ Create a client API helper for `POST /codex/device-auth` with typed request/resp
 
 #### Subtasks
 
-1. [ ] Review existing API helpers and error handling patterns:
+1. [x] Review existing API helpers and error handling patterns:
    - Documentation to read (repeat):
      - Fetch API: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
      - TypeScript handbook (Everyday Types): https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
@@ -845,7 +845,7 @@ Create a client API helper for `POST /codex/device-auth` with typed request/resp
      - `client/src/hooks/useChatModel.ts`
    - Key requirements (repeat):
      - Reuse existing `getApiBaseUrl` and error pattern from `agents.ts`.
-2. [ ] Add a Codex device-auth API module:
+2. [x] Add a Codex device-auth API module:
    - Documentation to read (repeat):
      - Fetch API: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
      - TypeScript handbook (Everyday Types): https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
@@ -855,7 +855,7 @@ Create a client API helper for `POST /codex/device-auth` with typed request/resp
      - Export `postCodexDeviceAuth` that accepts `{ target: 'chat' | 'agent', agentName?: string }`.
      - Parse success responses to `{ status, verificationUrl, userCode, expiresInSec?, target, agentName? }`.
      - Throw a typed error object on non-200 responses (include `status` + `message`), preferring `message`/`reason` fields when provided.
-3. [ ] Add API helper log lines:
+3. [x] Add API helper log lines:
    - Documentation to read (repeat):
      - Fetch API: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
    - Files to read:
@@ -868,7 +868,7 @@ Create a client API helper for `POST /codex/device-auth` with typed request/resp
      - Log `DEV-0000031:T5:codex_device_auth_api_response` on success (include `status`).
      - Log `DEV-0000031:T5:codex_device_auth_api_error` on non-200 responses (include `status` + `error`).
      - Do not log `verificationUrl` or `userCode` values.
-4. [ ] Unit test (client) — API helper success response:
+4. [x] Unit test (client) — API helper success response:
    - Documentation to read (repeat):
      - Jest: Context7 `/websites/jestjs_io_30_0`
      - Jest docs: https://jestjs.io/docs/getting-started
@@ -876,7 +876,7 @@ Create a client API helper for `POST /codex/device-auth` with typed request/resp
      - `client/src/test/codexDeviceAuthApi.test.ts` (new)
    - Description & purpose:
      - `postCodexDeviceAuth` returns parsed data on 200.
-5. [ ] Unit test (client) — API helper non-200 error:
+5. [x] Unit test (client) — API helper non-200 error:
    - Documentation to read (repeat):
      - Jest: Context7 `/websites/jestjs_io_30_0`
      - Jest docs: https://jestjs.io/docs/getting-started
@@ -884,7 +884,7 @@ Create a client API helper for `POST /codex/device-auth` with typed request/resp
      - `client/src/test/codexDeviceAuthApi.test.ts` (new)
    - Description & purpose:
      - Non-200 response throws a typed error with `status`.
-6. [ ] Unit test (client) — API helper reason mapping:
+6. [x] Unit test (client) — API helper reason mapping:
    - Documentation to read (repeat):
      - Jest: Context7 `/websites/jestjs_io_30_0`
      - Jest docs: https://jestjs.io/docs/getting-started
@@ -892,7 +892,7 @@ Create a client API helper for `POST /codex/device-auth` with typed request/resp
      - `client/src/test/codexDeviceAuthApi.test.ts` (new)
    - Description & purpose:
      - When the response includes `reason`, the error message uses it.
-7. [ ] Update `projectStructure.md` after any file additions/removals in this task.
+7. [x] Update `projectStructure.md` after any file additions/removals in this task.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to read:
@@ -904,7 +904,7 @@ Create a client API helper for `POST /codex/device-auth` with typed request/resp
     - Add entries for:
       - `client/src/api/codex.ts`
       - `client/src/test/codexDeviceAuthApi.test.ts`
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+8. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -917,39 +917,51 @@ Create a client API helper for `POST /codex/device-auth` with typed request/resp
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
    - Documentation to read (repeat):
      - Jest: Context7 `/websites/jestjs_io_30_0`
      - Jest docs: https://jestjs.io/docs/getting-started
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
      - Playwright docs (intro): https://playwright.dev/docs/intro
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
      - Docker Compose docs: https://docs.docker.com/compose/
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
      - Docker Compose docs: https://docs.docker.com/compose/
-8. [ ] `npm run compose:down`
+8. [x] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
      - Docker Compose docs: https://docs.docker.com/compose/
 
 #### Implementation notes
 
-- 
+- 2026-01-25: Reviewed client API helper patterns in `agents.ts`, `baseUrl.ts`, and `useChatModel` for fetch/error conventions.
+- 2026-01-25: Added `client/src/api/codex.ts` with typed device-auth requests/responses, structured error mapping, and client logging.
+- 2026-01-25: Added `codexDeviceAuthApi.test.ts` coverage for success payload parsing, non-200 errors, and reason mapping; logger console output is expected during tests.
+- 2026-01-25: Updated `projectStructure.md` with the new Codex API module and test entry.
+- 2026-01-25: `npm run lint --workspaces` still reports pre-existing import/order warnings; `npm run format --workspaces` resolved Prettier issues and `format:check` passes.
+- 2026-01-25: Server build (`npm run build --workspace server`) succeeded.
+- 2026-01-25: Client build (`npm run build --workspace client`) succeeded with existing chunk-size warning.
+- 2026-01-25: `TMPDIR=/tmp npm run test --workspace server` timed out at 120s and 240s; reran with 420s and passed (unit + integration + cucumber).
+- 2026-01-25: `TMPDIR=/tmp npm run test --workspace client` passed (console logging noise expected).
+- 2026-01-25: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run e2e` passed (36 tests).
+- 2026-01-25: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run compose:build` succeeded.
+- 2026-01-25: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run compose:up` brought services to healthy.
+- 2026-01-25: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run compose:down` stopped the stack.
 
 ---
 

@@ -509,8 +509,8 @@ Add `POST /codex/device-auth` that validates the target (chat or agent), calls t
 
 ### 3. Server: Persist auth configuration for device-auth
 
-- Task Status: **__in_progress__**
-- Git Commits: **__to_do__**
+- Task Status: **__done__**
+- Git Commits: f1d9a07, 0e573fc
 
 #### Overview
 

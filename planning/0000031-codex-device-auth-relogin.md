@@ -289,6 +289,8 @@ Create a reusable helper that runs `codex login --device-auth`, parses the verif
 - 2026-01-24: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run compose:build` succeeds; docker compose build otherwise failed trying to create `/Users/danielstapleton/.docker`.
 - 2026-01-24: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run compose:up` succeeded; services reached healthy state.
 - 2026-01-24: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run compose:down` succeeded.
+- 2026-01-25: E2E failures in container traced to Playwright browser revision mismatch (repo uses 1.56.1 → chromium 1194, image had 1208) because Playwright install ran before repo `node_modules` were copied.
+- 2026-01-25: Moved Playwright install steps after `node_modules` copy in `server/Dockerfile`; `npm run e2e` now passes in-container (33 passed, 3 skipped) without needing extra env prefixes.
 
 ---
 

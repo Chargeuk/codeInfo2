@@ -96,18 +96,18 @@ COPY server/npm-global.txt /tmp/npm-global.txt
 RUN --mount=type=cache,target=/root/.npm \
     xargs -r npm install -g --force < /tmp/npm-global.txt
 
-# Set Playwright to use the browsers installed during build.
-ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
-# Install Playwright system dependencies and browsers.
-RUN npx playwright install-deps chromium
-RUN npx playwright install chromium
-
 COPY --from=build /app/node_modules /app/node_modules
 COPY --from=build /app/common /app/common
 COPY --from=build /app/server/dist ./dist
 COPY --from=build /app/server/package*.json ./
 COPY --from=build /app/server/entrypoint.sh ./entrypoint.sh
 COPY --from=build /app/config.toml.example /app/server/config.toml.example
+
+# Set Playwright to use the browsers installed during build.
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+# Install Playwright system dependencies and browsers using the repo-pinned version.
+RUN npx playwright install-deps chromium
+RUN npx playwright install chromium
 
 # Use the forwarder for any user inside the container.
 RUN git config --system credential.helper '!f(){ gcf-client $*; }; f'

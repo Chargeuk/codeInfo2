@@ -509,7 +509,7 @@ Add `POST /codex/device-auth` that validates the target (chat or agent), calls t
 
 ### 3. Server: Persist auth configuration for device-auth
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **__to_do__**
 
 #### Overview
@@ -637,7 +637,7 @@ Ensure the Codex config enforces `cli_auth_credentials_store = "file"` so device
 
 #### Implementation notes
 
-- 
+- 2026-01-25: Task 3 marked in progress.
 
 ---
 

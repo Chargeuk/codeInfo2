@@ -1686,7 +1686,7 @@ Ensure device-auth always writes to `auth.json` by enforcing file-store config f
 
 #### Subtasks
 
-1. [ ] Review device-auth runner + route integration:
+1. [x] Review device-auth runner + route integration:
    - Documentation to read (repeat):
      - Codex auth + device auth: https://developers.openai.com/codex/auth
    - Files to read:
@@ -1694,7 +1694,7 @@ Ensure device-auth always writes to `auth.json` by enforcing file-store config f
      - `server/src/routes/codexDeviceAuth.ts`
      - `server/src/config/codexConfig.ts`
      - `server/src/agents/authSeed.ts`
-2. [ ] Expose a completion signal from `runCodexDeviceAuth`:
+2. [x] Expose a completion signal from `runCodexDeviceAuth`:
    - Documentation to read (repeat):
      - Node.js child_process: https://nodejs.org/api/child_process.html
    - Files to edit:
@@ -1702,7 +1702,7 @@ Ensure device-auth always writes to `auth.json` by enforcing file-store config f
    - Implementation details:
      - Return a structured object that includes the immediate verification details plus a `completion` promise that resolves with the final exit status.
      - Keep the existing log lines; add a completion log entry once the CLI closes (no secrets).
-3. [ ] Enforce file-based auth storage before device-auth runs:
+3. [x] Enforce file-based auth storage before device-auth runs:
    - Documentation to read (repeat):
      - Codex config reference (`cli_auth_credentials_store`): https://developers.openai.com/codex/config-reference/
    - Files to edit:
@@ -1711,7 +1711,7 @@ Ensure device-auth always writes to `auth.json` by enforcing file-store config f
    - Implementation details:
      - Call `ensureCodexAuthFileStore` for the target `config.toml` (primary Codex home or agent home) before invoking the CLI.
      - If persistence cannot be enforced, return a clear error response and log the failure.
-4. [ ] Propagate auth + refresh availability after completion:
+4. [x] Propagate auth + refresh availability after completion:
    - Documentation to read (repeat):
      - Node.js fs/promises: https://nodejs.org/api/fs.html
    - Files to edit:
@@ -1723,7 +1723,7 @@ Ensure device-auth always writes to `auth.json` by enforcing file-store config f
      - After `completion` resolves successfully, propagate `auth.json` to agents (for `target=chat`) and refresh Codex availability.
      - Run propagation/refresh in the background so the HTTP response is not blocked.
      - Log a new completion line (e.g., `DEV-0000031:T10:codex_device_auth_completed`) with `target`, `agentName`, and `exitCode`.
-5. [ ] Unit/integration coverage for completion flow:
+5. [x] Unit/integration coverage for completion flow:
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
    - Files to edit:
@@ -1731,14 +1731,14 @@ Ensure device-auth always writes to `auth.json` by enforcing file-store config f
      - `server/src/test/integration/codex.device-auth.test.ts`
    - Description & purpose:
      - Verify completion promise resolves on close and that propagation/refresh is invoked only after completion.
-6. [ ] Update `projectStructure.md` after any file additions/removals in this task.
+6. [x] Update `projectStructure.md` after any file additions/removals in this task.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to read:
    - `projectStructure.md`
   - Files to edit:
     - `projectStructure.md`
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+7. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -1751,38 +1751,58 @@ Ensure device-auth always writes to `auth.json` by enforcing file-store config f
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
    - Documentation to read (repeat):
      - Jest: Context7 `/websites/jestjs_io_30_0`
      - Jest docs: https://jestjs.io/docs/getting-started
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
      - Playwright docs (intro): https://playwright.dev/docs/intro
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
      - Docker Compose docs: https://docs.docker.com/compose/
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
      - Docker Compose docs: https://docs.docker.com/compose/
-8. [ ] `npm run compose:down`
+8. [x] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
 #### Implementation notes
 
-- 
+- 2026-01-25: Reviewed device-auth runner, route, Codex config, and auth seeding helpers for Task 10.
+- 2026-01-25: Ran lint/format checks; lint warnings remain pre-existing, format check passes.
+- 2026-01-25: Updated device-auth runner to return a completion promise and log CLI completion on close.
+- 2026-01-25: Ran lint/format checks; lint warnings remain pre-existing, ran Prettier to fix route formatting.
+- 2026-01-25: Added persistence enforcement for target Codex config before device-auth and return errors on failure.
+- 2026-01-25: Ran lint/format checks; lint warnings remain pre-existing, format check passes.
+- 2026-01-25: Moved auth propagation/availability refresh into completion handler with background execution and new completion log.
+- 2026-01-25: Ran lint/format checks; lint warnings remain pre-existing, format check passes.
+- 2026-01-25: Added unit test for device-auth completion promise and integration coverage to ensure propagation runs after completion.
+- 2026-01-25: Ran lint/format checks; lint warnings remain pre-existing, format check passes.
+- 2026-01-25: No projectStructure updates required for Task 10 (no new files added).
+- 2026-01-25: Ran lint/format checks; lint warnings remain pre-existing, format check passes.
+- 2026-01-25: Final lint/format run for Task 10 completed; lint warnings remain pre-existing.
+- 2026-01-25: Server build initially failed due to device-auth test typings; adjusted completion mocks and spawn typing, then `npm run build --workspace server` succeeded.
+- 2026-01-25: Client build (`npm run build --workspace client`) succeeded with existing chunk-size warning.
+- 2026-01-25: `TMPDIR=/tmp npm run test --workspace server` passed (54 scenarios, 325 steps).
+- 2026-01-25: `TMPDIR=/tmp npm run test --workspace client` passed (console logging noise expected).
+- 2026-01-25: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run e2e` passed (36 tests).
+- 2026-01-25: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run compose:build` succeeded.
+- 2026-01-25: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run compose:up` brought services to healthy.
+- 2026-01-25: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run compose:down` stopped the stack.
 
 ---
 

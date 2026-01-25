@@ -10,7 +10,11 @@ import {
 
 import { propagateAgentAuthFromPrimary } from '../agents/authSeed.js';
 import { discoverAgents } from '../agents/discovery.js';
-import { getCodexHome } from '../config/codexConfig.js';
+import {
+  ensureCodexAuthFileStore,
+  getCodexConfigPathForHome,
+  getCodexHome,
+} from '../config/codexConfig.js';
 import { baseLogger, resolveLogConfig } from '../logger.js';
 import { refreshCodexDetection } from '../providers/codexDetection.js';
 import { runCodexDeviceAuth } from '../utils/codexDeviceAuth.js';
@@ -20,6 +24,8 @@ type Deps = {
   propagateAgentAuthFromPrimary: typeof propagateAgentAuthFromPrimary;
   refreshCodexDetection: typeof refreshCodexDetection;
   getCodexHome: typeof getCodexHome;
+  ensureCodexAuthFileStore: typeof ensureCodexAuthFileStore;
+  getCodexConfigPathForHome: typeof getCodexConfigPathForHome;
   runCodexDeviceAuth: typeof runCodexDeviceAuth;
   resolveCodexCli: typeof resolveCodexCli;
 };
@@ -87,6 +93,8 @@ export function createCodexDeviceAuthRouter(
     propagateAgentAuthFromPrimary,
     refreshCodexDetection,
     getCodexHome,
+    ensureCodexAuthFileStore,
+    getCodexConfigPathForHome,
     runCodexDeviceAuth,
     resolveCodexCli,
   },
@@ -145,10 +153,10 @@ export function createCodexDeviceAuthRouter(
     );
 
     let agentHome: string | undefined;
-    let agentsList: Awaited<ReturnType<typeof discoverAgents>> | undefined;
+    let agentConfigPath: string | undefined;
     if (parsedBody.target === 'agent') {
       try {
-        agentsList = await deps.discoverAgents();
+        const agentsList = await deps.discoverAgents();
         const match = agentsList.find(
           (agent) => agent.name === parsedBody.agentName,
         );
@@ -166,6 +174,7 @@ export function createCodexDeviceAuthRouter(
           return res.status(404).json({ error: 'not_found' });
         }
         agentHome = match.home;
+        agentConfigPath = match.configPath;
       } catch (error) {
         baseLogger.error(
           {
@@ -196,16 +205,101 @@ export function createCodexDeviceAuthRouter(
         .json({ error: 'codex_unavailable', reason: cliStatus.reason });
     }
 
-    const result = await deps.runCodexDeviceAuth({ codexHome: agentHome });
-    if (!result.ok) {
+    const targetCodexHome = agentHome ?? deps.getCodexHome();
+    const targetConfigPath =
+      agentConfigPath ?? deps.getCodexConfigPathForHome(targetCodexHome);
+    try {
+      await deps.ensureCodexAuthFileStore(targetConfigPath);
+    } catch (error) {
+      baseLogger.error(
+        {
+          requestId,
+          target: parsedBody.target,
+          agentName: parsedBody.agentName,
+          configPath: targetConfigPath,
+          err: error,
+        },
+        'DEV-0000031:T10:codex_device_auth_persist_failed',
+      );
+      return res.status(500).json({
+        error: 'device_auth_failed',
+        message: 'codex config persistence unavailable',
+      });
+    }
+
+    const deviceAuth = await deps.runCodexDeviceAuth({
+      codexHome: agentHome,
+    });
+
+    void deviceAuth.completion
+      .then(async ({ exitCode, result }) => {
+        baseLogger.info(
+          {
+            target: parsedBody.target,
+            agentName: parsedBody.agentName,
+            exitCode,
+          },
+          'DEV-0000031:T10:codex_device_auth_completed',
+        );
+
+        if (!result.ok || (exitCode !== null && exitCode !== 0)) {
+          return;
+        }
+
+        if (parsedBody.target === 'chat') {
+          const agents = await deps.discoverAgents({ seedAuth: false });
+          const { agentCount } = await deps.propagateAgentAuthFromPrimary({
+            agents,
+            primaryCodexHome: deps.getCodexHome(),
+            logger: baseLogger,
+            overwrite: true,
+          });
+
+          baseLogger.info(
+            {
+              target: parsedBody.target,
+              agentName: parsedBody.agentName,
+              agentCount,
+            },
+            'DEV-0000031:T4:codex_device_auth_propagated',
+          );
+
+          const refreshed = deps.refreshCodexDetection();
+          baseLogger.info(
+            { available: refreshed.available, codexHome: deps.getCodexHome() },
+            'DEV-0000031:T4:codex_device_auth_availability_refreshed',
+          );
+        } else {
+          baseLogger.info(
+            {
+              target: parsedBody.target,
+              agentName: parsedBody.agentName,
+              agentCount: parsedBody.agentName ? 1 : 0,
+            },
+            'DEV-0000031:T4:codex_device_auth_propagated',
+          );
+        }
+      })
+      .catch((error) => {
+        baseLogger.error(
+          {
+            err: error,
+            target: parsedBody.target,
+            agentName: parsedBody.agentName,
+          },
+          'DEV-0000031:T10:codex_device_auth_completion_failed',
+        );
+      });
+
+    if (!deviceAuth.ok) {
       const statusCode =
-        result.message === deviceAuthOutputError ||
-        result.message === deviceAuthExpiredError
+        deviceAuth.message === deviceAuthOutputError ||
+        deviceAuth.message === deviceAuthExpiredError
           ? 400
           : 500;
       const errorPayload =
         statusCode === 400
-          ? { error: 'invalid_request', message: result.message }
+          ? { error: 'invalid_request', message: deviceAuth.message }
           : { error: 'device_auth_failed' };
 
       baseLogger.warn(
@@ -219,49 +313,14 @@ export function createCodexDeviceAuthRouter(
       return res.status(statusCode).json(errorPayload);
     }
 
-    if (parsedBody.target === 'chat') {
-      const agents =
-        agentsList ?? (await deps.discoverAgents({ seedAuth: false }));
-      const { agentCount } = await deps.propagateAgentAuthFromPrimary({
-        agents,
-        primaryCodexHome: deps.getCodexHome(),
-        logger: baseLogger,
-        overwrite: true,
-      });
-
-      baseLogger.info(
-        {
-          target: parsedBody.target,
-          agentName: parsedBody.agentName,
-          agentCount,
-        },
-        'DEV-0000031:T4:codex_device_auth_propagated',
-      );
-
-      const refreshed = deps.refreshCodexDetection();
-      baseLogger.info(
-        { available: refreshed.available, codexHome: deps.getCodexHome() },
-        'DEV-0000031:T4:codex_device_auth_availability_refreshed',
-      );
-    } else {
-      baseLogger.info(
-        {
-          target: parsedBody.target,
-          agentName: parsedBody.agentName,
-          agentCount: parsedBody.agentName ? 1 : 0,
-        },
-        'DEV-0000031:T4:codex_device_auth_propagated',
-      );
-    }
-
     baseLogger.info(
       {
         requestId,
         target: parsedBody.target,
         agentName: parsedBody.agentName,
-        hasVerificationUrl: Boolean(result.verificationUrl),
-        hasUserCode: Boolean(result.userCode),
-        hasExpiresInSec: result.expiresInSec !== undefined,
+        hasVerificationUrl: Boolean(deviceAuth.verificationUrl),
+        hasUserCode: Boolean(deviceAuth.userCode),
+        hasExpiresInSec: deviceAuth.expiresInSec !== undefined,
       },
       'DEV-0000031:T2:codex_device_auth_request_completed',
     );
@@ -270,9 +329,9 @@ export function createCodexDeviceAuthRouter(
       status: 'completed',
       target: parsedBody.target,
       agentName: parsedBody.agentName,
-      verificationUrl: result.verificationUrl,
-      userCode: result.userCode,
-      expiresInSec: result.expiresInSec,
+      verificationUrl: deviceAuth.verificationUrl,
+      userCode: deviceAuth.userCode,
+      expiresInSec: deviceAuth.expiresInSec,
     });
   });
 

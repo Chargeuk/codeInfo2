@@ -19,6 +19,15 @@ export type CodexDeviceAuthResult =
   | CodexDeviceAuthSuccess
   | CodexDeviceAuthFailure;
 
+export type CodexDeviceAuthCompletion = {
+  exitCode: number | null;
+  result: CodexDeviceAuthResult;
+};
+
+export type CodexDeviceAuthResultWithCompletion = CodexDeviceAuthResult & {
+  completion: Promise<CodexDeviceAuthCompletion>;
+};
+
 type CodexDeviceAuthRunSummary = {
   exitCode: number | null;
   stdout: string;
@@ -73,19 +82,37 @@ export function resolveCodexDeviceAuthResult(
 
 export async function runCodexDeviceAuth(params?: {
   codexHome?: string;
-}): Promise<CodexDeviceAuthResult> {
+  spawnFn?: typeof spawn;
+}): Promise<CodexDeviceAuthResultWithCompletion> {
   const codexHome = resolveCodexHome(params?.codexHome);
   const options = buildCodexOptions({ codexHome });
+  const spawnFn = params?.spawnFn ?? spawn;
 
   baseLogger.info({ codexHome }, 'DEV-0000031:T1:codex_device_auth_cli_start');
 
   return new Promise((resolve) => {
-    const child = spawn('codex', ['login', '--device-auth'], {
+    const child = spawnFn('codex', ['login', '--device-auth'], {
       env: options?.env,
     });
     let stdout = '';
     let stderr = '';
     let resolved = false;
+    let completionResolved = false;
+    let resolveCompletion: (value: CodexDeviceAuthCompletion) => void;
+    const completion = new Promise<CodexDeviceAuthCompletion>((resolve) => {
+      resolveCompletion = resolve;
+    });
+
+    const finalizeCompletion = (summary: CodexDeviceAuthRunSummary) => {
+      if (completionResolved) return;
+      completionResolved = true;
+      const result = resolveCodexDeviceAuthResult(summary);
+      baseLogger.info(
+        { exitCode: summary.exitCode, ok: result.ok },
+        'DEV-0000031:T10:codex_device_auth_cli_completed',
+      );
+      resolveCompletion({ exitCode: summary.exitCode, result });
+    };
 
     const finalize = (
       summary: CodexDeviceAuthRunSummary,
@@ -119,7 +146,7 @@ export async function runCodexDeviceAuth(params?: {
         );
       }
 
-      resolve(result);
+      resolve({ ...result, completion });
     };
 
     child.stdout?.on('data', (chunk) => {
@@ -140,15 +167,19 @@ export async function runCodexDeviceAuth(params?: {
     });
 
     child.on('error', (error) => {
-      finalize({
+      const summary = {
         exitCode: null,
         stdout,
         stderr: `${stderr}\n${error.message}`.trim(),
-      });
+      };
+      finalize(summary);
+      finalizeCompletion(summary);
     });
 
     child.on('close', (exitCode) => {
-      finalize({ exitCode, stdout, stderr });
+      const summary = { exitCode, stdout, stderr };
+      finalize(summary);
+      finalizeCompletion(summary);
     });
   });
 }

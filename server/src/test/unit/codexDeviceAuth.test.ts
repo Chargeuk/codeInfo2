@@ -1,10 +1,16 @@
 import assert from 'node:assert/strict';
+import type { ChildProcess } from 'node:child_process';
+import { EventEmitter } from 'node:events';
+import { PassThrough } from 'node:stream';
 import { describe, it } from 'node:test';
 
 import {
   parseCodexDeviceAuthOutput,
   resolveCodexDeviceAuthResult,
+  runCodexDeviceAuth,
 } from '../../utils/codexDeviceAuth.js';
+
+type SpawnFn = typeof import('node:child_process').spawn;
 
 describe('codexDeviceAuth', () => {
   it('parses verification URL + user code from stdout', () => {
@@ -55,5 +61,40 @@ describe('codexDeviceAuth', () => {
     if (!result.ok) {
       assert.equal(result.message, 'device code expired or was declined');
     }
+  });
+
+  it('resolves completion after the CLI process closes', async () => {
+    const child = new EventEmitter() as ChildProcess & {
+      stdout: PassThrough;
+      stderr: PassThrough;
+    };
+    child.stdout = new PassThrough();
+    child.stderr = new PassThrough();
+
+    const spawnFn = ((..._args: unknown[]) =>
+      child as ChildProcess) as SpawnFn;
+
+    const runPromise = runCodexDeviceAuth({ spawnFn });
+    child.stdout.write(
+      'Open https://example.com/device and enter code ABCD-EFGH.\n',
+    );
+
+    const result = await runPromise;
+    assert.equal(result.ok, true);
+
+    let completionResolved = false;
+    const completionPromise = result.completion.then((completion) => {
+      completionResolved = true;
+      return completion;
+    });
+
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(completionResolved, false);
+
+    child.emit('close', 0);
+
+    const completion = await completionPromise;
+    assert.equal(completion.exitCode, 0);
+    assert.equal(completion.result.ok, true);
   });
 });

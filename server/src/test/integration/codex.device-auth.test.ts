@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { describe, test } from 'node:test';
+import { describe, mock, test } from 'node:test';
 
 import express from 'express';
 import supertest from 'supertest';
@@ -7,6 +7,11 @@ import supertest from 'supertest';
 import type { DiscoveredAgent } from '../../agents/types.js';
 import type { CodexDetection } from '../../providers/codexRegistry.js';
 import { createCodexDeviceAuthRouter } from '../../routes/codexDeviceAuth.js';
+import type {
+  CodexDeviceAuthCompletion,
+  CodexDeviceAuthResult,
+  CodexDeviceAuthResultWithCompletion,
+} from '../../utils/codexDeviceAuth.js';
 
 function buildApp(deps?: Parameters<typeof createCodexDeviceAuthRouter>[0]) {
   const app = express();
@@ -20,6 +25,18 @@ const defaultDetection: CodexDetection = {
   configPresent: true,
 };
 
+type DeviceAuthResult = CodexDeviceAuthResultWithCompletion;
+
+function buildDeviceAuthResult(
+  result: CodexDeviceAuthResult,
+  exitCode = result.ok ? 0 : 1,
+): DeviceAuthResult {
+  return {
+    ...result,
+    completion: Promise.resolve({ exitCode, result }),
+  };
+}
+
 function withDeps(
   overrides?: Partial<Parameters<typeof createCodexDeviceAuthRouter>[0]>,
 ): Parameters<typeof createCodexDeviceAuthRouter>[0] {
@@ -28,11 +45,17 @@ function withDeps(
     propagateAgentAuthFromPrimary: async () => ({ agentCount: 0 }),
     refreshCodexDetection: () => defaultDetection,
     getCodexHome: () => '/tmp/codex-home',
-    runCodexDeviceAuth: async () => ({
-      ok: true,
-      verificationUrl: 'https://device.test/verify',
-      userCode: 'CODE-123',
+    ensureCodexAuthFileStore: async (configPath: string) => ({
+      changed: false,
+      configPath,
     }),
+    getCodexConfigPathForHome: (home: string) => `${home}/config.toml`,
+    runCodexDeviceAuth: async () =>
+      buildDeviceAuthResult({
+        ok: true,
+        verificationUrl: 'https://device.test/verify',
+        userCode: 'CODE-123',
+      }),
     resolveCodexCli: () => ({ available: true }),
     ...overrides,
   };
@@ -59,12 +82,12 @@ describe('POST /codex/device-auth', () => {
           discoverAgents: async () => [makeAgent('coding_agent')],
           runCodexDeviceAuth: async (params) => {
             receivedHome = params?.codexHome;
-            return {
+            return buildDeviceAuthResult({
               ok: true,
               verificationUrl: 'https://device.test/verify',
               userCode: 'CODE-123',
               expiresInSec: 600,
-            };
+            });
           },
         }),
       ),
@@ -152,10 +175,11 @@ describe('POST /codex/device-auth', () => {
     const res = await supertest(
       buildApp(
         withDeps({
-          runCodexDeviceAuth: async () => ({
-            ok: false,
-            message: 'device auth output not recognized',
-          }),
+          runCodexDeviceAuth: async () =>
+            buildDeviceAuthResult({
+              ok: false,
+              message: 'device auth output not recognized',
+            }),
         }),
       ),
     )
@@ -186,5 +210,47 @@ describe('POST /codex/device-auth', () => {
         process.env.LOG_MAX_CLIENT_BYTES = prevLimit;
       }
     }
+  });
+
+  test('propagates auth only after completion resolves', async () => {
+    let resolveCompletion!: (value: CodexDeviceAuthCompletion) => void;
+    const completion = new Promise<CodexDeviceAuthCompletion>((resolve) => {
+      resolveCompletion = resolve;
+    });
+    const successResult = {
+      ok: true,
+      verificationUrl: 'https://device.test/verify',
+      userCode: 'CODE-123',
+    } as const satisfies CodexDeviceAuthResult;
+    const propagateAgentAuthFromPrimary = mock.fn(async () => ({
+      agentCount: 1,
+    }));
+    const refreshCodexDetection = mock.fn(() => defaultDetection);
+
+    const res = await supertest(
+      buildApp(
+        withDeps({
+          discoverAgents: async () => [makeAgent('coding_agent')],
+          propagateAgentAuthFromPrimary,
+          refreshCodexDetection,
+          runCodexDeviceAuth: async () => ({
+            ...successResult,
+            completion,
+          }),
+        }),
+      ),
+    )
+      .post('/codex/device-auth')
+      .send({ target: 'chat' });
+
+    assert.equal(res.status, 200);
+    assert.equal(propagateAgentAuthFromPrimary.mock.calls.length, 0);
+    assert.equal(refreshCodexDetection.mock.calls.length, 0);
+
+    resolveCompletion({ exitCode: 0, result: successResult });
+    await new Promise((resolve) => setImmediate(resolve));
+
+    assert.equal(propagateAgentAuthFromPrimary.mock.calls.length, 1);
+    assert.equal(refreshCodexDetection.mock.calls.length, 1);
   });
 });

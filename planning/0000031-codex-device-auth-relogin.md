@@ -1952,7 +1952,7 @@ Harden device-auth stdout parsing to strip ANSI escape codes and prevent the use
 
 #### Subtasks
 
-1. [ ] Review the captured device-auth CLI output and parser:
+1. [x] Review the captured device-auth CLI output and parser:
    - Documentation to read (repeat):
      - Codex CLI reference (`codex login`): https://developers.openai.com/codex/cli/reference
    - Files to read:
@@ -1960,7 +1960,7 @@ Harden device-auth stdout parsing to strip ANSI escape codes and prevent the use
      - `server/src/test/unit/codexDeviceAuth.test.ts`
    - Notes:
      - Use the provided CLI output sample with ANSI colors as the baseline fixture.
-2. [ ] Strip ANSI escape codes before parsing:
+2. [x] Strip ANSI escape codes before parsing:
    - Documentation to read (repeat):
      - ANSI escape codes: https://en.wikipedia.org/wiki/ANSI_escape_code
    - Files to edit:
@@ -1968,7 +1968,7 @@ Harden device-auth stdout parsing to strip ANSI escape codes and prevent the use
    - Implementation details:
      - Add a helper to remove ANSI color/control sequences.
      - Ensure both stdout and stderr are normalized before regex parsing.
-3. [ ] Tighten the user-code regex:
+3. [x] Tighten the user-code regex:
    - Documentation to read (repeat):
      - JavaScript regex reference: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Regular_Expressions
    - Files to edit:
@@ -1976,28 +1976,28 @@ Harden device-auth stdout parsing to strip ANSI escape codes and prevent the use
    - Implementation details:
      - Require word boundaries around `code` so `codex` cannot match.
      - Require a minimum length (e.g., 6+ characters) to prevent one-letter captures.
-4. [ ] Unit test — ANSI + codex substring regression:
+4. [x] Unit test — ANSI + codex substring regression:
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
    - Files to edit:
      - `server/src/test/unit/codexDeviceAuth.test.ts`
    - Description & purpose:
      - Feed the captured output (including ANSI reset codes) and assert the URL and full code parse correctly.
-5. [ ] Unit test — ensure `codex` does not match `code`:
+5. [x] Unit test — ensure `codex` does not match `code`:
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
    - Files to edit:
      - `server/src/test/unit/codexDeviceAuth.test.ts`
    - Description & purpose:
      - Verify that the parser does not return `x` or similar from the word `codex`.
-6. [ ] Update `projectStructure.md` after any file additions/removals in this task.
+6. [x] Update `projectStructure.md` after any file additions/removals in this task.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to read:
    - `projectStructure.md`
   - Files to edit:
     - `projectStructure.md`
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+7. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -2010,37 +2010,51 @@ Harden device-auth stdout parsing to strip ANSI escape codes and prevent the use
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
    - Documentation to read (repeat):
      - Jest: Context7 `/websites/jestjs_io_30_0`
      - Jest docs: https://jestjs.io/docs/getting-started
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
      - Playwright docs (intro): https://playwright.dev/docs/intro
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
      - Docker Compose docs: https://docs.docker.com/compose/
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] `npm run compose:down`
+8. [x] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
 #### Implementation notes
 
-- 
+- 2026-01-25: Reviewed `codexDeviceAuth` parser/test fixtures to plan ANSI stripping and regex tightening.
+- 2026-01-25: Added ANSI stripping helper and applied it to stdout/stderr parsing + redaction.
+- 2026-01-25: Tightened user-code regex with word boundaries and minimum length to avoid `codex` matches.
+- 2026-01-25: Added ANSI-colored stdout fixture test to confirm parsing survives color codes.
+- 2026-01-25: Added regression test to ensure `codex` text does not satisfy the user-code regex.
+- 2026-01-25: `projectStructure.md` unchanged because no files were added/removed.
+- 2026-01-25: `npm run lint --workspaces` passed with existing import-order warnings; `npm run format:check --workspaces` clean.
+- 2026-01-25: `npm run build --workspace server` succeeded.
+- 2026-01-25: `npm run build --workspace client` succeeded (chunk size warning only).
+- 2026-01-25: `npm run test --workspace server` passed after rerunning with a longer timeout.
+- 2026-01-25: `npm run test --workspace client` passed (console warnings only).
+- 2026-01-25: `npm run e2e` completed successfully.
+- 2026-01-25: `npm run compose:build` completed successfully.
+- 2026-01-25: `npm run compose:up` started the stack successfully.
+- 2026-01-25: `npm run compose:down` stopped the stack successfully.
 
 ---
 
@@ -2163,6 +2177,14 @@ Render the verification URL as a clickable link (opens in a new tab) and render 
 #### Implementation notes
 
 - 
+ - 2026-01-25: `npm run build --workspace server` succeeded.
+ - 2026-01-25: `npm run build --workspace client` succeeded (chunk size warning only).
+ - 2026-01-25: `npm run test --workspace server` passed after rerunning with a longer timeout.
+ - 2026-01-25: `npm run test --workspace client` passed (console warnings only).
+ - 2026-01-25: `npm run e2e` completed successfully.
+ - 2026-01-25: `npm run compose:build` completed successfully.
+ - 2026-01-25: `npm run compose:up` started the stack successfully.
+ - 2026-01-25: `npm run compose:down` stopped the stack successfully.
 
 ---
 

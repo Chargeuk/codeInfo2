@@ -37,6 +37,35 @@ describe('codexDeviceAuth', () => {
     }
   });
 
+  it('parses ANSI-colored device-auth output', () => {
+    const stdout =
+      '\u001b[32mOpen\u001b[0m https://example.com/device and enter ' +
+      'code \u001b[1mABCD-EFGH\u001b[0m.\n' +
+      '\u001b[90mCode expires in 900 seconds.\u001b[0m\n' +
+      'Use codex device auth to continue.';
+
+    const result = parseCodexDeviceAuthOutput(stdout);
+
+    assert.equal(result.ok, true);
+    if (result.ok) {
+      assert.equal(result.verificationUrl, 'https://example.com/device');
+      assert.equal(result.userCode, 'ABCD-EFGH');
+      assert.equal(result.expiresInSec, 900);
+    }
+  });
+
+  it('does not match code inside the word codex', () => {
+    const stdout =
+      'Open https://example.com/device and enter codex to continue.';
+
+    const result = parseCodexDeviceAuthOutput(stdout);
+
+    assert.equal(result.ok, false);
+    if (!result.ok) {
+      assert.equal(result.message, 'device auth output not recognized');
+    }
+  });
+
   it('reports non-zero exit codes as failures', () => {
     const result = resolveCodexDeviceAuthResult({
       exitCode: 1,
@@ -71,8 +100,7 @@ describe('codexDeviceAuth', () => {
     child.stdout = new PassThrough();
     child.stderr = new PassThrough();
 
-    const spawnFn = ((..._args: unknown[]) =>
-      child as ChildProcess) as SpawnFn;
+    const spawnFn = (() => child as ChildProcess) as SpawnFn;
 
     const runPromise = runCodexDeviceAuth({ spawnFn });
     child.stdout.write(

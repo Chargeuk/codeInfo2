@@ -39,19 +39,21 @@ const deviceAuthExpiredMessage = 'device code expired or was declined';
 const deviceAuthExitMessage = 'device auth command failed';
 
 const verificationUrlRegex = /https?:\/\/\S+/i;
-const userCodeRegex = /(?:user\s*code|code)\s*[:=\-]?\s*([A-Z0-9-]+)/i;
+const userCodeRegex = /\b(?:user\s*code|code)\b\s*[:=\-]?\s*([A-Z0-9-]{6,})/i;
 const verificationUrlRedactRegex = /https?:\/\/\S+/gi;
-const userCodeRedactRegex = /(?:user\s*code|code)\s*[:=\-]?\s*[A-Z0-9-]+/gi;
+const userCodeRedactRegex =
+  /\b(?:user\s*code|code)\b\s*[:=\-]?\s*[A-Z0-9-]{6,}/gi;
 const expiresRegex = /expires?\s*in\s*(\d+)\s*seconds?/i;
 const expiredStderrRegex = /(expired|declined)/i;
 
 export function parseCodexDeviceAuthOutput(
   stdout: string,
 ): CodexDeviceAuthResult {
-  const verificationUrl = stdout.match(verificationUrlRegex)?.[0];
-  const userCodeMatch = stdout.match(userCodeRegex);
+  const normalized = stripAnsi(stdout);
+  const verificationUrl = normalized.match(verificationUrlRegex)?.[0];
+  const userCodeMatch = normalized.match(userCodeRegex);
   const userCode = userCodeMatch?.[1];
-  const expiresMatch = stdout.match(expiresRegex);
+  const expiresMatch = normalized.match(expiresRegex);
   const expiresInSec = expiresMatch ? Number(expiresMatch[1]) : undefined;
 
   if (!verificationUrl || !userCode) {
@@ -69,7 +71,8 @@ export function parseCodexDeviceAuthOutput(
 export function resolveCodexDeviceAuthResult(
   summary: CodexDeviceAuthRunSummary,
 ): CodexDeviceAuthResult {
-  if (summary.stderr && expiredStderrRegex.test(summary.stderr)) {
+  const normalizedStderr = stripAnsi(summary.stderr);
+  if (normalizedStderr && expiredStderrRegex.test(normalizedStderr)) {
     return { ok: false, message: deviceAuthExpiredMessage };
   }
 
@@ -185,9 +188,16 @@ export async function runCodexDeviceAuth(params?: {
 }
 
 function sanitizeDeviceAuthOutput(output: string) {
-  return output
+  return stripAnsi(output)
     .replace(verificationUrlRedactRegex, '<redacted-url>')
     .replace(userCodeRedactRegex, '<redacted-code>');
+}
+
+const ansiRegex =
+  /[\u001B\u009B][[\]()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g;
+
+function stripAnsi(value: string) {
+  return value.replace(ansiRegex, '');
 }
 
 function truncateText(value: string, maxLength: number) {

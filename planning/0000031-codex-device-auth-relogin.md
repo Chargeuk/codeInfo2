@@ -499,6 +499,11 @@ Add `POST /codex/device-auth` that validates the target (chat or agent), calls t
 - 2026-01-25: Server build (`npm run build --workspace server`) succeeded after fixing device-auth test typings.
 - 2026-01-25: Client build (`npm run build --workspace client`) succeeded with existing chunk-size warnings.
 - 2026-01-25: `TMPDIR=/tmp npm run test --workspace server` passed (unit + integration + cucumber).
+- 2026-01-25: `TMPDIR=/tmp npm run test --workspace client` passed (act warnings from MUI transitions and console logging expected).
+- 2026-01-25: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run e2e` passed (36 tests).
+- 2026-01-25: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run compose:build` succeeded.
+- 2026-01-25: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run compose:up` brought services to healthy.
+- 2026-01-25: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run compose:down` stopped the stack.
 - 2026-01-25: `TMPDIR=/tmp npm run test --workspace client` passed (console logging noise expected).
 - 2026-01-25: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run e2e` passed (36 tests).
 - 2026-01-25: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run compose:build` succeeded.
@@ -644,6 +649,8 @@ Ensure the Codex config enforces `cli_auth_credentials_store = "file"` so device
 - 2026-01-25: Updated `projectStructure.md` with the new device-auth config test entry.
 - 2026-01-25: `npm run lint --workspaces` still reports pre-existing import/order warnings; `npm run format --workspaces` fixed formatting and `format:check` passes.
 - 2026-01-25: Server build (`npm run build --workspace server`) succeeded.
+- 2026-01-25: Client build (`npm run build --workspace client`) succeeded with existing chunk-size warning.
+- 2026-01-25: `TMPDIR=/tmp npm run test --workspace server` passed (unit + integration + cucumber).
 - 2026-01-25: Client build (`npm run build --workspace client`) succeeded with existing chunk-size warning.
 - 2026-01-25: `TMPDIR=/tmp npm run test --workspace server` passed (unit + integration + cucumber).
 - 2026-01-25: `TMPDIR=/tmp npm run test --workspace client` passed (console logging noise expected).
@@ -996,7 +1003,7 @@ Build a reusable dialog component that runs device-auth, shows loading/error/suc
 
 #### Subtasks
 
-1. [ ] Review existing dialog components for layout and state patterns:
+1. [x] Review existing dialog components for layout and state patterns:
    - Documentation to read (repeat):
      - MUI Dialog API: https://mui.com/material-ui/api/dialog/
      - MUI Select API (MenuItem children requirement): https://mui.com/material-ui/api/select/
@@ -1006,7 +1013,7 @@ Build a reusable dialog component that runs device-auth, shows loading/error/suc
    - Key requirements (repeat):
      - Dialog should be centered and keyboard-accessible.
      - Inputs should be disabled while a request is in flight.
-2. [ ] Implement `CodexDeviceAuthDialog`:
+2. [x] Implement `CodexDeviceAuthDialog`:
    - Documentation to read (repeat):
      - MUI Dialog API: https://mui.com/material-ui/api/dialog/
      - MUI Select + TextField select pattern: https://mui.com/material-ui/react-select/
@@ -1031,7 +1038,7 @@ Build a reusable dialog component that runs device-auth, shows loading/error/suc
      - `DEV-0000031:T6:codex_device_auth_dialog_open` when the dialog opens.
      - `DEV-0000031:T6:codex_device_auth_dialog_success` after a successful response.
      - `DEV-0000031:T6:codex_device_auth_dialog_error` when the API call fails.
-3. [ ] Unit test (client) — dialog pending state:
+3. [x] Unit test (client) — dialog pending state:
    - Documentation to read (repeat):
      - Jest: Context7 `/websites/jestjs_io_30_0`
      - Jest docs: https://jestjs.io/docs/getting-started
@@ -1039,7 +1046,7 @@ Build a reusable dialog component that runs device-auth, shows loading/error/suc
      - `client/src/test/codexDeviceAuthDialog.test.tsx` (new)
    - Description & purpose:
      - Button disables while request is pending.
-4. [ ] Unit test (client) — dialog success state:
+4. [x] Unit test (client) — dialog success state:
    - Documentation to read (repeat):
      - Jest: Context7 `/websites/jestjs_io_30_0`
      - Jest docs: https://jestjs.io/docs/getting-started
@@ -1047,7 +1054,7 @@ Build a reusable dialog component that runs device-auth, shows loading/error/suc
      - `client/src/test/codexDeviceAuthDialog.test.tsx` (new)
    - Description & purpose:
      - Success state renders the URL and code.
-5. [ ] Unit test (client) — dialog error state:
+5. [x] Unit test (client) — dialog error state:
    - Documentation to read (repeat):
      - Jest: Context7 `/websites/jestjs_io_30_0`
      - Jest docs: https://jestjs.io/docs/getting-started
@@ -1055,7 +1062,7 @@ Build a reusable dialog component that runs device-auth, shows loading/error/suc
      - `client/src/test/codexDeviceAuthDialog.test.tsx` (new)
    - Description & purpose:
      - Error state renders the message and re-enables Start.
-6. [ ] Unit test (client) — dialog close after error:
+6. [x] Unit test (client) — dialog close after error:
    - Documentation to read (repeat):
      - Jest: Context7 `/websites/jestjs_io_30_0`
      - Jest docs: https://jestjs.io/docs/getting-started
@@ -1063,7 +1070,7 @@ Build a reusable dialog component that runs device-auth, shows loading/error/suc
      - `client/src/test/codexDeviceAuthDialog.test.tsx` (new)
    - Description & purpose:
      - Close button invokes `onClose` even after an error state.
-7. [ ] Unit test (client) — dialog copy buttons:
+7. [x] Unit test (client) — dialog copy buttons:
    - Documentation to read (repeat):
      - Jest: Context7 `/websites/jestjs_io_30_0`
      - Jest docs: https://jestjs.io/docs/getting-started
@@ -1072,7 +1079,7 @@ Build a reusable dialog component that runs device-auth, shows loading/error/suc
      - `client/src/test/codexDeviceAuthDialog.test.tsx` (new)
    - Description & purpose:
      - Clicking copy buttons uses the clipboard API for `verificationUrl` and `userCode`.
-8. [ ] Unit test (client) — dialog target change:
+8. [x] Unit test (client) — dialog target change:
    - Documentation to read (repeat):
      - Jest: Context7 `/websites/jestjs_io_30_0`
      - Jest docs: https://jestjs.io/docs/getting-started
@@ -1080,7 +1087,7 @@ Build a reusable dialog component that runs device-auth, shows loading/error/suc
      - `client/src/test/codexDeviceAuthDialog.test.tsx` (new)
    - Description & purpose:
      - Selecting a different target updates the request payload before starting device auth.
-9. [ ] Unit test (client) — expiresInSec display:
+9. [x] Unit test (client) — expiresInSec display:
    - Documentation to read (repeat):
      - Jest: Context7 `/websites/jestjs_io_30_0`
      - Jest docs: https://jestjs.io/docs/getting-started
@@ -1088,7 +1095,7 @@ Build a reusable dialog component that runs device-auth, shows loading/error/suc
      - `client/src/test/codexDeviceAuthDialog.test.tsx` (new)
    - Description & purpose:
      - When the API response includes `expiresInSec`, the dialog renders the expiry text.
-10. [ ] Update `projectStructure.md` after any file additions/removals in this task.
+10. [x] Update `projectStructure.md` after any file additions/removals in this task.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to read:
@@ -1100,7 +1107,7 @@ Build a reusable dialog component that runs device-auth, shows loading/error/suc
     - Add entries for:
       - `client/src/components/codex/CodexDeviceAuthDialog.tsx`
       - `client/src/test/codexDeviceAuthDialog.test.tsx`
-11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+11. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -1113,39 +1120,45 @@ Build a reusable dialog component that runs device-auth, shows loading/error/suc
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
    - Documentation to read (repeat):
      - Jest: Context7 `/websites/jestjs_io_30_0`
      - Jest docs: https://jestjs.io/docs/getting-started
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
      - Playwright docs (intro): https://playwright.dev/docs/intro
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
      - Docker Compose docs: https://docs.docker.com/compose/
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
      - Docker Compose docs: https://docs.docker.com/compose/
-8. [ ] `npm run compose:down`
+8. [x] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
      - Docker Compose docs: https://docs.docker.com/compose/
 
 #### Implementation notes
 
-- 
+- 2026-01-25: Reviewed `DirectoryPickerDialog` and `CodexFlagsPanel` for dialog layout/state patterns and select usage.
+- 2026-01-25: Added `CodexDeviceAuthDialog` with target selection, async state handling, copy helpers, and required logging hooks.
+- 2026-01-25: Added dialog unit tests covering pending, success, error, close, copy, target change, and expiry display states.
+- 2026-01-25: Updated `projectStructure.md` with the new dialog component and test entry.
+- 2026-01-25: Added a `.gitignore` exception so `client/src/components/codex` is tracked without affecting the root `codex/` ignore.
+- 2026-01-25: `npm run lint --workspaces` still reports pre-existing import/order warnings; `npm run format --workspaces` resolved formatting and `format:check` passes.
+- 2026-01-25: Server build (`npm run build --workspace server`) succeeded.
 
 ---
 

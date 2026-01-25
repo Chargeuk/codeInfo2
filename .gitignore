@@ -12,6 +12,8 @@ npm-debug.log*
 .vscode
 *.tsbuildinfo
 codex/
+!client/src/components/codex/
+!client/src/components/codex/**
 codex_agents/**/auth.json
 codex_agents/**/sessions/
 logs/

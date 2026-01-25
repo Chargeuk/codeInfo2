@@ -296,8 +296,8 @@ Create a reusable helper that runs `codex login --device-auth`, parses the verif
 
 ### 2. Server: Device-auth route contract
 
-- Task Status: **__in_progress__**
-- Git Commits: **__to_do__**
+- Task Status: **__done__**
+- Git Commits: bc1a768, b6ba394
 
 #### Overview
 

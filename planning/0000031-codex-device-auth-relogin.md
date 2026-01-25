@@ -1654,6 +1654,28 @@ Validate the story end-to-end, run clean builds/tests, update documentation, and
 
 ---
 
+## Code Review
+
+### Scope Reviewed
+
+- Server: `server/src/utils/codexDeviceAuth.ts`, `server/src/routes/codexDeviceAuth.ts`, `server/src/config/codexConfig.ts`, `server/src/agents/authSeed.ts`, `server/src/agents/discovery.ts`, `server/src/providers/codexDetection.ts`, `server/src/providers/codexRegistry.ts`, tests, and OpenAPI updates.
+- Client: `client/src/api/codex.ts`, `client/src/components/codex/CodexDeviceAuthDialog.tsx`, `client/src/pages/ChatPage.tsx`, `client/src/pages/AgentsPage.tsx`, logging updates, and related tests.
+- Docs & infra: `README.md`, `design.md`, `projectStructure.md`, Docker/Compose changes, and screenshots.
+
+### Review Checks Performed
+
+- Code quality & maintainability: verified new helpers, route wiring, and dialog code follow existing patterns with clear logging and error handling.
+- Performance: confirmed no new hot loops or excessive work on critical paths; device-auth parsing remains lightweight.
+- Security: ensured device-auth logs do not emit URLs or user codes; error responses avoid leaking CLI output.
+- Best practices: verified `CODEX_HOME` targeting, auth propagation, and provider refresh logic align with existing architecture.
+- Acceptance criteria: confirmed chat/agent UI behavior, device-auth flow, auth propagation timing, and availability refresh match the story requirements.
+
+### Findings
+
+- No blocking issues found.
+- Acceptance criteria are fully met.
+
+
 ### 10. Server: Device-auth persistence + post-completion propagation
 
 - Task Status: **__done__**

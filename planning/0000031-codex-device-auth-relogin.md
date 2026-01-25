@@ -17,7 +17,7 @@ Story convention (important for this repo’s planning style):
 
 Today, when Codex auth expires inside the server container, requests fail with an error like “Your access token could not be refreshed because your refresh token was already used.” The UI surfaces the failure but provides no way to re-authenticate without logging into the container manually or copying a fresh `auth.json`. This makes the web UI feel broken when tokens expire, especially for agents, commands, or flow runs that use the Codex CLI under the hood.
 
-We want a consistent, user-friendly re-login flow that works for **Chat** and **Agents** (including command-driven agent runs). The UI should always offer a **device-auth login** action **when Codex is the selected provider and available**, so users can re-authenticate proactively without relying on error detection. Clicking the action opens a centered dialog that guides the user through device-auth and shows the verification URL + code. The dialog includes a selector for which agent or chat session is being authenticated; it should default based on where the dialog was opened, but allow changing it. After successful login, the user can retry the run without leaving the UI.
+We want a consistent, user-friendly re-login flow that works for **Chat** and **Agents** (including command-driven agent runs). The UI should always offer a **device-auth login** action **when Codex is the selected provider and available**, so users can re-authenticate proactively without relying on error detection. Clicking the action opens a centered dialog that guides the user through device-auth and shows the raw CLI output (with clickable links) so users always see the full instructions even if the CLI text changes. The dialog includes a selector for which agent or chat session is being authenticated; it should default based on where the dialog was opened, but allow changing it. After successful login, the user can retry the run without leaving the UI.
 
 This story does **not** add new business features; it only improves how the system recovers from expired Codex credentials.
 
@@ -30,7 +30,7 @@ This story does **not** add new business features; it only improves how the syst
 - Clicking the button opens a centered modal titled **Codex device auth** with: a target selector (`Chat` or `Agent: <name>`), a **Start device auth** button, and a close action.
 - The target selector defaults to the current context (Chat page → `Chat`, Agents page → selected agent) and can be changed before starting.
 - On **Start device auth**, the client sends `POST /codex/device-auth` with `{ target: "chat" }` or `{ target: "agent", agentName: "<selected>" }`; the modal shows a loading state and disables inputs until the request finishes.
-- On success, the modal displays the `verificationUrl` and `userCode` returned by the server (plus `expiresInSec` if provided) and offers copy actions for both values.
+- On success, the modal displays the raw CLI output returned by the server as a read-only text block; any URLs in the output are clickable and open in a new tab/window.
 - If the request fails, the modal shows a clear error message and re-enables **Start device auth** so the user can retry.
 - Successful device-auth writes updated credentials to the selected target only:  
   - Target = `chat`: update the server Codex home **and** copy `auth.json` into **all** agent homes.  
@@ -82,11 +82,11 @@ This story does **not** add new business features; it only improves how the syst
 ## Implementation Ideas
 
 - **Server endpoint (new):** Add `POST /codex/device-auth` under `server/src/routes` (new router or in `chat.ts`) that validates `{ target: "chat" | "agent", agentName? }`, resolves the Codex home via `server/src/config/codexConfig.ts`, and spawns `codex login --device-auth` with `CODEX_HOME` set to that home.
-- **Stdout parsing:** Capture CLI **stdout** and parse the verification URL + user code from the device-auth prompt (no JSON output available) before returning `{ status, verificationUrl, userCode, expiresInSec?, target, agentName? }`.
+- **Stdout capture:** Capture CLI **stdout** (ANSI-stripped) and return it as raw text for the dialog to display (no JSON output available).
 - **Credential storage policy:** Before running login, ensure `cli_auth_credentials_store = "file"` in the target Codex `config.toml` so `auth.json` is written in containers; if the config cannot be written, return a clear error that auth cannot be persisted.
 - **Detection refresh:** After login, refresh `CodexDetection` in `server/src/providers/codexRegistry.ts` (and any `codexAvailability` helpers) so `/chat/providers` reports Codex available without a restart.
 - **Agent propagation:** If target is `chat`, call `server/src/agents/authSeed.ts` to copy the updated `auth.json` into every agent home; if target is `agent`, update only that agent home.
-- **Client API helper:** Add a small client API wrapper for `POST /codex/device-auth` and error shapes alongside existing fetch helpers (`client/src/api/*`).
+- **Client API helper:** Add a small client API wrapper for `POST /codex/device-auth` returning `rawOutput` and error shapes alongside existing fetch helpers (`client/src/api/*`).
 - **Dialog component:** Create a reusable `CodexDeviceAuthDialog` (e.g., `client/src/components/codex/`) using MUI Dialog patterns (similar to `DirectoryPickerDialog`) with target selector, start button, loading state, and success/error panel.
 - **Chat integration:** In `client/src/pages/ChatPage.tsx`, show the **Re-authenticate (device auth)** action only when `useChatModel` provider is Codex and `available=true`; wire the dialog to default target `Chat`.
 - **Agents integration:** In `client/src/pages/AgentsPage.tsx`, show the action only when an agent is selected and Codex is available; populate the target selector with agents from `/agents` and default to the selected agent.
@@ -99,7 +99,7 @@ This story does **not** add new business features; it only improves how the syst
 ## Message Contracts & Storage Shapes
 
 - **New request (HTTP):** `POST /codex/device-auth` body `{ target: "chat" | "agent", agentName?: string }`.
-- **New response (HTTP 200):** `{ status: "completed", verificationUrl: string, userCode: string, expiresInSec?: number, target: "chat" | "agent", agentName?: string }`.
+- **New response (HTTP 200):** `{ rawOutput: string }`.
 - **Existing provider contracts:** keep `/chat/providers` and `/chat/models` shapes unchanged (`ChatProviderInfo`, `ChatModelsResponse`), so Codex availability still uses `available`, `toolsAvailable`, and `reason` fields.
 - **Streaming contracts:** no new WS event types; device-auth is a normal HTTP call and chat/agent streams continue to use existing event shapes.
 - **Storage shapes:** no Mongo changes; credentials are written to `auth.json` under the resolved Codex home because `cli_auth_credentials_store = "file"` is enforced for this flow.
@@ -129,7 +129,7 @@ This story does **not** add new business features; it only improves how the syst
 
 #### Overview
 
-Create a reusable helper that runs `codex login --device-auth`, parses the verification URL + user code from stdout, and returns a structured result for the route layer.
+Create a reusable helper that runs `codex login --device-auth`, captures ANSI-stripped stdout, and returns it for the route layer.
 
 #### Documentation Locations
 
@@ -2193,14 +2193,146 @@ Render the verification URL as a clickable link (opens in a new tab) and render 
 
 ---
 
-### 14. Final Task: Re-validate after parsing hardening
+### 14. Client + server: show raw device-auth output
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Replace the verification URL + user code fields with a single read-only output block that renders the raw device-auth CLI output (with clickable links). Update the server response to return `rawOutput` only and adjust client parsing/UI to use it.
+
+#### Documentation Locations
+
+- MUI Link API: https://mui.com/material-ui/api/link/
+- MUI Typography API: https://mui.com/material-ui/api/typography/
+- MUI Dialog API: https://mui.com/material-ui/api/dialog/
+- React event handling: https://react.dev/learn/responding-to-events
+- Markdown Guide: https://www.markdownguide.org/basic-syntax/
+- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+- Prettier CLI: https://prettier.io/docs/cli
+- npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+- Jest: Context7 `/websites/jestjs_io_30_0`
+     - Jest docs: https://jestjs.io/docs/getting-started
+- Playwright: Context7 `/microsoft/playwright`
+- Playwright docs (intro): https://playwright.dev/docs/intro
+- Docker/Compose: Context7 `/docker/docs`
+- Docker Compose docs: https://docs.docker.com/compose/
+
+#### Subtasks
+
+1. [ ] Review current device-auth route + dialog rendering:
+   - Documentation to read (repeat):
+     - MUI Dialog API: https://mui.com/material-ui/api/dialog/
+   - Files to read:
+     - `server/src/utils/codexDeviceAuth.ts`
+     - `server/src/routes/codex.ts`
+     - `client/src/components/codex/CodexDeviceAuthDialog.tsx`
+     - `client/src/api/codexDeviceAuth.ts`
+2. [ ] Return raw output from the device-auth helper + route:
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+   - Files to edit:
+     - `server/src/utils/codexDeviceAuth.ts`
+     - `server/src/routes/codex.ts`
+   - Implementation details:
+     - Strip ANSI from stdout and return `rawOutput` only on success.
+     - Preserve error handling for non-zero exit and expired/declined messages.
+     - Avoid logging rawOutput; log only lengths/flags.
+3. [ ] Update API types + response parsing:
+   - Documentation to read (repeat):
+     - React event handling: https://react.dev/learn/responding-to-events
+   - Files to edit:
+     - `client/src/api/codexDeviceAuth.ts`
+   - Implementation details:
+     - Update response shape to `{ rawOutput: string }` and remove verificationUrl/userCode usage.
+4. [ ] Replace dialog output section with raw text + linkified URLs:
+   - Documentation to read (repeat):
+     - MUI Link API: https://mui.com/material-ui/api/link/
+     - MUI Typography API: https://mui.com/material-ui/api/typography/
+   - Files to edit:
+     - `client/src/components/codex/CodexDeviceAuthDialog.tsx`
+   - Implementation details:
+     - Render rawOutput in a read-only monospace block.
+     - Convert http/https URLs into clickable links that open in a new tab/window.
+     - Keep the rest of the dialog flow (loading/error states, close/start buttons).
+5. [ ] Update tests for raw output rendering + linkification:
+   - Documentation to read (repeat):
+     - Jest: Context7 `/websites/jestjs_io_30_0`
+     - Jest docs: https://jestjs.io/docs/getting-started
+   - Files to edit:
+     - `server/src/test/unit/codexDeviceAuth.test.ts`
+     - `server/src/test/integration/codex.device-auth.test.ts`
+     - `client/src/test/codexDeviceAuthDialog.test.tsx`
+   - Description & purpose:
+     - Assert server responses include `rawOutput` only.
+     - Ensure the dialog shows the raw output text and linkifies URLs.
+6. [ ] Update OpenAPI schema for the new response shape:
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+   - Files to edit:
+     - `openapi.json`
+7. [ ] Update `projectStructure.md` after any file additions/removals in this task.
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+   - Files to read:
+   - `projectStructure.md`
+  - Files to edit:
+    - `projectStructure.md`
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier CLI: https://prettier.io/docs/cli
+   - Files to read:
+     - `package.json`
+     - `server/package.json`
+     - `client/package.json`
+   - Snippets to locate:
+     - Root `lint` and `format:check` scripts
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+2. [ ] `npm run build --workspace client`
+   - Documentation to read (repeat):
+     - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+3. [ ] `npm run test --workspace server`
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+4. [ ] `npm run test --workspace client`
+   - Documentation to read (repeat):
+     - Jest: Context7 `/websites/jestjs_io_30_0`
+     - Jest docs: https://jestjs.io/docs/getting-started
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
+     - Playwright docs (intro): https://playwright.dev/docs/intro
+6. [ ] `npm run compose:build`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+7. [ ] `npm run compose:up`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+8. [ ] `npm run compose:down`
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
+
+#### Implementation notes
+
+- 
+
+---
+
+### 15. Final Task: Re-validate after parsing hardening
 
 - Task Status: **__done__**
 - Git Commits: 426f272
 
 #### Overview
 
-Re-run the full validation suite and documentation checks after Tasks 12–13 to ensure the device-auth parsing fixes and open-link button satisfy every acceptance criterion.
+Re-run the full validation suite and documentation checks after Tasks 12–14 to ensure the device-auth parsing fixes and raw-output dialog satisfy every acceptance criterion.
 
 #### Documentation Locations
 

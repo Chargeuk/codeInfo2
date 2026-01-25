@@ -1519,7 +1519,7 @@ Show the re-authenticate button on Agents when a selection is active and Codex i
 
 ### 9. Final Task: Validate, document, and summarize
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **__to_do__**
 
 #### Overview

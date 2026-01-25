@@ -87,10 +87,13 @@ export async function runCodexDeviceAuth(params?: {
     let stderr = '';
     let resolved = false;
 
-    const finalize = (summary: CodexDeviceAuthRunSummary) => {
+    const finalize = (
+      summary: CodexDeviceAuthRunSummary,
+      resolvedResult?: CodexDeviceAuthResult,
+    ) => {
       if (resolved) return;
       resolved = true;
-      const result = resolveCodexDeviceAuthResult(summary);
+      const result = resolvedResult ?? resolveCodexDeviceAuthResult(summary);
 
       if (result.ok) {
         baseLogger.info(
@@ -121,9 +124,19 @@ export async function runCodexDeviceAuth(params?: {
 
     child.stdout?.on('data', (chunk) => {
       stdout += String(chunk);
+      if (resolved) return;
+      const parsed = parseCodexDeviceAuthOutput(`${stdout}\n${stderr}`);
+      if (parsed.ok) {
+        finalize({ exitCode: null, stdout, stderr }, parsed);
+      }
     });
     child.stderr?.on('data', (chunk) => {
       stderr += String(chunk);
+      if (resolved) return;
+      const parsed = parseCodexDeviceAuthOutput(`${stdout}\n${stderr}`);
+      if (parsed.ok) {
+        finalize({ exitCode: null, stdout, stderr }, parsed);
+      }
     });
 
     child.on('error', (error) => {

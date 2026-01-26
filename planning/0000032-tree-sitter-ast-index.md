@@ -196,6 +196,7 @@ Create Mongo collections for AST symbols, edges, references, module imports, and
 - Node.js test runner (unit tests for schema/index expectations): https://nodejs.org/api/test.html
 - TypeScript handbook (shared types for schema models): https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
 - Markdown Guide (update `design.md` + `projectStructure.md`): https://www.markdownguide.org/basic-syntax/
+- Mermaid docs (Context7, architecture diagrams): /mermaid-js/mermaid
 - ESLint CLI (run task lint step): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI (run task format step): https://prettier.io/docs/cli
 - npm run-script (workspace build/test commands): https://docs.npmjs.com/cli/v9/commands/npm-run-script
@@ -266,7 +267,8 @@ Create Mongo collections for AST symbols, edges, references, module imports, and
 8. [ ] Update documentation:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-   - `design.md` (add AST collections summary)
+     - Mermaid docs (Context7, architecture diagrams): /mermaid-js/mermaid
+   - `design.md` (add AST collections summary + mermaid diagram of AST collections/relationships)
 9. [ ] Update documentation:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
@@ -309,6 +311,7 @@ Add repo helper functions for AST collections with Mongo-disconnected guards and
 - Node.js test runner (unit tests for repo helper guards): https://nodejs.org/api/test.html
 - Docker Compose overview (compose build/up steps): https://docs.docker.com/compose/
 - Markdown Guide (update `design.md` + `projectStructure.md`): https://www.markdownguide.org/basic-syntax/
+- Mermaid docs (Context7, architecture diagrams): /mermaid-js/mermaid
 - ESLint CLI (run task lint step): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI (run task format step): https://prettier.io/docs/cli
 - npm run-script (workspace build/test commands): https://docs.npmjs.com/cli/v9/commands/npm-run-script
@@ -345,7 +348,8 @@ Add repo helper functions for AST collections with Mongo-disconnected guards and
 4. [ ] Update documentation:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-   - `design.md` (add AST repo helper notes)
+     - Mermaid docs (Context7, architecture diagrams): /mermaid-js/mermaid
+   - `design.md` (add AST repo helper notes + update AST ingest persistence mermaid diagram)
 5. [ ] Update documentation:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
@@ -389,6 +393,7 @@ Add Tree-sitter dependencies and ensure Docker builds can compile native binding
 - Dockerfile reference (build stages + package install): https://docs.docker.com/engine/reference/builder/
 - Docker Compose overview (compose build/up steps): https://docs.docker.com/compose/
 - Markdown Guide (update `design.md` + `projectStructure.md`): https://www.markdownguide.org/basic-syntax/
+- Mermaid docs (Context7, architecture diagrams): /mermaid-js/mermaid
 - ESLint CLI (run task lint step): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI (run task format step): https://prettier.io/docs/cli
 - npm run-script (workspace build/test commands): https://docs.npmjs.com/cli/v9/commands/npm-run-script
@@ -420,7 +425,8 @@ Add Tree-sitter dependencies and ensure Docker builds can compile native binding
 3. [ ] Update documentation:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-   - `design.md` (dependency/build prerequisites)
+     - Mermaid docs (Context7, architecture diagrams): /mermaid-js/mermaid
+   - `design.md` (dependency/build prerequisites + mermaid diagram for build toolchain if architecture notes change)
 4. [ ] Update documentation:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
@@ -469,6 +475,7 @@ Implement a Tree-sitter parsing module that maps JS/TS/TSX source text into Symb
 - Node.js test runner (parser unit tests): https://nodejs.org/api/test.html
 - Docker Compose overview (compose build/up steps): https://docs.docker.com/compose/
 - Markdown Guide (update `design.md` + `projectStructure.md`): https://www.markdownguide.org/basic-syntax/
+- Mermaid docs (Context7, architecture diagrams): /mermaid-js/mermaid
 - ESLint CLI (run task lint step): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI (run task format step): https://prettier.io/docs/cli
 - npm run-script (workspace build/test commands): https://docs.npmjs.com/cli/v9/commands/npm-run-script
@@ -569,7 +576,8 @@ Implement a Tree-sitter parsing module that maps JS/TS/TSX source text into Symb
 11. [ ] Update documentation:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-   - `design.md` (document parsing approach + query usage)
+     - Mermaid docs (Context7, architecture diagrams): /mermaid-js/mermaid
+   - `design.md` (document parsing approach + query usage + mermaid diagram for AST parse flow)
 12. [ ] Update documentation:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
@@ -613,6 +621,7 @@ Integrate AST parsing into ingest runs and persist AST data + coverage without c
 - Cucumber guides (server integration tests): https://cucumber.io/docs/guides/
 - Docker Compose overview (compose build/up steps): https://docs.docker.com/compose/
 - Markdown Guide (update `design.md` + `projectStructure.md`): https://www.markdownguide.org/basic-syntax/
+- Mermaid docs (Context7, architecture diagrams): /mermaid-js/mermaid
 - ESLint CLI (run task lint step): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI (run task format step): https://prettier.io/docs/cli
 - npm run-script (workspace build/test commands): https://docs.npmjs.com/cli/v9/commands/npm-run-script
@@ -717,7 +726,8 @@ Integrate AST parsing into ingest runs and persist AST data + coverage without c
 12. [ ] Update documentation:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-   - `design.md` (AST coverage + ingest persistence notes)
+     - Mermaid docs (Context7, architecture diagrams): /mermaid-js/mermaid
+   - `design.md` (AST coverage + ingest persistence notes + mermaid diagram for ingest/AST pipeline)
 13. [ ] Update documentation:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
@@ -760,6 +770,7 @@ Extend ingest status payloads (REST + WS) with optional AST counts and update te
 - TypeScript handbook (update status types safely): https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
 - Docker Compose overview (compose build/up steps): https://docs.docker.com/compose/
 - Markdown Guide (update `design.md`): https://www.markdownguide.org/basic-syntax/
+- Mermaid docs (Context7, architecture diagrams): /mermaid-js/mermaid
 - ESLint CLI (run task lint step): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI (run task format step): https://prettier.io/docs/cli
 - npm run-script (workspace build/test commands): https://docs.npmjs.com/cli/v9/commands/npm-run-script
@@ -799,7 +810,8 @@ Extend ingest status payloads (REST + WS) with optional AST counts and update te
 5. [ ] Update documentation:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-   - `design.md` (extend ingest status contract)
+     - Mermaid docs (Context7, architecture diagrams): /mermaid-js/mermaid
+   - `design.md` (extend ingest status contract + mermaid diagram for status payload flow)
 6. [ ] Run full linting:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -837,6 +849,7 @@ Add AST tool validation + query services for list/find/call-graph/modules and er
 - Node.js test runner (tool service unit tests): https://nodejs.org/api/test.html
 - Docker Compose overview (compose build/up steps): https://docs.docker.com/compose/
 - Markdown Guide (update `design.md` + `projectStructure.md`): https://www.markdownguide.org/basic-syntax/
+- Mermaid docs (Context7, architecture diagrams): /mermaid-js/mermaid
 - ESLint CLI (run task lint step): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI (run task format step): https://prettier.io/docs/cli
 - npm run-script (workspace build/test commands): https://docs.npmjs.com/cli/v9/commands/npm-run-script
@@ -921,7 +934,8 @@ Add AST tool validation + query services for list/find/call-graph/modules and er
 11. [ ] Update documentation:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-   - `design.md` (AST tool service behavior)
+     - Mermaid docs (Context7, architecture diagrams): /mermaid-js/mermaid
+   - `design.md` (AST tool service behavior + mermaid diagram for tool query flow)
 12. [ ] Update documentation:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
@@ -965,6 +979,7 @@ Expose `/tools/ast-*` REST endpoints that validate input, call the AST tool serv
 - OpenAPI 3.0 spec (update `openapi.json` schemas): https://spec.openapis.org/oas/latest.html
 - Docker Compose overview (compose build/up steps): https://docs.docker.com/compose/
 - Markdown Guide (update `design.md`, `projectStructure.md`, `openapi.json`): https://www.markdownguide.org/basic-syntax/
+- Mermaid docs (Context7, architecture diagrams): /mermaid-js/mermaid
 - ESLint CLI (run task lint step): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI (run task format step): https://prettier.io/docs/cli
 - npm run-script (workspace build/test commands): https://docs.npmjs.com/cli/v9/commands/npm-run-script
@@ -1012,7 +1027,8 @@ Expose `/tools/ast-*` REST endpoints that validate input, call the AST tool serv
 5. [ ] Update documentation:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-   - `design.md` (REST tool contracts + error codes)
+     - Mermaid docs (Context7, architecture diagrams): /mermaid-js/mermaid
+   - `design.md` (REST tool contracts + error codes + mermaid diagram for REST tool flow)
 6. [ ] Update documentation:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
@@ -1060,6 +1076,7 @@ Expose AST tools through the MCP JSON-RPC server with schemas aligned to the RES
 - Node.js test runner (integration tests): https://nodejs.org/api/test.html
 - Docker Compose overview (compose build/up steps): https://docs.docker.com/compose/
 - Markdown Guide (update `design.md` + `projectStructure.md`): https://www.markdownguide.org/basic-syntax/
+- Mermaid docs (Context7, architecture diagrams): /mermaid-js/mermaid
 - ESLint CLI (run task lint step): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI (run task format step): https://prettier.io/docs/cli
 - npm run-script (workspace build/test commands): https://docs.npmjs.com/cli/v9/commands/npm-run-script
@@ -1116,7 +1133,8 @@ Expose AST tools through the MCP JSON-RPC server with schemas aligned to the RES
 7. [ ] Update documentation:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-   - `design.md` (MCP tool list + response shapes)
+     - Mermaid docs (Context7, architecture diagrams): /mermaid-js/mermaid
+   - `design.md` (MCP tool list + response shapes + mermaid diagram for MCP tool flow)
 8. [ ] Update documentation:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
@@ -1160,6 +1178,7 @@ Extend client ingest status types to include optional AST counts and update test
 - Testing Library intro (React test queries): https://testing-library.com/docs/react-testing-library/intro/
 - Docker Compose overview (compose build/up steps): https://docs.docker.com/compose/
 - Markdown Guide (update `design.md` + `projectStructure.md`): https://www.markdownguide.org/basic-syntax/
+- Mermaid docs (Context7, architecture diagrams): /mermaid-js/mermaid
 - ESLint CLI (run task lint step): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI (run task format step): https://prettier.io/docs/cli
 - npm run-script (workspace build/test commands): https://docs.npmjs.com/cli/v9/commands/npm-run-script
@@ -1195,7 +1214,8 @@ Extend client ingest status types to include optional AST counts and update test
 4. [ ] Update documentation:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-   - `design.md` (client ingest status types)
+     - Mermaid docs (Context7, architecture diagrams): /mermaid-js/mermaid
+   - `design.md` (client ingest status types + mermaid diagram for status data flow)
 5. [ ] Update documentation:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
@@ -1241,6 +1261,7 @@ Render non-blocking Ingest page banners for AST skipped/failed counts using exis
 - Jest getting started (client unit tests): https://jestjs.io/docs/getting-started
 - Docker Compose overview (compose build/up steps): https://docs.docker.com/compose/
 - Markdown Guide (update `design.md` + `projectStructure.md`): https://www.markdownguide.org/basic-syntax/
+- Mermaid docs (Context7, architecture diagrams): /mermaid-js/mermaid
 - ESLint CLI (run task lint step): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI (run task format step): https://prettier.io/docs/cli
 - npm run-script (workspace build/test commands): https://docs.npmjs.com/cli/v9/commands/npm-run-script
@@ -1285,7 +1306,8 @@ Render non-blocking Ingest page banners for AST skipped/failed counts using exis
 5. [ ] Update documentation:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-   - `design.md` (client ingest banner notes)
+     - Mermaid docs (Context7, architecture diagrams): /mermaid-js/mermaid
+   - `design.md` (client ingest banner notes + mermaid diagram for ingest status UI flow)
 6. [ ] Update documentation:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
@@ -1325,6 +1347,7 @@ Validate the full story against acceptance criteria, run full builds/tests, ensu
 - Docker Compose overview (clean builds + compose up): https://docs.docker.com/compose/
 - Playwright Test intro (e2e run + screenshots): https://playwright.dev/docs/intro
 - Husky docs (pre-commit hooks): https://typicode.github.io/husky/
+- Mermaid docs (Context7, diagram syntax): /mermaid-js/mermaid
 - Mermaid intro (diagram updates in `design.md`): https://mermaid.js.org/intro/
 - Jest docs (Context7): /websites/jestjs_io_30_0
 - Jest getting started (client unit tests): https://jestjs.io/docs/getting-started
@@ -1348,6 +1371,7 @@ Validate the full story against acceptance criteria, run full builds/tests, ensu
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
 5. [ ] Ensure Design.md is updated with any required description changes including mermaid diagrams that have been added as part of this story
    - Documentation to read (repeat):
+     - Mermaid docs (Context7, diagram syntax): /mermaid-js/mermaid
      - Mermaid intro (diagram updates in `design.md`): https://mermaid.js.org/intro/
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
 6. [ ] Ensure projectStructure.md is updated with any updated, added or removed files & folders

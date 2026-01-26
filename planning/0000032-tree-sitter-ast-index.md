@@ -33,7 +33,7 @@ Note: Cross-repository symbol linking (e.g., linking imports in repo A to an ing
 - AST artifacts are stored persistently and can be queried through MCP tools (e.g., list symbols, find definition, find references, call graph) for supported repositories.
 - Indexing respects ingest include/exclude rules and uses file hashes to avoid reprocessing unchanged files.
 - The system records which roots have AST coverage and which were skipped due to unsupported languages.
-- AST artifacts are stored in Mongo (new collections keyed by repo/root + file hash).
+- AST artifacts are stored in Mongo using shared collections keyed by repo/root + file hash (no per-root collections).
 - Dry-run ingest executes the full AST indexing pipeline (no skips).
 - AST index schema (Option B): symbols include Module, Class, Function, Method, Interface, TypeAlias, Enum, Property; edges include DEFINES, CALLS, IMPORTS, EXPORTS, EXTENDS, IMPLEMENTS, REFERENCES_TYPE.
 - MCP tools (Option B): `list_symbols`, `find_definition`, `find_references`, `call_graph`, `module_imports` for supported repositories.

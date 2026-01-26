@@ -426,8 +426,8 @@ Implement a Tree-sitter parsing module that maps JS/TS/TSX source text into Symb
    - Implementation details:
      - Export `parseAstSource({ root, text, relPath, fileHash })` returning `{ language, symbols, edges, references, imports }`.
      - Load JS/TS/TSX grammars and select parser by file extension (use `tree-sitter-typescript`.typescript and `.tsx` for TS/TSX).
-     - Load `queries/tags.scm` / `queries/locals.scm` by reading the grammar package files (via `tree-sitter.json` or direct `queries/` paths) instead of assuming exported constants.
-     - If query files are missing, fall back to manual AST walking for definitions/references and log once per run.
+    - Load `queries/tags.scm` / `queries/locals.scm` by reading the grammar package files (via `tree-sitter.json` or direct `queries/` paths) instead of assuming exported constants.
+    - If query files are missing, mark the file as `failed` and log once per run (do not add custom AST walking as a fallback).
      - Constrain symbol kinds to the Option B list: `Module`, `Class`, `Function`, `Method`, `Interface`, `TypeAlias`, `Enum`, `Property`.
      - Constrain edge types to `DEFINES`, `CALLS`, `IMPORTS`, `EXPORTS`, `EXTENDS`, `IMPLEMENTS`, `REFERENCES_TYPE`.
      - Convert Tree-sitter `row`/`column` to 1-based `range`.
@@ -533,12 +533,12 @@ Integrate AST parsing into ingest runs and persist AST data + coverage without c
      - Ensure unchanged files keep their existing AST records (no delete for `deltaPlan.unchanged`).
      - If delta plan has no changes, skip AST re-indexing and leave existing AST records untouched.
      - Update `ast_coverage` with `supportedFileCount`, `skippedFileCount`, `failedFileCount`, and `lastIndexedAt` (ISO).
-5. [ ] Handle cancellation cleanup for AST records:
+5. [ ] Handle cancellation during AST indexing:
    - Files to edit:
      - `server/src/ingest/ingestJob.ts`
    - Implementation details:
-     - Track which relPaths have been written during the run.
-     - On cancel, delete AST records for those relPaths (or clear the root on `start`) to avoid partial data.
+     - Stop processing and skip any further AST writes once cancellation is detected.
+     - Clear any in-memory AST batches without attempting partial cleanup of already-written records.
 6. [ ] Update documentation:
    - `design.md` (AST coverage + ingest persistence notes)
 7. [ ] Update documentation:

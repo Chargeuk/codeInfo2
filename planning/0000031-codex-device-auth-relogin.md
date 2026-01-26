@@ -518,6 +518,7 @@ Add `POST /codex/device-auth` that validates the target (chat or agent), calls t
 - 2026-01-25: Rebuilt compose images after client logging update.
 - 2026-01-25: Recreated compose stack after client logging update.
 - 2026-01-25: Blocker — manual device-auth check stalls at "Waiting for device auth…" because `/codex/device-auth` never returns (CLI appears to wait for completion), so verification URL/user code + success log cannot be observed.
+- 2026-01-26: Answer — device-auth now returns once raw output is parsed (Tasks 12–14), so `/codex/device-auth` no longer stalls and the dialog can display the CLI output.
 - 2026-01-25: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run compose:down` stopped the stack.
 - 2026-01-25: `TMPDIR=/tmp npm run test --workspace client` passed (console logging noise expected).
 - 2026-01-25: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run e2e` passed (36 tests).
@@ -2382,10 +2383,10 @@ Re-run the full validation suite and documentation checks after Tasks 12–14 to
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
 3. [ ] `npm run test --workspace server`
@@ -2423,5 +2424,6 @@ Re-run the full validation suite and documentation checks after Tasks 12–14 to
 - 2026-01-26: `npm run build --workspace server` succeeded for Task 15 re-validation.
 - 2026-01-26: `npm run build --workspace client` succeeded (existing chunk size warning only).
 - Reviewed `design.md`; device-auth flow section and mermaid diagram already reflect the current implementation, so no edits required.
+- 2026-01-26: Marked Task 15 build steps complete; remaining validation steps still pending.
 
 ---

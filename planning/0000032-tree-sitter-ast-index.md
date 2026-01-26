@@ -762,7 +762,7 @@ Implement a Tree-sitter parsing module that maps JS/TS/TSX source text into Symb
 ### 5. Server: Ingest AST indexing + persistence
 
 - Task Status: **__done__**
-- Git Commits: **to_do**
+- Git Commits: 1ca39a4
 
 #### Overview
 

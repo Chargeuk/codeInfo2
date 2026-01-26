@@ -1352,6 +1352,20 @@ erDiagram
   AST_SYMBOLS ||--o{ AST_MODULE_IMPORTS : "root+relPath"
 ```
 
+- AST persistence helpers live in `server/src/mongo/repo.ts` and use `mongoose.connection.readyState` guards to return `null` when Mongo is unavailable.
+- Symbol/edge/reference upserts use bulkWrite (ordered false), while module imports and coverage use upserted updateOne and deleteMany clears by `root`.
+
+```mermaid
+flowchart TD
+  A[Ingest job] --> B[AST parser output]
+  B --> C[repo.ts AST helpers]
+  C --> D[(ast_symbols)]
+  C --> E[(ast_edges)]
+  C --> F[(ast_references)]
+  C --> G[(ast_module_imports)]
+  C --> H[(ast_coverage)]
+```
+
 ### Ingest dry-run + cleanup guarantees
 
 - Dry runs still call LM Studio `embed` to size dimensions but never call `vectors.add`; counts reflect the would-be chunk embeds and status ends `completed`.

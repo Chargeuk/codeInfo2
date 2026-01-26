@@ -1,6 +1,6 @@
 import mongoose, { type HydratedDocument, type Model } from 'mongoose';
-import { baseLogger } from '../logger.js';
 import { append } from '../logStore.js';
+import { baseLogger } from '../logger.js';
 
 const { Schema, model, models } = mongoose;
 

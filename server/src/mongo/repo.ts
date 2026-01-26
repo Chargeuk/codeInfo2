@@ -1,16 +1,22 @@
 import mongoose from 'mongoose';
 import type { FlowResumeState } from '../flows/flowState.js';
 import { append } from '../logStore.js';
+import { baseLogger } from '../logger.js';
+import { AstCoverageModel } from './astCoverage.js';
+import { AstEdgeModel } from './astEdge.js';
+import { AstModuleImportModel } from './astModuleImport.js';
+import { AstReferenceModel } from './astReference.js';
+import { AstSymbolModel } from './astSymbol.js';
 import {
-  ConversationModel,
   Conversation,
+  ConversationModel,
   ConversationProvider,
   ConversationSource,
 } from './conversation.js';
 import {
+  type ConversationEventSummary,
   emitConversationDelete,
   emitConversationUpsert,
-  type ConversationEventSummary,
 } from './events.js';
 import { IngestFileModel } from './ingestFile.js';
 import {
@@ -24,10 +30,11 @@ import {
   TurnUsageMetadata,
 } from './turn.js';
 
+const repoReadyTimestamp = new Date().toISOString();
 append({
   level: 'info',
   message: '0000020 ingest_files repo helpers ready',
-  timestamp: new Date().toISOString(),
+  timestamp: repoReadyTimestamp,
   source: 'server',
   context: { module: 'server/src/mongo/repo.ts' },
 });
@@ -537,6 +544,72 @@ function toDate(value: string | Date): Date {
 
 export type IngestFileIndexRow = { relPath: string; fileHash: string };
 
+export type AstRange = {
+  start: { line: number; column: number };
+  end: { line: number; column: number };
+};
+
+export type AstSymbolRecord = {
+  root: string;
+  relPath: string;
+  fileHash: string;
+  language: string;
+  kind: string;
+  name: string;
+  range: AstRange;
+  container?: string;
+  symbolId: string;
+};
+
+export type AstEdgeRecord = {
+  root: string;
+  relPath: string;
+  fileHash: string;
+  fromSymbolId: string;
+  toSymbolId: string;
+  type: string;
+};
+
+export type AstReferenceRecord = {
+  root: string;
+  relPath: string;
+  fileHash: string;
+  symbolId?: string;
+  name: string;
+  kind?: string;
+  range: AstRange;
+};
+
+export type AstModuleImportRecord = {
+  root: string;
+  relPath: string;
+  fileHash: string;
+  imports: { source: string; names: string[] }[];
+};
+
+export type AstCoverageRecord = {
+  root: string;
+  supportedFileCount: number;
+  skippedFileCount: number;
+  failedFileCount: number;
+  lastIndexedAt: Date;
+};
+
+function logAstUpsert(root: string) {
+  const timestamp = new Date().toISOString();
+  append({
+    level: 'info',
+    message: 'DEV-0000032:T2:ast-repo-upsert',
+    timestamp,
+    source: 'server',
+    context: { root },
+  });
+  baseLogger.info(
+    { event: 'DEV-0000032:T2:ast-repo-upsert', root },
+    'AST repo upsert',
+  );
+}
+
 export async function listIngestFilesByRoot(
   root: string,
 ): Promise<IngestFileIndexRow[] | null> {
@@ -549,6 +622,323 @@ export async function listIngestFilesByRoot(
     .exec()) as IngestFileIndexRow[];
 
   return docs;
+}
+
+export async function listAstSymbolsByRoot(
+  root: string,
+): Promise<AstSymbolRecord[] | null> {
+  if (mongoose.connection.readyState !== 1) return null;
+
+  const docs = (await AstSymbolModel.find({ root })
+    .select({
+      _id: 0,
+      root: 1,
+      relPath: 1,
+      fileHash: 1,
+      language: 1,
+      kind: 1,
+      name: 1,
+      range: 1,
+      container: 1,
+      symbolId: 1,
+    })
+    .lean()
+    .exec()) as AstSymbolRecord[];
+
+  return docs;
+}
+
+export async function listAstEdgesByRoot(
+  root: string,
+): Promise<AstEdgeRecord[] | null> {
+  if (mongoose.connection.readyState !== 1) return null;
+
+  const docs = (await AstEdgeModel.find({ root })
+    .select({
+      _id: 0,
+      root: 1,
+      relPath: 1,
+      fileHash: 1,
+      fromSymbolId: 1,
+      toSymbolId: 1,
+      type: 1,
+    })
+    .lean()
+    .exec()) as AstEdgeRecord[];
+
+  return docs;
+}
+
+export async function listAstReferencesByRoot(
+  root: string,
+): Promise<AstReferenceRecord[] | null> {
+  if (mongoose.connection.readyState !== 1) return null;
+
+  const docs = (await AstReferenceModel.find({ root })
+    .select({
+      _id: 0,
+      root: 1,
+      relPath: 1,
+      fileHash: 1,
+      symbolId: 1,
+      name: 1,
+      kind: 1,
+      range: 1,
+    })
+    .lean()
+    .exec()) as AstReferenceRecord[];
+
+  return docs;
+}
+
+export async function listAstModuleImportsByRoot(
+  root: string,
+): Promise<AstModuleImportRecord[] | null> {
+  if (mongoose.connection.readyState !== 1) return null;
+
+  const docs = (await AstModuleImportModel.find({ root })
+    .select({ _id: 0, root: 1, relPath: 1, fileHash: 1, imports: 1 })
+    .lean()
+    .exec()) as AstModuleImportRecord[];
+
+  return docs;
+}
+
+export async function listAstCoverageByRoot(
+  root: string,
+): Promise<AstCoverageRecord | null> {
+  if (mongoose.connection.readyState !== 1) return null;
+
+  const doc = (await AstCoverageModel.findOne({ root })
+    .select({
+      _id: 0,
+      root: 1,
+      supportedFileCount: 1,
+      skippedFileCount: 1,
+      failedFileCount: 1,
+      lastIndexedAt: 1,
+    })
+    .lean()
+    .exec()) as AstCoverageRecord | null;
+
+  return doc ?? null;
+}
+
+export async function upsertAstSymbols(params: {
+  root: string;
+  symbols: AstSymbolRecord[];
+}): Promise<{ ok: true } | null> {
+  if (mongoose.connection.readyState !== 1) return null;
+
+  const { root, symbols } = params;
+  if (symbols.length === 0) return { ok: true };
+  const now = new Date();
+  logAstUpsert(root);
+
+  await AstSymbolModel.bulkWrite(
+    symbols.map((symbol) => ({
+      updateOne: {
+        filter: { root, symbolId: symbol.symbolId },
+        update: {
+          $set: {
+            relPath: symbol.relPath,
+            fileHash: symbol.fileHash,
+            language: symbol.language,
+            kind: symbol.kind,
+            name: symbol.name,
+            range: symbol.range,
+            container: symbol.container,
+            updatedAt: now,
+          },
+          $setOnInsert: { createdAt: now },
+        },
+        upsert: true,
+      },
+    })),
+    { ordered: false },
+  );
+
+  return { ok: true };
+}
+
+export async function upsertAstEdges(params: {
+  root: string;
+  edges: AstEdgeRecord[];
+}): Promise<{ ok: true } | null> {
+  if (mongoose.connection.readyState !== 1) return null;
+
+  const { root, edges } = params;
+  if (edges.length === 0) return { ok: true };
+  const now = new Date();
+  logAstUpsert(root);
+
+  await AstEdgeModel.bulkWrite(
+    edges.map((edge) => ({
+      updateOne: {
+        filter: {
+          root,
+          relPath: edge.relPath,
+          fileHash: edge.fileHash,
+          fromSymbolId: edge.fromSymbolId,
+          toSymbolId: edge.toSymbolId,
+          type: edge.type,
+        },
+        update: {
+          $setOnInsert: { createdAt: now },
+        },
+        upsert: true,
+      },
+    })),
+    { ordered: false },
+  );
+
+  return { ok: true };
+}
+
+export async function upsertAstReferences(params: {
+  root: string;
+  references: AstReferenceRecord[];
+}): Promise<{ ok: true } | null> {
+  if (mongoose.connection.readyState !== 1) return null;
+
+  const { root, references } = params;
+  if (references.length === 0) return { ok: true };
+  const now = new Date();
+  logAstUpsert(root);
+
+  await AstReferenceModel.bulkWrite(
+    references.map((reference) => {
+      const filter: Record<string, unknown> = {
+        root,
+        relPath: reference.relPath,
+        fileHash: reference.fileHash,
+        name: reference.name,
+        'range.start.line': reference.range.start.line,
+        'range.start.column': reference.range.start.column,
+        'range.end.line': reference.range.end.line,
+        'range.end.column': reference.range.end.column,
+      };
+
+      if (reference.kind) filter.kind = reference.kind;
+      if (reference.symbolId) filter.symbolId = reference.symbolId;
+
+      return {
+        updateOne: {
+          filter,
+          update: {
+            $setOnInsert: { createdAt: now },
+          },
+          upsert: true,
+        },
+      };
+    }),
+    { ordered: false },
+  );
+
+  return { ok: true };
+}
+
+export async function upsertAstModuleImports(params: {
+  root: string;
+  modules: AstModuleImportRecord[];
+}): Promise<{ ok: true } | null> {
+  if (mongoose.connection.readyState !== 1) return null;
+
+  const { root, modules } = params;
+  if (modules.length === 0) return { ok: true };
+  const now = new Date();
+
+  await AstModuleImportModel.bulkWrite(
+    modules.map((moduleImport) => ({
+      updateOne: {
+        filter: {
+          root,
+          relPath: moduleImport.relPath,
+          fileHash: moduleImport.fileHash,
+        },
+        update: {
+          $set: { imports: moduleImport.imports, updatedAt: now },
+          $setOnInsert: { createdAt: now },
+        },
+        upsert: true,
+      },
+    })),
+    { ordered: false },
+  );
+
+  return { ok: true };
+}
+
+export async function upsertAstCoverage(params: {
+  root: string;
+  coverage: AstCoverageRecord;
+}): Promise<{ ok: true } | null> {
+  if (mongoose.connection.readyState !== 1) return null;
+
+  const { root, coverage } = params;
+  const now = new Date();
+
+  await AstCoverageModel.updateOne(
+    { root },
+    {
+      $set: {
+        supportedFileCount: coverage.supportedFileCount,
+        skippedFileCount: coverage.skippedFileCount,
+        failedFileCount: coverage.failedFileCount,
+        lastIndexedAt: coverage.lastIndexedAt,
+        updatedAt: now,
+      },
+      $setOnInsert: { createdAt: now },
+    },
+    { upsert: true },
+  ).exec();
+
+  return { ok: true };
+}
+
+export async function clearAstSymbolsByRoot(
+  root: string,
+): Promise<{ ok: true } | null> {
+  if (mongoose.connection.readyState !== 1) return null;
+
+  await AstSymbolModel.deleteMany({ root }).exec();
+  return { ok: true };
+}
+
+export async function clearAstEdgesByRoot(
+  root: string,
+): Promise<{ ok: true } | null> {
+  if (mongoose.connection.readyState !== 1) return null;
+
+  await AstEdgeModel.deleteMany({ root }).exec();
+  return { ok: true };
+}
+
+export async function clearAstReferencesByRoot(
+  root: string,
+): Promise<{ ok: true } | null> {
+  if (mongoose.connection.readyState !== 1) return null;
+
+  await AstReferenceModel.deleteMany({ root }).exec();
+  return { ok: true };
+}
+
+export async function clearAstModuleImportsByRoot(
+  root: string,
+): Promise<{ ok: true } | null> {
+  if (mongoose.connection.readyState !== 1) return null;
+
+  await AstModuleImportModel.deleteMany({ root }).exec();
+  return { ok: true };
+}
+
+export async function clearAstCoverageByRoot(
+  root: string,
+): Promise<{ ok: true } | null> {
+  if (mongoose.connection.readyState !== 1) return null;
+
+  await AstCoverageModel.deleteMany({ root }).exec();
+  return { ok: true };
 }
 
 export async function upsertIngestFiles(params: {

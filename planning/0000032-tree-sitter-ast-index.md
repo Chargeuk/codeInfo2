@@ -331,7 +331,7 @@ Create Mongo collections for AST symbols, edges, references, module imports, and
 
 ### 2. Server: AST repo helpers
 
-- Task Status: **__in_progress__**
+- Task Status: **__done__**
 - Git Commits: **to_do**
 
 #### Overview
@@ -353,7 +353,7 @@ Add repo helper functions for AST collections with Mongo-disconnected guards and
 
 #### Subtasks
 
-1. [ ] Review existing repo helper patterns:
+1. [x] Review existing repo helper patterns:
    - Files to read:
      - `server/src/mongo/repo.ts`
      - `server/src/test/unit/ingest-files-repo-guards.test.ts`
@@ -362,7 +362,7 @@ Add repo helper functions for AST collections with Mongo-disconnected guards and
    - Documentation to read (repeat):
      - Mongoose 9.0.1 guide (Context7): /automattic/mongoose/9.0.1
      - MongoDB bulkWrite: https://www.mongodb.com/docs/manual/reference/method/db.collection.bulkWrite/
-2. [ ] Add AST repo helpers:
+2. [x] Add AST repo helpers:
    - Files to edit:
      - `server/src/mongo/repo.ts`
    - Implementation details:
@@ -371,7 +371,7 @@ Add repo helper functions for AST collections with Mongo-disconnected guards and
    - Documentation to read (repeat):
      - Mongoose 9.0.1 guide (Context7): /automattic/mongoose/9.0.1
      - MongoDB bulkWrite: https://www.mongodb.com/docs/manual/reference/method/db.collection.bulkWrite/
-3. [ ] Unit tests — repo helpers return null when Mongo is disconnected:
+3. [x] Unit tests — repo helpers return null when Mongo is disconnected:
    - Test type: Unit (repo helpers).
    - Test location: `server/src/test/unit/ast-repo-guards.test.ts` (new).
    - Description: Exercise AST repo helpers with `mongoose.connection.readyState !== 1`.
@@ -380,7 +380,7 @@ Add repo helper functions for AST collections with Mongo-disconnected guards and
      - Node.js test runner: https://nodejs.org/api/test.html
    - Assertions:
      - Helper functions short-circuit without hitting model methods.
-4. [ ] Update documentation — `design.md`:
+4. [x] Update documentation — `design.md`:
    - Document: `design.md`.
    - Location: `design.md`.
    - Description: Add AST repo helper notes and update the AST ingest persistence mermaid diagram.
@@ -388,14 +388,14 @@ Add repo helper functions for AST collections with Mongo-disconnected guards and
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
      - Mermaid docs (Context7, architecture diagrams): /mermaid-js/mermaid
-5. [ ] Update documentation — `projectStructure.md`:
+5. [x] Update documentation — `projectStructure.md`:
    - Document: `projectStructure.md`.
    - Location: `projectStructure.md`.
    - Description: Add new test file entries for AST repo guard coverage (`server/src/test/unit/ast-repo-guards.test.ts`).
    - Purpose: Keep project tree accurate after adding tests.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-6. [ ] Add AST repo helper log line:
+6. [x] Add AST repo helper log line:
    - Files to edit:
      - `server/src/mongo/repo.ts`
    - Log line:
@@ -405,25 +405,38 @@ Add repo helper functions for AST collections with Mongo-disconnected guards and
      - Include `event: 'DEV-0000032:T2:ast-repo-upsert'` and `root` in the payload.
    - Documentation to read (repeat):
      - MongoDB bulkWrite: https://www.mongodb.com/docs/manual/reference/method/db.collection.bulkWrite/
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+7. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, run an ingest, open Logs, and confirm `DEV-0000032:T2:ast-repo-upsert` appears for the ingest root; confirm the browser console has no errors.
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, run an ingest, open Logs, and confirm `DEV-0000032:T2:ast-repo-upsert` appears for the ingest root; confirm the browser console has no errors.
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- 
+- Reviewed `repo.ts` and ingest file guard tests to mirror readyState checks + bulkWrite/deleteMany patterns for AST helpers.
+- Added AST repo helper list/upsert/clear helpers with bulkWrite/deleteMany patterns and coverage upsert.
+- Added AST repo guard unit tests to ensure helpers short-circuit when Mongo is disconnected.
+- Documented AST repo helper persistence flow in `design.md` and updated `projectStructure.md` with the new test file.
+- Added `DEV-0000032:T2:ast-repo-upsert` log emission for AST upsert helpers (logStore + base logger).
+- Lint completed with existing import-order warnings; ran Prettier and re-checked formatting.
+- `npm run build --workspace server` completed after fixing TS errors.
+- `npm run build --workspace client` completed successfully (Vite chunk-size warning only).
+- `npm run test --workspace server` completed successfully.
+- `npm run test --workspace client` completed successfully (console warnings during tests).
+- `npm run e2e` completed successfully.
+- `npm run compose:build` and `npm run compose:up` completed successfully.
+- Manual Playwright-MCP check: ran a tiny dry-run ingest for `/Users/danielstapleton/Documents/dev/ci2-ast-tiny`, then filtered Logs to confirm `DEV-0000032:T2:ast-repo-upsert` appears with the root; no console errors observed. (Used `host.docker.internal` for log injection to target the compose-backed server.)
+- `npm run compose:down` completed successfully.
 
 ---
 

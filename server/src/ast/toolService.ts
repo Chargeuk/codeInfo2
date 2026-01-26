@@ -32,15 +32,13 @@ type AstSymbolRow = Pick<
 
 type AstEdgeRow = Pick<
   AstEdge,
-  | 'root'
-  | 'relPath'
-  | 'fileHash'
-  | 'fromSymbolId'
-  | 'toSymbolId'
-  | 'type'
+  'root' | 'relPath' | 'fileHash' | 'fromSymbolId' | 'toSymbolId' | 'type'
 >;
 
-type AstReferenceRow = Pick<AstReference, 'root' | 'relPath' | 'fileHash' | 'range'> &
+type AstReferenceRow = Pick<
+  AstReference,
+  'root' | 'relPath' | 'fileHash' | 'range'
+> &
   Partial<Pick<AstReference, 'symbolId' | 'name' | 'kind'>>;
 
 type AstModuleImportRow = Pick<

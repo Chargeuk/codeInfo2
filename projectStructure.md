@@ -299,6 +299,11 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚     â”‚  â”œâ”€ flowsRun.ts — POST /flows/:flowName/run flow runner endpoint
 â”‚     â”‚  â”œâ”€ toolsIngestedRepos.ts â€” GET /tools/ingested-repos repo list for agent tools
 â”‚     â”‚  â”œâ”€ toolsVectorSearch.ts â€” POST /tools/vector-search chunk search with optional repo filter
+â”‚     â”‚  â”œâ”€ toolsAstListSymbols.ts â€” POST /tools/ast-list-symbols AST symbol listing
+â”‚     â”‚  â”œâ”€ toolsAstFindDefinition.ts â€” POST /tools/ast-find-definition AST definition lookup
+â”‚     â”‚  â”œâ”€ toolsAstFindReferences.ts â€” POST /tools/ast-find-references AST reference lookup
+â”‚     â”‚  â”œâ”€ toolsAstCallGraph.ts â€” POST /tools/ast-call-graph AST call graph query
+â”‚     â”‚  â”œâ”€ toolsAstModuleImports.ts â€” POST /tools/ast-module-imports AST module import summary
 â”‚     â”‚  â””â”€ lmstudio.ts â€” LM Studio proxy route
 â”‚     â”œâ”€ mongo/
 â”‚     â”‚  â”œâ”€ connection.ts — Mongoose connect/disconnect helpers with strictQuery + logging
@@ -460,7 +465,8 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚        |  â”œâ”€ flows.run.working-folder.test.ts â€” integration coverage for flow run working_folder validation
 â”‚        |  â”œâ”€ flows.run.hot-reload.test.ts â€” integration coverage for flow run hot reload
 â”‚        |  â”œâ”€ flows.run.loop.test.ts â€” integration coverage for flow run loop + break
-â”‚        |  â””â”€ flows.turn-metadata.test.ts â€” integration coverage for flow command metadata
+â”‚        |  â”œâ”€ flows.turn-metadata.test.ts â€” integration coverage for flow command metadata
+â”‚        |  â””â”€ tools-ast.test.ts â€” integration coverage for AST REST tool routes
 â”‚        |  â”œâ”€ chat-tools-wire.test.ts â€” chat route wiring (POST /chat 202 + WS bridge) with mocked LM Studio tools
 â”‚        |  â”œâ”€ chat-vectorsearch-locked-model.test.ts â€” chat run error/success flows when vector search lock/embedding availability changes
 â”‚        |  â”œâ”€ chat-codex.test.ts — Codex chat run flow, thread reuse, and availability gating

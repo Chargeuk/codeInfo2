@@ -1407,6 +1407,26 @@ flowchart LR
   C -->|none| J[INGEST_REQUIRED]
 ```
 
+### AST REST tools
+
+- REST endpoints mirror MCP tool contracts:
+  - `POST /tools/ast-list-symbols`
+  - `POST /tools/ast-find-definition`
+  - `POST /tools/ast-find-references`
+  - `POST /tools/ast-call-graph`
+  - `POST /tools/ast-module-imports`
+- Error mapping mirrors tool service responses: `VALIDATION_FAILED` (400), `REPO_NOT_FOUND` (404), `INGEST_REQUIRED` (409), `AST_INDEX_REQUIRED` (409).
+- Each request logs `DEV-0000032:T8:ast-rest-request` with the route and repository.
+
+```mermaid
+flowchart LR
+  A[Client] -->|POST /tools/ast-*| B[AST REST route]
+  B --> C[validate payload]
+  C --> D[AST tool service]
+  D --> E[(Mongo AST collections)]
+  D --> F[JSON response]
+```
+
 ```mermaid
 flowchart TD
   A[Ingest job] --> B[discoverFiles + hashing]

@@ -65,30 +65,44 @@
                                 }
                             ]
                         },
+                {
+                    "type": "llm",
+                    "label": "Check if plan is fully implemented and fix niggles",
+                    "agentType": "planning_agent",
+                    "identifier": "planner",
+                    "messages": [
                         {
-                            "type": "llm",
-                            "label": "Check if plan is fully implemented and fix niggles",
-                            "agentType": "planning_agent",
-                            "identifier": "planner",
-                            "messages": [
-                                {
-                                    "role": "user",
-                                    "content": [
-                                        "A coding agent has been working on implementing the code for this plan. Please check if they have marked all tasks complete. If it looks like they have implemented items but maybe just forgotten to fix any task states then you are expected to correct those states accordingly. They may have written a blocking question in the implementation notes, if so please answer the blocker within the notes and mark it as the answer and update any tasks accordingly based on the questions. Note you must not ask me for clarification of the blockers, YOU MUST make any decisions to the best of your ability and update the task and implementation notes accordingly. If you make changes you MUST commit them, but don't push. If there are still tasks to implement or test then just report back where you feel we are up to."
-                                    ]
-                                }
+                            "role": "user",
+                            "content": [
+                                "A coding agent has been working on implementing the code for this plan. Please check if they have marked all tasks complete. If it looks like they have implemented items but maybe just forgotten to fix any task states then you are expected to correct those states accordingly. They may have written a blocking question in the implementation notes, if so please answer the blocker within the notes and mark it as the answer and update any tasks accordingly based on the questions. Note you must not ask me for clarification of the blockers, YOU MUST make any decisions to the best of your ability and update the task and implementation notes accordingly. If you make changes you MUST commit them, but don't push. If there are still tasks to implement or test then just report back where you feel we are up to."
                             ]
-                        },
-                        {
-                            "type": "break",
-                            "label": "Check for completion",
-                            "agentType": "planning_agent",
-                            "identifier": "planner",
-                            "question": "Re-read the plan that was being worked on and check the last 3 git commits. Is the plan that was being worked on now complete? You MUST re-read the plan and check the last 3 git commits before giving your answer as the plan probably has changes made by other agents since you last looked at it.You must give only a yes or no answer. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
-                            "breakOn": "yes"
                         }
                     ]
                 },
+                {
+                    "type": "llm",
+                    "label": "Verify plan status",
+                    "agentType": "planning_agent",
+                    "identifier": "planner",
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": [
+                                "Before answering completion, open the plan file being worked on and list each task's Task Status (including the final task). Explicitly state whether the final task is __done__ or not, and cite the plan file path you read."
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "type": "break",
+                    "label": "Check for completion",
+                    "agentType": "planning_agent",
+                    "identifier": "planner",
+                    "question": "Re-read the plan that was being worked on and check the last 3 git commits. You MUST confirm the final task's Task Status from the plan file and only answer yes if every task is marked __done__. Is the plan that was being worked on now complete? You MUST re-read the plan and check the last 3 git commits before giving your answer as the plan probably has changes made by other agents since you last looked at it. You must give only a yes or no answer. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+                    "breakOn": "yes"
+                }
+            ]
+        },
                 {
                     "type": "llm",
                     "label": "Code review",

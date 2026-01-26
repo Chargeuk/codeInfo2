@@ -465,7 +465,7 @@ Add Tree-sitter dependencies and ensure Docker builds can compile native binding
 
 #### Subtasks
 
-1. [ ] Add Tree-sitter dependencies:
+1. [x] Add Tree-sitter dependencies:
    - Documentation to read (repeat):
      - Node Tree-sitter bindings: https://tree-sitter.github.io/node-tree-sitter/index.html
      - tree-sitter-javascript README: https://github.com/tree-sitter/tree-sitter-javascript
@@ -478,7 +478,7 @@ Add Tree-sitter dependencies and ensure Docker builds can compile native binding
      - `tree-sitter`
      - `tree-sitter-javascript`
      - `tree-sitter-typescript`
-2. [ ] Ensure Docker build can compile native Tree-sitter bindings:
+2. [x] Ensure Docker build can compile native Tree-sitter bindings:
    - Documentation to read (repeat):
      - node-gyp build prerequisites: https://github.com/nodejs/node-gyp
      - Dockerfile reference (build stage tooling): https://docs.docker.com/engine/reference/builder/
@@ -487,7 +487,7 @@ Add Tree-sitter dependencies and ensure Docker builds can compile native binding
      - `server/Dockerfile`
    - Implementation details:
      - Install build essentials in the deps stage (e.g., `python3`, `make`, `g++`) before `npm ci`.
-3. [ ] Update documentation — `design.md`:
+3. [x] Update documentation — `design.md`:
    - Document: `design.md`.
    - Location: `design.md`.
    - Description: Document Tree-sitter dependency/build prerequisites and update any build-toolchain mermaid diagram.
@@ -495,14 +495,14 @@ Add Tree-sitter dependencies and ensure Docker builds can compile native binding
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
      - Mermaid docs (Context7, architecture diagrams): /mermaid-js/mermaid
-4. [ ] Update documentation — `projectStructure.md`:
+4. [x] Update documentation — `projectStructure.md`:
    - Document: `projectStructure.md`.
    - Location: `projectStructure.md`.
    - Description: Note any Dockerfile changes if listed in the tree.
    - Purpose: Keep the project structure summary accurate after build changes.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-5. [ ] Add Tree-sitter dependency log line:
+5. [x] Add Tree-sitter dependency log line:
    - Files to edit:
      - `server/src/index.ts`
    - Log line:
@@ -512,19 +512,19 @@ Add Tree-sitter dependencies and ensure Docker builds can compile native binding
      - Include `event: 'DEV-0000032:T3:tree-sitter-deps-ready'` and `dependency: 'tree-sitter'`.
    - Documentation to read (repeat):
      - Node.js modules: https://nodejs.org/api/modules.html
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+6. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
 8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, open Logs, confirm `DEV-0000032:T3:tree-sitter-deps-ready` appears after startup, and confirm there are no console errors after initial page load.
 9. [ ] `npm run compose:down`
 

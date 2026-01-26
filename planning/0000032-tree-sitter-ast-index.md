@@ -264,15 +264,21 @@ Create Mongo collections for AST symbols, edges, references, module imports, and
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
      - Mongoose schemas + indexes: https://mongoosejs.com/docs/guide.html
-8. [ ] Update documentation:
+8. [ ] Update documentation — `design.md`:
+   - Document: `design.md`.
+   - Location: `design.md`.
+   - Description: Add AST collections summary and a mermaid diagram showing AST collections and relationships.
+   - Purpose: Keep architecture documentation aligned with new AST storage.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
      - Mermaid docs (Context7, architecture diagrams): /mermaid-js/mermaid
-   - `design.md` (add AST collections summary + mermaid diagram of AST collections/relationships)
-9. [ ] Update documentation:
+9. [ ] Update documentation — `projectStructure.md`:
+   - Document: `projectStructure.md`.
+   - Location: `projectStructure.md`.
+   - Description: Add new Mongo schema + test files to the tree.
+   - Purpose: Keep repository structure documentation in sync with added files.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-   - `projectStructure.md` (add new Mongo files/tests)
 10. [ ] Run full linting:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -345,15 +351,21 @@ Add repo helper functions for AST collections with Mongo-disconnected guards and
      - Node.js test runner: https://nodejs.org/api/test.html
    - Assertions:
      - Helper functions short-circuit without hitting model methods.
-4. [ ] Update documentation:
+4. [ ] Update documentation — `design.md`:
+   - Document: `design.md`.
+   - Location: `design.md`.
+   - Description: Add AST repo helper notes and update the AST ingest persistence mermaid diagram.
+   - Purpose: Document how AST repo helpers fit into ingest persistence.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
      - Mermaid docs (Context7, architecture diagrams): /mermaid-js/mermaid
-   - `design.md` (add AST repo helper notes + update AST ingest persistence mermaid diagram)
-5. [ ] Update documentation:
+5. [ ] Update documentation — `projectStructure.md`:
+   - Document: `projectStructure.md`.
+   - Location: `projectStructure.md`.
+   - Description: Add new test file entries for AST repo guard coverage.
+   - Purpose: Keep project tree accurate after adding tests.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-   - `projectStructure.md` (add any new tests)
 6. [ ] Run full linting:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -422,15 +434,21 @@ Add Tree-sitter dependencies and ensure Docker builds can compile native binding
      - `server/Dockerfile`
    - Implementation details:
      - Install build essentials in the deps stage (e.g., `python3`, `make`, `g++`) before `npm ci`.
-3. [ ] Update documentation:
+3. [ ] Update documentation — `design.md`:
+   - Document: `design.md`.
+   - Location: `design.md`.
+   - Description: Document Tree-sitter dependency/build prerequisites and update any build-toolchain mermaid diagram.
+   - Purpose: Record build requirements for native Tree-sitter bindings.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
      - Mermaid docs (Context7, architecture diagrams): /mermaid-js/mermaid
-   - `design.md` (dependency/build prerequisites + mermaid diagram for build toolchain if architecture notes change)
-4. [ ] Update documentation:
+4. [ ] Update documentation — `projectStructure.md`:
+   - Document: `projectStructure.md`.
+   - Location: `projectStructure.md`.
+   - Description: Note any Dockerfile changes if listed in the tree.
+   - Purpose: Keep the project structure summary accurate after build changes.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-   - `projectStructure.md` (note Dockerfile changes if listed)
 5. [ ] Run full linting:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -573,15 +591,21 @@ Implement a Tree-sitter parsing module that maps JS/TS/TSX source text into Symb
    - Purpose: Ensure consistent failure handling when parser setup fails.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-11. [ ] Update documentation:
+11. [ ] Update documentation — `design.md`:
+   - Document: `design.md`.
+   - Location: `design.md`.
+   - Description: Document the Tree-sitter parsing approach, query usage, and add an AST parse-flow mermaid diagram.
+   - Purpose: Explain the AST parsing pipeline and data extraction flow.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
      - Mermaid docs (Context7, architecture diagrams): /mermaid-js/mermaid
-   - `design.md` (document parsing approach + query usage + mermaid diagram for AST parse flow)
-12. [ ] Update documentation:
+12. [ ] Update documentation — `projectStructure.md`:
+   - Document: `projectStructure.md`.
+   - Location: `projectStructure.md`.
+   - Description: Add new `server/src/ast/*` files and parser test files to the tree.
+   - Purpose: Keep project structure documentation current with new AST modules.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-   - `projectStructure.md` (add new `server/src/ast` files + tests)
 13. [ ] Run full linting:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -723,15 +747,21 @@ Integrate AST parsing into ingest runs and persist AST data + coverage without c
    - Purpose: Ensure write helpers are not called and a warning is logged.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-12. [ ] Update documentation:
+12. [ ] Update documentation — `design.md`:
+   - Document: `design.md`.
+   - Location: `design.md`.
+   - Description: Add AST coverage and ingest persistence notes plus a mermaid diagram for the ingest/AST pipeline.
+   - Purpose: Capture the end-to-end ingest + AST indexing flow.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
      - Mermaid docs (Context7, architecture diagrams): /mermaid-js/mermaid
-   - `design.md` (AST coverage + ingest persistence notes + mermaid diagram for ingest/AST pipeline)
-13. [ ] Update documentation:
+13. [ ] Update documentation — `projectStructure.md`:
+   - Document: `projectStructure.md`.
+   - Location: `projectStructure.md`.
+   - Description: Add any new AST ingest test files to the project tree.
+   - Purpose: Keep projectStructure aligned with new test coverage.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-   - `projectStructure.md` (note any new files if added)
 14. [ ] Run full linting:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -807,11 +837,14 @@ Extend ingest status payloads (REST + WS) with optional AST counts and update te
    - Purpose: Ensure behavior is documented and verified at the feature level.
    - Documentation to read (repeat):
      - Cucumber guide (server integration tests): https://cucumber.io/docs/guides/10-minute-tutorial/
-5. [ ] Update documentation:
+5. [ ] Update documentation — `design.md`:
+   - Document: `design.md`.
+   - Location: `design.md`.
+   - Description: Extend the ingest status contract section and add a mermaid diagram for the status payload flow.
+   - Purpose: Document how AST counts move through REST/WS status updates.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
      - Mermaid docs (Context7, architecture diagrams): /mermaid-js/mermaid
-   - `design.md` (extend ingest status contract + mermaid diagram for status payload flow)
 6. [ ] Run full linting:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -931,15 +964,21 @@ Add AST tool validation + query services for list/find/call-graph/modules and er
    - Purpose: Ensure fallback reference lookup works for legacy callers.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-11. [ ] Update documentation:
+11. [ ] Update documentation — `design.md`:
+   - Document: `design.md`.
+   - Location: `design.md`.
+   - Description: Document AST tool service behavior and add a mermaid diagram for tool query flow.
+   - Purpose: Explain how AST tool requests map to Mongo queries and responses.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
      - Mermaid docs (Context7, architecture diagrams): /mermaid-js/mermaid
-   - `design.md` (AST tool service behavior + mermaid diagram for tool query flow)
-12. [ ] Update documentation:
+12. [ ] Update documentation — `projectStructure.md`:
+   - Document: `projectStructure.md`.
+   - Location: `projectStructure.md`.
+   - Description: Add new AST tool service + unit test files to the tree.
+   - Purpose: Keep project structure docs aligned with added service/test files.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-   - `projectStructure.md` (add new service/test files)
 13. [ ] Run full linting:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -1024,20 +1063,29 @@ Expose `/tools/ast-*` REST endpoints that validate input, call the AST tool serv
    - Documentation to read (repeat):
      - Supertest HTTP assertions: https://github.com/forwardemail/supertest
      - Node.js test runner: https://nodejs.org/api/test.html
-5. [ ] Update documentation:
+5. [ ] Update documentation — `design.md`:
+   - Document: `design.md`.
+   - Location: `design.md`.
+   - Description: Add REST tool contracts, error codes, and a mermaid diagram for REST tool flow.
+   - Purpose: Document the REST API surface for AST tooling and its error semantics.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
      - Mermaid docs (Context7, architecture diagrams): /mermaid-js/mermaid
-   - `design.md` (REST tool contracts + error codes + mermaid diagram for REST tool flow)
-6. [ ] Update documentation:
+6. [ ] Update documentation — `projectStructure.md`:
+   - Document: `projectStructure.md`.
+   - Location: `projectStructure.md`.
+   - Description: Add new REST route files and integration tests to the tree.
+   - Purpose: Keep repository structure documentation in sync with new endpoints.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-   - `projectStructure.md` (add new route/test files)
-7. [ ] Update documentation:
+7. [ ] Update documentation — `openapi.json`:
+   - Document: `openapi.json`.
+   - Location: `openapi.json`.
+   - Description: Add `/tools/ast-*` endpoints and schema references.
+   - Purpose: Ensure API documentation reflects the new REST tool routes.
    - Documentation to read (repeat):
      - OpenAPI 3.0 spec (schema + path shape): https://spec.openapis.org/oas/latest.html
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-   - `openapi.json` (add `/tools/ast-*` endpoints)
 8. [ ] Run full linting:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -1130,15 +1178,21 @@ Expose AST tools through the MCP JSON-RPC server with schemas aligned to the RES
    - Documentation to read (repeat):
      - Supertest HTTP assertions: https://github.com/forwardemail/supertest
      - Node.js test runner: https://nodejs.org/api/test.html
-7. [ ] Update documentation:
+7. [ ] Update documentation — `design.md`:
+   - Document: `design.md`.
+   - Location: `design.md`.
+   - Description: Document MCP tool list/response shapes and add a mermaid diagram for MCP tool flow.
+   - Purpose: Explain MCP exposure of AST tools and response contracts.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
      - Mermaid docs (Context7, architecture diagrams): /mermaid-js/mermaid
-   - `design.md` (MCP tool list + response shapes + mermaid diagram for MCP tool flow)
-8. [ ] Update documentation:
+8. [ ] Update documentation — `projectStructure.md`:
+   - Document: `projectStructure.md`.
+   - Location: `projectStructure.md`.
+   - Description: Add/adjust MCP test file entries if new coverage is added.
+   - Purpose: Keep project structure docs aligned with MCP test changes.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-   - `projectStructure.md` (update if any new test files added)
 9. [ ] Run full linting:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -1211,15 +1265,21 @@ Extend client ingest status types to include optional AST counts and update test
    - Documentation to read (repeat):
      - Jest (React testing): https://jestjs.io/docs/getting-started
      - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-4. [ ] Update documentation:
+4. [ ] Update documentation — `design.md`:
+   - Document: `design.md`.
+   - Location: `design.md`.
+   - Description: Document client ingest status type updates and add a mermaid diagram for status data flow.
+   - Purpose: Clarify how AST status fields propagate to the client.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
      - Mermaid docs (Context7, architecture diagrams): /mermaid-js/mermaid
-   - `design.md` (client ingest status types + mermaid diagram for status data flow)
-5. [ ] Update documentation:
+5. [ ] Update documentation — `projectStructure.md`:
+   - Document: `projectStructure.md`.
+   - Location: `projectStructure.md`.
+   - Description: Update the tree if client test files are modified.
+   - Purpose: Keep documentation aligned with test adjustments.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-   - `projectStructure.md` (update if tests changed)
 6. [ ] Run full linting:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -1303,15 +1363,21 @@ Render non-blocking Ingest page banners for AST skipped/failed counts using exis
    - Documentation to read (repeat):
      - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
      - Jest (React testing): https://jestjs.io/docs/getting-started
-5. [ ] Update documentation:
+5. [ ] Update documentation — `design.md`:
+   - Document: `design.md`.
+   - Location: `design.md`.
+   - Description: Add client ingest banner notes and a mermaid diagram for the ingest status UI flow.
+   - Purpose: Document UI behavior when AST indexing is skipped or fails.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
      - Mermaid docs (Context7, architecture diagrams): /mermaid-js/mermaid
-   - `design.md` (client ingest banner notes + mermaid diagram for ingest status UI flow)
-6. [ ] Update documentation:
+6. [ ] Update documentation — `projectStructure.md`:
+   - Document: `projectStructure.md`.
+   - Location: `projectStructure.md`.
+   - Description: Update tree entries if client test files change.
+   - Purpose: Keep project structure docs accurate after test edits.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-   - `projectStructure.md` (update if tests changed)
 7. [ ] Run full linting:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
@@ -1366,15 +1432,27 @@ Validate the full story against acceptance criteria, run full builds/tests, ensu
 3. [ ] perform a clean docker build
    - Documentation to read (repeat):
      - Docker Compose overview (clean builds + compose up): https://docs.docker.com/compose/
-4. [ ] Ensure Readme.md is updated with any required description changes and with any new commands that have been added as part of this story
+4. [ ] Update documentation — `README.md`:
+   - Document: `README.md`.
+   - Location: `README.md`.
+   - Description: Add any new commands or user-facing descriptions introduced by AST indexing.
+   - Purpose: Keep onboarding instructions current for users and developers.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-5. [ ] Ensure Design.md is updated with any required description changes including mermaid diagrams that have been added as part of this story
+5. [ ] Update documentation — `design.md`:
+   - Document: `design.md`.
+   - Location: `design.md`.
+   - Description: Ensure architecture notes and mermaid diagrams reflect all AST indexing changes.
+   - Purpose: Provide an accurate architectural reference for the new pipeline.
    - Documentation to read (repeat):
      - Mermaid docs (Context7, diagram syntax): /mermaid-js/mermaid
      - Mermaid intro (diagram updates in `design.md`): https://mermaid.js.org/intro/
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-6. [ ] Ensure projectStructure.md is updated with any updated, added or removed files & folders
+6. [ ] Update documentation — `projectStructure.md`:
+   - Document: `projectStructure.md`.
+   - Location: `projectStructure.md`.
+   - Description: Add/update/remove file entries to reflect all story changes.
+   - Purpose: Keep the repository tree representation accurate.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
 7. [ ] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.

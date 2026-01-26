@@ -2335,6 +2335,11 @@ Replace the verification URL + user code fields with a single read-only output b
 - 2026-01-26: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run e2e` passed (36 tests).
 - 2026-01-26: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run compose:build` succeeded.
 - 2026-01-26: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run compose:up` started the stack successfully.
+- 2026-01-26: Manual Playwright-MCP check confirmed Codex re-auth button and raw output dialog in Chat.
+- 2026-01-26: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run compose:down` stopped the stack successfully.
+- 2026-01-26: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run e2e` passed (36 tests).
+- 2026-01-26: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run compose:build` succeeded.
+- 2026-01-26: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run compose:up` started the stack successfully.
 - 2026-01-26: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run compose:down` stopped the stack successfully.
 
 ---
@@ -2389,29 +2394,29 @@ Re-run the full validation suite and documentation checks after Tasks 12–14 to
 2. [x] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
    - Documentation to read (repeat):
      - Jest: Context7 `/websites/jestjs_io_30_0`
      - Jest docs: https://jestjs.io/docs/getting-started
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
      - Playwright docs (intro): https://playwright.dev/docs/intro
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
      - Docker Compose docs: https://docs.docker.com/compose/
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] Manual Playwright-MCP check (http://host.docker.internal:5001) to confirm device-auth flow + regressions
+8. [x] Manual Playwright-MCP check (http://host.docker.internal:5001) to confirm device-auth flow + regressions
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
      - Playwright docs (intro): https://playwright.dev/docs/intro
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
@@ -2425,5 +2430,9 @@ Re-run the full validation suite and documentation checks after Tasks 12–14 to
 - 2026-01-26: `npm run build --workspace client` succeeded (existing chunk size warning only).
 - Reviewed `design.md`; device-auth flow section and mermaid diagram already reflect the current implementation, so no edits required.
 - 2026-01-26: Marked Task 15 build steps complete; remaining validation steps still pending.
+- 2026-01-26: Re-ran `npm run build --workspace server` for Task 15 validation.
+- 2026-01-26: Re-ran `npm run build --workspace client` (chunk size warning only).
+- 2026-01-26: `TMPDIR=/tmp npm run test --workspace server` succeeded (54 scenarios passed).
+- 2026-01-26: `TMPDIR=/tmp npm run test --workspace client` passed (console warnings only).
 
 ---

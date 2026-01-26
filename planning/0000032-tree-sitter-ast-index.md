@@ -37,6 +37,7 @@ Note: Cross-repository symbol linking (e.g., linking imports in repo A to an ing
 - Dry-run ingest executes the full AST indexing pipeline (no skips).
 - AST index schema (Option B): symbols include Module, Class, Function, Method, Interface, TypeAlias, Enum, Property; edges include DEFINES, CALLS, IMPORTS, EXPORTS, EXTENDS, IMPLEMENTS, REFERENCES_TYPE.
 - MCP tools (Option B): `list_symbols`, `find_definition`, `find_references`, `call_graph`, `module_imports` for supported repositories.
+- REST endpoints mirror MCP tools (same pattern as vector tools).
 
 ---
 

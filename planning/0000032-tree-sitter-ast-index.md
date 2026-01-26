@@ -1079,7 +1079,7 @@ Extend ingest status payloads (REST + WS) with optional AST counts and update te
 
 ### 7. Server: AST tool service
 
-- Task Status: **__in_progress__**
+- Task Status: **__done__**
 - Git Commits: 358ea01
 
 #### Overview
@@ -1251,7 +1251,7 @@ Add AST tool validation + query services for list/find/call-graph/modules and er
 5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
 6. [x] `npm run compose:build`
 7. [x] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, call `/tools/ast-list-symbols` from the browser console, open Logs, and confirm `DEV-0000032:T7:ast-tool-service-request` appears; confirm no console errors while the app is idle and after the request.
+8. [x] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, call `/tools/ast-list-symbols` from the browser console, open Logs, and confirm `DEV-0000032:T7:ast-tool-service-request` appears; confirm no console errors while the app is idle and after the request.
 9. [x] `npm run compose:down`
 
 #### Implementation notes
@@ -1269,16 +1269,15 @@ Add AST tool validation + query services for list/find/call-graph/modules and er
 - E2E test run completed successfully (36 passed).
 - Docker compose build completed successfully.
 - Docker compose stack started successfully.
-- Manual Playwright-MCP check blocked: `/tools/ast-list-symbols` returns 404 because Task 8 REST endpoints are not implemented yet, so the `DEV-0000032:T7:ast-tool-service-request` log could not be verified.
-- Docker compose stack stopped cleanly after the manual check attempt.
-- Answer (blocker): defer the manual Playwright-MCP check until Task 8 exposes `/tools/ast-list-symbols`, then re-run the manual check and mark Testing item 8.
+- Manual Playwright-MCP check completed after Task 8 REST endpoints landed; `DEV-0000032:T7:ast-tool-service-request` confirmed in Logs.
+- Docker compose stack stopped cleanly after the manual check.
 
 ---
 
 ### 8. Server: AST REST endpoints
 
-- Task Status: **__in_progress__**
-- Git Commits: **to_do**
+- Task Status: **__done__**
+- Git Commits: d62af2e
 
 #### Overview
 
@@ -1300,7 +1299,7 @@ Expose `/tools/ast-*` REST endpoints that validate input, call the AST tool serv
 
 #### Subtasks
 
-1. [ ] Add REST route handlers:
+1. [x] Add REST route handlers:
    - Documentation to read (repeat):
      - Express routing + handlers: Context7 `/expressjs/express/v5.1.0`
    - Files to edit:
@@ -1312,7 +1311,7 @@ Expose `/tools/ast-*` REST endpoints that validate input, call the AST tool serv
      - `server/src/index.ts`
    - Implementation details:
      - Mirror the VectorSearch route error handling style (`VALIDATION_FAILED`, `REPO_NOT_FOUND`, `INGEST_REQUIRED`, `AST_INDEX_REQUIRED`).
-2. [ ] Integration test — REST happy path payloads:
+2. [x] Integration test — REST happy path payloads:
    - Test type: Integration (REST routes).
    - Test location: `server/src/test/integration/tools-ast.test.ts` (new).
    - Description: Stub the AST service and assert response shapes for all `/tools/ast-*` routes.
@@ -1322,7 +1321,7 @@ Expose `/tools/ast-*` REST endpoints that validate input, call the AST tool serv
      - Node.js test runner: https://nodejs.org/api/test.html
    - Notes:
      - Mirror the existing router test patterns from `server/src/test/unit/tools-vector-search.test.ts` / `tools-ingested-repos.test.ts` when stubbing deps.
-3. [ ] Integration test — REST validation errors:
+3. [x] Integration test — REST validation errors:
    - Test type: Integration (REST routes).
    - Test location: `server/src/test/integration/tools-ast.test.ts` (new).
    - Description: Send invalid payloads for each endpoint.
@@ -1330,7 +1329,7 @@ Expose `/tools/ast-*` REST endpoints that validate input, call the AST tool serv
    - Documentation to read (repeat):
      - Supertest HTTP assertions: https://github.com/forwardemail/supertest
      - Node.js test runner: https://nodejs.org/api/test.html
-4. [ ] Integration test — REST error mapping:
+4. [x] Integration test — REST error mapping:
    - Test type: Integration (REST routes).
    - Test location: `server/src/test/integration/tools-ast.test.ts` (new).
    - Description: Force `REPO_NOT_FOUND`, `INGEST_REQUIRED`, and `AST_INDEX_REQUIRED` from the service.
@@ -1338,7 +1337,7 @@ Expose `/tools/ast-*` REST endpoints that validate input, call the AST tool serv
    - Documentation to read (repeat):
      - Supertest HTTP assertions: https://github.com/forwardemail/supertest
      - Node.js test runner: https://nodejs.org/api/test.html
-5. [ ] Update documentation — `design.md`:
+5. [x] Update documentation — `design.md`:
    - Document: `design.md`.
    - Location: `design.md`.
    - Description: Add REST tool contracts, error codes, and a mermaid diagram for REST tool flow.
@@ -1346,14 +1345,14 @@ Expose `/tools/ast-*` REST endpoints that validate input, call the AST tool serv
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
      - Mermaid docs (Context7, architecture diagrams): /mermaid-js/mermaid
-6. [ ] Update documentation — `projectStructure.md`:
+6. [x] Update documentation — `projectStructure.md`:
    - Document: `projectStructure.md`.
    - Location: `projectStructure.md`.
    - Description: Add new REST route files and integration tests to the tree (`server/src/routes/toolsAstListSymbols.ts`, `server/src/routes/toolsAstFindDefinition.ts`, `server/src/routes/toolsAstFindReferences.ts`, `server/src/routes/toolsAstCallGraph.ts`, `server/src/routes/toolsAstModuleImports.ts`, `server/src/test/integration/tools-ast.test.ts`).
    - Purpose: Keep repository structure documentation in sync with new endpoints.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-7. [ ] Update documentation — `openapi.json`:
+7. [x] Update documentation — `openapi.json`:
    - Document: `openapi.json`.
    - Location: `openapi.json`.
    - Description: Add `/tools/ast-*` endpoints and schema references.
@@ -1361,7 +1360,7 @@ Expose `/tools/ast-*` REST endpoints that validate input, call the AST tool serv
    - Documentation to read (repeat):
      - OpenAPI 3.0 spec (schema + path shape): https://spec.openapis.org/oas/latest.html
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-8. [ ] Add AST REST route log line:
+8. [x] Add AST REST route log line:
    - Files to edit:
      - `server/src/routes/toolsAstListSymbols.ts`
    - Log line:
@@ -1371,25 +1370,39 @@ Expose `/tools/ast-*` REST endpoints that validate input, call the AST tool serv
      - Include `event: 'DEV-0000032:T8:ast-rest-request'` and `route`.
    - Documentation to read (repeat):
      - Express 5 routing docs: /expressjs/express/v5.1.0
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+9. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, call `/tools/ast-list-symbols`, open Logs, and confirm `DEV-0000032:T8:ast-rest-request` appears; ensure no console errors while app is idle.
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, call `/tools/ast-list-symbols`, open Logs, and confirm `DEV-0000032:T8:ast-rest-request` appears; ensure no console errors while app is idle.
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- 
+- Added AST REST routes for list/find/references/call-graph/module-imports with shared error mapping and logging.
+- Added integration coverage for happy paths, validation errors, and mapped repo/ingest/coverage error responses.
+- Documented AST REST routes and error semantics in `design.md`.
+- Updated `projectStructure.md` and `openapi.json` for AST REST routes + tests.
+- Ran lint + format checks; format required a Prettier pass, lint still reports existing import/order warnings in unrelated files.
+- Logged AST REST requests into the log store so the Logs UI surfaces `DEV-0000032:T8:ast-rest-request`.
+- Server build completed successfully.
+- Client build completed with the existing Vite chunk size warning.
+- Server tests completed successfully.
+- Client tests completed with expected VM module warnings and jest worker teardown notice.
+- E2E run completed (33 passed, 3 skipped).
+- Docker compose build completed successfully.
+- Docker compose stack started successfully.
+- Manual Playwright-MCP check confirmed `DEV-0000032:T8:ast-rest-request` and `DEV-0000032:T7:ast-tool-service-request` log entries after `/tools/ast-list-symbols`.
+- Docker compose stack stopped cleanly after manual verification.
 
 ---
 

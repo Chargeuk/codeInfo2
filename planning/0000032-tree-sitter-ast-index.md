@@ -279,13 +279,6 @@ Create Mongo collections for AST symbols, edges, references, module imports, and
    - Purpose: Keep repository structure documentation in sync with added files.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-10. [ ] Run full linting:
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier CLI: https://prettier.io/docs/cli
-   - `npm run lint --workspaces`
-   - `npm run format:check --workspaces`
-
 #### Testing
 
 1. [ ] Build the server (`npm run build --workspace server`)
@@ -293,6 +286,8 @@ Create Mongo collections for AST symbols, edges, references, module imports, and
 3. [ ] Perform a clean docker build (`npm run compose:build`)
 4. [ ] Prove docker compose starts (`npm run compose:up`)
 5. [ ] Run server unit tests (`npm run test:unit --workspace server`)
+6. [ ] Run linting (`npm run lint --workspaces`)
+7. [ ] Run formatting checks (`npm run format:check --workspaces`)
 
 #### Implementation notes
 
@@ -366,13 +361,6 @@ Add repo helper functions for AST collections with Mongo-disconnected guards and
    - Purpose: Keep project tree accurate after adding tests.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-6. [ ] Run full linting:
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier CLI: https://prettier.io/docs/cli
-   - `npm run lint --workspaces`
-   - `npm run format:check --workspaces`
-
 #### Testing
 
 1. [ ] Build the server (`npm run build --workspace server`)
@@ -380,6 +368,8 @@ Add repo helper functions for AST collections with Mongo-disconnected guards and
 3. [ ] Perform a clean docker build (`npm run compose:build`)
 4. [ ] Prove docker compose starts (`npm run compose:up`)
 5. [ ] Run server unit tests (`npm run test:unit --workspace server`)
+6. [ ] Run linting (`npm run lint --workspaces`)
+7. [ ] Run formatting checks (`npm run format:check --workspaces`)
 
 #### Implementation notes
 
@@ -449,19 +439,14 @@ Add Tree-sitter dependencies and ensure Docker builds can compile native binding
    - Purpose: Keep the project structure summary accurate after build changes.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-5. [ ] Run full linting:
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier CLI: https://prettier.io/docs/cli
-   - `npm run lint --workspaces`
-   - `npm run format:check --workspaces`
-
 #### Testing
 
 1. [ ] Build the server (`npm run build --workspace server`)
 2. [ ] Build the client (`npm run build --workspace client`)
 3. [ ] Perform a clean docker build (`npm run compose:build`)
 4. [ ] Prove docker compose starts (`npm run compose:up`)
+5. [ ] Run linting (`npm run lint --workspaces`)
+6. [ ] Run formatting checks (`npm run format:check --workspaces`)
 
 #### Implementation notes
 
@@ -627,13 +612,6 @@ Implement a Tree-sitter parsing module that maps JS/TS/TSX source text into Symb
    - Purpose: Keep project structure documentation current with new AST modules.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-16. [ ] Run full linting:
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier CLI: https://prettier.io/docs/cli
-   - `npm run lint --workspaces`
-   - `npm run format:check --workspaces`
-
 #### Testing
 
 1. [ ] Build the server (`npm run build --workspace server`)
@@ -641,6 +619,8 @@ Implement a Tree-sitter parsing module that maps JS/TS/TSX source text into Symb
 3. [ ] Perform a clean docker build (`npm run compose:build`)
 4. [ ] Prove docker compose starts (`npm run compose:up`)
 5. [ ] Run server unit tests (`npm run test:unit --workspace server`)
+6. [ ] Run linting (`npm run lint --workspaces`)
+7. [ ] Run formatting checks (`npm run format:check --workspaces`)
 
 #### Implementation notes
 
@@ -804,13 +784,6 @@ Integrate AST parsing into ingest runs and persist AST data + coverage without c
    - Purpose: Keep projectStructure aligned with new test coverage.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-17. [ ] Run full linting:
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier CLI: https://prettier.io/docs/cli
-   - `npm run lint --workspaces`
-   - `npm run format:check --workspaces`
-
 #### Testing
 
 1. [ ] Build the server (`npm run build --workspace server`)
@@ -819,6 +792,8 @@ Integrate AST parsing into ingest runs and persist AST data + coverage without c
 4. [ ] Prove docker compose starts (`npm run compose:up`)
 5. [ ] Run server unit tests (`npm run test:unit --workspace server`)
 6. [ ] Run server integration tests (`npm run test:integration --workspace server`)
+7. [ ] Run linting (`npm run lint --workspaces`)
+8. [ ] Run formatting checks (`npm run format:check --workspaces`)
 
 #### Implementation notes
 
@@ -894,13 +869,6 @@ Extend ingest status payloads (REST + WS) with optional AST counts and update te
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
      - Mermaid docs (Context7, architecture diagrams): /mermaid-js/mermaid
-7. [ ] Run full linting:
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier CLI: https://prettier.io/docs/cli
-   - `npm run lint --workspaces`
-   - `npm run format:check --workspaces`
-
 #### Testing
 
 1. [ ] Build the server (`npm run build --workspace server`)
@@ -908,6 +876,8 @@ Extend ingest status payloads (REST + WS) with optional AST counts and update te
 3. [ ] Perform a clean docker build (`npm run compose:build`)
 4. [ ] Prove docker compose starts (`npm run compose:up`)
 5. [ ] Run server unit tests (`npm run test:unit --workspace server`)
+6. [ ] Run linting (`npm run lint --workspaces`)
+7. [ ] Run formatting checks (`npm run format:check --workspaces`)
 
 #### Implementation notes
 
@@ -1058,13 +1028,6 @@ Add AST tool validation + query services for list/find/call-graph/modules and er
    - Purpose: Keep project structure docs aligned with added service/test files.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-17. [ ] Run full linting:
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier CLI: https://prettier.io/docs/cli
-   - `npm run lint --workspaces`
-   - `npm run format:check --workspaces`
-
 #### Testing
 
 1. [ ] Build the server (`npm run build --workspace server`)
@@ -1072,6 +1035,8 @@ Add AST tool validation + query services for list/find/call-graph/modules and er
 3. [ ] Perform a clean docker build (`npm run compose:build`)
 4. [ ] Prove docker compose starts (`npm run compose:up`)
 5. [ ] Run server unit tests (`npm run test:unit --workspace server`)
+6. [ ] Run linting (`npm run lint --workspaces`)
+7. [ ] Run formatting checks (`npm run format:check --workspaces`)
 
 #### Implementation notes
 
@@ -1165,13 +1130,6 @@ Expose `/tools/ast-*` REST endpoints that validate input, call the AST tool serv
    - Documentation to read (repeat):
      - OpenAPI 3.0 spec (schema + path shape): https://spec.openapis.org/oas/latest.html
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-8. [ ] Run full linting:
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier CLI: https://prettier.io/docs/cli
-   - `npm run lint --workspaces`
-   - `npm run format:check --workspaces`
-
 #### Testing
 
 1. [ ] Build the server (`npm run build --workspace server`)
@@ -1179,6 +1137,8 @@ Expose `/tools/ast-*` REST endpoints that validate input, call the AST tool serv
 3. [ ] Perform a clean docker build (`npm run compose:build`)
 4. [ ] Prove docker compose starts (`npm run compose:up`)
 5. [ ] Run server unit tests (`npm run test:unit --workspace server`)
+6. [ ] Run linting (`npm run lint --workspaces`)
+7. [ ] Run formatting checks (`npm run format:check --workspaces`)
 
 #### Implementation notes
 
@@ -1272,13 +1232,6 @@ Expose AST tools through the MCP JSON-RPC server with schemas aligned to the RES
    - Purpose: Keep project structure docs aligned with MCP test changes.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-9. [ ] Run full linting:
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier CLI: https://prettier.io/docs/cli
-   - `npm run lint --workspaces`
-   - `npm run format:check --workspaces`
-
 #### Testing
 
 1. [ ] Build the server (`npm run build --workspace server`)
@@ -1286,6 +1239,8 @@ Expose AST tools through the MCP JSON-RPC server with schemas aligned to the RES
 3. [ ] Perform a clean docker build (`npm run compose:build`)
 4. [ ] Prove docker compose starts (`npm run compose:up`)
 5. [ ] Run server unit tests (`npm run test:unit --workspace server`)
+6. [ ] Run linting (`npm run lint --workspaces`)
+7. [ ] Run formatting checks (`npm run format:check --workspaces`)
 
 #### Implementation notes
 
@@ -1359,13 +1314,6 @@ Extend client ingest status types to include optional AST counts and update test
    - Purpose: Keep documentation aligned with test adjustments.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-6. [ ] Run full linting:
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier CLI: https://prettier.io/docs/cli
-   - `npm run lint --workspaces`
-   - `npm run format:check --workspaces`
-
 #### Testing
 
 1. [ ] Build the server (`npm run build --workspace server`)
@@ -1373,6 +1321,8 @@ Extend client ingest status types to include optional AST counts and update test
 3. [ ] Perform a clean docker build (`npm run compose:build`)
 4. [ ] Prove docker compose starts (`npm run compose:up`)
 5. [ ] Run client unit tests (`npm run test --workspace client`)
+6. [ ] Run linting (`npm run lint --workspaces`)
+7. [ ] Run formatting checks (`npm run format:check --workspaces`)
 
 #### Implementation notes
 
@@ -1457,13 +1407,6 @@ Render non-blocking Ingest page banners for AST skipped/failed counts using exis
    - Purpose: Keep project structure docs accurate after test edits.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-7. [ ] Run full linting:
-   - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier CLI: https://prettier.io/docs/cli
-   - `npm run lint --workspaces`
-   - `npm run format:check --workspaces`
-
 #### Testing
 
 1. [ ] Build the server (`npm run build --workspace server`)
@@ -1471,6 +1414,8 @@ Render non-blocking Ingest page banners for AST skipped/failed counts using exis
 3. [ ] Perform a clean docker build (`npm run compose:build`)
 4. [ ] Prove docker compose starts (`npm run compose:up`)
 5. [ ] Run client unit tests (`npm run test --workspace client`)
+6. [ ] Run linting (`npm run lint --workspaces`)
+7. [ ] Run formatting checks (`npm run format:check --workspaces`)
 
 #### Implementation notes
 
@@ -1502,23 +1447,14 @@ Validate the full story against acceptance criteria, run full builds/tests, ensu
 
 #### Subtasks
 
-1. [ ] Build the server
-   - Documentation to read (repeat):
-     - Docker Compose overview (clean builds + compose up): https://docs.docker.com/compose/
-2. [ ] Build the client
-   - Documentation to read (repeat):
-     - Docker Compose overview (clean builds + compose up): https://docs.docker.com/compose/
-3. [ ] perform a clean docker build
-   - Documentation to read (repeat):
-     - Docker Compose overview (clean builds + compose up): https://docs.docker.com/compose/
-4. [ ] Update documentation — `README.md`:
+1. [ ] Update documentation — `README.md`:
    - Document: `README.md`.
    - Location: `README.md`.
    - Description: Add any new commands or user-facing descriptions introduced by AST indexing.
    - Purpose: Keep onboarding instructions current for users and developers.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-5. [ ] Update documentation — `design.md`:
+2. [ ] Update documentation — `design.md`:
    - Document: `design.md`.
    - Location: `design.md`.
    - Description: Ensure architecture notes and mermaid diagrams reflect all AST indexing changes.
@@ -1527,32 +1463,36 @@ Validate the full story against acceptance criteria, run full builds/tests, ensu
      - Mermaid docs (Context7, diagram syntax): /mermaid-js/mermaid
      - Mermaid intro (diagram updates in `design.md`): https://mermaid.js.org/intro/
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-6. [ ] Update documentation — `projectStructure.md`:
+3. [ ] Update documentation — `projectStructure.md`:
    - Document: `projectStructure.md`.
    - Location: `projectStructure.md`.
    - Description: Add/update/remove file entries to reflect all story changes.
    - Purpose: Keep the repository tree representation accurate.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-7. [ ] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
+4. [ ] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
 
 #### Testing
 
-1. [ ] run the client jest tests
+1. [ ] Build the server (`npm run build --workspace server`)
+2. [ ] Build the client (`npm run build --workspace client`)
+3. [ ] Perform a clean docker build (`npm run compose:build`)
+4. [ ] Prove docker compose starts (`npm run compose:up`)
+5. [ ] run the client jest tests
    - Documentation to read (repeat):
      - Jest getting started (client unit tests): https://jestjs.io/docs/getting-started
-2. [ ] run the server cucumber tests
+6. [ ] run the server cucumber tests
    - Documentation to read (repeat):
      - Cucumber guide (server integration tests): https://cucumber.io/docs/guides/10-minute-tutorial/
-3. [ ] restart the docker environment
+7. [ ] restart the docker environment
    - Documentation to read (repeat):
      - Docker Compose overview (clean builds + compose up): https://docs.docker.com/compose/
-4. [ ] run the e2e tests
+8. [ ] run the e2e tests
    - Documentation to read (repeat):
      - Playwright Test intro (e2e run + screenshots): https://playwright.dev/docs/intro
-5. [ ] use the playwright mcp tool to ensure manually check the application, saving screenshots to ./test-results/screenshots/ - Each screenshot should be named with the plan index including the preceding seroes, then a dash, and then the task number, then a dash and the name of the screenshot
+9. [ ] use the playwright mcp tool to ensure manually check the application, saving screenshots to ./test-results/screenshots/ - Each screenshot should be named with the plan index including the preceding seroes, then a dash, and then the task number, then a dash and the name of the screenshot
    - Documentation to read (repeat):
      - Playwright Test intro (e2e run + screenshots): https://playwright.dev/docs/intro
 

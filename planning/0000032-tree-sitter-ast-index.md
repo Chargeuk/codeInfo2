@@ -1408,7 +1408,7 @@ Expose `/tools/ast-*` REST endpoints that validate input, call the AST tool serv
 
 ### 9. Server: MCP AST tool definitions
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **to_do**
 
 #### Overview

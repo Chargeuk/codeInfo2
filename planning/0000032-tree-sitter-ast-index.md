@@ -38,6 +38,7 @@ Note: Cross-repository symbol linking (e.g., linking imports in repo A to an ing
 - Each stored symbol record includes: `root`, `relPath`, `fileHash`, `language`, `kind`, `name`, `range` (start/end line+column), and optional `container` (parent symbol id or name).
 - Each symbol has a deterministic `symbolId` derived from stable fields (root + relPath + kind + name + range) so edges can be re-linked on re-embed.
 - Each stored edge record includes: `root`, `fromSymbolId`, `toSymbolId`, `type`, and the `relPath`/`fileHash` that produced it.
+- References and module imports are stored persistently and keyed by `root + relPath + fileHash` to support AST tool queries.
 - The system records AST coverage per ingest root with: `supportedFileCount`, `skippedFileCount`, `failedFileCount`, and `lastIndexedAt`.
 - Dry-run ingest performs the full AST parse and produces counts, but does **not** persist symbol/edge records.
 - AST index schema (Option B): symbols include `Module`, `Class`, `Function`, `Method`, `Interface`, `TypeAlias`, `Enum`, `Property`; edges include `DEFINES`, `CALLS`, `IMPORTS`, `EXPORTS`, `EXTENDS`, `IMPLEMENTS`, `REFERENCES_TYPE`.
@@ -91,7 +92,7 @@ Shared record shapes (all responses):
 - `ModuleImportsRecord`: `{ relPath, imports: [{ source, names[] }] }`
 - `range` uses `{ start: { line, column }, end: { line, column } }` with **1-based** line/column (Tree-sitter rows/columns + 1).
 
-Error model mirrors VectorSearch style (`VALIDATION_FAILED`, `REPO_NOT_FOUND`), plus a new `AST_INDEX_REQUIRED` (409) when a repo has no AST data.
+Error model mirrors VectorSearch style (`VALIDATION_FAILED`, `REPO_NOT_FOUND`, `INGEST_REQUIRED`), plus a new `AST_INDEX_REQUIRED` (409) when a repo has no AST data.
 
 ### New Mongo Collections
 

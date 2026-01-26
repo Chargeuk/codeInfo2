@@ -1646,8 +1646,8 @@ Validate the story end-to-end, run clean builds/tests, update documentation, and
 
 #### PR Summary
 
-- Added Codex device-auth support on the server with CLI parsing (including ANSI stripping), validation/error handling, auth persistence, completion-based propagation, and availability refresh.
-- Added client device-auth API helper and dialog UI with loading/error/success states, linkified verification URL, text-only user code, Chat/Agents entry points, and telemetry logging.
+- Added Codex device-auth support on the server with CLI output parsing (ANSI stripping + raw output), validation/error handling, auth persistence, completion-based propagation, and availability refresh.
+- Added client device-auth API helper and dialog UI with loading/error/success states, target selection for Chat/Agents, raw output rendering with linkified URLs, and telemetry logging.
 - Added unit/integration tests for device-auth parsing hardening, routes, auth propagation, and client dialog/API behavior.
 - Documented the device-auth flow in OpenAPI/design/README and refreshed project structure notes.
 - Validated with full lint/format/build/test/e2e/compose cycles and manual Playwright checks.
@@ -2195,7 +2195,7 @@ Render the verification URL as a clickable link (opens in a new tab) and render 
 
 ### 14. Client + server: show raw device-auth output
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **__to_do__**
 
 #### Overview
@@ -2349,23 +2349,23 @@ Re-run the full validation suite and documentation checks after Tasks 12–14 to
 
 #### Subtasks
 
-1. [ ] Ensure `README.md` is updated with any new commands or behavior changes
+1. [x] Ensure `README.md` is updated with any new commands or behavior changes
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
      - `README.md`
-2. [ ] Ensure `design.md` is updated with any required description changes including mermaid diagrams
+2. [x] Ensure `design.md` is updated with any required description changes including mermaid diagrams
    - Documentation to read (repeat):
      - Mermaid diagrams: Context7 `/mermaid-js/mermaid`
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
      - `design.md`
-3. [ ] Ensure `projectStructure.md` is updated with any updated, added or removed files & folders
+3. [x] Ensure `projectStructure.md` is updated with any updated, added or removed files & folders
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
      - `projectStructure.md`
-4. [ ] Create a reasonable summary of all changes within this story and create a pull request comment
+4. [x] Create a reasonable summary of all changes within this story and create a pull request comment
 
 #### Testing
 
@@ -2403,6 +2403,12 @@ Re-run the full validation suite and documentation checks after Tasks 12–14 to
 
 #### Implementation notes
 
-- 
+- Reviewed `README.md`; device-auth behavior is already documented for Chat and Agents, so no edits required.
+- Reviewed `design.md`; device-auth flow section and mermaid diagram already reflect the current implementation, so no edits required.
+- Reviewed `projectStructure.md`; structure already includes device-auth files from this story, so no edits required.
+- Updated the PR summary to reflect raw-output device-auth dialog behavior and parsing hardening.
+- 2026-01-26: `npm run build --workspace server` succeeded for Task 15 re-validation.
+- 2026-01-26: `npm run build --workspace client` succeeded (existing chunk size warning only).
+- Reviewed `design.md`; device-auth flow section and mermaid diagram already reflect the current implementation, so no edits required.
 
 ---

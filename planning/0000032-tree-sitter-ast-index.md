@@ -534,7 +534,7 @@ Implement a Tree-sitter parsing module that maps JS/TS/TSX source text into Symb
      - Create a `Module` symbol per file to anchor IMPORTS/EXPORTS edges.
      - Treat `tree.rootNode.hasError` as a parse failure and surface it as `failed` output.
      - Keep parsing errors isolated to the file being parsed (return a failure result, do not throw).
-3. [ ] Unit test — parser extracts symbols/edges for TS/TSX:
+3. [ ] Unit test — parser extracts symbols for TS/TSX:
    - Test type: Unit (parser).
    - Test location: `server/src/test/unit/ast-parser.test.ts` (new).
    - Description: Parse sample `.ts` and `.tsx` sources with classes, functions, and exports.
@@ -548,28 +548,49 @@ Implement a Tree-sitter parsing module that maps JS/TS/TSX source text into Symb
    - Purpose: Ensure deterministic `symbolId` generation for re-embed linking.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-5. [ ] Unit test — parser emits reference ranges for call sites:
+5. [ ] Unit test — parser disambiguates `symbolId` collisions:
+   - Test type: Unit (parser).
+   - Test location: `server/src/test/unit/ast-parser.test.ts` (new).
+   - Description: Feed two symbols that would generate the same `symbolId` and assert the collision suffix is stable.
+   - Purpose: Ensure symbol collisions do not overwrite previous records.
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+6. [ ] Unit test — parser emits `CALLS` edges:
+   - Test type: Unit (parser).
+   - Test location: `server/src/test/unit/ast-parser.test.ts` (new).
+   - Description: Parse a file with a function call and assert a `CALLS` edge linking caller → callee.
+   - Purpose: Ensure call-graph traversal has edges to follow.
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+7. [ ] Unit test — parser emits reference ranges for call sites:
    - Test type: Unit (parser).
    - Test location: `server/src/test/unit/ast-parser.test.ts` (new).
    - Description: Parse a sample function call and confirm reference range output.
    - Purpose: Ensure references are captured for `AstFindReferences`.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-6. [ ] Unit test — parser maps module imports:
+8. [ ] Unit test — parser emits IMPORTS/EXPORTS edges:
+   - Test type: Unit (parser).
+   - Test location: `server/src/test/unit/ast-parser.test.ts` (new).
+   - Description: Parse a module with imports/exports and assert `IMPORTS`/`EXPORTS` edges from the module symbol.
+   - Purpose: Ensure module relationship edges are stored for AST tooling.
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+9. [ ] Unit test — parser maps module imports:
    - Test type: Unit (parser).
    - Test location: `server/src/test/unit/ast-parser.test.ts` (new).
    - Description: Parse a file with imports and validate `{ source, names[] }` output.
    - Purpose: Ensure `AstModuleImports` can be populated from stored data.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-7. [ ] Unit test — unsupported extension returns unsupported result:
+10. [ ] Unit test — unsupported extension returns unsupported result:
    - Test type: Unit (parser).
    - Test location: `server/src/test/unit/ast-parser.test.ts` (new).
    - Description: Parse a non-supported extension and check the returned language flag.
    - Purpose: Ensure unsupported files are skipped without crashes.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-8. [ ] Unit test — missing query files returns failed parse:
+11. [ ] Unit test — missing query files returns failed parse:
    - Test type: Unit (parser).
    - Test location: `server/src/test/unit/ast-parser.test.ts` (new).
    - Description: Simulate missing `tags.scm` or `locals.scm` files.
@@ -577,21 +598,21 @@ Implement a Tree-sitter parsing module that maps JS/TS/TSX source text into Symb
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
      - Tree-sitter query syntax: https://tree-sitter.github.io/tree-sitter/using-parsers#query-syntax
-9. [ ] Unit test — error tree marks file as failed:
+12. [ ] Unit test — error tree marks file as failed:
    - Test type: Unit (parser).
    - Test location: `server/src/test/unit/ast-parser.test.ts` (new).
    - Description: Force `rootNode.hasError === true` and validate failure output.
    - Purpose: Ensure malformed files do not crash AST indexing.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-10. [ ] Unit test — grammar load failure logs once:
+13. [ ] Unit test — grammar load failure logs once:
    - Test type: Unit (parser).
    - Test location: `server/src/test/unit/ast-parser.test.ts` (new).
    - Description: Simulate grammar load failure and assert logging + failure result.
    - Purpose: Ensure consistent failure handling when parser setup fails.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-11. [ ] Update documentation — `design.md`:
+14. [ ] Update documentation — `design.md`:
    - Document: `design.md`.
    - Location: `design.md`.
    - Description: Document the Tree-sitter parsing approach, query usage, and add an AST parse-flow mermaid diagram.
@@ -599,14 +620,14 @@ Implement a Tree-sitter parsing module that maps JS/TS/TSX source text into Symb
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
      - Mermaid docs (Context7, architecture diagrams): /mermaid-js/mermaid
-12. [ ] Update documentation — `projectStructure.md`:
+15. [ ] Update documentation — `projectStructure.md`:
    - Document: `projectStructure.md`.
    - Location: `projectStructure.md`.
    - Description: Add new `server/src/ast/*` files and parser test files to the tree.
    - Purpose: Keep project structure documentation current with new AST modules.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-13. [ ] Run full linting:
+16. [ ] Run full linting:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -747,7 +768,28 @@ Integrate AST parsing into ingest runs and persist AST data + coverage without c
    - Purpose: Ensure write helpers are not called and a warning is logged.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-12. [ ] Update documentation — `design.md`:
+12. [ ] Unit test — delta re-embed deletes/upserts AST records:
+   - Test type: Unit (ingest flow).
+   - Test location: `server/src/test/unit/ingest-ast-indexing.test.ts` (new).
+   - Description: Simulate a delta plan with added, changed, and deleted files.
+   - Purpose: Ensure deletes run for deleted/changed files and upserts run for added/changed files only.
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+13. [ ] Unit test — delta re-embed skips unchanged files:
+   - Test type: Unit (ingest flow).
+   - Test location: `server/src/test/unit/ingest-ast-indexing.test.ts` (new).
+   - Description: Include `deltaPlan.unchanged` entries and verify they are not parsed or written.
+   - Purpose: Ensure unchanged files keep existing AST records without reprocessing.
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+14. [ ] Unit test — delta re-embed skips when no changes:
+   - Test type: Unit (ingest flow).
+   - Test location: `server/src/test/unit/ingest-ast-indexing.test.ts` (new).
+   - Description: Provide a delta plan with no added/changed/deleted files.
+   - Purpose: Ensure AST parsing and writes are skipped when no re-index is needed.
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+15. [ ] Update documentation — `design.md`:
    - Document: `design.md`.
    - Location: `design.md`.
    - Description: Add AST coverage and ingest persistence notes plus a mermaid diagram for the ingest/AST pipeline.
@@ -755,14 +797,14 @@ Integrate AST parsing into ingest runs and persist AST data + coverage without c
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
      - Mermaid docs (Context7, architecture diagrams): /mermaid-js/mermaid
-13. [ ] Update documentation — `projectStructure.md`:
+16. [ ] Update documentation — `projectStructure.md`:
    - Document: `projectStructure.md`.
    - Location: `projectStructure.md`.
    - Description: Add any new AST ingest test files to the project tree.
    - Purpose: Keep projectStructure aligned with new test coverage.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-14. [ ] Run full linting:
+17. [ ] Run full linting:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -952,28 +994,56 @@ Add AST tool validation + query services for list/find/call-graph/modules and er
    - Purpose: Ensure newest `lastIngestAt` root is selected.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-8. [ ] Unit test — tool service call graph depth:
+8. [ ] Unit test — tool service uses containerPath root:
+   - Test type: Unit (service query).
+   - Test location: `server/src/test/unit/ast-tool-service.test.ts` (new).
+   - Description: Seed repo metadata with `containerPath` and verify AST queries use it as `root`.
+   - Purpose: Ensure AST queries align with stored `root` values from ingest metadata.
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+9. [ ] Unit test — tool service list symbols filters + limits:
+   - Test type: Unit (service query).
+   - Test location: `server/src/test/unit/ast-tool-service.test.ts` (new).
+   - Description: Request symbols with `kinds` and `limit` filters.
+   - Purpose: Verify list results are filtered and capped as expected.
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+10. [ ] Unit test — tool service find definition by symbolId:
+   - Test type: Unit (service query).
+   - Test location: `server/src/test/unit/ast-tool-service.test.ts` (new).
+   - Description: Query `AstFindDefinition` with a known `symbolId`.
+   - Purpose: Ensure definition lookup returns the matching symbol.
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+11. [ ] Unit test — tool service references by symbolId:
+   - Test type: Unit (service query).
+   - Test location: `server/src/test/unit/ast-tool-service.test.ts` (new).
+   - Description: Query `AstFindReferences` using a `symbolId`.
+   - Purpose: Ensure references return for direct symbol lookups.
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+12. [ ] Unit test — tool service call graph depth:
    - Test type: Unit (service query).
    - Test location: `server/src/test/unit/ast-tool-service.test.ts` (new).
    - Description: Build a call chain longer than requested depth.
    - Purpose: Ensure traversal respects depth and stops correctly.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-9. [ ] Unit test — tool service module imports mapping:
+13. [ ] Unit test — tool service module imports mapping:
    - Test type: Unit (service query).
    - Test location: `server/src/test/unit/ast-tool-service.test.ts` (new).
    - Description: Seed module import records with sources + names.
    - Purpose: Verify `AstModuleImports` shape `{ relPath, imports: [{ source, names[] }] }`.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-10. [ ] Unit test — tool service references fallback:
+14. [ ] Unit test — tool service references fallback:
    - Test type: Unit (service query).
    - Test location: `server/src/test/unit/ast-tool-service.test.ts` (new).
    - Description: Query by `{ name, kind }` when `symbolId` missing.
    - Purpose: Ensure fallback reference lookup works for legacy callers.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-11. [ ] Update documentation — `design.md`:
+15. [ ] Update documentation — `design.md`:
    - Document: `design.md`.
    - Location: `design.md`.
    - Description: Document AST tool service behavior and add a mermaid diagram for tool query flow.
@@ -981,14 +1051,14 @@ Add AST tool validation + query services for list/find/call-graph/modules and er
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
      - Mermaid docs (Context7, architecture diagrams): /mermaid-js/mermaid
-12. [ ] Update documentation — `projectStructure.md`:
+16. [ ] Update documentation — `projectStructure.md`:
    - Document: `projectStructure.md`.
    - Location: `projectStructure.md`.
    - Description: Add new AST tool service + unit test files to the tree.
    - Purpose: Keep project structure docs aligned with added service/test files.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-13. [ ] Run full linting:
+17. [ ] Run full linting:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli

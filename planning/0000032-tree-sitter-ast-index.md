@@ -179,14 +179,14 @@ This should only be started once all the above sections are clear and understood
 
 ---
 
-### 1. Server: AST Mongo schemas + repo helpers
+### 1. Server: AST Mongo schemas
 
 - Task Status: **__to_do__**
 - Git Commits: **to_do**
 
 #### Overview
 
-Create Mongo collections for AST symbols, edges, references, module imports, and coverage, plus repo helper functions with Mongo-disconnected guards so AST indexing can store/query data safely.
+Create Mongo collections for AST symbols, edges, references, module imports, and coverage with the required indexes.
 
 #### Documentation Locations
 
@@ -205,17 +205,14 @@ Create Mongo collections for AST symbols, edges, references, module imports, and
 
 #### Subtasks
 
-1. [ ] Review existing ingest file schema + repo helper patterns:
+1. [ ] Review existing ingest file schema patterns:
    - Documentation to read (repeat):
      - Mongoose schemas + indexes: https://mongoosejs.com/docs/guide.html
    - Files to read:
      - `server/src/mongo/ingestFile.ts`
-     - `server/src/mongo/repo.ts`
      - `server/src/test/unit/ingest-files-schema.test.ts`
-     - `server/src/test/unit/ingest-files-repo-guards.test.ts`
    - Notes:
      - Confirm how collection names, timestamps, and indexes are defined.
-     - Reuse the existing `mongoose.connection.readyState` guard + bulkWrite pattern (do not introduce a new DB access layer).
 2. [ ] Add AST Mongo schema models:
    - Documentation to read (repeat):
      - MongoDB indexes: https://www.mongodb.com/docs/manual/indexes/
@@ -228,15 +225,7 @@ Create Mongo collections for AST symbols, edges, references, module imports, and
    - Implementation details:
      - Match field names + indexes exactly from Message Contracts (`ast_symbols`, `ast_edges`, `ast_references`, `ast_module_imports`, `ast_coverage`).
      - Ensure `{ root, symbolId }` is unique per root for symbols.
-3. [ ] Add repo helpers for AST collections with Mongo guards:
-   - Files to edit:
-     - `server/src/mongo/repo.ts`
-   - Implementation details:
-     - Add list/upsert/clear helpers for symbols, edges, and coverage.
-     - Add list/upsert/clear helpers for references and module imports.
-     - Follow existing `readyState` guard pattern used for ingest files.
-     - Prefer bulkWrite for symbol/edge upserts and deleteMany for clears.
-4. [ ] Unit tests — schema + index coverage:
+3. [ ] Unit tests — schema + index coverage:
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
    - Files to edit:
@@ -248,18 +237,11 @@ Create Mongo collections for AST symbols, edges, references, module imports, and
    - Assertions:
      - Required fields exist.
      - Indexes match the contract (including uniqueness where required).
-5. [ ] Unit tests — repo helpers return null when Mongo is disconnected:
-   - Documentation to read (repeat):
-     - Node.js test runner: https://nodejs.org/api/test.html
-   - Files to edit:
-     - `server/src/test/unit/ast-repo-guards.test.ts` (new)
-   - Assertions:
-     - Helper functions short-circuit without hitting model methods.
-6. [ ] Update documentation:
+4. [ ] Update documentation:
    - `design.md` (add AST collections summary)
-7. [ ] Update documentation:
+5. [ ] Update documentation:
    - `projectStructure.md` (add new Mongo files/tests)
-8. [ ] Run full linting:
+6. [ ] Run full linting:
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -277,14 +259,133 @@ Create Mongo collections for AST symbols, edges, references, module imports, and
 
 ---
 
-### 2. Server: Tree-sitter parser + AST record builder
+### 2. Server: AST repo helpers
 
 - Task Status: **__to_do__**
 - Git Commits: **to_do**
 
 #### Overview
 
-Implement a Tree-sitter parsing module that maps JS/TS/TSX source text into Symbol/Edge records with deterministic `symbolId`s and 1-based ranges.
+Add repo helper functions for AST collections with Mongo-disconnected guards and bulk-write patterns.
+
+#### Documentation Locations
+
+- Mongoose 9.0.1 guide (Context7): /automattic/mongoose/9.0.1
+- MongoDB bulkWrite: https://www.mongodb.com/docs/manual/reference/method/db.collection.bulkWrite/
+- Node.js test runner: https://nodejs.org/api/test.html
+- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+- Prettier CLI: https://prettier.io/docs/cli
+- npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+- Jest: Context7 `/websites/jestjs_io_30_0`
+- Cucumber guides (overview): https://cucumber.io/docs/guides/
+- Playwright: Context7 `/microsoft/playwright`
+- Docker/Compose: Context7 `/docker/docs`
+
+#### Subtasks
+
+1. [ ] Review existing repo helper patterns:
+   - Files to read:
+     - `server/src/mongo/repo.ts`
+     - `server/src/test/unit/ingest-files-repo-guards.test.ts`
+   - Notes:
+     - Reuse the existing `mongoose.connection.readyState` guard + bulkWrite pattern (do not introduce a new DB access layer).
+2. [ ] Add AST repo helpers:
+   - Files to edit:
+     - `server/src/mongo/repo.ts`
+   - Implementation details:
+     - Add list/upsert/clear helpers for symbols, edges, references, module imports, and coverage.
+     - Prefer bulkWrite for symbol/edge/reference upserts and deleteMany for clears.
+3. [ ] Unit tests — repo helpers return null when Mongo is disconnected:
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+   - Files to edit:
+     - `server/src/test/unit/ast-repo-guards.test.ts` (new)
+   - Assertions:
+     - Helper functions short-circuit without hitting model methods.
+4. [ ] Update documentation:
+   - `design.md` (add AST repo helper notes)
+5. [ ] Update documentation:
+   - `projectStructure.md` (add any new tests)
+6. [ ] Run full linting:
+   - `npm run lint --workspaces`
+   - `npm run format:check --workspaces`
+
+#### Testing
+
+1. [ ] Build the server (`npm run build --workspace server`)
+2. [ ] Build the client (`npm run build --workspace client`)
+3. [ ] Perform a clean docker build (`npm run compose:build`)
+4. [ ] Prove docker compose starts (`npm run compose:up`)
+5. [ ] Run server unit tests (`npm run test:unit --workspace server`)
+
+#### Implementation notes
+
+- 
+
+---
+
+### 3. Server: Tree-sitter dependencies + Docker build support
+
+- Task Status: **__to_do__**
+- Git Commits: **to_do**
+
+#### Overview
+
+Add Tree-sitter dependencies and ensure Docker builds can compile native bindings.
+
+#### Documentation Locations
+
+- Node Tree-sitter bindings: https://tree-sitter.github.io/node-tree-sitter/index.html
+- node-gyp build prerequisites: https://github.com/nodejs/node-gyp
+- Docker/Compose: Context7 `/docker/docs`
+- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+- Prettier CLI: https://prettier.io/docs/cli
+- npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+
+#### Subtasks
+
+1. [ ] Add Tree-sitter dependencies:
+   - Files to edit:
+     - `server/package.json`
+     - `package-lock.json`
+   - Dependencies:
+     - `tree-sitter`
+     - `tree-sitter-javascript`
+     - `tree-sitter-typescript`
+2. [ ] Ensure Docker build can compile native Tree-sitter bindings:
+   - Files to edit:
+     - `server/Dockerfile`
+   - Implementation details:
+     - Install build essentials in the deps stage (e.g., `python3`, `make`, `g++`) before `npm ci`.
+3. [ ] Update documentation:
+   - `design.md` (dependency/build prerequisites)
+4. [ ] Update documentation:
+   - `projectStructure.md` (note Dockerfile changes if listed)
+5. [ ] Run full linting:
+   - `npm run lint --workspaces`
+   - `npm run format:check --workspaces`
+
+#### Testing
+
+1. [ ] Build the server (`npm run build --workspace server`)
+2. [ ] Build the client (`npm run build --workspace client`)
+3. [ ] Perform a clean docker build (`npm run compose:build`)
+4. [ ] Prove docker compose starts (`npm run compose:up`)
+
+#### Implementation notes
+
+- 
+
+---
+
+### 4. Server: Tree-sitter parser module
+
+- Task Status: **__to_do__**
+- Git Commits: **to_do**
+
+#### Overview
+
+Implement a Tree-sitter parsing module that maps JS/TS/TSX source text into Symbol/Edge/Reference/Import records with deterministic `symbolId`s and 1-based ranges.
 
 #### Documentation Locations
 
@@ -295,8 +396,6 @@ Implement a Tree-sitter parsing module that maps JS/TS/TSX source text into Symb
 - Tree-sitter query files + tags metadata (tree-sitter.json): https://docs.rs/crate/tree-sitter-javascript/0.25.0/source/tree-sitter.json
 - node-gyp build prerequisites: https://github.com/nodejs/node-gyp
 - Tree-sitter query syntax: https://tree-sitter.github.io/tree-sitter/using-parsers#query-syntax
-- tree-sitter-javascript repo: https://github.com/tree-sitter/tree-sitter-javascript
-- tree-sitter-typescript repo: https://github.com/tree-sitter/tree-sitter-typescript
 - Node.js fs/promises: https://nodejs.org/api/fs.html#fspromisesreadfilepath-options
 - TypeScript handbook (types): https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
 - Node.js test runner: https://nodejs.org/api/test.html
@@ -316,20 +415,7 @@ Implement a Tree-sitter parsing module that maps JS/TS/TSX source text into Symb
      - `server/src/ingest/types.ts`
    - Notes:
      - Confirm how file hashes are computed so AST records can reuse the same hash.
-2. [ ] Add Tree-sitter dependencies:
-   - Files to edit:
-     - `server/package.json`
-     - `package-lock.json`
-   - Dependencies:
-     - `tree-sitter`
-     - `tree-sitter-javascript`
-     - `tree-sitter-typescript`
-3. [ ] Ensure Docker build can compile native Tree-sitter bindings:
-   - Files to edit:
-     - `server/Dockerfile`
-   - Implementation details:
-     - Install build essentials in the deps stage (e.g., `python3`, `make`, `g++`) before `npm ci`.
-4. [ ] Add AST parsing + symbol extraction module:
+2. [ ] Add AST parsing + symbol extraction module:
    - Documentation to read (repeat):
      - Tree-sitter docs (parsers): https://tree-sitter.github.io/tree-sitter/using-parsers
      - Node Tree-sitter bindings: https://tree-sitter.github.io/node-tree-sitter/index.html
@@ -351,7 +437,7 @@ Implement a Tree-sitter parsing module that maps JS/TS/TSX source text into Symb
      - Create a `Module` symbol per file to anchor IMPORTS/EXPORTS edges.
      - Treat `tree.rootNode.hasError` as a parse failure and surface it as `failed` output.
      - Keep parsing errors isolated to the file being parsed (return a failure result, do not throw).
-5. [ ] Unit tests — parser extracts expected symbols/edges:
+3. [ ] Unit tests — parser extracts expected symbols/edges:
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
    - Files to edit:
@@ -364,11 +450,11 @@ Implement a Tree-sitter parsing module that maps JS/TS/TSX source text into Symb
      - References include expected `relPath` + range for call sites.
      - Module imports include expected `source` and imported `names`.
      - Unsupported extension returns `{ language: 'unsupported', symbols: [] }` (or equivalent).
-6. [ ] Update documentation:
+4. [ ] Update documentation:
    - `design.md` (document parsing approach + query usage)
-7. [ ] Update documentation:
+5. [ ] Update documentation:
    - `projectStructure.md` (add new `server/src/ast` files + tests)
-8. [ ] Run full linting:
+6. [ ] Run full linting:
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -386,14 +472,14 @@ Implement a Tree-sitter parsing module that maps JS/TS/TSX source text into Symb
 
 ---
 
-### 3. Server: Ingest AST indexing + status payload updates
+### 5. Server: Ingest AST indexing + persistence
 
 - Task Status: **__to_do__**
 - Git Commits: **to_do**
 
 #### Overview
 
-Integrate AST parsing into ingest runs, persist AST data + coverage, and extend ingest status messages with `ast` counts so the UI can surface skipped/failed files.
+Integrate AST parsing into ingest runs and persist AST data + coverage without changing existing embedding behavior.
 
 #### Documentation Locations
 
@@ -453,25 +539,11 @@ Integrate AST parsing into ingest runs, persist AST data + coverage, and extend 
    - Implementation details:
      - Track which relPaths have been written during the run.
      - On cancel, delete AST records for those relPaths (or clear the root on `start`) to avoid partial data.
-6. [ ] Extend ingest status payload with AST counts:
-   - Files to edit:
-     - `server/src/ingest/ingestJob.ts`
-     - `server/src/ws/types.ts`
-   - Implementation details:
-     - Add optional `ast` object per contract.
-     - Ensure `ingest_snapshot` and `ingest_update` include `ast` when available.
-7. [ ] Update server tests for the new `ast` status fields:
-   - Files to edit:
-     - `server/src/test/unit/ingest-status.test.ts`
-     - `server/src/test/steps/ingest-status.steps.ts`
-     - `server/src/test/features/ingest-status.feature`
-   - Assertions:
-     - Status snapshots include `ast.supportedFileCount`, `skippedFileCount`, `failedFileCount`.
-8. [ ] Update documentation:
-   - `design.md` (extend ingest status contract + AST coverage notes)
-9. [ ] Update documentation:
+6. [ ] Update documentation:
+   - `design.md` (AST coverage + ingest persistence notes)
+7. [ ] Update documentation:
    - `projectStructure.md` (note any new files if added)
-10. [ ] Run full linting:
+8. [ ] Run full linting:
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -490,23 +562,19 @@ Integrate AST parsing into ingest runs, persist AST data + coverage, and extend 
 
 ---
 
-### 4. Server: AST tool service + REST endpoints
+### 6. Server: Ingest status AST fields
 
 - Task Status: **__to_do__**
 - Git Commits: **to_do**
 
 #### Overview
 
-Add AST tool service functions and `/tools/ast-*` REST endpoints that validate input, query AST data, and return contract-shaped responses with proper error handling.
+Extend ingest status payloads (REST + WS) with optional AST counts and update tests accordingly.
 
 #### Documentation Locations
 
 - Express routing + handlers: Context7 `/expressjs/express/v5.1.0`
-- Express 5 API reference: https://expressjs.com/en/5x/api.html
-- Mongoose queries: https://mongoosejs.com/docs/queries.html
-- MongoDB CRUD: https://www.mongodb.com/docs/manual/crud/
 - Node.js test runner: https://nodejs.org/api/test.html
-- Supertest HTTP assertions: https://github.com/forwardemail/supertest
 - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI: https://prettier.io/docs/cli
 - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
@@ -517,57 +585,23 @@ Add AST tool service functions and `/tools/ast-*` REST endpoints that validate i
 
 #### Subtasks
 
-1. [ ] Review tool patterns and error mapping:
-   - Files to read:
-     - `server/src/lmstudio/toolService.ts`
-     - `server/src/routes/toolsVectorSearch.ts`
-     - `server/src/routes/toolsIngestedRepos.ts`
-2. [ ] Add AST tool validation + query services:
+1. [ ] Extend ingest status payload with AST counts:
    - Files to edit:
-     - `server/src/ast/toolService.ts` (new)
+     - `server/src/ingest/ingestJob.ts`
+     - `server/src/ws/types.ts`
    - Implementation details:
-     - Implement validation for each AST tool request; apply default `limit=50` and cap at `200`.
-     - Resolve repository → root using `listIngestedRepositories` to match the existing repo id contract.
-     - When multiple repos share the same id, select the most recent `lastIngestAt`.
-     - Return `AST_INDEX_REQUIRED` (409) when no coverage data exists for the repo.
-     - Implement call graph traversal by following `CALLS` edges up to the requested depth.
-     - `AstModuleImports` should map persisted import records into `{ relPath, imports: [{ source, names[] }] }`.
-     - `AstFindReferences` should query `ast_references` by `symbolId` or by `{ name, kind }`.
-3. [ ] Add REST route handlers:
+     - Add optional `ast` object per contract.
+     - Ensure `ingest_snapshot` and `ingest_update` include `ast` when available.
+2. [ ] Update server tests for the new `ast` status fields:
    - Files to edit:
-     - `server/src/routes/toolsAstListSymbols.ts` (new)
-     - `server/src/routes/toolsAstFindDefinition.ts` (new)
-     - `server/src/routes/toolsAstFindReferences.ts` (new)
-     - `server/src/routes/toolsAstCallGraph.ts` (new)
-     - `server/src/routes/toolsAstModuleImports.ts` (new)
-     - `server/src/index.ts`
-   - Implementation details:
-     - Mirror the VectorSearch route error handling (`VALIDATION_FAILED`, `REPO_NOT_FOUND`, `INGEST_REQUIRED`, `AST_INDEX_REQUIRED`).
-4. [ ] Integration tests — REST endpoints:
-   - Documentation to read (repeat):
-     - Supertest HTTP assertions: https://github.com/forwardemail/supertest
-   - Files to edit:
-     - `server/src/test/integration/tools-ast.test.ts` (new)
+     - `server/src/test/unit/ingest-status.test.ts`
+     - `server/src/test/steps/ingest-status.steps.ts`
+     - `server/src/test/features/ingest-status.feature`
    - Assertions:
-     - Each endpoint returns contract-shaped payloads when the service is stubbed.
-     - Validation errors return `400` with details.
-   - Notes:
-     - Mirror the existing router test patterns from `server/src/test/unit/tools-vector-search.test.ts` / `tools-ingested-repos.test.ts` when stubbing deps.
-5. [ ] Unit tests — AST tool validation:
-   - Documentation to read (repeat):
-     - Node.js test runner: https://nodejs.org/api/test.html
-   - Files to edit:
-     - `server/src/test/unit/ast-tool-validation.test.ts` (new)
-   - Assertions:
-     - Missing required fields return `VALIDATION_FAILED`.
-     - `limit` defaults to 50 and caps at 200.
-6. [ ] Update documentation:
-   - `design.md` (REST tool contracts + error codes)
-7. [ ] Update documentation:
-   - `projectStructure.md` (add new route/service/test files)
-8. [ ] Update documentation:
-   - `openapi.json` (add `/tools/ast-*` endpoints)
-9. [ ] Run full linting:
+     - Status snapshots include `ast.supportedFileCount`, `skippedFileCount`, `failedFileCount`.
+3. [ ] Update documentation:
+   - `design.md` (extend ingest status contract)
+4. [ ] Run full linting:
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -585,7 +619,144 @@ Add AST tool service functions and `/tools/ast-*` REST endpoints that validate i
 
 ---
 
-### 5. Server: MCP AST tool definitions + handlers
+### 7. Server: AST tool service
+
+- Task Status: **__to_do__**
+- Git Commits: **to_do**
+
+#### Overview
+
+Add AST tool validation + query services for list/find/call-graph/modules and error handling.
+
+#### Documentation Locations
+
+- Mongoose queries: https://mongoosejs.com/docs/queries.html
+- MongoDB CRUD: https://www.mongodb.com/docs/manual/crud/
+- Node.js test runner: https://nodejs.org/api/test.html
+- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+- Prettier CLI: https://prettier.io/docs/cli
+- npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+- Jest: Context7 `/websites/jestjs_io_30_0`
+- Cucumber guides (overview): https://cucumber.io/docs/guides/
+- Playwright: Context7 `/microsoft/playwright`
+- Docker/Compose: Context7 `/docker/docs`
+
+#### Subtasks
+
+1. [ ] Review tool patterns and error mapping:
+   - Files to read:
+     - `server/src/lmstudio/toolService.ts`
+2. [ ] Add AST tool validation + query services:
+   - Files to edit:
+     - `server/src/ast/toolService.ts` (new)
+   - Implementation details:
+     - Implement validation for each AST tool request; apply default `limit=50` and cap at `200`.
+     - Resolve repository → root using `listIngestedRepositories` to match the existing repo id contract.
+     - When multiple repos share the same id, select the most recent `lastIngestAt`.
+     - Return `AST_INDEX_REQUIRED` (409) when no coverage data exists for the repo.
+     - Implement call graph traversal by following `CALLS` edges up to the requested depth.
+     - `AstModuleImports` should map persisted import records into `{ relPath, imports: [{ source, names[] }] }`.
+     - `AstFindReferences` should query `ast_references` by `symbolId` or by `{ name, kind }`.
+3. [ ] Unit tests — AST tool validation:
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+   - Files to edit:
+     - `server/src/test/unit/ast-tool-validation.test.ts` (new)
+   - Assertions:
+     - Missing required fields return `VALIDATION_FAILED`.
+     - `limit` defaults to 50 and caps at 200.
+4. [ ] Update documentation:
+   - `design.md` (AST tool service behavior)
+5. [ ] Update documentation:
+   - `projectStructure.md` (add new service/test files)
+6. [ ] Run full linting:
+   - `npm run lint --workspaces`
+   - `npm run format:check --workspaces`
+
+#### Testing
+
+1. [ ] Build the server (`npm run build --workspace server`)
+2. [ ] Build the client (`npm run build --workspace client`)
+3. [ ] Perform a clean docker build (`npm run compose:build`)
+4. [ ] Prove docker compose starts (`npm run compose:up`)
+5. [ ] Run server unit tests (`npm run test:unit --workspace server`)
+
+#### Implementation notes
+
+- 
+
+---
+
+### 8. Server: AST REST endpoints
+
+- Task Status: **__to_do__**
+- Git Commits: **to_do**
+
+#### Overview
+
+Expose `/tools/ast-*` REST endpoints that validate input, call the AST tool service, and return contract-shaped responses.
+
+#### Documentation Locations
+
+- Express routing + handlers: Context7 `/expressjs/express/v5.1.0`
+- Express 5 API reference: https://expressjs.com/en/5x/api.html
+- Node.js test runner: https://nodejs.org/api/test.html
+- Supertest HTTP assertions: https://github.com/forwardemail/supertest
+- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+- Prettier CLI: https://prettier.io/docs/cli
+- npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+- Jest: Context7 `/websites/jestjs_io_30_0`
+- Cucumber guides (overview): https://cucumber.io/docs/guides/
+- Playwright: Context7 `/microsoft/playwright`
+- Docker/Compose: Context7 `/docker/docs`
+
+#### Subtasks
+
+1. [ ] Add REST route handlers:
+   - Files to edit:
+     - `server/src/routes/toolsAstListSymbols.ts` (new)
+     - `server/src/routes/toolsAstFindDefinition.ts` (new)
+     - `server/src/routes/toolsAstFindReferences.ts` (new)
+     - `server/src/routes/toolsAstCallGraph.ts` (new)
+     - `server/src/routes/toolsAstModuleImports.ts` (new)
+     - `server/src/index.ts`
+   - Implementation details:
+     - Mirror the VectorSearch route error handling (`VALIDATION_FAILED`, `REPO_NOT_FOUND`, `INGEST_REQUIRED`, `AST_INDEX_REQUIRED`).
+2. [ ] Integration tests — REST endpoints:
+   - Documentation to read (repeat):
+     - Supertest HTTP assertions: https://github.com/forwardemail/supertest
+   - Files to edit:
+     - `server/src/test/integration/tools-ast.test.ts` (new)
+   - Assertions:
+     - Each endpoint returns contract-shaped payloads when the service is stubbed.
+     - Validation errors return `400` with details.
+   - Notes:
+     - Mirror the existing router test patterns from `server/src/test/unit/tools-vector-search.test.ts` / `tools-ingested-repos.test.ts` when stubbing deps.
+3. [ ] Update documentation:
+   - `design.md` (REST tool contracts + error codes)
+4. [ ] Update documentation:
+   - `projectStructure.md` (add new route/test files)
+5. [ ] Update documentation:
+   - `openapi.json` (add `/tools/ast-*` endpoints)
+6. [ ] Run full linting:
+   - `npm run lint --workspaces`
+   - `npm run format:check --workspaces`
+
+#### Testing
+
+1. [ ] Build the server (`npm run build --workspace server`)
+2. [ ] Build the client (`npm run build --workspace client`)
+3. [ ] Perform a clean docker build (`npm run compose:build`)
+4. [ ] Prove docker compose starts (`npm run compose:up`)
+5. [ ] Run server unit tests (`npm run test:unit --workspace server`)
+
+#### Implementation notes
+
+- 
+
+---
+
+### 9. Server: MCP AST tool definitions
 
 - Task Status: **__to_do__**
 - Git Commits: **to_do**
@@ -651,24 +822,21 @@ Expose AST tools through the MCP JSON-RPC server with schemas aligned to the RES
 
 ---
 
-### 6. Client: Ingest AST skip banner + type updates
+### 10. Client: Ingest status type updates
 
 - Task Status: **__to_do__**
 - Git Commits: **to_do**
 
 #### Overview
 
-Surface AST skip/failure counts in the Ingest page by extending ingest status types and rendering a non-blocking banner when AST indexing is skipped.
+Extend client ingest status types to include optional AST counts and update tests to accept the new fields.
 
 #### Documentation Locations
 
 - React 19 hooks reference: https://react.dev/reference/react
-- MUI Alert docs (MUI MCP, v6.4.x): https://llms.mui.com/material-ui/6.4.12/components/alert.md
-- MUI Stack docs (MUI MCP, v6.4.x): https://llms.mui.com/material-ui/6.4.12/components/stack.md
-- MUI Typography docs (MUI MCP, v6.4.x): https://llms.mui.com/material-ui/6.4.12/components/typography.md
+- TypeScript 5.9 release notes: https://www.typescriptlang.org/docs/handbook/release-notes/typescript-5-9.html
 - Jest (React testing): https://jestjs.io/docs/getting-started
 - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-- TypeScript 5.9 release notes: https://www.typescriptlang.org/docs/handbook/release-notes/typescript-5-9.html
 - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI: https://prettier.io/docs/cli
 - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
@@ -677,35 +845,26 @@ Surface AST skip/failure counts in the Ingest page by extending ingest status ty
 
 #### Subtasks
 
-1. [ ] Review ingest status types + UI layout patterns:
+1. [ ] Review ingest status types:
    - Files to read:
      - `client/src/hooks/useChatWs.ts`
      - `client/src/hooks/useIngestStatus.ts`
-     - `client/src/pages/IngestPage.tsx`
 2. [ ] Extend ingest status types for AST counts:
    - Files to edit:
      - `client/src/hooks/useChatWs.ts`
      - `client/src/hooks/useIngestStatus.ts`
    - Implementation details:
      - Add optional `ast` field with `supportedFileCount`, `skippedFileCount`, `failedFileCount`, `lastIndexedAt`.
-3. [ ] Add Ingest page banner for AST skips/failures:
-   - Files to edit:
-     - `client/src/pages/IngestPage.tsx`
-   - UI details:
-     - Show a non-blocking `Alert` when `ast.skippedFileCount > 0` with message “AST indexing skipped for X file(s) (unsupported language).”
-     - If `failedFileCount > 0`, show a warning/info banner noting failures and advising to check logs.
-     - Reuse the existing page-level `Alert` layout patterns already used for model lock and WS status (do not introduce a new banner component).
-4. [ ] Client tests — banner rendering:
+3. [ ] Client tests — ingest status shape updates:
    - Files to edit:
      - `client/src/test/ingestStatus.test.tsx`
    - Assertions:
-     - Banner appears when `ast.skippedFileCount > 0`.
-     - Banner hidden when counts are zero or missing.
+     - Existing ingest status tests accept optional `ast` fields without failing.
+4. [ ] Update documentation:
+   - `design.md` (client ingest status types)
 5. [ ] Update documentation:
-   - `design.md` (client ingest banner notes)
-6. [ ] Update documentation:
    - `projectStructure.md` (update if tests changed)
-7. [ ] Run full linting:
+6. [ ] Run full linting:
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -723,7 +882,67 @@ Surface AST skip/failure counts in the Ingest page by extending ingest status ty
 
 ---
 
-### 7. Final Task: Full verification + acceptance criteria
+### 11. Client: Ingest AST status banners
+
+- Task Status: **__to_do__**
+- Git Commits: **to_do**
+
+#### Overview
+
+Render non-blocking Ingest page banners for AST skipped/failed counts using existing Alert layout patterns.
+
+#### Documentation Locations
+
+- React 19 hooks reference: https://react.dev/reference/react
+- MUI Alert docs (MUI MCP, v6.4.x): https://llms.mui.com/material-ui/6.4.12/components/alert.md
+- MUI Stack docs (MUI MCP, v6.4.x): https://llms.mui.com/material-ui/6.4.12/components/stack.md
+- MUI Typography docs (MUI MCP, v6.4.x): https://llms.mui.com/material-ui/6.4.12/components/typography.md
+- Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+- Jest (React testing): https://jestjs.io/docs/getting-started
+- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+- Prettier CLI: https://prettier.io/docs/cli
+- npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+- Playwright: Context7 `/microsoft/playwright`
+- Docker/Compose: Context7 `/docker/docs`
+
+#### Subtasks
+
+1. [ ] Add Ingest page banner for AST skips/failures:
+   - Files to edit:
+     - `client/src/pages/IngestPage.tsx`
+   - UI details:
+     - Show a non-blocking `Alert` when `ast.skippedFileCount > 0` with message “AST indexing skipped for X file(s) (unsupported language).”
+     - If `failedFileCount > 0`, show a warning/info banner noting failures and advising to check logs.
+     - Reuse the existing page-level `Alert` layout patterns already used for model lock and WS status (do not introduce a new banner component).
+2. [ ] Client tests — banner rendering:
+   - Files to edit:
+     - `client/src/test/ingestStatus.test.tsx`
+   - Assertions:
+     - Banner appears when `ast.skippedFileCount > 0`.
+     - Banner hidden when counts are zero or missing.
+3. [ ] Update documentation:
+   - `design.md` (client ingest banner notes)
+4. [ ] Update documentation:
+   - `projectStructure.md` (update if tests changed)
+5. [ ] Run full linting:
+   - `npm run lint --workspaces`
+   - `npm run format:check --workspaces`
+
+#### Testing
+
+1. [ ] Build the server (`npm run build --workspace server`)
+2. [ ] Build the client (`npm run build --workspace client`)
+3. [ ] Perform a clean docker build (`npm run compose:build`)
+4. [ ] Prove docker compose starts (`npm run compose:up`)
+5. [ ] Run client unit tests (`npm run test --workspace client`)
+
+#### Implementation notes
+
+- 
+
+---
+
+### 12. Final Task: Full verification + acceptance criteria
 
 - Task Status: **__to_do__**
 - Git Commits: **to_do**

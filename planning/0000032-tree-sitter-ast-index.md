@@ -59,22 +59,27 @@ Note: Cross-repository symbol linking (e.g., linking imports in repo A to an ing
 - Extend `IngestJobStatus` (used by `GET /ingest/status/:runId`, `ingest_snapshot`, `ingest_update`) with an optional `ast` object:
   - `ast?: { supportedFileCount: number; skippedFileCount: number; failedFileCount: number; lastIndexedAt?: string }`.
   - `lastIndexedAt` is ISO-8601, present only when at least one file was parsed.
+  - `repository`/`root` in all AST tool calls refers to the same repo id returned by `ListIngestedRepositories` (derived from the ingest root metadata).
 
 ### New MCP + REST Tool Contracts (mirrors VectorSearch pattern)
 
-- `list_symbols` (MCP) + `POST /tools/ast-list-symbols` (REST)
+- MCP tool names use PascalCase to match existing tools: `AstListSymbols`, `AstFindDefinition`, `AstFindReferences`, `AstCallGraph`, `AstModuleImports`.
+- REST endpoints use `/tools/ast-*` with the same request/response payloads.
+- `limit` defaults to `50` and caps at `200` across list/search style endpoints.
+
+- `AstListSymbols` (MCP) + `POST /tools/ast-list-symbols` (REST)
   - Request: `{ repository: string; kinds?: string[]; limit?: number }`
   - Response: `{ symbols: SymbolRecord[] }`
-- `find_definition` + `POST /tools/ast-find-definition`
+- `AstFindDefinition` + `POST /tools/ast-find-definition`
   - Request: `{ repository: string; symbolId?: string; name?: string; kind?: string }`
   - Response: `{ symbol: SymbolRecord | null }`
-- `find_references` + `POST /tools/ast-find-references`
+- `AstFindReferences` + `POST /tools/ast-find-references`
   - Request: `{ repository: string; symbolId?: string; name?: string; kind?: string }`
   - Response: `{ references: ReferenceRecord[] }`
-- `call_graph` + `POST /tools/ast-call-graph`
+- `AstCallGraph` + `POST /tools/ast-call-graph`
   - Request: `{ repository: string; symbolId: string; depth?: number }`
   - Response: `{ nodes: SymbolRecord[]; edges: EdgeRecord[] }`
-- `module_imports` + `POST /tools/ast-module-imports`
+- `AstModuleImports` + `POST /tools/ast-module-imports`
   - Request: `{ repository: string; relPath?: string }`
   - Response: `{ modules: ModuleImportsRecord[] }`
 

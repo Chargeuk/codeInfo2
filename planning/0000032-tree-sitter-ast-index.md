@@ -101,6 +101,12 @@ Error model mirrors VectorSearch (`VALIDATION_FAILED`, `REPO_NOT_FOUND`, `INGEST
 - `ast_edges`
   - Fields: `root`, `relPath`, `fileHash`, `fromSymbolId`, `toSymbolId`, `type`, `createdAt`.
   - Indexes: `{ root: 1, fromSymbolId: 1 }`, `{ root: 1, toSymbolId: 1 }`, `{ root: 1, relPath: 1, fileHash: 1 }`.
+- `ast_references`
+  - Fields: `root`, `relPath`, `fileHash`, `symbolId?`, `name`, `kind?`, `range`, `createdAt`.
+  - Indexes: `{ root: 1, symbolId: 1 }`, `{ root: 1, name: 1, kind: 1 }`, `{ root: 1, relPath: 1, fileHash: 1 }`.
+- `ast_module_imports`
+  - Fields: `root`, `relPath`, `fileHash`, `imports: [{ source, names[] }]`, `createdAt`, `updatedAt`.
+  - Indexes: `{ root: 1, relPath: 1, fileHash: 1 }`, `{ root: 1, relPath: 1 }`.
 - `ast_coverage`
   - Fields: `root`, `supportedFileCount`, `skippedFileCount`, `failedFileCount`, `lastIndexedAt`, `createdAt`, `updatedAt`.
   - Indexes: `{ root: 1 }` (unique).
@@ -180,7 +186,7 @@ This should only be started once all the above sections are clear and understood
 
 #### Overview
 
-Create Mongo collections for AST symbols, edges, and coverage, plus repo helper functions with Mongo-disconnected guards so AST indexing can store/query data safely.
+Create Mongo collections for AST symbols, edges, references, module imports, and coverage, plus repo helper functions with Mongo-disconnected guards so AST indexing can store/query data safely.
 
 #### Documentation Locations
 
@@ -214,15 +220,18 @@ Create Mongo collections for AST symbols, edges, and coverage, plus repo helper 
    - Files to edit:
      - `server/src/mongo/astSymbol.ts` (new)
      - `server/src/mongo/astEdge.ts` (new)
+     - `server/src/mongo/astReference.ts` (new)
+     - `server/src/mongo/astModuleImport.ts` (new)
      - `server/src/mongo/astCoverage.ts` (new)
    - Implementation details:
-     - Match field names + indexes exactly from Message Contracts (`ast_symbols`, `ast_edges`, `ast_coverage`).
+     - Match field names + indexes exactly from Message Contracts (`ast_symbols`, `ast_edges`, `ast_references`, `ast_module_imports`, `ast_coverage`).
      - Ensure `{ root, symbolId }` is unique per root for symbols.
 3. [ ] Add repo helpers for AST collections with Mongo guards:
    - Files to edit:
      - `server/src/mongo/repo.ts`
    - Implementation details:
      - Add list/upsert/clear helpers for symbols, edges, and coverage.
+     - Add list/upsert/clear helpers for references and module imports.
      - Follow existing `readyState` guard pattern used for ingest files.
      - Prefer bulkWrite for symbol/edge upserts and deleteMany for clears.
 4. [ ] Unit tests — schema + index coverage:
@@ -231,6 +240,8 @@ Create Mongo collections for AST symbols, edges, and coverage, plus repo helper 
    - Files to edit:
      - `server/src/test/unit/ast-symbols-schema.test.ts` (new)
      - `server/src/test/unit/ast-edges-schema.test.ts` (new)
+     - `server/src/test/unit/ast-references-schema.test.ts` (new)
+     - `server/src/test/unit/ast-module-imports-schema.test.ts` (new)
      - `server/src/test/unit/ast-coverage-schema.test.ts` (new)
    - Assertions:
      - Required fields exist.
@@ -306,14 +317,19 @@ Implement a Tree-sitter parsing module that maps JS/TS/TSX source text into Symb
      - `tree-sitter`
      - `tree-sitter-javascript`
      - `tree-sitter-typescript`
-3. [ ] Add AST parsing + symbol extraction module:
+3. [ ] Ensure Docker build can compile native Tree-sitter bindings:
+   - Files to edit:
+     - `server/Dockerfile`
+   - Implementation details:
+     - Install build essentials in the deps stage (e.g., `python3`, `make`, `g++`) before `npm ci`.
+4. [ ] Add AST parsing + symbol extraction module:
    - Documentation to read (repeat):
      - Tree-sitter docs (parsers): https://tree-sitter.github.io/tree-sitter/using-parsers
    - Files to edit:
      - `server/src/ast/parser.ts` (new)
      - `server/src/ast/types.ts` (new)
    - Implementation details:
-     - Export `parseAstSource({ text, relPath, fileHash })` returning `{ language, symbols, edges, references, imports }`.
+     - Export `parseAstSource({ root, text, relPath, fileHash })` returning `{ language, symbols, edges, references, imports }`.
      - Load JS/TS/TSX grammars and select parser by file extension.
      - Load `queries/tags.scm` / `queries/locals.scm` from the grammar packages when present; use them for definitions/references before any manual AST walking.
      - Constrain symbol kinds to the Option B list: `Module`, `Class`, `Function`, `Method`, `Interface`, `TypeAlias`, `Enum`, `Property`.
@@ -322,8 +338,10 @@ Implement a Tree-sitter parsing module that maps JS/TS/TSX source text into Symb
      - Generate deterministic `symbolId` from `{ root, relPath, kind, name, range }` and handle collisions with a stable suffix.
      - Populate `container` for child symbols where a parent name or symbol id is available.
      - Return `imports` data shaped for `ModuleImportsRecord` and `references` data shaped for `ReferenceRecord`.
+     - Create a `Module` symbol per file to anchor IMPORTS/EXPORTS edges.
+     - Treat `tree.rootNode.hasError` as a parse failure and surface it as `failed` output.
      - Keep parsing errors isolated to the file being parsed (return a failure result, do not throw).
-4. [ ] Unit tests — parser extracts expected symbols/edges:
+5. [ ] Unit tests — parser extracts expected symbols/edges:
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
    - Files to edit:
@@ -333,12 +351,14 @@ Implement a Tree-sitter parsing module that maps JS/TS/TSX source text into Symb
    - Assertions:
      - Symbols include expected `kind`, `name`, and 1-based ranges.
      - `symbolId` is stable across repeated runs.
+     - References include expected `relPath` + range for call sites.
+     - Module imports include expected `source` and imported `names`.
      - Unsupported extension returns `{ language: 'unsupported', symbols: [] }` (or equivalent).
-5. [ ] Update documentation:
-   - `design.md` (document parsing approach + query usage)
 6. [ ] Update documentation:
+   - `design.md` (document parsing approach + query usage)
+7. [ ] Update documentation:
    - `projectStructure.md` (add new `server/src/ast` files + tests)
-7. [ ] Run full linting:
+8. [ ] Run full linting:
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -393,6 +413,7 @@ Integrate AST parsing into ingest runs, persist AST data + coverage, and extend 
    - Files to edit:
      - `server/src/ingest/ingestJob.ts`
    - Implementation details:
+     - Use the existing `discoverFiles` output (do not rescan) so include/exclude rules match vector ingest.
      - Parse `.ts`, `.tsx`, `.js`, `.jsx` files only; increment `skippedFileCount` for others.
      - For supported files, call the parser module and increment `supportedFileCount` / `failedFileCount` accordingly.
      - Skip writes when `dryRun` is true, but still compute counts.
@@ -412,26 +433,35 @@ Integrate AST parsing into ingest runs, persist AST data + coverage, and extend 
    - Implementation details:
      - For `start`, clear any existing AST records for the root before inserting new ones.
      - For `reembed` with delta, delete AST records for deleted/changed files and upsert new records for added/changed files.
+     - Persist `ast_references` and `ast_module_imports` alongside symbols/edges.
+     - Ensure unchanged files keep their existing AST records (no delete for `deltaPlan.unchanged`).
+     - If delta plan has no changes, skip AST re-indexing and leave existing AST records untouched.
      - Update `ast_coverage` with `supportedFileCount`, `skippedFileCount`, `failedFileCount`, and `lastIndexedAt` (ISO).
-5. [ ] Extend ingest status payload with AST counts:
+5. [ ] Handle cancellation cleanup for AST records:
+   - Files to edit:
+     - `server/src/ingest/ingestJob.ts`
+   - Implementation details:
+     - Track which relPaths have been written during the run.
+     - On cancel, delete AST records for those relPaths (or clear the root on `start`) to avoid partial data.
+6. [ ] Extend ingest status payload with AST counts:
    - Files to edit:
      - `server/src/ingest/ingestJob.ts`
      - `server/src/ws/types.ts`
    - Implementation details:
      - Add optional `ast` object per contract.
      - Ensure `ingest_snapshot` and `ingest_update` include `ast` when available.
-6. [ ] Update server tests for the new `ast` status fields:
+7. [ ] Update server tests for the new `ast` status fields:
    - Files to edit:
      - `server/src/test/unit/ingest-status.test.ts`
      - `server/src/test/steps/ingest-status.steps.ts`
      - `server/src/test/features/ingest-status.feature`
    - Assertions:
      - Status snapshots include `ast.supportedFileCount`, `skippedFileCount`, `failedFileCount`.
-7. [ ] Update documentation:
-   - `design.md` (extend ingest status contract + AST coverage notes)
 8. [ ] Update documentation:
+   - `design.md` (extend ingest status contract + AST coverage notes)
+9. [ ] Update documentation:
    - `projectStructure.md` (note any new files if added)
-9. [ ] Run full linting:
+10. [ ] Run full linting:
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -488,9 +518,11 @@ Add AST tool service functions and `/tools/ast-*` REST endpoints that validate i
    - Implementation details:
      - Implement validation for each AST tool request; apply default `limit=50` and cap at `200`.
      - Resolve repository → root using `listIngestedRepositories` to match the existing repo id contract.
+     - When multiple repos share the same id, select the most recent `lastIngestAt`.
      - Return `AST_INDEX_REQUIRED` (409) when no coverage data exists for the repo.
      - Implement call graph traversal by following `CALLS` edges up to the requested depth.
      - `AstModuleImports` should map persisted import records into `{ relPath, imports: [{ source, names[] }] }`.
+     - `AstFindReferences` should query `ast_references` by `symbolId` or by `{ name, kind }`.
 3. [ ] Add REST route handlers:
    - Files to edit:
      - `server/src/routes/toolsAstListSymbols.ts` (new)

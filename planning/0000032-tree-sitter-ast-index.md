@@ -45,9 +45,9 @@ Note: Cross-repository symbol linking (e.g., linking imports in repo A to an ing
 - MCP tools (Option B) are available for supported repositories and return JSON with file paths + ranges:
   - `AstListSymbols` returns an array of symbol records.
   - `AstFindDefinition` returns a single symbol record (or empty result when not found).
-  - `AstFindReferences` returns an array of `{ relPath, range }` references.
+  - `AstFindReferences` returns an array of `{ relPath, range, symbolId? }` references.
   - `AstCallGraph` returns `{ nodes: symbol[], edges: edge[] }` for the requested entry point.
-  - `AstModuleImports` returns `{ relPath, imports: [{ source, names[] }] }`.
+  - `AstModuleImports` returns `{ modules: [{ relPath, imports: [{ source, names[] }] }] }`.
 - REST endpoints mirror MCP tools using `/tools/ast-*` and the same request/response payloads (JSON schema parity with MCP output schemas).
 
 ---

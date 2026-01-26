@@ -214,6 +214,7 @@ Create Mongo collections for AST symbols, edges, references, module imports, and
      - `server/src/test/unit/ingest-files-repo-guards.test.ts`
    - Notes:
      - Confirm how collection names, timestamps, and indexes are defined.
+     - Reuse the existing `mongoose.connection.readyState` guard + bulkWrite pattern (do not introduce a new DB access layer).
 2. [ ] Add AST Mongo schema models:
    - Documentation to read (repeat):
      - MongoDB indexes: https://www.mongodb.com/docs/manual/indexes/
@@ -541,6 +542,8 @@ Add AST tool service functions and `/tools/ast-*` REST endpoints that validate i
    - Assertions:
      - Each endpoint returns contract-shaped payloads when the service is stubbed.
      - Validation errors return `400` with details.
+   - Notes:
+     - Mirror the existing router test patterns from `server/src/test/unit/tools-vector-search.test.ts` / `tools-ingested-repos.test.ts` when stubbing deps.
 5. [ ] Unit tests — AST tool validation:
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
@@ -680,6 +683,7 @@ Surface AST skip/failure counts in the Ingest page by extending ingest status ty
    - UI details:
      - Show a non-blocking `Alert` when `ast.skippedFileCount > 0` with message “AST indexing skipped for X file(s) (unsupported language).”
      - If `failedFileCount > 0`, show a warning/info banner noting failures and advising to check logs.
+     - Reuse the existing page-level `Alert` layout patterns already used for model lock and WS status (do not introduce a new banner component).
 4. [ ] Client tests — banner rendering:
    - Files to edit:
      - `client/src/test/ingestStatus.test.tsx`

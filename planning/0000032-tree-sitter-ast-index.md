@@ -27,17 +27,23 @@ Note: Cross-repository symbol linking (e.g., linking imports in repo A to an ing
 
 ## Acceptance Criteria
 
-- Ingest and re-embed flows attempt Tree-sitter AST indexing for supported languages (TypeScript/JavaScript).
-- For unsupported languages, the server logs a warning and the Ingest UI shows a non-blocking info banner indicating AST indexing was skipped for those files.
-- AST indexing does not change existing embed/vector behavior or model locking rules.
-- AST artifacts are stored persistently and can be queried through MCP tools (e.g., list symbols, find definition, find references, call graph) for supported repositories.
-- Indexing respects ingest include/exclude rules and uses file hashes to avoid reprocessing unchanged files.
-- The system records which roots have AST coverage and which files were skipped due to unsupported languages.
-- AST artifacts are stored in Mongo using shared collections keyed by repo/root + file hash (no per-root collections).
-- Dry-run ingest executes the full AST indexing pipeline (no skips).
-- AST index schema (Option B): symbols include Module, Class, Function, Method, Interface, TypeAlias, Enum, Property; edges include DEFINES, CALLS, IMPORTS, EXPORTS, EXTENDS, IMPLEMENTS, REFERENCES_TYPE.
-- MCP tools (Option B): `list_symbols`, `find_definition`, `find_references`, `call_graph`, `module_imports` for supported repositories.
-- REST endpoints mirror MCP tools (same pattern as vector tools).
+- Ingest `start` and `reembed` runs attempt Tree-sitter AST indexing for supported file types: `.ts`, `.tsx`, `.js`, `.jsx`.
+- Unsupported files are skipped **per file** (not per repo); a warning log includes the root, skipped file count, and example paths, and the Ingest UI shows a non-blocking banner with the skipped count and reason (“unsupported language”).
+- AST indexing is additive: vector embeddings, ingest status counts, and model locking behavior remain unchanged when AST indexing is enabled.
+- Indexing respects ingest include/exclude rules and file hashes; unchanged files (same hash as last AST index) are not re-parsed and keep their existing AST records.
+- AST artifacts are stored in Mongo using shared collections keyed by `root + relPath + fileHash` (no per-root collections).
+- Each stored symbol record includes: `root`, `relPath`, `fileHash`, `language`, `kind`, `name`, `range` (start/end line+column), and optional `container` (parent symbol id or name).
+- Each stored edge record includes: `root`, `fromSymbolId`, `toSymbolId`, `type`, and the `relPath`/`fileHash` that produced it.
+- The system records AST coverage per ingest root with: `supportedFileCount`, `skippedFileCount`, `failedFileCount`, and `lastIndexedAt`.
+- Dry-run ingest performs the full AST parse and produces counts, but does **not** persist symbol/edge records.
+- AST index schema (Option B): symbols include `Module`, `Class`, `Function`, `Method`, `Interface`, `TypeAlias`, `Enum`, `Property`; edges include `DEFINES`, `CALLS`, `IMPORTS`, `EXPORTS`, `EXTENDS`, `IMPLEMENTS`, `REFERENCES_TYPE`.
+- MCP tools (Option B) are available for supported repositories and return JSON with file paths + ranges:
+  - `list_symbols` returns an array of symbol records.
+  - `find_definition` returns a single symbol record (or empty result when not found).
+  - `find_references` returns an array of `{ relPath, range }` references.
+  - `call_graph` returns `{ nodes: symbol[], edges: edge[] }` for the requested entry point.
+  - `module_imports` returns `{ relPath, imports: [{ source, names[] }] }`.
+- REST endpoints mirror MCP tools using the `/tools/` prefix and the same request/response payloads.
 
 ---
 

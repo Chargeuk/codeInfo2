@@ -22,9 +22,7 @@ describe('codexDeviceAuth', () => {
 
     assert.equal(result.ok, true);
     if (result.ok) {
-      assert.equal(result.verificationUrl, 'https://example.com/device');
-      assert.equal(result.userCode, 'ABCD-EFGH');
-      assert.equal(result.expiresInSec, 900);
+      assert.equal(result.rawOutput, stdout);
     }
   });
 
@@ -48,9 +46,12 @@ describe('codexDeviceAuth', () => {
 
     assert.equal(result.ok, true);
     if (result.ok) {
-      assert.equal(result.verificationUrl, 'https://example.com/device');
-      assert.equal(result.userCode, 'ABCD-EFGH');
-      assert.equal(result.expiresInSec, 900);
+      assert.equal(
+        result.rawOutput,
+        'Open https://example.com/device and enter code ABCD-EFGH.\n' +
+          'Code expires in 900 seconds.\n' +
+          'Use codex device auth to continue.',
+      );
     }
   });
 
@@ -109,6 +110,12 @@ describe('codexDeviceAuth', () => {
 
     const result = await runPromise;
     assert.equal(result.ok, true);
+    if (result.ok) {
+      assert.equal(
+        result.rawOutput,
+        'Open https://example.com/device and enter code ABCD-EFGH.\n',
+      );
+    }
 
     let completionResolved = false;
     const completionPromise = result.completion.then((completion) => {

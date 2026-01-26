@@ -10,9 +10,7 @@ export type CodexDeviceAuthRequest = {
 
 export type CodexDeviceAuthResponse = {
   status: string;
-  verificationUrl: string;
-  userCode: string;
-  expiresInSec?: number;
+  rawOutput: string;
   target: CodexDeviceAuthTarget;
   agentName?: string;
 };
@@ -135,29 +133,18 @@ export async function postCodexDeviceAuth(
 
   const data = (await res.json()) as Record<string, unknown>;
   const status = typeof data.status === 'string' ? data.status : '';
-  const verificationUrl =
-    typeof data.verificationUrl === 'string' ? data.verificationUrl : '';
-  const userCode = typeof data.userCode === 'string' ? data.userCode : '';
+  const rawOutput = typeof data.rawOutput === 'string' ? data.rawOutput : '';
   const target = typeof data.target === 'string' ? data.target : '';
   const agentName =
     typeof data.agentName === 'string' ? data.agentName : undefined;
-  const expiresInSec =
-    typeof data.expiresInSec === 'number' ? data.expiresInSec : undefined;
 
-  if (
-    !status ||
-    !verificationUrl ||
-    !userCode ||
-    (target !== 'chat' && target !== 'agent')
-  ) {
+  if (!status || !rawOutput || (target !== 'chat' && target !== 'agent')) {
     throw new Error('Invalid codex device auth response');
   }
 
   return {
     status,
-    verificationUrl,
-    userCode,
-    expiresInSec,
+    rawOutput,
     target: target as CodexDeviceAuthTarget,
     agentName,
   };

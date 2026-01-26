@@ -20,18 +20,14 @@ describe('Codex device-auth API helper', () => {
       json: async () => ({
         status: 'completed',
         target: 'chat',
-        verificationUrl: 'https://example.com/device',
-        userCode: 'ABCD-EFGH',
-        expiresInSec: 300,
+        rawOutput: 'Open https://example.com/device and enter code ABCD-EFGH.',
       }),
     } as unknown as Response);
 
     await expect(postCodexDeviceAuth({ target: 'chat' })).resolves.toEqual({
       status: 'completed',
       target: 'chat',
-      verificationUrl: 'https://example.com/device',
-      userCode: 'ABCD-EFGH',
-      expiresInSec: 300,
+      rawOutput: 'Open https://example.com/device and enter code ABCD-EFGH.',
       agentName: undefined,
     });
   });

@@ -318,9 +318,8 @@ export function createCodexDeviceAuthRouter(
         requestId,
         target: parsedBody.target,
         agentName: parsedBody.agentName,
-        hasVerificationUrl: Boolean(deviceAuth.verificationUrl),
-        hasUserCode: Boolean(deviceAuth.userCode),
-        hasExpiresInSec: deviceAuth.expiresInSec !== undefined,
+        hasRawOutput: Boolean(deviceAuth.rawOutput),
+        rawOutputLength: deviceAuth.rawOutput.length,
       },
       'DEV-0000031:T2:codex_device_auth_request_completed',
     );
@@ -329,9 +328,7 @@ export function createCodexDeviceAuthRouter(
       status: 'completed',
       target: parsedBody.target,
       agentName: parsedBody.agentName,
-      verificationUrl: deviceAuth.verificationUrl,
-      userCode: deviceAuth.userCode,
-      expiresInSec: deviceAuth.expiresInSec,
+      rawOutput: deviceAuth.rawOutput,
     });
   });
 

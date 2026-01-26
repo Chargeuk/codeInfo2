@@ -40,13 +40,6 @@ describe('CodexDeviceAuthDialog', () => {
   beforeEach(() => {
     postCodexDeviceAuth.mockReset();
     logSpy.mockReset();
-    if (!navigator.clipboard) {
-      Object.defineProperty(global.navigator, 'clipboard', {
-        value: { writeText: () => Promise.resolve() },
-        configurable: true,
-      });
-    }
-    jest.spyOn(navigator.clipboard, 'writeText').mockResolvedValue(undefined);
   });
 
   afterEach(() => {
@@ -77,14 +70,12 @@ describe('CodexDeviceAuthDialog', () => {
     resolvePromise?.();
   });
 
-  it('renders verification details on success', async () => {
+  it('renders raw output with linkified URLs on success', async () => {
     const user = userEvent.setup();
     postCodexDeviceAuth.mockResolvedValue({
       status: 'completed',
       target: 'chat',
-      verificationUrl: 'https://example.com/device',
-      userCode: 'ABCD-EFGH',
-      expiresInSec: 120,
+      rawOutput: 'Open https://example.com/device and enter code ABCD-EFGH.',
     });
 
     renderDialog();
@@ -100,17 +91,17 @@ describe('CodexDeviceAuthDialog', () => {
     expect(link).toHaveAttribute('href', 'https://example.com/device');
     expect(link).toHaveAttribute('target', '_blank');
     expect(link).toHaveAttribute('rel', 'noreferrer');
-    expect(screen.getByText('ABCD-EFGH')).toBeInTheDocument();
-    expect(screen.getByText('Expires in 120 seconds.')).toBeInTheDocument();
+    const outputBlock = screen.getByText(/Open/i);
+    expect(outputBlock.closest('pre')).not.toBeNull();
+    expect(screen.getByText(/ABCD-EFGH/i)).toBeInTheDocument();
   });
 
-  it('renders user code as text instead of an input', async () => {
+  it('renders raw output inside a read-only block', async () => {
     const user = userEvent.setup();
     postCodexDeviceAuth.mockResolvedValue({
       status: 'completed',
       target: 'chat',
-      verificationUrl: 'https://example.com/device',
-      userCode: 'ABCD-EFGH',
+      rawOutput: 'Open https://example.com/device and enter code ABCD-EFGH.',
     });
 
     renderDialog();
@@ -119,8 +110,8 @@ describe('CodexDeviceAuthDialog', () => {
       screen.getByRole('button', { name: /start device auth/i }),
     );
 
-    expect(await screen.findByText('ABCD-EFGH')).toBeInTheDocument();
-    expect(screen.queryByDisplayValue('ABCD-EFGH')).not.toBeInTheDocument();
+    const output = await screen.findByText(/Open/i);
+    expect(output.closest('pre')).not.toBeNull();
   });
 
   it('shows error message and re-enables start after failure', async () => {
@@ -160,43 +151,13 @@ describe('CodexDeviceAuthDialog', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it('copies verification URL and user code', async () => {
-    const user = userEvent.setup();
-    const clipboard = navigator.clipboard.writeText as jest.Mock;
-    postCodexDeviceAuth.mockResolvedValue({
-      status: 'completed',
-      target: 'chat',
-      verificationUrl: 'https://example.com/device',
-      userCode: 'ABCD-EFGH',
-    });
-
-    renderDialog();
-
-    await user.click(
-      screen.getByRole('button', { name: /start device auth/i }),
-    );
-
-    await screen.findByRole('link', {
-      name: 'https://example.com/device',
-    });
-
-    await user.click(
-      screen.getByRole('button', { name: /copy verification url/i }),
-    );
-    await user.click(screen.getByRole('button', { name: /copy user code/i }));
-
-    expect(clipboard).toHaveBeenCalledWith('https://example.com/device');
-    expect(clipboard).toHaveBeenCalledWith('ABCD-EFGH');
-  });
-
   it('sends selected agent target in the request payload', async () => {
     const user = userEvent.setup();
     postCodexDeviceAuth.mockResolvedValue({
       status: 'completed',
       target: 'agent',
       agentName: 'alpha',
-      verificationUrl: 'https://example.com/device',
-      userCode: 'ABCD-EFGH',
+      rawOutput: 'Open https://example.com/device and enter code ABCD-EFGH.',
     });
 
     renderDialog();

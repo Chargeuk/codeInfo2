@@ -2221,7 +2221,7 @@ Replace the verification URL + user code fields with a single read-only output b
 
 #### Subtasks
 
-1. [ ] Review current device-auth route + dialog rendering:
+1. [x] Review current device-auth route + dialog rendering:
    - Documentation to read (repeat):
      - MUI Dialog API: https://mui.com/material-ui/api/dialog/
    - Files to read:
@@ -2229,7 +2229,7 @@ Replace the verification URL + user code fields with a single read-only output b
      - `server/src/routes/codex.ts`
      - `client/src/components/codex/CodexDeviceAuthDialog.tsx`
      - `client/src/api/codexDeviceAuth.ts`
-2. [ ] Return raw output from the device-auth helper + route:
+2. [x] Return raw output from the device-auth helper + route:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
@@ -2239,14 +2239,14 @@ Replace the verification URL + user code fields with a single read-only output b
      - Strip ANSI from stdout and return `rawOutput` only on success.
      - Preserve error handling for non-zero exit and expired/declined messages.
      - Avoid logging rawOutput; log only lengths/flags.
-3. [ ] Update API types + response parsing:
+3. [x] Update API types + response parsing:
    - Documentation to read (repeat):
      - React event handling: https://react.dev/learn/responding-to-events
    - Files to edit:
      - `client/src/api/codexDeviceAuth.ts`
    - Implementation details:
      - Update response shape to `{ rawOutput: string }` and remove verificationUrl/userCode usage.
-4. [ ] Replace dialog output section with raw text + linkified URLs:
+4. [x] Replace dialog output section with raw text + linkified URLs:
    - Documentation to read (repeat):
      - MUI Link API: https://mui.com/material-ui/api/link/
      - MUI Typography API: https://mui.com/material-ui/api/typography/
@@ -2256,7 +2256,7 @@ Replace the verification URL + user code fields with a single read-only output b
      - Render rawOutput in a read-only monospace block (no copy button).
      - Convert http/https URLs into clickable links that open in a new tab/window.
      - Keep the rest of the dialog flow (loading/error states, close/start buttons).
-5. [ ] Update tests for raw output rendering + linkification:
+5. [x] Update tests for raw output rendering + linkification:
    - Documentation to read (repeat):
      - Jest: Context7 `/websites/jestjs_io_30_0`
      - Jest docs: https://jestjs.io/docs/getting-started
@@ -2267,19 +2267,19 @@ Replace the verification URL + user code fields with a single read-only output b
    - Description & purpose:
      - Assert server responses include `rawOutput` only.
      - Ensure the dialog shows the raw output text and linkifies URLs.
-6. [ ] Update OpenAPI schema for the new response shape:
+6. [x] Update OpenAPI schema for the new response shape:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to edit:
      - `openapi.json`
-7. [ ] Update `projectStructure.md` after any file additions/removals in this task.
+7. [x] Update `projectStructure.md` after any file additions/removals in this task.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Files to read:
    - `projectStructure.md`
   - Files to edit:
     - `projectStructure.md`
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+8. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -2292,36 +2292,49 @@ Replace the verification URL + user code fields with a single read-only output b
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
+1. [x] `npm run build --workspace server`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-2. [ ] `npm run build --workspace client`
+2. [x] `npm run build --workspace client`
    - Documentation to read (repeat):
      - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
    - Documentation to read (repeat):
      - Jest: Context7 `/websites/jestjs_io_30_0`
      - Jest docs: https://jestjs.io/docs/getting-started
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
    - Documentation to read (repeat):
      - Playwright: Context7 `/microsoft/playwright`
      - Playwright docs (intro): https://playwright.dev/docs/intro
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
-8. [ ] `npm run compose:down`
+8. [x] `npm run compose:down`
    - Documentation to read (repeat):
      - Docker/Compose: Context7 `/docker/docs`
 
 #### Implementation notes
 
-- 
+- 2026-01-26: Reviewed device-auth helper, route, API helper, and dialog to plan raw-output swap.
+- 2026-01-26: Updated device-auth helper + route to return rawOutput only and log length/flags instead of URL/code.
+- 2026-01-26: Updated client API + dialog to consume rawOutput and render a monospace block with linkified URLs.
+- 2026-01-26: Updated server/client tests and OpenAPI schema for rawOutput-only responses.
+- 2026-01-26: `projectStructure.md` unchanged (no files added or removed).
+- 2026-01-26: `npm run lint --workspaces` still reports pre-existing import-order warnings; format check now passes after running Prettier.
+- 2026-01-26: `npm run build --workspace server` succeeded.
+- 2026-01-26: `npm run build --workspace client` succeeded (chunk size warning only).
+- 2026-01-26: `TMPDIR=/tmp npm run test --workspace server` succeeded (54 scenarios passed).
+- 2026-01-26: `TMPDIR=/tmp npm run test --workspace client` passed (console warnings only).
+- 2026-01-26: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run e2e` passed (36 tests).
+- 2026-01-26: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run compose:build` succeeded.
+- 2026-01-26: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run compose:up` started the stack successfully.
+- 2026-01-26: `TMPDIR=/tmp HOME=/tmp DOCKER_CONFIG=/tmp/docker-config npm run compose:down` stopped the stack successfully.
 
 ---
 

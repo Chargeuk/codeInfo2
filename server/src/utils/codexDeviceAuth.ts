@@ -5,9 +5,7 @@ import { baseLogger } from '../logger.js';
 
 export type CodexDeviceAuthSuccess = {
   ok: true;
-  verificationUrl: string;
-  userCode: string;
-  expiresInSec?: number;
+  rawOutput: string;
 };
 
 export type CodexDeviceAuthFailure = {
@@ -43,7 +41,6 @@ const userCodeRegex = /\b(?:user\s*code|code)\b\s*[:=\-]?\s*([A-Z0-9-]{6,})/i;
 const verificationUrlRedactRegex = /https?:\/\/\S+/gi;
 const userCodeRedactRegex =
   /\b(?:user\s*code|code)\b\s*[:=\-]?\s*[A-Z0-9-]{6,}/gi;
-const expiresRegex = /expires?\s*in\s*(\d+)\s*seconds?/i;
 const expiredStderrRegex = /(expired|declined)/i;
 
 export function parseCodexDeviceAuthOutput(
@@ -53,8 +50,6 @@ export function parseCodexDeviceAuthOutput(
   const verificationUrl = normalized.match(verificationUrlRegex)?.[0];
   const userCodeMatch = normalized.match(userCodeRegex);
   const userCode = userCodeMatch?.[1];
-  const expiresMatch = normalized.match(expiresRegex);
-  const expiresInSec = expiresMatch ? Number(expiresMatch[1]) : undefined;
 
   if (!verificationUrl || !userCode) {
     return { ok: false, message: deviceAuthErrorMessage };
@@ -62,9 +57,7 @@ export function parseCodexDeviceAuthOutput(
 
   return {
     ok: true,
-    verificationUrl,
-    userCode,
-    expiresInSec: Number.isFinite(expiresInSec) ? expiresInSec : undefined,
+    rawOutput: normalized,
   };
 }
 
@@ -128,9 +121,10 @@ export async function runCodexDeviceAuth(params?: {
       if (result.ok) {
         baseLogger.info(
           {
-            hasVerificationUrl: Boolean(result.verificationUrl),
-            hasUserCode: Boolean(result.userCode),
-            hasExpiresInSec: result.expiresInSec !== undefined,
+            hasRawOutput: Boolean(result.rawOutput),
+            rawOutputLength: result.rawOutput.length,
+            hasVerificationUrl: verificationUrlRegex.test(result.rawOutput),
+            hasUserCode: userCodeRegex.test(result.rawOutput),
           },
           'DEV-0000031:T1:codex_device_auth_cli_parsed',
         );
@@ -155,7 +149,7 @@ export async function runCodexDeviceAuth(params?: {
     child.stdout?.on('data', (chunk) => {
       stdout += String(chunk);
       if (resolved) return;
-      const parsed = parseCodexDeviceAuthOutput(`${stdout}\n${stderr}`);
+      const parsed = parseCodexDeviceAuthOutput(stdout);
       if (parsed.ok) {
         finalize({ exitCode: null, stdout, stderr }, parsed);
       }
@@ -163,7 +157,7 @@ export async function runCodexDeviceAuth(params?: {
     child.stderr?.on('data', (chunk) => {
       stderr += String(chunk);
       if (resolved) return;
-      const parsed = parseCodexDeviceAuthOutput(`${stdout}\n${stderr}`);
+      const parsed = parseCodexDeviceAuthOutput(stdout);
       if (parsed.ok) {
         finalize({ exitCode: null, stdout, stderr }, parsed);
       }

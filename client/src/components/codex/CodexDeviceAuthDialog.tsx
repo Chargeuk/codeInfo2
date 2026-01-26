@@ -13,7 +13,14 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import { type ChangeEvent, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  type ChangeEvent,
+  type ReactNode,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   CodexDeviceAuthResponse,
   CodexDeviceAuthTarget,
@@ -45,6 +52,7 @@ type TargetOption = {
 };
 
 const CHAT_TARGET_VALUE = 'chat';
+const rawOutputUrlRegex = /https?:\/\/\S+/g;
 
 function resolveTargetValue(
   target: CodexDeviceAuthDialogTarget,
@@ -69,6 +77,38 @@ function parseTargetValue(value: string) {
   return { target: 'chat' as const };
 }
 
+function linkifyRawOutput(value: string): ReactNode[] {
+  const nodes: ReactNode[] = [];
+  let lastIndex = 0;
+
+  for (const match of value.matchAll(rawOutputUrlRegex)) {
+    const startIndex = match.index ?? 0;
+    if (startIndex > lastIndex) {
+      nodes.push(value.slice(lastIndex, startIndex));
+    }
+
+    const url = match[0];
+    nodes.push(
+      <Link
+        key={`${startIndex}-${url}`}
+        href={url}
+        target="_blank"
+        rel="noreferrer"
+        underline="always"
+      >
+        {url}
+      </Link>,
+    );
+    lastIndex = startIndex + url.length;
+  }
+
+  if (lastIndex < value.length) {
+    nodes.push(value.slice(lastIndex));
+  }
+
+  return nodes.length > 0 ? nodes : [value];
+}
+
 export default function CodexDeviceAuthDialog({
   open,
   onClose,
@@ -80,7 +120,6 @@ export default function CodexDeviceAuthDialog({
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
   const [result, setResult] = useState<CodexDeviceAuthResponse | undefined>();
-  const [copyMessage, setCopyMessage] = useState<string | undefined>();
   const prevOpenRef = useRef(false);
 
   const log = useMemo(() => createLogger('codex-device-auth-dialog'), []);
@@ -103,7 +142,6 @@ export default function CodexDeviceAuthDialog({
       setLoading(false);
       setErrorMessage(undefined);
       setResult(undefined);
-      setCopyMessage(undefined);
       prevOpenRef.current = false;
       return;
     }
@@ -114,7 +152,6 @@ export default function CodexDeviceAuthDialog({
       setLoading(false);
       setErrorMessage(undefined);
       setResult(undefined);
-      setCopyMessage(undefined);
     }
 
     prevOpenRef.current = true;
@@ -124,14 +161,12 @@ export default function CodexDeviceAuthDialog({
     setSelectedTarget(event.target.value);
     setErrorMessage(undefined);
     setResult(undefined);
-    setCopyMessage(undefined);
   };
 
   const handleStart = async () => {
     setLoading(true);
     setErrorMessage(undefined);
     setResult(undefined);
-    setCopyMessage(undefined);
 
     const parsed = parseTargetValue(selectedTarget);
     try {
@@ -160,20 +195,6 @@ export default function CodexDeviceAuthDialog({
 
   const handleDialogClose = () => {
     onClose();
-  };
-
-  const handleCopy = async (value: string, label: string) => {
-    if (!navigator.clipboard?.writeText) {
-      setCopyMessage('Clipboard access is unavailable in this browser.');
-      return;
-    }
-
-    try {
-      await navigator.clipboard.writeText(value);
-      setCopyMessage(`${label} copied.`);
-    } catch {
-      setCopyMessage('Unable to copy to clipboard.');
-    }
   };
 
   return (
@@ -212,65 +233,31 @@ export default function CodexDeviceAuthDialog({
           {result ? (
             <Stack spacing={1.5}>
               <Typography variant="subtitle2" fontWeight={600}>
-                Verification details
+                Device auth output
               </Typography>
-
-              <Stack direction="row" spacing={1} alignItems="center">
-                <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <Typography variant="caption" color="text.secondary">
-                    Verification URL
-                  </Typography>
-                  <Link
-                    href={result.verificationUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    underline="always"
-                    sx={{ display: 'block', wordBreak: 'break-all' }}
-                  >
-                    {result.verificationUrl}
-                  </Link>
-                </Box>
-                <Button
-                  variant="outlined"
-                  onClick={() =>
-                    void handleCopy(result.verificationUrl, 'Verification URL')
-                  }
-                  aria-label="Copy verification URL"
+              <Box
+                sx={{
+                  borderRadius: 1,
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  p: 1.5,
+                }}
+              >
+                <Typography
+                  component="pre"
+                  variant="body2"
+                  sx={{
+                    fontFamily: 'monospace',
+                    whiteSpace: 'pre-wrap',
+                    wordBreak: 'break-word',
+                    m: 0,
+                  }}
                 >
-                  Copy
-                </Button>
-              </Stack>
-
-              <Stack direction="row" spacing={1} alignItems="center">
-                <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <Typography variant="caption" color="text.secondary">
-                    User code
-                  </Typography>
-                  <Typography
-                    variant="body2"
-                    sx={{ fontFamily: 'monospace', wordBreak: 'break-word' }}
-                  >
-                    {result.userCode}
-                  </Typography>
-                </Box>
-                <Button
-                  variant="outlined"
-                  onClick={() => void handleCopy(result.userCode, 'User code')}
-                  aria-label="Copy user code"
-                >
-                  Copy
-                </Button>
-              </Stack>
-
-              {result.expiresInSec !== undefined ? (
-                <Typography variant="body2" color="text.secondary">
-                  Expires in {result.expiresInSec} seconds.
+                  {linkifyRawOutput(result.rawOutput)}
                 </Typography>
-              ) : null}
+              </Box>
             </Stack>
           ) : null}
-
-          {copyMessage ? <Alert severity="info">{copyMessage}</Alert> : null}
         </Stack>
       </DialogContent>
       <DialogActions>

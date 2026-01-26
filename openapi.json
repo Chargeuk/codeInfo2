@@ -44,14 +44,8 @@
                     "agentName": {
                       "type": "string"
                     },
-                    "verificationUrl": {
+                    "rawOutput": {
                       "type": "string"
-                    },
-                    "userCode": {
-                      "type": "string"
-                    },
-                    "expiresInSec": {
-                      "type": "integer"
                     }
                   }
                 }

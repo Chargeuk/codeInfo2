@@ -53,8 +53,7 @@ function withDeps(
     runCodexDeviceAuth: async () =>
       buildDeviceAuthResult({
         ok: true,
-        verificationUrl: 'https://device.test/verify',
-        userCode: 'CODE-123',
+        rawOutput: 'Open https://device.test/verify and enter code CODE-123.',
       }),
     resolveCodexCli: () => ({ available: true }),
     ...overrides,
@@ -84,9 +83,8 @@ describe('POST /codex/device-auth', () => {
             receivedHome = params?.codexHome;
             return buildDeviceAuthResult({
               ok: true,
-              verificationUrl: 'https://device.test/verify',
-              userCode: 'CODE-123',
-              expiresInSec: 600,
+              rawOutput:
+                'Open https://device.test/verify and enter code CODE-123.',
             });
           },
         }),
@@ -98,9 +96,10 @@ describe('POST /codex/device-auth', () => {
     assert.equal(res.status, 200);
     assert.equal(res.body.status, 'completed');
     assert.equal(res.body.target, 'chat');
-    assert.equal(res.body.verificationUrl, 'https://device.test/verify');
-    assert.equal(res.body.userCode, 'CODE-123');
-    assert.equal(res.body.expiresInSec, 600);
+    assert.equal(
+      res.body.rawOutput,
+      'Open https://device.test/verify and enter code CODE-123.',
+    );
     assert.equal(receivedHome, undefined);
   });
 
@@ -219,8 +218,7 @@ describe('POST /codex/device-auth', () => {
     });
     const successResult = {
       ok: true,
-      verificationUrl: 'https://device.test/verify',
-      userCode: 'CODE-123',
+      rawOutput: 'Open https://device.test/verify and enter code CODE-123.',
     } as const satisfies CodexDeviceAuthResult;
     const propagateAgentAuthFromPrimary = mock.fn(async () => ({
       agentCount: 1,

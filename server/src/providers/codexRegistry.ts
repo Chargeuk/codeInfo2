@@ -17,6 +17,11 @@ export function setCodexDetection(value: CodexDetection) {
   detection = value;
 }
 
+export function updateCodexDetection(value: CodexDetection): CodexDetection {
+  detection = value;
+  return detection;
+}
+
 export function getCodexDetection(): CodexDetection {
   return detection;
 }

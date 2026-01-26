@@ -23,9 +23,9 @@ describe('createLogger', () => {
     expect(entry).toMatchObject({
       level: 'warn',
       message: 'hello',
-      source: 'client-test',
+      source: 'client',
       route: '/route',
-      context: { foo: 'bar' },
+      context: { foo: 'bar', loggerSource: 'client-test' },
     });
     expect(Date.parse(entry.timestamp)).toBeGreaterThanOrEqual(before);
   });

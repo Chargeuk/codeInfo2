@@ -37,9 +37,11 @@ import {
   useRef,
   useState,
 } from 'react';
+import { listAgents } from '../api/agents';
 import Markdown from '../components/Markdown';
 import CodexFlagsPanel from '../components/chat/CodexFlagsPanel';
 import ConversationList from '../components/chat/ConversationList';
+import CodexDeviceAuthDialog from '../components/codex/CodexDeviceAuthDialog';
 import useChatModel from '../hooks/useChatModel';
 import useChatStream, {
   ChatMessage,
@@ -237,6 +239,11 @@ export default function ChatPage() {
   const [toolErrorOpen, setToolErrorOpen] = useState<Record<string, boolean>>(
     {},
   );
+  const [deviceAuthOpen, setDeviceAuthOpen] = useState(false);
+  const [deviceAuthLoading, setDeviceAuthLoading] = useState(false);
+  const [deviceAuthAgents, setDeviceAuthAgents] = useState<
+    Array<{ name: string }>
+  >([]);
   const metadataLoggedRef = useRef(new Set<string>());
   const stepLoggedRef = useRef(new Set<string>());
   const toolDistanceLoggedRef = useRef(new Set<string>());
@@ -298,6 +305,10 @@ export default function ChatPage() {
       ? `calc(100% - ${drawerTopOffsetPx}px)`
       : `calc(100% - ${theme.spacing(3)})`;
   const log = useMemo(() => createLogger('client'), []);
+  const deviceAuthLog = useMemo(
+    () => createLogger('codex-device-auth-chat'),
+    [],
+  );
   const selectedConversation = useMemo(
     () =>
       conversations.find(
@@ -479,6 +490,8 @@ export default function ChatPage() {
     [providers],
   );
   const codexUnavailable = Boolean(codexProvider && !codexProvider.available);
+  const canShowDeviceAuth =
+    providerIsCodex && Boolean(codexProvider?.available);
   const showCodexUnavailable = providerIsCodex
     ? !providerAvailable
     : codexUnavailable;
@@ -723,6 +736,35 @@ export default function ChatPage() {
     const nextProvider = event.target.value;
     setProvider(nextProvider);
     handleNewConversation({ reason: 'provider-change', nextProvider });
+  };
+
+  const handleDeviceAuthOpen = async () => {
+    deviceAuthLog('info', 'DEV-0000031:T7:codex_device_auth_chat_button_click');
+    setDeviceAuthOpen(true);
+    setDeviceAuthLoading(true);
+    try {
+      const response = await listAgents();
+      const agents = Array.isArray(response.agents)
+        ? response.agents.map((agent) => ({ name: agent.name }))
+        : [];
+      setDeviceAuthAgents(agents);
+    } catch {
+      setDeviceAuthAgents([]);
+    } finally {
+      setDeviceAuthLoading(false);
+    }
+  };
+
+  const handleDeviceAuthClose = () => {
+    setDeviceAuthOpen(false);
+  };
+
+  const handleDeviceAuthSuccess = () => {
+    deviceAuthLog('info', 'DEV-0000031:T7:codex_device_auth_chat_success');
+    void refreshProviders();
+    if (provider === 'codex') {
+      void refreshModels('codex');
+    }
   };
 
   const toggleThink = (id: string) => {
@@ -1519,19 +1561,40 @@ export default function ChatPage() {
                           justifyContent="flex-end"
                           sx={{ minWidth: { xs: '100%', sm: 220 } }}
                         >
-                          <Button
-                            type="button"
-                            variant="outlined"
-                            color="secondary"
-                            size="small"
-                            onClick={handleNewConversation}
-                            disabled={isLoading}
-                            fullWidth
-                          >
-                            New conversation
-                          </Button>
+                          <Stack spacing={1} sx={{ width: '100%' }}>
+                            <Button
+                              type="button"
+                              variant="outlined"
+                              color="secondary"
+                              size="small"
+                              onClick={handleNewConversation}
+                              disabled={isLoading}
+                              fullWidth
+                            >
+                              New conversation
+                            </Button>
+                            {canShowDeviceAuth ? (
+                              <Button
+                                type="button"
+                                variant="outlined"
+                                size="small"
+                                onClick={() => void handleDeviceAuthOpen()}
+                                disabled={isLoading || deviceAuthLoading}
+                                fullWidth
+                              >
+                                Re-authenticate (device auth)
+                              </Button>
+                            ) : null}
+                          </Stack>
                         </Stack>
                       </Stack>
+                      <CodexDeviceAuthDialog
+                        open={deviceAuthOpen}
+                        onClose={handleDeviceAuthClose}
+                        defaultTarget={{ target: 'chat' }}
+                        agents={deviceAuthAgents}
+                        onSuccess={handleDeviceAuthSuccess}
+                      />
 
                       {showCodexWarnings && (
                         <Alert

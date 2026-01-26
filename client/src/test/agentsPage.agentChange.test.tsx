@@ -31,6 +31,36 @@ const routes = [
   },
 ];
 
+const buildProvidersResponse = (codexAvailable = true) => ({
+  providers: [
+    {
+      id: 'lmstudio',
+      label: 'LM Studio',
+      available: true,
+      toolsAvailable: true,
+    },
+    {
+      id: 'codex',
+      label: 'OpenAI Codex',
+      available: codexAvailable,
+      toolsAvailable: codexAvailable,
+      reason: codexAvailable ? undefined : 'missing auth',
+    },
+  ],
+});
+
+const modelsResponse = {
+  models: [
+    {
+      key: 'mock-model',
+      displayName: 'Mock Model',
+      type: 'gguf',
+    },
+  ],
+  available: true,
+  toolsAvailable: true,
+};
+
 function emitWsEvent(event: Record<string, unknown>) {
   const wsRegistry = (
     globalThis as unknown as {
@@ -61,6 +91,22 @@ describe('Agents page - agent change', () => {
           } as Response);
         }
 
+        if (target.includes('/chat/providers')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => buildProvidersResponse(true),
+          } as Response);
+        }
+
+        if (target.includes('/chat/models')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => modelsResponse,
+          } as Response);
+        }
+
         if (
           target.includes('/agents') &&
           !target.includes('/commands') &&
@@ -88,6 +134,14 @@ describe('Agents page - agent change', () => {
             ok: true,
             status: 200,
             json: async () => ({ items: [] }),
+          } as Response);
+        }
+
+        if (target.includes('/logs')) {
+          return Promise.resolve({
+            ok: true,
+            status: 202,
+            json: async () => ({ status: 'accepted' }),
           } as Response);
         }
 
@@ -208,5 +262,153 @@ describe('Agents page - agent change', () => {
     expect(runBodies[0]).toHaveProperty('conversationId');
     expect(runBodies[0].conversationId).toEqual(expect.any(String));
     expect((runBodies[0].conversationId as string).length).toBeGreaterThan(0);
+  });
+});
+
+describe('Agents page - device auth', () => {
+  const setup = (codexAvailable = true) => {
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const target = typeof url === 'string' ? url : url.toString();
+
+      if (target.includes('/health')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ mongoConnected: true }),
+        } as Response);
+      }
+
+      if (target.includes('/chat/providers')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => buildProvidersResponse(codexAvailable),
+        } as Response);
+      }
+
+      if (target.includes('/chat/models')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => modelsResponse,
+        } as Response);
+      }
+
+      if (
+        target.includes('/agents') &&
+        !target.includes('/commands') &&
+        !target.includes('/run')
+      ) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            agents: [{ name: 'a1' }, { name: 'a2' }],
+          }),
+        } as Response);
+      }
+
+      if (target.includes('/agents/') && target.includes('/commands')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ commands: [] }),
+        } as Response);
+      }
+
+      if (target.includes('/conversations')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ items: [] }),
+        } as Response);
+      }
+
+      if (target.includes('/logs')) {
+        return Promise.resolve({
+          ok: true,
+          status: 202,
+          json: async () => ({ status: 'accepted' }),
+        } as Response);
+      }
+
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({}),
+      } as Response);
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+  };
+
+  it('shows device-auth button when an agent is selected and Codex is available', async () => {
+    setup(true);
+
+    const agentSelect = await screen.findByRole('combobox', {
+      name: /agent/i,
+    });
+    expect(
+      screen.queryByRole('button', {
+        name: 'Re-authenticate (device auth)',
+      }),
+    ).toBeNull();
+
+    await userEvent.click(agentSelect);
+    const option = await screen.findByRole('option', { name: 'a1' });
+    await act(async () => {
+      await userEvent.click(option);
+    });
+
+    expect(
+      await screen.findByRole('button', {
+        name: 'Re-authenticate (device auth)',
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it('defaults the device-auth dialog target to the selected agent', async () => {
+    setup(true);
+
+    const agentSelect = await screen.findByRole('combobox', {
+      name: /agent/i,
+    });
+    await userEvent.click(agentSelect);
+    const option = await screen.findByRole('option', { name: 'a2' });
+    await act(async () => {
+      await userEvent.click(option);
+    });
+
+    const button = await screen.findByRole('button', {
+      name: 'Re-authenticate (device auth)',
+    });
+    await act(async () => {
+      await userEvent.click(button);
+    });
+
+    const targetSelect = await screen.findByRole('combobox', {
+      name: 'Target',
+    });
+    expect(targetSelect).toHaveTextContent('Agent: a2');
+  });
+
+  it('hides the device-auth button when Codex is unavailable', async () => {
+    setup(false);
+
+    const agentSelect = await screen.findByRole('combobox', {
+      name: /agent/i,
+    });
+    await userEvent.click(agentSelect);
+    const option = await screen.findByRole('option', { name: 'a1' });
+    await act(async () => {
+      await userEvent.click(option);
+    });
+
+    expect(
+      screen.queryByRole('button', {
+        name: 'Re-authenticate (device auth)',
+      }),
+    ).toBeNull();
   });
 });

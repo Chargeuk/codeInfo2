@@ -4,6 +4,10 @@ dist
 **/dist
 coverage
 **/coverage
+tmp
+**/tmp
+build
+**/build
 .git
 .DS_Store
 playwright-report

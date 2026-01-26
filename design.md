@@ -434,6 +434,32 @@ flowchart LR
   Opts2 --> Codex
 ```
 
+### Codex device-auth flow
+
+- The client calls `POST /codex/device-auth` with `target=chat` or `target=agent` (plus `agentName` for agent targets).
+- The server validates the target, checks the Codex CLI presence, and resolves the target Codex home before running the CLI.
+- `codex login --device-auth` is executed with `CODEX_HOME` set to the chosen home so `auth.json` is written to the correct location.
+- The API returns `verificationUrl`, `userCode`, and optional `expiresInSec`; the UI then prompts the user to complete device auth manually.
+- After the CLI completes, the server propagates auth to agents and refreshes Codex availability in the background when targeting chat.
+
+```mermaid
+sequenceDiagram
+  participant UI as Client UI
+  participant API as Server (/codex/device-auth)
+  participant CLI as Codex CLI
+  participant Home as CODEX_HOME
+  UI->>API: POST device-auth {target, agentName?}
+  API->>API: validate target + agent
+  alt target=chat
+    API->>Home: use CODEINFO_CODEX_HOME
+  else target=agent
+    API->>Home: use agent home
+  end
+  API->>CLI: codex login --device-auth (CODEX_HOME=Home)
+  CLI-->>API: verification URL + user code
+  API-->>UI: 200 {verificationUrl, userCode, expiresInSec}
+```
+
 ### Docker/Compose agent wiring
 
 - In Compose, agent folders are bind-mounted into the server container at `/app/codex_agents` (rw) so auth seeding can write `auth.json` when needed.

@@ -13,13 +13,6 @@ Story convention (important for this repo’s planning style):
 
 ---
 
-### Code Review Summary (2026-01-26)
-
-- Reviewed `origin/main...HEAD` diff for code quality, maintainability, performance, security, and best-practice alignment.
-- Verified server device-auth flow (`runCodexDeviceAuth`, `/codex/device-auth`, auth propagation, detection refresh, config persistence) and client UI integration (Chat/Agents entry points + dialog) align with acceptance criteria.
-- Checked supporting updates (OpenAPI contract, logging source normalization, Docker/Compose HOME + Playwright install ordering, documentation updates, and tests) for correctness and consistency.
-- No additional tasks added; acceptance criteria are fully met and no blocking issues were found.
-
 ## Description
 
 Today, when Codex auth expires inside the server container, requests fail with an error like “Your access token could not be refreshed because your refresh token was already used.” The UI surfaces the failure but provides no way to re-authenticate without logging into the container manually or copying a fresh `auth.json`. This makes the web UI feel broken when tokens expire, especially for agents, commands, or flow runs that use the Codex CLI under the hood.
@@ -2443,3 +2436,10 @@ Re-run the full validation suite and documentation checks after Tasks 12–14 to
 - 2026-01-26: `TMPDIR=/tmp npm run test --workspace client` passed (console warnings only).
 
 ---
+
+### Code Review Summary (2026-01-26)
+
+- Reviewed `origin/main...HEAD` diff for code quality, maintainability, performance, security, and best-practice alignment.
+- Verified server device-auth flow (`runCodexDeviceAuth`, `/codex/device-auth`, auth propagation, detection refresh, config persistence) and client UI integration (Chat/Agents entry points + dialog) align with acceptance criteria.
+- Checked supporting updates (OpenAPI contract, logging source normalization, Docker/Compose HOME + Playwright install ordering, documentation updates, and tests) for correctness and consistency.
+- No additional tasks added; acceptance criteria are fully met and no blocking issues were found.

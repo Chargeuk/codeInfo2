@@ -91,7 +91,7 @@ Shared record shapes (all responses):
 - `ModuleImportsRecord`: `{ relPath, imports: [{ source, names[] }] }`
 - `range` uses `{ start: { line, column }, end: { line, column } }` with **1-based** line/column (Tree-sitter rows/columns + 1).
 
-Error model mirrors VectorSearch (`VALIDATION_FAILED`, `REPO_NOT_FOUND`, `INGEST_REQUIRED`), plus a new `AST_INDEX_REQUIRED` (409) when a repo has no AST data.
+Error model mirrors VectorSearch style (`VALIDATION_FAILED`, `REPO_NOT_FOUND`), plus a new `AST_INDEX_REQUIRED` (409) when a repo has no AST data.
 
 ### New Mongo Collections
 
@@ -823,21 +823,28 @@ Extend ingest status payloads (REST + WS) with optional AST counts and update te
    - Purpose: Ensure REST status payloads include AST counts when provided.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-3. [ ] Cucumber step updates — ingest status AST fields:
+3. [ ] Unit test — WS ingest events include AST fields:
+   - Test type: Unit (WebSocket server).
+   - Test location: `server/src/test/unit/ws-server.test.ts`.
+   - Description: Emit ingest status with `ast` counts and assert `ingest_snapshot`/`ingest_update` include them.
+   - Purpose: Ensure realtime ingest updates surface AST counts over WS.
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+4. [ ] Cucumber step updates — ingest status AST fields:
    - Test type: Integration (Cucumber steps).
    - Test location: `server/src/test/steps/ingest-status.steps.ts`.
    - Description: Update step assertions to include `ast.*` fields in status responses.
    - Purpose: Keep ingest status BDD coverage aligned with the contract.
    - Documentation to read (repeat):
      - Cucumber guide (server integration tests): https://cucumber.io/docs/guides/10-minute-tutorial/
-4. [ ] Feature update — ingest status AST fields:
+5. [ ] Feature update — ingest status AST fields:
    - Test type: Integration (Cucumber feature).
    - Test location: `server/src/test/features/ingest-status.feature`.
    - Description: Add/extend scenarios to expect AST counts in the status payload.
    - Purpose: Ensure behavior is documented and verified at the feature level.
    - Documentation to read (repeat):
      - Cucumber guide (server integration tests): https://cucumber.io/docs/guides/10-minute-tutorial/
-5. [ ] Update documentation — `design.md`:
+6. [ ] Update documentation — `design.md`:
    - Document: `design.md`.
    - Location: `design.md`.
    - Description: Extend the ingest status contract section and add a mermaid diagram for the status payload flow.
@@ -845,7 +852,7 @@ Extend ingest status payloads (REST + WS) with optional AST counts and update te
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
      - Mermaid docs (Context7, architecture diagrams): /mermaid-js/mermaid
-6. [ ] Run full linting:
+7. [ ] Run full linting:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -900,8 +907,10 @@ Add AST tool validation + query services for list/find/call-graph/modules and er
    - Implementation details:
      - Implement validation for each AST tool request; apply default `limit=50` and cap at `200`.
      - Resolve repository → root using `listIngestedRepositories` to match the existing repo id contract.
+     - Use the repo entry’s `containerPath` as the `root` value when querying AST collections (not `hostPath`).
      - When multiple repos share the same id, select the most recent `lastIngestAt`.
      - Return `AST_INDEX_REQUIRED` (409) when no coverage data exists for the repo.
+     - Reuse `ValidationError` and `RepoNotFoundError` from `server/src/lmstudio/toolService.ts` to keep error mapping consistent.
      - Implement call graph traversal by following `CALLS` edges up to the requested depth.
       - `AstModuleImports` should map persisted import records into `{ relPath, imports: [{ source, names[] }] }`.
       - `AstFindReferences` should query `ast_references` by `symbolId` or by `{ name, kind }`.
@@ -1036,7 +1045,7 @@ Expose `/tools/ast-*` REST endpoints that validate input, call the AST tool serv
      - `server/src/routes/toolsAstModuleImports.ts` (new)
      - `server/src/index.ts`
    - Implementation details:
-     - Mirror the VectorSearch route error handling (`VALIDATION_FAILED`, `REPO_NOT_FOUND`, `INGEST_REQUIRED`, `AST_INDEX_REQUIRED`).
+     - Mirror the VectorSearch route error handling style (`VALIDATION_FAILED`, `REPO_NOT_FOUND`, `AST_INDEX_REQUIRED`).
 2. [ ] Integration test — REST happy path payloads:
    - Test type: Integration (REST routes).
    - Test location: `server/src/test/integration/tools-ast.test.ts` (new).
@@ -1058,7 +1067,7 @@ Expose `/tools/ast-*` REST endpoints that validate input, call the AST tool serv
 4. [ ] Integration test — REST error mapping:
    - Test type: Integration (REST routes).
    - Test location: `server/src/test/integration/tools-ast.test.ts` (new).
-   - Description: Force `REPO_NOT_FOUND`, `INGEST_REQUIRED`, `AST_INDEX_REQUIRED` from the service.
+   - Description: Force `REPO_NOT_FOUND` and `AST_INDEX_REQUIRED` from the service.
    - Purpose: Ensure status codes + body shapes match the VectorSearch route conventions.
    - Documentation to read (repeat):
      - Supertest HTTP assertions: https://github.com/forwardemail/supertest

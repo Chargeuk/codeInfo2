@@ -1306,7 +1306,7 @@ Extend client ingest status types to include optional AST counts and update test
 
 - React 19 hooks reference (client state + effects): https://react.dev/reference/react
 - TypeScript 5.9 release notes (type changes in client): https://www.typescriptlang.org/docs/handbook/release-notes/typescript-5-9.html
-- Jest docs (Context7): /websites/jestjs_io_30_0
+- Jest docs (Context7): /jestjs/jest
 - Jest getting started (client unit tests): https://jestjs.io/docs/getting-started
 - Testing Library intro (React test queries): https://testing-library.com/docs/react-testing-library/intro/
 - Docker Compose overview (compose build/up steps): https://docs.docker.com/compose/
@@ -1396,7 +1396,7 @@ Render non-blocking Ingest page banners for AST skipped/failed counts using exis
 - MUI Stack docs (MUI MCP v6.4.x, layout spacing): https://llms.mui.com/material-ui/6.4.12/components/stack.md
 - MUI Typography docs (MUI MCP v6.4.x, banner text): https://llms.mui.com/material-ui/6.4.12/components/typography.md
 - Testing Library intro (render + query assertions): https://testing-library.com/docs/react-testing-library/intro/
-- Jest docs (Context7): /websites/jestjs_io_30_0
+- Jest docs (Context7): /jestjs/jest
 - Jest getting started (client unit tests): https://jestjs.io/docs/getting-started
 - Docker Compose overview (compose build/up steps): https://docs.docker.com/compose/
 - Markdown Guide (update `design.md` + `projectStructure.md`): https://www.markdownguide.org/basic-syntax/
@@ -1494,7 +1494,7 @@ Validate the full story against acceptance criteria, run full builds/tests, ensu
 - Husky docs (pre-commit hooks): https://typicode.github.io/husky/
 - Mermaid docs (Context7, diagram syntax): /mermaid-js/mermaid
 - Mermaid intro (diagram updates in `design.md`): https://mermaid.js.org/intro/
-- Jest docs (Context7): /websites/jestjs_io_30_0
+- Jest docs (Context7): /jestjs/jest
 - Jest getting started (client unit tests): https://jestjs.io/docs/getting-started
 - Cucumber guides (server integration tests): https://cucumber.io/docs/guides/
 - Markdown Guide (update docs + PR summary): https://www.markdownguide.org/basic-syntax/

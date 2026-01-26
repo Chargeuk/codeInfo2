@@ -442,7 +442,7 @@ Add repo helper functions for AST collections with Mongo-disconnected guards and
 
 ### 3. Server: Tree-sitter dependencies + Docker build support
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **to_do**
 
 #### Overview

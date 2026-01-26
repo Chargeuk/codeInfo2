@@ -275,7 +275,7 @@ Create Mongo collections for AST symbols, edges, references, module imports, and
 9. [ ] Update documentation — `projectStructure.md`:
    - Document: `projectStructure.md`.
    - Location: `projectStructure.md`.
-   - Description: Add new Mongo schema + test files to the tree.
+   - Description: Add new Mongo schema + test files to the tree (`server/src/mongo/astSymbol.ts`, `server/src/mongo/astEdge.ts`, `server/src/mongo/astReference.ts`, `server/src/mongo/astModuleImport.ts`, `server/src/mongo/astCoverage.ts`, `server/src/test/unit/ast-symbols-schema.test.ts`, `server/src/test/unit/ast-edges-schema.test.ts`, `server/src/test/unit/ast-references-schema.test.ts`, `server/src/test/unit/ast-module-imports-schema.test.ts`, `server/src/test/unit/ast-coverage-schema.test.ts`).
    - Purpose: Keep repository structure documentation in sync with added files.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
@@ -362,7 +362,7 @@ Add repo helper functions for AST collections with Mongo-disconnected guards and
 5. [ ] Update documentation — `projectStructure.md`:
    - Document: `projectStructure.md`.
    - Location: `projectStructure.md`.
-   - Description: Add new test file entries for AST repo guard coverage.
+   - Description: Add new test file entries for AST repo guard coverage (`server/src/test/unit/ast-repo-guards.test.ts`).
    - Purpose: Keep project tree accurate after adding tests.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
@@ -623,7 +623,7 @@ Implement a Tree-sitter parsing module that maps JS/TS/TSX source text into Symb
 15. [ ] Update documentation — `projectStructure.md`:
    - Document: `projectStructure.md`.
    - Location: `projectStructure.md`.
-   - Description: Add new `server/src/ast/*` files and parser test files to the tree.
+   - Description: Add new AST parser files and tests to the tree (`server/src/ast/parser.ts`, `server/src/ast/types.ts`, `server/src/test/unit/ast-parser.test.ts`).
    - Purpose: Keep project structure documentation current with new AST modules.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
@@ -800,7 +800,7 @@ Integrate AST parsing into ingest runs and persist AST data + coverage without c
 16. [ ] Update documentation — `projectStructure.md`:
    - Document: `projectStructure.md`.
    - Location: `projectStructure.md`.
-   - Description: Add any new AST ingest test files to the project tree.
+   - Description: Add new AST ingest indexing tests to the project tree (`server/src/test/unit/ingest-ast-indexing.test.ts`).
    - Purpose: Keep projectStructure aligned with new test coverage.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
@@ -1054,7 +1054,7 @@ Add AST tool validation + query services for list/find/call-graph/modules and er
 16. [ ] Update documentation — `projectStructure.md`:
    - Document: `projectStructure.md`.
    - Location: `projectStructure.md`.
-   - Description: Add new AST tool service + unit test files to the tree.
+   - Description: Add AST tool service + unit test files to the tree (`server/src/ast/toolService.ts`, `server/src/test/unit/ast-tool-validation.test.ts`, `server/src/test/unit/ast-tool-service.test.ts`).
    - Purpose: Keep project structure docs aligned with added service/test files.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
@@ -1153,7 +1153,7 @@ Expose `/tools/ast-*` REST endpoints that validate input, call the AST tool serv
 6. [ ] Update documentation — `projectStructure.md`:
    - Document: `projectStructure.md`.
    - Location: `projectStructure.md`.
-   - Description: Add new REST route files and integration tests to the tree.
+   - Description: Add new REST route files and integration tests to the tree (`server/src/routes/toolsAstListSymbols.ts`, `server/src/routes/toolsAstFindDefinition.ts`, `server/src/routes/toolsAstFindReferences.ts`, `server/src/routes/toolsAstCallGraph.ts`, `server/src/routes/toolsAstModuleImports.ts`, `server/src/test/integration/tools-ast.test.ts`).
    - Purpose: Keep repository structure documentation in sync with new endpoints.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/

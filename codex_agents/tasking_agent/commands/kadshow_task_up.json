@@ -141,7 +141,7 @@
         "The testing steps for each task, should at a minimum contain the following items. If there are specific additional or expanded testing required for a task, then the list should be expanded to detail this. note this list is a set of instructions for you to follow while creating testing steps for ach task, and not meant to be copied directly into the story plan:",
         "1. A local build for the application that the changes were made in",
         "2. Run ALL tests for the application that the changes were made in. Do not just run tests that have been added, instead use any scripts in package.json to run the full test suite for that application.",
-        "3. Ensure the dockerfile for the application builds as expected. This should be available as a script in package.json",
+        "3. Ensure the dockerfile for the application builds as expected. This should be available as a script in package.json"
       ]
     }
   ]

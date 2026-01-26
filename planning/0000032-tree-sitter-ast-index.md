@@ -28,11 +28,11 @@ Note: Cross-repository symbol linking (e.g., linking imports in repo A to an ing
 ## Acceptance Criteria
 
 - Ingest and re-embed flows attempt Tree-sitter AST indexing for supported languages (TypeScript/JavaScript).
-- For unsupported languages, the server logs a warning and the Ingest UI shows a non-blocking info banner indicating AST indexing was skipped.
+- For unsupported languages, the server logs a warning and the Ingest UI shows a non-blocking info banner indicating AST indexing was skipped for those files.
 - AST indexing does not change existing embed/vector behavior or model locking rules.
 - AST artifacts are stored persistently and can be queried through MCP tools (e.g., list symbols, find definition, find references, call graph) for supported repositories.
 - Indexing respects ingest include/exclude rules and uses file hashes to avoid reprocessing unchanged files.
-- The system records which roots have AST coverage and which were skipped due to unsupported languages.
+- The system records which roots have AST coverage and which files were skipped due to unsupported languages.
 - AST artifacts are stored in Mongo using shared collections keyed by repo/root + file hash (no per-root collections).
 - Dry-run ingest executes the full AST indexing pipeline (no skips).
 - AST index schema (Option B): symbols include Module, Class, Function, Method, Interface, TypeAlias, Enum, Property; edges include DEFINES, CALLS, IMPORTS, EXPORTS, EXTENDS, IMPLEMENTS, REFERENCES_TYPE.
@@ -78,3 +78,4 @@ This should only be started once all the above sections are clear and understood
 11. As soon as a task’s implementation is done, add detailed notes in the Implementation notes section covering the code changes, decisions made, and any issues encountered. Push immediately after writing the notes.
 12. Record the relevant git commit hash(es) in the Git Commits section. Once they are pushed, set the task status to `Done`, and push again so both the commit IDs and updated status are captured in this document.
 13. After a task is fully documented (status, notes, commits), proceed to the next task and repeat the same process.
+- Mixed-language repos: AST indexing runs for all supported files and skips only unsupported files.

@@ -279,7 +279,17 @@ Create Mongo collections for AST symbols, edges, references, module imports, and
    - Purpose: Keep repository structure documentation in sync with added files.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+10. [ ] Add AST schema registration log line:
+   - Files to edit:
+     - `server/src/mongo/astCoverage.ts`
+   - Log line:
+     - `DEV-0000032:T1:ast-mongo-models-ready`
+   - Implementation details:
+     - Use `baseLogger.info` to emit the log when AST models are registered (module load time).
+     - Include `event: 'DEV-0000032:T1:ast-mongo-models-ready'` and `collection: 'ast_coverage'`.
+   - Documentation to read (repeat):
+     - Mongoose schema guide: https://mongoosejs.com/docs/guide.html
+11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -292,7 +302,7 @@ Create Mongo collections for AST symbols, edges, references, module imports, and
 5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, load Chat + Ingest pages, confirm the UI renders, and confirm the browser console has no errors.
+8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, load Chat + Ingest pages, open Logs, and confirm `DEV-0000032:T1:ast-mongo-models-ready` appears once; confirm the browser console has no errors.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -367,7 +377,17 @@ Add repo helper functions for AST collections with Mongo-disconnected guards and
    - Purpose: Keep project tree accurate after adding tests.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+6. [ ] Add AST repo helper log line:
+   - Files to edit:
+     - `server/src/mongo/repo.ts`
+   - Log line:
+     - `DEV-0000032:T2:ast-repo-upsert`
+   - Implementation details:
+     - Emit `baseLogger.info` when AST symbol/edge/reference upserts are invoked.
+     - Include `event: 'DEV-0000032:T2:ast-repo-upsert'` and `root` in the payload.
+   - Documentation to read (repeat):
+     - MongoDB bulkWrite: https://www.mongodb.com/docs/manual/reference/method/db.collection.bulkWrite/
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -380,7 +400,7 @@ Add repo helper functions for AST collections with Mongo-disconnected guards and
 5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, visit the Ingest page, confirm ingest status UI loads, and confirm the browser console has no errors.
+8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, run an ingest, open Logs, and confirm `DEV-0000032:T2:ast-repo-upsert` appears for the ingest root; confirm the browser console has no errors.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -451,7 +471,17 @@ Add Tree-sitter dependencies and ensure Docker builds can compile native binding
    - Purpose: Keep the project structure summary accurate after build changes.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+5. [ ] Add Tree-sitter dependency log line:
+   - Files to edit:
+     - `server/src/index.ts`
+   - Log line:
+     - `DEV-0000032:T3:tree-sitter-deps-ready`
+   - Implementation details:
+     - After server startup, emit `baseLogger.info` once confirming the Tree-sitter dependency is loaded (e.g., `require('tree-sitter')` succeeds).
+     - Include `event: 'DEV-0000032:T3:tree-sitter-deps-ready'` and `dependency: 'tree-sitter'`.
+   - Documentation to read (repeat):
+     - Node.js modules: https://nodejs.org/api/modules.html
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -464,7 +494,7 @@ Add Tree-sitter dependencies and ensure Docker builds can compile native binding
 5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, load the app shell, and confirm there are no console errors after initial page load.
+8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, open Logs, confirm `DEV-0000032:T3:tree-sitter-deps-ready` appears after startup, and confirm there are no console errors after initial page load.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -631,7 +661,17 @@ Implement a Tree-sitter parsing module that maps JS/TS/TSX source text into Symb
    - Purpose: Keep project structure documentation current with new AST modules.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-16. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+16. [ ] Add AST parser log line:
+   - Files to edit:
+     - `server/src/ast/parser.ts`
+   - Log line:
+     - `DEV-0000032:T4:ast-parser-queries-loaded`
+   - Implementation details:
+     - Emit `baseLogger.info` the first time parser query files load successfully.
+     - Include `event: 'DEV-0000032:T4:ast-parser-queries-loaded'` and `language` in the payload.
+   - Documentation to read (repeat):
+     - Tree-sitter query syntax: https://tree-sitter.github.io/tree-sitter/using-parsers#query-syntax
+17. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -644,7 +684,7 @@ Implement a Tree-sitter parsing module that maps JS/TS/TSX source text into Symb
 5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, run a small ingest from the Ingest page (use the sample repo), and confirm the UI stays responsive with no console errors.
+8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, run a small ingest from the Ingest page (use the sample repo), open Logs, and confirm `DEV-0000032:T4:ast-parser-queries-loaded` appears; confirm the UI stays responsive with no console errors.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -809,7 +849,17 @@ Integrate AST parsing into ingest runs and persist AST data + coverage without c
    - Purpose: Keep projectStructure aligned with new test coverage.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-17. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+17. [ ] Add ingest AST indexing log line:
+   - Files to edit:
+     - `server/src/ingest/ingestJob.ts`
+   - Log line:
+     - `DEV-0000032:T5:ast-index-complete`
+   - Implementation details:
+     - Emit `baseLogger.info` when AST indexing finishes for a root (after coverage counts are persisted).
+     - Include `event: 'DEV-0000032:T5:ast-index-complete'`, `root`, and counts in the payload.
+   - Documentation to read (repeat):
+     - Node.js fs/promises: https://nodejs.org/api/fs.html#fspromisesreadfilepath-options
+18. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -822,7 +872,7 @@ Integrate AST parsing into ingest runs and persist AST data + coverage without c
 5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, start an ingest and verify the status card updates; confirm the browser console shows no errors.
+8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, start an ingest, open Logs, and confirm `DEV-0000032:T5:ast-index-complete` appears with counts; confirm the browser console shows no errors.
 9. [ ] `npm run compose:down`
 10. [ ] `npm run test:integration --workspace server`
 
@@ -900,7 +950,17 @@ Extend ingest status payloads (REST + WS) with optional AST counts and update te
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
      - Mermaid docs (Context7, architecture diagrams): /mermaid-js/mermaid
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+7. [ ] Add ingest status log line:
+   - Files to edit:
+     - `server/src/ws/server.ts`
+   - Log line:
+     - `DEV-0000032:T6:ingest-status-ast`
+   - Implementation details:
+     - Emit `baseLogger.info` when broadcasting ingest status that includes `ast` counts.
+     - Include `event: 'DEV-0000032:T6:ingest-status-ast'`, `runId`, and `supportedFileCount`.
+   - Documentation to read (repeat):
+     - WebSocket server overview: https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -913,7 +973,7 @@ Extend ingest status payloads (REST + WS) with optional AST counts and update te
 5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, trigger an ingest and confirm the status card updates without UI errors; confirm the browser console has no errors.
+8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, trigger an ingest, open Logs, and confirm `DEV-0000032:T6:ingest-status-ast` appears; confirm the browser console has no errors.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -1065,7 +1125,17 @@ Add AST tool validation + query services for list/find/call-graph/modules and er
    - Purpose: Keep project structure docs aligned with added service/test files.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-17. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+17. [ ] Add AST tool service log line:
+   - Files to edit:
+     - `server/src/ast/toolService.ts`
+   - Log line:
+     - `DEV-0000032:T7:ast-tool-service-request`
+   - Implementation details:
+     - Emit `baseLogger.info` at the start of each tool service handler.
+     - Include `event: 'DEV-0000032:T7:ast-tool-service-request'`, `tool`, and `repository`.
+   - Documentation to read (repeat):
+     - Mongoose queries: https://mongoosejs.com/docs/queries.html
+18. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -1078,7 +1148,7 @@ Add AST tool validation + query services for list/find/call-graph/modules and er
 5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, run a basic search/chat flow, and confirm no console errors while the app is idle and after a request.
+8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, call `/tools/ast-list-symbols` from the browser console, open Logs, and confirm `DEV-0000032:T7:ast-tool-service-request` appears; confirm no console errors while the app is idle and after the request.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -1173,7 +1243,17 @@ Expose `/tools/ast-*` REST endpoints that validate input, call the AST tool serv
    - Documentation to read (repeat):
      - OpenAPI 3.0 spec (schema + path shape): https://spec.openapis.org/oas/latest.html
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+8. [ ] Add AST REST route log line:
+   - Files to edit:
+     - `server/src/routes/toolsAstListSymbols.ts`
+   - Log line:
+     - `DEV-0000032:T8:ast-rest-request`
+   - Implementation details:
+     - Emit `baseLogger.info` at the start of each AST REST handler.
+     - Include `event: 'DEV-0000032:T8:ast-rest-request'` and `route`.
+   - Documentation to read (repeat):
+     - Express 5 routing docs: /expressjs/express/v5.1.0
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -1186,7 +1266,7 @@ Expose `/tools/ast-*` REST endpoints that validate input, call the AST tool serv
 5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, verify `/tools/ast-*` interactions do not surface UI errors (no console errors while app is idle).
+8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, call `/tools/ast-list-symbols`, open Logs, and confirm `DEV-0000032:T8:ast-rest-request` appears; ensure no console errors while app is idle.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -1281,7 +1361,17 @@ Expose AST tools through the MCP JSON-RPC server with schemas aligned to the RES
    - Purpose: Keep project structure docs aligned with MCP test changes.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+9. [ ] Add MCP tool registration log line:
+   - Files to edit:
+     - `server/src/mcp/server.ts`
+   - Log line:
+     - `DEV-0000032:T9:ast-mcp-tools-registered`
+   - Implementation details:
+     - Emit `baseLogger.info` after AST tool definitions are registered.
+     - Include `event: 'DEV-0000032:T9:ast-mcp-tools-registered'` and `toolCount`.
+   - Documentation to read (repeat):
+     - MCP tool spec: https://modelcontextprotocol.io/specification
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -1294,7 +1384,7 @@ Expose AST tools through the MCP JSON-RPC server with schemas aligned to the RES
 5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, validate MCP-facing flows are stable in the UI (no unexpected errors) and confirm the browser console has no errors.
+8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, open Logs, confirm `DEV-0000032:T9:ast-mcp-tools-registered` appears after startup, and confirm the browser console has no errors.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -1369,7 +1459,17 @@ Extend client ingest status types to include optional AST counts and update test
    - Purpose: Keep documentation aligned with test adjustments.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+6. [ ] Add client ingest status log line:
+   - Files to edit:
+     - `client/src/hooks/useIngestStatus.ts`
+   - Log line:
+     - `DEV-0000032:T10:ast-status-received`
+   - Implementation details:
+     - Emit `console.info` when a status payload includes the `ast` field.
+     - Include the counts in the logged payload for verification.
+   - Documentation to read (repeat):
+     - React hooks reference: https://react.dev/reference/react
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -1382,7 +1482,7 @@ Extend client ingest status types to include optional AST counts and update test
 5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, visit the Ingest page, and ensure AST status fields do not break rendering; confirm the browser console has no errors.
+8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, run an ingest, and confirm the browser console includes `DEV-0000032:T10:ast-status-received` with counts; ensure no console errors.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -1468,7 +1568,17 @@ Render non-blocking Ingest page banners for AST skipped/failed counts using exis
    - Purpose: Keep project structure docs accurate after test edits.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+7. [ ] Add AST banner render log line:
+   - Files to edit:
+     - `client/src/pages/IngestPage.tsx`
+   - Log line:
+     - `DEV-0000032:T11:ast-banner-evaluated`
+   - Implementation details:
+     - Emit `console.info` when banner visibility is evaluated (include `skippedFileCount`/`failedFileCount`).
+     - Ensure the log appears even when banners are hidden (counts are zero).
+   - Documentation to read (repeat):
+     - React hooks reference: https://react.dev/reference/react
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -1481,7 +1591,7 @@ Render non-blocking Ingest page banners for AST skipped/failed counts using exis
 5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, verify AST skip/failure banners render when counts are present, and confirm the browser console has no errors.
+8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, verify AST skip/failure banners render when counts are present, and confirm the console shows `DEV-0000032:T11:ast-banner-evaluated` (with counts) and no errors.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -1540,7 +1650,17 @@ Validate the full story against acceptance criteria, run full builds/tests, ensu
 4. [ ] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+5. [ ] Add final verification log line:
+   - Files to edit:
+     - `server/src/index.ts`
+   - Log line:
+     - `DEV-0000032:T12:verification-ready`
+   - Implementation details:
+     - Emit `baseLogger.info` once the server has finished startup and is ready for verification checks.
+     - Include `event: 'DEV-0000032:T12:verification-ready'` and `port` in the payload.
+   - Documentation to read (repeat):
+     - Node.js events: https://nodejs.org/api/events.html
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -1554,7 +1674,7 @@ Validate the full story against acceptance criteria, run full builds/tests, ensu
 5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, walk through ingest + chat flows, verify AST status banners appear when expected, and confirm the browser console has no errors; save required screenshots to `test-results/screenshots`.
+8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, open Logs and confirm `DEV-0000032:T12:verification-ready` is present, walk through ingest + chat flows, verify AST status banners appear when expected, and confirm the browser console has no errors; save required screenshots to `test-results/screenshots`.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes

@@ -21,6 +21,8 @@ We want to add a Tree-sitter powered AST indexing pipeline that runs whenever a 
 
 This phase focuses on Tree-sitter parsing and AST indexing only (no knowledge graph or vector embedding of AST artifacts yet).
 
+Note: Cross-repository symbol linking (e.g., linking imports in repo A to an ingested repo B like BabylonJS) is intentionally deferred to a later story.
+
 ---
 
 ## Acceptance Criteria
@@ -45,6 +47,7 @@ This phase focuses on Tree-sitter parsing and AST indexing only (no knowledge gr
 - Support for languages beyond TypeScript/JavaScript in this phase.
 - UI changes outside the Ingest page banner.
 - Automatic fixes for unsupported languages or missing grammars.
+- Cross-repository symbol linking or dependency resolution between multiple ingested repos.
 
 ---
 

@@ -971,8 +971,8 @@ Integrate AST parsing into ingest runs and persist AST data + coverage without c
 
 ### 6. Server: Ingest status AST fields
 
-- Task Status: **__in_progress__**
-- Git Commits: **to_do**
+- Task Status: **__done__**
+- Git Commits: f70e5ab
 
 #### Overview
 

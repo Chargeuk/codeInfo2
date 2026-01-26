@@ -21,6 +21,8 @@ We want to add a Tree-sitter powered AST indexing pipeline that runs whenever a 
 
 This phase focuses on Tree-sitter parsing and AST indexing only (no knowledge graph or vector embedding of AST artifacts yet).
 
+AST indexing must reuse the existing ingest discovery/config rules (include/exclude, text/binary detection) and file hashing so the same files are parsed and the same hash keys are used for delta re-embed.
+
 Note: Cross-repository symbol linking (e.g., linking imports in repo A to an ingested repo B like BabylonJS) is intentionally deferred to a later story.
 
 ---
@@ -31,19 +33,22 @@ Note: Cross-repository symbol linking (e.g., linking imports in repo A to an ing
 - Unsupported files are skipped **per file** (not per repo); a warning log includes the root, skipped file count, and example paths, and the Ingest UI shows a non-blocking banner with the skipped count and reason (“unsupported language”).
 - AST indexing is additive: vector embeddings, ingest status counts, and model locking behavior remain unchanged when AST indexing is enabled.
 - Indexing respects ingest include/exclude rules and file hashes; unchanged files (same hash as last AST index) are not re-parsed and keep their existing AST records.
+- Server-side parsing uses the Node.js Tree-sitter bindings (`tree-sitter` npm package) with the official grammars for JavaScript and TypeScript/TSX (`tree-sitter-javascript`, `tree-sitter-typescript`).
 - AST artifacts are stored in Mongo using shared collections keyed by `root + relPath + fileHash` (no per-root collections).
 - Each stored symbol record includes: `root`, `relPath`, `fileHash`, `language`, `kind`, `name`, `range` (start/end line+column), and optional `container` (parent symbol id or name).
+- Each symbol has a deterministic `symbolId` derived from stable fields (root + relPath + kind + name + range) so edges can be re-linked on re-embed.
 - Each stored edge record includes: `root`, `fromSymbolId`, `toSymbolId`, `type`, and the `relPath`/`fileHash` that produced it.
 - The system records AST coverage per ingest root with: `supportedFileCount`, `skippedFileCount`, `failedFileCount`, and `lastIndexedAt`.
 - Dry-run ingest performs the full AST parse and produces counts, but does **not** persist symbol/edge records.
 - AST index schema (Option B): symbols include `Module`, `Class`, `Function`, `Method`, `Interface`, `TypeAlias`, `Enum`, `Property`; edges include `DEFINES`, `CALLS`, `IMPORTS`, `EXPORTS`, `EXTENDS`, `IMPLEMENTS`, `REFERENCES_TYPE`.
+- When the grammar provides Tree-sitter query files (e.g., `queries/tags.scm`), those are used for definitions and references instead of custom ad-hoc AST walking.
 - MCP tools (Option B) are available for supported repositories and return JSON with file paths + ranges:
   - `list_symbols` returns an array of symbol records.
   - `find_definition` returns a single symbol record (or empty result when not found).
   - `find_references` returns an array of `{ relPath, range }` references.
   - `call_graph` returns `{ nodes: symbol[], edges: edge[] }` for the requested entry point.
   - `module_imports` returns `{ relPath, imports: [{ source, names[] }] }`.
-- REST endpoints mirror MCP tools using the `/tools/` prefix and the same request/response payloads.
+- REST endpoints mirror MCP tools using the `/tools/` prefix and the same request/response payloads (JSON schema parity with MCP output schemas).
 
 ---
 
@@ -55,6 +60,7 @@ Note: Cross-repository symbol linking (e.g., linking imports in repo A to an ing
 - UI changes outside the Ingest page banner.
 - Automatic fixes for unsupported languages or missing grammars.
 - Cross-repository symbol linking or dependency resolution between multiple ingested repos.
+- Browser/WASM parsing via `web-tree-sitter` (server indexing uses native Node bindings only).
 
 ---
 

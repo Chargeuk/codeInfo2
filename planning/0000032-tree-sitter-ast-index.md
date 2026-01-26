@@ -285,11 +285,15 @@ Create Mongo collections for AST symbols, edges, references, module imports, and
      - Prettier CLI: https://prettier.io/docs/cli
 #### Testing
 
-1. [ ] Build the server (`npm run build --workspace server`)
-2. [ ] Build the client (`npm run build --workspace client`)
-3. [ ] Perform a clean docker build (`npm run compose:build`)
-4. [ ] Prove docker compose starts (`npm run compose:up`)
-5. [ ] Run server unit tests (`npm run test:unit --workspace server`)
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, load Chat + Ingest pages, confirm the UI renders, and confirm the browser console has no errors.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -369,11 +373,15 @@ Add repo helper functions for AST collections with Mongo-disconnected guards and
      - Prettier CLI: https://prettier.io/docs/cli
 #### Testing
 
-1. [ ] Build the server (`npm run build --workspace server`)
-2. [ ] Build the client (`npm run build --workspace client`)
-3. [ ] Perform a clean docker build (`npm run compose:build`)
-4. [ ] Prove docker compose starts (`npm run compose:up`)
-5. [ ] Run server unit tests (`npm run test:unit --workspace server`)
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, visit the Ingest page, confirm ingest status UI loads, and confirm the browser console has no errors.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -449,10 +457,15 @@ Add Tree-sitter dependencies and ensure Docker builds can compile native binding
      - Prettier CLI: https://prettier.io/docs/cli
 #### Testing
 
-1. [ ] Build the server (`npm run build --workspace server`)
-2. [ ] Build the client (`npm run build --workspace client`)
-3. [ ] Perform a clean docker build (`npm run compose:build`)
-4. [ ] Prove docker compose starts (`npm run compose:up`)
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, load the app shell, and confirm there are no console errors after initial page load.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -624,11 +637,15 @@ Implement a Tree-sitter parsing module that maps JS/TS/TSX source text into Symb
      - Prettier CLI: https://prettier.io/docs/cli
 #### Testing
 
-1. [ ] Build the server (`npm run build --workspace server`)
-2. [ ] Build the client (`npm run build --workspace client`)
-3. [ ] Perform a clean docker build (`npm run compose:build`)
-4. [ ] Prove docker compose starts (`npm run compose:up`)
-5. [ ] Run server unit tests (`npm run test:unit --workspace server`)
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, run a small ingest from the Ingest page (use the sample repo), and confirm the UI stays responsive with no console errors.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -798,12 +815,16 @@ Integrate AST parsing into ingest runs and persist AST data + coverage without c
      - Prettier CLI: https://prettier.io/docs/cli
 #### Testing
 
-1. [ ] Build the server (`npm run build --workspace server`)
-2. [ ] Build the client (`npm run build --workspace client`)
-3. [ ] Perform a clean docker build (`npm run compose:build`)
-4. [ ] Prove docker compose starts (`npm run compose:up`)
-5. [ ] Run server unit tests (`npm run test:unit --workspace server`)
-6. [ ] Run server integration tests (`npm run test:integration --workspace server`)
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, start an ingest and verify the status card updates; confirm the browser console shows no errors.
+9. [ ] `npm run compose:down`
+10. [ ] `npm run test:integration --workspace server`
 
 #### Implementation notes
 
@@ -885,11 +906,15 @@ Extend ingest status payloads (REST + WS) with optional AST counts and update te
      - Prettier CLI: https://prettier.io/docs/cli
 #### Testing
 
-1. [ ] Build the server (`npm run build --workspace server`)
-2. [ ] Build the client (`npm run build --workspace client`)
-3. [ ] Perform a clean docker build (`npm run compose:build`)
-4. [ ] Prove docker compose starts (`npm run compose:up`)
-5. [ ] Run server unit tests (`npm run test:unit --workspace server`)
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, trigger an ingest and confirm the status card updates without UI errors; confirm the browser console has no errors.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1046,11 +1071,15 @@ Add AST tool validation + query services for list/find/call-graph/modules and er
      - Prettier CLI: https://prettier.io/docs/cli
 #### Testing
 
-1. [ ] Build the server (`npm run build --workspace server`)
-2. [ ] Build the client (`npm run build --workspace client`)
-3. [ ] Perform a clean docker build (`npm run compose:build`)
-4. [ ] Prove docker compose starts (`npm run compose:up`)
-5. [ ] Run server unit tests (`npm run test:unit --workspace server`)
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, run a basic search/chat flow, and confirm no console errors while the app is idle and after a request.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1150,11 +1179,15 @@ Expose `/tools/ast-*` REST endpoints that validate input, call the AST tool serv
      - Prettier CLI: https://prettier.io/docs/cli
 #### Testing
 
-1. [ ] Build the server (`npm run build --workspace server`)
-2. [ ] Build the client (`npm run build --workspace client`)
-3. [ ] Perform a clean docker build (`npm run compose:build`)
-4. [ ] Prove docker compose starts (`npm run compose:up`)
-5. [ ] Run server unit tests (`npm run test:unit --workspace server`)
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, verify `/tools/ast-*` interactions do not surface UI errors (no console errors while app is idle).
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1254,11 +1287,15 @@ Expose AST tools through the MCP JSON-RPC server with schemas aligned to the RES
      - Prettier CLI: https://prettier.io/docs/cli
 #### Testing
 
-1. [ ] Build the server (`npm run build --workspace server`)
-2. [ ] Build the client (`npm run build --workspace client`)
-3. [ ] Perform a clean docker build (`npm run compose:build`)
-4. [ ] Prove docker compose starts (`npm run compose:up`)
-5. [ ] Run server unit tests (`npm run test:unit --workspace server`)
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, validate MCP-facing flows are stable in the UI (no unexpected errors) and confirm the browser console has no errors.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1338,11 +1375,15 @@ Extend client ingest status types to include optional AST counts and update test
      - Prettier CLI: https://prettier.io/docs/cli
 #### Testing
 
-1. [ ] Build the server (`npm run build --workspace server`)
-2. [ ] Build the client (`npm run build --workspace client`)
-3. [ ] Perform a clean docker build (`npm run compose:build`)
-4. [ ] Prove docker compose starts (`npm run compose:up`)
-5. [ ] Run client unit tests (`npm run test --workspace client`)
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, visit the Ingest page, and ensure AST status fields do not break rendering; confirm the browser console has no errors.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1433,11 +1474,15 @@ Render non-blocking Ingest page banners for AST skipped/failed counts using exis
      - Prettier CLI: https://prettier.io/docs/cli
 #### Testing
 
-1. [ ] Build the server (`npm run build --workspace server`)
-2. [ ] Build the client (`npm run build --workspace client`)
-3. [ ] Perform a clean docker build (`npm run compose:build`)
-4. [ ] Prove docker compose starts (`npm run compose:up`)
-5. [ ] Run client unit tests (`npm run test --workspace client`)
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, verify AST skip/failure banners render when counts are present, and confirm the browser console has no errors.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1502,25 +1547,15 @@ Validate the full story against acceptance criteria, run full builds/tests, ensu
 
 #### Testing
 
-1. [ ] Build the server (`npm run build --workspace server`)
-2. [ ] Build the client (`npm run build --workspace client`)
-3. [ ] Perform a clean docker build (`npm run compose:build`)
-4. [ ] Prove docker compose starts (`npm run compose:up`)
-5. [ ] run the client jest tests
-   - Documentation to read (repeat):
-     - Jest getting started (client unit tests): https://jestjs.io/docs/getting-started
-6. [ ] run the server cucumber tests
-   - Documentation to read (repeat):
-     - Cucumber guide (server integration tests): https://cucumber.io/docs/guides/10-minute-tutorial/
-7. [ ] restart the docker environment
-   - Documentation to read (repeat):
-     - Docker Compose overview (clean builds + compose up): https://docs.docker.com/compose/
-8. [ ] run the e2e tests
-   - Documentation to read (repeat):
-     - Playwright Test intro (e2e run + screenshots): https://playwright.dev/docs/intro
-9. [ ] use the playwright mcp tool to ensure manually check the application, saving screenshots to ./test-results/screenshots/ - Each screenshot should be named with the plan index including the preceding seroes, then a dash, and then the task number, then a dash and the name of the screenshot
-   - Documentation to read (repeat):
-     - Playwright Test intro (e2e run + screenshots): https://playwright.dev/docs/intro
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, walk through ingest + chat flows, verify AST status banners appear when expected, and confirm the browser console has no errors; save required screenshots to `test-results/screenshots`.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 

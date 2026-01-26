@@ -223,28 +223,55 @@ Create Mongo collections for AST symbols, edges, references, module imports, and
    - Implementation details:
      - Match field names + indexes exactly from Message Contracts (`ast_symbols`, `ast_edges`, `ast_references`, `ast_module_imports`, `ast_coverage`).
      - Ensure `{ root, symbolId }` is unique per root for symbols.
-3. [ ] Unit tests — schema + index coverage:
+3. [ ] Unit test — AST symbols schema (fields + indexes):
+   - Test type: Unit (schema model).
+   - Test location: `server/src/test/unit/ast-symbols-schema.test.ts` (new).
+   - Description: Verify required fields, timestamps, and compound/unique indexes for `ast_symbols`.
+   - Purpose: Ensure symbol storage matches the contract and prevents duplicate `symbolId`s per root.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
      - Mongoose schemas + indexes: https://mongoosejs.com/docs/guide.html
-   - Files to edit:
-     - `server/src/test/unit/ast-symbols-schema.test.ts` (new)
-     - `server/src/test/unit/ast-edges-schema.test.ts` (new)
-     - `server/src/test/unit/ast-references-schema.test.ts` (new)
-     - `server/src/test/unit/ast-module-imports-schema.test.ts` (new)
-     - `server/src/test/unit/ast-coverage-schema.test.ts` (new)
-   - Assertions:
-     - Required fields exist.
-     - Indexes match the contract (including uniqueness where required).
-4. [ ] Update documentation:
+4. [ ] Unit test — AST edges schema (fields + indexes):
+   - Test type: Unit (schema model).
+   - Test location: `server/src/test/unit/ast-edges-schema.test.ts` (new).
+   - Description: Validate required edge fields and indexes for `ast_edges`.
+   - Purpose: Ensure edge lookups by root/from/to/type match the contract.
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+     - Mongoose schemas + indexes: https://mongoosejs.com/docs/guide.html
+5. [ ] Unit test — AST references schema (fields + indexes):
+   - Test type: Unit (schema model).
+   - Test location: `server/src/test/unit/ast-references-schema.test.ts` (new).
+   - Description: Validate required reference fields and indexes for `ast_references`.
+   - Purpose: Ensure reference queries by symbol/relPath are indexed and contract-safe.
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+     - Mongoose schemas + indexes: https://mongoosejs.com/docs/guide.html
+6. [ ] Unit test — AST module imports schema (fields + indexes):
+   - Test type: Unit (schema model).
+   - Test location: `server/src/test/unit/ast-module-imports-schema.test.ts` (new).
+   - Description: Validate module import fields (source + names) and indexes for `ast_module_imports`.
+   - Purpose: Ensure module import lookups by root/relPath are indexed and consistent.
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+     - Mongoose schemas + indexes: https://mongoosejs.com/docs/guide.html
+7. [ ] Unit test — AST coverage schema (fields + indexes):
+   - Test type: Unit (schema model).
+   - Test location: `server/src/test/unit/ast-coverage-schema.test.ts` (new).
+   - Description: Validate coverage counts and `lastIndexedAt` fields for `ast_coverage`.
+   - Purpose: Ensure coverage tracking is persisted and indexed by root.
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+     - Mongoose schemas + indexes: https://mongoosejs.com/docs/guide.html
+8. [ ] Update documentation:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - `design.md` (add AST collections summary)
-5. [ ] Update documentation:
+9. [ ] Update documentation:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - `projectStructure.md` (add new Mongo files/tests)
-6. [ ] Run full linting:
+10. [ ] Run full linting:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -307,10 +334,12 @@ Add repo helper functions for AST collections with Mongo-disconnected guards and
      - Mongoose 9.0.1 guide (Context7): /automattic/mongoose/9.0.1
      - MongoDB bulkWrite: https://www.mongodb.com/docs/manual/reference/method/db.collection.bulkWrite/
 3. [ ] Unit tests — repo helpers return null when Mongo is disconnected:
+   - Test type: Unit (repo helpers).
+   - Test location: `server/src/test/unit/ast-repo-guards.test.ts` (new).
+   - Description: Exercise AST repo helpers with `mongoose.connection.readyState !== 1`.
+   - Purpose: Ensure AST helper functions short-circuit and do not attempt writes when Mongo is down.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-   - Files to edit:
-     - `server/src/test/unit/ast-repo-guards.test.ts` (new)
    - Assertions:
      - Helper functions short-circuit without hitting model methods.
 4. [ ] Update documentation:
@@ -480,38 +509,72 @@ Implement a Tree-sitter parsing module that maps JS/TS/TSX source text into Symb
      - Create a `Module` symbol per file to anchor IMPORTS/EXPORTS edges.
      - Treat `tree.rootNode.hasError` as a parse failure and surface it as `failed` output.
      - Keep parsing errors isolated to the file being parsed (return a failure result, do not throw).
-3. [ ] Unit tests — parser extracts expected symbols/edges:
+3. [ ] Unit test — parser extracts symbols/edges for TS/TSX:
+   - Test type: Unit (parser).
+   - Test location: `server/src/test/unit/ast-parser.test.ts` (new).
+   - Description: Parse sample `.ts` and `.tsx` sources with classes, functions, and exports.
+   - Purpose: Verify symbol kinds/names and 1-based ranges in the happy path.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-   - Files to edit:
-     - `server/src/test/unit/ast-parser.test.ts` (new)
-   - Test data:
-     - Sample `.ts` + `.tsx` source strings with class, function, import/export, and call sites.
-   - Assertions:
-     - Symbols include expected `kind`, `name`, and 1-based ranges.
-     - `symbolId` is stable across repeated runs.
-     - References include expected `relPath` + range for call sites.
-     - Module imports include expected `source` and imported `names`.
-     - Unsupported extension returns `{ language: 'unsupported', symbols: [] }` (or equivalent).
-4. [ ] Unit tests — parser error handling:
+4. [ ] Unit test — parser returns stable `symbolId` values:
+   - Test type: Unit (parser).
+   - Test location: `server/src/test/unit/ast-parser.test.ts` (new).
+   - Description: Run the same source through the parser twice.
+   - Purpose: Ensure deterministic `symbolId` generation for re-embed linking.
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+5. [ ] Unit test — parser emits reference ranges for call sites:
+   - Test type: Unit (parser).
+   - Test location: `server/src/test/unit/ast-parser.test.ts` (new).
+   - Description: Parse a sample function call and confirm reference range output.
+   - Purpose: Ensure references are captured for `AstFindReferences`.
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+6. [ ] Unit test — parser maps module imports:
+   - Test type: Unit (parser).
+   - Test location: `server/src/test/unit/ast-parser.test.ts` (new).
+   - Description: Parse a file with imports and validate `{ source, names[] }` output.
+   - Purpose: Ensure `AstModuleImports` can be populated from stored data.
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+7. [ ] Unit test — unsupported extension returns unsupported result:
+   - Test type: Unit (parser).
+   - Test location: `server/src/test/unit/ast-parser.test.ts` (new).
+   - Description: Parse a non-supported extension and check the returned language flag.
+   - Purpose: Ensure unsupported files are skipped without crashes.
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+8. [ ] Unit test — missing query files returns failed parse:
+   - Test type: Unit (parser).
+   - Test location: `server/src/test/unit/ast-parser.test.ts` (new).
+   - Description: Simulate missing `tags.scm` or `locals.scm` files.
+   - Purpose: Ensure parser returns a failed result without throwing.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
      - Tree-sitter query syntax: https://tree-sitter.github.io/tree-sitter/using-parsers#query-syntax
-   - Files to edit:
-     - `server/src/test/unit/ast-parser.test.ts` (new)
-   - Assertions:
-     - Missing `tags.scm` / `locals.scm` files returns a failed parse result for that file (no symbols/edges).
-     - `rootNode.hasError === true` produces a failed parse result and does not throw.
-     - Grammar load failure returns a failed result and logs once per run.
-5. [ ] Update documentation:
+9. [ ] Unit test — error tree marks file as failed:
+   - Test type: Unit (parser).
+   - Test location: `server/src/test/unit/ast-parser.test.ts` (new).
+   - Description: Force `rootNode.hasError === true` and validate failure output.
+   - Purpose: Ensure malformed files do not crash AST indexing.
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+10. [ ] Unit test — grammar load failure logs once:
+   - Test type: Unit (parser).
+   - Test location: `server/src/test/unit/ast-parser.test.ts` (new).
+   - Description: Simulate grammar load failure and assert logging + failure result.
+   - Purpose: Ensure consistent failure handling when parser setup fails.
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+11. [ ] Update documentation:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - `design.md` (document parsing approach + query usage)
-6. [ ] Update documentation:
+12. [ ] Update documentation:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - `projectStructure.md` (add new `server/src/ast` files + tests)
-7. [ ] Run full linting:
+13. [ ] Run full linting:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -609,33 +672,57 @@ Integrate AST parsing into ingest runs and persist AST data + coverage without c
      - Clear any in-memory AST batches without attempting partial cleanup of already-written records.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-6. [ ] Unit tests — ingest AST counts + dry-run behavior:
+6. [ ] Unit test — ingest AST supported file counts:
+   - Test type: Unit (ingest flow).
+   - Test location: `server/src/test/unit/ingest-ast-indexing.test.ts` (new).
+   - Description: Run ingest with supported `.ts/.tsx/.js/.jsx` files.
+   - Purpose: Ensure `ast.supportedFileCount` increments correctly.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-   - Files to edit:
-     - `server/src/test/unit/ingest-ast-indexing.test.ts` (new)
-   - Assertions:
-     - Supported files increment `ast.supportedFileCount`.
-     - Unsupported files increment `ast.skippedFileCount` and log the “unsupported language” warning.
-     - Parse failures increment `ast.failedFileCount`.
-     - `dryRun` performs parsing but does not call AST repo writes.
-7. [ ] Unit tests — cancellation + Mongo-down guards:
+7. [ ] Unit test — ingest logs unsupported-language skips:
+   - Test type: Unit (ingest flow).
+   - Test location: `server/src/test/unit/ingest-ast-indexing.test.ts` (new).
+   - Description: Include unsupported files and capture the warning log.
+   - Purpose: Ensure `ast.skippedFileCount` increments and warning message matches contract.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-   - Files to edit:
-     - `server/src/test/unit/ingest-ast-indexing.test.ts` (new)
-   - Assertions:
-     - Cancellation stops further AST parsing and skips queued writes.
-     - When Mongo is disconnected, AST write helpers are not called and a warning is logged.
-8. [ ] Update documentation:
+8. [ ] Unit test — ingest parse failures increment failed count:
+   - Test type: Unit (ingest flow).
+   - Test location: `server/src/test/unit/ingest-ast-indexing.test.ts` (new).
+   - Description: Force parser failures for supported files.
+   - Purpose: Ensure `ast.failedFileCount` increments without aborting the run.
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+9. [ ] Unit test — ingest dry-run parses without writes:
+   - Test type: Unit (ingest flow).
+   - Test location: `server/src/test/unit/ingest-ast-indexing.test.ts` (new).
+   - Description: Execute ingest with `dryRun=true`.
+   - Purpose: Confirm parsing occurs but AST repo write helpers are not called.
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+10. [ ] Unit test — ingest cancellation stops AST work:
+   - Test type: Unit (ingest flow).
+   - Test location: `server/src/test/unit/ingest-ast-indexing.test.ts` (new).
+   - Description: Trigger cancellation mid-run.
+   - Purpose: Ensure parsing halts and queued writes are skipped.
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+11. [ ] Unit test — Mongo disconnected skips AST writes:
+   - Test type: Unit (ingest flow).
+   - Test location: `server/src/test/unit/ingest-ast-indexing.test.ts` (new).
+   - Description: Simulate `mongoose.connection.readyState !== 1`.
+   - Purpose: Ensure write helpers are not called and a warning is logged.
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+12. [ ] Update documentation:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - `design.md` (AST coverage + ingest persistence notes)
-9. [ ] Update documentation:
+13. [ ] Update documentation:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - `projectStructure.md` (note any new files if added)
-10. [ ] Run full linting:
+14. [ ] Run full linting:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -688,21 +775,32 @@ Extend ingest status payloads (REST + WS) with optional AST counts and update te
      - Ensure `ingest_snapshot` and `ingest_update` include `ast` when available.
    - Documentation to read (repeat):
      - TypeScript handbook (update `IngestJobStatus` shapes): https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
-2. [ ] Update server tests for the new `ast` status fields:
-   - Files to edit:
-     - `server/src/test/unit/ingest-status.test.ts`
-     - `server/src/test/steps/ingest-status.steps.ts`
-     - `server/src/test/features/ingest-status.feature`
-   - Assertions:
-     - Status snapshots include `ast.supportedFileCount`, `skippedFileCount`, `failedFileCount`.
+2. [ ] Unit test — ingest status includes AST fields:
+   - Test type: Unit (server ingest status).
+   - Test location: `server/src/test/unit/ingest-status.test.ts`.
+   - Description: Extend status snapshot expectations for `ast.supportedFileCount`, `skippedFileCount`, `failedFileCount`.
+   - Purpose: Ensure REST status payloads include AST counts when provided.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
+3. [ ] Cucumber step updates — ingest status AST fields:
+   - Test type: Integration (Cucumber steps).
+   - Test location: `server/src/test/steps/ingest-status.steps.ts`.
+   - Description: Update step assertions to include `ast.*` fields in status responses.
+   - Purpose: Keep ingest status BDD coverage aligned with the contract.
+   - Documentation to read (repeat):
      - Cucumber guide (server integration tests): https://cucumber.io/docs/guides/10-minute-tutorial/
-3. [ ] Update documentation:
+4. [ ] Feature update — ingest status AST fields:
+   - Test type: Integration (Cucumber feature).
+   - Test location: `server/src/test/features/ingest-status.feature`.
+   - Description: Add/extend scenarios to expect AST counts in the status payload.
+   - Purpose: Ensure behavior is documented and verified at the feature level.
+   - Documentation to read (repeat):
+     - Cucumber guide (server integration tests): https://cucumber.io/docs/guides/10-minute-tutorial/
+5. [ ] Update documentation:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - `design.md` (extend ingest status contract)
-4. [ ] Run full linting:
+6. [ ] Run full linting:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -764,36 +862,71 @@ Add AST tool validation + query services for list/find/call-graph/modules and er
    - Documentation to read (repeat):
      - Mongoose queries: https://mongoosejs.com/docs/queries.html
      - MongoDB CRUD: https://www.mongodb.com/docs/manual/crud/
-3. [ ] Unit tests — AST tool validation:
+3. [ ] Unit test — AST tool validation missing required fields:
+   - Test type: Unit (validation).
+   - Test location: `server/src/test/unit/ast-tool-validation.test.ts` (new).
+   - Description: Omit required input fields for each AST tool.
+   - Purpose: Ensure `VALIDATION_FAILED` is returned for invalid payloads.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-   - Files to edit:
-     - `server/src/test/unit/ast-tool-validation.test.ts` (new)
-   - Assertions:
-     - Missing required fields return `VALIDATION_FAILED`.
-     - `limit` defaults to 50 and caps at 200.
-4. [ ] Unit tests — AST tool service queries + error mapping:
+4. [ ] Unit test — AST tool validation limit defaults/caps:
+   - Test type: Unit (validation).
+   - Test location: `server/src/test/unit/ast-tool-validation.test.ts` (new).
+   - Description: Provide no `limit` and an oversized `limit`.
+   - Purpose: Confirm default `limit=50` and cap at `200`.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-     - Mongoose query docs: https://mongoosejs.com/docs/queries.html
-   - Files to edit:
-     - `server/src/test/unit/ast-tool-service.test.ts` (new)
-   - Assertions:
-     - Unknown repo id returns `REPO_NOT_FOUND`.
-     - Missing coverage returns `AST_INDEX_REQUIRED`.
-     - When multiple roots share a repo id, the newest `lastIngestAt` is selected.
-     - Call graph respects `depth` and does not traverse beyond it.
-     - `AstModuleImports` maps stored imports into `{ relPath, imports: [{ source, names[] }] }`.
-     - `AstFindReferences` works by `symbolId` and by `{ name, kind }` fallback.
-5. [ ] Update documentation:
+5. [ ] Unit test — tool service repo not found:
+   - Test type: Unit (service query).
+   - Test location: `server/src/test/unit/ast-tool-service.test.ts` (new).
+   - Description: Query with unknown repo id.
+   - Purpose: Return `REPO_NOT_FOUND` without hitting AST collections.
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+6. [ ] Unit test — tool service missing coverage:
+   - Test type: Unit (service query).
+   - Test location: `server/src/test/unit/ast-tool-service.test.ts` (new).
+   - Description: Repo exists but `ast_coverage` is missing.
+   - Purpose: Return `AST_INDEX_REQUIRED` to signal missing AST index.
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+7. [ ] Unit test — tool service selects newest repo root:
+   - Test type: Unit (service query).
+   - Test location: `server/src/test/unit/ast-tool-service.test.ts` (new).
+   - Description: Provide multiple roots with the same repo id.
+   - Purpose: Ensure newest `lastIngestAt` root is selected.
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+8. [ ] Unit test — tool service call graph depth:
+   - Test type: Unit (service query).
+   - Test location: `server/src/test/unit/ast-tool-service.test.ts` (new).
+   - Description: Build a call chain longer than requested depth.
+   - Purpose: Ensure traversal respects depth and stops correctly.
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+9. [ ] Unit test — tool service module imports mapping:
+   - Test type: Unit (service query).
+   - Test location: `server/src/test/unit/ast-tool-service.test.ts` (new).
+   - Description: Seed module import records with sources + names.
+   - Purpose: Verify `AstModuleImports` shape `{ relPath, imports: [{ source, names[] }] }`.
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+10. [ ] Unit test — tool service references fallback:
+   - Test type: Unit (service query).
+   - Test location: `server/src/test/unit/ast-tool-service.test.ts` (new).
+   - Description: Query by `{ name, kind }` when `symbolId` missing.
+   - Purpose: Ensure fallback reference lookup works for legacy callers.
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+11. [ ] Update documentation:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - `design.md` (AST tool service behavior)
-6. [ ] Update documentation:
+12. [ ] Update documentation:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - `projectStructure.md` (add new service/test files)
-7. [ ] Run full linting:
+13. [ ] Run full linting:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -850,32 +983,46 @@ Expose `/tools/ast-*` REST endpoints that validate input, call the AST tool serv
      - `server/src/index.ts`
    - Implementation details:
      - Mirror the VectorSearch route error handling (`VALIDATION_FAILED`, `REPO_NOT_FOUND`, `INGEST_REQUIRED`, `AST_INDEX_REQUIRED`).
-2. [ ] Integration tests — REST endpoints:
+2. [ ] Integration test — REST happy path payloads:
+   - Test type: Integration (REST routes).
+   - Test location: `server/src/test/integration/tools-ast.test.ts` (new).
+   - Description: Stub the AST service and assert response shapes for all `/tools/ast-*` routes.
+   - Purpose: Ensure contract-aligned payloads for list/find/call-graph/module-imports.
    - Documentation to read (repeat):
      - Supertest HTTP assertions: https://github.com/forwardemail/supertest
      - Node.js test runner: https://nodejs.org/api/test.html
-   - Files to edit:
-     - `server/src/test/integration/tools-ast.test.ts` (new)
-   - Assertions:
-     - Each endpoint returns contract-shaped payloads when the service is stubbed.
-     - Validation errors return `400` with details.
-     - Error mapping for `REPO_NOT_FOUND`, `INGEST_REQUIRED`, `AST_INDEX_REQUIRED` matches the VectorSearch routes (status + body shape).
    - Notes:
      - Mirror the existing router test patterns from `server/src/test/unit/tools-vector-search.test.ts` / `tools-ingested-repos.test.ts` when stubbing deps.
-3. [ ] Update documentation:
+3. [ ] Integration test — REST validation errors:
+   - Test type: Integration (REST routes).
+   - Test location: `server/src/test/integration/tools-ast.test.ts` (new).
+   - Description: Send invalid payloads for each endpoint.
+   - Purpose: Verify `400` responses with `VALIDATION_FAILED` details.
+   - Documentation to read (repeat):
+     - Supertest HTTP assertions: https://github.com/forwardemail/supertest
+     - Node.js test runner: https://nodejs.org/api/test.html
+4. [ ] Integration test — REST error mapping:
+   - Test type: Integration (REST routes).
+   - Test location: `server/src/test/integration/tools-ast.test.ts` (new).
+   - Description: Force `REPO_NOT_FOUND`, `INGEST_REQUIRED`, `AST_INDEX_REQUIRED` from the service.
+   - Purpose: Ensure status codes + body shapes match the VectorSearch route conventions.
+   - Documentation to read (repeat):
+     - Supertest HTTP assertions: https://github.com/forwardemail/supertest
+     - Node.js test runner: https://nodejs.org/api/test.html
+5. [ ] Update documentation:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - `design.md` (REST tool contracts + error codes)
-4. [ ] Update documentation:
+6. [ ] Update documentation:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - `projectStructure.md` (add new route/test files)
-5. [ ] Update documentation:
+7. [ ] Update documentation:
    - Documentation to read (repeat):
      - OpenAPI 3.0 spec (schema + path shape): https://spec.openapis.org/oas/latest.html
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - `openapi.json` (add `/tools/ast-*` endpoints)
-6. [ ] Run full linting:
+8. [ ] Run full linting:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -934,26 +1081,47 @@ Expose AST tools through the MCP JSON-RPC server with schemas aligned to the RES
    - Documentation to read (repeat):
      - MCP tool format (schema expectations): https://modelcontextprotocol.io/specification
      - JSON-RPC 2.0 spec: https://www.jsonrpc.org/specification
-3. [ ] Integration tests — MCP tool list + call:
+3. [ ] Integration test — MCP tools/list includes AST tools:
+   - Test type: Integration (MCP server).
+   - Test location: `server/src/test/integration/mcp-server.test.ts`.
+   - Description: Call `tools/list` and verify AST tool definitions are present.
+   - Purpose: Ensure AST tools are advertised to MCP clients.
    - Documentation to read (repeat):
      - Supertest HTTP assertions: https://github.com/forwardemail/supertest
      - Node.js test runner: https://nodejs.org/api/test.html
-   - Files to edit:
-     - `server/src/test/integration/mcp-server.test.ts`
-   - Assertions:
-     - `tools/list` includes AST tools.
-     - `tools/call` returns JSON payload for a stubbed AST tool.
-     - Validation errors return `-32602` with `VALIDATION_FAILED` message.
-     - `AST_INDEX_REQUIRED` maps to a tool error response consistent with existing MCP tools.
-4. [ ] Update documentation:
+4. [ ] Integration test — MCP tools/call returns payload:
+   - Test type: Integration (MCP server).
+   - Test location: `server/src/test/integration/mcp-server.test.ts`.
+   - Description: Stub AST service response and call each tool.
+   - Purpose: Ensure MCP responses include JSON payloads with the contract shape.
+   - Documentation to read (repeat):
+     - Supertest HTTP assertions: https://github.com/forwardemail/supertest
+     - Node.js test runner: https://nodejs.org/api/test.html
+5. [ ] Integration test — MCP validation errors:
+   - Test type: Integration (MCP server).
+   - Test location: `server/src/test/integration/mcp-server.test.ts`.
+   - Description: Call tools with invalid payloads.
+   - Purpose: Confirm `-32602` is returned with `VALIDATION_FAILED` messaging.
+   - Documentation to read (repeat):
+     - Supertest HTTP assertions: https://github.com/forwardemail/supertest
+     - Node.js test runner: https://nodejs.org/api/test.html
+6. [ ] Integration test — MCP AST_INDEX_REQUIRED mapping:
+   - Test type: Integration (MCP server).
+   - Test location: `server/src/test/integration/mcp-server.test.ts`.
+   - Description: Simulate missing coverage in the AST service.
+   - Purpose: Ensure `AST_INDEX_REQUIRED` is mapped consistently with existing MCP tools.
+   - Documentation to read (repeat):
+     - Supertest HTTP assertions: https://github.com/forwardemail/supertest
+     - Node.js test runner: https://nodejs.org/api/test.html
+7. [ ] Update documentation:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - `design.md` (MCP tool list + response shapes)
-5. [ ] Update documentation:
+8. [ ] Update documentation:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - `projectStructure.md` (update if any new test files added)
-6. [ ] Run full linting:
+9. [ ] Run full linting:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -1012,6 +1180,10 @@ Extend client ingest status types to include optional AST counts and update test
    - Documentation to read (repeat):
      - TypeScript 5.9 release notes: https://www.typescriptlang.org/docs/handbook/release-notes/typescript-5-9.html
 3. [ ] Client tests — ingest status shape updates:
+   - Test type: Unit (client hook/types).
+   - Test location: `client/src/test/ingestStatus.test.tsx`.
+   - Description: Ensure ingest status rendering tolerates optional `ast` fields.
+   - Purpose: Prevent regressions when new AST fields are present in status payloads.
    - Files to edit:
      - `client/src/test/ingestStatus.test.tsx`
    - Assertions:
@@ -1084,25 +1256,39 @@ Render non-blocking Ingest page banners for AST skipped/failed counts using exis
      - Show a non-blocking `Alert` when `ast.skippedFileCount > 0` with message “AST indexing skipped for X file(s) (unsupported language).”
      - If `failedFileCount > 0`, show a warning/info banner noting failures and advising to check logs.
      - Reuse the existing page-level `Alert` layout patterns already used for model lock and WS status (do not introduce a new banner component).
-2. [ ] Client tests — banner rendering:
+2. [ ] Client test — skipped-language banner renders:
+   - Test type: Unit (client UI).
+   - Test location: `client/src/test/ingestStatus.test.tsx`.
+   - Description: Provide status payload with `ast.skippedFileCount > 0`.
+   - Purpose: Ensure the “unsupported language” banner renders.
    - Documentation to read (repeat):
      - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
      - Jest (React testing): https://jestjs.io/docs/getting-started
-   - Files to edit:
-     - `client/src/test/ingestStatus.test.tsx`
-   - Assertions:
-     - Banner appears when `ast.skippedFileCount > 0`.
-     - Failure banner appears when `ast.failedFileCount > 0`.
-     - Banner hidden when counts are zero or missing.
-3. [ ] Update documentation:
+3. [ ] Client test — failed AST banner renders:
+   - Test type: Unit (client UI).
+   - Test location: `client/src/test/ingestStatus.test.tsx`.
+   - Description: Provide status payload with `ast.failedFileCount > 0`.
+   - Purpose: Ensure the failure banner renders with guidance to check logs.
+   - Documentation to read (repeat):
+     - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+     - Jest (React testing): https://jestjs.io/docs/getting-started
+4. [ ] Client test — banners hidden when counts are zero/missing:
+   - Test type: Unit (client UI).
+   - Test location: `client/src/test/ingestStatus.test.tsx`.
+   - Description: Provide status payload with `ast` missing or counts = 0.
+   - Purpose: Ensure banners do not render in the normal happy path.
+   - Documentation to read (repeat):
+     - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+     - Jest (React testing): https://jestjs.io/docs/getting-started
+5. [ ] Update documentation:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - `design.md` (client ingest banner notes)
-4. [ ] Update documentation:
+6. [ ] Update documentation:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - `projectStructure.md` (update if tests changed)
-5. [ ] Run full linting:
+7. [ ] Run full linting:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli

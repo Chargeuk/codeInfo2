@@ -542,8 +542,8 @@ Add Tree-sitter dependencies and ensure Docker builds can compile native binding
 
 ### 4. Server: Tree-sitter parser module
 
-- Task Status: **__in_progress__**
-- Git Commits: **to_do**
+- Task Status: **__done__**
+- Git Commits: 35d2d19
 
 #### Overview
 

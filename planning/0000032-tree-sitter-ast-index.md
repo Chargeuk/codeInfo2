@@ -1079,7 +1079,7 @@ Extend ingest status payloads (REST + WS) with optional AST counts and update te
 
 ### 7. Server: AST tool service
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **to_do**
 
 #### Overview
@@ -1100,12 +1100,12 @@ Add AST tool validation + query services for list/find/call-graph/modules and er
 
 #### Subtasks
 
-1. [ ] Review tool patterns and error mapping:
+1. [x] Review tool patterns and error mapping:
    - Files to read:
      - `server/src/lmstudio/toolService.ts`
    - Documentation to read (repeat):
      - Mongoose queries: https://mongoosejs.com/docs/queries.html
-2. [ ] Add AST tool validation + query services:
+2. [x] Add AST tool validation + query services:
    - Files to edit:
      - `server/src/ast/toolService.ts` (new)
    - Implementation details:
@@ -1122,91 +1122,91 @@ Add AST tool validation + query services for list/find/call-graph/modules and er
    - Documentation to read (repeat):
      - Mongoose queries: https://mongoosejs.com/docs/queries.html
      - MongoDB CRUD: https://www.mongodb.com/docs/manual/crud/
-3. [ ] Unit test — AST tool validation missing required fields:
+3. [x] Unit test — AST tool validation missing required fields:
    - Test type: Unit (validation).
    - Test location: `server/src/test/unit/ast-tool-validation.test.ts` (new).
    - Description: Omit required input fields for each AST tool.
    - Purpose: Ensure `VALIDATION_FAILED` is returned for invalid payloads.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-4. [ ] Unit test — AST tool validation limit defaults/caps:
+4. [x] Unit test — AST tool validation limit defaults/caps:
    - Test type: Unit (validation).
    - Test location: `server/src/test/unit/ast-tool-validation.test.ts` (new).
    - Description: Provide no `limit` and an oversized `limit`.
    - Purpose: Confirm default `limit=50` and cap at `200`.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-5. [ ] Unit test — tool service ingest required:
+5. [x] Unit test — tool service ingest required:
    - Test type: Unit (service query).
    - Test location: `server/src/test/unit/ast-tool-service.test.ts` (new).
    - Description: No repositories returned from `listIngestedRepositories`.
    - Purpose: Return `INGEST_REQUIRED` when nothing has been ingested.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-6. [ ] Unit test — tool service repo not found:
+6. [x] Unit test — tool service repo not found:
    - Test type: Unit (service query).
    - Test location: `server/src/test/unit/ast-tool-service.test.ts` (new).
    - Description: Query with unknown repo id.
    - Purpose: Return `REPO_NOT_FOUND` without hitting AST collections.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-7. [ ] Unit test — tool service missing coverage:
+7. [x] Unit test — tool service missing coverage:
    - Test type: Unit (service query).
    - Test location: `server/src/test/unit/ast-tool-service.test.ts` (new).
    - Description: Repo exists but `ast_coverage` is missing.
    - Purpose: Return `AST_INDEX_REQUIRED` to signal missing AST index.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-8. [ ] Unit test — tool service selects newest repo root:
+8. [x] Unit test — tool service selects newest repo root:
    - Test type: Unit (service query).
    - Test location: `server/src/test/unit/ast-tool-service.test.ts` (new).
    - Description: Provide multiple roots with the same repo id.
    - Purpose: Ensure newest `lastIngestAt` root is selected.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-9. [ ] Unit test — tool service uses containerPath root:
+9. [x] Unit test — tool service uses containerPath root:
    - Test type: Unit (service query).
    - Test location: `server/src/test/unit/ast-tool-service.test.ts` (new).
    - Description: Seed repo metadata with `containerPath` and verify AST queries use it as `root`.
    - Purpose: Ensure AST queries align with stored `root` values from ingest metadata.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-10. [ ] Unit test — tool service list symbols filters + limits:
+10. [x] Unit test — tool service list symbols filters + limits:
    - Test type: Unit (service query).
    - Test location: `server/src/test/unit/ast-tool-service.test.ts` (new).
    - Description: Request symbols with `kinds` and `limit` filters.
    - Purpose: Verify list results are filtered and capped as expected.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-11. [ ] Unit test — tool service find definition by symbolId:
+11. [x] Unit test — tool service find definition by symbolId:
    - Test type: Unit (service query).
    - Test location: `server/src/test/unit/ast-tool-service.test.ts` (new).
    - Description: Query `AstFindDefinition` with a known `symbolId`.
    - Purpose: Ensure definition lookup returns the matching symbol.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-12. [ ] Unit test — tool service references by symbolId:
+12. [x] Unit test — tool service references by symbolId:
    - Test type: Unit (service query).
    - Test location: `server/src/test/unit/ast-tool-service.test.ts` (new).
    - Description: Query `AstFindReferences` using a `symbolId`.
    - Purpose: Ensure references return for direct symbol lookups.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-13. [ ] Unit test — tool service call graph depth:
+13. [x] Unit test — tool service call graph depth:
    - Test type: Unit (service query).
    - Test location: `server/src/test/unit/ast-tool-service.test.ts` (new).
    - Description: Build a call chain longer than requested depth.
    - Purpose: Ensure traversal respects depth and stops correctly.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-14. [ ] Unit test — tool service module imports mapping:
+14. [x] Unit test — tool service module imports mapping:
    - Test type: Unit (service query).
    - Test location: `server/src/test/unit/ast-tool-service.test.ts` (new).
    - Description: Seed module import records with sources + names.
    - Purpose: Verify `AstModuleImports` shape `{ relPath, imports: [{ source, names[] }] }`.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-14. [ ] Unit test — tool service references fallback:
+14. [x] Unit test — tool service references fallback:
    - Test type: Unit (service query).
    - Test location: `server/src/test/unit/ast-tool-service.test.ts` (new).
    - Description: Query by `{ name, kind }` when `symbolId` missing.
@@ -1228,7 +1228,7 @@ Add AST tool validation + query services for list/find/call-graph/modules and er
    - Purpose: Keep project structure docs aligned with added service/test files.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-17. [ ] Add AST tool service log line:
+17. [x] Add AST tool service log line:
    - Files to edit:
      - `server/src/ast/toolService.ts`
    - Log line:
@@ -1256,7 +1256,10 @@ Add AST tool validation + query services for list/find/call-graph/modules and er
 
 #### Implementation notes
 
-- 
+- Implemented AST tool service with validation, repo resolution, and query helpers for list/find/call-graph/module-imports.
+- Added unit coverage for validation defaults/caps and all tool service query paths, including INGEST_REQUIRED and AST_INDEX_REQUIRED branches.
+- Wired the `DEV-0000032:T7:ast-tool-service-request` log emission when tool handlers are invoked.
+- Documentation updates and lint/test/compose verification are still pending for this task.
 
 ---
 

@@ -971,7 +971,7 @@ Integrate AST parsing into ingest runs and persist AST data + coverage without c
 
 ### 6. Server: Ingest status AST fields
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **to_do**
 
 #### Overview
@@ -992,7 +992,7 @@ Extend ingest status payloads (REST + WS) with optional AST counts and update te
 
 #### Subtasks
 
-1. [ ] Extend ingest status payload with AST counts:
+1. [x] Extend ingest status payload with AST counts:
    - Files to edit:
      - `server/src/ingest/ingestJob.ts`
      - `server/src/ws/types.ts`
@@ -1001,35 +1001,35 @@ Extend ingest status payloads (REST + WS) with optional AST counts and update te
      - Ensure `ingest_snapshot` and `ingest_update` include `ast` when available.
    - Documentation to read (repeat):
      - TypeScript handbook (update `IngestJobStatus` shapes): https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
-2. [ ] Unit test — ingest status includes AST fields:
+2. [x] Unit test — ingest status includes AST fields:
    - Test type: Unit (server ingest status).
    - Test location: `server/src/test/unit/ingest-status.test.ts`.
    - Description: Extend status snapshot expectations for `ast.supportedFileCount`, `skippedFileCount`, `failedFileCount`.
    - Purpose: Ensure REST status payloads include AST counts when provided.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-3. [ ] Unit test — WS ingest events include AST fields:
+3. [x] Unit test — WS ingest events include AST fields:
    - Test type: Unit (WebSocket server).
    - Test location: `server/src/test/unit/ws-server.test.ts`.
    - Description: Emit ingest status with `ast` counts and assert `ingest_snapshot`/`ingest_update` include them.
    - Purpose: Ensure realtime ingest updates surface AST counts over WS.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-4. [ ] Cucumber step updates — ingest status AST fields:
+4. [x] Cucumber step updates — ingest status AST fields:
    - Test type: Integration (Cucumber steps).
    - Test location: `server/src/test/steps/ingest-status.steps.ts`.
    - Description: Update step assertions to include `ast.*` fields in status responses.
    - Purpose: Keep ingest status BDD coverage aligned with the contract.
    - Documentation to read (repeat):
      - Cucumber guide (server integration tests): https://cucumber.io/docs/guides/10-minute-tutorial/
-5. [ ] Feature update — ingest status AST fields:
+5. [x] Feature update — ingest status AST fields:
    - Test type: Integration (Cucumber feature).
    - Test location: `server/src/test/features/ingest-status.feature`.
    - Description: Add/extend scenarios to expect AST counts in the status payload.
    - Purpose: Ensure behavior is documented and verified at the feature level.
    - Documentation to read (repeat):
      - Cucumber guide (server integration tests): https://cucumber.io/docs/guides/10-minute-tutorial/
-6. [ ] Update documentation — `design.md`:
+6. [x] Update documentation — `design.md`:
    - Document: `design.md`.
    - Location: `design.md`.
    - Description: Extend the ingest status contract section and add a mermaid diagram for the status payload flow.
@@ -1037,7 +1037,7 @@ Extend ingest status payloads (REST + WS) with optional AST counts and update te
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
      - Mermaid docs (Context7, architecture diagrams): /mermaid-js/mermaid
-7. [ ] Add ingest status log line:
+7. [x] Add ingest status log line:
    - Files to edit:
      - `server/src/ws/server.ts`
    - Log line:
@@ -1047,25 +1047,33 @@ Extend ingest status payloads (REST + WS) with optional AST counts and update te
      - Include `event: 'DEV-0000032:T6:ingest-status-ast'`, `runId`, and `supportedFileCount`.
    - Documentation to read (repeat):
      - WebSocket server overview: https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+8. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, trigger an ingest, open Logs, and confirm `DEV-0000032:T6:ingest-status-ast` appears; confirm the browser console has no errors.
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, trigger an ingest, open Logs, and confirm `DEV-0000032:T6:ingest-status-ast` appears; confirm the browser console has no errors.
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- 
+- Added optional `ast` counts to ingest status payloads and ensured updates carry AST counts through REST/WS status snapshots.
+- Logged `DEV-0000032:T6:ingest-status-ast` during ingest WS broadcasts when AST counts are present.
+- Updated ingest status unit + WS tests, plus Cucumber ingest-status steps/feature to assert AST counts.
+- Documented ingest status AST payload shape and status flow in `design.md`.
+- Ran `npm run lint --workspaces` (existing import-order warnings only), then `npm run format --workspaces` after `format:check` flagged server files.
+- `npm run build --workspace server` and `npm run build --workspace client` completed successfully (Vite chunk-size warnings only).
+- `npm run test --workspace server` and `npm run test --workspace client` completed successfully.
+- `npm run e2e` completed successfully.
+- `npm run compose:build`, `npm run compose:up`, manual Playwright-MCP log check for `DEV-0000032:T6:ingest-status-ast`, and `npm run compose:down` completed successfully.
 
 ---
 

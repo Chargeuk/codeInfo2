@@ -66,10 +66,17 @@ export type IngestJobInput = {
   operation?: 'start' | 'reembed';
 };
 
+export type IngestAstCounts = {
+  supportedFileCount: number;
+  skippedFileCount: number;
+  failedFileCount: number;
+};
+
 export type IngestJobStatus = {
   runId: string;
   state: IngestRunState;
   counts: { files: number; chunks: number; embedded: number };
+  ast?: IngestAstCounts;
   message?: string;
   lastError?: string | null;
   currentFile?: string;
@@ -319,7 +326,7 @@ async function processRun(runId: string, input: IngestJobInput) {
         ? [...deltaPlan.added, ...deltaPlan.changed]
         : files;
 
-    const astCounts = {
+    const astCounts: IngestAstCounts = {
       supportedFileCount: 0,
       skippedFileCount: 0,
       failedFileCount: 0,
@@ -350,6 +357,7 @@ async function processRun(runId: string, input: IngestJobInput) {
       ...status,
       state: 'embedding',
       counts,
+      ast: astCounts,
       message:
         operation === 'reembed' && deltaMode === 'delta'
           ? `Embedding ${workFiles.length} changed/new files`
@@ -457,6 +465,7 @@ async function processRun(runId: string, input: IngestJobInput) {
             runId,
             state: 'skipped',
             counts,
+            ast: astCounts,
             message: skipMessage,
             lastError: null,
             currentFile: undefined,
@@ -586,6 +595,7 @@ async function processRun(runId: string, input: IngestJobInput) {
           runId,
           state: 'skipped',
           counts,
+          ast: astCounts,
           message: `Removed vectors for ${deltaPlan.deleted.length} deleted file(s)`,
           lastError: null,
           currentFile: undefined,
@@ -635,6 +645,7 @@ async function processRun(runId: string, input: IngestJobInput) {
           runId,
           state: 'cancelled',
           counts,
+          ast: astCounts,
           message: 'Cancelled',
           lastError: null,
           currentFile: lastFileRelPath ?? file.relPath,
@@ -897,6 +908,7 @@ async function processRun(runId: string, input: IngestJobInput) {
       runId,
       state: resultState,
       counts,
+      ast: astCounts,
       message: resultState === 'skipped' ? 'No changes detected' : 'Completed',
       lastError: null,
       currentFile: lastFileRelPath,
@@ -1106,6 +1118,7 @@ export async function cancelRun(runId: string) {
     runId,
     state: 'cancelled',
     counts: status?.counts ?? { files: 0, chunks: 0, embedded: 0 },
+    ast: status?.ast,
     message: 'Cancelled',
     lastError: null,
   });

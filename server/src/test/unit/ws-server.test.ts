@@ -9,6 +9,7 @@ import {
   __resetIngestJobsForTest,
   __setStatusAndPublishForTest,
   __setStatusForTest,
+  type IngestJobStatus,
 } from '../../ingest/ingestJob.js';
 import { query, resetStore } from '../../logStore.js';
 import {
@@ -352,6 +353,7 @@ test('WS subscribe_ingest sends active ingest snapshot', async () => {
     runId,
     state: 'embedding',
     counts: { files: 2, chunks: 4, embedded: 1 },
+    ast: { supportedFileCount: 2, skippedFileCount: 0, failedFileCount: 0 },
     message: 'Embedding',
     lastError: null,
   });
@@ -362,13 +364,16 @@ test('WS subscribe_ingest sends active ingest snapshot', async () => {
       ws,
       predicate: (
         payload,
-      ): payload is { type: string; status: { runId: string } } =>
+      ): payload is { type: string; status: IngestJobStatus } =>
         typeof payload === 'object' &&
         payload !== null &&
         (payload as { type?: string }).type === 'ingest_snapshot',
     });
 
     assert.equal(event.status.runId, runId);
+    assert.equal(event.status.ast?.supportedFileCount, 2);
+    assert.equal(event.status.ast?.skippedFileCount, 0);
+    assert.equal(event.status.ast?.failedFileCount, 0);
   } finally {
     await closeWs(ws);
     await stopServer(server);
@@ -395,6 +400,7 @@ test('WS ingest_update emitted on status change', async () => {
       runId,
       state: 'embedding',
       counts: { files: 1, chunks: 1, embedded: 0 },
+      ast: { supportedFileCount: 1, skippedFileCount: 0, failedFileCount: 0 },
       message: 'Embedding',
       lastError: null,
     });
@@ -403,13 +409,16 @@ test('WS ingest_update emitted on status change', async () => {
       ws,
       predicate: (
         payload,
-      ): payload is { type: string; status: { state: string } } =>
+      ): payload is { type: string; status: IngestJobStatus } =>
         typeof payload === 'object' &&
         payload !== null &&
         (payload as { type?: string }).type === 'ingest_update',
     });
 
     assert.equal(event.status.state, 'embedding');
+    assert.equal(event.status.ast?.supportedFileCount, 1);
+    assert.equal(event.status.ast?.skippedFileCount, 0);
+    assert.equal(event.status.ast?.failedFileCount, 0);
   } finally {
     await closeWs(ws);
     await stopServer(server);

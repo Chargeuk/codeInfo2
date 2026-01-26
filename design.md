@@ -1218,6 +1218,29 @@ sequenceDiagram
   end
 ```
 
+#### Ingest status payload (AST counts)
+
+- `IngestJobStatus` includes an optional `ast` object when AST counts are available.
+- AST counts include totals for supported, skipped, and failed AST parses.
+
+```json
+{
+  "runId": "abc",
+  "state": "embedding",
+  "counts": { "files": 3, "chunks": 12, "embedded": 5 },
+  "ast": {
+    "supportedFileCount": 2,
+    "skippedFileCount": 1,
+    "failedFileCount": 0
+  },
+  "currentFile": "/repo/src/index.ts",
+  "fileIndex": 1,
+  "fileTotal": 3,
+  "percent": 33.3,
+  "etaMs": 1200
+}
+```
+
 #### Ingest status hook flow (WS-only)
 
 - `useIngestStatus` subscribes to ingest on mount and updates local state from `ingest_snapshot` and `ingest_update` events.
@@ -1245,11 +1268,13 @@ sequenceDiagram
 sequenceDiagram
   participant Job as Ingest job
   participant WS as WebSocket (/ws)
+  participant REST as /ingest/status/:runId
   participant UI as Ingest page
 
   Job->>WS: setStatusAndPublish(status)
   WS->>WS: broadcastIngestUpdate(status)
   WS-->>UI: ingest_update {seq, status}
+  REST-->>UI: status payload {status + ast}
   Note over WS,UI: seq increments per socket on each update
 ```
 

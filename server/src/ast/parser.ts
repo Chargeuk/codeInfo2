@@ -737,9 +737,7 @@ export async function parseAstSource(
   return parseAstSourceImpl(input, inputOptions);
 }
 
-export function __setParseAstSourceForTest(
-  override?: ParseAstSourceFn | null,
-) {
+export function __setParseAstSourceForTest(override?: ParseAstSourceFn | null) {
   parseAstSourceImpl = override ?? parseAstSourceInternal;
 }
 

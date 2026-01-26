@@ -89,8 +89,9 @@ const buildDeps = () => {
 };
 
 const mockParseAstSource = (
-  impl: (input: ParseAstSourceInput) => Promise<AstParseResult> | AstParseResult =
-    async () => baseAstResult,
+  impl: (
+    input: ParseAstSourceInput,
+  ) => Promise<AstParseResult> | AstParseResult = async () => baseAstResult,
 ) => {
   const calls: Array<{ arguments: [ParseAstSourceInput, unknown?] }> = [];
   const wrapper = async (input: ParseAstSourceInput, options?: unknown) => {
@@ -144,7 +145,9 @@ const setupMongoMocks = () => {
   const astReferencesBulkWrite = mock.fn(async () => ({}));
   const astReferencesDeleteMany = mock.fn(() => ({ exec: async () => ({}) }));
   const astModuleImportsBulkWrite = mock.fn(async () => ({}));
-  const astModuleImportsDeleteMany = mock.fn(() => ({ exec: async () => ({}) }));
+  const astModuleImportsDeleteMany = mock.fn(() => ({
+    exec: async () => ({}),
+  }));
   const astCoverageUpdateOne = mock.fn(() => ({ exec: async () => ({}) }));
   const astCoverageDeleteMany = mock.fn(() => ({ exec: async () => ({}) }));
   const ingestFilesBulkWrite = mock.fn(async () => ({}));
@@ -407,26 +410,24 @@ test('mongo disconnect skips AST writes with warning', async () => {
 
 test('delta reembed deletes and upserts AST records', async () => {
   const repoMocks = mongoMocks;
-  const parseMock = mockParseAstSource(
-    async (input: ParseAstSourceInput) => ({
-      ...baseAstResult,
-      symbols: [
-        {
-          root: input.root,
-          relPath: input.relPath,
-          fileHash: input.fileHash,
-          language: 'typescript',
-          kind: 'Function',
-          name: 'fn',
-          range: {
-            start: { line: 1, column: 1 },
-            end: { line: 1, column: 2 },
-          },
-          symbolId: `${input.relPath}-fn`,
+  const parseMock = mockParseAstSource(async (input: ParseAstSourceInput) => ({
+    ...baseAstResult,
+    symbols: [
+      {
+        root: input.root,
+        relPath: input.relPath,
+        fileHash: input.fileHash,
+        language: 'typescript',
+        kind: 'Function',
+        name: 'fn',
+        range: {
+          start: { line: 1, column: 1 },
+          end: { line: 1, column: 2 },
         },
-      ],
-    }),
-  );
+        symbolId: `${input.relPath}-fn`,
+      },
+    ],
+  }));
   const { root, cleanup } = await createTempRepo({
     'src/added.ts': 'export const added = 1;\n',
     'src/changed.ts': 'export const changed = 2;\n',
@@ -488,26 +489,24 @@ test('delta reembed deletes and upserts AST records', async () => {
 
 test('delta reembed skips unchanged files', async () => {
   const repoMocks = mongoMocks;
-  const parseMock = mockParseAstSource(
-    async (input: ParseAstSourceInput) => ({
-      ...baseAstResult,
-      symbols: [
-        {
-          root: input.root,
-          relPath: input.relPath,
-          fileHash: input.fileHash,
-          language: 'typescript',
-          kind: 'Function',
-          name: 'fn',
-          range: {
-            start: { line: 1, column: 1 },
-            end: { line: 1, column: 2 },
-          },
-          symbolId: `${input.relPath}-fn`,
+  const parseMock = mockParseAstSource(async (input: ParseAstSourceInput) => ({
+    ...baseAstResult,
+    symbols: [
+      {
+        root: input.root,
+        relPath: input.relPath,
+        fileHash: input.fileHash,
+        language: 'typescript',
+        kind: 'Function',
+        name: 'fn',
+        range: {
+          start: { line: 1, column: 1 },
+          end: { line: 1, column: 2 },
         },
-      ],
-    }),
-  );
+        symbolId: `${input.relPath}-fn`,
+      },
+    ],
+  }));
   const { root, cleanup } = await createTempRepo({
     'src/unchanged.ts': 'export const unchanged = 1;\n',
     'src/changed.ts': 'export const changed = 2;\n',

@@ -51,3 +51,4 @@ trust_level = "trusted"
 
 [projects."/Users/danielstapleton/Documents/dev"]
 trust_level = "trusted"
+cli_auth_credentials_store = "file"

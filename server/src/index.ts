@@ -10,6 +10,7 @@ import './flows/flowSchema.js';
 import './ingest/index.js';
 import './mongo/astCoverage.js';
 import { closeAll, getClient } from './lmstudio/clientPool.js';
+import { append } from './logStore.js';
 import { baseLogger, createRequestLogger } from './logger.js';
 import { createMcpRouter } from './mcp/server.js';
 import { startMcp2Server, stopMcp2Server } from './mcp2/server.js';
@@ -117,6 +118,29 @@ app.use('/', createMcpRouter());
 let server: http.Server | undefined;
 let wsServer: WsServerHandle | undefined;
 
+const logTreeSitterReady = async () => {
+  try {
+    await import('tree-sitter');
+    const timestamp = new Date().toISOString();
+    append({
+      level: 'info',
+      message: 'DEV-0000032:T3:tree-sitter-deps-ready',
+      timestamp,
+      source: 'server',
+      context: { dependency: 'tree-sitter' },
+    });
+    baseLogger.info(
+      {
+        event: 'DEV-0000032:T3:tree-sitter-deps-ready',
+        dependency: 'tree-sitter',
+      },
+      'Tree-sitter dependency ready',
+    );
+  } catch (err) {
+    baseLogger.error({ err }, 'Failed to load Tree-sitter dependency');
+  }
+};
+
 const start = async () => {
   const mongoUri = process.env.MONGO_URI;
   if (!mongoUri) {
@@ -135,6 +159,7 @@ const start = async () => {
   server = httpServer.listen(Number(PORT), () =>
     baseLogger.info(`Server on ${PORT}`),
   );
+  await logTreeSitterReady();
   startMcp2Server();
   startAgentsMcpServer();
 };

@@ -1336,6 +1336,7 @@ sequenceDiagram
 ### AST indexing storage
 
 - Tree-sitter AST indexing persists symbol/edge/reference/import records alongside coverage counts per ingest root.
+- Tree-sitter native bindings require a build toolchain (Python 3, make, and a C++ compiler) during `npm ci` for Docker builds.
 - Collections:
   - `ast_symbols` stores module/class/function symbols with 1-based ranges and deterministic `symbolId` per root.
   - `ast_edges` stores call/define/import edges keyed by `root + relPath + fileHash`.
@@ -1364,6 +1365,9 @@ flowchart TD
   C --> F[(ast_references)]
   C --> G[(ast_module_imports)]
   C --> H[(ast_coverage)]
+  I[Docker deps stage] --> J[python3 + make + g++]
+  J --> K[npm ci (tree-sitter bindings)]
+  K --> B
 ```
 
 ### Ingest dry-run + cleanup guarantees

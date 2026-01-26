@@ -2,11 +2,16 @@
 FROM node:22-slim AS deps
 WORKDIR /app
 ENV HUSKY=0
+RUN apt-get update && apt-get install -y \
+    python3 \
+    make \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
 COPY package*.json ./
 COPY package-lock.json ./
 COPY common/package*.json ./common/
 COPY server/package*.json ./server/
-RUN npm ci --workspaces --include-workspace-root --ignore-scripts --no-audit --no-fund
+RUN npm ci --workspaces --include-workspace-root --no-audit --no-fund
 FROM node:22-slim AS build
 WORKDIR /app
 ENV HUSKY=0
@@ -97,6 +102,7 @@ RUN --mount=type=cache,target=/root/.npm \
     xargs -r npm install -g --force < /tmp/npm-global.txt
 
 COPY --from=build /app/node_modules /app/node_modules
+COPY --from=deps /app/server/node_modules /app/server/node_modules
 COPY --from=build /app/common /app/common
 COPY --from=build /app/server/dist ./dist
 COPY --from=build /app/server/package*.json ./

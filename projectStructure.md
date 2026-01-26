@@ -256,7 +256,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚  â”œâ”€ .env â€” server default env (PORT, LMSTUDIO_BASE_URL)
 â”‚  â”œâ”€ .env.local â€” server local overrides (ignored by git consumers)
 â”‚  â”œâ”€ .prettierignore â€” server-specific Prettier ignore
-â”‚  â”œâ”€ Dockerfile â€” server image build
+â”‚  â”œâ”€ Dockerfile â€” server image build (deps stage installs Python/make/g++ for Tree-sitter)
 â”‚  â”œâ”€ entrypoint.sh â€” server startup script (launches headless Chrome + API)
 â”‚  â”œâ”€ npm-global.txt â€” list of global npm tools installed in the server image
 â”‚  â”œâ”€ requirements.txt â€” Python package list for the server image
@@ -352,7 +352,8 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚     â”‚  â”œâ”€ toolService.ts â€” shared helpers for LM Studio tools + tooling routes (list/search)
 â”‚     â”‚  â””â”€ tools.ts â€” LM Studio tool schemas for list/vector search used by chat
 â”‚     â”œâ”€ types/
-â”‚     â”‚  â””â”€ pino-roll.d.ts â€” module shim for pino-roll until official types
+â”‚     â”‚  â”œâ”€ pino-roll.d.ts â€” module shim for pino-roll until official types
+â”‚     â”‚  â””â”€ tree-sitter.d.ts â€” local module shim for tree-sitter typings
 â”‚     â””â”€ test/
 â”‚        â”œâ”€ fixtures/
 â”‚        â”‚  â”œâ”€ flows/

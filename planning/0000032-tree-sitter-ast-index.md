@@ -525,12 +525,18 @@ Add Tree-sitter dependencies and ensure Docker builds can compile native binding
 5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
 6. [x] `npm run compose:build`
 7. [x] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, open Logs, confirm `DEV-0000032:T3:tree-sitter-deps-ready` appears after startup, and confirm there are no console errors after initial page load.
-9. [ ] `npm run compose:down`
+8. [x] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, open Logs, confirm `DEV-0000032:T3:tree-sitter-deps-ready` appears after startup, and confirm there are no console errors after initial page load.
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- 
+- Added `tree-sitter`, `tree-sitter-javascript`, and `tree-sitter-typescript` to the server workspace and captured `tree-sitter` via a local module declaration file for TypeScript.
+- Updated the server Dockerfile deps stage to install `python3`, `make`, and `g++`, allowed install scripts during `npm ci`, and copied `/app/server/node_modules` into the runtime stage so native bindings load.
+- Added a startup log (`DEV-0000032:T3:tree-sitter-deps-ready`) emitted after successfully loading the Tree-sitter dependency.
+- Updated `design.md` and `projectStructure.md` with Tree-sitter build prerequisite notes and the new type shim entry.
+- Lint reported existing import-order warnings; ran `npm run format --workspaces` and confirmed `npm run format:check --workspaces` passed.
+- Manual Playwright-MCP check: filtered Logs for `DEV-0000032:T3:tree-sitter-deps-ready` and confirmed entries; no browser console errors.
+- `npm run compose:down` completed successfully after verification.
 
 ---
 

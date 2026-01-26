@@ -1,0 +1,148 @@
+{
+  "Description": "KaDShow: Improve an existing plan by refining tasks, adding details, or restructuring for clarity and efficiency.",
+  "items": [
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        "Please read Agents.md and follow its instructions. Give me an overview of the project and where we are up to and how the next steps will be achieved by taking a look at the next unfinished plan within /home/d_a_s/code/kadshow/KaDshow_Web/planning and also checking the last 3 git commits. Note that the next unfinishhed plan is the lowest index where some or all of the tasks are not yet in the completed state (though it may be that the next plan to be worked on has not yet been tasked up). Please note and remember this story plan, as it will for the basis my next tasks."
+      ]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        "Does the next story to work on contain tasks? If not, please create tasks for this story, ensuring that each task only implements one thing that can be tested. Server changes to messages should be tasked separately and prior to the front end changes that rely on them unless changing the server will break the front end. Ensure that each task is detailed enough for a junior developer to work through without the input of a senior. Base the formatting, detail and structure of the tasks on previous story tasks. If it is already tasked up, then just state this, and give an overview of the tasks. Do not provide options, just make the best changes you feel would be best.Commit after making any changes."
+      ]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        "Does the tasking up reflect all the work required to be implemented as part of this story's requirements and details or are there parts missing? If there are parts missing, please add them as new tasks or subtasks as required. Do not provide options, just make the best changes you feel would be best.Commit after making any changes."
+      ]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        "Check if all the changes needed to implement this new logic are correctly documented within the story. For example, do any of the tasks make assumptions that are incorrect, or have reliance on logic that isn't there? Will the interfaces into the system be able to actually do what we want them to do because the server has exposed the correct information and input logic? Will existing functionality break because we have planned changes that have consequences we didn't consider? Do we have open questions represented by investigation subtasks, because if so those investigations should be performed now so the story becomes a concrete set of tasks. Use the code_info mcp tools to search the repository multiple times, remembering to provide the name of the repository when you ask the question and the conversationId returned for follow-ups, as well as performing manual searches. Update the plan and tasks based on what you find. Do not provide options, just make the best changes you feel would be best. Commit after making any changes."
+      ]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        "Use the code_info MCP tool to check if any of the logic planned to be implemented already exists in the codebase, either as reusable functions, components, or similar implementations. Ask multiple questions to the code_info MCP tool to confirm, remembering state the path of the repository and to use the conversationId where appropriate for follow-up questions. If you find any, update the plan and tasks to re-use existing code rather than creating new code where possible. When calling the tool, remember to provide the name of the repository, and to continue conversations using the conversationId seen in previous responses, but not to provide the conversationId for your first question. Do not provide options, just make the best changes you feel would be best. Commit after making any changes."
+      ]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        "Use the code_info, Context7, deepwiki & mui MCP servers, as well as internet searches to check that any assumptions made about library usage, interfaces, components, etc... are valid and up-to-date based on the version of the libraries being used. Note that if the library is available in code_info, then it is likely to be the correct version of the library and information from there should superseede other MCP servers. You MUST use the tools, never make assumptions, even for things like React, Typescript, Mongo, Mongoose, etc... remembering to provide the name of the repository when you ask the question to code_info. Update the plan and tasks based on what you find. Do not provide options, just make the best changes you feel would be best. Commit after making any changes."
+      ]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        "Some of the tasks look quite big, could they be split up without loosing any information? - Please split up any large tasks into smaller, more manageable subtasks where possible, especially if they have a title with the word 'and' in it, but only break up tasks if it doesn't make the work more complex or untestable. Do not provide options, just make the best changes you feel would be best. Commit after making any changes."
+      ]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        "Are there any complex or risky items that we could consider simplifying to de-risk? - Please simplify the instructions where possible to reduce complexity and risk focusing on nice-to-have things that are risky and complex to implement, but don't simplify for the sake of it if there are no changes that would help. Also, we must ensure we still meet all the acceptance criteria of the story plan. Do NOT remove testing steps as part of this change. Do not provide options, just make the best changes you feel would be best. Commit after making any changes."
+      ]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        "Do you feel this story's task instructions are detailed enough for an inexperienced, junior developer that has never seen our codebase before? especially compared with the baseline set in the first story, which has code snippets and file locations for each subtask. Also, this developer will only look at the subtask they are working on and not at the story as a whole, so each subtask must contain information that is documented elsewhere in the story so it cannot be missed, even if it is duplicated, including documentation links. If not, please improve the instructions to be more detailed and explicit. Do not provide options, just make the best changes you feel would be best. Commit after making any changes."
+      ]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        "Some tasks have Document Locations that reference the existing codebase. This is incorrect. The Document Locations sections should reference external locations, such as website documentation or context7 and deepwiki mcp tool documentation for libraries that are required for the task's implementation to ensure the correct calls are used. The subtask itself should state which files are required to be read or edited to complete the subtask. Please correct this & commit after making any changes. Do not provide options, just make the best changes you feel would be best."
+      ]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        "It looks like we are referencing libraries in the tasks that we have not explicitly stated where documentation is available. Please update the Documentation Locations for each task and ensure that every single external library has the correct documentation location, whether that is an mcp tool such as context7 and DeepWiki or an explicit web address (the best option for cucumber is a subpath of https://cucumber.io/docs/guides/). You MUST check the documentation yourself before adding it so you can explain the reason for using it and provide detailed information. Do not provide options, just make the best changes you feel would be best. Commit after making any changes."
+      ]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        "Does all the functionality, including happy path, error cases, corner cases etc... have corresponding tests planned to be implemented? If not, please add them as new tasks or subtasks as required. Do not provide options, just make the best changes you feel would be best. Commit after making any changes."
+      ]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        "In various tasks you have a single subtask for a number of tests to write or change, or vague test requirements. This is ambiguous. Please separate these out to separate subtasks and be explicit about what needs updating - For each task, seperate each required test into it's own subtask. Include test type, location, description & purpose. Do not provide options, just make the best changes you feel would be best. Commit after making any changes."
+      ]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        "Please ensure any task writing jest tests includes references to context7 tool jest documentation and any task that includes cucumber tests references cucumber at https://cucumber.io/docs/guides/ within the Documentation Locations section of each relevant task. Do not provide options, just make the best changes you feel would be best. Commit after making any changes."
+      ]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        "In various tasks you have a single subtask to update multiple markdown documents. This is ambiguous. please separate these out to separate subtasks and be explicit about what needs updating - For each task, seperate each required markdown document update into it's own subtask. Include document name, location, description & purpose. Do not provide options, just make the best changes you feel would be best. Commit after making any changes."
+      ]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        "Check if all the changes needed to implement this new logic are correctly documented within the story. For example, do any of the tasks make assumptions that are incorrect, or have reliance on logic that isn't there? Will the interfaces into the system be able to actually do what we want them to do because the server has exposed the correct information and input logic? Will existing functionality break because we have planned changes that have consequences we didn't consider? Do we have open questions represented by investigation subtasks, because if so those investigations should be performed now so the story becomes a concrete set of tasks. Use the code_info mcp tools to search the repository multiple times, remembering to provide the name of the repository when you ask the question and the conversationId returned for follow-ups, as well as performing manual searches. Update the plan and tasks based on what you find. Do not provide options, just make the best changes you feel would be best. Commit after making any changes."
+      ]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        "Do you feel this story's task instructions are detailed enough for an inexperienced, junior developer that has never seen our codebase before? especially compared with the baseline set in the first story, which has code snippets and file locations for each subtask. Also, this developer will only look at the subtask they are working on and not at the story as a whole, so each subtask must contain information that is documented elsewhere in the story so it cannot be missed, even if it is duplicated, including documentation links. If not, please improve the instructions to be more detailed and explicit. Do not provide options, just make the best changes you feel would be best. Commit after making any changes."
+      ]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        "The Subtask sections should not contain subtasks to build code or run tests unless there is a specific need to, this is because all building and testing should be executed once all subtasks of a task are completed and the developer has moved on to the testing section, which must contain builds and running tests. Likewise the testing section should not contain steps to write code. Please move any build or test commands from within the subtask list to the Testing section, and remove any code writing steps from the testing section to the Subtask section of each Task. Do not provide options, just make the best changes you feel would be best. Commit after making any changes."
+      ]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        "The last subtask of every task should be to run lint and formatting checks (if possible) within the application that the task has modified. if either fails, you MUST run commands to auto-fix the issues as much as possible, and to manually fix all other issues. Please add this subtask to any tasks that do not have it as the last subtask. Do not provide options, just make the best changes you feel would be best. Commit after making any changes."
+      ]
+    },
+    {
+      "type": "message",
+      "role": "user",
+      "content": [
+        "The testing steps for each task, should at a minimum contain the following items. If there are specific additional or expanded testing required for a task, then the list should be expanded to detail this. note this list is a set of instructions for you to follow while creating testing steps for ach task, and not meant to be copied directly into the story plan:",
+        "1. A local build for the application that the changes were made in",
+        "2. Run ALL tests for the application that the changes were made in. Do not just run tests that have been added, instead use any scripts in package.json to run the full test suite for that application.",
+        "3. Ensure the dockerfile for the application builds as expected. This should be available as a script in package.json",
+      ]
+    }
+  ]
+}

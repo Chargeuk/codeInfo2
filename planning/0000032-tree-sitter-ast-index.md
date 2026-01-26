@@ -182,7 +182,7 @@ This should only be started once all the above sections are clear and understood
 
 ### 1. Server: AST Mongo schemas
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **to_do**
 
 #### Overview

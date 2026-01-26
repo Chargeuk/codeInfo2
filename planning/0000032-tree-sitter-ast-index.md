@@ -571,7 +571,7 @@ Implement a Tree-sitter parsing module that maps JS/TS/TSX source text into Symb
 
 #### Subtasks
 
-1. [ ] Review ingestion + hashing usage for file metadata alignment:
+1. [x] Review ingestion + hashing usage for file metadata alignment:
    - Files to read:
      - `server/src/ingest/hashing.ts`
      - `server/src/ingest/types.ts`
@@ -579,7 +579,7 @@ Implement a Tree-sitter parsing module that maps JS/TS/TSX source text into Symb
      - Confirm how file hashes are computed so AST records can reuse the same hash.
    - Documentation to read (repeat):
      - Node.js fs/promises: https://nodejs.org/api/fs.html#fspromisesreadfilepath-options
-2. [ ] Add AST parsing + symbol extraction module:
+2. [x] Add AST parsing + symbol extraction module:
    - Documentation to read (repeat):
      - Tree-sitter docs (parsers): https://tree-sitter.github.io/tree-sitter/using-parsers
      - Tree-sitter query syntax: https://tree-sitter.github.io/tree-sitter/using-parsers#query-syntax
@@ -605,63 +605,63 @@ Implement a Tree-sitter parsing module that maps JS/TS/TSX source text into Symb
      - Create a `Module` symbol per file to anchor IMPORTS/EXPORTS edges.
      - Treat `tree.rootNode.hasError` as a parse failure and surface it as `failed` output.
      - Keep parsing errors isolated to the file being parsed (return a failure result, do not throw).
-3. [ ] Unit test — parser extracts symbols for TS/TSX:
+3. [x] Unit test — parser extracts symbols for TS/TSX:
    - Test type: Unit (parser).
    - Test location: `server/src/test/unit/ast-parser.test.ts` (new).
    - Description: Parse sample `.ts` and `.tsx` sources with classes, functions, and exports.
    - Purpose: Verify symbol kinds/names and 1-based ranges in the happy path.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-4. [ ] Unit test — parser returns stable `symbolId` values:
+4. [x] Unit test — parser returns stable `symbolId` values:
    - Test type: Unit (parser).
    - Test location: `server/src/test/unit/ast-parser.test.ts` (new).
    - Description: Run the same source through the parser twice.
    - Purpose: Ensure deterministic `symbolId` generation for re-embed linking.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-5. [ ] Unit test — parser disambiguates `symbolId` collisions:
+5. [x] Unit test — parser disambiguates `symbolId` collisions:
    - Test type: Unit (parser).
    - Test location: `server/src/test/unit/ast-parser.test.ts` (new).
    - Description: Feed two symbols that would generate the same `symbolId` and assert the collision suffix is stable.
    - Purpose: Ensure symbol collisions do not overwrite previous records.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-6. [ ] Unit test — parser emits `CALLS` edges:
+6. [x] Unit test — parser emits `CALLS` edges:
    - Test type: Unit (parser).
    - Test location: `server/src/test/unit/ast-parser.test.ts` (new).
    - Description: Parse a file with a function call and assert a `CALLS` edge linking caller → callee.
    - Purpose: Ensure call-graph traversal has edges to follow.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-7. [ ] Unit test — parser emits reference ranges for call sites:
+7. [x] Unit test — parser emits reference ranges for call sites:
    - Test type: Unit (parser).
    - Test location: `server/src/test/unit/ast-parser.test.ts` (new).
    - Description: Parse a sample function call and confirm reference range output.
    - Purpose: Ensure references are captured for `AstFindReferences`.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-8. [ ] Unit test — parser emits IMPORTS/EXPORTS edges:
+8. [x] Unit test — parser emits IMPORTS/EXPORTS edges:
    - Test type: Unit (parser).
    - Test location: `server/src/test/unit/ast-parser.test.ts` (new).
    - Description: Parse a module with imports/exports and assert `IMPORTS`/`EXPORTS` edges from the module symbol.
    - Purpose: Ensure module relationship edges are stored for AST tooling.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-9. [ ] Unit test — parser maps module imports:
+9. [x] Unit test — parser maps module imports:
    - Test type: Unit (parser).
    - Test location: `server/src/test/unit/ast-parser.test.ts` (new).
    - Description: Parse a file with imports and validate `{ source, names[] }` output.
    - Purpose: Ensure `AstModuleImports` can be populated from stored data.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-10. [ ] Unit test — unsupported extension returns unsupported result:
+10. [x] Unit test — unsupported extension returns unsupported result:
    - Test type: Unit (parser).
    - Test location: `server/src/test/unit/ast-parser.test.ts` (new).
    - Description: Parse a non-supported extension and check the returned language flag.
    - Purpose: Ensure unsupported files are skipped without crashes.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-11. [ ] Unit test — missing query files returns failed parse:
+11. [x] Unit test — missing query files returns failed parse:
    - Test type: Unit (parser).
    - Test location: `server/src/test/unit/ast-parser.test.ts` (new).
    - Description: Simulate missing `tags.scm` or `locals.scm` files.
@@ -669,21 +669,21 @@ Implement a Tree-sitter parsing module that maps JS/TS/TSX source text into Symb
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
      - Tree-sitter query syntax: https://tree-sitter.github.io/tree-sitter/using-parsers#query-syntax
-12. [ ] Unit test — error tree marks file as failed:
+12. [x] Unit test — error tree marks file as failed:
    - Test type: Unit (parser).
    - Test location: `server/src/test/unit/ast-parser.test.ts` (new).
    - Description: Force `rootNode.hasError === true` and validate failure output.
    - Purpose: Ensure malformed files do not crash AST indexing.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-13. [ ] Unit test — grammar load failure logs once:
+13. [x] Unit test — grammar load failure logs once:
    - Test type: Unit (parser).
    - Test location: `server/src/test/unit/ast-parser.test.ts` (new).
    - Description: Simulate grammar load failure and assert logging + failure result.
    - Purpose: Ensure consistent failure handling when parser setup fails.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-14. [ ] Update documentation — `design.md`:
+14. [x] Update documentation — `design.md`:
    - Document: `design.md`.
    - Location: `design.md`.
    - Description: Document the Tree-sitter parsing approach, query usage, and add an AST parse-flow mermaid diagram.
@@ -691,14 +691,14 @@ Implement a Tree-sitter parsing module that maps JS/TS/TSX source text into Symb
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
      - Mermaid docs (Context7, architecture diagrams): /mermaid-js/mermaid
-15. [ ] Update documentation — `projectStructure.md`:
+15. [x] Update documentation — `projectStructure.md`:
    - Document: `projectStructure.md`.
    - Location: `projectStructure.md`.
    - Description: Add new AST parser files and tests to the tree (`server/src/ast/parser.ts`, `server/src/ast/types.ts`, `server/src/test/unit/ast-parser.test.ts`).
    - Purpose: Keep project structure documentation current with new AST modules.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-16. [ ] Add AST parser log line:
+16. [x] Add AST parser log line:
    - Files to edit:
      - `server/src/ast/parser.ts`
    - Log line:
@@ -708,25 +708,54 @@ Implement a Tree-sitter parsing module that maps JS/TS/TSX source text into Symb
      - Include `event: 'DEV-0000032:T4:ast-parser-queries-loaded'` and `language` in the payload.
    - Documentation to read (repeat):
      - Tree-sitter query syntax: https://tree-sitter.github.io/tree-sitter/using-parsers#query-syntax
-17. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+17. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, run a small ingest from the Ingest page (use the sample repo), open Logs, and confirm `DEV-0000032:T4:ast-parser-queries-loaded` appears; confirm the UI stays responsive with no console errors.
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, run a small ingest from the Ingest page (use the sample repo), open Logs, and confirm `DEV-0000032:T4:ast-parser-queries-loaded` appears; confirm the UI stays responsive with no console errors.
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- 
+- Reviewed ingest hashing and types to confirm `fileHash` uses SHA-256 of file contents and `relPath`/`ext` align with discovery output.
+- Added `server/src/ast/parser.ts` and `server/src/ast/types.ts` with Tree-sitter parser setup, query loading from grammar packages, module symbol creation, and symbol/reference/import extraction with deterministic symbol IDs.
+- Added unit coverage for TS/TSX symbol extraction with range assertions.
+- Added unit coverage to confirm `parseAstSource` yields stable symbol IDs across runs.
+- Added unit coverage for collision handling using the `createSymbolIdFactory` helper.
+- Added call graph edge generation from call references and covered with unit tests.
+- Added reference range assertions for call sites in parser tests.
+- Added import/export edge generation from module symbols with unit coverage.
+- Added module import mapping coverage for `{ source, names[] }` output.
+- Added unsupported-extension failure test coverage.
+- Added missing-query failure test coverage and logging.
+- Added parse-error failure coverage for malformed source trees.
+- Added grammar-load failure logging (once) with unit coverage.
+- Documented Tree-sitter parsing flow, query usage, and added an AST parser flow diagram in `design.md`.
+- Added AST parser files and unit test entry to `projectStructure.md`.
+- Added `DEV-0000032:T4:ast-parser-queries-loaded` logging on first successful query load.
+- Lint continues to report existing import-order warnings; ran `npm run format --workspaces` and confirmed `npm run format:check --workspaces` passes.
+- `npm run build --workspace server` completed successfully.
+- `npm run build --workspace client` completed successfully (Vite chunk-size warning only).
+- `npm run test --workspace server` completed successfully after rerunning with a longer timeout.
+- `npm run test --workspace client` completed successfully (console warnings during tests).
+- `npm run e2e` completed successfully after adding Tree-sitter language module type shims (initial build failed without them).
+- `npm run compose:build` completed successfully.
+- `npm run compose:up` completed successfully.
+- Manual Playwright-MCP check confirmed `DEV-0000032:T4:ast-parser-queries-loaded` logs after warmup and no browser console errors.
+- `npm run compose:down` completed successfully.
+- Sanitized Tree-sitter query files to strip unsupported predicates and added test overrides for missing queries/grammar failures.
+- Added CALLS/IMPORTS/EXPORTS edge generation and module import symbol handling.
+- Added `warmAstParserQueries()` and invoked it on server startup to log query load events.
+- Added Tree-sitter language module type shims in `server/src/types/tree-sitter.d.ts` to satisfy Docker builds.
 
 ---
 

@@ -268,6 +268,9 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚     â”œâ”€ index.ts â€” Express app entry
 â”‚     â”œâ”€ logger.ts â€” pino/pino-http setup with rotation and env config helper
 â”‚     â”œâ”€ logStore.ts â€” in-memory log buffer with sequence numbers and filters
+â”‚     â”œâ”€ ast/
+â”‚     â”‚  â”œâ”€ parser.ts â€” Tree-sitter parser module for AST extraction
+â”‚     â”‚  â””â”€ types.ts â€” AST parser types and result shapes
 â”‚     â”œâ”€ config/
 â”‚     â”‚  â”œâ”€ codexConfig.ts â€” Codex home/env config builder
 â”‚     â”‚  â””â”€ codexEnvDefaults.ts â€” Codex env defaults parser + warnings helper
@@ -429,6 +432,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚           â”œâ”€ ast-references-schema.test.ts â€” unit coverage for `ast_references` schema fields + indexes
 â”‚           â”œâ”€ ast-module-imports-schema.test.ts â€” unit coverage for `ast_module_imports` schema fields + indexes
 â”‚           â”œâ”€ ast-coverage-schema.test.ts â€” unit coverage for `ast_coverage` schema fields + indexes
+â”‚           â”œâ”€ ast-parser.test.ts â€” unit coverage for Tree-sitter parser output shapes
 â”‚           â”œâ”€ ast-repo-guards.test.ts â€” unit coverage for mongo disconnected guard behaviour in AST repo helpers
 â”‚           â”œâ”€ ingest-files-repo-guards.test.ts â€” unit coverage for mongo disconnected guard behaviour in ingest_files repo helpers
 â”‚           â”œâ”€ ingest-delta-plan.test.ts â€” unit coverage for delta planning categorization logic

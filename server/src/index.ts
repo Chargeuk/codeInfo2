@@ -5,6 +5,7 @@ import cors from 'cors';
 import { config } from 'dotenv';
 import express from 'express';
 import pkg from '../package.json' with { type: 'json' };
+import { warmAstParserQueries } from './ast/parser.js';
 import { ensureCodexConfigSeeded, getCodexHome } from './config/codexConfig.js';
 import './flows/flowSchema.js';
 import './ingest/index.js';
@@ -160,6 +161,7 @@ const start = async () => {
     baseLogger.info(`Server on ${PORT}`),
   );
   await logTreeSitterReady();
+  void warmAstParserQueries();
   startMcp2Server();
   startAgentsMcpServer();
 };

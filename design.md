@@ -1343,6 +1343,7 @@ sequenceDiagram
   - `ast_references` stores references by `symbolId` or `{ name, kind }` for legacy lookups.
   - `ast_module_imports` stores module imports per file with `source` and imported `names`.
   - `ast_coverage` stores per-root coverage counts and `lastIndexedAt`.
+- The AST parser reads `queries/tags.scm` and `queries/locals.scm` from the grammar packages, logs `DEV-0000032:T4:ast-parser-queries-loaded` once per language, and emits module + definition symbols with `DEFINES`, `CALLS`, `IMPORTS`, and `EXPORTS` edges.
 
 ```mermaid
 erDiagram
@@ -1368,6 +1369,16 @@ flowchart TD
   I[Docker deps stage] --> J[python3 + make + g++]
   J --> K[npm ci (tree-sitter bindings)]
   K --> B
+```
+
+```mermaid
+flowchart LR
+  A[Source file] --> B[Tree-sitter parser]
+  B --> C[tags.scm + locals.scm queries]
+  C --> D[Module + definition symbols]
+  C --> E[References + imports]
+  D --> F[DEFINES/CALLS/EXPORTS edges]
+  E --> G[IMPORTS edges + module import records]
 ```
 
 ### Ingest dry-run + cleanup guarantees

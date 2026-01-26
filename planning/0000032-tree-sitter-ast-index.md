@@ -191,6 +191,7 @@ Create Mongo collections for AST symbols, edges, references, module imports, and
 #### Documentation Locations
 
 - Mongoose schemas + indexes: https://mongoosejs.com/docs/guide.html
+- Mongoose 9.0.1 guide (Context7): /automattic/mongoose/9.0.1
 - MongoDB indexes: https://www.mongodb.com/docs/manual/indexes/
 - Node.js test runner: https://nodejs.org/api/test.html
 - TypeScript handbook (types): https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
@@ -288,6 +289,11 @@ Implement a Tree-sitter parsing module that maps JS/TS/TSX source text into Symb
 #### Documentation Locations
 
 - Tree-sitter docs (parsers): https://tree-sitter.github.io/tree-sitter/using-parsers
+- Node Tree-sitter bindings: https://tree-sitter.github.io/node-tree-sitter/index.html
+- tree-sitter-javascript grammar README: https://github.com/tree-sitter/tree-sitter-javascript
+- tree-sitter-typescript grammar README: https://github.com/tree-sitter/tree-sitter-typescript
+- Tree-sitter query files + tags metadata (tree-sitter.json): https://docs.rs/crate/tree-sitter-javascript/0.25.0/source/tree-sitter.json
+- node-gyp build prerequisites: https://github.com/nodejs/node-gyp
 - Tree-sitter query syntax: https://tree-sitter.github.io/tree-sitter/using-parsers#query-syntax
 - tree-sitter-javascript repo: https://github.com/tree-sitter/tree-sitter-javascript
 - tree-sitter-typescript repo: https://github.com/tree-sitter/tree-sitter-typescript
@@ -326,13 +332,16 @@ Implement a Tree-sitter parsing module that maps JS/TS/TSX source text into Symb
 4. [ ] Add AST parsing + symbol extraction module:
    - Documentation to read (repeat):
      - Tree-sitter docs (parsers): https://tree-sitter.github.io/tree-sitter/using-parsers
+     - Node Tree-sitter bindings: https://tree-sitter.github.io/node-tree-sitter/index.html
+     - tree-sitter-typescript grammar README: https://github.com/tree-sitter/tree-sitter-typescript
    - Files to edit:
      - `server/src/ast/parser.ts` (new)
      - `server/src/ast/types.ts` (new)
    - Implementation details:
      - Export `parseAstSource({ root, text, relPath, fileHash })` returning `{ language, symbols, edges, references, imports }`.
-     - Load JS/TS/TSX grammars and select parser by file extension.
-     - Load `queries/tags.scm` / `queries/locals.scm` from the grammar packages when present; use them for definitions/references before any manual AST walking.
+     - Load JS/TS/TSX grammars and select parser by file extension (use `tree-sitter-typescript`.typescript and `.tsx` for TS/TSX).
+     - Load `queries/tags.scm` / `queries/locals.scm` by reading the grammar package files (via `tree-sitter.json` or direct `queries/` paths) instead of assuming exported constants.
+     - If query files are missing, fall back to manual AST walking for definitions/references and log once per run.
      - Constrain symbol kinds to the Option B list: `Module`, `Class`, `Function`, `Method`, `Interface`, `TypeAlias`, `Enum`, `Property`.
      - Constrain edge types to `DEFINES`, `CALLS`, `IMPORTS`, `EXPORTS`, `EXTENDS`, `IMPLEMENTS`, `REFERENCES_TYPE`.
      - Convert Tree-sitter `row`/`column` to 1-based `range`.
@@ -653,11 +662,13 @@ Surface AST skip/failure counts in the Ingest page by extending ingest status ty
 
 #### Documentation Locations
 
-- React hooks: https://react.dev/reference/react
-- MUI Alert + Stack docs (use MUI MCP tool): `@mui/material` via MCP
-- MUI Typography docs (use MUI MCP tool): `@mui/material` via MCP
+- React 19 hooks reference: https://react.dev/reference/react
+- MUI Alert docs (MUI MCP, v6.4.x): https://llms.mui.com/material-ui/6.4.12/components/alert.md
+- MUI Stack docs (MUI MCP, v6.4.x): https://llms.mui.com/material-ui/6.4.12/components/stack.md
+- MUI Typography docs (MUI MCP, v6.4.x): https://llms.mui.com/material-ui/6.4.12/components/typography.md
 - Jest (React testing): https://jestjs.io/docs/getting-started
 - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+- TypeScript 5.9 release notes: https://www.typescriptlang.org/docs/handbook/release-notes/typescript-5-9.html
 - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI: https://prettier.io/docs/cli
 - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script

@@ -1277,7 +1277,7 @@ Add AST tool validation + query services for list/find/call-graph/modules and er
 
 ### 8. Server: AST REST endpoints
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **to_do**
 
 #### Overview

@@ -1213,7 +1213,7 @@ Add AST tool validation + query services for list/find/call-graph/modules and er
    - Purpose: Ensure fallback reference lookup works for legacy callers.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-15. [ ] Update documentation — `design.md`:
+15. [x] Update documentation — `design.md`:
    - Document: `design.md`.
    - Location: `design.md`.
    - Description: Document AST tool service behavior and add a mermaid diagram for tool query flow.
@@ -1221,7 +1221,7 @@ Add AST tool validation + query services for list/find/call-graph/modules and er
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
      - Mermaid docs (Context7, architecture diagrams): /mermaid-js/mermaid
-16. [ ] Update documentation — `projectStructure.md`:
+16. [x] Update documentation — `projectStructure.md`:
    - Document: `projectStructure.md`.
    - Location: `projectStructure.md`.
    - Description: Add AST tool service + unit test files to the tree (`server/src/ast/toolService.ts`, `server/src/test/unit/ast-tool-validation.test.ts`, `server/src/test/unit/ast-tool-service.test.ts`).
@@ -1238,27 +1238,39 @@ Add AST tool validation + query services for list/find/call-graph/modules and er
      - Include `event: 'DEV-0000032:T7:ast-tool-service-request'`, `tool`, and `repository`.
    - Documentation to read (repeat):
      - Mongoose queries: https://mongoosejs.com/docs/queries.html
-18. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+18. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
 8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, call `/tools/ast-list-symbols` from the browser console, open Logs, and confirm `DEV-0000032:T7:ast-tool-service-request` appears; confirm no console errors while the app is idle and after the request.
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
 - Implemented AST tool service with validation, repo resolution, and query helpers for list/find/call-graph/module-imports.
 - Added unit coverage for validation defaults/caps and all tool service query paths, including INGEST_REQUIRED and AST_INDEX_REQUIRED branches.
 - Wired the `DEV-0000032:T7:ast-tool-service-request` log emission when tool handlers are invoked.
+- Documented AST tool service flow + errors in `design.md` with a tool query diagram.
+- Updated `projectStructure.md` to list the AST tool service and new unit tests.
+- Ran lint + format checks; format required a Prettier pass, lint still reports existing import/order warnings in other files.
+- Updated AST tool service row typings to satisfy server build output.
+- Client build completed with existing Vite chunk size warnings.
+- Server tests passed after rerunning with a longer timeout.
+- Client tests passed with expected experimental VM modules warnings and console logs.
+- E2E test run completed successfully (36 passed).
+- Docker compose build completed successfully.
+- Docker compose stack started successfully.
+- Manual Playwright-MCP check blocked: `/tools/ast-list-symbols` returns 404 because Task 8 REST endpoints are not implemented yet, so the `DEV-0000032:T7:ast-tool-service-request` log could not be verified.
+- Docker compose stack stopped cleanly after the manual check attempt.
 - Documentation updates and lint/test/compose verification are still pending for this task.
 
 ---

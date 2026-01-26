@@ -270,6 +270,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚     â”œâ”€ logStore.ts â€” in-memory log buffer with sequence numbers and filters
 â”‚     â”œâ”€ ast/
 â”‚     â”‚  â”œâ”€ parser.ts â€” Tree-sitter parser module for AST extraction
+â”‚     â”‚  â”œâ”€ toolService.ts â€” AST tool validation and query service
 â”‚     â”‚  â””â”€ types.ts â€” AST parser types and result shapes
 â”‚     â”œâ”€ config/
 â”‚     â”‚  â”œâ”€ codexConfig.ts â€” Codex home/env config builder
@@ -435,6 +436,8 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚           â”œâ”€ ast-coverage-schema.test.ts â€” unit coverage for `ast_coverage` schema fields + indexes
 â”‚           â”œâ”€ ast-parser.test.ts â€” unit coverage for Tree-sitter parser output shapes
 â”‚           â”œâ”€ ast-repo-guards.test.ts â€” unit coverage for mongo disconnected guard behaviour in AST repo helpers
+â”‚           â”œâ”€ ast-tool-service.test.ts â€” unit coverage for AST tool service queries and error mapping
+â”‚           â”œâ”€ ast-tool-validation.test.ts â€” unit coverage for AST tool request validation
 â”‚           â”œâ”€ ingest-files-repo-guards.test.ts â€” unit coverage for mongo disconnected guard behaviour in ingest_files repo helpers
 â”‚           â”œâ”€ ingest-delta-plan.test.ts â€” unit coverage for delta planning categorization logic
 â”‚           â”œâ”€ tools-ingested-repos.test.ts â€” supertest coverage for /tools/ingested-repos

@@ -1386,6 +1386,27 @@ erDiagram
 - AST persistence helpers live in `server/src/mongo/repo.ts` and use `mongoose.connection.readyState` guards to return `null` when Mongo is unavailable.
 - Symbol/edge/reference upserts use bulkWrite (ordered false), while module imports and coverage use upserted updateOne and deleteMany clears by `root`.
 
+### AST tool service
+
+- AST tool handlers validate inputs (repository required; identifiers required for definition/reference/call-graph) with `limit=50` default and `200` cap.
+- Repository resolution reuses `listIngestedRepositories`, selecting the newest `lastIngestAt` entry and using `containerPath` as the AST `root`.
+- Missing ingests return `INGEST_REQUIRED`; missing coverage returns `AST_INDEX_REQUIRED`; unknown repo ids return `REPO_NOT_FOUND`.
+- Tool queries map to Mongo collections: symbols (list/filter), definition (symbolId or name+kind), references (symbolId or name+kind), call graph (CALLS edges to depth), module imports (per file).
+- Each request logs `DEV-0000032:T7:ast-tool-service-request` with tool + repository context.
+
+```mermaid
+flowchart LR
+  A[AST tool request] --> B[validate payload]
+  B --> C[listIngestedRepositories]
+  C --> D{repo found?}
+  D -->|no| E[REPO_NOT_FOUND]
+  D -->|yes| F[coverage lookup]
+  F -->|missing| G[AST_INDEX_REQUIRED]
+  F -->|ok| H[AST collection query]
+  H --> I[tool response]
+  C -->|none| J[INGEST_REQUIRED]
+```
+
 ```mermaid
 flowchart TD
   A[Ingest job] --> B[discoverFiles + hashing]

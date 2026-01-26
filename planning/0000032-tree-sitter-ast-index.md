@@ -493,15 +493,25 @@ Implement a Tree-sitter parsing module that maps JS/TS/TSX source text into Symb
      - References include expected `relPath` + range for call sites.
      - Module imports include expected `source` and imported `names`.
      - Unsupported extension returns `{ language: 'unsupported', symbols: [] }` (or equivalent).
-4. [ ] Update documentation:
+4. [ ] Unit tests — parser error handling:
    - Documentation to read (repeat):
-     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-   - `design.md` (document parsing approach + query usage)
+     - Node.js test runner: https://nodejs.org/api/test.html
+     - Tree-sitter query syntax: https://tree-sitter.github.io/tree-sitter/using-parsers#query-syntax
+   - Files to edit:
+     - `server/src/test/unit/ast-parser.test.ts` (new)
+   - Assertions:
+     - Missing `tags.scm` / `locals.scm` files returns a failed parse result for that file (no symbols/edges).
+     - `rootNode.hasError === true` produces a failed parse result and does not throw.
+     - Grammar load failure returns a failed result and logs once per run.
 5. [ ] Update documentation:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+   - `design.md` (document parsing approach + query usage)
+6. [ ] Update documentation:
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - `projectStructure.md` (add new `server/src/ast` files + tests)
-6. [ ] Run full linting:
+7. [ ] Run full linting:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -599,15 +609,33 @@ Integrate AST parsing into ingest runs and persist AST data + coverage without c
      - Clear any in-memory AST batches without attempting partial cleanup of already-written records.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-6. [ ] Update documentation:
+6. [ ] Unit tests — ingest AST counts + dry-run behavior:
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+   - Files to edit:
+     - `server/src/test/unit/ingest-ast-indexing.test.ts` (new)
+   - Assertions:
+     - Supported files increment `ast.supportedFileCount`.
+     - Unsupported files increment `ast.skippedFileCount` and log the “unsupported language” warning.
+     - Parse failures increment `ast.failedFileCount`.
+     - `dryRun` performs parsing but does not call AST repo writes.
+7. [ ] Unit tests — cancellation + Mongo-down guards:
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+   - Files to edit:
+     - `server/src/test/unit/ingest-ast-indexing.test.ts` (new)
+   - Assertions:
+     - Cancellation stops further AST parsing and skips queued writes.
+     - When Mongo is disconnected, AST write helpers are not called and a warning is logged.
+8. [ ] Update documentation:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - `design.md` (AST coverage + ingest persistence notes)
-7. [ ] Update documentation:
+9. [ ] Update documentation:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - `projectStructure.md` (note any new files if added)
-8. [ ] Run full linting:
+10. [ ] Run full linting:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -744,15 +772,28 @@ Add AST tool validation + query services for list/find/call-graph/modules and er
    - Assertions:
      - Missing required fields return `VALIDATION_FAILED`.
      - `limit` defaults to 50 and caps at 200.
-4. [ ] Update documentation:
+4. [ ] Unit tests — AST tool service queries + error mapping:
    - Documentation to read (repeat):
-     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-   - `design.md` (AST tool service behavior)
+     - Node.js test runner: https://nodejs.org/api/test.html
+     - Mongoose query docs: https://mongoosejs.com/docs/queries.html
+   - Files to edit:
+     - `server/src/test/unit/ast-tool-service.test.ts` (new)
+   - Assertions:
+     - Unknown repo id returns `REPO_NOT_FOUND`.
+     - Missing coverage returns `AST_INDEX_REQUIRED`.
+     - When multiple roots share a repo id, the newest `lastIngestAt` is selected.
+     - Call graph respects `depth` and does not traverse beyond it.
+     - `AstModuleImports` maps stored imports into `{ relPath, imports: [{ source, names[] }] }`.
+     - `AstFindReferences` works by `symbolId` and by `{ name, kind }` fallback.
 5. [ ] Update documentation:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+   - `design.md` (AST tool service behavior)
+6. [ ] Update documentation:
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - `projectStructure.md` (add new service/test files)
-6. [ ] Run full linting:
+7. [ ] Run full linting:
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -818,6 +859,7 @@ Expose `/tools/ast-*` REST endpoints that validate input, call the AST tool serv
    - Assertions:
      - Each endpoint returns contract-shaped payloads when the service is stubbed.
      - Validation errors return `400` with details.
+     - Error mapping for `REPO_NOT_FOUND`, `INGEST_REQUIRED`, `AST_INDEX_REQUIRED` matches the VectorSearch routes (status + body shape).
    - Notes:
      - Mirror the existing router test patterns from `server/src/test/unit/tools-vector-search.test.ts` / `tools-ingested-repos.test.ts` when stubbing deps.
 3. [ ] Update documentation:
@@ -902,6 +944,7 @@ Expose AST tools through the MCP JSON-RPC server with schemas aligned to the RES
      - `tools/list` includes AST tools.
      - `tools/call` returns JSON payload for a stubbed AST tool.
      - Validation errors return `-32602` with `VALIDATION_FAILED` message.
+     - `AST_INDEX_REQUIRED` maps to a tool error response consistent with existing MCP tools.
 4. [ ] Update documentation:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
@@ -1049,6 +1092,7 @@ Render non-blocking Ingest page banners for AST skipped/failed counts using exis
      - `client/src/test/ingestStatus.test.tsx`
    - Assertions:
      - Banner appears when `ast.skippedFileCount > 0`.
+     - Failure banner appears when `ast.failedFileCount > 0`.
      - Banner hidden when counts are zero or missing.
 3. [ ] Update documentation:
    - Documentation to read (repeat):

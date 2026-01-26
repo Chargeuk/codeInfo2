@@ -1080,7 +1080,7 @@ Extend ingest status payloads (REST + WS) with optional AST counts and update te
 ### 7. Server: AST tool service
 
 - Task Status: **__in_progress__**
-- Git Commits: **to_do**
+- Git Commits: 358ea01
 
 #### Overview
 
@@ -1271,7 +1271,7 @@ Add AST tool validation + query services for list/find/call-graph/modules and er
 - Docker compose stack started successfully.
 - Manual Playwright-MCP check blocked: `/tools/ast-list-symbols` returns 404 because Task 8 REST endpoints are not implemented yet, so the `DEV-0000032:T7:ast-tool-service-request` log could not be verified.
 - Docker compose stack stopped cleanly after the manual check attempt.
-- Documentation updates and lint/test/compose verification are still pending for this task.
+- Answer (blocker): defer the manual Playwright-MCP check until Task 8 exposes `/tools/ast-list-symbols`, then re-run the manual check and mark Testing item 8.
 
 ---
 

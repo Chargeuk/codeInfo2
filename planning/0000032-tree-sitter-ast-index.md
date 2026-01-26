@@ -1018,8 +1018,9 @@ Add AST tool validation + query services for list/find/call-graph/modules and er
      - Implement validation for each AST tool request; apply default `limit=50` and cap at `200`.
      - Resolve repository → root using `listIngestedRepositories` to match the existing repo id contract.
      - Use the repo entry’s `containerPath` as the `root` value when querying AST collections (not `hostPath`).
-     - When multiple repos share the same id, select the most recent `lastIngestAt`.
-     - Return `AST_INDEX_REQUIRED` (409) when no coverage data exists for the repo.
+    - When multiple repos share the same id, select the most recent `lastIngestAt`.
+    - Return `INGEST_REQUIRED` (409) when there are no ingested repositories.
+    - Return `AST_INDEX_REQUIRED` (409) when no coverage data exists for the repo.
      - Reuse `ValidationError` and `RepoNotFoundError` from `server/src/lmstudio/toolService.ts` to keep error mapping consistent.
      - Implement call graph traversal by following `CALLS` edges up to the requested depth.
       - `AstModuleImports` should map persisted import records into `{ relPath, imports: [{ source, names[] }] }`.
@@ -1041,63 +1042,70 @@ Add AST tool validation + query services for list/find/call-graph/modules and er
    - Purpose: Confirm default `limit=50` and cap at `200`.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-5. [ ] Unit test — tool service repo not found:
+5. [ ] Unit test — tool service ingest required:
+   - Test type: Unit (service query).
+   - Test location: `server/src/test/unit/ast-tool-service.test.ts` (new).
+   - Description: No repositories returned from `listIngestedRepositories`.
+   - Purpose: Return `INGEST_REQUIRED` when nothing has been ingested.
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+6. [ ] Unit test — tool service repo not found:
    - Test type: Unit (service query).
    - Test location: `server/src/test/unit/ast-tool-service.test.ts` (new).
    - Description: Query with unknown repo id.
    - Purpose: Return `REPO_NOT_FOUND` without hitting AST collections.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-6. [ ] Unit test — tool service missing coverage:
+7. [ ] Unit test — tool service missing coverage:
    - Test type: Unit (service query).
    - Test location: `server/src/test/unit/ast-tool-service.test.ts` (new).
    - Description: Repo exists but `ast_coverage` is missing.
    - Purpose: Return `AST_INDEX_REQUIRED` to signal missing AST index.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-7. [ ] Unit test — tool service selects newest repo root:
+8. [ ] Unit test — tool service selects newest repo root:
    - Test type: Unit (service query).
    - Test location: `server/src/test/unit/ast-tool-service.test.ts` (new).
    - Description: Provide multiple roots with the same repo id.
    - Purpose: Ensure newest `lastIngestAt` root is selected.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-8. [ ] Unit test — tool service uses containerPath root:
+9. [ ] Unit test — tool service uses containerPath root:
    - Test type: Unit (service query).
    - Test location: `server/src/test/unit/ast-tool-service.test.ts` (new).
    - Description: Seed repo metadata with `containerPath` and verify AST queries use it as `root`.
    - Purpose: Ensure AST queries align with stored `root` values from ingest metadata.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-9. [ ] Unit test — tool service list symbols filters + limits:
+10. [ ] Unit test — tool service list symbols filters + limits:
    - Test type: Unit (service query).
    - Test location: `server/src/test/unit/ast-tool-service.test.ts` (new).
    - Description: Request symbols with `kinds` and `limit` filters.
    - Purpose: Verify list results are filtered and capped as expected.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-10. [ ] Unit test — tool service find definition by symbolId:
+11. [ ] Unit test — tool service find definition by symbolId:
    - Test type: Unit (service query).
    - Test location: `server/src/test/unit/ast-tool-service.test.ts` (new).
    - Description: Query `AstFindDefinition` with a known `symbolId`.
    - Purpose: Ensure definition lookup returns the matching symbol.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-11. [ ] Unit test — tool service references by symbolId:
+12. [ ] Unit test — tool service references by symbolId:
    - Test type: Unit (service query).
    - Test location: `server/src/test/unit/ast-tool-service.test.ts` (new).
    - Description: Query `AstFindReferences` using a `symbolId`.
    - Purpose: Ensure references return for direct symbol lookups.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-12. [ ] Unit test — tool service call graph depth:
+13. [ ] Unit test — tool service call graph depth:
    - Test type: Unit (service query).
    - Test location: `server/src/test/unit/ast-tool-service.test.ts` (new).
    - Description: Build a call chain longer than requested depth.
    - Purpose: Ensure traversal respects depth and stops correctly.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-13. [ ] Unit test — tool service module imports mapping:
+14. [ ] Unit test — tool service module imports mapping:
    - Test type: Unit (service query).
    - Test location: `server/src/test/unit/ast-tool-service.test.ts` (new).
    - Description: Seed module import records with sources + names.
@@ -1194,7 +1202,7 @@ Expose `/tools/ast-*` REST endpoints that validate input, call the AST tool serv
      - `server/src/routes/toolsAstModuleImports.ts` (new)
      - `server/src/index.ts`
    - Implementation details:
-     - Mirror the VectorSearch route error handling style (`VALIDATION_FAILED`, `REPO_NOT_FOUND`, `AST_INDEX_REQUIRED`).
+     - Mirror the VectorSearch route error handling style (`VALIDATION_FAILED`, `REPO_NOT_FOUND`, `INGEST_REQUIRED`, `AST_INDEX_REQUIRED`).
 2. [ ] Integration test — REST happy path payloads:
    - Test type: Integration (REST routes).
    - Test location: `server/src/test/integration/tools-ast.test.ts` (new).
@@ -1216,7 +1224,7 @@ Expose `/tools/ast-*` REST endpoints that validate input, call the AST tool serv
 4. [ ] Integration test — REST error mapping:
    - Test type: Integration (REST routes).
    - Test location: `server/src/test/integration/tools-ast.test.ts` (new).
-   - Description: Force `REPO_NOT_FOUND` and `AST_INDEX_REQUIRED` from the service.
+   - Description: Force `REPO_NOT_FOUND`, `INGEST_REQUIRED`, and `AST_INDEX_REQUIRED` from the service.
    - Purpose: Ensure status codes + body shapes match the VectorSearch route conventions.
    - Documentation to read (repeat):
      - Supertest HTTP assertions: https://github.com/forwardemail/supertest
@@ -1312,6 +1320,7 @@ Expose AST tools through the MCP JSON-RPC server with schemas aligned to the RES
    - Implementation details:
      - Add tool definitions for `AstListSymbols`, `AstFindDefinition`, `AstFindReferences`, `AstCallGraph`, `AstModuleImports` with input/output schemas.
      - Route `tools/call` to AST service functions and map errors to MCP `invalid params` or internal errors.
+     - Map `INGEST_REQUIRED` and `AST_INDEX_REQUIRED` to JSON-RPC errors with `409` codes (matching VectorSearch handling).
    - Documentation to read (repeat):
      - MCP tool format (schema expectations): https://modelcontextprotocol.io/specification
      - JSON-RPC 2.0 spec: https://www.jsonrpc.org/specification
@@ -1347,7 +1356,15 @@ Expose AST tools through the MCP JSON-RPC server with schemas aligned to the RES
    - Documentation to read (repeat):
      - Supertest HTTP assertions: https://github.com/forwardemail/supertest
      - Node.js test runner: https://nodejs.org/api/test.html
-7. [ ] Update documentation — `design.md`:
+7. [ ] Integration test — MCP INGEST_REQUIRED mapping:
+   - Test type: Integration (MCP server).
+   - Test location: `server/src/test/integration/mcp-server.test.ts`.
+   - Description: Simulate `INGEST_REQUIRED` from the AST service when no repos exist.
+   - Purpose: Ensure `INGEST_REQUIRED` is mapped consistently with existing MCP tools.
+   - Documentation to read (repeat):
+     - Supertest HTTP assertions: https://github.com/forwardemail/supertest
+     - Node.js test runner: https://nodejs.org/api/test.html
+8. [ ] Update documentation — `design.md`:
    - Document: `design.md`.
    - Location: `design.md`.
    - Description: Document MCP tool list/response shapes and add a mermaid diagram for MCP tool flow.
@@ -1355,14 +1372,14 @@ Expose AST tools through the MCP JSON-RPC server with schemas aligned to the RES
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
      - Mermaid docs (Context7, architecture diagrams): /mermaid-js/mermaid
-8. [ ] Update documentation — `projectStructure.md`:
+9. [ ] Update documentation — `projectStructure.md`:
    - Document: `projectStructure.md`.
    - Location: `projectStructure.md`.
    - Description: Add/adjust MCP test file entries if new coverage is added.
    - Purpose: Keep project structure docs aligned with MCP test changes.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-9. [ ] Add MCP tool registration log line:
+10. [ ] Add MCP tool registration log line:
    - Files to edit:
      - `server/src/mcp/server.ts`
    - Log line:
@@ -1372,7 +1389,7 @@ Expose AST tools through the MCP JSON-RPC server with schemas aligned to the RES
      - Include `event: 'DEV-0000032:T9:ast-mcp-tools-registered'` and `toolCount`.
    - Documentation to read (repeat):
      - MCP tool spec: https://modelcontextprotocol.io/specification
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli

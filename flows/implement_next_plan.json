@@ -81,6 +81,20 @@
                 },
                 {
                     "type": "llm",
+                    "label": "Re-check plan after planner edits",
+                    "agentType": "coding_agent",
+                    "identifier": "coder",
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": [
+                                "Re-open the same plan file after the planning agent step. Confirm any Task Status updates or new tasks that were added, and run `git status -sb` to verify the plan file change was committed. Summarize the remaining tasks based on the updated plan before proceeding."
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "type": "llm",
                     "label": "Verify plan status",
                     "agentType": "planning_agent",
                     "identifier": "planner",

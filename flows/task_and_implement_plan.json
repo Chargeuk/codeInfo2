@@ -122,11 +122,39 @@
                             ]
                         },
                         {
+                            "type": "llm",
+                            "label": "Re-check plan after planner edits",
+                            "agentType": "coding_agent",
+                            "identifier": "coder",
+                            "messages": [
+                                {
+                                    "role": "user",
+                                    "content": [
+                                        "Re-open the same plan file after the planning agent step. Confirm any Task Status updates or new tasks that were added, and run `git status -sb` to verify the plan file change was committed. Summarize the remaining tasks based on the updated plan before proceeding."
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            "type": "llm",
+                            "label": "Verify plan status",
+                            "agentType": "planning_agent",
+                            "identifier": "planner",
+                            "messages": [
+                                {
+                                    "role": "user",
+                                    "content": [
+                                        "Before answering completion, open the plan file being worked on and list each task's Task Status (including the final task). Explicitly state whether the final task is __done__ or not, and cite the plan file path you read."
+                                    ]
+                                }
+                            ]
+                        },
+                        {
                             "type": "break",
                             "label": "Check for completion",
                             "agentType": "planning_agent",
                             "identifier": "planner",
-                            "question": "Re-read the plan that was being worked on and check the last 3 git commits. You MUST re-read the plan and check the last 3 git commits before giving your answer as the plan probably has changes made by other agents since you last looked at it. Is the plan that was being worked on now complete? You must give only a yes or no answer. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+                            "question": "Re-read the plan that was being worked on and check the last 3 git commits. You MUST confirm the final task's Task Status from the plan file and only answer yes if every task is marked __done__. Is the plan that was being worked on now complete? You MUST re-read the plan and check the last 3 git commits before giving your answer as the plan probably has changes made by other agents since you last looked at it. You must give only a yes or no answer. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
                             "breakOn": "yes"
                         }
                     ]
@@ -150,7 +178,7 @@
                     "label": "Check for completion",
                     "agentType": "planning_agent",
                     "identifier": "planner",
-                    "question": "Re-read the plan that was being worked on and check the last 3 git commits. You MUST re-read the plan and check the last 3 git commits before giving your answer as the plan probably has changes made by other agents since you last looked at it. Is the plan that was being worked on now complete? You must give only a yes or no answer. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
+                    "question": "Re-read the plan that was being worked on and check the last 3 git commits. Is the plan that was being worked on now complete? You MUST re-read the plan and check the last 3 git commits before giving your answer as the plan probably has changes made by other agents since you last looked at it.You must give only a yes or no answer. Reply as JSON {\"answer\":\"yes\"|\"no\"}.",
                     "breakOn": "yes"
                 }
             ]

@@ -2195,8 +2195,8 @@ Render the verification URL as a clickable link (opens in a new tab) and render 
 
 ### 14. Client + server: show raw device-auth output
 
-- Task Status: **__in_progress__**
-- Git Commits: **__to_do__**
+- Task Status: **__done__**
+- Git Commits: 951c085
 
 #### Overview
 

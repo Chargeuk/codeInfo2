@@ -1482,7 +1482,7 @@ Extend client ingest status types to include optional AST counts and update test
 5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, run an ingest, and confirm the browser console includes `DEV-0000032:T10:ast-status-received` with counts; ensure no console errors.
+8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, run an ingest, and confirm the browser console includes `DEV-0000032:T10:ast-status-received` with counts; ensure no console errors. Capture a screenshot of the Ingest page showing AST status fields and store it in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` for review.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -1591,7 +1591,7 @@ Render non-blocking Ingest page banners for AST skipped/failed counts using exis
 5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, verify AST skip/failure banners render when counts are present, and confirm the console shows `DEV-0000032:T11:ast-banner-evaluated` (with counts) and no errors.
+8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, verify AST skip/failure banners render when counts are present, and confirm the console shows `DEV-0000032:T11:ast-banner-evaluated` (with counts) and no errors. Capture a screenshot of the banners and store it in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` for review.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -1674,7 +1674,7 @@ Validate the full story against acceptance criteria, run full builds/tests, ensu
 5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, open Logs and confirm `DEV-0000032:T12:verification-ready` is present, walk through ingest + chat flows, verify AST status banners appear when expected, and confirm the browser console has no errors; save required screenshots to `test-results/screenshots`.
+8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, open Logs and confirm `DEV-0000032:T12:verification-ready` is present, walk through ingest + chat flows, verify AST status banners appear when expected, and confirm the browser console has no errors; capture screenshots for every GUI acceptance criterion and store them in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` for review.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes

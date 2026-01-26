@@ -426,6 +426,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚           â”œâ”€ toolService.synthetic.test.ts — unit coverage for onToolResult callback emission
 â”‚           â”œâ”€ chroma-embedding-selection.test.ts â€” locked-model embedding function selection + error paths
 â”‚           â”œâ”€ ingest-status.test.ts â€” ingest status progress fields round-trip helper coverage
+â”‚           â”œâ”€ ingest-ast-indexing.test.ts â€” unit coverage for AST ingest counts, delta handling, and persistence skipping
 â”‚           â”œâ”€ ingest-files-schema.test.ts â€” unit coverage for `ingest_files` Mongoose schema fields + indexes
 â”‚           â”œâ”€ ast-symbols-schema.test.ts â€” unit coverage for `ast_symbols` schema fields + indexes
 â”‚           â”œâ”€ ast-edges-schema.test.ts â€” unit coverage for `ast_edges` schema fields + indexes

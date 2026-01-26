@@ -1344,6 +1344,10 @@ sequenceDiagram
   - `ast_module_imports` stores module imports per file with `source` and imported `names`.
   - `ast_coverage` stores per-root coverage counts and `lastIndexedAt`.
 - The AST parser reads `queries/tags.scm` and `queries/locals.scm` from the grammar packages, logs `DEV-0000032:T4:ast-parser-queries-loaded` once per language, and emits module + definition symbols with `DEFINES`, `CALLS`, `IMPORTS`, and `EXPORTS` edges.
+- Ingest AST indexing uses `discoverFiles` output (include/exclude + hashing) and, on delta re-embed, parses only added/changed files while deleting AST records for changed/deleted paths.
+- Unsupported extensions increment `ast.skippedFileCount` and emit a warning with example paths; supported parse failures increment `ast.failedFileCount` without aborting the run.
+- Dry-run ingests still parse and count AST coverage but skip Mongo writes; if Mongo is disconnected, AST writes are skipped with a warning.
+- `DEV-0000032:T5:ast-index-complete` is logged after AST coverage is persisted.
 
 ```mermaid
 erDiagram
@@ -1359,16 +1363,25 @@ erDiagram
 
 ```mermaid
 flowchart TD
-  A[Ingest job] --> B[AST parser output]
-  B --> C[repo.ts AST helpers]
-  C --> D[(ast_symbols)]
-  C --> E[(ast_edges)]
-  C --> F[(ast_references)]
-  C --> G[(ast_module_imports)]
-  C --> H[(ast_coverage)]
-  I[Docker deps stage] --> J[python3 + make + g++]
-  J --> K[npm ci (tree-sitter bindings)]
-  K --> B
+  A[Ingest job] --> B[discoverFiles + hashing]
+  B --> C{Reembed delta?}
+  C -->|yes| D[Added + changed files]
+  C -->|no| E[All discovered files]
+  D --> F[AST parse supported files]
+  E --> F
+  F --> G[AST symbols/edges/references/imports]
+  G --> H{dryRun or mongo down?}
+  H -->|no| I[repo.ts AST upserts + coverage]
+  H -->|yes| J[Skip persistence]
+  I --> K[DEV-0000032:T5:ast-index-complete log]
+  I --> L[(ast_symbols)]
+  I --> M[(ast_edges)]
+  I --> N[(ast_references)]
+  I --> O[(ast_module_imports)]
+  I --> P[(ast_coverage)]
+  Q[Docker deps stage] --> R[python3 + make + g++]
+  R --> S[npm ci (tree-sitter bindings)]
+  S --> F
 ```
 
 ```mermaid

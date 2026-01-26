@@ -527,7 +527,12 @@ function buildImportRecords(
   ];
 }
 
-export async function parseAstSource(
+type ParseAstSourceFn = (
+  input: ParseAstSourceInput,
+  inputOptions?: ParseAstSourceOptions,
+) => Promise<AstParseResult>;
+
+async function parseAstSourceInternal(
   input: ParseAstSourceInput,
   inputOptions?: ParseAstSourceOptions,
 ): Promise<AstParseResult> {
@@ -721,6 +726,21 @@ export async function parseAstSource(
     const message = error instanceof Error ? error.message : String(error);
     return { status: 'failed', language, error: message };
   }
+}
+
+let parseAstSourceImpl: ParseAstSourceFn = parseAstSourceInternal;
+
+export async function parseAstSource(
+  input: ParseAstSourceInput,
+  inputOptions?: ParseAstSourceOptions,
+) {
+  return parseAstSourceImpl(input, inputOptions);
+}
+
+export function __setParseAstSourceForTest(
+  override?: ParseAstSourceFn | null,
+) {
+  parseAstSourceImpl = override ?? parseAstSourceInternal;
 }
 
 export async function warmAstParserQueries() {

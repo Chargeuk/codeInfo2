@@ -761,7 +761,7 @@ Implement a Tree-sitter parsing module that maps JS/TS/TSX source text into Symb
 
 ### 5. Server: Ingest AST indexing + persistence
 
-- Task Status: **__in_progress__**
+- Task Status: **__done__**
 - Git Commits: **to_do**
 
 #### Overview
@@ -784,7 +784,7 @@ Integrate AST parsing into ingest runs and persist AST data + coverage without c
 
 #### Subtasks
 
-1. [ ] Review ingest run + delta flow paths:
+1. [x] Review ingest run + delta flow paths:
    - Files to read:
      - `server/src/ingest/ingestJob.ts`
      - `server/src/ingest/deltaPlan.ts`
@@ -794,7 +794,7 @@ Integrate AST parsing into ingest runs and persist AST data + coverage without c
      - `server/src/ws/server.ts`
    - Documentation to read (repeat):
      - MongoDB write operations: https://www.mongodb.com/docs/manual/crud/
-2. [ ] Wire AST parsing into the per-file ingest loop:
+2. [x] Wire AST parsing into the per-file ingest loop:
    - Files to edit:
      - `server/src/ingest/ingestJob.ts`
    - Implementation details:
@@ -808,7 +808,7 @@ Integrate AST parsing into ingest runs and persist AST data + coverage without c
    - Documentation to read (repeat):
      - Tree-sitter docs (parsers): https://tree-sitter.github.io/tree-sitter/using-parsers
      - MongoDB write operations: https://www.mongodb.com/docs/manual/crud/
-3. [ ] Add ingest logging for unsupported-language skips:
+3. [x] Add ingest logging for unsupported-language skips:
    - Files to edit:
      - `server/src/ingest/ingestJob.ts`
    - Implementation details:
@@ -816,7 +816,7 @@ Integrate AST parsing into ingest runs and persist AST data + coverage without c
      - Ensure log message matches the acceptance criteria wording (unsupported language).
    - Documentation to read (repeat):
      - Tree-sitter docs (parsers): https://tree-sitter.github.io/tree-sitter/using-parsers
-4. [ ] Persist AST symbols/edges + coverage records:
+4. [x] Persist AST symbols/edges + coverage records:
    - Files to edit:
      - `server/src/mongo/repo.ts`
      - `server/src/ingest/ingestJob.ts`
@@ -829,7 +829,7 @@ Integrate AST parsing into ingest runs and persist AST data + coverage without c
       - Update `ast_coverage` with `supportedFileCount`, `skippedFileCount`, `failedFileCount`, and `lastIndexedAt` (ISO).
    - Documentation to read (repeat):
      - MongoDB write operations: https://www.mongodb.com/docs/manual/crud/
-5. [ ] Handle cancellation during AST indexing:
+5. [x] Handle cancellation during AST indexing:
    - Files to edit:
      - `server/src/ingest/ingestJob.ts`
    - Implementation details:
@@ -837,70 +837,70 @@ Integrate AST parsing into ingest runs and persist AST data + coverage without c
      - Clear any in-memory AST batches without attempting partial cleanup of already-written records.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-6. [ ] Unit test — ingest AST supported file counts:
+6. [x] Unit test — ingest AST supported file counts:
    - Test type: Unit (ingest flow).
    - Test location: `server/src/test/unit/ingest-ast-indexing.test.ts` (new).
    - Description: Run ingest with supported `.ts/.tsx/.js/.jsx` files.
    - Purpose: Ensure `ast.supportedFileCount` increments correctly.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-7. [ ] Unit test — ingest logs unsupported-language skips:
+7. [x] Unit test — ingest logs unsupported-language skips:
    - Test type: Unit (ingest flow).
    - Test location: `server/src/test/unit/ingest-ast-indexing.test.ts` (new).
    - Description: Include unsupported files and capture the warning log.
    - Purpose: Ensure `ast.skippedFileCount` increments and warning message matches contract.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-8. [ ] Unit test — ingest parse failures increment failed count:
+8. [x] Unit test — ingest parse failures increment failed count:
    - Test type: Unit (ingest flow).
    - Test location: `server/src/test/unit/ingest-ast-indexing.test.ts` (new).
    - Description: Force parser failures for supported files.
    - Purpose: Ensure `ast.failedFileCount` increments without aborting the run.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-9. [ ] Unit test — ingest dry-run parses without writes:
+9. [x] Unit test — ingest dry-run parses without writes:
    - Test type: Unit (ingest flow).
    - Test location: `server/src/test/unit/ingest-ast-indexing.test.ts` (new).
    - Description: Execute ingest with `dryRun=true`.
    - Purpose: Confirm parsing occurs but AST repo write helpers are not called.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-10. [ ] Unit test — ingest cancellation stops AST work:
+10. [x] Unit test — ingest cancellation stops AST work:
    - Test type: Unit (ingest flow).
    - Test location: `server/src/test/unit/ingest-ast-indexing.test.ts` (new).
    - Description: Trigger cancellation mid-run.
    - Purpose: Ensure parsing halts and queued writes are skipped.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-11. [ ] Unit test — Mongo disconnected skips AST writes:
+11. [x] Unit test — Mongo disconnected skips AST writes:
    - Test type: Unit (ingest flow).
    - Test location: `server/src/test/unit/ingest-ast-indexing.test.ts` (new).
    - Description: Simulate `mongoose.connection.readyState !== 1`.
    - Purpose: Ensure write helpers are not called and a warning is logged.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-12. [ ] Unit test — delta re-embed deletes/upserts AST records:
+12. [x] Unit test — delta re-embed deletes/upserts AST records:
    - Test type: Unit (ingest flow).
    - Test location: `server/src/test/unit/ingest-ast-indexing.test.ts` (new).
    - Description: Simulate a delta plan with added, changed, and deleted files.
    - Purpose: Ensure deletes run for deleted/changed files and upserts run for added/changed files only.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-13. [ ] Unit test — delta re-embed skips unchanged files:
+13. [x] Unit test — delta re-embed skips unchanged files:
    - Test type: Unit (ingest flow).
    - Test location: `server/src/test/unit/ingest-ast-indexing.test.ts` (new).
    - Description: Include `deltaPlan.unchanged` entries and verify they are not parsed or written.
    - Purpose: Ensure unchanged files keep existing AST records without reprocessing.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-14. [ ] Unit test — delta re-embed skips when no changes:
+14. [x] Unit test — delta re-embed skips when no changes:
    - Test type: Unit (ingest flow).
    - Test location: `server/src/test/unit/ingest-ast-indexing.test.ts` (new).
    - Description: Provide a delta plan with no added/changed/deleted files.
    - Purpose: Ensure AST parsing and writes are skipped when no re-index is needed.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-15. [ ] Update documentation — `design.md`:
+15. [x] Update documentation — `design.md`:
    - Document: `design.md`.
    - Location: `design.md`.
    - Description: Add AST coverage and ingest persistence notes plus a mermaid diagram for the ingest/AST pipeline.
@@ -908,14 +908,14 @@ Integrate AST parsing into ingest runs and persist AST data + coverage without c
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
      - Mermaid docs (Context7, architecture diagrams): /mermaid-js/mermaid
-16. [ ] Update documentation — `projectStructure.md`:
+16. [x] Update documentation — `projectStructure.md`:
    - Document: `projectStructure.md`.
    - Location: `projectStructure.md`.
    - Description: Add new AST ingest indexing tests to the project tree (`server/src/test/unit/ingest-ast-indexing.test.ts`).
    - Purpose: Keep projectStructure aligned with new test coverage.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-17. [ ] Add ingest AST indexing log line:
+17. [x] Add ingest AST indexing log line:
    - Files to edit:
      - `server/src/ingest/ingestJob.ts`
    - Log line:
@@ -925,26 +925,47 @@ Integrate AST parsing into ingest runs and persist AST data + coverage without c
      - Include `event: 'DEV-0000032:T5:ast-index-complete'`, `root`, and counts in the payload.
    - Documentation to read (repeat):
      - Node.js fs/promises: https://nodejs.org/api/fs.html#fspromisesreadfilepath-options
-18. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+18. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, start an ingest, open Logs, and confirm `DEV-0000032:T5:ast-index-complete` appears with counts; confirm the browser console shows no errors.
-9. [ ] `npm run compose:down`
-10. [ ] `npm run test:integration --workspace server`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, start an ingest, open Logs, and confirm `DEV-0000032:T5:ast-index-complete` appears with counts; confirm the browser console shows no errors.
+9. [x] `npm run compose:down`
+10. [x] `npm run test:integration --workspace server`
 
 #### Implementation notes
 
-- 
+- Reviewed ingest flow (ingestJob/deltaPlan/discovery/hashing/types/ws) to align AST indexing with existing delta handling, hashing, and ingest update publishing.
+- Added AST parsing into the ingest loop with supported/skip/failed counts, grammar-failure warning, and in-memory batching for symbols/edges/references/imports.
+- Logged unsupported-language skips with example paths; logged AST indexing completion after coverage persistence.
+- Wired AST persistence for start/reembed (clear or delete-by-relPath, upsert symbols/edges/references/imports, and coverage), skipping writes on dry-run or Mongo disconnect.
+- Cancellation now clears AST batches and skips remaining AST writes.
+- Added `__setParseAstSourceForTest` to stub parser behavior and updated AST ingest tests to track calls via local mocks.
+- Adjusted AST test Mongo mocks to return query objects with `exec()` for `updateOne`/`deleteMany` paths.
+- Ran `npm run lint --workspaces` (existing import-order warnings remain) and `npm run format --workspaces` after updates.
+- Added `ingest-ast-indexing.test.ts` unit coverage for supported/skipped counts, parse failures, dry-run behavior, cancellation handling, mongo disconnect skip, and delta re-embed delete/upsert/skip flows.
+- Updated `design.md` with AST ingest coverage notes and a detailed ingest/AST pipeline diagram.
+- Updated `projectStructure.md` to include the new AST ingest indexing unit test.
+- `npm run lint --workspaces` still reports existing import-order warnings; `npm run format:check --workspaces` passes.
+- `npm run build --workspace server` completed successfully.
+- `npm run build --workspace client` completed successfully (Vite chunk-size warnings only).
+- `npm run test --workspace server` completed successfully.
+- `npm run test --workspace client` completed successfully.
+- `npm run e2e` completed successfully.
+- `npm run compose:build` completed successfully.
+- `npm run compose:up` completed successfully.
+- Manual Playwright-MCP ingest run confirmed `DEV-0000032:T5:ast-index-complete` logs for `/Users/danielstapleton/Documents/dev/ci2-ast-tiny` with counts; no browser console errors observed.
+- `npm run compose:down` completed successfully.
+- `npm run test:integration --workspace server` completed successfully.
 
 ---
 

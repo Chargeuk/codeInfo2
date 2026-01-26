@@ -941,6 +941,64 @@ export async function clearAstCoverageByRoot(
   return { ok: true };
 }
 
+export async function deleteAstSymbolsByRelPaths(params: {
+  root: string;
+  relPaths: string[];
+}): Promise<{ ok: true } | null> {
+  if (mongoose.connection.readyState !== 1) return null;
+
+  const { root, relPaths } = params;
+  if (relPaths.length === 0) return { ok: true };
+
+  await AstSymbolModel.deleteMany({ root, relPath: { $in: relPaths } }).exec();
+  return { ok: true };
+}
+
+export async function deleteAstEdgesByRelPaths(params: {
+  root: string;
+  relPaths: string[];
+}): Promise<{ ok: true } | null> {
+  if (mongoose.connection.readyState !== 1) return null;
+
+  const { root, relPaths } = params;
+  if (relPaths.length === 0) return { ok: true };
+
+  await AstEdgeModel.deleteMany({ root, relPath: { $in: relPaths } }).exec();
+  return { ok: true };
+}
+
+export async function deleteAstReferencesByRelPaths(params: {
+  root: string;
+  relPaths: string[];
+}): Promise<{ ok: true } | null> {
+  if (mongoose.connection.readyState !== 1) return null;
+
+  const { root, relPaths } = params;
+  if (relPaths.length === 0) return { ok: true };
+
+  await AstReferenceModel.deleteMany({
+    root,
+    relPath: { $in: relPaths },
+  }).exec();
+  return { ok: true };
+}
+
+export async function deleteAstModuleImportsByRelPaths(params: {
+  root: string;
+  relPaths: string[];
+}): Promise<{ ok: true } | null> {
+  if (mongoose.connection.readyState !== 1) return null;
+
+  const { root, relPaths } = params;
+  if (relPaths.length === 0) return { ok: true };
+
+  await AstModuleImportModel.deleteMany({
+    root,
+    relPath: { $in: relPaths },
+  }).exec();
+  return { ok: true };
+}
+
 export async function upsertIngestFiles(params: {
   root: string;
   files: IngestFileIndexRow[];

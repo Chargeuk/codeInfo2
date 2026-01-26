@@ -1,10 +1,40 @@
 import { randomUUID } from 'crypto';
 import fs from 'fs/promises';
+import path from 'path';
 import { LogEntry } from '@codeinfo2/common';
 import type { EmbeddingModel, LMStudioClient } from '@lmstudio/sdk';
 import type { Metadata } from 'chromadb';
+import mongoose from 'mongoose';
+import { parseAstSource } from '../ast/parser.js';
 import { append as appendLog } from '../logStore.js';
 import { baseLogger } from '../logger.js';
+import {
+  clearAstCoverageByRoot,
+  clearAstEdgesByRoot,
+  clearAstModuleImportsByRoot,
+  clearAstReferencesByRoot,
+  clearAstSymbolsByRoot,
+  clearIngestFilesByRoot,
+  deleteAstEdgesByRelPaths,
+  deleteAstModuleImportsByRelPaths,
+  deleteAstReferencesByRelPaths,
+  deleteAstSymbolsByRelPaths,
+  deleteIngestFilesByRelPaths,
+  listIngestFilesByRoot,
+  upsertAstCoverage,
+  upsertAstEdges,
+  upsertAstModuleImports,
+  upsertAstReferences,
+  upsertAstSymbols,
+  upsertIngestFiles,
+} from '../mongo/repo.js';
+import type {
+  AstEdgeRecord,
+  AstModuleImportRecord,
+  AstReferenceRecord,
+  AstSymbolRecord,
+} from '../mongo/repo.js';
+import { broadcastIngestUpdate } from '../ws/server.js';
 import {
   clearLockedModel,
   collectionIsEmpty,
@@ -16,6 +46,7 @@ import {
   getVectorsCollection,
   setLockedModel,
 } from './chromaClient.js';
+import { buildDeltaPlan, type DiscoveredFileHash } from './deltaPlan.js';
 import * as ingestLock from './lock.js';
 import type { IngestRunState } from './types.js';
 import {
@@ -25,14 +56,6 @@ import {
   hashFile,
   resolveConfig,
 } from './index.js';
-import { buildDeltaPlan, type DiscoveredFileHash } from './deltaPlan.js';
-import {
-  clearIngestFilesByRoot,
-  deleteIngestFilesByRelPaths,
-  listIngestFilesByRoot,
-  upsertIngestFiles,
-} from '../mongo/repo.js';
-import { broadcastIngestUpdate } from '../ws/server.js';
 
 export type IngestJobInput = {
   path: string;
@@ -71,6 +94,7 @@ const terminalStates = new Set<IngestRunState>([
   'skipped',
   'error',
 ]);
+const astSupportedExtensions = new Set(['ts', 'tsx', 'js', 'jsx']);
 
 function setStatusAndPublish(runId: string, nextStatus: IngestJobStatus) {
   jobs.set(runId, nextStatus);
@@ -97,6 +121,27 @@ function logLifecycle(
   appendLog(entry);
   const logger = level === 'error' ? baseLogger.error : baseLogger.info;
   logger.call(baseLogger, { ...cleanedContext }, message);
+}
+
+function logWarning(message: string, context: Record<string, unknown>) {
+  const cleanedContext = Object.fromEntries(
+    Object.entries(context).filter(([, value]) => value !== undefined),
+  );
+
+  const entry: LogEntry = {
+    level: 'warn',
+    source: 'server',
+    message,
+    timestamp: new Date().toISOString(),
+    context: cleanedContext,
+  };
+
+  appendLog(entry);
+  baseLogger.warn({ ...cleanedContext }, message);
+}
+
+function isAstSupported(ext: string) {
+  return astSupportedExtensions.has(ext.toLowerCase());
 }
 
 export function setIngestDeps(next: Deps) {
@@ -262,10 +307,40 @@ async function processRun(runId: string, input: IngestJobInput) {
       }
     }
 
+    const deltaWorkCount =
+      operation === 'reembed' && deltaMode === 'delta' && deltaPlan
+        ? deltaPlan.added.length +
+          deltaPlan.changed.length +
+          deltaPlan.deleted.length
+        : null;
+
     const workFiles: { absPath: string; relPath: string; fileHash?: string }[] =
       operation === 'reembed' && deltaMode === 'delta' && deltaPlan
         ? [...deltaPlan.added, ...deltaPlan.changed]
         : files;
+
+    const astCounts = {
+      supportedFileCount: 0,
+      skippedFileCount: 0,
+      failedFileCount: 0,
+    };
+    const astSkippedExamples: string[] = [];
+    for (const file of files) {
+      const ext = file.ext ?? path.extname(file.relPath).slice(1);
+      if (isAstSupported(ext)) {
+        astCounts.supportedFileCount += 1;
+      } else {
+        astCounts.skippedFileCount += 1;
+        if (astSkippedExamples.length < 5) {
+          astSkippedExamples.push(file.relPath);
+        }
+      }
+    }
+    const astSymbols: AstSymbolRecord[] = [];
+    const astEdges: AstEdgeRecord[] = [];
+    const astReferences: AstReferenceRecord[] = [];
+    const astModuleImports: AstModuleImportRecord[] = [];
+    let astGrammarFailureLogged = false;
 
     const counts = { files: workFiles.length, chunks: 0, embedded: 0 };
     const fileTotal = workFiles.length;
@@ -311,6 +386,13 @@ async function processRun(runId: string, input: IngestJobInput) {
       embeddingsBatch.length = 0;
       metadatasBatch.length = 0;
       filesSinceFlush = 0;
+    };
+
+    const clearAstBatches = () => {
+      astSymbols.length = 0;
+      astEdges.length = 0;
+      astReferences.length = 0;
+      astModuleImports.length = 0;
     };
 
     const flushBatch = async () => {
@@ -369,11 +451,7 @@ async function processRun(runId: string, input: IngestJobInput) {
         await deleteVectors({ where: { root } });
         await deleteRoots({ where: { root } });
       } else if (deltaMode === 'delta' && deltaPlan) {
-        const workCount =
-          deltaPlan.added.length +
-          deltaPlan.changed.length +
-          deltaPlan.deleted.length;
-        if (workCount === 0) {
+        if ((deltaWorkCount ?? 0) === 0) {
           const skipMessage = `No changes detected for ${root}`;
           setStatusAndPublish(runId, {
             runId,
@@ -427,65 +505,123 @@ async function processRun(runId: string, input: IngestJobInput) {
           ingestLock.release(runId);
           return;
         }
+      }
+    }
 
-        if (deltaPlan.deleted.length > 0 && workFiles.length === 0) {
-          logLifecycle('info', '0000020 ingest delta deletions-only', {
-            root,
-            deleted: deltaPlan.deleted.length,
+    const astWritesEnabled = !dryRun && mongoose.connection.readyState === 1;
+    if (!astWritesEnabled && !dryRun) {
+      logWarning('AST indexing skipped; MongoDB is unavailable', {
+        root,
+        reason: 'mongo_disconnected',
+      });
+    }
+
+    if (astCounts.skippedFileCount > 0) {
+      logWarning('AST indexing skipped for unsupported language files', {
+        root,
+        skippedFileCount: astCounts.skippedFileCount,
+        examplePaths: astSkippedExamples,
+      });
+    }
+
+    if (
+      operation === 'start' ||
+      (operation === 'reembed' && deltaMode !== 'delta')
+    ) {
+      if (astWritesEnabled) {
+        await clearAstSymbolsByRoot(root);
+        await clearAstEdgesByRoot(root);
+        await clearAstReferencesByRoot(root);
+        await clearAstModuleImportsByRoot(root);
+        await clearAstCoverageByRoot(root);
+      }
+    }
+
+    if (operation === 'reembed' && deltaMode === 'delta' && deltaPlan) {
+      if (deltaPlan.deleted.length > 0 && workFiles.length === 0) {
+        logLifecycle('info', '0000020 ingest delta deletions-only', {
+          root,
+          deleted: deltaPlan.deleted.length,
+        });
+
+        for (const file of deltaPlan.deleted) {
+          await deleteVectors({
+            where: { $and: [{ root }, { relPath: file.relPath }] },
           });
-
-          for (const file of deltaPlan.deleted) {
-            await deleteVectors({
-              where: { $and: [{ root }, { relPath: file.relPath }] },
-            });
-          }
-
-          await deleteIngestFilesByRelPaths({
-            root,
-            relPaths: deltaPlan.deleted.map((f) => f.relPath),
-          });
-
-          setStatusAndPublish(runId, {
-            runId,
-            state: 'skipped',
-            counts,
-            message: `Removed vectors for ${deltaPlan.deleted.length} deleted file(s)`,
-            lastError: null,
-            currentFile: undefined,
-            fileIndex: 0,
-            fileTotal,
-            percent: 100,
-            etaMs: 0,
-          });
-
-          const rootEmbeddingDim = await resolveRootEmbeddingDim({
-            existingRootDim,
-            vectorDim,
-            modelKey: model,
-          });
-          const rootMetadata: Metadata = {
-            runId,
-            root,
-            name,
-            model,
-            files: counts.files,
-            chunks: counts.chunks,
-            embedded: counts.embedded,
-            state: 'skipped',
-            lastIngestAt: new Date().toISOString(),
-            ingestedAtMs,
-          };
-          if (description) rootMetadata.description = description;
-          await roots.add({
-            ids: [runId],
-            embeddings: [Array(rootEmbeddingDim).fill(0)],
-            metadatas: [rootMetadata],
-          });
-
-          await deleteVectorsCollectionIfEmpty();
-          ingestLock.release(runId);
-          return;
         }
+
+        await deleteIngestFilesByRelPaths({
+          root,
+          relPaths: deltaPlan.deleted.map((f) => f.relPath),
+        });
+
+        if (astWritesEnabled) {
+          const deleteRelPaths = deltaPlan.deleted.map((file) => file.relPath);
+          await deleteAstSymbolsByRelPaths({ root, relPaths: deleteRelPaths });
+          await deleteAstEdgesByRelPaths({ root, relPaths: deleteRelPaths });
+          await deleteAstReferencesByRelPaths({
+            root,
+            relPaths: deleteRelPaths,
+          });
+          await deleteAstModuleImportsByRelPaths({
+            root,
+            relPaths: deleteRelPaths,
+          });
+          await upsertAstCoverage({
+            root,
+            coverage: {
+              root,
+              ...astCounts,
+              lastIndexedAt: new Date(),
+            },
+          });
+          logLifecycle('info', 'DEV-0000032:T5:ast-index-complete', {
+            event: 'DEV-0000032:T5:ast-index-complete',
+            root,
+            ...astCounts,
+          });
+        }
+
+        setStatusAndPublish(runId, {
+          runId,
+          state: 'skipped',
+          counts,
+          message: `Removed vectors for ${deltaPlan.deleted.length} deleted file(s)`,
+          lastError: null,
+          currentFile: undefined,
+          fileIndex: 0,
+          fileTotal,
+          percent: 100,
+          etaMs: 0,
+        });
+
+        const rootEmbeddingDim = await resolveRootEmbeddingDim({
+          existingRootDim,
+          vectorDim,
+          modelKey: model,
+        });
+        const rootMetadata: Metadata = {
+          runId,
+          root,
+          name,
+          model,
+          files: counts.files,
+          chunks: counts.chunks,
+          embedded: counts.embedded,
+          state: 'skipped',
+          lastIngestAt: new Date().toISOString(),
+          ingestedAtMs,
+        };
+        if (description) rootMetadata.description = description;
+        await roots.add({
+          ids: [runId],
+          embeddings: [Array(rootEmbeddingDim).fill(0)],
+          metadatas: [rootMetadata],
+        });
+
+        await deleteVectorsCollectionIfEmpty();
+        ingestLock.release(runId);
+        return;
       }
     }
 
@@ -494,6 +630,7 @@ async function processRun(runId: string, input: IngestJobInput) {
       progressSnapshot(fileIndex, file.relPath);
       if (cancelledRuns.has(runId)) {
         clearBatch();
+        clearAstBatches();
         setStatusAndPublish(runId, {
           runId,
           state: 'cancelled',
@@ -549,6 +686,38 @@ async function processRun(runId: string, input: IngestJobInput) {
       }
 
       const text = await fs.readFile(file.absPath, 'utf8');
+      const fileHash =
+        typeof file.fileHash === 'string' && file.fileHash.length > 0
+          ? file.fileHash
+          : await hashFile(file.absPath);
+      fileHashesByRelPath.set(file.relPath, fileHash);
+
+      const astExt = path.extname(file.relPath).slice(1);
+      if (isAstSupported(astExt)) {
+        const astResult = await parseAstSource({
+          root,
+          text,
+          relPath: file.relPath,
+          fileHash,
+        });
+        if (astResult.status === 'ok') {
+          astSymbols.push(...astResult.symbols);
+          astEdges.push(...astResult.edges);
+          astReferences.push(...astResult.references);
+          astModuleImports.push(...astResult.imports);
+        } else {
+          astCounts.failedFileCount += 1;
+          const errorMessage = astResult.error.toLowerCase();
+          if (!astGrammarFailureLogged && errorMessage.includes('grammar')) {
+            astGrammarFailureLogged = true;
+            logWarning('Tree-sitter grammar failed to load', {
+              root,
+              relPath: file.relPath,
+              error: astResult.error,
+            });
+          }
+        }
+      }
       const chunks = await chunkText(
         text,
         (await deps
@@ -556,12 +725,6 @@ async function processRun(runId: string, input: IngestJobInput) {
           .embedding.model(model)) as unknown as EmbeddingModel,
         ingestConfig,
       );
-
-      const fileHash =
-        typeof file.fileHash === 'string' && file.fileHash.length > 0
-          ? file.fileHash
-          : await hashFile(file.absPath);
-      fileHashesByRelPath.set(file.relPath, fileHash);
       for (const chunk of chunks) {
         const chunkHash = hashChunk(file.relPath, chunk.chunkIndex, chunk.text);
         const embedding = await embedText(model, chunk.text);
@@ -690,6 +853,44 @@ async function processRun(runId: string, input: IngestJobInput) {
           relPaths: deltaPlan.deleted.map((file) => file.relPath),
         });
       }
+    }
+
+    if (astWritesEnabled) {
+      if (operation === 'reembed' && deltaMode === 'delta' && deltaPlan) {
+        const deleteRelPaths = [...deltaPlan.changed, ...deltaPlan.deleted].map(
+          (file) => file.relPath,
+        );
+        if (deleteRelPaths.length > 0) {
+          await deleteAstSymbolsByRelPaths({ root, relPaths: deleteRelPaths });
+          await deleteAstEdgesByRelPaths({ root, relPaths: deleteRelPaths });
+          await deleteAstReferencesByRelPaths({
+            root,
+            relPaths: deleteRelPaths,
+          });
+          await deleteAstModuleImportsByRelPaths({
+            root,
+            relPaths: deleteRelPaths,
+          });
+        }
+      }
+
+      await upsertAstSymbols({ root, symbols: astSymbols });
+      await upsertAstEdges({ root, edges: astEdges });
+      await upsertAstReferences({ root, references: astReferences });
+      await upsertAstModuleImports({ root, modules: astModuleImports });
+      await upsertAstCoverage({
+        root,
+        coverage: {
+          root,
+          ...astCounts,
+          lastIndexedAt: new Date(),
+        },
+      });
+      logLifecycle('info', 'DEV-0000032:T5:ast-index-complete', {
+        event: 'DEV-0000032:T5:ast-index-complete',
+        root,
+        ...astCounts,
+      });
     }
 
     setStatusAndPublish(runId, {

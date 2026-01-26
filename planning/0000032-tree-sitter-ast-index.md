@@ -43,12 +43,12 @@ Note: Cross-repository symbol linking (e.g., linking imports in repo A to an ing
 - AST index schema (Option B): symbols include `Module`, `Class`, `Function`, `Method`, `Interface`, `TypeAlias`, `Enum`, `Property`; edges include `DEFINES`, `CALLS`, `IMPORTS`, `EXPORTS`, `EXTENDS`, `IMPLEMENTS`, `REFERENCES_TYPE`.
 - When the grammar provides Tree-sitter query files (e.g., `queries/tags.scm`), those are used for definitions and references instead of custom ad-hoc AST walking.
 - MCP tools (Option B) are available for supported repositories and return JSON with file paths + ranges:
-  - `list_symbols` returns an array of symbol records.
-  - `find_definition` returns a single symbol record (or empty result when not found).
-  - `find_references` returns an array of `{ relPath, range }` references.
-  - `call_graph` returns `{ nodes: symbol[], edges: edge[] }` for the requested entry point.
-  - `module_imports` returns `{ relPath, imports: [{ source, names[] }] }`.
-- REST endpoints mirror MCP tools using the `/tools/` prefix and the same request/response payloads (JSON schema parity with MCP output schemas).
+  - `AstListSymbols` returns an array of symbol records.
+  - `AstFindDefinition` returns a single symbol record (or empty result when not found).
+  - `AstFindReferences` returns an array of `{ relPath, range }` references.
+  - `AstCallGraph` returns `{ nodes: symbol[], edges: edge[] }` for the requested entry point.
+  - `AstModuleImports` returns `{ relPath, imports: [{ source, names[] }] }`.
+- REST endpoints mirror MCP tools using `/tools/ast-*` and the same request/response payloads (JSON schema parity with MCP output schemas).
 
 ---
 

@@ -331,7 +331,7 @@ Create Mongo collections for AST symbols, edges, references, module imports, and
 
 ### 2. Server: AST repo helpers
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **to_do**
 
 #### Overview

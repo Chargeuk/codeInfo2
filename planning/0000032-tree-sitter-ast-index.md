@@ -198,6 +198,16 @@ Create Mongo collections for AST symbols, edges, references, module imports, and
 - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI: https://prettier.io/docs/cli
 - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+- Markdown Guide: https://www.markdownguide.org/basic-syntax/
+- Markdown Guide: https://www.markdownguide.org/basic-syntax/
+- Markdown Guide: https://www.markdownguide.org/basic-syntax/
+- Markdown Guide: https://www.markdownguide.org/basic-syntax/
+- Markdown Guide: https://www.markdownguide.org/basic-syntax/
+- Markdown Guide: https://www.markdownguide.org/basic-syntax/
+- Markdown Guide: https://www.markdownguide.org/basic-syntax/
+- Markdown Guide: https://www.markdownguide.org/basic-syntax/
+- Markdown Guide: https://www.markdownguide.org/basic-syntax/
+- Markdown Guide: https://www.markdownguide.org/basic-syntax/
 - Jest: Context7 `/websites/jestjs_io_30_0`
 - Cucumber guides (overview): https://cucumber.io/docs/guides/
 - Playwright: Context7 `/microsoft/playwright`
@@ -216,6 +226,7 @@ Create Mongo collections for AST symbols, edges, references, module imports, and
 2. [ ] Add AST Mongo schema models:
    - Documentation to read (repeat):
      - MongoDB indexes: https://www.mongodb.com/docs/manual/indexes/
+     - Mongoose schemas + indexes: https://mongoosejs.com/docs/guide.html
    - Files to edit:
      - `server/src/mongo/astSymbol.ts` (new)
      - `server/src/mongo/astEdge.ts` (new)
@@ -228,6 +239,7 @@ Create Mongo collections for AST symbols, edges, references, module imports, and
 3. [ ] Unit tests — schema + index coverage:
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
+     - Mongoose schemas + indexes: https://mongoosejs.com/docs/guide.html
    - Files to edit:
      - `server/src/test/unit/ast-symbols-schema.test.ts` (new)
      - `server/src/test/unit/ast-edges-schema.test.ts` (new)
@@ -238,10 +250,17 @@ Create Mongo collections for AST symbols, edges, references, module imports, and
      - Required fields exist.
      - Indexes match the contract (including uniqueness where required).
 4. [ ] Update documentation:
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - `design.md` (add AST collections summary)
 5. [ ] Update documentation:
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - `projectStructure.md` (add new Mongo files/tests)
 6. [ ] Run full linting:
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier CLI: https://prettier.io/docs/cli
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -289,12 +308,18 @@ Add repo helper functions for AST collections with Mongo-disconnected guards and
      - `server/src/test/unit/ingest-files-repo-guards.test.ts`
    - Notes:
      - Reuse the existing `mongoose.connection.readyState` guard + bulkWrite pattern (do not introduce a new DB access layer).
+   - Documentation to read (repeat):
+     - Mongoose 9.0.1 guide (Context7): /automattic/mongoose/9.0.1
+     - MongoDB bulkWrite: https://www.mongodb.com/docs/manual/reference/method/db.collection.bulkWrite/
 2. [ ] Add AST repo helpers:
    - Files to edit:
      - `server/src/mongo/repo.ts`
    - Implementation details:
      - Add list/upsert/clear helpers for symbols, edges, references, module imports, and coverage.
      - Prefer bulkWrite for symbol/edge/reference upserts and deleteMany for clears.
+   - Documentation to read (repeat):
+     - Mongoose 9.0.1 guide (Context7): /automattic/mongoose/9.0.1
+     - MongoDB bulkWrite: https://www.mongodb.com/docs/manual/reference/method/db.collection.bulkWrite/
 3. [ ] Unit tests — repo helpers return null when Mongo is disconnected:
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
@@ -303,10 +328,17 @@ Add repo helper functions for AST collections with Mongo-disconnected guards and
    - Assertions:
      - Helper functions short-circuit without hitting model methods.
 4. [ ] Update documentation:
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - `design.md` (add AST repo helper notes)
 5. [ ] Update documentation:
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - `projectStructure.md` (add any new tests)
 6. [ ] Run full linting:
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier CLI: https://prettier.io/docs/cli
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -341,10 +373,14 @@ Add Tree-sitter dependencies and ensure Docker builds can compile native binding
 - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI: https://prettier.io/docs/cli
 - npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+- Markdown Guide: https://www.markdownguide.org/basic-syntax/
 
 #### Subtasks
 
 1. [ ] Add Tree-sitter dependencies:
+   - Documentation to read (repeat):
+     - Node Tree-sitter bindings: https://tree-sitter.github.io/node-tree-sitter/index.html
+     - node-gyp build prerequisites: https://github.com/nodejs/node-gyp
    - Files to edit:
      - `server/package.json`
      - `package-lock.json`
@@ -353,15 +389,25 @@ Add Tree-sitter dependencies and ensure Docker builds can compile native binding
      - `tree-sitter-javascript`
      - `tree-sitter-typescript`
 2. [ ] Ensure Docker build can compile native Tree-sitter bindings:
+   - Documentation to read (repeat):
+     - node-gyp build prerequisites: https://github.com/nodejs/node-gyp
+     - Docker/Compose: Context7 `/docker/docs`
    - Files to edit:
      - `server/Dockerfile`
    - Implementation details:
      - Install build essentials in the deps stage (e.g., `python3`, `make`, `g++`) before `npm ci`.
 3. [ ] Update documentation:
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - `design.md` (dependency/build prerequisites)
 4. [ ] Update documentation:
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - `projectStructure.md` (note Dockerfile changes if listed)
 5. [ ] Run full linting:
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier CLI: https://prettier.io/docs/cli
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -415,6 +461,8 @@ Implement a Tree-sitter parsing module that maps JS/TS/TSX source text into Symb
      - `server/src/ingest/types.ts`
    - Notes:
      - Confirm how file hashes are computed so AST records can reuse the same hash.
+   - Documentation to read (repeat):
+     - Node.js fs/promises: https://nodejs.org/api/fs.html#fspromisesreadfilepath-options
 2. [ ] Add AST parsing + symbol extraction module:
    - Documentation to read (repeat):
      - Tree-sitter docs (parsers): https://tree-sitter.github.io/tree-sitter/using-parsers
@@ -451,10 +499,17 @@ Implement a Tree-sitter parsing module that maps JS/TS/TSX source text into Symb
      - Module imports include expected `source` and imported `names`.
      - Unsupported extension returns `{ language: 'unsupported', symbols: [] }` (or equivalent).
 4. [ ] Update documentation:
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - `design.md` (document parsing approach + query usage)
 5. [ ] Update documentation:
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - `projectStructure.md` (add new `server/src/ast` files + tests)
 6. [ ] Run full linting:
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier CLI: https://prettier.io/docs/cli
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -505,6 +560,8 @@ Integrate AST parsing into ingest runs and persist AST data + coverage without c
      - `server/src/ingest/hashing.ts`
      - `server/src/ingest/types.ts`
      - `server/src/ws/server.ts`
+   - Documentation to read (repeat):
+     - MongoDB write operations: https://www.mongodb.com/docs/manual/crud/
 2. [ ] Wire AST parsing into the per-file ingest loop:
    - Files to edit:
      - `server/src/ingest/ingestJob.ts`
@@ -515,13 +572,18 @@ Integrate AST parsing into ingest runs and persist AST data + coverage without c
      - Skip writes when `dryRun` is true, but still compute counts.
      - If Mongo is disconnected, skip AST writes with a warning and continue.
      - Ensure vector ingest counts + model locking behavior are unchanged by AST indexing.
-     - When grammar load fails, treat supported files as failed and log the failure once per run.
+      - When grammar load fails, treat supported files as failed and log the failure once per run.
+   - Documentation to read (repeat):
+     - Tree-sitter docs (parsers): https://tree-sitter.github.io/tree-sitter/using-parsers
+     - MongoDB write operations: https://www.mongodb.com/docs/manual/crud/
 3. [ ] Add ingest logging for unsupported-language skips:
    - Files to edit:
      - `server/src/ingest/ingestJob.ts`
    - Implementation details:
      - Log a warning with `root`, `skippedFileCount`, and up to 5 example `relPath` values.
      - Ensure log message matches the acceptance criteria wording (unsupported language).
+   - Documentation to read (repeat):
+     - Tree-sitter docs (parsers): https://tree-sitter.github.io/tree-sitter/using-parsers
 4. [ ] Persist AST symbols/edges + coverage records:
    - Files to edit:
      - `server/src/mongo/repo.ts`
@@ -531,19 +593,30 @@ Integrate AST parsing into ingest runs and persist AST data + coverage without c
      - For `reembed` with delta, delete AST records for deleted/changed files and upsert new records for added/changed files.
      - Persist `ast_references` and `ast_module_imports` alongside symbols/edges.
      - Ensure unchanged files keep their existing AST records (no delete for `deltaPlan.unchanged`).
-     - If delta plan has no changes, skip AST re-indexing and leave existing AST records untouched.
-     - Update `ast_coverage` with `supportedFileCount`, `skippedFileCount`, `failedFileCount`, and `lastIndexedAt` (ISO).
+      - If delta plan has no changes, skip AST re-indexing and leave existing AST records untouched.
+      - Update `ast_coverage` with `supportedFileCount`, `skippedFileCount`, `failedFileCount`, and `lastIndexedAt` (ISO).
+   - Documentation to read (repeat):
+     - MongoDB write operations: https://www.mongodb.com/docs/manual/crud/
 5. [ ] Handle cancellation during AST indexing:
    - Files to edit:
      - `server/src/ingest/ingestJob.ts`
    - Implementation details:
      - Stop processing and skip any further AST writes once cancellation is detected.
      - Clear any in-memory AST batches without attempting partial cleanup of already-written records.
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
 6. [ ] Update documentation:
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - `design.md` (AST coverage + ingest persistence notes)
 7. [ ] Update documentation:
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - `projectStructure.md` (note any new files if added)
 8. [ ] Run full linting:
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier CLI: https://prettier.io/docs/cli
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -592,6 +665,8 @@ Extend ingest status payloads (REST + WS) with optional AST counts and update te
    - Implementation details:
      - Add optional `ast` object per contract.
      - Ensure `ingest_snapshot` and `ingest_update` include `ast` when available.
+   - Documentation to read (repeat):
+     - Express routing + handlers: Context7 `/expressjs/express/v5.1.0`
 2. [ ] Update server tests for the new `ast` status fields:
    - Files to edit:
      - `server/src/test/unit/ingest-status.test.ts`
@@ -599,9 +674,17 @@ Extend ingest status payloads (REST + WS) with optional AST counts and update te
      - `server/src/test/features/ingest-status.feature`
    - Assertions:
      - Status snapshots include `ast.supportedFileCount`, `skippedFileCount`, `failedFileCount`.
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+     - Cucumber guides (overview): https://cucumber.io/docs/guides/
 3. [ ] Update documentation:
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - `design.md` (extend ingest status contract)
 4. [ ] Run full linting:
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier CLI: https://prettier.io/docs/cli
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -646,6 +729,8 @@ Add AST tool validation + query services for list/find/call-graph/modules and er
 1. [ ] Review tool patterns and error mapping:
    - Files to read:
      - `server/src/lmstudio/toolService.ts`
+   - Documentation to read (repeat):
+     - Mongoose queries: https://mongoosejs.com/docs/queries.html
 2. [ ] Add AST tool validation + query services:
    - Files to edit:
      - `server/src/ast/toolService.ts` (new)
@@ -655,8 +740,11 @@ Add AST tool validation + query services for list/find/call-graph/modules and er
      - When multiple repos share the same id, select the most recent `lastIngestAt`.
      - Return `AST_INDEX_REQUIRED` (409) when no coverage data exists for the repo.
      - Implement call graph traversal by following `CALLS` edges up to the requested depth.
-     - `AstModuleImports` should map persisted import records into `{ relPath, imports: [{ source, names[] }] }`.
-     - `AstFindReferences` should query `ast_references` by `symbolId` or by `{ name, kind }`.
+      - `AstModuleImports` should map persisted import records into `{ relPath, imports: [{ source, names[] }] }`.
+      - `AstFindReferences` should query `ast_references` by `symbolId` or by `{ name, kind }`.
+   - Documentation to read (repeat):
+     - Mongoose queries: https://mongoosejs.com/docs/queries.html
+     - MongoDB CRUD: https://www.mongodb.com/docs/manual/crud/
 3. [ ] Unit tests — AST tool validation:
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
@@ -666,10 +754,17 @@ Add AST tool validation + query services for list/find/call-graph/modules and er
      - Missing required fields return `VALIDATION_FAILED`.
      - `limit` defaults to 50 and caps at 200.
 4. [ ] Update documentation:
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - `design.md` (AST tool service behavior)
 5. [ ] Update documentation:
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - `projectStructure.md` (add new service/test files)
 6. [ ] Run full linting:
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier CLI: https://prettier.io/docs/cli
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -713,6 +808,8 @@ Expose `/tools/ast-*` REST endpoints that validate input, call the AST tool serv
 #### Subtasks
 
 1. [ ] Add REST route handlers:
+   - Documentation to read (repeat):
+     - Express routing + handlers: Context7 `/expressjs/express/v5.1.0`
    - Files to edit:
      - `server/src/routes/toolsAstListSymbols.ts` (new)
      - `server/src/routes/toolsAstFindDefinition.ts` (new)
@@ -725,6 +822,7 @@ Expose `/tools/ast-*` REST endpoints that validate input, call the AST tool serv
 2. [ ] Integration tests — REST endpoints:
    - Documentation to read (repeat):
      - Supertest HTTP assertions: https://github.com/forwardemail/supertest
+     - Node.js test runner: https://nodejs.org/api/test.html
    - Files to edit:
      - `server/src/test/integration/tools-ast.test.ts` (new)
    - Assertions:
@@ -733,12 +831,21 @@ Expose `/tools/ast-*` REST endpoints that validate input, call the AST tool serv
    - Notes:
      - Mirror the existing router test patterns from `server/src/test/unit/tools-vector-search.test.ts` / `tools-ingested-repos.test.ts` when stubbing deps.
 3. [ ] Update documentation:
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - `design.md` (REST tool contracts + error codes)
 4. [ ] Update documentation:
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - `projectStructure.md` (add new route/test files)
 5. [ ] Update documentation:
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - `openapi.json` (add `/tools/ast-*` endpoints)
 6. [ ] Run full linting:
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier CLI: https://prettier.io/docs/cli
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -785,15 +892,21 @@ Expose AST tools through the MCP JSON-RPC server with schemas aligned to the RES
    - Files to read:
      - `server/src/mcp/server.ts`
      - `server/src/test/integration/mcp-server.test.ts`
+   - Documentation to read (repeat):
+     - MCP tool format (schema expectations): https://modelcontextprotocol.io/specification
 2. [ ] Add AST MCP tool definitions + dispatch:
    - Files to edit:
      - `server/src/mcp/server.ts`
    - Implementation details:
      - Add tool definitions for `AstListSymbols`, `AstFindDefinition`, `AstFindReferences`, `AstCallGraph`, `AstModuleImports` with input/output schemas.
      - Route `tools/call` to AST service functions and map errors to MCP `invalid params` or internal errors.
+   - Documentation to read (repeat):
+     - MCP tool format (schema expectations): https://modelcontextprotocol.io/specification
+     - JSON-RPC 2.0 spec: https://www.jsonrpc.org/specification
 3. [ ] Integration tests — MCP tool list + call:
    - Documentation to read (repeat):
      - Supertest HTTP assertions: https://github.com/forwardemail/supertest
+     - Node.js test runner: https://nodejs.org/api/test.html
    - Files to edit:
      - `server/src/test/integration/mcp-server.test.ts`
    - Assertions:
@@ -801,10 +914,17 @@ Expose AST tools through the MCP JSON-RPC server with schemas aligned to the RES
      - `tools/call` returns JSON payload for a stubbed AST tool.
      - Validation errors return `-32602` with `VALIDATION_FAILED` message.
 4. [ ] Update documentation:
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - `design.md` (MCP tool list + response shapes)
 5. [ ] Update documentation:
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - `projectStructure.md` (update if any new test files added)
 6. [ ] Run full linting:
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier CLI: https://prettier.io/docs/cli
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -849,22 +969,36 @@ Extend client ingest status types to include optional AST counts and update test
    - Files to read:
      - `client/src/hooks/useChatWs.ts`
      - `client/src/hooks/useIngestStatus.ts`
+   - Documentation to read (repeat):
+     - React 19 hooks reference: https://react.dev/reference/react
 2. [ ] Extend ingest status types for AST counts:
    - Files to edit:
      - `client/src/hooks/useChatWs.ts`
      - `client/src/hooks/useIngestStatus.ts`
    - Implementation details:
      - Add optional `ast` field with `supportedFileCount`, `skippedFileCount`, `failedFileCount`, `lastIndexedAt`.
+   - Documentation to read (repeat):
+     - TypeScript 5.9 release notes: https://www.typescriptlang.org/docs/handbook/release-notes/typescript-5-9.html
 3. [ ] Client tests — ingest status shape updates:
    - Files to edit:
      - `client/src/test/ingestStatus.test.tsx`
    - Assertions:
      - Existing ingest status tests accept optional `ast` fields without failing.
+   - Documentation to read (repeat):
+     - Jest (React testing): https://jestjs.io/docs/getting-started
+     - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
 4. [ ] Update documentation:
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - `design.md` (client ingest status types)
 5. [ ] Update documentation:
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - `projectStructure.md` (update if tests changed)
 6. [ ] Run full linting:
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier CLI: https://prettier.io/docs/cli
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -908,6 +1042,10 @@ Render non-blocking Ingest page banners for AST skipped/failed counts using exis
 #### Subtasks
 
 1. [ ] Add Ingest page banner for AST skips/failures:
+   - Documentation to read (repeat):
+     - MUI Alert docs (MUI MCP, v6.4.x): https://llms.mui.com/material-ui/6.4.12/components/alert.md
+     - MUI Stack docs (MUI MCP, v6.4.x): https://llms.mui.com/material-ui/6.4.12/components/stack.md
+     - MUI Typography docs (MUI MCP, v6.4.x): https://llms.mui.com/material-ui/6.4.12/components/typography.md
    - Files to edit:
      - `client/src/pages/IngestPage.tsx`
    - UI details:
@@ -915,16 +1053,26 @@ Render non-blocking Ingest page banners for AST skipped/failed counts using exis
      - If `failedFileCount > 0`, show a warning/info banner noting failures and advising to check logs.
      - Reuse the existing page-level `Alert` layout patterns already used for model lock and WS status (do not introduce a new banner component).
 2. [ ] Client tests — banner rendering:
+   - Documentation to read (repeat):
+     - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
+     - Jest (React testing): https://jestjs.io/docs/getting-started
    - Files to edit:
      - `client/src/test/ingestStatus.test.tsx`
    - Assertions:
      - Banner appears when `ast.skippedFileCount > 0`.
      - Banner hidden when counts are zero or missing.
 3. [ ] Update documentation:
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - `design.md` (client ingest banner notes)
 4. [ ] Update documentation:
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - `projectStructure.md` (update if tests changed)
 5. [ ] Run full linting:
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier CLI: https://prettier.io/docs/cli
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -959,24 +1107,50 @@ Validate the full story against acceptance criteria, run full builds/tests, ensu
 - Mermaid: Context7 `/mermaid-js/mermaid`
 - Jest: Context7 `/jestjs/jest`
 - Cucumber guides https://cucumber.io/docs/guides/
+- Markdown Guide: https://www.markdownguide.org/basic-syntax/
 
 #### Subtasks
 
 1. [ ] Build the server
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
 2. [ ] Build the client
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
 3. [ ] perform a clean docker build
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
 4. [ ] Ensure Readme.md is updated with any required description changes and with any new commands that have been added as part of this story
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
 5. [ ] Ensure Design.md is updated with any required description changes including mermaid diagrams that have been added as part of this story
+   - Documentation to read (repeat):
+     - Mermaid: Context7 `/mermaid-js/mermaid`
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
 6. [ ] Ensure projectStructure.md is updated with any updated, added or removed files & folders
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
 7. [ ] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
 
 #### Testing
 
 1. [ ] run the client jest tests
+   - Documentation to read (repeat):
+     - Jest: Context7 `/jestjs/jest`
 2. [ ] run the server cucumber tests
+   - Documentation to read (repeat):
+     - Cucumber guides https://cucumber.io/docs/guides/
 3. [ ] restart the docker environment
+   - Documentation to read (repeat):
+     - Docker/Compose: Context7 `/docker/docs`
 4. [ ] run the e2e tests
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
 5. [ ] use the playwright mcp tool to ensure manually check the application, saving screenshots to ./test-results/screenshots/ - Each screenshot should be named with the plan index including the preceding seroes, then a dash, and then the task number, then a dash and the name of the screenshot
+   - Documentation to read (repeat):
+     - Playwright: Context7 `/microsoft/playwright`
 
 #### Implementation notes
 

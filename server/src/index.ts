@@ -8,6 +8,7 @@ import pkg from '../package.json' with { type: 'json' };
 import { ensureCodexConfigSeeded, getCodexHome } from './config/codexConfig.js';
 import './flows/flowSchema.js';
 import './ingest/index.js';
+import './mongo/astCoverage.js';
 import { closeAll, getClient } from './lmstudio/clientPool.js';
 import { baseLogger, createRequestLogger } from './logger.js';
 import { createMcpRouter } from './mcp/server.js';

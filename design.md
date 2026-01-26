@@ -1333,6 +1333,25 @@ sequenceDiagram
   end
 ```
 
+### AST indexing storage
+
+- Tree-sitter AST indexing persists symbol/edge/reference/import records alongside coverage counts per ingest root.
+- Collections:
+  - `ast_symbols` stores module/class/function symbols with 1-based ranges and deterministic `symbolId` per root.
+  - `ast_edges` stores call/define/import edges keyed by `root + relPath + fileHash`.
+  - `ast_references` stores references by `symbolId` or `{ name, kind }` for legacy lookups.
+  - `ast_module_imports` stores module imports per file with `source` and imported `names`.
+  - `ast_coverage` stores per-root coverage counts and `lastIndexedAt`.
+
+```mermaid
+erDiagram
+  AST_COVERAGE ||--o{ AST_SYMBOLS : "root"
+  AST_SYMBOLS ||--o{ AST_EDGES : "fromSymbolId"
+  AST_SYMBOLS ||--o{ AST_EDGES : "toSymbolId"
+  AST_SYMBOLS ||--o{ AST_REFERENCES : "symbolId"
+  AST_SYMBOLS ||--o{ AST_MODULE_IMPORTS : "root+relPath"
+```
+
 ### Ingest dry-run + cleanup guarantees
 
 - Dry runs still call LM Studio `embed` to size dimensions but never call `vectors.add`; counts reflect the would-be chunk embeds and status ends `completed`.

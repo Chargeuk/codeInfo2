@@ -204,7 +204,7 @@ Create Mongo collections for AST symbols, edges, references, module imports, and
 
 #### Subtasks
 
-1. [ ] Review existing ingest file schema patterns:
+1. [x] Review existing ingest file schema patterns:
    - Documentation to read (repeat):
      - Mongoose schemas + indexes: https://mongoosejs.com/docs/guide.html
    - Files to read:
@@ -212,7 +212,7 @@ Create Mongo collections for AST symbols, edges, references, module imports, and
      - `server/src/test/unit/ingest-files-schema.test.ts`
    - Notes:
      - Confirm how collection names, timestamps, and indexes are defined.
-2. [ ] Add AST Mongo schema models:
+2. [x] Add AST Mongo schema models:
    - Documentation to read (repeat):
      - MongoDB indexes: https://www.mongodb.com/docs/manual/indexes/
      - Mongoose schemas + indexes: https://mongoosejs.com/docs/guide.html
@@ -225,7 +225,7 @@ Create Mongo collections for AST symbols, edges, references, module imports, and
    - Implementation details:
      - Match field names + indexes exactly from Message Contracts (`ast_symbols`, `ast_edges`, `ast_references`, `ast_module_imports`, `ast_coverage`).
      - Ensure `{ root, symbolId }` is unique per root for symbols.
-3. [ ] Unit test — AST symbols schema (fields + indexes):
+3. [x] Unit test — AST symbols schema (fields + indexes):
    - Test type: Unit (schema model).
    - Test location: `server/src/test/unit/ast-symbols-schema.test.ts` (new).
    - Description: Verify required fields, timestamps, and compound/unique indexes for `ast_symbols`.
@@ -233,7 +233,7 @@ Create Mongo collections for AST symbols, edges, references, module imports, and
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
      - Mongoose schemas + indexes: https://mongoosejs.com/docs/guide.html
-4. [ ] Unit test — AST edges schema (fields + indexes):
+4. [x] Unit test — AST edges schema (fields + indexes):
    - Test type: Unit (schema model).
    - Test location: `server/src/test/unit/ast-edges-schema.test.ts` (new).
    - Description: Validate required edge fields and indexes for `ast_edges`.
@@ -241,7 +241,7 @@ Create Mongo collections for AST symbols, edges, references, module imports, and
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
      - Mongoose schemas + indexes: https://mongoosejs.com/docs/guide.html
-5. [ ] Unit test — AST references schema (fields + indexes):
+5. [x] Unit test — AST references schema (fields + indexes):
    - Test type: Unit (schema model).
    - Test location: `server/src/test/unit/ast-references-schema.test.ts` (new).
    - Description: Validate required reference fields and indexes for `ast_references`.
@@ -249,7 +249,7 @@ Create Mongo collections for AST symbols, edges, references, module imports, and
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
      - Mongoose schemas + indexes: https://mongoosejs.com/docs/guide.html
-6. [ ] Unit test — AST module imports schema (fields + indexes):
+6. [x] Unit test — AST module imports schema (fields + indexes):
    - Test type: Unit (schema model).
    - Test location: `server/src/test/unit/ast-module-imports-schema.test.ts` (new).
    - Description: Validate module import fields (source + names) and indexes for `ast_module_imports`.
@@ -257,7 +257,7 @@ Create Mongo collections for AST symbols, edges, references, module imports, and
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
      - Mongoose schemas + indexes: https://mongoosejs.com/docs/guide.html
-7. [ ] Unit test — AST coverage schema (fields + indexes):
+7. [x] Unit test — AST coverage schema (fields + indexes):
    - Test type: Unit (schema model).
    - Test location: `server/src/test/unit/ast-coverage-schema.test.ts` (new).
    - Description: Validate coverage counts and `lastIndexedAt` fields for `ast_coverage`.
@@ -265,7 +265,7 @@ Create Mongo collections for AST symbols, edges, references, module imports, and
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
      - Mongoose schemas + indexes: https://mongoosejs.com/docs/guide.html
-8. [ ] Update documentation — `design.md`:
+8. [x] Update documentation — `design.md`:
    - Document: `design.md`.
    - Location: `design.md`.
    - Description: Add AST collections summary and a mermaid diagram showing AST collections and relationships.
@@ -273,14 +273,14 @@ Create Mongo collections for AST symbols, edges, references, module imports, and
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
      - Mermaid docs (Context7, architecture diagrams): /mermaid-js/mermaid
-9. [ ] Update documentation — `projectStructure.md`:
+9. [x] Update documentation — `projectStructure.md`:
    - Document: `projectStructure.md`.
    - Location: `projectStructure.md`.
    - Description: Add new Mongo schema + test files to the tree (`server/src/mongo/astSymbol.ts`, `server/src/mongo/astEdge.ts`, `server/src/mongo/astReference.ts`, `server/src/mongo/astModuleImport.ts`, `server/src/mongo/astCoverage.ts`, `server/src/test/unit/ast-symbols-schema.test.ts`, `server/src/test/unit/ast-edges-schema.test.ts`, `server/src/test/unit/ast-references-schema.test.ts`, `server/src/test/unit/ast-module-imports-schema.test.ts`, `server/src/test/unit/ast-coverage-schema.test.ts`).
    - Purpose: Keep repository structure documentation in sync with added files.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-10. [ ] Add AST schema registration log line:
+10. [x] Add AST schema registration log line:
    - Files to edit:
      - `server/src/mongo/astCoverage.ts`
    - Log line:
@@ -290,25 +290,42 @@ Create Mongo collections for AST symbols, edges, references, module imports, and
      - Include `event: 'DEV-0000032:T1:ast-mongo-models-ready'` and `collection: 'ast_coverage'`.
    - Documentation to read (repeat):
      - Mongoose schema guide: https://mongoosejs.com/docs/guide.html
-11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+11. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, load Chat + Ingest pages, open Logs, and confirm `DEV-0000032:T1:ast-mongo-models-ready` appears once; confirm the browser console has no errors.
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, load Chat + Ingest pages, open Logs, and confirm `DEV-0000032:T1:ast-mongo-models-ready` appears once; confirm the browser console has no errors.
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- 
+- Reviewed `ingestFile` schema/test to mirror collection naming, timestamps, and index patterns for new AST models.
+- Added AST symbol/edge/reference/module-import/coverage schemas with required fields, indexes, and collection names per contract.
+- Added unit tests covering AST schema required fields, timestamp behavior, and index definitions for all new collections.
+- Documented AST collections and relationships in `design.md` and updated the project tree to list new schema/test files.
+- Logged AST Mongo model readiness from `astCoverage.ts` with the required event payload.
+- Ensured AST coverage model is imported at server startup so the readiness log emits.
+- Added logStore append for `DEV-0000032:T1:ast-mongo-models-ready` so it appears in the Logs UI.
+- Lint completed with existing import-order warnings; ran Prettier to fix formatting and re-checked format successfully.
+- `npm run build --workspace server` completed successfully.
+- `npm run build --workspace client` completed successfully (Vite chunk-size warnings only).
+- `npm run test --workspace server` completed after rerunning with a longer timeout (initial runs timed out).
+- `npm run test --workspace client` completed successfully (console warnings logged during tests).
+- `npm run e2e` completed successfully (compose build/up/test/down).
+- `npm run compose:build` completed successfully.
+- `npm run compose:up` completed successfully.
+- Rebuilt and restarted compose stack to load AST log store changes.
+- Playwright-MCP verified Chat/Ingest pages and Logs entry for `DEV-0000032:T1:ast-mongo-models-ready` with no console errors observed.
+- `npm run compose:down` completed successfully.
 
 ---
 

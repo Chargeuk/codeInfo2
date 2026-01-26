@@ -301,6 +301,11 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚     â”‚  â”œâ”€ conversation.ts — conversation schema/model (provider, agentName?, flags, lastMessageAt, archivedAt)
 â”‚     â”‚  â”œâ”€ turn.ts — turn schema/model (role/content/provider/model/toolCalls/status)
 â”‚     â”‚  â”œâ”€ ingestFile.ts — per-file hash index schema/model for delta ingest decisions
+â”‚     â”‚  â”œâ”€ astCoverage.ts — AST coverage schema/model (per-root counts + lastIndexedAt)
+â”‚     â”‚  â”œâ”€ astEdge.ts — AST edge schema/model (call/import edges per file)
+â”‚     â”‚  â”œâ”€ astModuleImport.ts — AST module import schema/model (source + imported names)
+â”‚     â”‚  â”œâ”€ astReference.ts — AST reference schema/model (symbol/name references)
+â”‚     â”‚  â”œâ”€ astSymbol.ts — AST symbol schema/model (deterministic symbolId + range)
 â”‚     â”‚  â””â”€ repo.ts — persistence helpers for create/update/archive/restore/list + turn append
 â”‚     â”œâ”€ mcp/ — Express MCP v1 endpoint (POST /mcp) exposing ingest tools to agent clients
 â”‚     â”‚  â””â”€ server.ts — Express MCP v1 router (initialize/tools/resources); uses mcpCommon helpers while preserving wire formats, tool schemas, and domain error mapping
@@ -418,6 +423,11 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚           â”œâ”€ chroma-embedding-selection.test.ts â€” locked-model embedding function selection + error paths
 â”‚           â”œâ”€ ingest-status.test.ts â€” ingest status progress fields round-trip helper coverage
 â”‚           â”œâ”€ ingest-files-schema.test.ts â€” unit coverage for `ingest_files` Mongoose schema fields + indexes
+â”‚           â”œâ”€ ast-symbols-schema.test.ts â€” unit coverage for `ast_symbols` schema fields + indexes
+â”‚           â”œâ”€ ast-edges-schema.test.ts â€” unit coverage for `ast_edges` schema fields + indexes
+â”‚           â”œâ”€ ast-references-schema.test.ts â€” unit coverage for `ast_references` schema fields + indexes
+â”‚           â”œâ”€ ast-module-imports-schema.test.ts â€” unit coverage for `ast_module_imports` schema fields + indexes
+â”‚           â”œâ”€ ast-coverage-schema.test.ts â€” unit coverage for `ast_coverage` schema fields + indexes
 â”‚           â”œâ”€ ingest-files-repo-guards.test.ts â€” unit coverage for mongo disconnected guard behaviour in ingest_files repo helpers
 â”‚           â”œâ”€ ingest-delta-plan.test.ts â€” unit coverage for delta planning categorization logic
 â”‚           â”œâ”€ tools-ingested-repos.test.ts â€” supertest coverage for /tools/ingested-repos

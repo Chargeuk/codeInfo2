@@ -316,8 +316,12 @@ Implement a Tree-sitter parsing module that maps JS/TS/TSX source text into Symb
      - Export `parseAstSource({ text, relPath, fileHash })` returning `{ language, symbols, edges, references, imports }`.
      - Load JS/TS/TSX grammars and select parser by file extension.
      - Load `queries/tags.scm` / `queries/locals.scm` from the grammar packages when present; use them for definitions/references before any manual AST walking.
+     - Constrain symbol kinds to the Option B list: `Module`, `Class`, `Function`, `Method`, `Interface`, `TypeAlias`, `Enum`, `Property`.
+     - Constrain edge types to `DEFINES`, `CALLS`, `IMPORTS`, `EXPORTS`, `EXTENDS`, `IMPLEMENTS`, `REFERENCES_TYPE`.
      - Convert Tree-sitter `row`/`column` to 1-based `range`.
      - Generate deterministic `symbolId` from `{ root, relPath, kind, name, range }` and handle collisions with a stable suffix.
+     - Populate `container` for child symbols where a parent name or symbol id is available.
+     - Return `imports` data shaped for `ModuleImportsRecord` and `references` data shaped for `ReferenceRecord`.
      - Keep parsing errors isolated to the file being parsed (return a failure result, do not throw).
 4. [ ] Unit tests — parser extracts expected symbols/edges:
    - Documentation to read (repeat):
@@ -393,7 +397,15 @@ Integrate AST parsing into ingest runs, persist AST data + coverage, and extend 
      - For supported files, call the parser module and increment `supportedFileCount` / `failedFileCount` accordingly.
      - Skip writes when `dryRun` is true, but still compute counts.
      - If Mongo is disconnected, skip AST writes with a warning and continue.
-3. [ ] Persist AST symbols/edges + coverage records:
+     - Ensure vector ingest counts + model locking behavior are unchanged by AST indexing.
+     - When grammar load fails, treat supported files as failed and log the failure once per run.
+3. [ ] Add ingest logging for unsupported-language skips:
+   - Files to edit:
+     - `server/src/ingest/ingestJob.ts`
+   - Implementation details:
+     - Log a warning with `root`, `skippedFileCount`, and up to 5 example `relPath` values.
+     - Ensure log message matches the acceptance criteria wording (unsupported language).
+4. [ ] Persist AST symbols/edges + coverage records:
    - Files to edit:
      - `server/src/mongo/repo.ts`
      - `server/src/ingest/ingestJob.ts`
@@ -401,25 +413,25 @@ Integrate AST parsing into ingest runs, persist AST data + coverage, and extend 
      - For `start`, clear any existing AST records for the root before inserting new ones.
      - For `reembed` with delta, delete AST records for deleted/changed files and upsert new records for added/changed files.
      - Update `ast_coverage` with `supportedFileCount`, `skippedFileCount`, `failedFileCount`, and `lastIndexedAt` (ISO).
-4. [ ] Extend ingest status payload with AST counts:
+5. [ ] Extend ingest status payload with AST counts:
    - Files to edit:
      - `server/src/ingest/ingestJob.ts`
      - `server/src/ws/types.ts`
    - Implementation details:
      - Add optional `ast` object per contract.
      - Ensure `ingest_snapshot` and `ingest_update` include `ast` when available.
-5. [ ] Update server tests for the new `ast` status fields:
+6. [ ] Update server tests for the new `ast` status fields:
    - Files to edit:
      - `server/src/test/unit/ingest-status.test.ts`
      - `server/src/test/steps/ingest-status.steps.ts`
      - `server/src/test/features/ingest-status.feature`
    - Assertions:
      - Status snapshots include `ast.supportedFileCount`, `skippedFileCount`, `failedFileCount`.
-6. [ ] Update documentation:
-   - `design.md` (extend ingest status contract + AST coverage notes)
 7. [ ] Update documentation:
+   - `design.md` (extend ingest status contract + AST coverage notes)
+8. [ ] Update documentation:
    - `projectStructure.md` (note any new files if added)
-8. [ ] Run full linting:
+9. [ ] Run full linting:
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 
@@ -478,6 +490,7 @@ Add AST tool service functions and `/tools/ast-*` REST endpoints that validate i
      - Resolve repository → root using `listIngestedRepositories` to match the existing repo id contract.
      - Return `AST_INDEX_REQUIRED` (409) when no coverage data exists for the repo.
      - Implement call graph traversal by following `CALLS` edges up to the requested depth.
+     - `AstModuleImports` should map persisted import records into `{ relPath, imports: [{ source, names[] }] }`.
 3. [ ] Add REST route handlers:
    - Files to edit:
      - `server/src/routes/toolsAstListSymbols.ts` (new)
@@ -496,11 +509,21 @@ Add AST tool service functions and `/tools/ast-*` REST endpoints that validate i
    - Assertions:
      - Each endpoint returns contract-shaped payloads when the service is stubbed.
      - Validation errors return `400` with details.
-5. [ ] Update documentation:
-   - `design.md` (REST tool contracts + error codes)
+5. [ ] Unit tests — AST tool validation:
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+   - Files to edit:
+     - `server/src/test/unit/ast-tool-validation.test.ts` (new)
+   - Assertions:
+     - Missing required fields return `VALIDATION_FAILED`.
+     - `limit` defaults to 50 and caps at 200.
 6. [ ] Update documentation:
+   - `design.md` (REST tool contracts + error codes)
+7. [ ] Update documentation:
    - `projectStructure.md` (add new route/service/test files)
-7. [ ] Run full linting:
+8. [ ] Update documentation:
+   - `openapi.json` (add `/tools/ast-*` endpoints)
+9. [ ] Run full linting:
    - `npm run lint --workspaces`
    - `npm run format:check --workspaces`
 

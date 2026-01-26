@@ -182,8 +182,8 @@ This should only be started once all the above sections are clear and understood
 
 ### 1. Server: AST Mongo schemas
 
-- Task Status: **__in_progress__**
-- Git Commits: **to_do**
+- Task Status: **__done__**
+- Git Commits: ceb28fd, 0e93765
 
 #### Overview
 

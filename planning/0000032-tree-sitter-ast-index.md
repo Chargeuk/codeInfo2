@@ -190,19 +190,15 @@ Create Mongo collections for AST symbols, edges, references, module imports, and
 
 #### Documentation Locations
 
-- Mongoose schemas + indexes: https://mongoosejs.com/docs/guide.html
-- Mongoose 9.0.1 guide (Context7): /automattic/mongoose/9.0.1
-- MongoDB indexes: https://www.mongodb.com/docs/manual/indexes/
-- Node.js test runner: https://nodejs.org/api/test.html
-- TypeScript handbook (types): https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
-- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-- Prettier CLI: https://prettier.io/docs/cli
-- npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-- Markdown Guide: https://www.markdownguide.org/basic-syntax/
-- Jest: Context7 `/websites/jestjs_io_30_0`
-- Cucumber guides (overview): https://cucumber.io/docs/guides/
-- Playwright: Context7 `/microsoft/playwright`
-- Docker/Compose: Context7 `/docker/docs`
+- Mongoose schema guide (define AST collection fields + indexes): https://mongoosejs.com/docs/guide.html
+- Mongoose 9.0.1 docs (Context7, version-aligned index behavior): /automattic/mongoose/9.0.1
+- MongoDB indexes reference (unique/compound index options): https://www.mongodb.com/docs/manual/indexes/
+- Node.js test runner (unit tests for schema/index expectations): https://nodejs.org/api/test.html
+- TypeScript handbook (shared types for schema models): https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
+- Markdown Guide (update `design.md` + `projectStructure.md`): https://www.markdownguide.org/basic-syntax/
+- ESLint CLI (run task lint step): https://eslint.org/docs/latest/use/command-line-interface
+- Prettier CLI (run task format step): https://prettier.io/docs/cli
+- npm run-script (workspace build/test commands): https://docs.npmjs.com/cli/v9/commands/npm-run-script
 
 #### Subtasks
 
@@ -280,16 +276,15 @@ Add repo helper functions for AST collections with Mongo-disconnected guards and
 
 #### Documentation Locations
 
-- Mongoose 9.0.1 guide (Context7): /automattic/mongoose/9.0.1
-- MongoDB bulkWrite: https://www.mongodb.com/docs/manual/reference/method/db.collection.bulkWrite/
-- Node.js test runner: https://nodejs.org/api/test.html
-- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-- Prettier CLI: https://prettier.io/docs/cli
-- npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-- Jest: Context7 `/websites/jestjs_io_30_0`
-- Cucumber guides (overview): https://cucumber.io/docs/guides/
-- Playwright: Context7 `/microsoft/playwright`
-- Docker/Compose: Context7 `/docker/docs`
+- Mongoose 9.0.1 docs (Context7, repo helper patterns): /automattic/mongoose/9.0.1
+- MongoDB bulkWrite reference (bulk upserts for AST records): https://www.mongodb.com/docs/manual/reference/method/db.collection.bulkWrite/
+- MongoDB CRUD reference (deleteMany and filtered queries): https://www.mongodb.com/docs/manual/crud/
+- Node.js test runner (unit tests for repo helper guards): https://nodejs.org/api/test.html
+- Docker Compose overview (compose build/up steps): https://docs.docker.com/compose/
+- Markdown Guide (update `design.md` + `projectStructure.md`): https://www.markdownguide.org/basic-syntax/
+- ESLint CLI (run task lint step): https://eslint.org/docs/latest/use/command-line-interface
+- Prettier CLI (run task format step): https://prettier.io/docs/cli
+- npm run-script (workspace build/test commands): https://docs.npmjs.com/cli/v9/commands/npm-run-script
 
 #### Subtasks
 
@@ -358,19 +353,24 @@ Add Tree-sitter dependencies and ensure Docker builds can compile native binding
 
 #### Documentation Locations
 
-- Node Tree-sitter bindings: https://tree-sitter.github.io/node-tree-sitter/index.html
-- node-gyp build prerequisites: https://github.com/nodejs/node-gyp
-- Docker/Compose: Context7 `/docker/docs`
-- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-- Prettier CLI: https://prettier.io/docs/cli
-- npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-- Markdown Guide: https://www.markdownguide.org/basic-syntax/
+- Node Tree-sitter bindings (Node API + native build notes): https://tree-sitter.github.io/node-tree-sitter/index.html
+- tree-sitter-javascript README (JS grammar package details): https://github.com/tree-sitter/tree-sitter-javascript
+- tree-sitter-typescript README (TS/TSX grammar package details): https://github.com/tree-sitter/tree-sitter-typescript
+- node-gyp build prerequisites (native addon toolchain): https://github.com/nodejs/node-gyp
+- Dockerfile reference (build stages + package install): https://docs.docker.com/engine/reference/builder/
+- Docker Compose overview (compose build/up steps): https://docs.docker.com/compose/
+- Markdown Guide (update `design.md` + `projectStructure.md`): https://www.markdownguide.org/basic-syntax/
+- ESLint CLI (run task lint step): https://eslint.org/docs/latest/use/command-line-interface
+- Prettier CLI (run task format step): https://prettier.io/docs/cli
+- npm run-script (workspace build/test commands): https://docs.npmjs.com/cli/v9/commands/npm-run-script
 
 #### Subtasks
 
 1. [ ] Add Tree-sitter dependencies:
    - Documentation to read (repeat):
      - Node Tree-sitter bindings: https://tree-sitter.github.io/node-tree-sitter/index.html
+     - tree-sitter-javascript README: https://github.com/tree-sitter/tree-sitter-javascript
+     - tree-sitter-typescript README: https://github.com/tree-sitter/tree-sitter-typescript
      - node-gyp build prerequisites: https://github.com/nodejs/node-gyp
    - Files to edit:
      - `server/package.json`
@@ -382,7 +382,8 @@ Add Tree-sitter dependencies and ensure Docker builds can compile native binding
 2. [ ] Ensure Docker build can compile native Tree-sitter bindings:
    - Documentation to read (repeat):
      - node-gyp build prerequisites: https://github.com/nodejs/node-gyp
-     - Docker/Compose: Context7 `/docker/docs`
+     - Dockerfile reference (build stage tooling): https://docs.docker.com/engine/reference/builder/
+     - Docker Compose overview (compose build/up steps): https://docs.docker.com/compose/
    - Files to edit:
      - `server/Dockerfile`
    - Implementation details:
@@ -426,23 +427,22 @@ Implement a Tree-sitter parsing module that maps JS/TS/TSX source text into Symb
 
 #### Documentation Locations
 
-- Tree-sitter docs (parsers): https://tree-sitter.github.io/tree-sitter/using-parsers
-- Node Tree-sitter bindings: https://tree-sitter.github.io/node-tree-sitter/index.html
-- tree-sitter-javascript grammar README: https://github.com/tree-sitter/tree-sitter-javascript
-- tree-sitter-typescript grammar README: https://github.com/tree-sitter/tree-sitter-typescript
-- Tree-sitter query files + tags metadata (tree-sitter.json): https://docs.rs/crate/tree-sitter-javascript/0.25.0/source/tree-sitter.json
-- node-gyp build prerequisites: https://github.com/nodejs/node-gyp
-- Tree-sitter query syntax: https://tree-sitter.github.io/tree-sitter/using-parsers#query-syntax
-- Node.js fs/promises: https://nodejs.org/api/fs.html#fspromisesreadfilepath-options
-- TypeScript handbook (types): https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
-- Node.js test runner: https://nodejs.org/api/test.html
-- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-- Prettier CLI: https://prettier.io/docs/cli
-- npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-- Jest: Context7 `/websites/jestjs_io_30_0`
-- Cucumber guides (overview): https://cucumber.io/docs/guides/
-- Playwright: Context7 `/microsoft/playwright`
-- Docker/Compose: Context7 `/docker/docs`
+- Tree-sitter “Using parsers” (parser lifecycle + input handling): https://tree-sitter.github.io/tree-sitter/using-parsers
+- Tree-sitter query syntax (pattern matching for tags/locals): https://tree-sitter.github.io/tree-sitter/using-parsers#query-syntax
+- Tree-sitter code navigation queries (tags/locals semantics): https://tree-sitter.github.io/tree-sitter/code-navigation-systems
+- Tree-sitter CLI init config (tree-sitter.json query paths): https://tree-sitter.github.io/tree-sitter/cli/init.html
+- Node Tree-sitter bindings (Node parser API): https://tree-sitter.github.io/node-tree-sitter/index.html
+- tree-sitter-javascript README (JS grammar + queries folder): https://github.com/tree-sitter/tree-sitter-javascript
+- tree-sitter-typescript README (TS/TSX grammar + queries folder): https://github.com/tree-sitter/tree-sitter-typescript
+- DeepWiki: tree-sitter query system overview: https://deepwiki.com/tree-sitter/tree-sitter
+- Node.js fs/promises (reading source files + queries): https://nodejs.org/api/fs.html#fspromisesreadfilepath-options
+- TypeScript handbook (parser result types): https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
+- Node.js test runner (parser unit tests): https://nodejs.org/api/test.html
+- Docker Compose overview (compose build/up steps): https://docs.docker.com/compose/
+- Markdown Guide (update `design.md` + `projectStructure.md`): https://www.markdownguide.org/basic-syntax/
+- ESLint CLI (run task lint step): https://eslint.org/docs/latest/use/command-line-interface
+- Prettier CLI (run task format step): https://prettier.io/docs/cli
+- npm run-script (workspace build/test commands): https://docs.npmjs.com/cli/v9/commands/npm-run-script
 
 #### Subtasks
 
@@ -457,7 +457,11 @@ Implement a Tree-sitter parsing module that maps JS/TS/TSX source text into Symb
 2. [ ] Add AST parsing + symbol extraction module:
    - Documentation to read (repeat):
      - Tree-sitter docs (parsers): https://tree-sitter.github.io/tree-sitter/using-parsers
+     - Tree-sitter query syntax: https://tree-sitter.github.io/tree-sitter/using-parsers#query-syntax
+     - Tree-sitter code navigation queries: https://tree-sitter.github.io/tree-sitter/code-navigation-systems
+     - Tree-sitter CLI init config (tree-sitter.json query paths): https://tree-sitter.github.io/tree-sitter/cli/init.html
      - Node Tree-sitter bindings: https://tree-sitter.github.io/node-tree-sitter/index.html
+     - tree-sitter-javascript README: https://github.com/tree-sitter/tree-sitter-javascript
      - tree-sitter-typescript grammar README: https://github.com/tree-sitter/tree-sitter-typescript
    - Files to edit:
      - `server/src/ast/parser.ts` (new)
@@ -529,17 +533,16 @@ Integrate AST parsing into ingest runs and persist AST data + coverage without c
 
 #### Documentation Locations
 
-- Tree-sitter docs (parsers): https://tree-sitter.github.io/tree-sitter/using-parsers
-- MongoDB write operations: https://www.mongodb.com/docs/manual/crud/
-- Node.js fs/promises: https://nodejs.org/api/fs.html#fspromisesreadfilepath-options
-- Node.js test runner: https://nodejs.org/api/test.html
-- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-- Prettier CLI: https://prettier.io/docs/cli
-- npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-- Jest: Context7 `/websites/jestjs_io_30_0`
-- Cucumber guides (overview): https://cucumber.io/docs/guides/
-- Playwright: Context7 `/microsoft/playwright`
-- Docker/Compose: Context7 `/docker/docs`
+- Tree-sitter “Using parsers” (per-file parse flow): https://tree-sitter.github.io/tree-sitter/using-parsers
+- MongoDB CRUD reference (write/delete operations for AST records): https://www.mongodb.com/docs/manual/crud/
+- Node.js fs/promises (read source files within ingest loop): https://nodejs.org/api/fs.html#fspromisesreadfilepath-options
+- Node.js test runner (unit/integration tests): https://nodejs.org/api/test.html
+- Cucumber guide (server integration tests): https://cucumber.io/docs/guides/10-minute-tutorial/
+- Docker Compose overview (compose build/up steps): https://docs.docker.com/compose/
+- Markdown Guide (update `design.md` + `projectStructure.md`): https://www.markdownguide.org/basic-syntax/
+- ESLint CLI (run task lint step): https://eslint.org/docs/latest/use/command-line-interface
+- Prettier CLI (run task format step): https://prettier.io/docs/cli
+- npm run-script (workspace build/test commands): https://docs.npmjs.com/cli/v9/commands/npm-run-script
 
 #### Subtasks
 
@@ -637,15 +640,14 @@ Extend ingest status payloads (REST + WS) with optional AST counts and update te
 
 #### Documentation Locations
 
-- Express routing + handlers: Context7 `/expressjs/express/v5.1.0`
-- Node.js test runner: https://nodejs.org/api/test.html
-- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-- Prettier CLI: https://prettier.io/docs/cli
-- npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-- Jest: Context7 `/websites/jestjs_io_30_0`
-- Cucumber guides (overview): https://cucumber.io/docs/guides/
-- Playwright: Context7 `/microsoft/playwright`
-- Docker/Compose: Context7 `/docker/docs`
+- Node.js test runner (unit tests around ingest status): https://nodejs.org/api/test.html
+- Cucumber guide (server integration tests): https://cucumber.io/docs/guides/10-minute-tutorial/
+- TypeScript handbook (update status types safely): https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
+- Docker Compose overview (compose build/up steps): https://docs.docker.com/compose/
+- Markdown Guide (update `design.md`): https://www.markdownguide.org/basic-syntax/
+- ESLint CLI (run task lint step): https://eslint.org/docs/latest/use/command-line-interface
+- Prettier CLI (run task format step): https://prettier.io/docs/cli
+- npm run-script (workspace build/test commands): https://docs.npmjs.com/cli/v9/commands/npm-run-script
 
 #### Subtasks
 
@@ -657,7 +659,7 @@ Extend ingest status payloads (REST + WS) with optional AST counts and update te
      - Add optional `ast` object per contract.
      - Ensure `ingest_snapshot` and `ingest_update` include `ast` when available.
    - Documentation to read (repeat):
-     - Express routing + handlers: Context7 `/expressjs/express/v5.1.0`
+     - TypeScript handbook (update `IngestJobStatus` shapes): https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
 2. [ ] Update server tests for the new `ast` status fields:
    - Files to edit:
      - `server/src/test/unit/ingest-status.test.ts`
@@ -667,7 +669,7 @@ Extend ingest status payloads (REST + WS) with optional AST counts and update te
      - Status snapshots include `ast.supportedFileCount`, `skippedFileCount`, `failedFileCount`.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-     - Cucumber guides (overview): https://cucumber.io/docs/guides/
+     - Cucumber guide (server integration tests): https://cucumber.io/docs/guides/10-minute-tutorial/
 3. [ ] Update documentation:
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
@@ -704,16 +706,14 @@ Add AST tool validation + query services for list/find/call-graph/modules and er
 
 #### Documentation Locations
 
-- Mongoose queries: https://mongoosejs.com/docs/queries.html
-- MongoDB CRUD: https://www.mongodb.com/docs/manual/crud/
-- Node.js test runner: https://nodejs.org/api/test.html
-- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-- Prettier CLI: https://prettier.io/docs/cli
-- npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-- Jest: Context7 `/websites/jestjs_io_30_0`
-- Cucumber guides (overview): https://cucumber.io/docs/guides/
-- Playwright: Context7 `/microsoft/playwright`
-- Docker/Compose: Context7 `/docker/docs`
+- Mongoose query docs (filtering AST symbols/edges): https://mongoosejs.com/docs/queries.html
+- MongoDB CRUD reference (find + projection patterns): https://www.mongodb.com/docs/manual/crud/
+- Node.js test runner (tool service unit tests): https://nodejs.org/api/test.html
+- Docker Compose overview (compose build/up steps): https://docs.docker.com/compose/
+- Markdown Guide (update `design.md` + `projectStructure.md`): https://www.markdownguide.org/basic-syntax/
+- ESLint CLI (run task lint step): https://eslint.org/docs/latest/use/command-line-interface
+- Prettier CLI (run task format step): https://prettier.io/docs/cli
+- npm run-script (workspace build/test commands): https://docs.npmjs.com/cli/v9/commands/npm-run-script
 
 #### Subtasks
 
@@ -784,17 +784,16 @@ Expose `/tools/ast-*` REST endpoints that validate input, call the AST tool serv
 
 #### Documentation Locations
 
-- Express routing + handlers: Context7 `/expressjs/express/v5.1.0`
-- Express 5 API reference: https://expressjs.com/en/5x/api.html
-- Node.js test runner: https://nodejs.org/api/test.html
-- Supertest HTTP assertions: https://github.com/forwardemail/supertest
-- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-- Prettier CLI: https://prettier.io/docs/cli
-- npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-- Jest: Context7 `/websites/jestjs_io_30_0`
-- Cucumber guides (overview): https://cucumber.io/docs/guides/
-- Playwright: Context7 `/microsoft/playwright`
-- Docker/Compose: Context7 `/docker/docs`
+- Express 5 routing docs (Context7, version-aligned handlers): /expressjs/express/v5.1.0
+- Express 5 API reference (request/response/error handling): https://expressjs.com/en/5x/api.html
+- Supertest HTTP assertions (route integration tests): https://github.com/forwardemail/supertest
+- Node.js test runner (integration test harness): https://nodejs.org/api/test.html
+- OpenAPI 3.0 spec (update `openapi.json` schemas): https://spec.openapis.org/oas/latest.html
+- Docker Compose overview (compose build/up steps): https://docs.docker.com/compose/
+- Markdown Guide (update `design.md`, `projectStructure.md`, `openapi.json`): https://www.markdownguide.org/basic-syntax/
+- ESLint CLI (run task lint step): https://eslint.org/docs/latest/use/command-line-interface
+- Prettier CLI (run task format step): https://prettier.io/docs/cli
+- npm run-script (workspace build/test commands): https://docs.npmjs.com/cli/v9/commands/npm-run-script
 
 #### Subtasks
 
@@ -831,6 +830,7 @@ Expose `/tools/ast-*` REST endpoints that validate input, call the AST tool serv
    - `projectStructure.md` (add new route/test files)
 5. [ ] Update documentation:
    - Documentation to read (repeat):
+     - OpenAPI 3.0 spec (schema + path shape): https://spec.openapis.org/oas/latest.html
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - `openapi.json` (add `/tools/ast-*` endpoints)
 6. [ ] Run full linting:
@@ -865,17 +865,15 @@ Expose AST tools through the MCP JSON-RPC server with schemas aligned to the RES
 
 #### Documentation Locations
 
-- MCP tool format (schema expectations): https://modelcontextprotocol.io/specification
-- JSON-RPC 2.0 spec: https://www.jsonrpc.org/specification
-- Node.js test runner: https://nodejs.org/api/test.html
-- Supertest HTTP assertions: https://github.com/forwardemail/supertest
-- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-- Prettier CLI: https://prettier.io/docs/cli
-- npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-- Jest: Context7 `/websites/jestjs_io_30_0`
-- Cucumber guides (overview): https://cucumber.io/docs/guides/
-- Playwright: Context7 `/microsoft/playwright`
-- Docker/Compose: Context7 `/docker/docs`
+- MCP tool spec (schema + tool registration): https://modelcontextprotocol.io/specification
+- JSON-RPC 2.0 spec (tool call envelopes/errors): https://www.jsonrpc.org/specification
+- Supertest HTTP assertions (MCP integration tests): https://github.com/forwardemail/supertest
+- Node.js test runner (integration tests): https://nodejs.org/api/test.html
+- Docker Compose overview (compose build/up steps): https://docs.docker.com/compose/
+- Markdown Guide (update `design.md` + `projectStructure.md`): https://www.markdownguide.org/basic-syntax/
+- ESLint CLI (run task lint step): https://eslint.org/docs/latest/use/command-line-interface
+- Prettier CLI (run task format step): https://prettier.io/docs/cli
+- npm run-script (workspace build/test commands): https://docs.npmjs.com/cli/v9/commands/npm-run-script
 
 #### Subtasks
 
@@ -944,15 +942,15 @@ Extend client ingest status types to include optional AST counts and update test
 
 #### Documentation Locations
 
-- React 19 hooks reference: https://react.dev/reference/react
-- TypeScript 5.9 release notes: https://www.typescriptlang.org/docs/handbook/release-notes/typescript-5-9.html
-- Jest (React testing): https://jestjs.io/docs/getting-started
-- Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-- Prettier CLI: https://prettier.io/docs/cli
-- npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-- Playwright: Context7 `/microsoft/playwright`
-- Docker/Compose: Context7 `/docker/docs`
+- React 19 hooks reference (client state + effects): https://react.dev/reference/react
+- TypeScript 5.9 release notes (type changes in client): https://www.typescriptlang.org/docs/handbook/release-notes/typescript-5-9.html
+- Jest getting started (client unit tests): https://jestjs.io/docs/getting-started
+- Testing Library intro (React test queries): https://testing-library.com/docs/react-testing-library/intro/
+- Docker Compose overview (compose build/up steps): https://docs.docker.com/compose/
+- Markdown Guide (update `design.md` + `projectStructure.md`): https://www.markdownguide.org/basic-syntax/
+- ESLint CLI (run task lint step): https://eslint.org/docs/latest/use/command-line-interface
+- Prettier CLI (run task format step): https://prettier.io/docs/cli
+- npm run-script (workspace build/test commands): https://docs.npmjs.com/cli/v9/commands/npm-run-script
 
 #### Subtasks
 
@@ -1018,17 +1016,17 @@ Render non-blocking Ingest page banners for AST skipped/failed counts using exis
 
 #### Documentation Locations
 
-- React 19 hooks reference: https://react.dev/reference/react
-- MUI Alert docs (MUI MCP, v6.4.x): https://llms.mui.com/material-ui/6.4.12/components/alert.md
-- MUI Stack docs (MUI MCP, v6.4.x): https://llms.mui.com/material-ui/6.4.12/components/stack.md
-- MUI Typography docs (MUI MCP, v6.4.x): https://llms.mui.com/material-ui/6.4.12/components/typography.md
-- Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-- Jest (React testing): https://jestjs.io/docs/getting-started
-- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-- Prettier CLI: https://prettier.io/docs/cli
-- npm run-script reference: https://docs.npmjs.com/cli/v9/commands/npm-run-script
-- Playwright: Context7 `/microsoft/playwright`
-- Docker/Compose: Context7 `/docker/docs`
+- React 19 hooks reference (rendering conditional banners): https://react.dev/reference/react
+- MUI Alert docs (MUI MCP v6.4.x, banner layout): https://llms.mui.com/material-ui/6.4.12/components/alert.md
+- MUI Stack docs (MUI MCP v6.4.x, layout spacing): https://llms.mui.com/material-ui/6.4.12/components/stack.md
+- MUI Typography docs (MUI MCP v6.4.x, banner text): https://llms.mui.com/material-ui/6.4.12/components/typography.md
+- Testing Library intro (render + query assertions): https://testing-library.com/docs/react-testing-library/intro/
+- Jest getting started (client unit tests): https://jestjs.io/docs/getting-started
+- Docker Compose overview (compose build/up steps): https://docs.docker.com/compose/
+- Markdown Guide (update `design.md` + `projectStructure.md`): https://www.markdownguide.org/basic-syntax/
+- ESLint CLI (run task lint step): https://eslint.org/docs/latest/use/command-line-interface
+- Prettier CLI (run task format step): https://prettier.io/docs/cli
+- npm run-script (workspace build/test commands): https://docs.npmjs.com/cli/v9/commands/npm-run-script
 
 #### Subtasks
 
@@ -1092,31 +1090,32 @@ Validate the full story against acceptance criteria, run full builds/tests, ensu
 
 #### Documentation Locations
 
-- Docker/Compose: Context7 `/docker/docs`
-- Playwright: Context7 `/microsoft/playwright`
-- Husky: Context7 `/typicode/husky`
-- Mermaid: Context7 `/mermaid-js/mermaid`
-- Jest: Context7 `/jestjs/jest`
-- Cucumber guides https://cucumber.io/docs/guides/
-- Markdown Guide: https://www.markdownguide.org/basic-syntax/
+- Docker Compose overview (clean builds + compose up): https://docs.docker.com/compose/
+- Playwright Test intro (e2e run + screenshots): https://playwright.dev/docs/intro
+- Husky docs (pre-commit hooks): https://typicode.github.io/husky/
+- Mermaid intro (diagram updates in `design.md`): https://mermaid.js.org/intro/
+- Jest getting started (client unit tests): https://jestjs.io/docs/getting-started
+- Cucumber guide (server integration tests): https://cucumber.io/docs/guides/10-minute-tutorial/
+- Markdown Guide (update docs + PR summary): https://www.markdownguide.org/basic-syntax/
+- npm run-script (workspace build/test commands): https://docs.npmjs.com/cli/v9/commands/npm-run-script
 
 #### Subtasks
 
 1. [ ] Build the server
    - Documentation to read (repeat):
-     - Docker/Compose: Context7 `/docker/docs`
+     - Docker Compose overview (clean builds + compose up): https://docs.docker.com/compose/
 2. [ ] Build the client
    - Documentation to read (repeat):
-     - Docker/Compose: Context7 `/docker/docs`
+     - Docker Compose overview (clean builds + compose up): https://docs.docker.com/compose/
 3. [ ] perform a clean docker build
    - Documentation to read (repeat):
-     - Docker/Compose: Context7 `/docker/docs`
+     - Docker Compose overview (clean builds + compose up): https://docs.docker.com/compose/
 4. [ ] Ensure Readme.md is updated with any required description changes and with any new commands that have been added as part of this story
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
 5. [ ] Ensure Design.md is updated with any required description changes including mermaid diagrams that have been added as part of this story
    - Documentation to read (repeat):
-     - Mermaid: Context7 `/mermaid-js/mermaid`
+     - Mermaid intro (diagram updates in `design.md`): https://mermaid.js.org/intro/
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
 6. [ ] Ensure projectStructure.md is updated with any updated, added or removed files & folders
    - Documentation to read (repeat):
@@ -1129,19 +1128,19 @@ Validate the full story against acceptance criteria, run full builds/tests, ensu
 
 1. [ ] run the client jest tests
    - Documentation to read (repeat):
-     - Jest: Context7 `/jestjs/jest`
+     - Jest getting started (client unit tests): https://jestjs.io/docs/getting-started
 2. [ ] run the server cucumber tests
    - Documentation to read (repeat):
-     - Cucumber guides https://cucumber.io/docs/guides/
+     - Cucumber guide (server integration tests): https://cucumber.io/docs/guides/10-minute-tutorial/
 3. [ ] restart the docker environment
    - Documentation to read (repeat):
-     - Docker/Compose: Context7 `/docker/docs`
+     - Docker Compose overview (clean builds + compose up): https://docs.docker.com/compose/
 4. [ ] run the e2e tests
    - Documentation to read (repeat):
-     - Playwright: Context7 `/microsoft/playwright`
+     - Playwright Test intro (e2e run + screenshots): https://playwright.dev/docs/intro
 5. [ ] use the playwright mcp tool to ensure manually check the application, saving screenshots to ./test-results/screenshots/ - Each screenshot should be named with the plan index including the preceding seroes, then a dash, and then the task number, then a dash and the name of the screenshot
    - Documentation to read (repeat):
-     - Playwright: Context7 `/microsoft/playwright`
+     - Playwright Test intro (e2e run + screenshots): https://playwright.dev/docs/intro
 
 #### Implementation notes
 

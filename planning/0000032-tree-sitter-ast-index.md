@@ -610,7 +610,7 @@ Integrate AST parsing into ingest runs and persist AST data + coverage without c
 - MongoDB CRUD reference (write/delete operations for AST records): https://www.mongodb.com/docs/manual/crud/
 - Node.js fs/promises (read source files within ingest loop): https://nodejs.org/api/fs.html#fspromisesreadfilepath-options
 - Node.js test runner (unit/integration tests): https://nodejs.org/api/test.html
-- Cucumber guide (server integration tests): https://cucumber.io/docs/guides/10-minute-tutorial/
+- Cucumber guides (server integration tests): https://cucumber.io/docs/guides/
 - Docker Compose overview (compose build/up steps): https://docs.docker.com/compose/
 - Markdown Guide (update `design.md` + `projectStructure.md`): https://www.markdownguide.org/basic-syntax/
 - ESLint CLI (run task lint step): https://eslint.org/docs/latest/use/command-line-interface
@@ -756,7 +756,7 @@ Extend ingest status payloads (REST + WS) with optional AST counts and update te
 #### Documentation Locations
 
 - Node.js test runner (unit tests around ingest status): https://nodejs.org/api/test.html
-- Cucumber guide (server integration tests): https://cucumber.io/docs/guides/10-minute-tutorial/
+- Cucumber guides (server integration tests): https://cucumber.io/docs/guides/
 - TypeScript handbook (update status types safely): https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
 - Docker Compose overview (compose build/up steps): https://docs.docker.com/compose/
 - Markdown Guide (update `design.md`): https://www.markdownguide.org/basic-syntax/
@@ -1155,6 +1155,7 @@ Extend client ingest status types to include optional AST counts and update test
 
 - React 19 hooks reference (client state + effects): https://react.dev/reference/react
 - TypeScript 5.9 release notes (type changes in client): https://www.typescriptlang.org/docs/handbook/release-notes/typescript-5-9.html
+- Jest docs (Context7): /websites/jestjs_io_30_0
 - Jest getting started (client unit tests): https://jestjs.io/docs/getting-started
 - Testing Library intro (React test queries): https://testing-library.com/docs/react-testing-library/intro/
 - Docker Compose overview (compose build/up steps): https://docs.docker.com/compose/
@@ -1236,6 +1237,7 @@ Render non-blocking Ingest page banners for AST skipped/failed counts using exis
 - MUI Stack docs (MUI MCP v6.4.x, layout spacing): https://llms.mui.com/material-ui/6.4.12/components/stack.md
 - MUI Typography docs (MUI MCP v6.4.x, banner text): https://llms.mui.com/material-ui/6.4.12/components/typography.md
 - Testing Library intro (render + query assertions): https://testing-library.com/docs/react-testing-library/intro/
+- Jest docs (Context7): /websites/jestjs_io_30_0
 - Jest getting started (client unit tests): https://jestjs.io/docs/getting-started
 - Docker Compose overview (compose build/up steps): https://docs.docker.com/compose/
 - Markdown Guide (update `design.md` + `projectStructure.md`): https://www.markdownguide.org/basic-syntax/
@@ -1324,8 +1326,9 @@ Validate the full story against acceptance criteria, run full builds/tests, ensu
 - Playwright Test intro (e2e run + screenshots): https://playwright.dev/docs/intro
 - Husky docs (pre-commit hooks): https://typicode.github.io/husky/
 - Mermaid intro (diagram updates in `design.md`): https://mermaid.js.org/intro/
+- Jest docs (Context7): /websites/jestjs_io_30_0
 - Jest getting started (client unit tests): https://jestjs.io/docs/getting-started
-- Cucumber guide (server integration tests): https://cucumber.io/docs/guides/10-minute-tutorial/
+- Cucumber guides (server integration tests): https://cucumber.io/docs/guides/
 - Markdown Guide (update docs + PR summary): https://www.markdownguide.org/basic-syntax/
 - npm run-script (workspace build/test commands): https://docs.npmjs.com/cli/v9/commands/npm-run-script
 

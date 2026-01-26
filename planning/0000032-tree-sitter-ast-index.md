@@ -52,6 +52,56 @@ Note: Cross-repository symbol linking (e.g., linking imports in repo A to an ing
 
 ---
 
+## Message Contracts & Storage Shapes
+
+### Updated Ingest Status Contract (REST + WS)
+
+- Extend `IngestJobStatus` (used by `GET /ingest/status/:runId`, `ingest_snapshot`, `ingest_update`) with an optional `ast` object:
+  - `ast?: { supportedFileCount: number; skippedFileCount: number; failedFileCount: number; lastIndexedAt?: string }`.
+  - `lastIndexedAt` is ISO-8601, present only when at least one file was parsed.
+
+### New MCP + REST Tool Contracts (mirrors VectorSearch pattern)
+
+- `list_symbols` (MCP) + `POST /tools/ast-list-symbols` (REST)
+  - Request: `{ repository: string; kinds?: string[]; limit?: number }`
+  - Response: `{ symbols: SymbolRecord[] }`
+- `find_definition` + `POST /tools/ast-find-definition`
+  - Request: `{ repository: string; symbolId?: string; name?: string; kind?: string }`
+  - Response: `{ symbol: SymbolRecord | null }`
+- `find_references` + `POST /tools/ast-find-references`
+  - Request: `{ repository: string; symbolId?: string; name?: string; kind?: string }`
+  - Response: `{ references: ReferenceRecord[] }`
+- `call_graph` + `POST /tools/ast-call-graph`
+  - Request: `{ repository: string; symbolId: string; depth?: number }`
+  - Response: `{ nodes: SymbolRecord[]; edges: EdgeRecord[] }`
+- `module_imports` + `POST /tools/ast-module-imports`
+  - Request: `{ repository: string; relPath?: string }`
+  - Response: `{ modules: ModuleImportsRecord[] }`
+
+Shared record shapes (all responses):
+
+- `SymbolRecord`: `{ symbolId, root, relPath, fileHash, language, kind, name, range, container? }`
+- `ReferenceRecord`: `{ relPath, range, symbolId? }`
+- `EdgeRecord`: `{ root, relPath, fileHash, fromSymbolId, toSymbolId, type }`
+- `ModuleImportsRecord`: `{ relPath, imports: [{ source, names[] }] }`
+- `range` uses `{ start: { line, column }, end: { line, column } }` with **1-based** line/column (Tree-sitter rows/columns + 1).
+
+Error model mirrors VectorSearch (`VALIDATION_FAILED`, `REPO_NOT_FOUND`, `INGEST_REQUIRED`), plus a new `AST_INDEX_REQUIRED` (409) when a repo has no AST data.
+
+### New Mongo Collections
+
+- `ast_symbols`
+  - Fields: `root`, `relPath`, `fileHash`, `language`, `kind`, `name`, `range`, `container?`, `symbolId`, `createdAt`, `updatedAt`.
+  - Indexes: `{ root: 1, relPath: 1, fileHash: 1 }`, `{ root: 1, symbolId: 1 }` (unique per root), `{ root: 1, kind: 1 }`.
+- `ast_edges`
+  - Fields: `root`, `relPath`, `fileHash`, `fromSymbolId`, `toSymbolId`, `type`, `createdAt`.
+  - Indexes: `{ root: 1, fromSymbolId: 1 }`, `{ root: 1, toSymbolId: 1 }`, `{ root: 1, relPath: 1, fileHash: 1 }`.
+- `ast_coverage`
+  - Fields: `root`, `supportedFileCount`, `skippedFileCount`, `failedFileCount`, `lastIndexedAt`, `createdAt`, `updatedAt`.
+  - Indexes: `{ root: 1 }` (unique).
+
+---
+
 ## Out Of Scope
 
 - Knowledge graph storage and graph query tooling.

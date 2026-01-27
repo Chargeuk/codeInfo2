@@ -341,6 +341,11 @@ Expand the AST language type and extension routing so ingest and tool validation
    - Implementation details:
      - Add `python`, `c_sharp`, `rust`, and `cpp` to the `AstLanguage` union and any related schema guards.
      - Map `py`, `cs`, `rs`, `cc`, `cpp`, `cxx`, `hpp`, `hxx`, and `h` to the new languages (no extra overrides beyond grammar defaults).
+     - Mapping reference (keep exact lowercase strings):
+       - `py` → `python`
+       - `cs` → `c_sharp`
+       - `rs` → `rust`
+       - `cc`/`cpp`/`cxx`/`hpp`/`hxx`/`h` → `cpp`
    - Documentation to read (repeat):
      - Tree-sitter language configuration: /tree-sitter/tree-sitter
      - Tree-sitter C++ grammar (extension defaults + node types): https://github.com/tree-sitter/tree-sitter-cpp
@@ -535,6 +540,11 @@ Verify grammar query assets, add CodeInfo2-owned locals, and extend parser unit 
    - Implementation details:
      - Use the grammar `node-types.json` for node names; capture `@local.scope`, `@local.definition`, and `@local.reference` for each language.
      - Use the code-graph-rag reference inputs listed earlier in this plan to confirm node coverage.
+     - Node type file locations to consult:
+       - `node_modules/tree-sitter-python/src/node-types.json`
+       - `node_modules/tree-sitter-c-sharp/src/node-types.json`
+       - `node_modules/tree-sitter-rust/src/node-types.json`
+       - `node_modules/tree-sitter-cpp/src/node-types.json`
    - Example snippet (use node names from each grammar’s `node-types.json`):
      - `(identifier) @local.reference`
    - Documentation to read (repeat):
@@ -543,6 +553,8 @@ Verify grammar query assets, add CodeInfo2-owned locals, and extend parser unit 
    - Test type: Unit (parser output).
    - Test location: `server/src/test/unit/ast-parser.test.ts`.
    - Description: Add a minimal `.py` fixture, assert `result.language === 'python'`, and verify at least one `@local.definition` and one `@local.reference`, plus non-empty references.
+   - Minimal fixture example:
+     - `def greet():\n  name = "hi"\n  print(name)\n\n` (ensure a definition + reference).
    - Purpose: Confirms Python locals queries produce definitions and references.
    - Documentation to read (repeat):
      - Node.js test runner: /nodejs/node/v22.17.0
@@ -551,6 +563,8 @@ Verify grammar query assets, add CodeInfo2-owned locals, and extend parser unit 
    - Test type: Unit (parser output).
    - Test location: `server/src/test/unit/ast-parser.test.ts`.
    - Description: Add a minimal `.cs` fixture, assert `result.language === 'c_sharp'`, and verify at least one `@local.definition` and one `@local.reference`, plus non-empty references.
+   - Minimal fixture example:
+     - `class Widget { void Run() { var id = 1; System.Console.WriteLine(id); } }`
    - Purpose: Confirms C# locals queries produce definitions and references.
    - Documentation to read (repeat):
      - Node.js test runner: /nodejs/node/v22.17.0
@@ -559,6 +573,8 @@ Verify grammar query assets, add CodeInfo2-owned locals, and extend parser unit 
    - Test type: Unit (parser output).
    - Test location: `server/src/test/unit/ast-parser.test.ts`.
    - Description: Add a minimal `.rs` fixture, assert `result.language === 'rust'`, and verify at least one `@local.definition` and one `@local.reference`, plus non-empty references.
+   - Minimal fixture example:
+     - `fn greet() { let id = 1; println!("{}", id); }`
    - Purpose: Confirms Rust locals queries produce definitions and references.
    - Documentation to read (repeat):
      - Node.js test runner: /nodejs/node/v22.17.0
@@ -567,6 +583,8 @@ Verify grammar query assets, add CodeInfo2-owned locals, and extend parser unit 
    - Test type: Unit (parser output).
    - Test location: `server/src/test/unit/ast-parser.test.ts`.
    - Description: Add a minimal `.h` fixture (to validate header routing), assert `result.language === 'cpp'`, and verify at least one `@local.definition` and one `@local.reference`, plus non-empty references.
+   - Minimal fixture example:
+     - `int add(int value) { int total = value + 1; return total; }`
    - Purpose: Confirms C++ locals queries produce definitions and references.
    - Documentation to read (repeat):
      - Node.js test runner: /nodejs/node/v22.17.0
@@ -575,6 +593,8 @@ Verify grammar query assets, add CodeInfo2-owned locals, and extend parser unit 
    - Test type: Unit (parser failures).
    - Test location: `server/src/test/unit/ast-parser.test.ts`.
    - Description: Use a new-language extension (e.g., `.py`) with `queryBundleOverride: null` and assert `Missing Tree-sitter query files`.
+   - Minimal fixture example:
+     - Reuse the `.py` fixture text from the Python happy-path subtask.
    - Purpose: Ensures the error path for missing queries is exercised for new languages.
    - Documentation to read (repeat):
      - Node.js test runner: /nodejs/node/v22.17.0
@@ -582,6 +602,8 @@ Verify grammar query assets, add CodeInfo2-owned locals, and extend parser unit 
    - Test type: Unit (parser failures).
    - Test location: `server/src/test/unit/ast-parser.test.ts`.
    - Description: Use a new-language extension (e.g., `.rs`) with `parserLanguageOverride: null` and assert `Tree-sitter grammar unavailable`.
+   - Minimal fixture example:
+     - Reuse the `.rs` fixture text from the Rust happy-path subtask.
    - Purpose: Ensures the grammar-load failure path is covered for new languages.
    - Documentation to read (repeat):
      - Node.js test runner: /nodejs/node/v22.17.0
@@ -670,6 +692,8 @@ Extend ingest AST indexing coverage so the new language extensions are parsed du
    - Test type: Unit (ingest AST indexing).
    - Test location: `server/src/test/unit/ingest-ast-indexing.test.ts`.
    - Description: Add fixture files for `.py`, `.cs`, `.rs`, `.cpp`, `.h` and assert they are counted as AST-supported during ingest.
+   - Fixture name suggestions (keep tiny files):
+     - `python/sample.py`, `csharp/sample.cs`, `rust/sample.rs`, `cpp/sample.cpp`, `cpp/sample.h`
    - Purpose: Confirms new language extensions are treated as supported inputs.
    - Documentation to read (repeat):
      - Node.js test runner: /nodejs/node/v22.17.0
@@ -677,6 +701,8 @@ Extend ingest AST indexing coverage so the new language extensions are parsed du
    - Test type: Unit (ingest AST indexing).
    - Test location: `server/src/test/unit/ingest-ast-indexing.test.ts`.
    - Description: Include a `.pyw` (or other unsupported) file and assert it is *not* treated as Python and appears in the unsupported-extension log with the skip reason.
+   - Fixture name suggestion:
+     - `python/unsupported.pyw`
    - Purpose: Confirms unsupported extensions are rejected with explicit logging.
    - Documentation to read (repeat):
      - Node.js test runner: /nodejs/node/v22.17.0
@@ -684,6 +710,8 @@ Extend ingest AST indexing coverage so the new language extensions are parsed du
    - Test type: Unit (ingest AST indexing).
    - Test location: `server/src/test/unit/ingest-ast-indexing.test.ts`.
    - Description: Assert reembed paths still attempt AST parsing for `.py`, `.cs`, `.rs`, `.cpp`, `.h` even when vector delta logic skips embeddings.
+   - Implementation hint:
+     - Use the existing AST parser stub hook (`__setParseAstSourceForTest`) to record calls and assert each extension is attempted.
    - Purpose: Ensures AST parsing runs during reembed for supported languages.
    - Documentation to read (repeat):
      - Node.js test runner: /nodejs/node/v22.17.0
@@ -691,6 +719,8 @@ Extend ingest AST indexing coverage so the new language extensions are parsed du
    - Test type: Unit (ingest AST indexing).
    - Test location: `server/src/test/unit/ingest-ast-indexing.test.ts`.
    - Description: Assert logs do **not** include “Tree-sitter query files missing; skipping AST parse” for `.py`, `.cs`, `.rs`, `.cpp`.
+   - Implementation hint:
+     - Use the existing logStore query helper to assert absence of the `DEV-0000032:T4:ast-queries-missing` event.
    - Purpose: Ensures new locals queries are wired and the missing-queries warning is not emitted.
    - Documentation to read (repeat):
      - Node.js test runner: /nodejs/node/v22.17.0

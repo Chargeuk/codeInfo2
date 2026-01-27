@@ -281,8 +281,8 @@ This should only be started once all the above sections are clear and understood
 
 ### 1. Server: AST language enum + extension routing
 
-- Task Status: **__in_progress__**
-- Git Commits:
+- Task Status: **__done__**
+- Git Commits: e884dca, bdf3108
 
 #### Overview
 

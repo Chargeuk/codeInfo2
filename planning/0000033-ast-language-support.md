@@ -373,12 +373,15 @@ Expand the AST language type and extension routing so ingest and tool validation
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run build --workspace client`
-3. [ ] `npm run compose:build`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test --workspace server`
-6. [ ] `npm run test --workspace client`
-7. [ ] `npm run e2e`
-8. [ ] `npm run compose:down`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m`)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check (open http://host.docker.internal:5001):
+   - Verify the app loads and basic navigation (Chat, Ingest, Logs) works.
+   - Confirm the browser console has **no errors**.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -477,12 +480,15 @@ Add the Tree-sitter grammar packages and wire them into the parser so language d
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run build --workspace client`
-3. [ ] `npm run compose:build`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test --workspace server`
-6. [ ] `npm run test --workspace client`
-7. [ ] `npm run e2e`
-8. [ ] `npm run compose:down`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m`)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check (open http://host.docker.internal:5001):
+   - Verify the app loads and basic navigation (Chat, Ingest, Logs) works.
+   - Confirm the browser console has **no errors**.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -631,12 +637,15 @@ Verify grammar query assets, add CodeInfo2-owned locals, and extend parser unit 
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run build --workspace client`
-3. [ ] `npm run compose:build`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test --workspace server`
-6. [ ] `npm run test --workspace client`
-7. [ ] `npm run e2e`
-8. [ ] `npm run compose:down`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m`)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check (open http://host.docker.internal:5001):
+   - Verify the app loads and basic navigation (Chat, Ingest, Logs) works.
+   - Confirm the browser console has **no errors**.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -759,12 +768,15 @@ Extend ingest AST indexing coverage so the new language extensions are parsed du
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run build --workspace client`
-3. [ ] `npm run compose:build`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test --workspace server`
-6. [ ] `npm run test --workspace client`
-7. [ ] `npm run e2e`
-8. [ ] `npm run compose:down`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m`)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check (open http://host.docker.internal:5001):
+   - Verify the app loads and basic navigation (Chat, Ingest, Logs) works.
+   - Confirm the browser console has **no errors**.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -829,21 +841,18 @@ Validate the full story against acceptance criteria, run the complete test/build
 
 #### Testing
 
-1. [ ] Run the client Jest tests.
-   - Documentation to read (repeat):
-     - Jest: /websites/jestjs_io_30_0
-2. [ ] Run the server Cucumber tests.
-   - Documentation to read (repeat):
-     - Cucumber guides: https://cucumber.io/docs/guides/
-3. [ ] Restart the docker environment.
-   - Documentation to read (repeat):
-     - Docker/Compose: /docker/docs
-4. [ ] Run the e2e tests.
-   - Documentation to read (repeat):
-     - Playwright: /microsoft/playwright.dev
-5. [ ] Use the Playwright MCP tool to manually check the application, saving screenshots to `./test-results/screenshots/` (name each screenshot with the plan index, task number, and scenario).
-   - Documentation to read (repeat):
-     - Playwright: /microsoft/playwright.dev
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m`)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check (open http://host.docker.internal:5001):
+   - Verify the app loads and basic navigation (Chat, Ingest, Logs) works.
+   - Confirm the browser console has **no errors**.
+   - Capture screenshots to `./test-results/screenshots/` (name each screenshot with plan index, task number, and scenario).
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 

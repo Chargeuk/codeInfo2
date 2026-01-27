@@ -300,6 +300,8 @@ Expand the AST language type and extension routing so ingest and tool validation
 - TypeScript reference (Context7 `/microsoft/typescript/v5.9.2`, latest available for 5.9.x) for union updates: /microsoft/typescript/v5.9.2
 - Node.js test runner API (Context7 `/nodejs/node/v22.17.0`): /nodejs/node/v22.17.0
 - npm run-script docs (CLI v10): https://docs.npmjs.com/cli/v10/commands/npm-run-script
+- Jest CLI/config (Context7 `/websites/jestjs_io_30_0`) for Jest 30.x: /websites/jestjs_io_30_0
+- Cucumber guides: https://cucumber.io/docs/guides/
 - ESLint CLI docs (Context7 `/eslint/eslint/v9.37.0`, latest available for ESLint 9.x): /eslint/eslint/v9.37.0
 - Prettier CLI docs (Context7 `/prettier/prettier/3.6.2`): /prettier/prettier/3.6.2
 - Markdown Guide (doc edits): https://www.markdownguide.org/basic-syntax/
@@ -403,6 +405,8 @@ Add the Tree-sitter grammar packages and wire them into the parser so language d
 - TypeScript ambient module declarations (Context7 `/microsoft/typescript/v5.9.2`): /microsoft/typescript/v5.9.2
 - Node.js test runner API (Context7 `/nodejs/node/v22.17.0`): /nodejs/node/v22.17.0
 - npm run-script docs (CLI v10): https://docs.npmjs.com/cli/v10/commands/npm-run-script
+- Jest CLI/config (Context7 `/websites/jestjs_io_30_0`) for Jest 30.x: /websites/jestjs_io_30_0
+- Cucumber guides: https://cucumber.io/docs/guides/
 - ESLint CLI docs (Context7 `/eslint/eslint/v9.37.0`, latest available for ESLint 9.x): /eslint/eslint/v9.37.0
 - Prettier CLI docs (Context7 `/prettier/prettier/3.6.2`): /prettier/prettier/3.6.2
 - Markdown Guide (doc edits): https://www.markdownguide.org/basic-syntax/
@@ -500,6 +504,8 @@ Verify grammar query assets, add CodeInfo2-owned locals, and extend parser unit 
 - Tree-sitter C++ grammar repo (node types + queries): https://github.com/tree-sitter/tree-sitter-cpp
 - Node.js test runner API (Context7 `/nodejs/node/v22.17.0`): /nodejs/node/v22.17.0
 - npm run-script docs (CLI v10): https://docs.npmjs.com/cli/v10/commands/npm-run-script
+- Jest CLI/config (Context7 `/websites/jestjs_io_30_0`) for Jest 30.x: /websites/jestjs_io_30_0
+- Cucumber guides: https://cucumber.io/docs/guides/
 - ESLint CLI docs (Context7 `/eslint/eslint/v9.37.0`, latest available for ESLint 9.x): /eslint/eslint/v9.37.0
 - Prettier CLI docs (Context7 `/prettier/prettier/3.6.2`): /prettier/prettier/3.6.2
 - Markdown Guide (doc edits): https://www.markdownguide.org/basic-syntax/
@@ -625,6 +631,8 @@ Extend ingest AST indexing coverage so the new language extensions are parsed du
 - Tree-sitter query system + capture conventions (Context7 `/tree-sitter/tree-sitter`): /tree-sitter/tree-sitter
 - Node.js test runner API (Context7 `/nodejs/node/v22.17.0`): /nodejs/node/v22.17.0
 - npm run-script docs (CLI v10): https://docs.npmjs.com/cli/v10/commands/npm-run-script
+- Jest CLI/config (Context7 `/websites/jestjs_io_30_0`) for Jest 30.x: /websites/jestjs_io_30_0
+- Cucumber guides: https://cucumber.io/docs/guides/
 - ESLint CLI docs (Context7 `/eslint/eslint/v9.37.0`, latest available for ESLint 9.x): /eslint/eslint/v9.37.0
 - Prettier CLI docs (Context7 `/prettier/prettier/3.6.2`): /prettier/prettier/3.6.2
 - Markdown Guide (doc edits): https://www.markdownguide.org/basic-syntax/
@@ -742,7 +750,7 @@ Validate the full story against acceptance criteria, run the complete test/build
 - Husky hooks (Context7 `/typicode/husky`): /typicode/husky
 - Mermaid diagrams (Context7 `/mermaid-js/mermaid/v11_0_0`): /mermaid-js/mermaid/v11_0_0
 - Jest CLI/config (Context7 `/websites/jestjs_io_30_0`) for Jest 30.x: /websites/jestjs_io_30_0
-- Cucumber.js guide (https://cucumber.io/docs/guides/10-minute-tutorial): https://cucumber.io/docs/guides/10-minute-tutorial
+- Cucumber guides: https://cucumber.io/docs/guides/
 - Markdown Guide (doc edits): https://www.markdownguide.org/basic-syntax/
 - ESLint CLI docs (Context7 `/eslint/eslint/v9.37.0`, latest available for ESLint 9.x): /eslint/eslint/v9.37.0
 - Prettier CLI docs (Context7 `/prettier/prettier/3.6.2`): /prettier/prettier/3.6.2
@@ -780,7 +788,7 @@ Validate the full story against acceptance criteria, run the complete test/build
      - Jest: /websites/jestjs_io_30_0
 2. [ ] Run the server Cucumber tests.
    - Documentation to read (repeat):
-     - Cucumber guides: https://cucumber.io/docs/guides/10-minute-tutorial
+     - Cucumber guides: https://cucumber.io/docs/guides/
 3. [ ] Restart the docker environment.
    - Documentation to read (repeat):
      - Docker/Compose: /docker/docs

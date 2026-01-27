@@ -1221,7 +1221,7 @@ sequenceDiagram
 #### Ingest status payload (AST counts)
 
 - `IngestJobStatus` includes an optional `ast` object when AST counts are available.
-- AST counts include totals for supported, skipped, and failed AST parses.
+- AST counts include totals for supported, skipped, and failed AST parses plus `lastIndexedAt`.
 
 ```json
 {
@@ -1231,7 +1231,8 @@ sequenceDiagram
   "ast": {
     "supportedFileCount": 2,
     "skippedFileCount": 1,
-    "failedFileCount": 0
+    "failedFileCount": 0,
+    "lastIndexedAt": "2026-01-27T00:00:00.000Z"
   },
   "currentFile": "/repo/src/index.ts",
   "fileIndex": 1,
@@ -1239,6 +1240,19 @@ sequenceDiagram
   "percent": 33.3,
   "etaMs": 1200
 }
+```
+
+```mermaid
+sequenceDiagram
+  participant Ingest as Ingest job
+  participant WS as WebSocket (/ws)
+  participant Hook as useIngestStatus
+  participant UI as Ingest page
+
+  Ingest->>WS: publish ingest_update { status.ast }
+  WS-->>Hook: ingest_update { status }
+  Hook-->>UI: set status (counts + ast)
+  Hook-->>Hook: console.info DEV-0000032:T10:ast-status-received
 ```
 
 #### Ingest status hook flow (WS-only)

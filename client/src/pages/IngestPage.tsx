@@ -143,6 +143,7 @@ export default function IngestPage() {
               runId={active.runId}
               status={active.state}
               counts={active.counts}
+              ast={active.ast}
               currentFile={active.currentFile}
               fileIndex={active.fileIndex}
               fileTotal={active.fileTotal}

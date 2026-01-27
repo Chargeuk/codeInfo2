@@ -116,6 +116,12 @@ describe('useIngestStatus', () => {
           runId: 'run-1',
           state: 'embedding',
           counts: { files: 1 },
+          ast: {
+            supportedFileCount: 1,
+            skippedFileCount: 0,
+            failedFileCount: 0,
+            lastIndexedAt: '2026-01-27T00:00:00.000Z',
+          },
         },
       });
     });
@@ -220,6 +226,12 @@ describe('IngestPage realtime status UI', () => {
           runId: 'run-1',
           state: 'embedding',
           counts: { files: 2 },
+          ast: {
+            supportedFileCount: 2,
+            skippedFileCount: 0,
+            failedFileCount: 0,
+            lastIndexedAt: '2026-01-27T00:00:00.000Z',
+          },
         },
       });
     });
@@ -280,6 +292,12 @@ describe('IngestPage realtime status UI', () => {
           runId: 'run-terminal',
           state: 'embedding',
           counts: { files: 1 },
+          ast: {
+            supportedFileCount: 1,
+            skippedFileCount: 0,
+            failedFileCount: 0,
+            lastIndexedAt: '2026-01-27T00:00:00.000Z',
+          },
         },
       });
     });
@@ -299,6 +317,12 @@ describe('IngestPage realtime status UI', () => {
           runId: 'run-terminal',
           state: 'completed',
           counts: { files: 1, embedded: 1 },
+          ast: {
+            supportedFileCount: 1,
+            skippedFileCount: 0,
+            failedFileCount: 0,
+            lastIndexedAt: '2026-01-27T00:00:00.000Z',
+          },
         },
       });
     });

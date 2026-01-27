@@ -712,7 +712,7 @@ Validate the full story against acceptance criteria, run the complete test/build
 5. [ ] Ensure `design.md` is updated with any required description changes and mermaid diagrams added during this story.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-     - Mermaid: /mermaid-js/mermaid
+     - Mermaid: /mermaid-js/mermaid/v11_0_0
 6. [ ] Ensure `projectStructure.md` is updated with any updated, added or removed files & folders.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
@@ -727,7 +727,7 @@ Validate the full story against acceptance criteria, run the complete test/build
      - Jest: /jestjs/jest
 2. [ ] Run the server Cucumber tests.
    - Documentation to read (repeat):
-     - Cucumber guides: https://cucumber.io/docs/guides/
+     - Cucumber guides: https://cucumber.io/docs/guides/10-minute-tutorial
 3. [ ] Restart the docker environment.
    - Documentation to read (repeat):
      - Docker/Compose: /docker/docs

@@ -134,6 +134,8 @@ These values come from each grammar’s `tree-sitter.json` and are used to keep 
 - Add parser‑level tests to assert:
   - `locals.scm` captures both `@local.definition` and `@local.reference` for each language
   - The AST output includes references for those symbols (non‑empty references result)
+- Prefer inline source strings in `server/src/test/unit/ast-parser.test.ts` (matching existing TS/TSX patterns) unless a fixture file is required for a specific grammar edge case.
+- Extend `server/src/test/unit/ingest-ast-indexing.test.ts` to include at least one file per new extension and assert supported counts/logs include those files.
 - Verify ingest logs show successful AST indexing for each language and no `locals.scm` missing warnings.
 
 ---
@@ -146,6 +148,14 @@ These values come from each grammar’s `tree-sitter.json` and are used to keep 
 - Add the new extensions to `astSupportedExtensions` and keep ingest/reembed calling AST parsing for those files; confirm unsupported extensions still log a skip reason.
 - Create `server/src/ast/queries/<language>/locals.scm` for python/c_sharp/rust/cpp and add minimal fixtures + unit tests in `server/src/test/unit/ast-parser.test.ts` and ingest gating coverage in `server/src/test/unit/ingest-ast-indexing.test.ts`.
 - Ensure AST tool tests (e.g., `server/src/test/unit/ast-tool-validation.test.ts`) accept the new language values without schema changes.
+
+---
+
+## Expected Files To Add Or Update
+
+- Update: `server/src/ast/types.ts`, `server/src/ast/parser.ts`, `server/src/ingest/ingestJob.ts`, `server/src/types/tree-sitter.d.ts`.
+- Add: `server/src/ast/queries/python/locals.scm`, `server/src/ast/queries/c_sharp/locals.scm`, `server/src/ast/queries/rust/locals.scm`, `server/src/ast/queries/cpp/locals.scm`.
+- Update tests: `server/src/test/unit/ast-parser.test.ts`, `server/src/test/unit/ingest-ast-indexing.test.ts`, and any AST tool validation tests that enumerate language values.
 
 ---
 

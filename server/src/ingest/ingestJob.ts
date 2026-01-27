@@ -340,6 +340,7 @@ async function processRun(runId: string, input: IngestJobInput) {
       metadata.astLastIndexedAt = astLastIndexedAt;
     };
     const astSkippedExamples: string[] = [];
+    const astFailedExamples: { relPath: string; error: string }[] = [];
     for (const file of files) {
       const ext = file.ext ?? path.extname(file.relPath).slice(1);
       if (isAstSupported(ext)) {
@@ -629,6 +630,12 @@ async function processRun(runId: string, input: IngestJobInput) {
         astModuleImports.push(...astResult.imports);
       } else {
         astCounts.failedFileCount += 1;
+        if (astFailedExamples.length < 5) {
+          astFailedExamples.push({
+            relPath: file.relPath,
+            error: astResult.error,
+          });
+        }
         const errorMessage = astResult.error.toLowerCase();
         if (!astGrammarFailureLogged && errorMessage.includes('grammar')) {
           astGrammarFailureLogged = true;
@@ -639,6 +646,14 @@ async function processRun(runId: string, input: IngestJobInput) {
           });
         }
       }
+    }
+
+    if (astCounts.failedFileCount > 0) {
+      logWarning('AST indexing failed for file(s)', {
+        root,
+        failedFileCount: astCounts.failedFileCount,
+        exampleFailures: astFailedExamples,
+      });
     }
 
     for (const [idx, file] of workFiles.entries()) {

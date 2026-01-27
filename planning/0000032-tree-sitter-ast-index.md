@@ -2276,13 +2276,195 @@ Re-run full verification after adding AST counts to ingest roots so the story me
 
 ---
 
+### 18. Server: Normalize AST tool inputs (case-insensitive)
+
+- Task Status: **__to_do__**
+- Git Commits: **to_do**
+
+#### Overview
+
+Make AST tool inputs tolerant of case differences so users can pass repository ids and symbol kinds without precise casing.
+
+#### Documentation Locations
+
+- TypeScript handbook (string normalization helpers): https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
+- Node.js string APIs (locale/case handling): https://nodejs.org/api/string_decoder.html
+- MongoDB query basics (root selection behaviour): https://www.mongodb.com/docs/manual/crud/
+- ESLint CLI (run task lint step): https://eslint.org/docs/latest/use/command-line-interface
+- Prettier CLI (run task format step): https://prettier.io/docs/cli
+- npm run-script (workspace build/test commands): https://docs.npmjs.com/cli/v9/commands/npm-run-script
+- Markdown Guide (update `design.md` + `projectStructure.md`): https://www.markdownguide.org/basic-syntax/
+
+#### Subtasks
+
+1. [ ] Review AST tool input validation and repo selection:
+   - Files to read:
+     - `server/src/ast/toolService.ts`
+     - `server/src/test/unit/ast-tool-validation.test.ts`
+     - `server/src/test/unit/ast-tool-service.test.ts`
+2. [ ] Normalize repository ids to be case-insensitive:
+   - Files to edit:
+     - `server/src/ast/toolService.ts`
+   - Implementation details:
+     - Add a canonicalisation helper that lowercases repository ids and compare against ingested repo ids case-insensitively.
+     - Ensure the selected repo remains the same (most recent ingest when duplicates exist).
+3. [ ] Normalize kinds filters to canonical casing:
+   - Files to edit:
+     - `server/src/ast/toolService.ts`
+   - Implementation details:
+     - Map user-provided kinds (e.g., "function", "CLASS") to canonical kinds (`Function`, `Class`, etc.).
+     - Keep existing limits and error flow intact.
+4. [ ] Update unit tests for case-insensitive repository and kinds:
+   - Test type: Unit.
+   - Test locations:
+     - `server/src/test/unit/ast-tool-validation.test.ts`
+     - `server/src/test/unit/ast-tool-service.test.ts`
+   - Description: Add coverage that lowercase/uppercase inputs resolve correctly.
+5. [ ] Update documentation — `design.md`:
+   - Document: `design.md`.
+   - Description: Note AST tool inputs accept case-insensitive repository ids and kinds.
+6. [ ] Update documentation — `projectStructure.md` if new test files are added.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier CLI: https://prettier.io/docs/cli
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, confirm AST tools accept mixed-case repository ids and kinds.
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+-
+
+---
+
+### 19. Server: Validate unsupported AST tool inputs
+
+- Task Status: **__to_do__**
+- Git Commits: **to_do**
+
+#### Overview
+
+Ensure AST tool inputs reject unsupported kinds and repositories with clear error messages, including guidance on valid values.
+
+#### Documentation Locations
+
+- TypeScript handbook (union types and guards): https://www.typescriptlang.org/docs/handbook/2/narrowing.html
+- MongoDB query basics (root selection behaviour): https://www.mongodb.com/docs/manual/crud/
+- MCP JSON-RPC spec (tool error payload expectations): https://www.jsonrpc.org/specification
+- ESLint CLI (run task lint step): https://eslint.org/docs/latest/use/command-line-interface
+- Prettier CLI (run task format step): https://prettier.io/docs/cli
+- npm run-script (workspace build/test commands): https://docs.npmjs.com/cli/v9/commands/npm-run-script
+- Markdown Guide (update `design.md` + `projectStructure.md`): https://www.markdownguide.org/basic-syntax/
+
+#### Subtasks
+
+1. [ ] Review existing AST tool error classes and repo selection:
+   - Files to read:
+     - `server/src/ast/toolService.ts`
+     - `server/src/mcp/server.ts`
+2. [ ] Add validation for unsupported kinds:
+   - Files to edit:
+     - `server/src/ast/toolService.ts`
+   - Implementation details:
+     - Reject unknown kind values and return an error listing supported kinds.
+     - Apply both to `kinds` filters and `kind` on definition/reference queries.
+3. [ ] Validate repository ids against AST-enabled repos:
+   - Files to edit:
+     - `server/src/ast/toolService.ts`
+   - Implementation details:
+     - When a repository is not ingested or has no AST coverage, return an error listing available AST-enabled repositories.
+4. [ ] Update unit tests for invalid kinds/repositories:
+   - Test type: Unit.
+   - Test locations:
+     - `server/src/test/unit/ast-tool-validation.test.ts`
+     - `server/src/test/unit/ast-tool-service.test.ts`
+   - Description: Assert error payloads include supported kinds and AST-enabled repo ids.
+5. [ ] Update documentation — `design.md`:
+   - Document: `design.md`.
+   - Description: Document AST tool validation behaviour and error messages.
+6. [ ] Update documentation — `projectStructure.md` if new test files are added.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier CLI: https://prettier.io/docs/cli
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, confirm invalid kinds/repositories return clear validation errors.
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+-
+
+---
+
+### 20. Final Task: Full verification + acceptance criteria (retest)
+
+- Task Status: **__to_do__**
+- Git Commits: **to_do**
+
+#### Overview
+
+Re-run full verification after normalising/validating AST tool inputs so the story meets updated acceptance criteria.
+
+#### Documentation Locations
+
+- Docker Compose overview (clean builds + compose up): https://docs.docker.com/compose/
+- Playwright Test intro (e2e run + screenshots): https://playwright.dev/docs/intro
+- Husky docs (pre-commit hooks): https://typicode.github.io/husky/
+- Mermaid docs (Context7, diagram syntax): /mermaid-js/mermaid
+- Mermaid intro (diagram updates in `design.md`): https://mermaid.js.org/intro/
+- Jest docs (Context7): /jestjs/jest
+- Jest getting started (client/server tests): https://jestjs.io/docs/getting-started
+- Cucumber guides https://cucumber.io/docs/guides/
+
+#### Subtasks
+
+1. [ ] Build the server
+2. [ ] Build the client
+3. [ ] perform a clean docker build
+4. [ ] Ensure Readme.md is updated with any required description changes and with any new commands that have been added as part of this story
+5. [ ] Ensure Design.md is updated with any required description changes including mermaid diagrams that have been added as part of this story
+6. [ ] Ensure projectStructure.md is updated with any updated, added or removed files & folders
+7. [ ] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
+
+#### Testing
+
+1. [ ] run the client jest tests
+2. [ ] run the server cucumber tests
+3. [ ] restart the docker environment
+4. [ ] run the e2e tests
+5. [ ] use the playwright mcp tool to ensure manually check the application, saving screenshots to ./test-results/screenshots/ - Each screenshot should be named with the plan index including the preceding seroes, then a dash, and then the task number, then a dash and the name of the screenshot
+
+#### Implementation notes
+
+-
+
 ## Code Review Summary
 
 - Reviewed `main...HEAD` for server AST parsing/indexing, Mongo schema updates, ingest pipeline integration, MCP/REST tooling, client ingest UI changes, and documentation updates.
 - Code quality/maintainability: modular AST parser + tool services, explicit validation/error mapping, and comprehensive unit/integration tests align with existing patterns; docs updated to reflect contracts and flows.
 - Performance: AST parsing is limited to supported files with delta re-embed support and query caching; call-graph depth limiting prevents unbounded traversal.
 - Security: REST/MCP inputs validated with consistent error mapping; repository resolution uses existing ingest registry with no direct filesystem access from user input.
-- Acceptance criteria verified through Task 14; new AST root metadata duplication and UI display requirements are now tracked in Tasks 15–17.
+- Acceptance criteria verified through Task 17; additional AST tool input hardening is tracked in Tasks 18–20.
 
 ---
 

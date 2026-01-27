@@ -589,7 +589,7 @@ Verify grammar query assets, add CodeInfo2-owned locals, and extend parser unit 
    - Description: Note that Python/C#/Rust/C++ locals queries are CodeInfo2-owned and record any dependency version changes made to obtain tags.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-10. [ ] Update documentation — `projectStructure.md`:
+10. [ ] Update documentation — `projectStructure.md` **after** adding locals query files:
    - Document: `projectStructure.md`.
    - Location: `projectStructure.md`.
    - Description: Add the new `server/src/ast/queries/*/locals.scm` files to the tree.
@@ -705,7 +705,7 @@ Extend ingest AST indexing coverage so the new language extensions are parsed du
    - Description: Document ingest AST indexing coverage for Python/C#/Rust/C++ and note the skip-log behaviour.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-9. [ ] Update documentation — `projectStructure.md` (if new fixture files are added):
+9. [ ] Update documentation — `projectStructure.md` **after** adding any fixture files:
    - Document: `projectStructure.md`.
    - Location: `projectStructure.md`.
    - Description: Add new fixture files to the tree if any are introduced.

@@ -392,6 +392,8 @@ Expand the AST language type and extension routing so ingest and tool validation
 8. [ ] Manual Playwright-MCP check (open http://host.docker.internal:5001):
    - Verify the app loads and basic navigation (Chat, Ingest, Logs) works.
    - Confirm the browser console has **no errors**.
+   - Capture a screenshot of the Logs page showing the new log line; ensure the agent verifies the GUI state matches expectations.
+   - Screenshot storage: `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local`.
    - Logs page check: confirm `DEV-0000033:T1:ast-extension-map` appears once and includes `py`, `cs`, `rs`, `h` plus the new language names.
 9. [ ] `npm run compose:down`
 
@@ -510,6 +512,8 @@ Add the Tree-sitter grammar packages and wire them into the parser so language d
 8. [ ] Manual Playwright-MCP check (open http://host.docker.internal:5001):
    - Verify the app loads and basic navigation (Chat, Ingest, Logs) works.
    - Confirm the browser console has **no errors**.
+   - Capture a screenshot of the Logs page showing grammar registration; ensure the agent verifies the GUI state matches expectations.
+   - Screenshot storage: `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local`.
    - Logs page check: confirm `DEV-0000033:T2:ast-grammar-registered` appears for `python`, `c_sharp`, `rust`, `cpp`.
 9. [ ] `npm run compose:down`
 
@@ -677,6 +681,8 @@ Verify grammar query assets, add CodeInfo2-owned locals, and extend parser unit 
 8. [ ] Manual Playwright-MCP check (open http://host.docker.internal:5001):
    - Verify the app loads and basic navigation (Chat, Ingest, Logs) works.
    - Confirm the browser console has **no errors**.
+   - Capture a screenshot of the Logs page showing locals query load; ensure the agent verifies the GUI state matches expectations.
+   - Screenshot storage: `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local`.
    - Logs page check: confirm `DEV-0000033:T3:ast-locals-query-loaded` appears for `python`, `c_sharp`, `rust`, `cpp` and references `server/src/ast/queries/` paths.
 9. [ ] `npm run compose:down`
 
@@ -818,6 +824,8 @@ Extend ingest AST indexing coverage so the new language extensions are parsed du
 8. [ ] Manual Playwright-MCP check (open http://host.docker.internal:5001):
    - Verify the app loads and basic navigation (Chat, Ingest, Logs) works.
    - Confirm the browser console has **no errors**.
+   - Capture a screenshot of the Logs page showing ingest config; ensure the agent verifies the GUI state matches expectations.
+   - Screenshot storage: `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local`.
    - Logs page check: confirm `DEV-0000033:T4:ast-ingest-config` appears and lists the new extensions.
 9. [ ] `npm run compose:down`
 
@@ -903,8 +911,10 @@ Validate the full story against acceptance criteria, run the complete test/build
 8. [ ] Manual Playwright-MCP check (open http://host.docker.internal:5001):
    - Verify the app loads and basic navigation (Chat, Ingest, Logs) works.
    - Confirm the browser console has **no errors**.
+   - Capture screenshots of Chat, Ingest, and Logs pages; ensure the agent verifies the GUI matches acceptance criteria and general regressions.
+   - Screenshot storage: `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local`.
+   - After capture, copy the screenshots into `./test-results/screenshots/` and name them with plan index, task number, and scenario.
    - Logs page check: confirm `DEV-0000033:T5:logs-stream-opened` appears after opening Logs.
-   - Capture screenshots to `./test-results/screenshots/` (name each screenshot with plan index, task number, and scenario).
 9. [ ] `npm run compose:down`
 
 #### Implementation notes

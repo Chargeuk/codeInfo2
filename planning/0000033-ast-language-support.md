@@ -392,14 +392,14 @@ Expand the AST language type and extension routing so ingest and tool validation
 
 ---
 
-### 2. Server: Tree-sitter grammars + locals queries
+### 2. Server: Tree-sitter grammar dependencies + parser wiring
 
 - Task Status: **__to_do__**
 - Git Commits:
 
 #### Overview
 
-Wire the Tree-sitter grammar packages for Python, C#, Rust, and C++ into the parser and add custom `locals.scm` query files so symbol definitions and references are captured for each language.
+Add the Tree-sitter grammar packages and wire them into the parser so language detection and query loading can target Python, C#, Rust, and C++. Query assets and parser tests are handled in the next task to keep this step focused on dependency + wiring changes.
 
 #### Documentation Locations
 
@@ -445,46 +445,19 @@ Wire the Tree-sitter grammar packages for Python, C#, Rust, and C++ into the par
      - Register `python`, `c_sharp`, `rust`, and `cpp` in `getLanguageConfig` or equivalent language map.
      - Load `queries/tags.scm` from each grammar package and load `locals.scm` from `server/src/ast/queries/<language>/locals.scm` for the new languages.
      - Extend any query warm-up lists (e.g., `warmAstParserQueries`) to include the new languages.
-5. [ ] Verify grammar package query assets before wiring tags:
-   - Files to inspect:
-     - `node_modules/tree-sitter-python/queries`
-     - `node_modules/tree-sitter-c-sharp/queries`
-     - `node_modules/tree-sitter-rust/queries`
-     - `node_modules/tree-sitter-cpp/queries`
-   - Implementation details:
-     - Confirm each package ships `queries/tags.scm`.
-     - If any package lacks `tags.scm`, add a CodeInfo2-owned fallback at `server/src/ast/queries/<language>/tags.scm` and update the loader to prefer package tags but fallback to the local file.
-6. [ ] Create custom locals queries for new languages:
-   - Files to add:
-     - `server/src/ast/queries/python/locals.scm`
-     - `server/src/ast/queries/c_sharp/locals.scm`
-     - `server/src/ast/queries/rust/locals.scm`
-     - `server/src/ast/queries/cpp/locals.scm`
-   - Implementation details:
-     - Use the grammar `node-types.json` for node names; capture `@local.scope`, `@local.definition`, and `@local.reference` for each language.
-     - Use the code-graph-rag reference inputs listed earlier in this plan to confirm node coverage.
-7. [ ] Add parser unit coverage for new languages:
-   - Test type: Unit (parser output).
-   - Test location: `server/src/test/unit/ast-parser.test.ts`.
-   - Description: Add minimal inline fixtures per language and assert at least one `@local.definition` and one `@local.reference` capture, plus non-empty references in the output.
-   - Documentation to read (repeat):
-     - Node.js test runner: https://nodejs.org/api/test.html
-     - Tree-sitter query syntax: /websites/tree-sitter_github_io_tree-sitter
-   - Notes:
-     - Extend existing fixtures in `ast-parser.test.ts` instead of creating new test files.
-8. [ ] Update documentation — `design.md`:
+5. [ ] Update documentation — `design.md`:
    - Document: `design.md`.
    - Location: `design.md`.
-   - Description: Note the new grammar packages and that Python/C#/Rust/C++ locals queries are CodeInfo2-owned.
+   - Description: Note the new grammar packages and parser wiring changes.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-9. [ ] Update documentation — `projectStructure.md`:
+6. [ ] Update documentation — `projectStructure.md` (if any files were added in this task; otherwise confirm no change):
    - Document: `projectStructure.md`.
    - Location: `projectStructure.md`.
-   - Description: Add the new `server/src/ast/queries/*/locals.scm` files to the tree (and `tags.scm` if fallback tags were added).
+   - Description: Ensure the tree remains accurate after dependency and wiring changes.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -506,7 +479,93 @@ Wire the Tree-sitter grammar packages for Python, C#, Rust, and C++ into the par
 
 ---
 
-### 3. Server: Ingest AST indexing coverage + logging
+### 3. Server: AST query assets + parser tests
+
+- Task Status: **__to_do__**
+- Git Commits:
+
+#### Overview
+
+Verify grammar query assets, add CodeInfo2-owned locals (and tags fallbacks if needed), and extend parser unit tests to cover Python, C#, Rust, and C++.
+
+#### Documentation Locations
+
+- Tree-sitter query syntax + locals capture guide: /websites/tree-sitter_github_io_tree-sitter
+- Tree-sitter init docs (query path defaults + `tree-sitter.json` structure): https://tree-sitter.github.io/tree-sitter/cli/init.html
+- Tree-sitter Python grammar (node types + queries): https://github.com/tree-sitter/tree-sitter-python
+- Tree-sitter C# grammar (node types + queries): https://github.com/tree-sitter/tree-sitter-c-sharp
+- Tree-sitter Rust grammar (node types + queries): https://github.com/tree-sitter/tree-sitter-rust
+- Tree-sitter C++ grammar (node types + queries): https://github.com/tree-sitter/tree-sitter-cpp
+- Node.js test runner (parser unit tests): https://nodejs.org/api/test.html
+- Markdown Guide (doc edits): https://www.markdownguide.org/basic-syntax/
+- ESLint CLI (lint step): https://eslint.org/docs/latest/use/command-line-interface
+- Prettier CLI (format step): https://prettier.io/docs/cli
+- npm run-script (workspace commands): https://docs.npmjs.com/cli/v9/commands/npm-run-script
+
+#### Subtasks
+
+1. [ ] Verify grammar package query assets before wiring tags:
+   - Files to inspect:
+     - `node_modules/tree-sitter-python/queries`
+     - `node_modules/tree-sitter-c-sharp/queries`
+     - `node_modules/tree-sitter-rust/queries`
+     - `node_modules/tree-sitter-cpp/queries`
+   - Implementation details:
+     - Confirm each package ships `queries/tags.scm`.
+     - If any package lacks `tags.scm`, add a CodeInfo2-owned fallback at `server/src/ast/queries/<language>/tags.scm` and update the loader to prefer package tags but fallback to the local file.
+2. [ ] Create custom locals queries for new languages:
+   - Files to add:
+     - `server/src/ast/queries/python/locals.scm`
+     - `server/src/ast/queries/c_sharp/locals.scm`
+     - `server/src/ast/queries/rust/locals.scm`
+     - `server/src/ast/queries/cpp/locals.scm`
+   - Implementation details:
+     - Use the grammar `node-types.json` for node names; capture `@local.scope`, `@local.definition`, and `@local.reference` for each language.
+     - Use the code-graph-rag reference inputs listed earlier in this plan to confirm node coverage.
+3. [ ] Add parser unit coverage for new languages:
+   - Test type: Unit (parser output).
+   - Test location: `server/src/test/unit/ast-parser.test.ts`.
+   - Description: Add minimal inline fixtures per language and assert at least one `@local.definition` and one `@local.reference` capture, plus non-empty references in the output.
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+     - Tree-sitter query syntax: /websites/tree-sitter_github_io_tree-sitter
+   - Notes:
+     - Extend existing fixtures in `ast-parser.test.ts` instead of creating new test files.
+4. [ ] Update documentation — `design.md`:
+   - Document: `design.md`.
+   - Location: `design.md`.
+   - Description: Note that Python/C#/Rust/C++ locals queries are CodeInfo2-owned and document any fallback tags decisions.
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+5. [ ] Update documentation — `projectStructure.md`:
+   - Document: `projectStructure.md`.
+   - Location: `projectStructure.md`.
+   - Description: Add the new `server/src/ast/queries/*/locals.scm` files to the tree (and `tags.scm` if fallback tags were added).
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier CLI: https://prettier.io/docs/cli
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run compose:build`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test --workspace server`
+6. [ ] `npm run test --workspace client`
+7. [ ] `npm run e2e`
+8. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- 
+
+---
+
+### 4. Server: Ingest AST indexing coverage + logging
 
 - Task Status: **__to_do__**
 - Git Commits:
@@ -595,7 +654,7 @@ Extend ingest AST indexing coverage so the new language extensions are parsed du
 
 ---
 
-### 4. Final verification + acceptance criteria
+### 5. Final verification + acceptance criteria
 
 - Task Status: **__to_do__**
 - Git Commits:

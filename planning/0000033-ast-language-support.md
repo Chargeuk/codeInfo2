@@ -512,7 +512,7 @@ Verify grammar query assets, add CodeInfo2-owned locals (and tags fallbacks if n
      - `node_modules/tree-sitter-cpp/queries`
    - Implementation details:
      - Confirm each package ships `queries/tags.scm`.
-     - If any package lacks `tags.scm`, add a CodeInfo2-owned fallback at `server/src/ast/queries/<language>/tags.scm` and update the loader to prefer package tags but fallback to the local file.
+     - If any package lacks `tags.scm`, update the dependency version to one that includes tags rather than adding local fallbacks.
 2. [ ] Create custom locals queries for new languages:
    - Files to add:
      - `server/src/ast/queries/python/locals.scm`
@@ -534,13 +534,13 @@ Verify grammar query assets, add CodeInfo2-owned locals (and tags fallbacks if n
 4. [ ] Update documentation — `design.md`:
    - Document: `design.md`.
    - Location: `design.md`.
-   - Description: Note that Python/C#/Rust/C++ locals queries are CodeInfo2-owned and document any fallback tags decisions.
+   - Description: Note that Python/C#/Rust/C++ locals queries are CodeInfo2-owned and record any dependency version changes made to obtain tags.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
 5. [ ] Update documentation — `projectStructure.md`:
    - Document: `projectStructure.md`.
    - Location: `projectStructure.md`.
-   - Description: Add the new `server/src/ast/queries/*/locals.scm` files to the tree (and `tags.scm` if fallback tags were added).
+   - Description: Add the new `server/src/ast/queries/*/locals.scm` files to the tree.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
 6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.

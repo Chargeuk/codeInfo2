@@ -542,7 +542,7 @@ Verify grammar query assets, add CodeInfo2-owned locals, and extend parser unit 
 3. [ ] Add parser unit test for **Python** locals capture (happy path):
    - Test type: Unit (parser output).
    - Test location: `server/src/test/unit/ast-parser.test.ts`.
-   - Description: Add a minimal `.py` fixture and assert at least one `@local.definition` and one `@local.reference`, plus non-empty references.
+   - Description: Add a minimal `.py` fixture, assert `result.language === 'python'`, and verify at least one `@local.definition` and one `@local.reference`, plus non-empty references.
    - Purpose: Confirms Python locals queries produce definitions and references.
    - Documentation to read (repeat):
      - Node.js test runner: /nodejs/node/v22.17.0
@@ -550,7 +550,7 @@ Verify grammar query assets, add CodeInfo2-owned locals, and extend parser unit 
 4. [ ] Add parser unit test for **C#** locals capture (happy path):
    - Test type: Unit (parser output).
    - Test location: `server/src/test/unit/ast-parser.test.ts`.
-   - Description: Add a minimal `.cs` fixture and assert at least one `@local.definition` and one `@local.reference`, plus non-empty references.
+   - Description: Add a minimal `.cs` fixture, assert `result.language === 'c_sharp'`, and verify at least one `@local.definition` and one `@local.reference`, plus non-empty references.
    - Purpose: Confirms C# locals queries produce definitions and references.
    - Documentation to read (repeat):
      - Node.js test runner: /nodejs/node/v22.17.0
@@ -558,7 +558,7 @@ Verify grammar query assets, add CodeInfo2-owned locals, and extend parser unit 
 5. [ ] Add parser unit test for **Rust** locals capture (happy path):
    - Test type: Unit (parser output).
    - Test location: `server/src/test/unit/ast-parser.test.ts`.
-   - Description: Add a minimal `.rs` fixture and assert at least one `@local.definition` and one `@local.reference`, plus non-empty references.
+   - Description: Add a minimal `.rs` fixture, assert `result.language === 'rust'`, and verify at least one `@local.definition` and one `@local.reference`, plus non-empty references.
    - Purpose: Confirms Rust locals queries produce definitions and references.
    - Documentation to read (repeat):
      - Node.js test runner: /nodejs/node/v22.17.0
@@ -566,7 +566,7 @@ Verify grammar query assets, add CodeInfo2-owned locals, and extend parser unit 
 6. [ ] Add parser unit test for **C++** locals capture (happy path):
    - Test type: Unit (parser output).
    - Test location: `server/src/test/unit/ast-parser.test.ts`.
-   - Description: Add a minimal `.cpp` (or `.h`) fixture and assert at least one `@local.definition` and one `@local.reference`, plus non-empty references.
+   - Description: Add a minimal `.h` fixture (to validate header routing), assert `result.language === 'cpp'`, and verify at least one `@local.definition` and one `@local.reference`, plus non-empty references.
    - Purpose: Confirms C++ locals queries produce definitions and references.
    - Documentation to read (repeat):
      - Node.js test runner: /nodejs/node/v22.17.0

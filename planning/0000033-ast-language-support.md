@@ -329,11 +329,23 @@ Expand the AST language type and extension routing so ingest and tool validation
    - Implementation details:
      - Update any arrays or guards (e.g., warm-up language lists) so they include the new languages.
      - Keep response payload shapes unchanged.
+     - Update AST tool validation tests if they enumerate allowed language values.
      - Validate extension lists against each grammar’s `tree-sitter.json` file-types so routing matches the published defaults.
    - Documentation to read (repeat):
      - Tree-sitter init docs (query path defaults + `tree-sitter.json` structure): https://tree-sitter.github.io/tree-sitter/cli/init.html
      - tree-sitter-python `tree-sitter.json` example (file-types + tags path): https://docs.rs/crate/tree-sitter-python/0.23.3/source/tree-sitter.json
-3. [ ] Extend `AstLanguage` and extension routing:
+3. [ ] Confirm message contracts and storage shapes remain unchanged:
+   - Files to read:
+     - `server/src/mongo/astSymbol.ts`
+     - `server/src/mongo/astEdge.ts`
+     - `server/src/mongo/astReference.ts`
+     - `server/src/mongo/astModuleImport.ts`
+     - `server/src/ast/toolService.ts`
+     - `openapi.json`
+   - Implementation details:
+     - Ensure no schema or response shape changes are required; only the allowed `language` values expand.
+     - If any contracts do enumerate language values, update the enum list but keep shapes unchanged.
+4. [ ] Extend `AstLanguage` and extension routing:
    - Files to edit:
      - `server/src/ast/types.ts`
      - `server/src/ast/parser.ts`
@@ -349,7 +361,7 @@ Expand the AST language type and extension routing so ingest and tool validation
    - Documentation to read (repeat):
      - Tree-sitter language configuration: /tree-sitter/tree-sitter
      - Tree-sitter C++ grammar (extension defaults + node types): https://github.com/tree-sitter/tree-sitter-cpp
-4. [ ] Add startup log line for AST extension routing:
+5. [ ] Add startup log line for AST extension routing:
    - Files to edit:
      - `server/src/ast/parser.ts`
      - `server/src/logger.ts` (if helper usage is required)
@@ -360,7 +372,7 @@ Expand the AST language type and extension routing so ingest and tool validation
    - Purpose: Make extension routing visible in logs for manual verification.
    - Documentation to read (repeat):
      - Node.js logging patterns in repo (read existing `append` usage in `server/src/ast/parser.ts`).
-5. [ ] Update documentation — `design.md`:
+6. [ ] Update documentation — `design.md`:
    - Document: `design.md`.
    - Location: `design.md`.
    - Description: Add/confirm the supported AST language list and extension routing summary. If the ingest/AST flow changes, add or update a Mermaid diagram of the AST indexing flow.
@@ -368,14 +380,14 @@ Expand the AST language type and extension routing so ingest and tool validation
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
      - Mermaid: /mermaid-js/mermaid/v11_0_0
-6. [ ] Update documentation — `projectStructure.md` (if any new files are added in this task; otherwise confirm no change):
+7. [ ] Update documentation — `projectStructure.md` (if any new files are added in this task; otherwise confirm no change):
    - Document: `projectStructure.md`.
    - Location: `projectStructure.md`.
    - Description: Ensure the tree remains accurate if any files were added or removed.
    - Purpose: Maintain an accurate file map for the repo.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: /eslint/eslint/v9.37.0
      - Prettier CLI: /prettier/prettier/3.6.2
@@ -869,32 +881,23 @@ Validate the full story against acceptance criteria, run the complete test/build
 3. [ ] Perform a clean docker build.
    - Documentation to read (repeat):
      - Docker/Compose: /docker/docs
-4. [ ] Add log line for log-stream verification during manual checks:
-   - Files to edit:
-     - `server/src/routes/logs.ts`
-   - Implementation details:
-     - Emit log event `DEV-0000033:T5:logs-stream-opened` when a logs stream subscription starts.
-     - Include context `{ route: '/logs' }` and ensure it logs once per subscription.
-   - Purpose: Confirm logs streaming is active during manual Playwright checks.
-   - Documentation to read (repeat):
-     - Node.js logging patterns in repo (read existing logging in `server/src/routes/logs.ts`).
-5. [ ] Ensure `README.md` is updated with any required description or command changes added during this story.
+4. [ ] Ensure `README.md` is updated with any required description or command changes added during this story.
    - Purpose: Keep top-level usage and commands current.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-6. [ ] Ensure `design.md` is updated with any required description changes and mermaid diagrams added during this story.
+5. [ ] Ensure `design.md` is updated with any required description changes and mermaid diagrams added during this story.
    - Purpose: Ensure architecture notes and diagrams match implemented behavior.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
      - Mermaid: /mermaid-js/mermaid/v11_0_0
-7. [ ] Ensure `projectStructure.md` is updated with any updated, added or removed files & folders.
+6. [ ] Ensure `projectStructure.md` is updated with any updated, added or removed files & folders.
    - Purpose: Maintain an accurate inventory of the repo tree.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-8. [ ] Create a concise summary of all changes in this story and draft a pull request comment covering all tasks.
+7. [ ] Create a concise summary of all changes in this story and draft a pull request comment covering all tasks.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: /eslint/eslint/v9.37.0
      - Prettier CLI: /prettier/prettier/3.6.2
@@ -914,7 +917,6 @@ Validate the full story against acceptance criteria, run the complete test/build
    - Capture screenshots of Chat, Ingest, and Logs pages; ensure the agent verifies the GUI matches acceptance criteria and general regressions.
    - Screenshot storage: `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local`.
    - After capture, copy the screenshots into `./test-results/screenshots/` and name them with plan index, task number, and scenario.
-   - Logs page check: confirm `DEV-0000033:T5:logs-stream-opened` appears after opening Logs.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes

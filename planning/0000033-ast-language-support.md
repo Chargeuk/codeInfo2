@@ -116,27 +116,10 @@ These values come from each grammar’s `tree-sitter.json` and are used to keep 
 
 ---
 
-## Implementation Placement (CodeInfo2)
+## Validation & Testing Notes
 
-- Store custom locals queries alongside the AST parser as first‑class assets in CodeInfo2, under:
-  - `server/src/ast/queries/<language>/locals.scm`
-- Add a language‑specific loader in `server/src/ast/parser.ts` that prefers these local `locals.scm` files for languages lacking grammar‑provided locals queries.
-- Keep tags queries sourced from the grammar packages (`queries/tags.scm`) for languages that provide them.
-
----
-
-## Validation & Testing Approach
-
-- Create a minimal fixture file per language containing:
-  - At least one function and class/struct (where applicable)
-  - Local variable declarations and references
-  - A function call that references a locally declared symbol
-- Add parser‑level tests to assert:
-  - `locals.scm` captures both `@local.definition` and `@local.reference` for each language
-  - The AST output includes references for those symbols (non‑empty references result)
-- Prefer inline source strings in `server/src/test/unit/ast-parser.test.ts` (matching existing TS/TSX patterns) unless a fixture file is required for a specific grammar edge case.
-- Extend `server/src/test/unit/ingest-ast-indexing.test.ts` to include at least one file per new extension and assert supported counts/logs include those files.
-- Verify ingest logs show successful AST indexing for each language and no `locals.scm` missing warnings.
+- The detailed file-level placement and test instructions are captured in each task’s subtasks to avoid relying on story-wide context.
+- Use the per-subtask documentation links and file lists for implementation details.
 
 ---
 

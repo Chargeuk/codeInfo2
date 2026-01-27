@@ -271,6 +271,334 @@ Reference inputs:
 
 ---
 
+# Implementation Plan
+
+## Instructions
+
+This is a list of steps that must be copied into each new plan. It instructs how a developer work through the tasks.
+This should only be started once all the above sections are clear and understood AND all tasks have been created to a level that a very junior, inexperienced developer could work through without asking for help from a senior developer.
+
+1. Read and fully understand the design and tasks below before doing anything else so you know exactly what is required and why.
+2. Create (or reuse if it already exists) the feature branch for this phase using the established naming convention (for example `feature/<number>-<Title>`).
+3. Work through the tasks **in order**. Before touching any code, update the Task Status to `In progress`, commit & push that change, and only then begin implementation.
+4. For each task, execute every subtask sequentially: before starting a subtask, read the documentation sources listed in that task; after finishing the subtask, run the relevant linters/formatters (Python + TypeScript) and fix issues before continuing.
+5. Once a subtask is complete, mark its checkbox.
+6. Once all subtasks are done, Move on to the Testing section and work through the tests in order
+7. Once a test is complete, mark its checkbox.
+8. After tests pass, perform every documentation update listed for the task.
+9. Once a document is updated, mark its checkbox.
+10. When all subtasks, tests, documentation updates, and verification commands are complete, consider the task finished and follow points 11–13 below.
+11. As soon as a task’s implementation is done, add detailed notes in the Implementation notes section covering the code changes, decisions made, and any issues encountered. Push immediately after writing the notes.
+12. Record the relevant git commit hash(es) in the Git Commits section. Once they are pushed, set the task status to `Done`, and push again so both the commit IDs and updated status are captured in this document.
+13. After a task is fully documented (status, notes, commits), proceed to the next task and repeat the same process.
+
+---
+
 ## Tasks
 
-Tasks will be added once the Questions section is fully resolved.
+### 1. Server: AST language enum + extension routing
+
+- Task Status: **__to_do__**
+- Git Commits:
+
+#### Overview
+
+Expand the AST language type and extension routing so ingest and tool validation recognise Python, C#, Rust, and C++ files before parser work begins. This aligns validation with the new grammar defaults and keeps routing consistent across ingest + reembed flows.
+
+#### Documentation Locations
+
+- Tree-sitter language configuration (`tree-sitter.json` locals/tags defaults): /websites/tree-sitter_github_io_tree-sitter
+- Tree-sitter Python grammar (extension defaults + node types): https://github.com/tree-sitter/tree-sitter-python
+- Tree-sitter C# grammar (extension defaults + node types): https://github.com/tree-sitter/tree-sitter-c-sharp
+- Tree-sitter Rust grammar (extension defaults + node types): https://github.com/tree-sitter/tree-sitter-rust
+- Tree-sitter C++ grammar (extension defaults + node types): https://github.com/tree-sitter/tree-sitter-cpp
+- TypeScript handbook (union type updates): https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
+- Node.js test runner (unit tests): https://nodejs.org/api/test.html
+- Markdown Guide (doc edits): https://www.markdownguide.org/basic-syntax/
+- ESLint CLI (lint step): https://eslint.org/docs/latest/use/command-line-interface
+- Prettier CLI (format step): https://prettier.io/docs/cli
+- npm run-script (workspace commands): https://docs.npmjs.com/cli/v9/commands/npm-run-script
+
+#### Subtasks
+
+1. [ ] Review current AST language routing and supported extension logic:
+   - Files to read:
+     - `server/src/ast/types.ts`
+     - `server/src/ast/parser.ts`
+     - `server/src/ingest/ingestJob.ts`
+     - `server/src/test/unit/ast-tool-validation.test.ts`
+     - `server/src/test/unit/ingest-ast-indexing.test.ts`
+   - Notes:
+     - Identify the current `AstLanguage` union, `normalizeLanguage` logic, and the `astSupportedExtensions` set.
+2. [ ] Extend `AstLanguage` and extension routing:
+   - Files to edit:
+     - `server/src/ast/types.ts`
+     - `server/src/ast/parser.ts`
+     - `server/src/ingest/ingestJob.ts`
+   - Implementation details:
+     - Add `python`, `c_sharp`, `rust`, and `cpp` to the `AstLanguage` union and any related schema guards.
+     - Map `py`, `cs`, `rs`, `cc`, `cpp`, `cxx`, `hpp`, `hxx`, and `h` to the new languages (no extra overrides beyond grammar defaults).
+   - Documentation to read (repeat):
+     - Tree-sitter language configuration: /websites/tree-sitter_github_io_tree-sitter
+3. [ ] Update validation coverage for new language values:
+   - Test type: Unit (validation/guard coverage).
+   - Test location: `server/src/test/unit/ast-tool-validation.test.ts`.
+   - Description: Ensure validators accept the new language values and still reject unknown languages.
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+     - TypeScript handbook: https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
+4. [ ] Update documentation — `design.md`:
+   - Document: `design.md`.
+   - Location: `design.md`.
+   - Description: Add/confirm the supported AST language list and extension routing summary.
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+5. [ ] Update documentation — `projectStructure.md` (if any new files are added in this task; otherwise confirm no change):
+   - Document: `projectStructure.md`.
+   - Location: `projectStructure.md`.
+   - Description: Ensure the tree remains accurate if any files were added or removed.
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier CLI: https://prettier.io/docs/cli
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run compose:build`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test --workspace server`
+6. [ ] `npm run test --workspace client`
+7. [ ] `npm run e2e`
+8. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- 
+
+---
+
+### 2. Server: Tree-sitter grammars + locals queries
+
+- Task Status: **__to_do__**
+- Git Commits:
+
+#### Overview
+
+Wire the Tree-sitter grammar packages for Python, C#, Rust, and C++ into the parser and add custom `locals.scm` query files so symbol definitions and references are captured for each language.
+
+#### Documentation Locations
+
+- Tree-sitter query syntax + locals capture guide: /websites/tree-sitter_github_io_tree-sitter
+- Tree-sitter Python grammar (node types + queries): https://github.com/tree-sitter/tree-sitter-python
+- Tree-sitter C# grammar (node types + queries): https://github.com/tree-sitter/tree-sitter-c-sharp
+- Tree-sitter Rust grammar (node types + queries): https://github.com/tree-sitter/tree-sitter-rust
+- Tree-sitter C++ grammar (node types + queries): https://github.com/tree-sitter/tree-sitter-cpp
+- Node.js test runner (parser unit tests): https://nodejs.org/api/test.html
+- Markdown Guide (doc edits): https://www.markdownguide.org/basic-syntax/
+- ESLint CLI (lint step): https://eslint.org/docs/latest/use/command-line-interface
+- Prettier CLI (format step): https://prettier.io/docs/cli
+- npm run-script (workspace commands): https://docs.npmjs.com/cli/v9/commands/npm-run-script
+
+#### Subtasks
+
+1. [ ] Review existing parser/query loading patterns:
+   - Files to read:
+     - `server/src/ast/parser.ts`
+     - `server/src/types/tree-sitter.d.ts`
+     - `server/src/ast/queries/typescript/locals.scm`
+     - `server/src/test/unit/ast-parser.test.ts`
+   - Notes:
+     - Identify how tags/locals queries are loaded for JS/TS today.
+2. [ ] Add Tree-sitter grammar dependencies:
+   - Files to edit:
+     - `server/package.json`
+     - `package-lock.json`
+   - Implementation details:
+     - Add `tree-sitter-python`, `tree-sitter-c-sharp`, `tree-sitter-rust`, and `tree-sitter-cpp` with versions aligned to existing Tree-sitter dependencies.
+3. [ ] Extend Tree-sitter module declarations for new grammars:
+   - Files to edit:
+     - `server/src/types/tree-sitter.d.ts`
+   - Implementation details:
+     - Add module declarations for each new grammar package so TypeScript can import them cleanly.
+4. [ ] Wire new languages into the parser + query loader:
+   - Files to edit:
+     - `server/src/ast/parser.ts`
+   - Implementation details:
+     - Register `python`, `c_sharp`, `rust`, and `cpp` in `getLanguageConfig` or equivalent language map.
+     - Load `queries/tags.scm` from each grammar package and load `locals.scm` from `server/src/ast/queries/<language>/locals.scm` for the new languages.
+5. [ ] Create custom locals queries for new languages:
+   - Files to add:
+     - `server/src/ast/queries/python/locals.scm`
+     - `server/src/ast/queries/c_sharp/locals.scm`
+     - `server/src/ast/queries/rust/locals.scm`
+     - `server/src/ast/queries/cpp/locals.scm`
+   - Implementation details:
+     - Use the grammar `node-types.json` for node names; capture `@local.scope`, `@local.definition`, and `@local.reference` for each language.
+     - Use the code-graph-rag reference inputs listed earlier in this plan to confirm node coverage.
+6. [ ] Add parser unit coverage for new languages:
+   - Test type: Unit (parser output).
+   - Test location: `server/src/test/unit/ast-parser.test.ts`.
+   - Description: Add minimal inline fixtures per language and assert at least one `@local.definition` and one `@local.reference` capture, plus non-empty references in the output.
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+     - Tree-sitter query syntax: /websites/tree-sitter_github_io_tree-sitter
+7. [ ] Update documentation — `design.md`:
+   - Document: `design.md`.
+   - Location: `design.md`.
+   - Description: Note the new grammar packages and that Python/C#/Rust/C++ locals queries are CodeInfo2-owned.
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+8. [ ] Update documentation — `projectStructure.md`:
+   - Document: `projectStructure.md`.
+   - Location: `projectStructure.md`.
+   - Description: Add the new `server/src/ast/queries/*/locals.scm` files to the tree.
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier CLI: https://prettier.io/docs/cli
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run compose:build`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test --workspace server`
+6. [ ] `npm run test --workspace client`
+7. [ ] `npm run e2e`
+8. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- 
+
+---
+
+### 3. Server: Ingest AST indexing coverage + logging
+
+- Task Status: **__to_do__**
+- Git Commits:
+
+#### Overview
+
+Extend ingest AST indexing coverage so the new language extensions are parsed during `start` and `reembed`, and update logs/tests to confirm skip reasons and successful AST attempts.
+
+#### Documentation Locations
+
+- Tree-sitter query/locals guidance: /websites/tree-sitter_github_io_tree-sitter
+- Node.js test runner (ingest unit tests): https://nodejs.org/api/test.html
+- Markdown Guide (doc edits): https://www.markdownguide.org/basic-syntax/
+- ESLint CLI (lint step): https://eslint.org/docs/latest/use/command-line-interface
+- Prettier CLI (format step): https://prettier.io/docs/cli
+- npm run-script (workspace commands): https://docs.npmjs.com/cli/v9/commands/npm-run-script
+
+#### Subtasks
+
+1. [ ] Review ingest AST indexing flow + tests:
+   - Files to read:
+     - `server/src/ingest/ingestJob.ts`
+     - `server/src/ingest/deltaPlan.ts`
+     - `server/src/test/unit/ingest-ast-indexing.test.ts`
+     - `server/src/ingest/__fixtures__` (if fixtures are used for AST indexing tests)
+   - Notes:
+     - Locate the AST parse call site, the supported extension check, and existing log messages for unsupported extensions.
+2. [ ] Ensure ingest AST indexing covers new languages during `start` + `reembed`:
+   - Files to edit:
+     - `server/src/ingest/ingestJob.ts`
+   - Implementation details:
+     - Confirm AST parsing is attempted for supported files even when vector delta logic skips embeddings.
+     - Log unsupported extensions with extension + reason, and ensure logs do not emit a “locals.scm missing” warning for the new languages.
+3. [ ] Update ingest AST indexing tests for new extensions:
+   - Test type: Unit (ingest AST indexing).
+   - Test location: `server/src/test/unit/ingest-ast-indexing.test.ts`.
+   - Description: Add at least one file per new extension (`.py`, `.cs`, `.rs`, `.cpp`/`.h`) and assert supported counts + reembed AST attempts.
+   - Assertions:
+     - Logs include unsupported extension reasons for non-supported files.
+     - Logs include AST parsing attempts for the new languages during reembed.
+   - Documentation to read (repeat):
+     - Node.js test runner: https://nodejs.org/api/test.html
+4. [ ] Update documentation — `design.md`:
+   - Document: `design.md`.
+   - Location: `design.md`.
+   - Description: Document ingest AST indexing coverage for Python/C#/Rust/C++ and note the skip-log behaviour.
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+5. [ ] Update documentation — `projectStructure.md` (if new fixture files are added):
+   - Document: `projectStructure.md`.
+   - Location: `projectStructure.md`.
+   - Description: Add new fixture files to the tree if any are introduced.
+   - Documentation to read (repeat):
+     - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier CLI: https://prettier.io/docs/cli
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run compose:build`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test --workspace server`
+6. [ ] `npm run test --workspace client`
+7. [ ] `npm run e2e`
+8. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- 
+
+---
+
+### 4. Final verification + acceptance criteria
+
+- Task Status: **__to_do__**
+- Git Commits:
+
+#### Overview
+
+Validate the full story against acceptance criteria, run the complete test/build workflow, refresh documentation, and prepare the pull request summary.
+
+#### Documentation Locations
+
+- Docker/Compose: /docker/docs
+- Playwright: /microsoft/playwright
+- Husky: /typicode/husky
+- Mermaid: /mermaid-js/mermaid
+- Jest: /jestjs/jest
+- Cucumber guides: https://cucumber.io/docs/guides/
+- Markdown Guide: https://www.markdownguide.org/basic-syntax/
+- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+- Prettier CLI: https://prettier.io/docs/cli
+- npm run-script: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+
+#### Subtasks
+
+1. [ ] Build the server.
+2. [ ] Build the client.
+3. [ ] Perform a clean docker build.
+4. [ ] Ensure `README.md` is updated with any required description or command changes added during this story.
+5. [ ] Ensure `design.md` is updated with any required description changes and mermaid diagrams added during this story.
+6. [ ] Ensure `projectStructure.md` is updated with any updated, added or removed files & folders.
+7. [ ] Create a concise summary of all changes in this story and draft a pull request comment covering all tasks.
+
+#### Testing
+
+1. [ ] Run the client Jest tests.
+2. [ ] Run the server Cucumber tests.
+3. [ ] Restart the docker environment.
+4. [ ] Run the e2e tests.
+5. [ ] Use the Playwright MCP tool to manually check the application, saving screenshots to `./test-results/screenshots/` (name each screenshot with the plan index, task number, and scenario).
+
+#### Implementation notes
+
+- 
+
+---

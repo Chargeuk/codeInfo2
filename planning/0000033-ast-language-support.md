@@ -24,9 +24,12 @@ This phase focuses on language coverage only. We will reuse the existing AST sch
 ## Acceptance Criteria
 
 - Ingest `start` and `reembed` parse ASTs for any file whose language is detected as **javascript**, **typescript**, **tsx**, **python**, **c_sharp**, **rust**, or **cpp**; a repo containing at least one file per language yields AST records with those `language` values.
+- File-extension routing mirrors each grammar’s `tree-sitter.json` defaults: `py` → python, `cs` → c_sharp, `rs` → rust, `cc/cpp/cxx/hpp/hxx/h` → cpp.
 - New grammars are wired to the expected packages: `tree-sitter-python`, `tree-sitter-c-sharp`, `tree-sitter-rust`, and `tree-sitter-cpp`; no custom file‑extension overrides are added beyond the grammar defaults.
 - Custom locals queries exist at `server/src/ast/queries/<language>/locals.scm` for **python**, **c_sharp**, **rust**, and **cpp**, and the parser loads these files for those languages while still loading `tags.scm` from the grammar packages.
+- Because `tree-sitter-c-sharp` does not ship `tags.scm`, CodeInfo2 provides `server/src/ast/queries/c_sharp/tags.scm` and loads it for C# symbol extraction.
 - Parser‑level tests with minimal fixtures for python/c_sharp/rust/cpp assert at least one `@local.definition` and one `@local.reference` capture per language, and the resulting AST output includes reference entries for those symbols.
+- Parser tests for C# assert at least one definition capture from the local `tags.scm` (function/class/field) to ensure symbol extraction is not empty.
 - AST indexing remains additive: existing embedding counts, ingest totals, and model‑locking behavior remain unchanged in current test/fixture runs (no regressions introduced).
 - AST parsing does not skip supported files during `reembed` based on delta logic; logs confirm AST parsing attempts occur for supported files on reembed.
 - Server logs report unsupported file extensions with the extension and skip reason, and do not emit “Tree‑sitter query files missing; skipping AST parse” for the four new languages.
@@ -80,6 +83,29 @@ The following grammars **do not ship `locals.scm`** in their official Tree‑sit
 - Rust (`tree-sitter-rust`)
 - C++ (`tree-sitter-cpp`)
 
+The following grammar **does not ship `tags.scm`**, so we must author a local tags query to keep symbol extraction consistent with JS/TS:
+
+- C# (`tree-sitter-c-sharp`)
+
+---
+
+## Tree-sitter.json Defaults (File Types + Query Files)
+
+These values come from each grammar’s `tree-sitter.json` and are used to keep extension routing and query expectations aligned with upstream defaults.
+
+- **Python**
+  - File types: `py`
+  - Query files: `highlights.scm`, `tags.scm` (no `locals.scm`)
+- **C#**
+  - File types: `cs`
+  - Query files: `highlights.scm`, `folds.scm`, `indents.scm`, `textobjects.scm` (no `tags.scm`, no `locals.scm`)
+- **Rust**
+  - File types: `rs`
+  - Query files: `highlights.scm`, `injections.scm`, `tags.scm` (no `locals.scm`)
+- **C++**
+  - File types: `cc`, `cpp`, `cxx`, `hpp`, `hxx`, `h`
+  - Query files: `highlights.scm` (includes tree-sitter-c highlights), `injections.scm`, `tags.scm` (no `locals.scm`)
+
 ---
 
 ## Documentation Locations (node-types.json sources)
@@ -88,6 +114,7 @@ The following grammars **do not ship `locals.scm`** in their official Tree‑sit
 - C#: `https://github.com/tree-sitter/tree-sitter-c-sharp/blob/master/src/node-types.json`
 - Rust: `https://github.com/tree-sitter/tree-sitter-rust/blob/master/src/node-types.json`
 - C++: `https://github.com/tree-sitter/tree-sitter-cpp/blob/master/src/node-types.json`
+- Tree-sitter `tree-sitter.json` and query conventions: `https://tree-sitter.github.io/tree-sitter/3-syntax-highlighting.html`
 
 ---
 
@@ -95,8 +122,10 @@ The following grammars **do not ship `locals.scm`** in their official Tree‑sit
 
 - Store custom locals queries alongside the AST parser as first‑class assets in CodeInfo2, under:
   - `server/src/ast/queries/<language>/locals.scm`
-- Add a language‑specific loader in `server/src/ast/parser.ts` that prefers these local `locals.scm` files for languages lacking grammar‑provided locals queries.
-- Keep tags queries sourced from the grammar packages (`queries/tags.scm`) for all languages.
+- Store custom tags queries for C# alongside locals:
+  - `server/src/ast/queries/c_sharp/tags.scm`
+- Add a language‑specific loader in `server/src/ast/parser.ts` that prefers these local `locals.scm` files for languages lacking grammar‑provided locals queries, and prefers the local C# `tags.scm` when the grammar does not ship one.
+- Keep tags queries sourced from the grammar packages (`queries/tags.scm`) for languages that provide them.
 
 ---
 
@@ -109,6 +138,7 @@ The following grammars **do not ship `locals.scm`** in their official Tree‑sit
 - Add parser‑level tests to assert:
   - `locals.scm` captures both `@local.definition` and `@local.reference` for each language
   - The AST output includes references for those symbols (non‑empty references result)
+- For C#, add a tags query test (or extend the existing parser test) to assert at least one definition capture from the local `tags.scm`.
 - Verify ingest logs show successful AST indexing for each language and no `locals.scm` missing warnings.
 
 ---

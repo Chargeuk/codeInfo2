@@ -17,6 +17,7 @@ import {
   clearLockedModel,
   clearRootsCollection,
   clearVectorsCollection,
+  getRootsCollection,
 } from '../../ingest/chromaClient.js';
 import { setIngestDeps } from '../../ingest/ingestJob.js';
 import { createRequestLogger } from '../../logger.js';
@@ -100,6 +101,56 @@ Given('ingest roots chroma stores are empty', async () => {
   await clearVectorsCollection();
 });
 
+Given('ingest roots chroma has root metadata with ast counts', async () => {
+  const roots = await getRootsCollection();
+  const now = new Date().toISOString();
+  await roots.add({
+    ids: ['run-ast'],
+    embeddings: [[0]],
+    metadatas: [
+      {
+        runId: 'run-ast',
+        root: '/repo/ast',
+        name: 'ast-root',
+        model: 'embed-1',
+        files: 2,
+        chunks: 3,
+        embedded: 3,
+        state: 'completed',
+        lastIngestAt: now,
+        ingestedAtMs: Date.now(),
+        astSupportedFileCount: 4,
+        astSkippedFileCount: 1,
+        astFailedFileCount: 2,
+        astLastIndexedAt: now,
+      },
+    ],
+  });
+});
+
+Given('ingest roots chroma has root metadata without ast counts', async () => {
+  const roots = await getRootsCollection();
+  const now = new Date().toISOString();
+  await roots.add({
+    ids: ['run-no-ast'],
+    embeddings: [[0]],
+    metadatas: [
+      {
+        runId: 'run-no-ast',
+        root: '/repo/no-ast',
+        name: 'no-ast-root',
+        model: 'embed-1',
+        files: 1,
+        chunks: 1,
+        embedded: 1,
+        state: 'completed',
+        lastIngestAt: now,
+        ingestedAtMs: Date.now(),
+      },
+    ],
+  });
+});
+
 When('I GET the ingest roots endpoint', async () => {
   const res = await fetch(`${baseUrl}/ingest/roots`);
   response = { status: res.status, body: await res.json() };
@@ -120,3 +171,36 @@ Then('the response body should include empty roots and no locked model', () => {
     'lockedModelId should be null or undefined',
   );
 });
+
+Then('the response body should include ast counts for the root', () => {
+  const body = response?.body as { roots?: unknown[] };
+  assert.ok(body?.roots, 'roots should be present');
+  assert.equal(body.roots?.length, 1);
+  const root = body.roots?.[0] as {
+    ast?: {
+      supportedFileCount?: number;
+      skippedFileCount?: number;
+      failedFileCount?: number;
+      lastIndexedAt?: string | null;
+    };
+  };
+  assert.ok(root.ast, 'ast should be present');
+  assert.equal(root.ast?.supportedFileCount, 4);
+  assert.equal(root.ast?.skippedFileCount, 1);
+  assert.equal(root.ast?.failedFileCount, 2);
+  assert.ok(
+    typeof root.ast?.lastIndexedAt === 'string',
+    'lastIndexedAt should be string',
+  );
+});
+
+Then(
+  'the response body should include root metadata without ast counts',
+  () => {
+    const body = response?.body as { roots?: unknown[] };
+    assert.ok(body?.roots, 'roots should be present');
+    assert.equal(body.roots?.length, 1);
+    const root = body.roots?.[0] as { ast?: unknown };
+    assert.equal(root.ast, undefined);
+  },
+);

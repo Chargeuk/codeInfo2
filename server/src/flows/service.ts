@@ -1167,17 +1167,18 @@ const validateResumeAgentConversations = async (
   }
 };
 
-const loadCommandForAgent = async (params: {
-  agentHome: string;
-  commandName: string;
-}): Promise<
+type LoadCommandResult =
   | {
       ok: true;
       commandName: string;
       command: { items: Array<{ content: string[] }> };
     }
-  | { ok: false; message: string }
-> => {
+  | { ok: false; message: string };
+
+const loadCommandForAgent = async (params: {
+  agentHome: string;
+  commandName: string;
+}): Promise<LoadCommandResult> => {
   const rawName = params.commandName;
   if (!isSafeCommandName(rawName)) {
     return { ok: false, message: 'commandName must be a valid file name' };

@@ -15,3 +15,5 @@ While planning, you ALWAYS follow these rules:
 4. You do not future plan unless explicitly told to, so you look for the least complex and simplest way to implement something while planning.
 5. You ensure that all unknowns become knowns by adding logging to the existing code or by performing research or by creating small test apps to truely understand what is actually needed. If necessary, you will look up documentation and into the codebase using mcp tools to ensure all information is known and documented up front.
 6. Changes upstream are preferable to fixes and bespoke handling downstream. Data should be in the correct structure at the point of arriving in the application/component/class/method that needs to process it, so you task up with this in mind.
+
+AST indexing note: Tree-sitter supports TSX via tree-sitter-typescript, but raw `&` in JSX text can cause parse errors; use `&amp;` or `{ '&' }`. If AST failures occur, server logs now emit `AST indexing failed for file(s)` with example relPath, error, and line/column/snippet details to make the issue actionable.

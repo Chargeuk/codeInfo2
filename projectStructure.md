@@ -256,7 +256,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚  â”œâ”€ .env â€” server default env (PORT, LMSTUDIO_BASE_URL)
 â”‚  â”œâ”€ .env.local â€” server local overrides (ignored by git consumers)
 â”‚  â”œâ”€ .prettierignore â€” server-specific Prettier ignore
-â”‚  â”œâ”€ Dockerfile â€” server image build
+â”‚  â”œâ”€ Dockerfile â€” server image build (deps stage installs Python/make/g++ for Tree-sitter)
 â”‚  â”œâ”€ entrypoint.sh â€” server startup script (launches headless Chrome + API)
 â”‚  â”œâ”€ npm-global.txt â€” list of global npm tools installed in the server image
 â”‚  â”œâ”€ requirements.txt â€” Python package list for the server image
@@ -268,6 +268,10 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚     â”œâ”€ index.ts â€” Express app entry
 â”‚     â”œâ”€ logger.ts â€” pino/pino-http setup with rotation and env config helper
 â”‚     â”œâ”€ logStore.ts â€” in-memory log buffer with sequence numbers and filters
+â”‚     â”œâ”€ ast/
+â”‚     â”‚  â”œâ”€ parser.ts â€” Tree-sitter parser module for AST extraction
+â”‚     â”‚  â”œâ”€ toolService.ts â€” AST tool validation and query service
+â”‚     â”‚  â””â”€ types.ts â€” AST parser types and result shapes
 â”‚     â”œâ”€ config/
 â”‚     â”‚  â”œâ”€ codexConfig.ts â€” Codex home/env config builder
 â”‚     â”‚  â””â”€ codexEnvDefaults.ts â€” Codex env defaults parser + warnings helper
@@ -295,12 +299,22 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚     â”‚  â”œâ”€ flowsRun.ts — POST /flows/:flowName/run flow runner endpoint
 â”‚     â”‚  â”œâ”€ toolsIngestedRepos.ts â€” GET /tools/ingested-repos repo list for agent tools
 â”‚     â”‚  â”œâ”€ toolsVectorSearch.ts â€” POST /tools/vector-search chunk search with optional repo filter
+â”‚     â”‚  â”œâ”€ toolsAstListSymbols.ts â€” POST /tools/ast-list-symbols AST symbol listing
+â”‚     â”‚  â”œâ”€ toolsAstFindDefinition.ts â€” POST /tools/ast-find-definition AST definition lookup
+â”‚     â”‚  â”œâ”€ toolsAstFindReferences.ts â€” POST /tools/ast-find-references AST reference lookup
+â”‚     â”‚  â”œâ”€ toolsAstCallGraph.ts â€” POST /tools/ast-call-graph AST call graph query
+â”‚     â”‚  â”œâ”€ toolsAstModuleImports.ts â€” POST /tools/ast-module-imports AST module import summary
 â”‚     â”‚  â””â”€ lmstudio.ts â€” LM Studio proxy route
 â”‚     â”œâ”€ mongo/
 â”‚     â”‚  â”œâ”€ connection.ts — Mongoose connect/disconnect helpers with strictQuery + logging
 â”‚     â”‚  â”œâ”€ conversation.ts — conversation schema/model (provider, agentName?, flags, lastMessageAt, archivedAt)
 â”‚     â”‚  â”œâ”€ turn.ts — turn schema/model (role/content/provider/model/toolCalls/status)
 â”‚     â”‚  â”œâ”€ ingestFile.ts — per-file hash index schema/model for delta ingest decisions
+â”‚     â”‚  â”œâ”€ astCoverage.ts — AST coverage schema/model (per-root counts + lastIndexedAt)
+â”‚     â”‚  â”œâ”€ astEdge.ts — AST edge schema/model (call/import edges per file)
+â”‚     â”‚  â”œâ”€ astModuleImport.ts — AST module import schema/model (source + imported names)
+â”‚     â”‚  â”œâ”€ astReference.ts — AST reference schema/model (symbol/name references)
+â”‚     â”‚  â”œâ”€ astSymbol.ts — AST symbol schema/model (deterministic symbolId + range)
 â”‚     â”‚  â””â”€ repo.ts — persistence helpers for create/update/archive/restore/list + turn append
 â”‚     â”œâ”€ mcp/ — Express MCP v1 endpoint (POST /mcp) exposing ingest tools to agent clients
 â”‚     â”‚  â””â”€ server.ts — Express MCP v1 router (initialize/tools/resources); uses mcpCommon helpers while preserving wire formats, tool schemas, and domain error mapping
@@ -347,7 +361,8 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚     â”‚  â”œâ”€ toolService.ts â€” shared helpers for LM Studio tools + tooling routes (list/search)
 â”‚     â”‚  â””â”€ tools.ts â€” LM Studio tool schemas for list/vector search used by chat
 â”‚     â”œâ”€ types/
-â”‚     â”‚  â””â”€ pino-roll.d.ts â€” module shim for pino-roll until official types
+â”‚     â”‚  â”œâ”€ pino-roll.d.ts â€” module shim for pino-roll until official types
+â”‚     â”‚  â””â”€ tree-sitter.d.ts â€” local module shim for tree-sitter typings
 â”‚     â””â”€ test/
 â”‚        â”œâ”€ fixtures/
 â”‚        â”‚  â”œâ”€ flows/
@@ -417,7 +432,17 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚           â”œâ”€ toolService.synthetic.test.ts — unit coverage for onToolResult callback emission
 â”‚           â”œâ”€ chroma-embedding-selection.test.ts â€” locked-model embedding function selection + error paths
 â”‚           â”œâ”€ ingest-status.test.ts â€” ingest status progress fields round-trip helper coverage
+â”‚           â”œâ”€ ingest-ast-indexing.test.ts â€” unit coverage for AST ingest counts, delta handling, and persistence skipping
 â”‚           â”œâ”€ ingest-files-schema.test.ts â€” unit coverage for `ingest_files` Mongoose schema fields + indexes
+â”‚           â”œâ”€ ast-symbols-schema.test.ts â€” unit coverage for `ast_symbols` schema fields + indexes
+â”‚           â”œâ”€ ast-edges-schema.test.ts â€” unit coverage for `ast_edges` schema fields + indexes
+â”‚           â”œâ”€ ast-references-schema.test.ts â€” unit coverage for `ast_references` schema fields + indexes
+â”‚           â”œâ”€ ast-module-imports-schema.test.ts â€” unit coverage for `ast_module_imports` schema fields + indexes
+â”‚           â”œâ”€ ast-coverage-schema.test.ts â€” unit coverage for `ast_coverage` schema fields + indexes
+â”‚           â”œâ”€ ast-parser.test.ts â€” unit coverage for Tree-sitter parser output shapes
+â”‚           â”œâ”€ ast-repo-guards.test.ts â€” unit coverage for mongo disconnected guard behaviour in AST repo helpers
+â”‚           â”œâ”€ ast-tool-service.test.ts â€” unit coverage for AST tool service queries and error mapping
+â”‚           â”œâ”€ ast-tool-validation.test.ts â€” unit coverage for AST tool request validation
 â”‚           â”œâ”€ ingest-files-repo-guards.test.ts â€” unit coverage for mongo disconnected guard behaviour in ingest_files repo helpers
 â”‚           â”œâ”€ ingest-delta-plan.test.ts â€” unit coverage for delta planning categorization logic
 â”‚           â”œâ”€ tools-ingested-repos.test.ts â€” supertest coverage for /tools/ingested-repos
@@ -440,7 +465,8 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚        |  â”œâ”€ flows.run.working-folder.test.ts â€” integration coverage for flow run working_folder validation
 â”‚        |  â”œâ”€ flows.run.hot-reload.test.ts â€” integration coverage for flow run hot reload
 â”‚        |  â”œâ”€ flows.run.loop.test.ts â€” integration coverage for flow run loop + break
-â”‚        |  â””â”€ flows.turn-metadata.test.ts â€” integration coverage for flow command metadata
+â”‚        |  â”œâ”€ flows.turn-metadata.test.ts â€” integration coverage for flow command metadata
+â”‚        |  â””â”€ tools-ast.test.ts â€” integration coverage for AST REST tool routes
 â”‚        |  â”œâ”€ chat-tools-wire.test.ts â€” chat route wiring (POST /chat 202 + WS bridge) with mocked LM Studio tools
 â”‚        |  â”œâ”€ chat-vectorsearch-locked-model.test.ts â€” chat run error/success flows when vector search lock/embedding availability changes
 â”‚        |  â”œâ”€ chat-codex.test.ts — Codex chat run flow, thread reuse, and availability gating
@@ -546,6 +572,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 - server/src/test/support/wsClient.ts — shared WebSocket test helper (connect/sendJson/waitForEvent/close) used by Cucumber + node:test
 - server/src/test/unit/ws-chat-stream.test.ts — unit coverage for WS transcript sequencing, catch-up snapshots, cancellation errors, unsubscribe behavior, and inflight cleanup
 - server/src/test/integration/mcp-codebase-question-ws-stream.test.ts — integration coverage proving MCP `codebase_question` runs publish WS transcript updates
+- server/src/test/integration/mcp-server.test.ts — integration coverage for MCP v1 tools/list + tools/call (vector search + AST tools) and error mappings
 - server/src/test/integration/agents-run-ws-stream.test.ts — integration coverage proving agent runs publish WS transcript updates
 - server/src/test/integration/agents-run-ws-cancel.test.ts — integration coverage proving agent runs can be cancelled via WS `cancel_inflight`
 - server/src/test/integration/agents-run-client-conversation-id.test.ts — integration coverage proving client-supplied conversation ids can be new on first Agents run

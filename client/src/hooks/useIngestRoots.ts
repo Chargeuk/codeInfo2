@@ -16,6 +16,12 @@ export type IngestRoot = {
     chunks?: number;
     embedded?: number;
   };
+  ast?: {
+    supportedFileCount?: number;
+    skippedFileCount?: number;
+    failedFileCount?: number;
+    lastIndexedAt?: string | null;
+  };
   lastError?: string | null;
 };
 

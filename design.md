@@ -1218,6 +1218,43 @@ sequenceDiagram
   end
 ```
 
+#### Ingest status payload (AST counts)
+
+- `IngestJobStatus` includes an optional `ast` object when AST counts are available.
+- AST counts include totals for supported, skipped, and failed AST parses plus `lastIndexedAt`.
+
+```json
+{
+  "runId": "abc",
+  "state": "embedding",
+  "counts": { "files": 3, "chunks": 12, "embedded": 5 },
+  "ast": {
+    "supportedFileCount": 2,
+    "skippedFileCount": 1,
+    "failedFileCount": 0,
+    "lastIndexedAt": "2026-01-27T00:00:00.000Z"
+  },
+  "currentFile": "/repo/src/index.ts",
+  "fileIndex": 1,
+  "fileTotal": 3,
+  "percent": 33.3,
+  "etaMs": 1200
+}
+```
+
+```mermaid
+sequenceDiagram
+  participant Ingest as Ingest job
+  participant WS as WebSocket (/ws)
+  participant Hook as useIngestStatus
+  participant UI as Ingest page
+
+  Ingest->>WS: publish ingest_update { status.ast }
+  WS-->>Hook: ingest_update { status }
+  Hook-->>UI: set status (counts + ast)
+  Hook-->>Hook: console.info DEV-0000032:T10:ast-status-received
+```
+
 #### Ingest status hook flow (WS-only)
 
 - `useIngestStatus` subscribes to ingest on mount and updates local state from `ingest_snapshot` and `ingest_update` events.
@@ -1245,11 +1282,13 @@ sequenceDiagram
 sequenceDiagram
   participant Job as Ingest job
   participant WS as WebSocket (/ws)
+  participant REST as /ingest/status/:runId
   participant UI as Ingest page
 
   Job->>WS: setStatusAndPublish(status)
   WS->>WS: broadcastIngestUpdate(status)
   WS-->>UI: ingest_update {seq, status}
+  REST-->>UI: status payload {status + ast}
   Note over WS,UI: seq increments per socket on each update
 ```
 
@@ -1259,6 +1298,7 @@ sequenceDiagram
 
 - Endpoint: `GET /ingest/roots` reads the `ingest_roots` collection metadata and returns stored roots sorted by `lastIngestAt` descending plus the current `lockedModelId` for the vectors collection.
 - Response is de-duplicated by `path` to keep the UI stable when multiple metadata entries exist for the same root; the server keeps the most recent entry (prefers `lastIngestAt` when present, otherwise falls back to `runId` ordering).
+- Root metadata includes optional `ast` counts (`supportedFileCount`, `skippedFileCount`, `failedFileCount`, `lastIndexedAt`); legacy/dry-run entries may omit the `ast` field.
 - Response shape:
   ```json
   {
@@ -1272,6 +1312,12 @@ sequenceDiagram
         "status": "completed",
         "lastIngestAt": "2025-01-01T12:00:00.000Z",
         "counts": { "files": 3, "chunks": 12, "embedded": 12 },
+        "ast": {
+          "supportedFileCount": 12,
+          "skippedFileCount": 4,
+          "failedFileCount": 0,
+          "lastIndexedAt": "2025-01-01T12:00:00.000Z"
+        },
         "lastError": null
       }
     ],
@@ -1331,6 +1377,127 @@ sequenceDiagram
     Client->>Server: GET /ingest/status/:runId
     Server-->>Client: {state, counts, message}
   end
+```
+
+### AST indexing storage
+
+- Tree-sitter AST indexing persists symbol/edge/reference/import records alongside coverage counts per ingest root.
+- Tree-sitter native bindings require a build toolchain (Python 3, make, and a C++ compiler) during `npm ci` for Docker builds.
+- Collections:
+  - `ast_symbols` stores module/class/function symbols with 1-based ranges and deterministic `symbolId` per root.
+  - `ast_edges` stores call/define/import edges keyed by `root + relPath + fileHash`.
+  - `ast_references` stores references by `symbolId` or `{ name, kind }` for legacy lookups.
+  - `ast_module_imports` stores module imports per file with `source` and imported `names`.
+  - `ast_coverage` stores per-root coverage counts and `lastIndexedAt`.
+- The AST parser reads `queries/tags.scm` and `queries/locals.scm` from the grammar packages, logs `DEV-0000032:T4:ast-parser-queries-loaded` once per language, and emits module + definition symbols with `DEFINES`, `CALLS`, `IMPORTS`, `EXPORTS`, `EXTENDS`, `IMPLEMENTS`, and `REFERENCES_TYPE` edges.
+- When `createSymbolIdFactory` encounters a duplicate hash, it logs `DEV-0000032:T13:ast-symbolid-collision` with the base string and suffix count.
+- Ingest AST indexing uses `discoverFiles` output (include/exclude + hashing) and, on delta re-embed, parses all supported files while deleting AST records for changed/deleted paths so AST coverage stays complete.
+- Unsupported extensions increment `ast.skippedFileCount` and emit a warning with example paths; supported parse failures increment `ast.failedFileCount` without aborting the run.
+- Dry-run ingests still parse and count AST coverage but skip Mongo writes; if Mongo is disconnected, AST writes are skipped with a warning.
+- `DEV-0000032:T5:ast-index-complete` is logged after AST coverage is persisted.
+
+```mermaid
+erDiagram
+  AST_COVERAGE ||--o{ AST_SYMBOLS : "root"
+  AST_SYMBOLS ||--o{ AST_EDGES : "fromSymbolId"
+  AST_SYMBOLS ||--o{ AST_EDGES : "toSymbolId"
+  AST_SYMBOLS ||--o{ AST_REFERENCES : "symbolId"
+  AST_SYMBOLS ||--o{ AST_MODULE_IMPORTS : "root+relPath"
+```
+
+- AST persistence helpers live in `server/src/mongo/repo.ts` and use `mongoose.connection.readyState` guards to return `null` when Mongo is unavailable.
+- Symbol/edge/reference upserts use bulkWrite (ordered false), while module imports and coverage use upserted updateOne and deleteMany clears by `root`.
+
+### AST tool service
+
+- AST tool handlers validate inputs (repository required; identifiers required for definition/reference/call-graph) with `limit=50` default and `200` cap.
+- Repository resolution reuses `listIngestedRepositories`, selecting the newest `lastIngestAt` entry and using `containerPath` as the AST `root`.
+- Repository ids and kind filters are case-insensitive; inputs are normalized to canonical casing before queries.
+- Validation errors list supported kinds and available AST-enabled repository ids when inputs are unsupported.
+- Missing ingests return `INGEST_REQUIRED`; missing coverage returns `AST_INDEX_REQUIRED`; unknown repo ids return `REPO_NOT_FOUND`.
+- Tool queries map to Mongo collections: symbols (list/filter), definition (symbolId or name+kind), references (symbolId or name+kind), call graph (CALLS edges to depth), module imports (per file).
+- Each request logs `DEV-0000032:T7:ast-tool-service-request` with tool + repository context.
+
+```mermaid
+flowchart LR
+  A[AST tool request] --> B[validate payload]
+  B --> C[listIngestedRepositories]
+  C --> D{repo found?}
+  D -->|no| E[REPO_NOT_FOUND]
+  D -->|yes| F[coverage lookup]
+  F -->|missing| G[AST_INDEX_REQUIRED]
+  F -->|ok| H[AST collection query]
+  H --> I[tool response]
+  C -->|none| J[INGEST_REQUIRED]
+```
+
+### AST MCP tools
+
+- MCP `/mcp` exposes AST tools alongside VectorSearch with JSON-RPC `tools/list` + `tools/call`.
+- MCP tool results return JSON payloads in the text content segment (stringified response).
+- Error mapping: `VALIDATION_FAILED` -> `-32602`, `REPO_NOT_FOUND` -> `404`, `INGEST_REQUIRED` / `AST_INDEX_REQUIRED` -> `409`.
+- MCP tool registration logs `DEV-0000032:T9:ast-mcp-tools-registered` with tool count.
+
+```mermaid
+flowchart LR
+  A[MCP client] -->|tools/call| B[POST /mcp]
+  B --> C[AST MCP tool dispatcher]
+  C --> D[AST tool service]
+  D --> E[(Mongo AST collections)]
+  D --> F[JSON payload response]
+```
+
+### AST REST tools
+
+- REST endpoints mirror MCP tool contracts:
+  - `POST /tools/ast-list-symbols`
+  - `POST /tools/ast-find-definition`
+  - `POST /tools/ast-find-references`
+  - `POST /tools/ast-call-graph`
+  - `POST /tools/ast-module-imports`
+- Error mapping mirrors tool service responses: `VALIDATION_FAILED` (400), `REPO_NOT_FOUND` (404), `INGEST_REQUIRED` (409), `AST_INDEX_REQUIRED` (409).
+- Each request logs `DEV-0000032:T8:ast-rest-request` with the route and repository.
+
+```mermaid
+flowchart LR
+  A[Client] -->|POST /tools/ast-*| B[AST REST route]
+  B --> C[validate payload]
+  C --> D[AST tool service]
+  D --> E[(Mongo AST collections)]
+  D --> F[JSON response]
+```
+
+```mermaid
+flowchart TD
+  A[Ingest job] --> B[discoverFiles + hashing]
+  B --> C{Reembed delta?}
+  C -->|yes| D[Added + changed files]
+  C -->|no| E[All discovered files]
+  D --> F[AST parse supported files]
+  E --> F
+  F --> G[AST symbols/edges/references/imports]
+  G --> H{dryRun or mongo down?}
+  H -->|no| I[repo.ts AST upserts + coverage]
+  H -->|yes| J[Skip persistence]
+  I --> K[DEV-0000032:T5:ast-index-complete log]
+  I --> L[(ast_symbols)]
+  I --> M[(ast_edges)]
+  I --> N[(ast_references)]
+  I --> O[(ast_module_imports)]
+  I --> P[(ast_coverage)]
+  Q[Docker deps stage] --> R[python3 + make + g++]
+  R --> S[npm ci (tree-sitter bindings)]
+  S --> F
+```
+
+```mermaid
+flowchart LR
+  A[Source file] --> B[Tree-sitter parser]
+  B --> C[tags.scm + locals.scm queries]
+  C --> D[Module + definition symbols]
+  C --> E[References + imports]
+  D --> F[DEFINES/CALLS/EXPORTS edges]
+  E --> G[IMPORTS edges + module import records]
 ```
 
 ### Ingest dry-run + cleanup guarantees
@@ -1399,8 +1566,9 @@ sequenceDiagram
 - Submit button reads “Start ingest” and disables while submitting or when required fields are empty; a subtle helper text shows while submitting.
 - Active run: on mount, the page subscribes to the ingest WS stream and renders the `ingest_snapshot`/`ingest_update` status in the active run card while the state is non-terminal. The card shows the state chip, counts (files/chunks/embedded/skipped), lastError text, and a “Cancel ingest” button that calls `/ingest/cancel/{runId}` with a “Cancelling…” state. When a terminal state arrives (`completed|cancelled|error|skipped`), the page triggers a roots/models refresh once and hides the card (no last-run summary).
 - Connection state: while the WebSocket is connecting, the page shows an info banner; if the socket closes, it shows an error banner instructing the user to refresh once the server is reachable.
-- Embedded roots table: renders Name (tooltip with description), Path, Model, Status chip, Last ingest time, and counts. Row actions include Re-embed (POST `/ingest/reembed/:root`), Remove (POST `/ingest/remove/:root`), and Details (opens drawer). Bulk buttons perform re-embed/remove across selected rows. Inline text shows action success/errors; actions are disabled while an ingest is active. Empty state copy reminds users that the model locks after the first ingest.
-- Details drawer: right-aligned drawer listing name, description, path, model, model lock note, counts, last error, and last ingest timestamp. Shows include/exclude defaults when detailed metadata is unavailable.
+- AST status banners: when ingest status includes AST counts, the page shows an info banner for skipped files (“unsupported language”) and a warning banner for failures (“check logs”). Banner evaluation logs `DEV-0000032:T11:ast-banner-evaluated` with skipped/failed counts even when hidden.
+- Embedded roots table: renders Name (tooltip with description), Path, Model, Status chip, Last ingest time, and counts (including AST supported/skipped/failed when present). Row actions include Re-embed (POST `/ingest/reembed/:root`), Remove (POST `/ingest/remove/:root`), and Details (opens drawer). Bulk buttons perform re-embed/remove across selected rows. Inline text shows action success/errors; actions are disabled while an ingest is active. Empty state copy reminds users that the model locks after the first ingest.
+- Details drawer: right-aligned drawer listing name, description, path, model, model lock note, counts (including AST counts with `–` placeholders when missing), last error, and last ingest timestamp. Shows include/exclude defaults when detailed metadata is unavailable.
 
 ```mermaid
 flowchart TD
@@ -1411,6 +1579,14 @@ flowchart TD
   Refresh --> Idle
   Subscribe -.->|connectionState=connecting| Connecting[Show info banner]
   Subscribe -.->|connectionState=closed| Closed[Show error banner]
+```
+
+```mermaid
+flowchart LR
+  Status[ingest_snapshot/ingest_update] --> Counts{ast counts present}
+  Counts -->|skipped > 0| Skip[Show info banner]
+  Counts -->|failed > 0| Fail[Show warning banner]
+  Counts -->|missing or zero| Hidden[No AST banner]
 ```
 
 ## Chat run + WebSocket streaming
@@ -1594,6 +1770,7 @@ sequenceDiagram
 
 - Shared DTO lives in `common/src/logging.ts` and exports `LogEntry` / `LogLevel` plus an `isLogEntry` guard. Fields: `level`, `message`, ISO `timestamp`, `source` (`server|client`), optional `requestId`, `correlationId`, `userAgent`, `url`, `route`, `tags`, `context`, `sequence` (assigned server-side).
 - Server logger lives in `server/src/logger.ts` (pino + pino-http + pino-roll); request middleware is registered in `server/src/index.ts`. Env knobs: `LOG_LEVEL`, `LOG_BUFFER_MAX`, `LOG_MAX_CLIENT_BYTES`, `LOG_FILE_PATH` (default `./logs/server.log`), `LOG_FILE_ROTATE` (defaults `true`). Files write to `./logs` (gitignored/bind-mounted later).
+- Startup logs emit `DEV-0000032:T12:verification-ready` once the server is ready, including `event` and `port` in the payload for manual verification.
 - Client logging stubs reside in `client/src/logging/*` with a console tee, queue placeholder, and forwarding toggle. Env knobs: `VITE_LOG_LEVEL`, `VITE_LOG_FORWARD_ENABLED`, `VITE_LOG_MAX_BYTES`, `VITE_LOG_STREAM_ENABLED`.
 - Privacy: redact obvious secrets (auth headers/passwords) before storage/streaming; keep payload size limits to avoid accidental PII capture.
 

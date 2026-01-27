@@ -72,6 +72,13 @@ type WsIngestCounts = {
   embedded?: number;
 };
 
+type WsAstCounts = {
+  supportedFileCount: number;
+  skippedFileCount: number;
+  failedFileCount: number;
+  lastIndexedAt: string | null;
+};
+
 export type ChatWsIngestStatus = {
   runId: string;
   state:
@@ -83,6 +90,7 @@ export type ChatWsIngestStatus = {
     | 'error'
     | 'skipped';
   counts?: WsIngestCounts;
+  ast?: WsAstCounts;
   currentFile?: string;
   fileIndex?: number;
   fileTotal?: number;

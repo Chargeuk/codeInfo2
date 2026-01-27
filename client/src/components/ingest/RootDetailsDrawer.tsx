@@ -28,6 +28,7 @@ export default function RootDetailsDrawer({
   const loading = open && !root;
   const includeList = DEFAULT_INCLUDE_EXTENSIONS;
   const excludeList = DEFAULT_EXCLUDES;
+  const astCounts = root?.ast;
 
   return (
     <Drawer
@@ -85,6 +86,11 @@ export default function RootDetailsDrawer({
                 Files: {root.counts?.files ?? '–'} • Chunks:{' '}
                 {root.counts?.chunks ?? '–'} • Embedded:{' '}
                 {root.counts?.embedded ?? '–'}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                AST Supported: {astCounts?.supportedFileCount ?? '–'} • AST
+                Skipped: {astCounts?.skippedFileCount ?? '–'} • AST Failed:{' '}
+                {astCounts?.failedFileCount ?? '–'}
               </Typography>
             </Stack>
 

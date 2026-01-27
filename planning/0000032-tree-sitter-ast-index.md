@@ -2278,8 +2278,8 @@ Re-run full verification after adding AST counts to ingest roots so the story me
 
 ### 18. Server: Normalize AST tool inputs (case-insensitive)
 
-- Task Status: **__in_progress__**
-- Git Commits: **to_do**
+- Task Status: **__done__**
+- Git Commits: f87bd2c, a616f79
 
 #### Overview
 

@@ -309,7 +309,7 @@ Expand the AST language type and extension routing so ingest and tool validation
 
 #### Subtasks
 
-1. [ ] Review current AST language routing and supported extension logic:
+1. [x] Review current AST language routing and supported extension logic:
    - Files to read:
      - `server/src/ast/types.ts`
      - `server/src/ast/parser.ts`
@@ -321,7 +321,7 @@ Expand the AST language type and extension routing so ingest and tool validation
    - Documentation to read (repeat):
      - Tree-sitter language configuration (`tree-sitter.json` locals/tags defaults): /tree-sitter/tree-sitter
      - TypeScript handbook (union type updates): /microsoft/typescript/v5.9.2
-2. [ ] Audit for any hard-coded AST language lists or validators:
+2. [x] Audit for any hard-coded AST language lists or validators:
    - Files to search:
      - `server/src/ast`
      - `server/src/ingest`
@@ -334,7 +334,7 @@ Expand the AST language type and extension routing so ingest and tool validation
    - Documentation to read (repeat):
      - Tree-sitter init docs (query path defaults + `tree-sitter.json` structure): https://tree-sitter.github.io/tree-sitter/cli/init.html
      - tree-sitter-python `tree-sitter.json` example (file-types + tags path): https://docs.rs/crate/tree-sitter-python/0.23.3/source/tree-sitter.json
-3. [ ] Confirm message contracts and storage shapes remain unchanged:
+3. [x] Confirm message contracts and storage shapes remain unchanged:
    - Files to read:
      - `server/src/mongo/astSymbol.ts`
      - `server/src/mongo/astEdge.ts`
@@ -345,7 +345,7 @@ Expand the AST language type and extension routing so ingest and tool validation
    - Implementation details:
      - Ensure no schema or response shape changes are required; only the allowed `language` values expand.
      - If any contracts do enumerate language values, update the enum list but keep shapes unchanged.
-4. [ ] Extend `AstLanguage` and extension routing:
+4. [x] Extend `AstLanguage` and extension routing:
    - Files to edit:
      - `server/src/ast/types.ts`
      - `server/src/ast/parser.ts`
@@ -361,7 +361,7 @@ Expand the AST language type and extension routing so ingest and tool validation
    - Documentation to read (repeat):
      - Tree-sitter language configuration: /tree-sitter/tree-sitter
      - Tree-sitter C++ grammar (extension defaults + node types): https://github.com/tree-sitter/tree-sitter-cpp
-5. [ ] Add startup log line for AST extension routing:
+5. [x] Add startup log line for AST extension routing:
    - Files to edit:
      - `server/src/ast/parser.ts`
      - `server/src/logger.ts` (if helper usage is required)
@@ -372,7 +372,7 @@ Expand the AST language type and extension routing so ingest and tool validation
    - Purpose: Make extension routing visible in logs for manual verification.
    - Documentation to read (repeat):
      - Node.js logging patterns in repo (read existing `append` usage in `server/src/ast/parser.ts`).
-6. [ ] Update documentation — `design.md`:
+6. [x] Update documentation — `design.md`:
    - Document: `design.md`.
    - Location: `design.md`.
    - Description: Add/confirm the supported AST language list and extension routing summary. If the ingest/AST flow changes, add or update a Mermaid diagram of the AST indexing flow.
@@ -380,38 +380,43 @@ Expand the AST language type and extension routing so ingest and tool validation
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
      - Mermaid: /mermaid-js/mermaid/v11_0_0
-7. [ ] Update documentation — `projectStructure.md` (if any new files are added in this task; otherwise confirm no change):
+7. [x] Update documentation — `projectStructure.md` (if any new files are added in this task; otherwise confirm no change):
    - Document: `projectStructure.md`.
    - Location: `projectStructure.md`.
    - Description: Ensure the tree remains accurate if any files were added or removed.
    - Purpose: Maintain an accurate file map for the repo.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+8. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: /eslint/eslint/v9.37.0
      - Prettier CLI: /prettier/prettier/3.6.2
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m`)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check (open http://host.docker.internal:5001):
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m`)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check (open http://host.docker.internal:5001):
    - Verify the app loads and basic navigation (Chat, Ingest, Logs) works.
    - Confirm the browser console has **no errors**.
    - Capture a screenshot of the Logs page showing the new log line; ensure the agent verifies the GUI state matches expectations.
    - Screenshot storage: `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local`.
    - Logs page check: confirm `DEV-0000033:T1:ast-extension-map` appears once and includes `py`, `cs`, `rs`, `h` plus the new language names.
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- 
+- Added new AST language values and extension routing (js/ts/tsx + py/cs/rs/cpp family), updated ingest skip logging to include skipped extensions + reason, and logged the extension map via `DEV-0000033:T1:ast-extension-map`.
+- Updated AST ingest skip test to reflect `.py` now supported and ensured skipped extensions are asserted.
+- Updated `design.md` with supported language/extension summary and new log line.
+- `npm run format:check --workspaces` initially failed on `client/src/pages/AgentsPage.tsx`; ran `npm run format --workspaces` to resolve the pre-existing format issue.
+- `npm run lint --workspaces` continues to emit existing import/order warnings in server tests; left unchanged.
+- `npm run test --workspace server` timed out at 120s once; reran with extended timeout and passed.
 
 ---
 

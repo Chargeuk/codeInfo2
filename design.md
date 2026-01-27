@@ -1390,9 +1390,11 @@ sequenceDiagram
   - `ast_module_imports` stores module imports per file with `source` and imported `names`.
   - `ast_coverage` stores per-root coverage counts and `lastIndexedAt`.
 - The AST parser reads `queries/tags.scm` and `queries/locals.scm` from the grammar packages, logs `DEV-0000032:T4:ast-parser-queries-loaded` once per language, and emits module + definition symbols with `DEFINES`, `CALLS`, `IMPORTS`, `EXPORTS`, `EXTENDS`, `IMPLEMENTS`, and `REFERENCES_TYPE` edges.
+- AST language routing supports `javascript`, `typescript`, `tsx`, `python`, `c_sharp`, `rust`, and `cpp`; extensions include `js`, `jsx`, `ts`, `tsx`, `py`, `cs`, `rs`, `cc`, `cpp`, `cxx`, `hpp`, `hxx`, and `h`.
+- `DEV-0000033:T1:ast-extension-map` logs the extension and language lists once on server start.
 - When `createSymbolIdFactory` encounters a duplicate hash, it logs `DEV-0000032:T13:ast-symbolid-collision` with the base string and suffix count.
 - Ingest AST indexing uses `discoverFiles` output (include/exclude + hashing) and, on delta re-embed, parses all supported files while deleting AST records for changed/deleted paths so AST coverage stays complete.
-- Unsupported extensions increment `ast.skippedFileCount` and emit a warning with example paths; supported parse failures increment `ast.failedFileCount` without aborting the run.
+- Unsupported extensions increment `ast.skippedFileCount` and emit a warning with example paths and skipped extensions; supported parse failures increment `ast.failedFileCount` without aborting the run.
 - Dry-run ingests still parse and count AST coverage but skip Mongo writes; if Mongo is disconnected, AST writes are skipped with a warning.
 - `DEV-0000032:T5:ast-index-complete` is logged after AST coverage is persisted.
 

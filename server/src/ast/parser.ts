@@ -62,6 +62,30 @@ const jsPackageRoot = path.dirname(
 const tsPackageRoot = path.dirname(
   require.resolve('tree-sitter-typescript/package.json'),
 );
+const astExtensionList = [
+  'js',
+  'jsx',
+  'ts',
+  'tsx',
+  'py',
+  'cs',
+  'rs',
+  'cc',
+  'cpp',
+  'cxx',
+  'hpp',
+  'hxx',
+  'h',
+];
+const astLanguageList: AstLanguage[] = [
+  'javascript',
+  'typescript',
+  'tsx',
+  'python',
+  'c_sharp',
+  'rust',
+  'cpp',
+];
 
 const definitionKindMap: Record<string, AstSymbolKind> = {
   'definition.class': 'Class',
@@ -85,6 +109,7 @@ const referenceKindMap: Record<string, string> = {
 let missingQueriesLogged = false;
 let grammarLoadFailureLogged = false;
 const queriesLoadedLogged = new Set<AstLanguage>();
+let extensionMapLogged = false;
 
 type QueryBundle = { tags: string; locals: string };
 
@@ -126,10 +151,48 @@ function buildErrorDetails(node: SyntaxNode) {
 }
 
 function normalizeLanguage(ext: string): AstLanguage | null {
-  if (ext === 'js' || ext === 'jsx') return 'javascript';
-  if (ext === 'ts') return 'typescript';
-  if (ext === 'tsx') return 'tsx';
+  const normalized = ext.toLowerCase();
+  if (normalized === 'js' || normalized === 'jsx') return 'javascript';
+  if (normalized === 'ts') return 'typescript';
+  if (normalized === 'tsx') return 'tsx';
+  if (normalized === 'py') return 'python';
+  if (normalized === 'cs') return 'c_sharp';
+  if (normalized === 'rs') return 'rust';
+  if (
+    normalized === 'cc' ||
+    normalized === 'cpp' ||
+    normalized === 'cxx' ||
+    normalized === 'hpp' ||
+    normalized === 'hxx' ||
+    normalized === 'h'
+  ) {
+    return 'cpp';
+  }
   return null;
+}
+
+function logAstExtensionMap() {
+  if (extensionMapLogged) return;
+  extensionMapLogged = true;
+  const timestamp = new Date().toISOString();
+  append({
+    level: 'info',
+    message: 'DEV-0000033:T1:ast-extension-map',
+    timestamp,
+    source: 'server',
+    context: {
+      extensions: astExtensionList,
+      languages: astLanguageList,
+    },
+  });
+  baseLogger.info(
+    {
+      event: 'DEV-0000033:T1:ast-extension-map',
+      extensions: astExtensionList,
+      languages: astLanguageList,
+    },
+    'AST extension map loaded',
+  );
 }
 
 function sanitizeQuery(source: string) {
@@ -946,7 +1009,8 @@ export function __setParseAstSourceForTest(override?: ParseAstSourceFn | null) {
 }
 
 export async function warmAstParserQueries() {
-  const languages: AstLanguage[] = ['javascript', 'typescript', 'tsx'];
+  logAstExtensionMap();
+  const languages: AstLanguage[] = [...astLanguageList];
   await Promise.all(
     languages.map(async (language) => {
       try {

@@ -5,7 +5,14 @@ import type {
   AstSymbolRecord,
 } from '../mongo/repo.js';
 
-export type AstLanguage = 'javascript' | 'typescript' | 'tsx';
+export type AstLanguage =
+  | 'javascript'
+  | 'typescript'
+  | 'tsx'
+  | 'python'
+  | 'c_sharp'
+  | 'rust'
+  | 'cpp';
 
 export type AstSymbolKind =
   | 'Module'

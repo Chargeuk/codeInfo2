@@ -348,10 +348,15 @@ test('ingest logs unsupported-language skips', async () => {
     const warnings = query({ level: ['warn'], text: 'unsupported language' });
     assert.ok(warnings.length > 0);
     const context = warnings[0]?.context as
-      | { skippedFileCount?: number; root?: string }
+      | {
+          skippedFileCount?: number;
+          root?: string;
+          skippedExtensions?: string[];
+        }
       | undefined;
-    assert.equal(context?.skippedFileCount, 2);
+    assert.equal(context?.skippedFileCount, 1);
     assert.equal(context?.root, root);
+    assert.deepEqual(context?.skippedExtensions, ['md']);
   } finally {
     await cleanup();
   }

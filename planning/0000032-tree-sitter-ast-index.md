@@ -1408,8 +1408,8 @@ Expose `/tools/ast-*` REST endpoints that validate input, call the AST tool serv
 
 ### 9. Server: MCP AST tool definitions
 
-- Task Status: **__in_progress__**
-- Git Commits: **to_do**
+- Task Status: **__done__**
+- Git Commits: a8919f4
 
 #### Overview
 
@@ -1430,13 +1430,13 @@ Expose AST tools through the MCP JSON-RPC server with schemas aligned to the RES
 
 #### Subtasks
 
-1. [ ] Review MCP server patterns:
+1. [x] Review MCP server patterns:
    - Files to read:
      - `server/src/mcp/server.ts`
      - `server/src/test/integration/mcp-server.test.ts`
    - Documentation to read (repeat):
      - MCP tool format (schema expectations): https://modelcontextprotocol.io/specification
-2. [ ] Add AST MCP tool definitions + dispatch:
+2. [x] Add AST MCP tool definitions + dispatch:
    - Files to edit:
      - `server/src/mcp/server.ts`
    - Implementation details:
@@ -1446,7 +1446,7 @@ Expose AST tools through the MCP JSON-RPC server with schemas aligned to the RES
    - Documentation to read (repeat):
      - MCP tool format (schema expectations): https://modelcontextprotocol.io/specification
      - JSON-RPC 2.0 spec: https://www.jsonrpc.org/specification
-3. [ ] Integration test — MCP tools/list includes AST tools:
+3. [x] Integration test — MCP tools/list includes AST tools:
    - Test type: Integration (MCP server).
    - Test location: `server/src/test/integration/mcp-server.test.ts`.
    - Description: Call `tools/list` and verify AST tool definitions are present.
@@ -1454,7 +1454,7 @@ Expose AST tools through the MCP JSON-RPC server with schemas aligned to the RES
    - Documentation to read (repeat):
      - Supertest HTTP assertions: https://github.com/forwardemail/supertest
      - Node.js test runner: https://nodejs.org/api/test.html
-4. [ ] Integration test — MCP tools/call returns payload:
+4. [x] Integration test — MCP tools/call returns payload:
    - Test type: Integration (MCP server).
    - Test location: `server/src/test/integration/mcp-server.test.ts`.
    - Description: Stub AST service response and call each tool.
@@ -1462,7 +1462,7 @@ Expose AST tools through the MCP JSON-RPC server with schemas aligned to the RES
    - Documentation to read (repeat):
      - Supertest HTTP assertions: https://github.com/forwardemail/supertest
      - Node.js test runner: https://nodejs.org/api/test.html
-5. [ ] Integration test — MCP validation errors:
+5. [x] Integration test — MCP validation errors:
    - Test type: Integration (MCP server).
    - Test location: `server/src/test/integration/mcp-server.test.ts`.
    - Description: Call tools with invalid payloads.
@@ -1470,7 +1470,7 @@ Expose AST tools through the MCP JSON-RPC server with schemas aligned to the RES
    - Documentation to read (repeat):
      - Supertest HTTP assertions: https://github.com/forwardemail/supertest
      - Node.js test runner: https://nodejs.org/api/test.html
-6. [ ] Integration test — MCP AST_INDEX_REQUIRED mapping:
+6. [x] Integration test — MCP AST_INDEX_REQUIRED mapping:
    - Test type: Integration (MCP server).
    - Test location: `server/src/test/integration/mcp-server.test.ts`.
    - Description: Simulate missing coverage in the AST service.
@@ -1478,7 +1478,7 @@ Expose AST tools through the MCP JSON-RPC server with schemas aligned to the RES
    - Documentation to read (repeat):
      - Supertest HTTP assertions: https://github.com/forwardemail/supertest
      - Node.js test runner: https://nodejs.org/api/test.html
-7. [ ] Integration test — MCP INGEST_REQUIRED mapping:
+7. [x] Integration test — MCP INGEST_REQUIRED mapping:
    - Test type: Integration (MCP server).
    - Test location: `server/src/test/integration/mcp-server.test.ts`.
    - Description: Simulate `INGEST_REQUIRED` from the AST service when no repos exist.
@@ -1486,7 +1486,7 @@ Expose AST tools through the MCP JSON-RPC server with schemas aligned to the RES
    - Documentation to read (repeat):
      - Supertest HTTP assertions: https://github.com/forwardemail/supertest
      - Node.js test runner: https://nodejs.org/api/test.html
-8. [ ] Update documentation — `design.md`:
+8. [x] Update documentation — `design.md`:
    - Document: `design.md`.
    - Location: `design.md`.
    - Description: Document MCP tool list/response shapes and add a mermaid diagram for MCP tool flow.
@@ -1494,14 +1494,14 @@ Expose AST tools through the MCP JSON-RPC server with schemas aligned to the RES
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
      - Mermaid docs (Context7, architecture diagrams): /mermaid-js/mermaid
-9. [ ] Update documentation — `projectStructure.md`:
+9. [x] Update documentation — `projectStructure.md`:
    - Document: `projectStructure.md`.
    - Location: `projectStructure.md`.
    - Description: Add/adjust MCP test file entries if new coverage is added.
    - Purpose: Keep project structure docs aligned with MCP test changes.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-10. [ ] Add MCP tool registration log line:
+10. [x] Add MCP tool registration log line:
    - Files to edit:
      - `server/src/mcp/server.ts`
    - Log line:
@@ -1511,25 +1511,33 @@ Expose AST tools through the MCP JSON-RPC server with schemas aligned to the RES
      - Include `event: 'DEV-0000032:T9:ast-mcp-tools-registered'` and `toolCount`.
    - Documentation to read (repeat):
      - MCP tool spec: https://modelcontextprotocol.io/specification
-11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+11. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, open Logs, confirm `DEV-0000032:T9:ast-mcp-tools-registered` appears after startup, and confirm the browser console has no errors.
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, open Logs, confirm `DEV-0000032:T9:ast-mcp-tools-registered` appears after startup, and confirm the browser console has no errors.
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- 
+- Added AST MCP tool schemas + dispatcher wiring with logStore registration event for `DEV-0000032:T9:ast-mcp-tools-registered`.
+- Expanded MCP integration tests to cover AST tool list/call payloads and validation/AST_INDEX_REQUIRED/INGEST_REQUIRED mappings.
+- Documented AST MCP tools/flow in `design.md` and updated `projectStructure.md` for MCP integration coverage.
+- Lint still reports existing import/order warnings in unrelated files; format check required a Prettier pass for the MCP integration test file.
+- Server tests required extended runtime but completed successfully.
+- Client tests ran with expected VM module warnings and logged console noise.
+- E2E run completed (36 passed).
+- Compose build/up rerun after logStore update; manual Logs check confirmed `DEV-0000032:T9:ast-mcp-tools-registered` and console stayed clean.
+- Compose stack shut down cleanly after verification.
 
 ---
 

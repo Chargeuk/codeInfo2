@@ -322,6 +322,10 @@ Create Mongo collections for AST symbols, edges, references, module imports, and
 - `npm run test --workspace client` completed successfully (console warnings logged during tests).
 - `npm run e2e` completed successfully (compose build/up/test/down).
 - `npm run compose:build` completed successfully.
+- `npm run compose:up` started the local docker stack.
+- Updated verification log line to append into log store so it appears in Logs UI.
+- Manual Playwright-MCP check confirmed `DEV-0000032:T12:verification-ready`, ingest AST banner + active AST status, and chat flow; screenshots saved to `playwright-output-local/0000032-12-logs-verification-ready.png`, `playwright-output-local/0000032-12-ingest-ast-banner.png`, `playwright-output-local/0000032-12-ingest-active-ast.png`, and `playwright-output-local/0000032-12-chat-flow.png`.
+- `npm run compose:down` stopped the local docker stack.
 - `npm run compose:up` completed successfully.
 - Rebuilt and restarted compose stack to load AST log store changes.
 - Playwright-MCP verified Chat/Ingest pages and Logs entry for `DEV-0000032:T1:ast-mongo-models-ready` with no console errors observed.
@@ -1759,6 +1763,10 @@ Render non-blocking Ingest page banners for AST skipped/failed counts using exis
 - Lint still reports existing import/order warnings in unrelated server/test files; formatting clean.
 - `npm run build --workspace server` completed successfully.
 - `npm run build --workspace client` completed with the usual Vite chunk size warning.
+- `npm run test --workspace server` completed within the extended timeout (54 scenarios passed).
+- `npm run test --workspace client` passed with expected VM module warnings and console logs.
+- `npm run e2e` completed with 36 passing tests.
+- `npm run compose:build` completed successfully.
 - `npm run test --workspace server` required a longer timeout; completed with 54 scenarios passing.
 - Client tests passed with expected VM module warnings and console output.
 - `npm run e2e` completed with 36 tests passing.
@@ -1793,14 +1801,14 @@ Validate the full story against acceptance criteria, run full builds/tests, ensu
 
 #### Subtasks
 
-1. [ ] Update documentation — `README.md`:
+1. [x] Update documentation — `README.md`:
    - Document: `README.md`.
    - Location: `README.md`.
    - Description: Add any new commands or user-facing descriptions introduced by AST indexing.
    - Purpose: Keep onboarding instructions current for users and developers.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-2. [ ] Update documentation — `design.md`:
+2. [x] Update documentation — `design.md`:
    - Document: `design.md`.
    - Location: `design.md`.
    - Description: Ensure architecture notes and mermaid diagrams reflect all AST indexing changes.
@@ -1809,17 +1817,17 @@ Validate the full story against acceptance criteria, run full builds/tests, ensu
      - Mermaid docs (Context7, diagram syntax): /mermaid-js/mermaid
      - Mermaid intro (diagram updates in `design.md`): https://mermaid.js.org/intro/
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-3. [ ] Update documentation — `projectStructure.md`:
+3. [x] Update documentation — `projectStructure.md`:
    - Document: `projectStructure.md`.
    - Location: `projectStructure.md`.
    - Description: Add/update/remove file entries to reflect all story changes.
    - Purpose: Keep the repository tree representation accurate.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-4. [ ] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
+4. [x] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-5. [ ] Add final verification log line:
+5. [x] Add final verification log line:
    - Files to edit:
      - `server/src/index.ts`
    - Log line:
@@ -1829,23 +1837,33 @@ Validate the full story against acceptance criteria, run full builds/tests, ensu
      - Include `event: 'DEV-0000032:T12:verification-ready'` and `port` in the payload.
    - Documentation to read (repeat):
      - Node.js events: https://nodejs.org/api/events.html
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+6. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, open Logs and confirm `DEV-0000032:T12:verification-ready` is present, walk through ingest + chat flows, verify AST status banners appear when expected, and confirm the browser console has no errors; capture screenshots for every GUI acceptance criterion and store them in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` for review.
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, open Logs and confirm `DEV-0000032:T12:verification-ready` is present, walk through ingest + chat flows, verify AST status banners appear when expected, and confirm the browser console has no errors; capture screenshots for every GUI acceptance criterion and store them in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` for review.
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- 
+- Updated `README.md` ingest section with AST banner + active card status notes.
+- Added startup log note for `DEV-0000032:T12:verification-ready` in logging schema documentation.
+- No `projectStructure.md` changes were needed (no new tracked files).
+- PR summary draft:
+  - Tree-sitter AST indexing pipeline with Mongo-backed symbols/edges/refs, coverage counts, and delta re-embed support.
+  - AST tooling exposed via MCP + REST (`ast-*`) endpoints and validation/error mapping.
+  - Client ingest status enhancements (AST counts in active card, skip/failure banners, log lines) plus related tests and documentation.
+- Added `DEV-0000032:T12:verification-ready` startup log entry in `server/src/index.ts`.
+- Lint still reports existing import/order warnings in server/test files; formatting clean.
+- `npm run build --workspace server` completed successfully.
+- `npm run build --workspace client` completed with the usual Vite chunk size warning.

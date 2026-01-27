@@ -167,9 +167,21 @@ const start = async () => {
 
   const httpServer = http.createServer(app);
   wsServer = attachWs({ httpServer });
-  server = httpServer.listen(Number(PORT), () =>
-    baseLogger.info(`Server on ${PORT}`),
-  );
+  server = httpServer.listen(Number(PORT), () => {
+    baseLogger.info(`Server on ${PORT}`);
+    baseLogger.info(
+      { event: 'DEV-0000032:T12:verification-ready', port: Number(PORT) },
+      'DEV-0000032:T12:verification-ready',
+    );
+    const timestamp = new Date().toISOString();
+    append({
+      level: 'info',
+      message: 'DEV-0000032:T12:verification-ready',
+      timestamp,
+      source: 'server',
+      context: { event: 'DEV-0000032:T12:verification-ready', port: Number(PORT) },
+    });
+  });
   await logTreeSitterReady();
   void warmAstParserQueries();
   startMcp2Server();

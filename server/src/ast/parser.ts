@@ -3,7 +3,11 @@ import fs from 'fs/promises';
 import { createRequire } from 'node:module';
 import path from 'path';
 import TreeSitter from 'tree-sitter';
+import csharpLanguage from 'tree-sitter-c-sharp';
+import cppLanguage from 'tree-sitter-cpp';
 import javascriptLanguage from 'tree-sitter-javascript';
+import pythonLanguage from 'tree-sitter-python';
+import rustLanguage from 'tree-sitter-rust';
 import typescriptLanguage from 'tree-sitter-typescript';
 import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
@@ -62,6 +66,18 @@ const jsPackageRoot = path.dirname(
 const tsPackageRoot = path.dirname(
   require.resolve('tree-sitter-typescript/package.json'),
 );
+const csharpPackageRoot = path.dirname(
+  require.resolve('tree-sitter-c-sharp/package.json'),
+);
+const cppPackageRoot = path.dirname(
+  require.resolve('tree-sitter-cpp/package.json'),
+);
+const pythonPackageRoot = path.dirname(
+  require.resolve('tree-sitter-python/package.json'),
+);
+const rustPackageRoot = path.dirname(
+  require.resolve('tree-sitter-rust/package.json'),
+);
 const astExtensionList = [
   'js',
   'jsx',
@@ -110,6 +126,7 @@ let missingQueriesLogged = false;
 let grammarLoadFailureLogged = false;
 const queriesLoadedLogged = new Set<AstLanguage>();
 let extensionMapLogged = false;
+const grammarRegisteredLogged = new Set<AstLanguage>();
 
 type QueryBundle = { tags: string; locals: string };
 
@@ -248,11 +265,54 @@ async function loadQueries(language: AstLanguage): Promise<QueryBundle | null> {
   const tsTags = await loadQueryFile(tsPackageRoot, 'queries', 'tags.scm');
   const tsLocals = await loadQueryFile(tsPackageRoot, 'queries', 'locals.scm');
 
-  if (!jsTags || !jsLocals || !tsTags || !tsLocals) return null;
+  if (language === 'typescript' || language === 'tsx') {
+    if (!jsTags || !jsLocals || !tsTags || !tsLocals) return null;
+
+    const bundle = {
+      tags: [sanitizeQuery(tsTags), sanitizeQuery(jsTags)].join('\n'),
+      locals: [sanitizeQuery(tsLocals), sanitizeQuery(jsLocals)].join('\n'),
+    };
+    queryCache.set(language, bundle);
+    if (!queriesLoadedLogged.has(language)) {
+      queriesLoadedLogged.add(language);
+      const timestamp = new Date().toISOString();
+      append({
+        level: 'info',
+        message: 'DEV-0000032:T4:ast-parser-queries-loaded',
+        timestamp,
+        source: 'server',
+        context: { language },
+      });
+      baseLogger.info(
+        { event: 'DEV-0000032:T4:ast-parser-queries-loaded', language },
+        'AST parser queries loaded',
+      );
+    }
+    return bundle;
+  }
+
+  const packageRoot =
+    language === 'python'
+      ? pythonPackageRoot
+      : language === 'c_sharp'
+        ? csharpPackageRoot
+        : language === 'rust'
+          ? rustPackageRoot
+          : language === 'cpp'
+            ? cppPackageRoot
+            : null;
+  if (!packageRoot) return null;
+
+  const tags = await loadQueryFile(packageRoot, 'queries', 'tags.scm');
+  const locals = await loadQueryFile(
+    path.resolve('server', 'src', 'ast', 'queries', language),
+    'locals.scm',
+  );
+  if (!tags || !locals) return null;
 
   const bundle = {
-    tags: [sanitizeQuery(tsTags), sanitizeQuery(jsTags)].join('\n'),
-    locals: [sanitizeQuery(tsLocals), sanitizeQuery(jsLocals)].join('\n'),
+    tags: sanitizeQuery(tags),
+    locals: sanitizeQuery(locals),
   };
   queryCache.set(language, bundle);
   if (!queriesLoadedLogged.has(language)) {
@@ -277,6 +337,18 @@ function getLanguageConfig(language: AstLanguage) {
   if (language === 'javascript') {
     return { language, parserLanguage: javascriptLanguage };
   }
+  if (language === 'python') {
+    return { language, parserLanguage: pythonLanguage };
+  }
+  if (language === 'c_sharp') {
+    return { language, parserLanguage: csharpLanguage };
+  }
+  if (language === 'rust') {
+    return { language, parserLanguage: rustLanguage };
+  }
+  if (language === 'cpp') {
+    return { language, parserLanguage: cppLanguage };
+  }
   const tsExports = typescriptLanguage as unknown as {
     typescript: unknown;
     tsx: unknown;
@@ -285,6 +357,27 @@ function getLanguageConfig(language: AstLanguage) {
     language,
     parserLanguage: language === 'tsx' ? tsExports.tsx : tsExports.typescript,
   };
+}
+
+function logGrammarRegistration(language: AstLanguage, packageName: string) {
+  if (grammarRegisteredLogged.has(language)) return;
+  grammarRegisteredLogged.add(language);
+  const timestamp = new Date().toISOString();
+  append({
+    level: 'info',
+    message: 'DEV-0000033:T2:ast-grammar-registered',
+    timestamp,
+    source: 'server',
+    context: { language, package: packageName },
+  });
+  baseLogger.info(
+    {
+      event: 'DEV-0000033:T2:ast-grammar-registered',
+      language,
+      package: packageName,
+    },
+    'AST grammar registered',
+  );
 }
 
 function logGrammarLoadFailure(language: AstLanguage, error: string) {
@@ -1010,6 +1103,10 @@ export function __setParseAstSourceForTest(override?: ParseAstSourceFn | null) {
 
 export async function warmAstParserQueries() {
   logAstExtensionMap();
+  logGrammarRegistration('python', 'tree-sitter-python');
+  logGrammarRegistration('c_sharp', 'tree-sitter-c-sharp');
+  logGrammarRegistration('rust', 'tree-sitter-rust');
+  logGrammarRegistration('cpp', 'tree-sitter-cpp');
   const languages: AstLanguage[] = [...astLanguageList];
   await Promise.all(
     languages.map(async (language) => {

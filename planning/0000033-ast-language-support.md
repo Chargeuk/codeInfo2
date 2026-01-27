@@ -450,7 +450,7 @@ Add the Tree-sitter grammar packages and wire them into the parser so language d
 
 #### Subtasks
 
-1. [ ] Review existing parser/query loading patterns:
+1. [x] Review existing parser/query loading patterns:
    - Files to read:
      - `server/src/ast/parser.ts`
      - `server/src/types/tree-sitter.d.ts`
@@ -462,7 +462,7 @@ Add the Tree-sitter grammar packages and wire them into the parser so language d
    - Documentation to read (repeat):
      - Tree-sitter query syntax + locals capture guide: /tree-sitter/tree-sitter
      - Tree-sitter init docs (query path defaults + `tree-sitter.json` structure): https://tree-sitter.github.io/tree-sitter/cli/init.html
-2. [ ] Add Tree-sitter grammar dependencies:
+2. [x] Add Tree-sitter grammar dependencies:
    - Files to edit:
      - `server/package.json`
      - `package-lock.json`
@@ -471,14 +471,14 @@ Add the Tree-sitter grammar packages and wire them into the parser so language d
      - Keep the existing `tree-sitter` binding version unchanged unless it blocks grammar loading.
    - Documentation to read (repeat):
      - npm run-script (workspace commands): https://docs.npmjs.com/cli/v10/commands/npm-run-script
-3. [ ] Extend Tree-sitter module declarations for new grammars:
+3. [x] Extend Tree-sitter module declarations for new grammars:
    - Files to edit:
      - `server/src/types/tree-sitter.d.ts`
    - Implementation details:
      - Add module declarations for each new grammar package so TypeScript can import them cleanly.
    - Documentation to read (repeat):
      - TypeScript handbook (union type updates): /microsoft/typescript/v5.9.2
-4. [ ] Wire new languages into the parser + query loader:
+4. [x] Wire new languages into the parser + query loader:
    - Files to edit:
      - `server/src/ast/parser.ts`
    - Implementation details:
@@ -487,7 +487,7 @@ Add the Tree-sitter grammar packages and wire them into the parser so language d
      - Extend any query warm-up lists (e.g., `warmAstParserQueries`) to include the new languages.
    - Documentation to read (repeat):
      - Tree-sitter query syntax + locals capture guide: /tree-sitter/tree-sitter
-5. [ ] Add startup log line for grammar registration:
+5. [x] Add startup log line for grammar registration:
    - Files to edit:
      - `server/src/ast/parser.ts`
    - Implementation details:
@@ -497,7 +497,7 @@ Add the Tree-sitter grammar packages and wire them into the parser so language d
    - Purpose: Prove grammar registration succeeded for manual verification.
    - Documentation to read (repeat):
      - Node.js logging patterns in repo (read existing `append` usage in `server/src/ast/parser.ts`).
-6. [ ] Update documentation — `design.md`:
+6. [x] Update documentation — `design.md`:
    - Document: `design.md`.
    - Location: `design.md`.
    - Description: Note the new grammar packages and parser wiring changes. If parser wiring changes alter the AST flow, add/update a Mermaid diagram.
@@ -505,38 +505,42 @@ Add the Tree-sitter grammar packages and wire them into the parser so language d
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
      - Mermaid: /mermaid-js/mermaid/v11_0_0
-7. [ ] Update documentation — `projectStructure.md` (if any files were added in this task; otherwise confirm no change):
+7. [x] Update documentation — `projectStructure.md` (if any files were added in this task; otherwise confirm no change):
    - Document: `projectStructure.md`.
    - Location: `projectStructure.md`.
    - Description: Ensure the tree remains accurate after dependency and wiring changes.
    - Purpose: Keep the repo file map consistent with dependency and wiring updates.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+8. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: /eslint/eslint/v9.37.0
      - Prettier CLI: /prettier/prettier/3.6.2
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m`)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check (open http://host.docker.internal:5001):
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m`)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check (open http://host.docker.internal:5001):
    - Verify the app loads and basic navigation (Chat, Ingest, Logs) works.
    - Confirm the browser console has **no errors**.
    - Capture a screenshot of the Logs page showing grammar registration; ensure the agent verifies the GUI state matches expectations.
    - Screenshot storage: `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local`.
    - Logs page check: confirm `DEV-0000033:T2:ast-grammar-registered` appears for `python`, `c_sharp`, `rust`, `cpp`.
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- 
+- Added `tree-sitter-python`, `tree-sitter-c-sharp`, `tree-sitter-rust`, and `tree-sitter-cpp` dependencies and module declarations.
+- Updated AST parser to load tags from grammar packages, locals from new query paths, and log `DEV-0000033:T2:ast-grammar-registered` once per language; warmed queries for new languages.
+- Documented grammar registration log in `design.md`.
+- Ran `npm run lint --workspaces` (existing import/order warnings) and `npm run format --workspaces` after initial format check failure.
+- Testing: builds, unit tests, e2e, compose up/down, and Playwright UI check; screenshot saved to `playwright-output-local/0000033-2-logs-grammar-registered.png`.
 
 ---
 

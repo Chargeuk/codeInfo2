@@ -105,6 +105,7 @@ COPY --from=build /app/node_modules /app/node_modules
 COPY --from=deps /app/server/node_modules /app/server/node_modules
 COPY --from=build /app/common /app/common
 COPY --from=build /app/server/dist ./dist
+COPY --from=build /app/server/src/ast/queries ./src/ast/queries
 COPY --from=build /app/server/package*.json ./
 COPY --from=build /app/server/entrypoint.sh ./entrypoint.sh
 COPY --from=build /app/config.toml.example /app/server/config.toml.example

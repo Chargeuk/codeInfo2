@@ -573,7 +573,7 @@ Verify grammar query assets, add CodeInfo2-owned locals, and extend parser unit 
 
 #### Subtasks
 
-1. [ ] Verify grammar package query assets before wiring tags:
+1. [x] Verify grammar package query assets before wiring tags:
    - Files to inspect:
      - `node_modules/tree-sitter-python/queries`
      - `node_modules/tree-sitter-c-sharp/queries`
@@ -585,7 +585,7 @@ Verify grammar query assets, add CodeInfo2-owned locals, and extend parser unit 
    - Documentation to read (repeat):
      - Tree-sitter init docs (query path defaults + `tree-sitter.json` structure): https://tree-sitter.github.io/tree-sitter/cli/init.html
      - Tree-sitter Python grammar (node types + queries): https://github.com/tree-sitter/tree-sitter-python
-2. [ ] Create custom locals queries for new languages:
+2. [x] Create custom locals queries for new languages:
    - Files to add:
      - `server/src/ast/queries/python/locals.scm`
      - `server/src/ast/queries/c_sharp/locals.scm`
@@ -603,7 +603,7 @@ Verify grammar query assets, add CodeInfo2-owned locals, and extend parser unit 
      - `(identifier) @local.reference`
    - Documentation to read (repeat):
      - Tree-sitter query syntax + locals capture guide: /tree-sitter/tree-sitter
-3. [ ] Add parser unit test for **Python** locals capture (happy path):
+3. [x] Add parser unit test for **Python** locals capture (happy path):
    - Test type: Unit (parser output).
    - Test location: `server/src/test/unit/ast-parser.test.ts`.
    - Description: Add a minimal `.py` fixture, assert `result.language === 'python'`, and verify at least one `@local.definition` and one `@local.reference`, plus non-empty references.
@@ -613,7 +613,7 @@ Verify grammar query assets, add CodeInfo2-owned locals, and extend parser unit 
    - Documentation to read (repeat):
      - Node.js test runner: /nodejs/node/v22.17.0
      - Tree-sitter query syntax: /tree-sitter/tree-sitter
-4. [ ] Add parser unit test for **C#** locals capture (happy path):
+4. [x] Add parser unit test for **C#** locals capture (happy path):
    - Test type: Unit (parser output).
    - Test location: `server/src/test/unit/ast-parser.test.ts`.
    - Description: Add a minimal `.cs` fixture, assert `result.language === 'c_sharp'`, and verify at least one `@local.definition` and one `@local.reference`, plus non-empty references.
@@ -623,7 +623,7 @@ Verify grammar query assets, add CodeInfo2-owned locals, and extend parser unit 
    - Documentation to read (repeat):
      - Node.js test runner: /nodejs/node/v22.17.0
      - Tree-sitter query syntax: /tree-sitter/tree-sitter
-5. [ ] Add parser unit test for **Rust** locals capture (happy path):
+5. [x] Add parser unit test for **Rust** locals capture (happy path):
    - Test type: Unit (parser output).
    - Test location: `server/src/test/unit/ast-parser.test.ts`.
    - Description: Add a minimal `.rs` fixture, assert `result.language === 'rust'`, and verify at least one `@local.definition` and one `@local.reference`, plus non-empty references.
@@ -633,7 +633,7 @@ Verify grammar query assets, add CodeInfo2-owned locals, and extend parser unit 
    - Documentation to read (repeat):
      - Node.js test runner: /nodejs/node/v22.17.0
      - Tree-sitter query syntax: /tree-sitter/tree-sitter
-6. [ ] Add parser unit test for **C++** locals capture (happy path):
+6. [x] Add parser unit test for **C++** locals capture (happy path):
    - Test type: Unit (parser output).
    - Test location: `server/src/test/unit/ast-parser.test.ts`.
    - Description: Add a minimal `.h` fixture (to validate header routing), assert `result.language === 'cpp'`, and verify at least one `@local.definition` and one `@local.reference`, plus non-empty references.
@@ -643,7 +643,7 @@ Verify grammar query assets, add CodeInfo2-owned locals, and extend parser unit 
    - Documentation to read (repeat):
      - Node.js test runner: /nodejs/node/v22.17.0
      - Tree-sitter query syntax: /tree-sitter/tree-sitter
-7. [ ] Add parser error test for **missing query bundle** on a new language:
+7. [x] Add parser error test for **missing query bundle** on a new language:
    - Test type: Unit (parser failures).
    - Test location: `server/src/test/unit/ast-parser.test.ts`.
    - Description: Use a new-language extension (e.g., `.py`) with `queryBundleOverride: null` and assert `Missing Tree-sitter query files`.
@@ -652,7 +652,7 @@ Verify grammar query assets, add CodeInfo2-owned locals, and extend parser unit 
    - Purpose: Ensures the error path for missing queries is exercised for new languages.
    - Documentation to read (repeat):
      - Node.js test runner: /nodejs/node/v22.17.0
-8. [ ] Add parser error test for **missing grammar binding** on a new language:
+8. [x] Add parser error test for **missing grammar binding** on a new language:
    - Test type: Unit (parser failures).
    - Test location: `server/src/test/unit/ast-parser.test.ts`.
    - Description: Use a new-language extension (e.g., `.rs`) with `parserLanguageOverride: null` and assert `Tree-sitter grammar unavailable`.
@@ -661,7 +661,7 @@ Verify grammar query assets, add CodeInfo2-owned locals, and extend parser unit 
    - Purpose: Ensures the grammar-load failure path is covered for new languages.
    - Documentation to read (repeat):
      - Node.js test runner: /nodejs/node/v22.17.0
-9. [ ] Add log line for custom locals query loading:
+9. [x] Add log line for custom locals query loading:
    - Files to edit:
      - `server/src/ast/parser.ts`
    - Implementation details:
@@ -670,7 +670,7 @@ Verify grammar query assets, add CodeInfo2-owned locals, and extend parser unit 
    - Purpose: Confirm custom locals queries are loaded for manual verification.
    - Documentation to read (repeat):
      - Node.js logging patterns in repo (read existing `append` usage in `server/src/ast/parser.ts`).
-10. [ ] Update documentation — `design.md`:
+10. [x] Update documentation — `design.md`:
    - Document: `design.md`.
    - Location: `design.md`.
    - Description: Note that Python/C#/Rust/C++ locals queries are CodeInfo2-owned and record any dependency version changes made to obtain tags. Add/update a Mermaid diagram if query wiring changes the AST flow.
@@ -678,38 +678,42 @@ Verify grammar query assets, add CodeInfo2-owned locals, and extend parser unit 
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
      - Mermaid: /mermaid-js/mermaid/v11_0_0
-11. [ ] Update documentation — `projectStructure.md` **after** adding locals query files:
+11. [x] Update documentation — `projectStructure.md` **after** adding locals query files:
    - Document: `projectStructure.md`.
    - Location: `projectStructure.md`.
    - Description: Add **all** new `server/src/ast/queries/*/locals.scm` files to the tree (python, c_sharp, rust, cpp) and include any removed/renamed files if applicable.
    - Purpose: Keep the file tree accurate after adding new query assets and reflect all file changes.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+12. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
     - Documentation to read (repeat):
       - ESLint CLI: /eslint/eslint/v9.37.0
       - Prettier CLI: /prettier/prettier/3.6.2
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m`)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check (open http://host.docker.internal:5001):
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m`)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check (open http://host.docker.internal:5001):
    - Verify the app loads and basic navigation (Chat, Ingest, Logs) works.
    - Confirm the browser console has **no errors**.
    - Capture a screenshot of the Logs page showing locals query load; ensure the agent verifies the GUI state matches expectations.
    - Screenshot storage: `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local`.
    - Logs page check: confirm `DEV-0000033:T3:ast-locals-query-loaded` appears for `python`, `c_sharp`, `rust`, `cpp` and references `server/src/ast/queries/` paths.
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- 
+- Added locals query files for Python, C#, Rust, and C++ and wired runtime path resolution to load them from `src/ast/queries` in dev or dist builds.
+- Added parser unit tests for new languages (locals captures, missing bundle, missing grammar binding) and used a Tree-sitter helper to assert local capture presence.
+- Logged `DEV-0000033:T3:ast-locals-query-loaded` with locals path, and documented query ownership in `design.md` plus `projectStructure.md` updates.
+- Updated server Dockerfile to copy locals query files into the runtime image so log verification succeeds.
+- Ran full build/test/e2e/compose workflow and captured Playwright log screenshot at `playwright-output-local/0000033-3-logs-locals-query-loaded.png`.
 
 ---
 

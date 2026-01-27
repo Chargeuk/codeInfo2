@@ -271,7 +271,12 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚     â”œâ”€ ast/
 â”‚     â”‚  â”œâ”€ parser.ts â€” Tree-sitter parser module for AST extraction
 â”‚     â”‚  â”œâ”€ toolService.ts â€” AST tool validation and query service
-â”‚     â”‚  â””â”€ types.ts â€” AST parser types and result shapes
+â”‚     â”‚  â”œâ”€ types.ts â€” AST parser types and result shapes
+â”‚     â”‚  â””â”€ queries/
+â”‚     â”‚     â”œâ”€ python/locals.scm â€” Tree-sitter locals query for Python
+â”‚     â”‚     â”œâ”€ c_sharp/locals.scm â€” Tree-sitter locals query for C#
+â”‚     â”‚     â”œâ”€ rust/locals.scm â€” Tree-sitter locals query for Rust
+â”‚     â”‚     â””â”€ cpp/locals.scm â€” Tree-sitter locals query for C++
 â”‚     â”œâ”€ config/
 â”‚     â”‚  â”œâ”€ codexConfig.ts â€” Codex home/env config builder
 â”‚     â”‚  â””â”€ codexEnvDefaults.ts â€” Codex env defaults parser + warnings helper

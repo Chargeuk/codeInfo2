@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import fs from 'fs/promises';
 import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
 import path from 'path';
 import TreeSitter from 'tree-sitter';
 import csharpLanguage from 'tree-sitter-c-sharp';
@@ -66,6 +67,13 @@ const jsPackageRoot = path.dirname(
 const tsPackageRoot = path.dirname(
   require.resolve('tree-sitter-typescript/package.json'),
 );
+const astDirectory = path.dirname(fileURLToPath(import.meta.url));
+const astRoot = path.resolve(astDirectory, '..');
+const serverRoot = path.resolve(astRoot, '..');
+const queriesRoot =
+  path.basename(astRoot) === 'dist'
+    ? path.resolve(serverRoot, 'src', 'ast', 'queries')
+    : path.resolve(astRoot, 'ast', 'queries');
 const csharpPackageRoot = path.dirname(
   require.resolve('tree-sitter-c-sharp/package.json'),
 );
@@ -127,6 +135,7 @@ let grammarLoadFailureLogged = false;
 const queriesLoadedLogged = new Set<AstLanguage>();
 let extensionMapLogged = false;
 const grammarRegisteredLogged = new Set<AstLanguage>();
+const localsQueryLoadedLogged = new Set<AstLanguage>();
 
 type QueryBundle = { tags: string; locals: string };
 
@@ -304,10 +313,8 @@ async function loadQueries(language: AstLanguage): Promise<QueryBundle | null> {
   if (!packageRoot) return null;
 
   const tags = await loadQueryFile(packageRoot, 'queries', 'tags.scm');
-  const locals = await loadQueryFile(
-    path.resolve('server', 'src', 'ast', 'queries', language),
-    'locals.scm',
-  );
+  const localsPath = path.resolve(queriesRoot, language, 'locals.scm');
+  const locals = await loadQueryFile(localsPath);
   if (!tags || !locals) return null;
 
   const bundle = {
@@ -328,6 +335,21 @@ async function loadQueries(language: AstLanguage): Promise<QueryBundle | null> {
     baseLogger.info(
       { event: 'DEV-0000032:T4:ast-parser-queries-loaded', language },
       'AST parser queries loaded',
+    );
+  }
+  if (!localsQueryLoadedLogged.has(language)) {
+    localsQueryLoadedLogged.add(language);
+    const timestamp = new Date().toISOString();
+    append({
+      level: 'info',
+      message: 'DEV-0000033:T3:ast-locals-query-loaded',
+      timestamp,
+      source: 'server',
+      context: { language, localsPath },
+    });
+    baseLogger.info(
+      { event: 'DEV-0000033:T3:ast-locals-query-loaded', language, localsPath },
+      'AST locals query loaded',
     );
   }
   return bundle;

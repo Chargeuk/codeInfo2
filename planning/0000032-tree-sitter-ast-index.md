@@ -1964,7 +1964,7 @@ Add missing AST edge types (`EXTENDS`, `IMPLEMENTS`, `REFERENCES_TYPE`) and log 
 
 ### 14. Final Task: Full verification + acceptance criteria (retest)
 
-- Task Status: **__in_progress__**
+- Task Status: **__done__**
 - Git Commits: **to_do**
 
 #### Overview
@@ -1984,22 +1984,38 @@ Re-run full verification after the added AST edge work to ensure the story still
 
 #### Subtasks
 
-1. [ ] Build the server
-2. [ ] Build the client
-3. [ ] perform a clean docker build
-4. [ ] Ensure Readme.md is updated with any required description changes and with any new commands that have been added as part of this story
-5. [ ] Ensure Design.md is updated with any required description changes including mermaid diagrams that have been added as part of this story
-6. [ ] Ensure projectStructure.md is updated with any updated, added or removed files & folders
-7. [ ] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
+1. [x] Build the server
+2. [x] Build the client
+3. [x] perform a clean docker build
+4. [x] Ensure Readme.md is updated with any required description changes and with any new commands that have been added as part of this story
+5. [x] Ensure Design.md is updated with any required description changes including mermaid diagrams that have been added as part of this story
+6. [x] Ensure projectStructure.md is updated with any updated, added or removed files & folders
+7. [x] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
 
 #### Testing
 
-1. [ ] run the client jest tests
-2. [ ] run the server cucumber tests
-3. [ ] restart the docker environment
-4. [ ] run the e2e tests
-5. [ ] use the playwright mcp tool to ensure manually check the application, saving screenshots to ./test-results/screenshots/ - Each screenshot should be named with the plan index including the preceding seroes, then a dash, and then the task number, then a dash and the name of the screenshot
+1. [x] run the client jest tests
+2. [x] run the server cucumber tests
+3. [x] restart the docker environment
+4. [x] run the e2e tests
+5. [x] use the playwright mcp tool to ensure manually check the application, saving screenshots to ./test-results/screenshots/ - Each screenshot should be named with the plan index including the preceding seroes, then a dash, and then the task number, then a dash and the name of the screenshot
 
 #### Implementation notes
 
-- 
+- `npm run build --workspace server` completed successfully.
+- `npm run build --workspace client` completed with existing Vite chunk-size warnings.
+- `npm run compose:build:clean` completed successfully after rerunning with a longer timeout.
+- `README.md` already reflected AST ingest updates; no changes needed.
+- `design.md` already includes Task 13 edge and collision log details; no changes needed.
+- `projectStructure.md` already listed modified parser/test files; no changes needed.
+- PR summary draft:
+  - Added Tree-sitter AST indexing pipeline with Mongo-backed symbols/edges/references/imports, coverage tracking, and delta re-embed handling.
+  - Added AST parser and tooling (REST + MCP) to list symbols, definitions, references, call graphs, and module imports.
+  - Updated ingest status payloads and UI to surface AST counts, skip/failure banners, and verification log events.
+  - Added new AST relationship edges (EXTENDS/IMPLEMENTS/REFERENCES_TYPE) and symbolId collision logging with expanded test coverage.
+  - Verified docs (README/design/projectStructure) and full build/test/compose/e2e flows for the story.
+- `npm run test --workspace client` completed successfully (VM modules warnings + console logs in output).
+- `npm run test:integration --workspace server` completed successfully.
+- Restarted docker environment via `npm run compose:down` then `npm run compose:up`.
+- `npm run e2e` completed successfully (36 passed).
+- Manual UI check completed via Playwright (home/ingest/logs/chat). Screenshots saved to `test-results/screenshots/0000032-14-home.png`, `test-results/screenshots/0000032-14-ingest.png`, `test-results/screenshots/0000032-14-logs.png`, `test-results/screenshots/0000032-14-chat.png`.

@@ -2148,56 +2148,71 @@ Surface AST coverage counts on the Ingest page per embedded root, and handle mis
 
 #### Subtasks
 
-1. [ ] Extend ingest roots types for AST counts:
+1. [x] Extend ingest roots types for AST counts:
    - Files to edit:
      - `client/src/hooks/useIngestRoots.ts`
    - Implementation details:
      - Add optional `ast` counts to `IngestRoot` and ensure fetch parsing tolerates missing data.
-2. [ ] Display AST counts in the roots table:
+2. [x] Display AST counts in the roots table:
    - Files to edit:
      - `client/src/components/ingest/RootsTable.tsx`
    - UI details:
      - Add additional count rows (e.g., `AST Supported`, `AST Skipped`, `AST Failed`) in the counts stack.
      - When AST counts are missing, show placeholders (`–`) rather than `0` to indicate absence.
-3. [ ] Display AST counts in the root details drawer:
+3. [x] Display AST counts in the root details drawer:
    - Files to edit:
      - `client/src/components/ingest/RootDetailsDrawer.tsx`
    - UI details:
      - Include AST counts alongside existing file/chunk/embedded counts.
      - Use the same placeholder behavior when AST metadata is missing.
-4. [ ] Client tests — happy path AST counts display:
+4. [x] Client tests — happy path AST counts display:
    - Test type: Unit (client UI).
    - Test location: `client/src/test/ingestRoots.test.tsx`.
    - Description: Provide roots payload with `ast` counts and assert they render in both table and details views.
-5. [ ] Client tests — missing AST counts fallback:
+5. [x] Client tests — missing AST counts fallback:
    - Test type: Unit (client UI).
    - Test location: `client/src/test/ingestRoots.test.tsx`.
    - Description: Provide roots payload without `ast` and assert placeholders render instead of numeric values.
-6. [ ] Update documentation — `design.md`:
+6. [x] Update documentation — `design.md`:
    - Document: `design.md`.
    - Location: `design.md`.
    - Description: Document ingest roots AST counts and UI display expectations.
-7. [ ] Update documentation — `projectStructure.md` if test files change.
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+7. [x] Update documentation — `projectStructure.md` if test files change.
+8. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, verify AST counts render for each root and placeholders show when missing; confirm console is clean.
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, verify AST counts render for each root and placeholders show when missing; confirm console is clean.
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- 
+- Added optional `ast` counts to the ingest roots hook type to tolerate missing metadata.
+- Added AST supported/skipped/failed rows in the roots table with placeholder fallbacks.
+- Added AST counts to the root details drawer with placeholders when metadata is missing.
+- Extended ingest roots tests to cover AST counts rendering in the table/drawer and placeholder behavior.
+- Documented AST counts display expectations for the ingest roots table and details drawer.
+- No `projectStructure.md` updates required for Task 16.
+- Lint continues to report existing import-order warnings; `npm run format:check --workspaces` passes.
+- `npm run build --workspace server` completed successfully.
+- `npm run build --workspace client` completed with the usual Vite chunk size warning.
+- `npm run test --workspace server` completed successfully.
+- `npm run test --workspace client` completed successfully with existing console warnings.
+- `timeout 7m npm run e2e` completed successfully (36 passed).
+- `npm run compose:build` completed successfully.
+- `npm run compose:up` completed successfully.
+- Manual Playwright-MCP check: verified AST counts render in the roots table and placeholders appear in the details drawer for missing metadata; no console errors observed.
+- `npm run compose:down` completed successfully.
 
 ---
 

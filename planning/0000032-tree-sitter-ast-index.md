@@ -2020,3 +2020,13 @@ Re-run full verification after the added AST edge work to ensure the story still
 - Restarted docker environment via `npm run compose:down` then `npm run compose:up`.
 - `npm run e2e` completed successfully (36 passed).
 - Manual UI check completed via Playwright (home/ingest/logs/chat). Screenshots saved to `test-results/screenshots/0000032-14-home.png`, `test-results/screenshots/0000032-14-ingest.png`, `test-results/screenshots/0000032-14-logs.png`, `test-results/screenshots/0000032-14-chat.png`.
+
+---
+
+## Code Review Summary
+
+- Reviewed `main...HEAD` for server AST parsing/indexing, Mongo schema updates, ingest pipeline integration, MCP/REST tooling, client ingest UI changes, and documentation updates.
+- Code quality/maintainability: modular AST parser + tool services, explicit validation/error mapping, and comprehensive unit/integration tests align with existing patterns; docs updated to reflect contracts and flows.
+- Performance: AST parsing is limited to supported files with delta re-embed support and query caching; call-graph depth limiting prevents unbounded traversal.
+- Security: REST/MCP inputs validated with consistent error mapping; repository resolution uses existing ingest registry with no direct filesystem access from user input.
+- Acceptance criteria verified: supported extensions, skip banners/logs, deterministic symbol IDs + collision logging, full Option B edge types, coverage counts, dry-run behavior, MCP/REST parity, and UI banners are present.

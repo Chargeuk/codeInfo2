@@ -290,19 +290,19 @@ Expand the AST language type and extension routing so ingest and tool validation
 
 #### Documentation Locations
 
-- Tree-sitter language configuration (`tree-sitter.json` locals/tags defaults): /websites/tree-sitter_github_io_tree-sitter
-- Tree-sitter init docs (query path defaults + `tree-sitter.json` structure): https://tree-sitter.github.io/tree-sitter/cli/init.html
+- Tree-sitter language config + query file defaults (Context7 `/tree-sitter/tree-sitter`): /tree-sitter/tree-sitter
+- Tree-sitter init docs (`tree-sitter.json` structure + query keys): https://tree-sitter.github.io/tree-sitter/cli/init.html
 - tree-sitter-python `tree-sitter.json` example (file-types + tags path): https://docs.rs/crate/tree-sitter-python/0.23.3/source/tree-sitter.json
-- Tree-sitter Python grammar (extension defaults + node types): https://github.com/tree-sitter/tree-sitter-python
-- Tree-sitter C# grammar (extension defaults + node types): https://github.com/tree-sitter/tree-sitter-c-sharp
-- Tree-sitter Rust grammar (extension defaults + node types): https://github.com/tree-sitter/tree-sitter-rust
-- Tree-sitter C++ grammar (extension defaults + node types): https://github.com/tree-sitter/tree-sitter-cpp
-- TypeScript handbook (union type updates): https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
-- Node.js test runner (unit tests): https://nodejs.org/api/test.html
+- Tree-sitter Python grammar repo (extension defaults + node types): https://github.com/tree-sitter/tree-sitter-python
+- Tree-sitter C# grammar repo (extension defaults + node types): https://github.com/tree-sitter/tree-sitter-c-sharp
+- Tree-sitter Rust grammar repo (extension defaults + node types): https://github.com/tree-sitter/tree-sitter-rust
+- Tree-sitter C++ grammar repo (extension defaults + node types): https://github.com/tree-sitter/tree-sitter-cpp
+- TypeScript reference (Context7 `/microsoft/typescript/v5.9.2`) for union updates: /microsoft/typescript/v5.9.2
+- Node.js test runner API (Context7 `/nodejs/node/v22.17.0`): /nodejs/node/v22.17.0
+- npm run-script docs (CLI v10): https://docs.npmjs.com/cli/v10/commands/npm-run-script
+- ESLint CLI docs (Context7 `/eslint/eslint/v9.37.0`): /eslint/eslint/v9.37.0
+- Prettier CLI docs (Context7 `/prettier/prettier/3.6.2`): /prettier/prettier/3.6.2
 - Markdown Guide (doc edits): https://www.markdownguide.org/basic-syntax/
-- ESLint CLI (lint step): https://eslint.org/docs/latest/use/command-line-interface
-- Prettier CLI (format step): https://prettier.io/docs/cli
-- npm run-script (workspace commands): https://docs.npmjs.com/cli/v9/commands/npm-run-script
 
 #### Subtasks
 
@@ -316,8 +316,8 @@ Expand the AST language type and extension routing so ingest and tool validation
    - Notes:
      - Identify the current `AstLanguage` union, `normalizeLanguage` logic, and the `astSupportedExtensions` set.
    - Documentation to read (repeat):
-     - Tree-sitter language configuration (`tree-sitter.json` locals/tags defaults): /websites/tree-sitter_github_io_tree-sitter
-     - TypeScript handbook (union type updates): https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
+     - Tree-sitter language configuration (`tree-sitter.json` locals/tags defaults): /tree-sitter/tree-sitter
+     - TypeScript handbook (union type updates): /microsoft/typescript/v5.9.2
 2. [ ] Audit for any hard-coded AST language lists or validators:
    - Files to search:
      - `server/src/ast`
@@ -339,15 +339,15 @@ Expand the AST language type and extension routing so ingest and tool validation
      - Add `python`, `c_sharp`, `rust`, and `cpp` to the `AstLanguage` union and any related schema guards.
      - Map `py`, `cs`, `rs`, `cc`, `cpp`, `cxx`, `hpp`, `hxx`, and `h` to the new languages (no extra overrides beyond grammar defaults).
    - Documentation to read (repeat):
-     - Tree-sitter language configuration: /websites/tree-sitter_github_io_tree-sitter
+     - Tree-sitter language configuration: /tree-sitter/tree-sitter
      - Tree-sitter C++ grammar (extension defaults + node types): https://github.com/tree-sitter/tree-sitter-cpp
 4. [ ] Update validation coverage for new language values:
    - Test type: Unit (validation/guard coverage).
    - Test location: `server/src/test/unit/ast-tool-validation.test.ts`.
    - Description: Ensure validators accept the new language values and still reject unknown languages.
    - Documentation to read (repeat):
-     - Node.js test runner: https://nodejs.org/api/test.html
-     - TypeScript handbook: https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
+     - Node.js test runner: /nodejs/node/v22.17.0
+     - TypeScript handbook: /microsoft/typescript/v5.9.2
 5. [ ] Update documentation — `design.md`:
    - Document: `design.md`.
    - Location: `design.md`.
@@ -362,8 +362,8 @@ Expand the AST language type and extension routing so ingest and tool validation
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
 7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier CLI: https://prettier.io/docs/cli
+     - ESLint CLI: /eslint/eslint/v9.37.0
+     - Prettier CLI: /prettier/prettier/3.6.2
 
 #### Testing
 
@@ -393,17 +393,19 @@ Add the Tree-sitter grammar packages and wire them into the parser so language d
 
 #### Documentation Locations
 
-- Tree-sitter query syntax + locals capture guide: /websites/tree-sitter_github_io_tree-sitter
-- Tree-sitter init docs (query path defaults + `tree-sitter.json` structure): https://tree-sitter.github.io/tree-sitter/cli/init.html
-- Tree-sitter Python grammar (node types + queries): https://github.com/tree-sitter/tree-sitter-python
-- Tree-sitter C# grammar (node types + queries): https://github.com/tree-sitter/tree-sitter-c-sharp
-- Tree-sitter Rust grammar (node types + queries): https://github.com/tree-sitter/tree-sitter-rust
-- Tree-sitter C++ grammar (node types + queries): https://github.com/tree-sitter/tree-sitter-cpp
-- Node.js test runner (parser unit tests): https://nodejs.org/api/test.html
+- Tree-sitter query system + capture conventions (Context7 `/tree-sitter/tree-sitter`): /tree-sitter/tree-sitter
+- DeepWiki tree-sitter Query System (query file conventions): deepwiki tree-sitter/tree-sitter → “Query System”
+- Tree-sitter init docs (`tree-sitter.json` structure + query keys): https://tree-sitter.github.io/tree-sitter/cli/init.html
+- Tree-sitter Python grammar repo (node types + queries): https://github.com/tree-sitter/tree-sitter-python
+- Tree-sitter C# grammar repo (node types + queries): https://github.com/tree-sitter/tree-sitter-c-sharp
+- Tree-sitter Rust grammar repo (node types + queries): https://github.com/tree-sitter/tree-sitter-rust
+- Tree-sitter C++ grammar repo (node types + queries): https://github.com/tree-sitter/tree-sitter-cpp
+- TypeScript ambient module declarations (Context7 `/microsoft/typescript/v5.9.2`): /microsoft/typescript/v5.9.2
+- Node.js test runner API (Context7 `/nodejs/node/v22.17.0`): /nodejs/node/v22.17.0
+- npm run-script docs (CLI v10): https://docs.npmjs.com/cli/v10/commands/npm-run-script
+- ESLint CLI docs (Context7 `/eslint/eslint/v9.37.0`): /eslint/eslint/v9.37.0
+- Prettier CLI docs (Context7 `/prettier/prettier/3.6.2`): /prettier/prettier/3.6.2
 - Markdown Guide (doc edits): https://www.markdownguide.org/basic-syntax/
-- ESLint CLI (lint step): https://eslint.org/docs/latest/use/command-line-interface
-- Prettier CLI (format step): https://prettier.io/docs/cli
-- npm run-script (workspace commands): https://docs.npmjs.com/cli/v9/commands/npm-run-script
 
 #### Subtasks
 
@@ -417,7 +419,7 @@ Add the Tree-sitter grammar packages and wire them into the parser so language d
      - Identify how tags/locals queries are loaded for JS/TS today.
      - Reuse `sanitizeQuery`, `loadQueryFile`, and `loadQueries` rather than adding new loaders.
    - Documentation to read (repeat):
-     - Tree-sitter query syntax + locals capture guide: /websites/tree-sitter_github_io_tree-sitter
+     - Tree-sitter query syntax + locals capture guide: /tree-sitter/tree-sitter
      - Tree-sitter init docs (query path defaults + `tree-sitter.json` structure): https://tree-sitter.github.io/tree-sitter/cli/init.html
 2. [ ] Add Tree-sitter grammar dependencies:
    - Files to edit:
@@ -427,14 +429,14 @@ Add the Tree-sitter grammar packages and wire them into the parser so language d
      - Add `tree-sitter-python`, `tree-sitter-c-sharp`, `tree-sitter-rust`, and `tree-sitter-cpp` with versions aligned to existing Tree-sitter dependencies (`tree-sitter@0.21.1`, `tree-sitter-javascript@0.23.1`, `tree-sitter-typescript@0.23.2`).
      - Keep the existing `tree-sitter` binding version unchanged unless it blocks grammar loading.
    - Documentation to read (repeat):
-     - npm run-script (workspace commands): https://docs.npmjs.com/cli/v9/commands/npm-run-script
+     - npm run-script (workspace commands): https://docs.npmjs.com/cli/v10/commands/npm-run-script
 3. [ ] Extend Tree-sitter module declarations for new grammars:
    - Files to edit:
      - `server/src/types/tree-sitter.d.ts`
    - Implementation details:
      - Add module declarations for each new grammar package so TypeScript can import them cleanly.
    - Documentation to read (repeat):
-     - TypeScript handbook (union type updates): https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
+     - TypeScript handbook (union type updates): /microsoft/typescript/v5.9.2
 4. [ ] Wire new languages into the parser + query loader:
    - Files to edit:
      - `server/src/ast/parser.ts`
@@ -443,7 +445,7 @@ Add the Tree-sitter grammar packages and wire them into the parser so language d
      - Load `queries/tags.scm` from each grammar package and load `locals.scm` from `server/src/ast/queries/<language>/locals.scm` for the new languages.
      - Extend any query warm-up lists (e.g., `warmAstParserQueries`) to include the new languages.
    - Documentation to read (repeat):
-     - Tree-sitter query syntax + locals capture guide: /websites/tree-sitter_github_io_tree-sitter
+     - Tree-sitter query syntax + locals capture guide: /tree-sitter/tree-sitter
 5. [ ] Update documentation — `design.md`:
    - Document: `design.md`.
    - Location: `design.md`.
@@ -458,8 +460,8 @@ Add the Tree-sitter grammar packages and wire them into the parser so language d
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
 7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier CLI: https://prettier.io/docs/cli
+     - ESLint CLI: /eslint/eslint/v9.37.0
+     - Prettier CLI: /prettier/prettier/3.6.2
 
 #### Testing
 
@@ -489,17 +491,18 @@ Verify grammar query assets, add CodeInfo2-owned locals (and tags fallbacks if n
 
 #### Documentation Locations
 
-- Tree-sitter query syntax + locals capture guide: /websites/tree-sitter_github_io_tree-sitter
-- Tree-sitter init docs (query path defaults + `tree-sitter.json` structure): https://tree-sitter.github.io/tree-sitter/cli/init.html
-- Tree-sitter Python grammar (node types + queries): https://github.com/tree-sitter/tree-sitter-python
-- Tree-sitter C# grammar (node types + queries): https://github.com/tree-sitter/tree-sitter-c-sharp
-- Tree-sitter Rust grammar (node types + queries): https://github.com/tree-sitter/tree-sitter-rust
-- Tree-sitter C++ grammar (node types + queries): https://github.com/tree-sitter/tree-sitter-cpp
-- Node.js test runner (parser unit tests): https://nodejs.org/api/test.html
+- Tree-sitter query system + capture conventions (Context7 `/tree-sitter/tree-sitter`): /tree-sitter/tree-sitter
+- DeepWiki tree-sitter Query System (query file conventions): deepwiki tree-sitter/tree-sitter → “Query System”
+- Tree-sitter init docs (`tree-sitter.json` structure + query keys): https://tree-sitter.github.io/tree-sitter/cli/init.html
+- Tree-sitter Python grammar repo (node types + queries): https://github.com/tree-sitter/tree-sitter-python
+- Tree-sitter C# grammar repo (node types + queries): https://github.com/tree-sitter/tree-sitter-c-sharp
+- Tree-sitter Rust grammar repo (node types + queries): https://github.com/tree-sitter/tree-sitter-rust
+- Tree-sitter C++ grammar repo (node types + queries): https://github.com/tree-sitter/tree-sitter-cpp
+- Node.js test runner API (Context7 `/nodejs/node/v22.17.0`): /nodejs/node/v22.17.0
+- npm run-script docs (CLI v10): https://docs.npmjs.com/cli/v10/commands/npm-run-script
+- ESLint CLI docs (Context7 `/eslint/eslint/v9.37.0`): /eslint/eslint/v9.37.0
+- Prettier CLI docs (Context7 `/prettier/prettier/3.6.2`): /prettier/prettier/3.6.2
 - Markdown Guide (doc edits): https://www.markdownguide.org/basic-syntax/
-- ESLint CLI (lint step): https://eslint.org/docs/latest/use/command-line-interface
-- Prettier CLI (format step): https://prettier.io/docs/cli
-- npm run-script (workspace commands): https://docs.npmjs.com/cli/v9/commands/npm-run-script
 
 #### Subtasks
 
@@ -527,14 +530,14 @@ Verify grammar query assets, add CodeInfo2-owned locals (and tags fallbacks if n
    - Example snippet (use node names from each grammar’s `node-types.json`):
      - `(identifier) @local.reference`
    - Documentation to read (repeat):
-     - Tree-sitter query syntax + locals capture guide: /websites/tree-sitter_github_io_tree-sitter
+     - Tree-sitter query syntax + locals capture guide: /tree-sitter/tree-sitter
 3. [ ] Add parser unit coverage for new languages:
    - Test type: Unit (parser output).
    - Test location: `server/src/test/unit/ast-parser.test.ts`.
    - Description: Add minimal inline fixtures per language and assert at least one `@local.definition` and one `@local.reference` capture, plus non-empty references in the output.
    - Documentation to read (repeat):
-     - Node.js test runner: https://nodejs.org/api/test.html
-     - Tree-sitter query syntax: /websites/tree-sitter_github_io_tree-sitter
+     - Node.js test runner: /nodejs/node/v22.17.0
+     - Tree-sitter query syntax: /tree-sitter/tree-sitter
    - Notes:
      - Extend existing fixtures in `ast-parser.test.ts` instead of creating new test files.
      - Copy the existing TS fixture structure (inline source string + `parseAstSource` call) to keep tests consistent.
@@ -552,8 +555,8 @@ Verify grammar query assets, add CodeInfo2-owned locals (and tags fallbacks if n
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
 6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier CLI: https://prettier.io/docs/cli
+     - ESLint CLI: /eslint/eslint/v9.37.0
+     - Prettier CLI: /prettier/prettier/3.6.2
 
 #### Testing
 
@@ -583,12 +586,12 @@ Extend ingest AST indexing coverage so the new language extensions are parsed du
 
 #### Documentation Locations
 
-- Tree-sitter query/locals guidance: /websites/tree-sitter_github_io_tree-sitter
-- Node.js test runner (ingest unit tests): https://nodejs.org/api/test.html
+- Tree-sitter query system + capture conventions (Context7 `/tree-sitter/tree-sitter`): /tree-sitter/tree-sitter
+- Node.js test runner API (Context7 `/nodejs/node/v22.17.0`): /nodejs/node/v22.17.0
+- npm run-script docs (CLI v10): https://docs.npmjs.com/cli/v10/commands/npm-run-script
+- ESLint CLI docs (Context7 `/eslint/eslint/v9.37.0`): /eslint/eslint/v9.37.0
+- Prettier CLI docs (Context7 `/prettier/prettier/3.6.2`): /prettier/prettier/3.6.2
 - Markdown Guide (doc edits): https://www.markdownguide.org/basic-syntax/
-- ESLint CLI (lint step): https://eslint.org/docs/latest/use/command-line-interface
-- Prettier CLI (format step): https://prettier.io/docs/cli
-- npm run-script (workspace commands): https://docs.npmjs.com/cli/v9/commands/npm-run-script
 
 #### Subtasks
 
@@ -601,7 +604,7 @@ Extend ingest AST indexing coverage so the new language extensions are parsed du
    - Notes:
      - Locate the AST parse call site, the supported extension check, and existing log messages for unsupported extensions.
    - Documentation to read (repeat):
-     - Node.js test runner (ingest unit tests): https://nodejs.org/api/test.html
+     - Node.js test runner (ingest unit tests): /nodejs/node/v22.17.0
 2. [ ] Ensure ingest AST indexing covers new languages during `start` + `reembed`:
    - Files to edit:
      - `server/src/ingest/ingestJob.ts`
@@ -612,7 +615,7 @@ Extend ingest AST indexing coverage so the new language extensions are parsed du
    - Example log context (shape only):
      - `{ root, skippedFileCount, skippedExtensions: ['py', 'cs'], reason: 'unsupported_language' }`
    - Documentation to read (repeat):
-     - Tree-sitter query/locals guidance: /websites/tree-sitter_github_io_tree-sitter
+     - Tree-sitter query/locals guidance: /tree-sitter/tree-sitter
 3. [ ] Update ingest AST indexing tests for new extensions:
    - Test type: Unit (ingest AST indexing).
    - Test location: `server/src/test/unit/ingest-ast-indexing.test.ts`.
@@ -623,7 +626,7 @@ Extend ingest AST indexing coverage so the new language extensions are parsed du
      - Logs do not include “Tree-sitter query files missing; skipping AST parse” for the new languages.
      - Unsupported-language log context includes the extension list and skip reason.
    - Documentation to read (repeat):
-     - Node.js test runner: https://nodejs.org/api/test.html
+     - Node.js test runner: /nodejs/node/v22.17.0
    - Notes:
      - Extend the existing ingest AST indexing test file rather than creating new tests.
 4. [ ] Validate no regressions to embedding counts or model-locking behavior:
@@ -634,7 +637,7 @@ Extend ingest AST indexing coverage so the new language extensions are parsed du
      - Confirm existing tests that assert embedding counts or model locks still pass without updates.
      - If expectations need adjustment due to new AST fields, update only the AST-related fields; keep embedding counts and model lock assertions unchanged.
    - Documentation to read (repeat):
-     - Node.js test runner: https://nodejs.org/api/test.html
+     - Node.js test runner: /nodejs/node/v22.17.0
 5. [ ] Update documentation — `design.md`:
    - Document: `design.md`.
    - Location: `design.md`.
@@ -649,8 +652,8 @@ Extend ingest AST indexing coverage so the new language extensions are parsed du
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
 7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
-     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-     - Prettier CLI: https://prettier.io/docs/cli
+     - ESLint CLI: /eslint/eslint/v9.37.0
+     - Prettier CLI: /prettier/prettier/3.6.2
 
 #### Testing
 
@@ -680,25 +683,26 @@ Validate the full story against acceptance criteria, run the complete test/build
 
 #### Documentation Locations
 
-- Docker/Compose: /docker/docs
-- Playwright: /microsoft/playwright
-- Husky: /typicode/husky
-- Mermaid: /mermaid-js/mermaid
-- Jest: /jestjs/jest
-- Cucumber guides: https://cucumber.io/docs/guides/
-- Markdown Guide: https://www.markdownguide.org/basic-syntax/
-- ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
-- Prettier CLI: https://prettier.io/docs/cli
-- npm run-script: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+- Docker Compose reference (Context7 `/docker/docs`): /docker/docs
+- Playwright (Context7 `/microsoft/playwright`) for e2e runs: /microsoft/playwright
+- Playwright MCP server docs (Context7 `/microsoft/playwright-mcp`) for screenshots: /microsoft/playwright-mcp
+- Husky hooks (Context7 `/typicode/husky`): /typicode/husky
+- Mermaid diagrams (Context7 `/mermaid-js/mermaid/v11_0_0`): /mermaid-js/mermaid/v11_0_0
+- Jest CLI/config (Context7 `/jestjs/jest`): /jestjs/jest
+- Cucumber.js guide (https://cucumber.io/docs/guides/10-minute-tutorial): https://cucumber.io/docs/guides/10-minute-tutorial
+- Markdown Guide (doc edits): https://www.markdownguide.org/basic-syntax/
+- ESLint CLI docs (Context7 `/eslint/eslint/v9.37.0`): /eslint/eslint/v9.37.0
+- Prettier CLI docs (Context7 `/prettier/prettier/3.6.2`): /prettier/prettier/3.6.2
+- npm run-script docs (CLI v10): https://docs.npmjs.com/cli/v10/commands/npm-run-script
 
 #### Subtasks
 
 1. [ ] Build the server.
    - Documentation to read (repeat):
-     - npm run-script: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+     - npm run-script: https://docs.npmjs.com/cli/v10/commands/npm-run-script
 2. [ ] Build the client.
    - Documentation to read (repeat):
-     - npm run-script: https://docs.npmjs.com/cli/v9/commands/npm-run-script
+     - npm run-script: https://docs.npmjs.com/cli/v10/commands/npm-run-script
 3. [ ] Perform a clean docker build.
    - Documentation to read (repeat):
      - Docker/Compose: /docker/docs

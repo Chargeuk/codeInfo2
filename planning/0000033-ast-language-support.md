@@ -17,7 +17,7 @@ Story convention (important for this repo’s planning style):
 
 CodeInfo2 currently builds AST symbol data only for JavaScript/TypeScript files during ingest, which limits AST tools to JS/TS repos. This story extends the same pipeline so Python, C#, Rust, and C++ repos can be indexed and queried without changing how ingest or the tools work for JS/TS.
 
-This phase is strictly about language coverage. We will keep the existing AST schema, ingest discovery rules, file hashing, and tool contracts unchanged. Where grammars do not ship `locals.scm` (Python/C#/Rust/C++), we will add CodeInfo2-owned locals queries so definitions and references are still captured. No UI updates are planned; verification is via server logs and existing tests.
+This phase is strictly about language coverage. We will keep the existing AST schema, ingest discovery rules, file hashing, and tool contracts unchanged. Where grammars do not ship `locals.scm` (Python/C#/Rust/C++), we will add CodeInfo2-owned locals queries so definitions and references are still captured. No UI updates are planned; verification is via server logs and parser-level tests added in this story.
 
 ---
 

@@ -179,7 +179,10 @@ const start = async () => {
       message: 'DEV-0000032:T12:verification-ready',
       timestamp,
       source: 'server',
-      context: { event: 'DEV-0000032:T12:verification-ready', port: Number(PORT) },
+      context: {
+        event: 'DEV-0000032:T12:verification-ready',
+        port: Number(PORT),
+      },
     });
   });
   await logTreeSitterReady();

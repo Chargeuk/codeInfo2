@@ -32,6 +32,17 @@ const importSource = [
   '',
 ].join('\n');
 
+const heritageSource = [
+  'interface Base {}',
+  'interface Face {}',
+  'class Child extends Base implements Face {',
+  '  method(arg: Base): Face {',
+  '    return {} as Face;',
+  '  }',
+  '}',
+  '',
+].join('\n');
+
 test('ast parser extracts symbols for ts and tsx', async () => {
   const tsResult = await parseAstSource({
     root: '/repo',
@@ -95,6 +106,7 @@ test('ast parser returns stable symbol ids', async () => {
 });
 
 test('ast parser disambiguates symbolId collisions', () => {
+  resetStore();
   const makeId = createSymbolIdFactory();
   const base = 'root|file|Function|same|1|1|1|1';
   const first = makeId(base);
@@ -103,6 +115,10 @@ test('ast parser disambiguates symbolId collisions', () => {
   assert.notEqual(first, second);
   assert.equal(second, `${first}-2`);
   assert.equal(third, `${first}-3`);
+  const entries = query({ text: 'DEV-0000032:T13:ast-symbolid-collision' });
+  assert.equal(entries.length, 2);
+  assert.equal(entries[0].context?.base, base);
+  assert.equal(entries[0].context?.suffix, 2);
 });
 
 test('ast parser emits CALLS edges', async () => {
@@ -181,6 +197,42 @@ test('ast parser emits IMPORTS and EXPORTS edges', async () => {
     );
     assert(importEdge);
     assert(exportEdge);
+  }
+});
+
+test('ast parser emits EXTENDS/IMPLEMENTS and REFERENCES_TYPE edges', async () => {
+  const result = await parseAstSource({
+    root: '/repo',
+    relPath: 'src/heritage.ts',
+    fileHash: 'hash-heritage',
+    text: heritageSource,
+  });
+
+  assert.equal(result.status, 'ok');
+  if (result.status === 'ok') {
+    const base = result.symbols.find((symbol) => symbol.name === 'Base');
+    const face = result.symbols.find((symbol) => symbol.name === 'Face');
+    const child = result.symbols.find((symbol) => symbol.name === 'Child');
+    assert(base && face && child);
+    const extendsEdge = result.edges.find(
+      (edge) =>
+        edge.type === 'EXTENDS' &&
+        edge.fromSymbolId === child.symbolId &&
+        edge.toSymbolId === base.symbolId,
+    );
+    const implementsEdge = result.edges.find(
+      (edge) =>
+        edge.type === 'IMPLEMENTS' &&
+        edge.fromSymbolId === child.symbolId &&
+        edge.toSymbolId === face.symbolId,
+    );
+    const referenceEdge = result.edges.find(
+      (edge) =>
+        edge.type === 'REFERENCES_TYPE' && edge.toSymbolId === base.symbolId,
+    );
+    assert(extendsEdge);
+    assert(implementsEdge);
+    assert(referenceEdge);
   }
 });
 

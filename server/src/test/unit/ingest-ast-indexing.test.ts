@@ -267,6 +267,70 @@ test('ingest tracks supported AST file count', async () => {
   }
 });
 
+test('ingest persists new AST edge types', async () => {
+  const repoMocks = mongoMocks;
+  mockParseAstSource(async (input: ParseAstSourceInput) => ({
+    ...baseAstResult,
+    edges: [
+      {
+        root: input.root,
+        relPath: input.relPath,
+        fileHash: input.fileHash,
+        fromSymbolId: 'from-extends',
+        toSymbolId: 'to-extends',
+        type: 'EXTENDS',
+      },
+      {
+        root: input.root,
+        relPath: input.relPath,
+        fileHash: input.fileHash,
+        fromSymbolId: 'from-implements',
+        toSymbolId: 'to-implements',
+        type: 'IMPLEMENTS',
+      },
+      {
+        root: input.root,
+        relPath: input.relPath,
+        fileHash: input.fileHash,
+        fromSymbolId: 'from-ref',
+        toSymbolId: 'to-ref',
+        type: 'REFERENCES_TYPE',
+      },
+    ],
+  }));
+  const { root, cleanup } = await createTempRepo({
+    'src/edges.ts': 'export class EdgeCase {}\n',
+  });
+
+  try {
+    const runId = await startIngest(
+      {
+        path: root,
+        name: 'repo',
+        model: 'embed-model',
+      },
+      buildDeps(),
+    );
+    await waitForTerminal(runId);
+
+    const bulkCall = repoMocks.astEdgesBulkWrite.mock.calls.at(-1) as
+      | {
+          arguments: [Array<{ updateOne: { filter: { type: string } } }>];
+        }
+      | undefined;
+    if (!bulkCall) throw new Error('Expected edge upsert');
+    const types = bulkCall.arguments[0].map(
+      (operation) => operation.updateOne.filter.type,
+    );
+    assert.deepEqual(
+      new Set(types),
+      new Set(['EXTENDS', 'IMPLEMENTS', 'REFERENCES_TYPE']),
+    );
+  } finally {
+    await cleanup();
+  }
+});
+
 test('ingest logs unsupported-language skips', async () => {
   mockParseAstSource();
   const { root, cleanup } = await createTempRepo({

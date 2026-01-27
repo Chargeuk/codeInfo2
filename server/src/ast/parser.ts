@@ -258,6 +258,18 @@ export function createSymbolIdFactory() {
     }
     const next = count + 1;
     seen.set(hash, next);
+    const timestamp = new Date().toISOString();
+    append({
+      level: 'warn',
+      message: 'DEV-0000032:T13:ast-symbolid-collision',
+      timestamp,
+      source: 'server',
+      context: { base, suffix: next },
+    });
+    baseLogger.warn(
+      { event: 'DEV-0000032:T13:ast-symbolid-collision', base, suffix: next },
+      'AST symbolId collision detected',
+    );
     return `${hash}-${next}`;
   };
 }
@@ -312,6 +324,19 @@ function rangeSpan(range: {
   );
 }
 
+function distanceFromPosition(
+  position: { line: number; column: number },
+  range: {
+    start: { line: number; column: number };
+    end: { line: number; column: number };
+  },
+) {
+  return (
+    Math.abs(range.start.line - position.line) * 10000 +
+    Math.abs(range.start.column - position.column)
+  );
+}
+
 function findEnclosingSymbol(
   symbols: AstSymbolRecord[],
   position: { line: number; column: number },
@@ -324,6 +349,28 @@ function findEnclosingSymbol(
   );
   if (candidates.length === 0) return null;
   return candidates.sort((a, b) => rangeSpan(a.range) - rangeSpan(b.range))[0];
+}
+
+function findClosestSymbolByName(
+  symbols: AstSymbolRecord[],
+  name: string,
+  position: { line: number; column: number },
+  moduleSymbolId: string,
+  allowedKinds?: AstSymbolKind[],
+) {
+  const candidates = symbols.filter((symbol) => {
+    if (symbol.symbolId === moduleSymbolId) return false;
+    if (symbol.name !== name) return false;
+    if (allowedKinds && !allowedKinds.includes(symbol.kind as AstSymbolKind))
+      return false;
+    return true;
+  });
+  if (candidates.length === 0) return null;
+  return candidates.sort(
+    (a, b) =>
+      distanceFromPosition(position, a.range) -
+      distanceFromPosition(position, b.range),
+  )[0];
 }
 
 function buildCallEdges(
@@ -395,6 +442,115 @@ function buildExportEdges(
     }
   }
 
+  return edges;
+}
+
+function collectClauseTypeNames(node: SyntaxNode) {
+  const nameNodes = node.descendantsOfType([
+    'identifier',
+    'type_identifier',
+    'property_identifier',
+  ]);
+  return Array.from(
+    new Set(nameNodes.map((nameNode) => getNodeText(nameNode)).filter(Boolean)),
+  );
+}
+
+function buildHeritageEdges(
+  tree: Tree,
+  symbols: AstSymbolRecord[],
+  moduleSymbolId: string,
+  root: string,
+  relPath: string,
+  fileHash: string,
+): AstEdgeRecord[] {
+  const edges: AstEdgeRecord[] = [];
+  const declarations = tree.rootNode.descendantsOfType([
+    'class_declaration',
+    'interface_declaration',
+  ]);
+
+  for (const declaration of declarations) {
+    const name = getNodeText(declaration.childForFieldName('name'));
+    if (!name) continue;
+    const allowedKinds: AstSymbolKind[] =
+      declaration.type === 'interface_declaration' ? ['Interface'] : ['Class'];
+    const sourceSymbol = findClosestSymbolByName(
+      symbols,
+      name,
+      toRange(declaration).start,
+      moduleSymbolId,
+      allowedKinds,
+    );
+    if (!sourceSymbol) continue;
+
+    const clauseNodes = declaration.descendantsOfType([
+      'extends_clause',
+      'implements_clause',
+    ]);
+    for (const clause of clauseNodes) {
+      const edgeType =
+        clause.type === 'implements_clause' ? 'IMPLEMENTS' : 'EXTENDS';
+      const clauseNames = collectClauseTypeNames(clause);
+      for (const clauseName of clauseNames) {
+        const targetSymbol = findClosestSymbolByName(
+          symbols,
+          clauseName,
+          toRange(clause).start,
+          moduleSymbolId,
+        );
+        if (!targetSymbol) continue;
+        if (targetSymbol.symbolId === sourceSymbol.symbolId) continue;
+        edges.push({
+          root,
+          relPath,
+          fileHash,
+          fromSymbolId: sourceSymbol.symbolId,
+          toSymbolId: targetSymbol.symbolId,
+          type: edgeType,
+        });
+      }
+    }
+  }
+
+  return edges;
+}
+
+function buildTypeReferenceEdges(
+  references: AstReferenceRecord[],
+  symbols: AstSymbolRecord[],
+  moduleSymbolId: string,
+  root: string,
+  relPath: string,
+  fileHash: string,
+): AstEdgeRecord[] {
+  const edges: AstEdgeRecord[] = [];
+  const moduleSymbol = symbols.find(
+    (symbol) => symbol.symbolId === moduleSymbolId,
+  );
+  for (const reference of references) {
+    if (reference.kind !== 'type') continue;
+    const target = findClosestSymbolByName(
+      symbols,
+      reference.name,
+      reference.range.start,
+      moduleSymbolId,
+    );
+    if (!target) continue;
+    const source =
+      findEnclosingSymbol(symbols, reference.range.start, moduleSymbolId) ??
+      moduleSymbol ??
+      null;
+    if (!source) continue;
+    edges.push({
+      root,
+      relPath,
+      fileHash,
+      fromSymbolId: source.symbolId,
+      toSymbolId: target.symbolId,
+      type: 'REFERENCES_TYPE',
+    });
+  }
   return edges;
 }
 
@@ -707,6 +863,24 @@ async function parseAstSourceInternal(
       fileHash,
     );
 
+    const heritageEdges = buildHeritageEdges(
+      tree,
+      symbols,
+      moduleSymbolId,
+      root,
+      relPath,
+      fileHash,
+    );
+
+    const typeReferenceEdges = buildTypeReferenceEdges(
+      references,
+      symbols,
+      moduleSymbolId,
+      root,
+      relPath,
+      fileHash,
+    );
+
     const imports = buildImportRecords(
       importStatements,
       root,
@@ -718,7 +892,14 @@ async function parseAstSourceInternal(
       status: 'ok',
       language,
       symbols,
-      edges: [...defineEdges, ...importEdges, ...callEdges, ...exportEdges],
+      edges: [
+        ...defineEdges,
+        ...importEdges,
+        ...callEdges,
+        ...exportEdges,
+        ...heritageEdges,
+        ...typeReferenceEdges,
+      ],
       references,
       imports,
     };

@@ -2522,3 +2522,14 @@ Re-run full verification after normalising/validating AST tool inputs so the sto
 - Checked performance and safety: delta-aware AST indexing skips unchanged files, call-graph traversal enforces depth/limit validation, and user inputs are validated before DB access.
 - Verified acceptance criteria: AST indexing for JS/TS/TSX/JSX, per-file skip handling with UI banner, persisted symbols/edges/references/imports, AST coverage metadata in ingest roots, dry-run non-persistence, and MCP/REST tools returning ranges.
 - Verified test evidence and manual checks: build/test/compose/e2e runs + Playwright-MCP screenshots recorded in Task 17.
+
+---
+
+## Code Review (2026-01-27)
+
+- Diff inspected: `origin/main...HEAD` (67 files changed), focusing on server AST parsing/indexing, ingest pipeline changes, Mongo schema/repo updates, AST REST/MCP tooling, client ingest UI, tests, OpenAPI, and documentation.
+- Code quality & maintainability: parser/tool services are modular with explicit validation, reuse of ingest hashing/config, and consistent logging; repo helpers centralize DB access with guarded Mongo availability checks.
+- Performance: AST indexing is limited to supported JS/TS/TSX/JSX files, queries are cached per language, and delta re-embed skips unchanged files to reduce parse work.
+- Security: input validation for repositories/kinds/limits prevents unsafe DB queries; repository resolution uses ingest registry without arbitrary filesystem access.
+- Acceptance criteria verified: AST indexing integration, per-file skip logging + UI banner, persisted symbols/edges/references/imports, AST coverage metadata in ingest roots, dry-run non-persistence, and AST tools returning ranges/graphs/imports per spec.
+- Outcome: no new issues found; no additional tasks required.

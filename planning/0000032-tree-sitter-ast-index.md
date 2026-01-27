@@ -1543,7 +1543,7 @@ Expose AST tools through the MCP JSON-RPC server with schemas aligned to the RES
 
 ### 10. Client: Ingest status type updates
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **to_do**
 
 #### Overview

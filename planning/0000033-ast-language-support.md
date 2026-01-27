@@ -546,8 +546,8 @@ Add the Tree-sitter grammar packages and wire them into the parser so language d
 
 ### 3. Server: AST query assets + parser tests
 
-- Task Status: **__in_progress__**
-- Git Commits:
+- Task Status: **__done__**
+- Git Commits: 3143f36, d92eff1
 
 #### Overview
 

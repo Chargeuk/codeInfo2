@@ -1391,7 +1391,7 @@ sequenceDiagram
   - `ast_coverage` stores per-root coverage counts and `lastIndexedAt`.
 - The AST parser reads `queries/tags.scm` and `queries/locals.scm` from the grammar packages, logs `DEV-0000032:T4:ast-parser-queries-loaded` once per language, and emits module + definition symbols with `DEFINES`, `CALLS`, `IMPORTS`, `EXPORTS`, `EXTENDS`, `IMPLEMENTS`, and `REFERENCES_TYPE` edges.
 - When `createSymbolIdFactory` encounters a duplicate hash, it logs `DEV-0000032:T13:ast-symbolid-collision` with the base string and suffix count.
-- Ingest AST indexing uses `discoverFiles` output (include/exclude + hashing) and, on delta re-embed, parses only added/changed files while deleting AST records for changed/deleted paths.
+- Ingest AST indexing uses `discoverFiles` output (include/exclude + hashing) and, on delta re-embed, parses all supported files while deleting AST records for changed/deleted paths so AST coverage stays complete.
 - Unsupported extensions increment `ast.skippedFileCount` and emit a warning with example paths; supported parse failures increment `ast.failedFileCount` without aborting the run.
 - Dry-run ingests still parse and count AST coverage but skip Mongo writes; if Mongo is disconnected, AST writes are skipped with a warning.
 - `DEV-0000032:T5:ast-index-complete` is logged after AST coverage is persisted.

@@ -356,6 +356,11 @@ async function processRun(runId: string, input: IngestJobInput) {
     const astReferences: AstReferenceRecord[] = [];
     const astModuleImports: AstModuleImportRecord[] = [];
     let astGrammarFailureLogged = false;
+    const deltaSkipMessage =
+      operation === 'reembed' && deltaMode === 'delta' && deltaWorkCount === 0
+        ? `No changes detected for ${root}`
+        : undefined;
+    let finalSkipMessage = deltaSkipMessage;
 
     const counts = { files: workFiles.length, chunks: 0, embedded: 0 };
     const fileTotal = workFiles.length;
@@ -395,6 +400,12 @@ async function processRun(runId: string, input: IngestJobInput) {
     let vectorDim = 1;
     let filesSinceFlush = 0;
     const fileHashesByRelPath = new Map<string, string>();
+    const discoveredHashByRelPath = new Map<string, string>();
+    if (discoveredWithHashes) {
+      for (const file of discoveredWithHashes) {
+        discoveredHashByRelPath.set(file.relPath, file.fileHash);
+      }
+    }
 
     const clearBatch = () => {
       idsBatch.length = 0;
@@ -468,60 +479,7 @@ async function processRun(runId: string, input: IngestJobInput) {
         await deleteRoots({ where: { root } });
       } else if (deltaMode === 'delta' && deltaPlan) {
         if ((deltaWorkCount ?? 0) === 0) {
-          const skipMessage = `No changes detected for ${root}`;
-          setStatusAndPublish(runId, {
-            runId,
-            state: 'skipped',
-            counts,
-            ast: astCounts,
-            message: skipMessage,
-            lastError: null,
-            currentFile: undefined,
-            fileIndex: 0,
-            fileTotal,
-            percent: 100,
-            etaMs: 0,
-          });
-
-          const rootEmbeddingDim = await resolveRootEmbeddingDim({
-            existingRootDim,
-            vectorDim,
-            modelKey: model,
-          });
-          const rootMetadata: Metadata = {
-            runId,
-            root,
-            name,
-            model,
-            files: counts.files,
-            chunks: counts.chunks,
-            embedded: counts.embedded,
-            state: 'skipped',
-            lastIngestAt: new Date().toISOString(),
-            ingestedAtMs,
-          };
-          attachAstMetadata(rootMetadata);
-          if (description) rootMetadata.description = description;
-          await roots.add({
-            ids: [runId],
-            embeddings: [Array(rootEmbeddingDim).fill(0)],
-            metadatas: [rootMetadata],
-          });
           logLifecycle('info', '0000020 ingest delta no-op skipped', { root });
-          logLifecycle('info', 'ingest skipped', {
-            runId,
-            operation,
-            path: startPath,
-            root,
-            model,
-            name,
-            description,
-            state: 'skipped',
-            counts,
-          });
-          await deleteVectorsCollectionIfEmpty();
-          ingestLock.release(runId);
-          return;
         }
       }
     }
@@ -561,6 +519,7 @@ async function processRun(runId: string, input: IngestJobInput) {
           root,
           deleted: deltaPlan.deleted.length,
         });
+        finalSkipMessage = `Removed vectors for ${deltaPlan.deleted.length} deleted file(s)`;
 
         for (const file of deltaPlan.deleted) {
           await deleteVectors({
@@ -572,174 +531,129 @@ async function processRun(runId: string, input: IngestJobInput) {
           root,
           relPaths: deltaPlan.deleted.map((f) => f.relPath),
         });
+      }
+    }
 
-        if (astWritesEnabled) {
-          const deleteRelPaths = deltaPlan.deleted.map((file) => file.relPath);
-          await deleteAstSymbolsByRelPaths({ root, relPaths: deleteRelPaths });
-          await deleteAstEdgesByRelPaths({ root, relPaths: deleteRelPaths });
-          await deleteAstReferencesByRelPaths({
+    const handleCancellation = async (
+      fileIndex: number,
+      currentFile: string,
+    ) => {
+      if (!cancelledRuns.has(runId)) return false;
+      clearBatch();
+      clearAstBatches();
+      setStatusAndPublish(runId, {
+        runId,
+        state: 'cancelled',
+        counts,
+        ast: astCounts,
+        message: 'Cancelled',
+        lastError: null,
+        currentFile: lastFileRelPath ?? currentFile,
+        fileIndex,
+        fileTotal,
+        percent: Number(
+          ((fileIndex / Math.max(1, fileTotal)) * 100).toFixed(1),
+        ),
+      });
+      await deleteVectors({ where: { runId } });
+      await deleteRoots({ where: { root } });
+      await deleteVectorsCollectionIfEmpty();
+      const rootEmbeddingDim = await resolveRootEmbeddingDim({
+        existingRootDim,
+        vectorDim,
+        modelKey: model,
+      });
+      const cancelMetadata: Metadata = {
+        runId,
+        root,
+        name,
+        model,
+        files: counts.files,
+        chunks: counts.chunks,
+        embedded: counts.embedded,
+        state: 'cancelled',
+        lastIngestAt: new Date().toISOString(),
+        ingestedAtMs,
+      };
+      attachAstMetadata(cancelMetadata);
+      if (typeof description === 'string' && description.length > 0) {
+        cancelMetadata.description = description;
+      }
+
+      await roots.add({
+        ids: [runId],
+        embeddings: [Array(rootEmbeddingDim).fill(0)],
+        metadatas: [cancelMetadata],
+      });
+      logLifecycle('info', 'ingest cancelled', {
+        runId,
+        operation,
+        path: startPath,
+        root,
+        model,
+        name,
+        description,
+        state: 'cancelled',
+        counts,
+      });
+      return true;
+    };
+
+    for (const [idx, file] of files.entries()) {
+      const fileIndex = idx + 1;
+      if (await handleCancellation(fileIndex, file.relPath)) {
+        return;
+      }
+
+      const astExt = file.ext ?? path.extname(file.relPath).slice(1);
+      if (!isAstSupported(astExt)) {
+        continue;
+      }
+
+      const text = await fs.readFile(file.absPath, 'utf8');
+      const fileHash =
+        discoveredHashByRelPath.get(file.relPath) ??
+        (await hashFile(file.absPath));
+      fileHashesByRelPath.set(file.relPath, fileHash);
+
+      const astResult = await parseAstSource({
+        root,
+        text,
+        relPath: file.relPath,
+        fileHash,
+      });
+      if (astResult.status === 'ok') {
+        astSymbols.push(...astResult.symbols);
+        astEdges.push(...astResult.edges);
+        astReferences.push(...astResult.references);
+        astModuleImports.push(...astResult.imports);
+      } else {
+        astCounts.failedFileCount += 1;
+        const errorMessage = astResult.error.toLowerCase();
+        if (!astGrammarFailureLogged && errorMessage.includes('grammar')) {
+          astGrammarFailureLogged = true;
+          logWarning('Tree-sitter grammar failed to load', {
             root,
-            relPaths: deleteRelPaths,
-          });
-          await deleteAstModuleImportsByRelPaths({
-            root,
-            relPaths: deleteRelPaths,
-          });
-          await upsertAstCoverage({
-            root,
-            coverage: {
-              root,
-              ...astCounts,
-              lastIndexedAt: new Date(),
-            },
-          });
-          logLifecycle('info', 'DEV-0000032:T5:ast-index-complete', {
-            event: 'DEV-0000032:T5:ast-index-complete',
-            root,
-            ...astCounts,
+            relPath: file.relPath,
+            error: astResult.error,
           });
         }
-
-        setStatusAndPublish(runId, {
-          runId,
-          state: 'skipped',
-          counts,
-          ast: astCounts,
-          message: `Removed vectors for ${deltaPlan.deleted.length} deleted file(s)`,
-          lastError: null,
-          currentFile: undefined,
-          fileIndex: 0,
-          fileTotal,
-          percent: 100,
-          etaMs: 0,
-        });
-
-        const rootEmbeddingDim = await resolveRootEmbeddingDim({
-          existingRootDim,
-          vectorDim,
-          modelKey: model,
-        });
-        const rootMetadata: Metadata = {
-          runId,
-          root,
-          name,
-          model,
-          files: counts.files,
-          chunks: counts.chunks,
-          embedded: counts.embedded,
-          state: 'skipped',
-          lastIngestAt: new Date().toISOString(),
-          ingestedAtMs,
-        };
-        attachAstMetadata(rootMetadata);
-        if (description) rootMetadata.description = description;
-        await roots.add({
-          ids: [runId],
-          embeddings: [Array(rootEmbeddingDim).fill(0)],
-          metadatas: [rootMetadata],
-        });
-
-        await deleteVectorsCollectionIfEmpty();
-        ingestLock.release(runId);
-        return;
       }
     }
 
     for (const [idx, file] of workFiles.entries()) {
       const fileIndex = idx + 1;
       progressSnapshot(fileIndex, file.relPath);
-      if (cancelledRuns.has(runId)) {
-        clearBatch();
-        clearAstBatches();
-        setStatusAndPublish(runId, {
-          runId,
-          state: 'cancelled',
-          counts,
-          ast: astCounts,
-          message: 'Cancelled',
-          lastError: null,
-          currentFile: lastFileRelPath ?? file.relPath,
-          fileIndex,
-          fileTotal,
-          percent: Number(((fileIndex / fileTotal) * 100).toFixed(1)),
-        });
-        await deleteVectors({ where: { runId } });
-        await deleteRoots({ where: { root } });
-        await deleteVectorsCollectionIfEmpty();
-        const rootEmbeddingDim = await resolveRootEmbeddingDim({
-          existingRootDim,
-          vectorDim,
-          modelKey: model,
-        });
-        const cancelMetadata: Metadata = {
-          runId,
-          root,
-          name,
-          model,
-          files: counts.files,
-          chunks: counts.chunks,
-          embedded: counts.embedded,
-          state: 'cancelled',
-          lastIngestAt: new Date().toISOString(),
-          ingestedAtMs,
-        };
-        attachAstMetadata(cancelMetadata);
-        if (typeof description === 'string' && description.length > 0) {
-          cancelMetadata.description = description;
-        }
-
-        await roots.add({
-          ids: [runId],
-          embeddings: [Array(rootEmbeddingDim).fill(0)],
-          metadatas: [cancelMetadata],
-        });
-        logLifecycle('info', 'ingest cancelled', {
-          runId,
-          operation,
-          path: startPath,
-          root,
-          model,
-          name,
-          description,
-          state: 'cancelled',
-          counts,
-        });
+      if (await handleCancellation(fileIndex, file.relPath)) {
         return;
       }
 
       const text = await fs.readFile(file.absPath, 'utf8');
       const fileHash =
-        typeof file.fileHash === 'string' && file.fileHash.length > 0
-          ? file.fileHash
-          : await hashFile(file.absPath);
+        file.fileHash ??
+        fileHashesByRelPath.get(file.relPath) ??
+        (await hashFile(file.absPath));
       fileHashesByRelPath.set(file.relPath, fileHash);
-
-      const astExt = path.extname(file.relPath).slice(1);
-      if (isAstSupported(astExt)) {
-        const astResult = await parseAstSource({
-          root,
-          text,
-          relPath: file.relPath,
-          fileHash,
-        });
-        if (astResult.status === 'ok') {
-          astSymbols.push(...astResult.symbols);
-          astEdges.push(...astResult.edges);
-          astReferences.push(...astResult.references);
-          astModuleImports.push(...astResult.imports);
-        } else {
-          astCounts.failedFileCount += 1;
-          const errorMessage = astResult.error.toLowerCase();
-          if (!astGrammarFailureLogged && errorMessage.includes('grammar')) {
-            astGrammarFailureLogged = true;
-            logWarning('Tree-sitter grammar failed to load', {
-              root,
-              relPath: file.relPath,
-              error: astResult.error,
-            });
-          }
-        }
-      }
       const chunks = await chunkText(
         text,
         (await deps
@@ -921,7 +835,10 @@ async function processRun(runId: string, input: IngestJobInput) {
       state: resultState,
       counts,
       ast: astCounts,
-      message: resultState === 'skipped' ? 'No changes detected' : 'Completed',
+      message:
+        resultState === 'skipped'
+          ? (finalSkipMessage ?? 'No changes detected')
+          : 'Completed',
       lastError: null,
       currentFile: lastFileRelPath,
       fileIndex: fileTotal,

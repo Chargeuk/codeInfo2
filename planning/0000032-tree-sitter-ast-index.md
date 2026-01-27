@@ -2528,47 +2528,56 @@ Ensure AST parsing runs across all supported files on each ingest/re-embed so AS
 
 #### Subtasks
 
-1. [ ] Review delta ingest and AST indexing flow:
+1. [x] Review delta ingest and AST indexing flow:
    - Files to read:
      - `server/src/ingest/ingestJob.ts`
      - `server/src/ingest/deltaPlan.ts`
      - `server/src/mongo/repo.ts`
-2. [ ] Update AST indexing to parse all supported files on every ingest/re-embed (including delta runs):
+2. [x] Update AST indexing to parse all supported files on every ingest/re-embed (including delta runs):
    - Files to edit:
      - `server/src/ingest/ingestJob.ts`
    - Implementation details:
      - Keep vector embedding delta-aware (only changed/new files) while AST parsing iterates over the full supported file set.
      - Preserve existing delete handling for removed files in delta mode.
      - Keep dry-run behavior (parse but do not persist AST records).
-3. [ ] Update unit tests for delta re-embed AST behavior:
+3. [x] Update unit tests for delta re-embed AST behavior:
    - Test type: Unit.
    - Test location:
      - `server/src/test/unit/ingest-ast-indexing.test.ts`
    - Description: update expectations for `delta reembed skips unchanged files`, `delta reembed skips when no changes`, and adjust `delta reembed deletes and upserts AST records` if needed to reflect full AST parsing.
-4. [ ] Update documentation — `design.md`:
+4. [x] Update documentation — `design.md`:
    - Document: `design.md`.
    - Description: Note AST parsing always runs across supported files even when vector embedding uses delta mode.
-5. [ ] Update documentation — `projectStructure.md` if new test files are added.
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+5. [x] Update documentation — `projectStructure.md` if new test files are added.
+6. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: confirm `AstFindDefinition(connectMongo)` succeeds after a delta re-embed with no file changes.
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check: confirm `AstFindDefinition(connectMongo)` succeeds after a delta re-embed with no file changes.
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
--
+- Reviewed delta ingest flow in ingestJob/deltaPlan and AST repo helpers to plan full-pass AST parsing while keeping embedding delta-only.
+- Updated `ingestJob` to parse AST across the full discovered file set (including delta no-op/deletion-only runs), while keeping vector embedding delta-aware with preserved delete handling.
+- Updated delta re-embed unit tests to expect AST parsing on unchanged/no-change runs and to assert AST writes still occur when embeddings are skipped.
+- Documented in `design.md` that delta re-embeds run full AST parsing for supported files while keeping delete handling intact.
+- No `projectStructure.md` updates were needed because no new files were added.
+- `npm run lint --workspaces` reported existing import-order warnings; `npm run format --workspaces` resolved Prettier issues and `npm run format:check --workspaces` passed.
+- `npm run build --workspace server` and `npm run build --workspace client` completed (client emitted the usual chunk-size warning).
+- `timeout 7m npm run test --workspace server`, `npm run test --workspace client`, and `timeout 7m npm run e2e` completed successfully.
+- `npm run compose:build`, `npm run compose:up`, and `npm run compose:down` completed successfully.
+- Manual Playwright-MCP check: ingested `/Users/danielstapleton/Documents/dev/ci2-ast-connect`, re-embedded with no file changes, and confirmed `AstFindDefinition(connectMongo)` returned the expected symbol.
 
 ## Code Review Summary
 

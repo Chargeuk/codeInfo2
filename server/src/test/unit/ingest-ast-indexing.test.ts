@@ -589,11 +589,14 @@ test('delta reembed skips unchanged files', async () => {
     );
     await waitForTerminal(runId);
 
-    assert.equal(parseMock.mock.calls.length, 1);
+    assert.equal(parseMock.mock.calls.length, 2);
     const parsedRelPaths = parseMock.mock.calls.map(
       (call) => call.arguments[0].relPath,
     );
-    assert.deepEqual(parsedRelPaths, ['src/changed.ts']);
+    assert.deepEqual(
+      new Set(parsedRelPaths),
+      new Set(['src/changed.ts', 'src/unchanged.ts']),
+    );
   } finally {
     await cleanup();
   }
@@ -619,8 +622,8 @@ test('delta reembed skips when no changes', async () => {
     const status = await waitForTerminal(runId);
 
     assert.equal(status.state, 'skipped');
-    assert.equal(parseMock.mock.calls.length, 0);
-    assert.equal(repoMocks.astSymbolsBulkWrite.mock.calls.length, 0);
+    assert.equal(parseMock.mock.calls.length, 1);
+    assert.equal(repoMocks.astCoverageUpdateOne.mock.calls.length, 1);
   } finally {
     await cleanup();
   }

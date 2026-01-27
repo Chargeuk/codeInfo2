@@ -330,7 +330,15 @@ Expand the AST language type and extension routing so ingest and tool validation
      - `server/src/test/unit/ingest-ast-indexing.test.ts`
    - Notes:
      - Identify the current `AstLanguage` union, `normalizeLanguage` logic, and the `astSupportedExtensions` set.
-2. [ ] Extend `AstLanguage` and extension routing:
+2. [ ] Audit for any hard-coded AST language lists or validators:
+   - Files to search:
+     - `server/src/ast`
+     - `server/src/ingest`
+     - `server/src/test/unit`
+   - Implementation details:
+     - Update any arrays or guards (e.g., warm-up language lists) so they include the new languages.
+     - Keep response payload shapes unchanged.
+3. [ ] Extend `AstLanguage` and extension routing:
    - Files to edit:
      - `server/src/ast/types.ts`
      - `server/src/ast/parser.ts`
@@ -340,26 +348,26 @@ Expand the AST language type and extension routing so ingest and tool validation
      - Map `py`, `cs`, `rs`, `cc`, `cpp`, `cxx`, `hpp`, `hxx`, and `h` to the new languages (no extra overrides beyond grammar defaults).
    - Documentation to read (repeat):
      - Tree-sitter language configuration: /websites/tree-sitter_github_io_tree-sitter
-3. [ ] Update validation coverage for new language values:
+4. [ ] Update validation coverage for new language values:
    - Test type: Unit (validation/guard coverage).
    - Test location: `server/src/test/unit/ast-tool-validation.test.ts`.
    - Description: Ensure validators accept the new language values and still reject unknown languages.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
      - TypeScript handbook: https://www.typescriptlang.org/docs/handbook/2/everyday-types.html
-4. [ ] Update documentation — `design.md`:
+5. [ ] Update documentation — `design.md`:
    - Document: `design.md`.
    - Location: `design.md`.
    - Description: Add/confirm the supported AST language list and extension routing summary.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-5. [ ] Update documentation — `projectStructure.md` (if any new files are added in this task; otherwise confirm no change):
+6. [ ] Update documentation — `projectStructure.md` (if any new files are added in this task; otherwise confirm no change):
    - Document: `projectStructure.md`.
    - Location: `projectStructure.md`.
    - Description: Ensure the tree remains accurate if any files were added or removed.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
@@ -430,6 +438,7 @@ Wire the Tree-sitter grammar packages for Python, C#, Rust, and C++ into the par
    - Implementation details:
      - Register `python`, `c_sharp`, `rust`, and `cpp` in `getLanguageConfig` or equivalent language map.
      - Load `queries/tags.scm` from each grammar package and load `locals.scm` from `server/src/ast/queries/<language>/locals.scm` for the new languages.
+     - Extend any query warm-up lists (e.g., `warmAstParserQueries`) to include the new languages.
 5. [ ] Create custom locals queries for new languages:
    - Files to add:
      - `server/src/ast/queries/python/locals.scm`
@@ -521,21 +530,29 @@ Extend ingest AST indexing coverage so the new language extensions are parsed du
    - Assertions:
      - Logs include unsupported extension reasons for non-supported files.
      - Logs include AST parsing attempts for the new languages during reembed.
+     - Logs do not include “Tree-sitter query files missing; skipping AST parse” for the new languages.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
-4. [ ] Update documentation — `design.md`:
+4. [ ] Validate no regressions to embedding counts or model-locking behavior:
+   - Files to read:
+     - `server/src/test/unit/ingest-status.test.ts`
+     - `server/src/test/unit/ingest-root-metadata.test.ts` (if present)
+   - Implementation details:
+     - Confirm existing tests that assert embedding counts or model locks still pass without updates.
+     - If expectations need adjustment due to new AST fields, update only the AST-related fields; keep embedding counts and model lock assertions unchanged.
+5. [ ] Update documentation — `design.md`:
    - Document: `design.md`.
    - Location: `design.md`.
    - Description: Document ingest AST indexing coverage for Python/C#/Rust/C++ and note the skip-log behaviour.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-5. [ ] Update documentation — `projectStructure.md` (if new fixture files are added):
+6. [ ] Update documentation — `projectStructure.md` (if new fixture files are added):
    - Document: `projectStructure.md`.
    - Location: `projectStructure.md`.
    - Description: Add new fixture files to the tree if any are introduced.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli

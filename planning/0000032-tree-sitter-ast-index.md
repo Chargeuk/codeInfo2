@@ -32,7 +32,8 @@ Note: Cross-repository symbol linking (e.g., linking imports in repo A to an ing
 - Ingest `start` and `reembed` runs attempt Tree-sitter AST indexing for supported file types: `.ts`, `.tsx`, `.js`, `.jsx`.
 - Unsupported files are skipped **per file** (not per repo); a warning log includes the root, skipped file count, and example paths, and the Ingest UI shows a non-blocking banner with the skipped count and reason (“unsupported language”).
 - AST indexing is additive: vector embeddings, ingest status counts, and model locking behavior remain unchanged when AST indexing is enabled.
-- Indexing respects ingest include/exclude rules and file hashes; unchanged files (same hash as last AST index) are not re-parsed and keep their existing AST records.
+- AST indexing always parses all supported files on each ingest/re-embed to avoid missing symbols (even when vector embedding runs in delta mode).
+- Indexing respects ingest include/exclude rules and file hashes; vector embedding continues to skip unchanged files in delta mode.
 - Server-side parsing uses the Node.js Tree-sitter bindings (`tree-sitter` npm package) with the official grammars for JavaScript and TypeScript/TSX (`tree-sitter-javascript`, `tree-sitter-typescript`).
 - AST artifacts are stored in Mongo using shared collections keyed by `root + relPath + fileHash` (no per-root collections).
 - Each stored symbol record includes: `root`, `relPath`, `fileHash`, `language`, `kind`, `name`, `range` (start/end line+column), and optional `container` (parent symbol id or name).
@@ -2504,6 +2505,70 @@ Re-run full verification after normalising/validating AST tool inputs so the sto
   - Updated ingest status/roots metadata and UI to surface AST coverage, skip/failure banners, and per-root counts with safe fallbacks.
   - Hardened AST tool inputs with case-insensitive repo/kind handling plus validation errors that list supported kinds and AST-enabled repositories.
   - Added/expanded unit, integration, and e2e coverage across AST ingest/indexing, tool routing, validation, and UI surfaces; verified with full build/test/compose/manual checks.
+
+---
+
+### 21. Server: Always full AST parse on re-embed
+
+- Task Status: **__to_do__**
+- Git Commits: **to_do**
+
+#### Overview
+
+Ensure AST parsing runs across all supported files on each ingest/re-embed so AST tools always have full coverage, while vector embedding remains delta-aware.
+
+#### Documentation Locations
+
+- Tree-sitter docs (parser behavior + query files): https://tree-sitter.github.io/tree-sitter/
+- Node.js fs/promises (file IO during ingest): https://nodejs.org/api/fs.html
+- ESLint CLI (run task lint step): https://eslint.org/docs/latest/use/command-line-interface
+- Prettier CLI (run task format step): https://prettier.io/docs/cli
+- npm run-script (workspace build/test commands): https://docs.npmjs.com/cli/v9/commands/npm-run-script
+- Markdown Guide (update `design.md` + `projectStructure.md`): https://www.markdownguide.org/basic-syntax/
+
+#### Subtasks
+
+1. [ ] Review delta ingest and AST indexing flow:
+   - Files to read:
+     - `server/src/ingest/ingestJob.ts`
+     - `server/src/ingest/deltaPlan.ts`
+     - `server/src/mongo/repo.ts`
+2. [ ] Update AST indexing to parse all supported files on every ingest/re-embed (including delta runs):
+   - Files to edit:
+     - `server/src/ingest/ingestJob.ts`
+   - Implementation details:
+     - Keep vector embedding delta-aware (only changed/new files) while AST parsing iterates over the full supported file set.
+     - Preserve existing delete handling for removed files in delta mode.
+     - Keep dry-run behavior (parse but do not persist AST records).
+3. [ ] Update unit tests for delta re-embed AST behavior:
+   - Test type: Unit.
+   - Test location:
+     - `server/src/test/unit/ingest-ast-indexing.test.ts`
+   - Description: update expectations for `delta reembed skips unchanged files`, `delta reembed skips when no changes`, and adjust `delta reembed deletes and upserts AST records` if needed to reflect full AST parsing.
+4. [ ] Update documentation — `design.md`:
+   - Document: `design.md`.
+   - Description: Note AST parsing always runs across supported files even when vector embedding uses delta mode.
+5. [ ] Update documentation — `projectStructure.md` if new test files are added.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier CLI: https://prettier.io/docs/cli
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: confirm `AstFindDefinition(connectMongo)` succeeds after a delta re-embed with no file changes.
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+-
 
 ## Code Review Summary
 

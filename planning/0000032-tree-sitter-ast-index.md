@@ -1860,8 +1860,8 @@ Validate the full story against acceptance criteria, run full builds/tests, ensu
 
 ### 13. Server: AST relationship edges + collision logging
 
-- Task Status: **__in_progress__**
-- Git Commits: **to_do**
+- Task Status: **__done__**
+- Git Commits: 8333efe
 
 #### Overview
 

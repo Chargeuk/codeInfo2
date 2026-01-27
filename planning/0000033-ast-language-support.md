@@ -522,7 +522,8 @@ Extend ingest AST indexing coverage so the new language extensions are parsed du
      - `server/src/ingest/ingestJob.ts`
    - Implementation details:
      - Confirm AST parsing is attempted for supported files even when vector delta logic skips embeddings.
-     - Log unsupported extensions with extension + reason, and ensure logs do not emit a “locals.scm missing” warning for the new languages.
+     - Log unsupported extensions with extension list + reason (e.g., `unsupported_language`) and keep example paths for debugging.
+     - Ensure logs do not emit a “locals.scm missing” warning for the new languages.
 3. [ ] Update ingest AST indexing tests for new extensions:
    - Test type: Unit (ingest AST indexing).
    - Test location: `server/src/test/unit/ingest-ast-indexing.test.ts`.
@@ -531,6 +532,7 @@ Extend ingest AST indexing coverage so the new language extensions are parsed du
      - Logs include unsupported extension reasons for non-supported files.
      - Logs include AST parsing attempts for the new languages during reembed.
      - Logs do not include “Tree-sitter query files missing; skipping AST parse” for the new languages.
+     - Unsupported-language log context includes the extension list and skip reason.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
 4. [ ] Validate no regressions to embedding counts or model-locking behavior:

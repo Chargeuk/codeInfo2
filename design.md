@@ -1407,6 +1407,22 @@ flowchart LR
   C -->|none| J[INGEST_REQUIRED]
 ```
 
+### AST MCP tools
+
+- MCP `/mcp` exposes AST tools alongside VectorSearch with JSON-RPC `tools/list` + `tools/call`.
+- MCP tool results return JSON payloads in the text content segment (stringified response).
+- Error mapping: `VALIDATION_FAILED` -> `-32602`, `REPO_NOT_FOUND` -> `404`, `INGEST_REQUIRED` / `AST_INDEX_REQUIRED` -> `409`.
+- MCP tool registration logs `DEV-0000032:T9:ast-mcp-tools-registered` with tool count.
+
+```mermaid
+flowchart LR
+  A[MCP client] -->|tools/call| B[POST /mcp]
+  B --> C[AST MCP tool dispatcher]
+  C --> D[AST tool service]
+  D --> E[(Mongo AST collections)]
+  D --> F[JSON payload response]
+```
+
 ### AST REST tools
 
 - REST endpoints mirror MCP tool contracts:

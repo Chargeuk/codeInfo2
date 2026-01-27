@@ -1674,7 +1674,7 @@ Render non-blocking Ingest page banners for AST skipped/failed counts using exis
 
 #### Subtasks
 
-1. [ ] Add Ingest page banner for AST skips/failures:
+1. [x] Add Ingest page banner for AST skips/failures:
    - Documentation to read (repeat):
      - MUI Alert docs (MUI MCP, v6.4.x): https://llms.mui.com/material-ui/6.4.12/components/alert.md
      - MUI Stack docs (MUI MCP, v6.4.x): https://llms.mui.com/material-ui/6.4.12/components/stack.md
@@ -1685,7 +1685,7 @@ Render non-blocking Ingest page banners for AST skipped/failed counts using exis
      - Show a non-blocking `Alert` when `ast.skippedFileCount > 0` with message “AST indexing skipped for X file(s) (unsupported language).”
      - If `failedFileCount > 0`, show a warning/info banner noting failures and advising to check logs.
      - Reuse the existing page-level `Alert` layout patterns already used for model lock and WS status (do not introduce a new banner component).
-2. [ ] Client test — skipped-language banner renders:
+2. [x] Client test — skipped-language banner renders:
    - Test type: Unit (client UI).
    - Test location: `client/src/test/ingestStatus.test.tsx`.
    - Description: Provide status payload with `ast.skippedFileCount > 0`.
@@ -1693,7 +1693,7 @@ Render non-blocking Ingest page banners for AST skipped/failed counts using exis
    - Documentation to read (repeat):
      - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
      - Jest (React testing): https://jestjs.io/docs/getting-started
-3. [ ] Client test — failed AST banner renders:
+3. [x] Client test — failed AST banner renders:
    - Test type: Unit (client UI).
    - Test location: `client/src/test/ingestStatus.test.tsx`.
    - Description: Provide status payload with `ast.failedFileCount > 0`.
@@ -1701,7 +1701,7 @@ Render non-blocking Ingest page banners for AST skipped/failed counts using exis
    - Documentation to read (repeat):
      - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
      - Jest (React testing): https://jestjs.io/docs/getting-started
-4. [ ] Client test — banners hidden when counts are zero/missing:
+4. [x] Client test — banners hidden when counts are zero/missing:
    - Test type: Unit (client UI).
    - Test location: `client/src/test/ingestStatus.test.tsx`.
    - Description: Provide status payload with `ast` missing or counts = 0.
@@ -1709,7 +1709,7 @@ Render non-blocking Ingest page banners for AST skipped/failed counts using exis
    - Documentation to read (repeat):
      - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
      - Jest (React testing): https://jestjs.io/docs/getting-started
-5. [ ] Update documentation — `design.md`:
+5. [x] Update documentation — `design.md`:
    - Document: `design.md`.
    - Location: `design.md`.
    - Description: Add client ingest banner notes and a mermaid diagram for the ingest status UI flow.
@@ -1717,14 +1717,14 @@ Render non-blocking Ingest page banners for AST skipped/failed counts using exis
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
      - Mermaid docs (Context7, architecture diagrams): /mermaid-js/mermaid
-6. [ ] Update documentation — `projectStructure.md`:
+6. [x] Update documentation — `projectStructure.md`:
    - Document: `projectStructure.md`.
    - Location: `projectStructure.md`.
    - Description: Update tree entries if client test files change.
    - Purpose: Keep project structure docs accurate after test edits.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-7. [ ] Add AST banner render log line:
+7. [x] Add AST banner render log line:
    - Files to edit:
      - `client/src/pages/IngestPage.tsx`
    - Log line:
@@ -1734,25 +1734,38 @@ Render non-blocking Ingest page banners for AST skipped/failed counts using exis
      - Ensure the log appears even when banners are hidden (counts are zero).
    - Documentation to read (repeat):
      - React hooks reference: https://react.dev/reference/react
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+8. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, verify AST skip/failure banners render when counts are present, and confirm the console shows `DEV-0000032:T11:ast-banner-evaluated` (with counts) and no errors. Capture a screenshot of the banners and store it in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` for review.
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, verify AST skip/failure banners render when counts are present, and confirm the console shows `DEV-0000032:T11:ast-banner-evaluated` (with counts) and no errors. Capture a screenshot of the banners and store it in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` for review.
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- 
+- Added AST skip/failure banners in `IngestPage` and log line `DEV-0000032:T11:ast-banner-evaluated` with counts.
+- Extended ingest status UI tests to cover skip/failure banners and hidden states.
+- Updated `design.md` with AST banner behavior and a dedicated mermaid flowchart.
+- No project structure changes were required for the updated test file.
+- Lint still reports existing import/order warnings in unrelated server/test files; formatting clean.
+- `npm run build --workspace server` completed successfully.
+- `npm run build --workspace client` completed with the usual Vite chunk size warning.
+- `npm run test --workspace server` required a longer timeout; completed with 54 scenarios passing.
+- Client tests passed with expected VM module warnings and console output.
+- `npm run e2e` completed with 36 tests passing.
+- `npm run compose:build` completed; client build still reports the chunk size warning.
+- `npm run compose:up` started the local docker stack successfully.
+- Manual Playwright-MCP check confirmed `DEV-0000032:T11:ast-banner-evaluated` and the skipped banner; screenshot saved to `playwright-output-local/0000032-t11-ast-banners.png`.
+- `npm run compose:down` stopped the local docker stack.
 
 ---
 

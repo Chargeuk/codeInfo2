@@ -1556,6 +1556,7 @@ sequenceDiagram
 - Submit button reads “Start ingest” and disables while submitting or when required fields are empty; a subtle helper text shows while submitting.
 - Active run: on mount, the page subscribes to the ingest WS stream and renders the `ingest_snapshot`/`ingest_update` status in the active run card while the state is non-terminal. The card shows the state chip, counts (files/chunks/embedded/skipped), lastError text, and a “Cancel ingest” button that calls `/ingest/cancel/{runId}` with a “Cancelling…” state. When a terminal state arrives (`completed|cancelled|error|skipped`), the page triggers a roots/models refresh once and hides the card (no last-run summary).
 - Connection state: while the WebSocket is connecting, the page shows an info banner; if the socket closes, it shows an error banner instructing the user to refresh once the server is reachable.
+- AST status banners: when ingest status includes AST counts, the page shows an info banner for skipped files (“unsupported language”) and a warning banner for failures (“check logs”). Banner evaluation logs `DEV-0000032:T11:ast-banner-evaluated` with skipped/failed counts even when hidden.
 - Embedded roots table: renders Name (tooltip with description), Path, Model, Status chip, Last ingest time, and counts. Row actions include Re-embed (POST `/ingest/reembed/:root`), Remove (POST `/ingest/remove/:root`), and Details (opens drawer). Bulk buttons perform re-embed/remove across selected rows. Inline text shows action success/errors; actions are disabled while an ingest is active. Empty state copy reminds users that the model locks after the first ingest.
 - Details drawer: right-aligned drawer listing name, description, path, model, model lock note, counts, last error, and last ingest timestamp. Shows include/exclude defaults when detailed metadata is unavailable.
 
@@ -1568,6 +1569,14 @@ flowchart TD
   Refresh --> Idle
   Subscribe -.->|connectionState=connecting| Connecting[Show info banner]
   Subscribe -.->|connectionState=closed| Closed[Show error banner]
+```
+
+```mermaid
+flowchart LR
+  Status[ingest_snapshot/ingest_update] --> Counts{ast counts present}
+  Counts -->|skipped > 0| Skip[Show info banner]
+  Counts -->|failed > 0| Fail[Show warning banner]
+  Counts -->|missing or zero| Hidden[No AST banner]
 ```
 
 ## Chat run + WebSocket streaming

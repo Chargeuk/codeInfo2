@@ -55,6 +55,8 @@ export default function IngestPage() {
   }, [ingest.status, terminalStates]);
 
   const isRunActive = Boolean(active);
+  const skippedFileCount = ingest.status?.ast?.skippedFileCount ?? 0;
+  const failedFileCount = ingest.status?.ast?.failedFileCount ?? 0;
 
   useEffect(() => {
     if (!locked) return;
@@ -86,6 +88,13 @@ export default function IngestPage() {
     }
   }, [ingest.status, refetchRoots, refresh, terminalStates, log]);
 
+  useEffect(() => {
+    console.info('DEV-0000032:T11:ast-banner-evaluated', {
+      skippedFileCount,
+      failedFileCount,
+    });
+  }, [skippedFileCount, failedFileCount]);
+
   return (
     <Container maxWidth={containerMaxWidth} sx={{ py: 3 }}>
       <Stack spacing={3}>
@@ -112,6 +121,18 @@ export default function IngestPage() {
         {ingest.connectionState === 'closed' ? (
           <Alert severity="error" data-testid="ingest-ws-unavailable">
             Realtime updates unavailable. Refresh once the server is reachable.
+          </Alert>
+        ) : null}
+        {skippedFileCount > 0 ? (
+          <Alert severity="info">
+            AST indexing skipped for {skippedFileCount} file(s) (unsupported
+            language).
+          </Alert>
+        ) : null}
+        {failedFileCount > 0 ? (
+          <Alert severity="warning">
+            AST indexing failed for {failedFileCount} file(s). Check logs for
+            details.
           </Alert>
         ) : null}
 

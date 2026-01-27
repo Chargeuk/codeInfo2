@@ -279,6 +279,101 @@ describe('IngestPage realtime status UI', () => {
     expect(screen.getByTestId('ingest-ws-connecting')).toBeInTheDocument();
   });
 
+  it('shows a banner when AST indexing is skipped', async () => {
+    renderPage();
+    await openSocket();
+
+    act(() => {
+      lastSocket()._receive({
+        protocolVersion: 'v1',
+        type: 'ingest_snapshot',
+        seq: 1,
+        status: {
+          runId: 'run-skip',
+          state: 'embedding',
+          counts: { files: 2 },
+          ast: {
+            supportedFileCount: 1,
+            skippedFileCount: 1,
+            failedFileCount: 0,
+            lastIndexedAt: '2026-01-27T00:00:00.000Z',
+          },
+        },
+      });
+    });
+
+    await waitFor(() =>
+      expect(
+        screen.getByText(
+          'AST indexing skipped for 1 file(s) (unsupported language).',
+        ),
+      ).toBeInTheDocument(),
+    );
+  });
+
+  it('shows a banner when AST indexing fails', async () => {
+    renderPage();
+    await openSocket();
+
+    act(() => {
+      lastSocket()._receive({
+        protocolVersion: 'v1',
+        type: 'ingest_snapshot',
+        seq: 1,
+        status: {
+          runId: 'run-fail',
+          state: 'embedding',
+          counts: { files: 2 },
+          ast: {
+            supportedFileCount: 1,
+            skippedFileCount: 0,
+            failedFileCount: 1,
+            lastIndexedAt: '2026-01-27T00:00:00.000Z',
+          },
+        },
+      });
+    });
+
+    await waitFor(() =>
+      expect(
+        screen.getByText(
+          'AST indexing failed for 1 file(s). Check logs for details.',
+        ),
+      ).toBeInTheDocument(),
+    );
+  });
+
+  it('hides AST banners when counts are missing or zero', async () => {
+    renderPage();
+    await openSocket();
+
+    act(() => {
+      lastSocket()._receive({
+        protocolVersion: 'v1',
+        type: 'ingest_snapshot',
+        seq: 1,
+        status: {
+          runId: 'run-clean',
+          state: 'embedding',
+          counts: { files: 2 },
+        },
+      });
+    });
+
+    await waitFor(() => {
+      expect(
+        screen.queryByText(
+          'AST indexing skipped for 1 file(s) (unsupported language).',
+        ),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByText(
+          'AST indexing failed for 1 file(s). Check logs for details.',
+        ),
+      ).not.toBeInTheDocument();
+    });
+  });
+
   it('refreshes roots/models on terminal status and hides the panel', async () => {
     renderPage();
     await openSocket();

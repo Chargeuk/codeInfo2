@@ -531,38 +531,65 @@ Verify grammar query assets, add CodeInfo2-owned locals, and extend parser unit 
      - `(identifier) @local.reference`
    - Documentation to read (repeat):
      - Tree-sitter query syntax + locals capture guide: /tree-sitter/tree-sitter
-3. [ ] Add parser unit coverage for new languages:
+3. [ ] Add parser unit test for **Python** locals capture (happy path):
    - Test type: Unit (parser output).
    - Test location: `server/src/test/unit/ast-parser.test.ts`.
-   - Description: Add minimal inline fixtures per language and assert at least one `@local.definition` and one `@local.reference` capture, plus non-empty references in the output.
+   - Description: Add a minimal `.py` fixture and assert at least one `@local.definition` and one `@local.reference`, plus non-empty references.
+   - Purpose: Confirms Python locals queries produce definitions and references.
    - Documentation to read (repeat):
      - Node.js test runner: /nodejs/node/v22.17.0
      - Tree-sitter query syntax: /tree-sitter/tree-sitter
-   - Notes:
-     - Extend existing fixtures in `ast-parser.test.ts` instead of creating new test files.
-     - Copy the existing TS fixture structure (inline source string + `parseAstSource` call) to keep tests consistent.
-4. [ ] Add parser error-path coverage for new languages (corner cases):
-   - Test type: Unit (parser failures).
+4. [ ] Add parser unit test for **C#** locals capture (happy path):
+   - Test type: Unit (parser output).
    - Test location: `server/src/test/unit/ast-parser.test.ts`.
-   - Description: Add at least one new-language case that asserts `Missing Tree-sitter query files` when `queryBundleOverride: null`, and another that asserts `Tree-sitter grammar unavailable` when `parserLanguageOverride: null`.
-   - Coverage notes:
-     - Use a `relPath` with a new extension (e.g., `.py`, `.rs`) so the error paths are exercised for the new language routing.
-     - Keep assertions aligned with the existing error strings returned by `parseAstSource` so the tests remain deterministic.
+   - Description: Add a minimal `.cs` fixture and assert at least one `@local.definition` and one `@local.reference`, plus non-empty references.
+   - Purpose: Confirms C# locals queries produce definitions and references.
    - Documentation to read (repeat):
      - Node.js test runner: /nodejs/node/v22.17.0
-5. [ ] Update documentation — `design.md`:
+     - Tree-sitter query syntax: /tree-sitter/tree-sitter
+5. [ ] Add parser unit test for **Rust** locals capture (happy path):
+   - Test type: Unit (parser output).
+   - Test location: `server/src/test/unit/ast-parser.test.ts`.
+   - Description: Add a minimal `.rs` fixture and assert at least one `@local.definition` and one `@local.reference`, plus non-empty references.
+   - Purpose: Confirms Rust locals queries produce definitions and references.
+   - Documentation to read (repeat):
+     - Node.js test runner: /nodejs/node/v22.17.0
+     - Tree-sitter query syntax: /tree-sitter/tree-sitter
+6. [ ] Add parser unit test for **C++** locals capture (happy path):
+   - Test type: Unit (parser output).
+   - Test location: `server/src/test/unit/ast-parser.test.ts`.
+   - Description: Add a minimal `.cpp` (or `.h`) fixture and assert at least one `@local.definition` and one `@local.reference`, plus non-empty references.
+   - Purpose: Confirms C++ locals queries produce definitions and references.
+   - Documentation to read (repeat):
+     - Node.js test runner: /nodejs/node/v22.17.0
+     - Tree-sitter query syntax: /tree-sitter/tree-sitter
+7. [ ] Add parser error test for **missing query bundle** on a new language:
+   - Test type: Unit (parser failures).
+   - Test location: `server/src/test/unit/ast-parser.test.ts`.
+   - Description: Use a new-language extension (e.g., `.py`) with `queryBundleOverride: null` and assert `Missing Tree-sitter query files`.
+   - Purpose: Ensures the error path for missing queries is exercised for new languages.
+   - Documentation to read (repeat):
+     - Node.js test runner: /nodejs/node/v22.17.0
+8. [ ] Add parser error test for **missing grammar binding** on a new language:
+   - Test type: Unit (parser failures).
+   - Test location: `server/src/test/unit/ast-parser.test.ts`.
+   - Description: Use a new-language extension (e.g., `.rs`) with `parserLanguageOverride: null` and assert `Tree-sitter grammar unavailable`.
+   - Purpose: Ensures the grammar-load failure path is covered for new languages.
+   - Documentation to read (repeat):
+     - Node.js test runner: /nodejs/node/v22.17.0
+9. [ ] Update documentation — `design.md`:
    - Document: `design.md`.
    - Location: `design.md`.
    - Description: Note that Python/C#/Rust/C++ locals queries are CodeInfo2-owned and record any dependency version changes made to obtain tags.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-6. [ ] Update documentation — `projectStructure.md`:
+10. [ ] Update documentation — `projectStructure.md`:
    - Document: `projectStructure.md`.
    - Location: `projectStructure.md`.
    - Description: Add the new `server/src/ast/queries/*/locals.scm` files to the tree.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: /eslint/eslint/v9.37.0
      - Prettier CLI: /prettier/prettier/3.6.2
@@ -625,21 +652,37 @@ Extend ingest AST indexing coverage so the new language extensions are parsed du
      - `{ root, skippedFileCount, skippedExtensions: ['py', 'cs'], reason: 'unsupported_language' }`
    - Documentation to read (repeat):
      - Tree-sitter query/locals guidance: /tree-sitter/tree-sitter
-3. [ ] Update ingest AST indexing tests for new extensions:
+3. [ ] Add ingest test for **supported extension coverage** (happy path):
    - Test type: Unit (ingest AST indexing).
    - Test location: `server/src/test/unit/ingest-ast-indexing.test.ts`.
-   - Description: Add at least one file per new extension (`.py`, `.cs`, `.rs`, `.cpp`, `.h`) plus one unsupported extension (e.g., `.pyw`) and assert supported counts + reembed AST attempts.
-   - Assertions:
-     - Logs include unsupported extension reasons for non-supported files.
-     - The unsupported `.pyw` (or equivalent) file is *not* treated as Python and appears in the unsupported-extension log with the skip reason.
-     - Logs include AST parsing attempts for the new languages during reembed.
-     - Logs do not include “Tree-sitter query files missing; skipping AST parse” for the new languages.
-     - Unsupported-language log context includes the extension list and skip reason.
+   - Description: Add fixture files for `.py`, `.cs`, `.rs`, `.cpp`, `.h` and assert they are counted as AST-supported during ingest.
+   - Purpose: Confirms new language extensions are treated as supported inputs.
+   - Documentation to read (repeat):
+     - Node.js test runner: /nodejs/node/v22.17.0
+4. [ ] Add ingest test for **unsupported extension skip** (error path):
+   - Test type: Unit (ingest AST indexing).
+   - Test location: `server/src/test/unit/ingest-ast-indexing.test.ts`.
+   - Description: Include a `.pyw` (or other unsupported) file and assert it is *not* treated as Python and appears in the unsupported-extension log with the skip reason.
+   - Purpose: Confirms unsupported extensions are rejected with explicit logging.
+   - Documentation to read (repeat):
+     - Node.js test runner: /nodejs/node/v22.17.0
+5. [ ] Add ingest test for **reembed AST attempts** on new languages (happy path):
+   - Test type: Unit (ingest AST indexing).
+   - Test location: `server/src/test/unit/ingest-ast-indexing.test.ts`.
+   - Description: Assert reembed paths still attempt AST parsing for `.py`, `.cs`, `.rs`, `.cpp`, `.h` even when vector delta logic skips embeddings.
+   - Purpose: Ensures AST parsing runs during reembed for supported languages.
+   - Documentation to read (repeat):
+     - Node.js test runner: /nodejs/node/v22.17.0
+6. [ ] Add ingest test for **missing-queries log absence** on new languages (corner case):
+   - Test type: Unit (ingest AST indexing).
+   - Test location: `server/src/test/unit/ingest-ast-indexing.test.ts`.
+   - Description: Assert logs do **not** include “Tree-sitter query files missing; skipping AST parse” for `.py`, `.cs`, `.rs`, `.cpp`.
+   - Purpose: Ensures new locals queries are wired and the missing-queries warning is not emitted.
    - Documentation to read (repeat):
      - Node.js test runner: /nodejs/node/v22.17.0
    - Notes:
      - Extend the existing ingest AST indexing test file rather than creating new tests.
-4. [ ] Validate no regressions to embedding counts or model-locking behavior:
+7. [ ] Validate no regressions to embedding counts or model-locking behavior:
    - Files to read:
      - `server/src/test/unit/ingest-status.test.ts`
      - `server/src/test/unit/ingest-root-metadata.test.ts` (if present)
@@ -648,19 +691,19 @@ Extend ingest AST indexing coverage so the new language extensions are parsed du
      - If expectations need adjustment due to new AST fields, update only the AST-related fields; keep embedding counts and model lock assertions unchanged.
    - Documentation to read (repeat):
      - Node.js test runner: /nodejs/node/v22.17.0
-5. [ ] Update documentation — `design.md`:
+8. [ ] Update documentation — `design.md`:
    - Document: `design.md`.
    - Location: `design.md`.
    - Description: Document ingest AST indexing coverage for Python/C#/Rust/C++ and note the skip-log behaviour.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-6. [ ] Update documentation — `projectStructure.md` (if new fixture files are added):
+9. [ ] Update documentation — `projectStructure.md` (if new fixture files are added):
    - Document: `projectStructure.md`.
    - Location: `projectStructure.md`.
    - Description: Add new fixture files to the tree if any are introduced.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: /eslint/eslint/v9.37.0
      - Prettier CLI: /prettier/prettier/3.6.2

@@ -130,7 +130,7 @@ These values come from each grammar’s `tree-sitter.json` and are used to keep 
 - Extend `loadQueries` to read `queries/tags.scm` from each grammar package and `server/src/ast/queries/<language>/locals.scm` for languages without upstream locals; keep the query cache and warm‑up behavior aligned with new languages.
 - Add the new extensions to `astSupportedExtensions` and keep ingest/reembed calling AST parsing for those files; confirm unsupported extensions still log a skip reason.
 - Create `server/src/ast/queries/<language>/locals.scm` for python/c_sharp/rust/cpp and add minimal fixtures + unit tests in `server/src/test/unit/ast-parser.test.ts` and ingest gating coverage in `server/src/test/unit/ingest-ast-indexing.test.ts`.
-- Ensure AST tool tests (e.g., `server/src/test/unit/ast-tool-validation.test.ts`) accept the new language values without schema changes.
+- No AST tool request schema changes are required; language values are derived from stored AST data.
 
 ---
 
@@ -138,7 +138,7 @@ These values come from each grammar’s `tree-sitter.json` and are used to keep 
 
 - Update: `server/src/ast/types.ts`, `server/src/ast/parser.ts`, `server/src/ingest/ingestJob.ts`, `server/src/types/tree-sitter.d.ts`.
 - Add: `server/src/ast/queries/python/locals.scm`, `server/src/ast/queries/c_sharp/locals.scm`, `server/src/ast/queries/rust/locals.scm`, `server/src/ast/queries/cpp/locals.scm`.
-- Update tests: `server/src/test/unit/ast-parser.test.ts`, `server/src/test/unit/ingest-ast-indexing.test.ts`, and any AST tool validation tests that enumerate language values.
+- Update tests: `server/src/test/unit/ast-parser.test.ts`, `server/src/test/unit/ingest-ast-indexing.test.ts`.
 
 ---
 
@@ -344,14 +344,7 @@ Expand the AST language type and extension routing so ingest and tool validation
    - Documentation to read (repeat):
      - Tree-sitter language configuration: /tree-sitter/tree-sitter
      - Tree-sitter C++ grammar (extension defaults + node types): https://github.com/tree-sitter/tree-sitter-cpp
-4. [ ] Update validation coverage for new language values:
-   - Test type: Unit (validation/guard coverage).
-   - Test location: `server/src/test/unit/ast-tool-validation.test.ts`.
-   - Description: Ensure validators accept the new language values and still reject unknown languages.
-   - Documentation to read (repeat):
-     - Node.js test runner: /nodejs/node/v22.17.0
-     - TypeScript handbook: /microsoft/typescript/v5.9.2
-5. [ ] Update documentation — `design.md`:
+4. [ ] Update documentation — `design.md`:
    - Document: `design.md`.
    - Location: `design.md`.
    - Description: Add/confirm the supported AST language list and extension routing summary. If the ingest/AST flow changes, add or update a Mermaid diagram of the AST indexing flow.
@@ -359,14 +352,14 @@ Expand the AST language type and extension routing so ingest and tool validation
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
      - Mermaid: /mermaid-js/mermaid/v11_0_0
-6. [ ] Update documentation — `projectStructure.md` (if any new files are added in this task; otherwise confirm no change):
+5. [ ] Update documentation — `projectStructure.md` (if any new files are added in this task; otherwise confirm no change):
    - Document: `projectStructure.md`.
    - Location: `projectStructure.md`.
    - Description: Ensure the tree remains accurate if any files were added or removed.
    - Purpose: Maintain an accurate file map for the repo.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: /eslint/eslint/v9.37.0
      - Prettier CLI: /prettier/prettier/3.6.2

@@ -2032,7 +2032,7 @@ Re-run full verification after the added AST edge work to ensure the story still
 
 ### 15. Server: Persist AST stats in ingest roots
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **to_do**
 
 #### Overview

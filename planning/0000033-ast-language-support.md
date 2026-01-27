@@ -421,12 +421,14 @@ Wire the Tree-sitter grammar packages for Python, C#, Rust, and C++ into the par
      - `server/src/test/unit/ast-parser.test.ts`
    - Notes:
      - Identify how tags/locals queries are loaded for JS/TS today.
+     - Reuse `sanitizeQuery`, `loadQueryFile`, and `loadQueries` rather than adding new loaders.
 2. [ ] Add Tree-sitter grammar dependencies:
    - Files to edit:
      - `server/package.json`
      - `package-lock.json`
    - Implementation details:
      - Add `tree-sitter-python`, `tree-sitter-c-sharp`, `tree-sitter-rust`, and `tree-sitter-cpp` with versions aligned to existing Tree-sitter dependencies.
+     - Keep the existing `tree-sitter` binding version unchanged unless it blocks grammar loading.
 3. [ ] Extend Tree-sitter module declarations for new grammars:
    - Files to edit:
      - `server/src/types/tree-sitter.d.ts`
@@ -455,6 +457,8 @@ Wire the Tree-sitter grammar packages for Python, C#, Rust, and C++ into the par
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
      - Tree-sitter query syntax: /websites/tree-sitter_github_io_tree-sitter
+   - Notes:
+     - Extend existing fixtures in `ast-parser.test.ts` instead of creating new test files.
 7. [ ] Update documentation — `design.md`:
    - Document: `design.md`.
    - Location: `design.md`.
@@ -535,6 +539,8 @@ Extend ingest AST indexing coverage so the new language extensions are parsed du
      - Unsupported-language log context includes the extension list and skip reason.
    - Documentation to read (repeat):
      - Node.js test runner: https://nodejs.org/api/test.html
+   - Notes:
+     - Extend the existing ingest AST indexing test file rather than creating new tests.
 4. [ ] Validate no regressions to embedding counts or model-locking behavior:
    - Files to read:
      - `server/src/test/unit/ingest-status.test.ts`

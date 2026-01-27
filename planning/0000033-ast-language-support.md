@@ -15,9 +15,9 @@ Story convention (important for this repo’s planning style):
 
 ## Description
 
-CodeInfo2 now indexes AST symbols for JavaScript/TypeScript during ingest, enabling structural queries via MCP tools. We want to extend the same AST indexing pipeline to additional languages (Python, C#, Rust, C++), using Tree‑sitter grammars and their query files, while keeping the ingest flow, storage model, and MCP contracts consistent with the current JS/TS implementation.
+CodeInfo2 currently builds AST symbol data only for JavaScript/TypeScript files during ingest, which limits AST tools to JS/TS repos. This story extends the same pipeline so Python, C#, Rust, and C++ repos can be indexed and queried without changing how ingest or the tools work for JS/TS.
 
-This phase focuses on language coverage only. We will reuse the existing AST schema, ingest discovery rules, file hashing, and tool contracts. For languages that do not ship `locals.scm` (Python/C#/Rust/C++), we will author custom locals queries to reach full reference support. No UI changes are planned; we will rely on server logs for visibility into language support and any limitations.
+This phase is strictly about language coverage. We will keep the existing AST schema, ingest discovery rules, file hashing, and tool contracts unchanged. Where grammars do not ship `locals.scm` (Python/C#/Rust/C++), we will add CodeInfo2-owned locals queries so definitions and references are still captured. No UI updates are planned; verification is via server logs and existing tests.
 
 ---
 
@@ -38,7 +38,7 @@ This phase focuses on language coverage only. We will reuse the existing AST sch
 ## Out Of Scope
 
 - Knowledge graph storage (e.g., Memgraph) and cross-repository linking.
-- New AST symbol/edge kinds beyond the current schema unless required by a specific language.
+- Changing `AstSymbolKind` or `AstEdgeType` enums or adding new edge/symbol kinds.
 - UI banners or additional client-side messaging for AST language support.
 - Custom AST parsing logic that bypasses Tree‑sitter queries.
 - Expanding file extension lists beyond the grammar defaults for each language.

@@ -2218,7 +2218,7 @@ Surface AST coverage counts on the Ingest page per embedded root, and handle mis
 
 ### 17. Final Task: Full verification + acceptance criteria (retest)
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **to_do**
 
 #### Overview

@@ -596,8 +596,8 @@ Verify grammar query assets, add CodeInfo2-owned locals, and extend parser unit 
 10. [ ] Update documentation — `projectStructure.md` **after** adding locals query files:
    - Document: `projectStructure.md`.
    - Location: `projectStructure.md`.
-   - Description: Add the new `server/src/ast/queries/*/locals.scm` files to the tree.
-   - Purpose: Keep the file tree accurate after adding new query assets.
+   - Description: Add **all** new `server/src/ast/queries/*/locals.scm` files to the tree (python, c_sharp, rust, cpp) and include any removed/renamed files if applicable.
+   - Purpose: Keep the file tree accurate after adding new query assets and reflect all file changes.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
 11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
@@ -716,8 +716,8 @@ Extend ingest AST indexing coverage so the new language extensions are parsed du
 9. [ ] Update documentation — `projectStructure.md` **after** adding any fixture files:
    - Document: `projectStructure.md`.
    - Location: `projectStructure.md`.
-   - Description: Add new fixture files to the tree if any are introduced.
-   - Purpose: Keep the repo tree accurate when fixtures change.
+   - Description: Add **all** new fixture files (and any removed/renamed fixture files) to the tree if introduced.
+   - Purpose: Keep the repo tree accurate when fixtures change and capture all file changes.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
 10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.

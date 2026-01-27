@@ -145,13 +145,13 @@ test('tool service selects newest repo root and uses containerPath', async () =>
   let lastCoverageRoot = '';
   const repos = buildRepos([
     {
-      id: 'repo',
+      id: 'Repo',
       containerPath: '/container/old',
       hostPath: '/host/old',
       lastIngestAt: '2025-01-01T00:00:00.000Z',
     },
     {
-      id: 'repo',
+      id: 'REPO',
       containerPath: '/container/new',
       hostPath: '/host/new',
       lastIngestAt: '2025-02-01T00:00:00.000Z',
@@ -159,7 +159,7 @@ test('tool service selects newest repo root and uses containerPath', async () =>
   ]);
 
   const result = await astListSymbols(
-    { repository: 'repo', limit: 1 },
+    { repository: 'RePo', limit: 1 },
     {
       listIngestedRepositories: async () => ({ repos, lockedModelId: null }),
       astCoverageModel: buildCoverageModel(
@@ -230,7 +230,7 @@ test('tool service lists symbols with kinds filter', async () => {
   ];
 
   const result = await astListSymbols(
-    { repository: 'repo', kinds: ['Function'], limit: 50 },
+    { repository: 'repo', kinds: ['function'], limit: 50 },
     {
       listIngestedRepositories: async () => ({
         repos: buildRepos([{ id: 'repo', containerPath: '/root' }]),

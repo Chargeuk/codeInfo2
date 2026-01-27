@@ -40,3 +40,18 @@ test('AST tool validation defaults and caps list limits', () => {
   const capped = validateAstListSymbols({ repository: 'repo', limit: 999 });
   assert.equal(capped.limit, 200);
 });
+
+test('AST tool validation normalizes kinds casing', () => {
+  const list = validateAstListSymbols({
+    repository: 'repo',
+    kinds: ['function', ' CLASS '],
+  });
+  assert.deepEqual(list.kinds, ['Function', 'Class']);
+
+  const def = validateAstFindDefinition({
+    repository: 'repo',
+    name: 'Widget',
+    kind: 'interface',
+  });
+  assert.equal(def.kind, 'Interface');
+});

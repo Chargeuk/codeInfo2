@@ -2297,53 +2297,68 @@ Make AST tool inputs tolerant of case differences so users can pass repository i
 
 #### Subtasks
 
-1. [ ] Review AST tool input validation and repo selection:
+1. [x] Review AST tool input validation and repo selection:
    - Files to read:
      - `server/src/ast/toolService.ts`
      - `server/src/test/unit/ast-tool-validation.test.ts`
      - `server/src/test/unit/ast-tool-service.test.ts`
-2. [ ] Normalize repository ids to be case-insensitive:
+2. [x] Normalize repository ids to be case-insensitive:
    - Files to edit:
      - `server/src/ast/toolService.ts`
    - Implementation details:
      - Add a canonicalisation helper that lowercases repository ids and compare against ingested repo ids case-insensitively.
      - Ensure the selected repo remains the same (most recent ingest when duplicates exist).
-3. [ ] Normalize kinds filters to canonical casing:
+3. [x] Normalize kinds filters to canonical casing:
    - Files to edit:
      - `server/src/ast/toolService.ts`
    - Implementation details:
      - Map user-provided kinds (e.g., "function", "CLASS") to canonical kinds (`Function`, `Class`, etc.).
      - Keep existing limits and error flow intact.
-4. [ ] Update unit tests for case-insensitive repository and kinds:
+4. [x] Update unit tests for case-insensitive repository and kinds:
    - Test type: Unit.
    - Test locations:
      - `server/src/test/unit/ast-tool-validation.test.ts`
      - `server/src/test/unit/ast-tool-service.test.ts`
    - Description: Add coverage that lowercase/uppercase inputs resolve correctly.
-5. [ ] Update documentation — `design.md`:
+5. [x] Update documentation — `design.md`:
    - Document: `design.md`.
    - Description: Note AST tool inputs accept case-insensitive repository ids and kinds.
-6. [ ] Update documentation — `projectStructure.md` if new test files are added.
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+6. [x] Update documentation — `projectStructure.md` if new test files are added.
+7. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, confirm AST tools accept mixed-case repository ids and kinds.
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, confirm AST tools accept mixed-case repository ids and kinds.
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
--
+- Reviewed AST tool validation + repo selection logic/tests to identify normalization points.
+- Added case-insensitive repository matching in AST tool service without changing newest-ingest selection.
+- Normalized kind casing in AST validations to canonical AST kinds while preserving existing error flow.
+- Updated AST tool unit tests to cover mixed-case repo IDs and kind inputs.
+- Documented case-insensitive AST tool repository/kind inputs in `design.md`.
+- No new files added; `projectStructure.md` unchanged.
+- `npm run lint --workspaces` reported existing warnings; `npm run format:check --workspaces` passed.
+- `npm run build --workspace server` completed successfully.
+- `npm run build --workspace client` completed with the usual Vite chunk size warning.
+- `npm run test --workspace server` timed out initially; reran with `timeout 7m` and completed successfully (56 scenarios passed).
+- `npm run test --workspace client` completed successfully with existing console warnings.
+- `timeout 7m npm run e2e` completed successfully (36 passed).
+- `npm run compose:build` completed successfully (client build warning on chunk size).
+- `npm run compose:up` started the docker environment successfully.
+- Manual Playwright-MCP check confirmed AST tool accepts mixed-case repository/kind inputs via `POST /tools/ast-list-symbols`.
+- `npm run compose:down` stopped the docker environment successfully.
 
 ---
 

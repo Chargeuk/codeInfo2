@@ -1412,6 +1412,7 @@ erDiagram
 
 - AST tool handlers validate inputs (repository required; identifiers required for definition/reference/call-graph) with `limit=50` default and `200` cap.
 - Repository resolution reuses `listIngestedRepositories`, selecting the newest `lastIngestAt` entry and using `containerPath` as the AST `root`.
+- Repository ids and kind filters are case-insensitive; inputs are normalized to canonical casing before queries.
 - Missing ingests return `INGEST_REQUIRED`; missing coverage returns `AST_INDEX_REQUIRED`; unknown repo ids return `REPO_NOT_FOUND`.
 - Tool queries map to Mongo collections: symbols (list/filter), definition (symbolId or name+kind), references (symbolId or name+kind), call graph (CALLS edges to depth), module imports (per file).
 - Each request logs `DEV-0000032:T7:ast-tool-service-request` with tool + repository context.

@@ -16,6 +16,7 @@ import {
 } from '../mongo/astModuleImport.js';
 import { type AstReference, AstReferenceModel } from '../mongo/astReference.js';
 import { type AstSymbol, AstSymbolModel } from '../mongo/astSymbol.js';
+import type { AstSymbolKind } from './types.js';
 
 type AstSymbolRow = Pick<
   AstSymbol,
@@ -225,8 +226,32 @@ function parseIsoTimestamp(value: string | null): number {
   return Number.isNaN(parsed) ? 0 : parsed;
 }
 
+const AST_KIND_LOOKUP = new Map<string, AstSymbolKind>([
+  ['module', 'Module'],
+  ['class', 'Class'],
+  ['function', 'Function'],
+  ['method', 'Method'],
+  ['interface', 'Interface'],
+  ['typealias', 'TypeAlias'],
+  ['enum', 'Enum'],
+  ['property', 'Property'],
+]);
+
+function normalizeRepositoryId(value: string): string {
+  return value.trim().toLowerCase();
+}
+
+function canonicalizeKind(value: string): string {
+  const trimmed = value.trim();
+  const canonical = AST_KIND_LOOKUP.get(trimmed.toLowerCase());
+  return canonical ?? trimmed;
+}
+
 function selectRepo(repos: RepoEntry[], repository: string): RepoEntry | null {
-  const matches = repos.filter((repo) => repo.id === repository);
+  const normalizedRepository = normalizeRepositoryId(repository);
+  const matches = repos.filter(
+    (repo) => normalizeRepositoryId(repo.id) === normalizedRepository,
+  );
   if (matches.length === 0) return null;
   return matches.reduce((best, current) => {
     const bestTs = parseIsoTimestamp(best.lastIngestAt);
@@ -271,7 +296,7 @@ function validateKinds(value: unknown, errors: string[]) {
     return undefined;
   }
   const kinds = value
-    .map((item) => (typeof item === 'string' ? item.trim() : ''))
+    .map((item) => (typeof item === 'string' ? canonicalizeKind(item) : ''))
     .filter((item) => item.length > 0);
   if (value.length > 0 && kinds.length === 0) {
     errors.push('kinds must contain at least one non-empty string');
@@ -307,7 +332,7 @@ function validateKind(value: unknown, errors: string[]) {
     errors.push('kind must be a non-empty string when provided');
     return undefined;
   }
-  return value.trim();
+  return canonicalizeKind(value);
 }
 
 function validateSymbolId(value: unknown, errors: string[]) {

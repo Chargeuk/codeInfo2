@@ -1649,7 +1649,7 @@ Extend client ingest status types to include optional AST counts and update test
 
 ### 11. Client: Ingest AST status banners
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **to_do**
 
 #### Overview

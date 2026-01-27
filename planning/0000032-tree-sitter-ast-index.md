@@ -2364,8 +2364,8 @@ Make AST tool inputs tolerant of case differences so users can pass repository i
 
 ### 19. Server: Validate unsupported AST tool inputs
 
-- Task Status: **__in_progress__**
-- Git Commits: **to_do**
+- Task Status: **__done__**
+- Git Commits: 3461645, 8efebfc
 
 #### Overview
 

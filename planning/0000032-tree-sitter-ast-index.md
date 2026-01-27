@@ -2469,25 +2469,41 @@ Re-run full verification after normalising/validating AST tool inputs so the sto
 
 #### Subtasks
 
-1. [ ] Build the server
-2. [ ] Build the client
-3. [ ] perform a clean docker build
-4. [ ] Ensure Readme.md is updated with any required description changes and with any new commands that have been added as part of this story
-5. [ ] Ensure Design.md is updated with any required description changes including mermaid diagrams that have been added as part of this story
-6. [ ] Ensure projectStructure.md is updated with any updated, added or removed files & folders
-7. [ ] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
+1. [x] Build the server
+2. [x] Build the client
+3. [x] perform a clean docker build
+4. [x] Ensure Readme.md is updated with any required description changes and with any new commands that have been added as part of this story
+5. [x] Ensure Design.md is updated with any required description changes including mermaid diagrams that have been added as part of this story
+6. [x] Ensure projectStructure.md is updated with any updated, added or removed files & folders
+7. [x] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
 
 #### Testing
 
-1. [ ] run the client jest tests
-2. [ ] run the server cucumber tests
-3. [ ] restart the docker environment
-4. [ ] run the e2e tests
-5. [ ] use the playwright mcp tool to ensure manually check the application, saving screenshots to ./test-results/screenshots/ - Each screenshot should be named with the plan index including the preceding seroes, then a dash, and then the task number, then a dash and the name of the screenshot
+1. [x] run the client jest tests
+2. [x] run the server cucumber tests
+3. [x] restart the docker environment
+4. [x] run the e2e tests
+5. [x] use the playwright mcp tool to ensure manually check the application, saving screenshots to ./test-results/screenshots/ - Each screenshot should be named with the plan index including the preceding seroes, then a dash, and then the task number, then a dash and the name of the screenshot
 
 #### Implementation notes
 
--
+- `npm run build --workspace server` completed successfully.
+- `npm run build --workspace client` completed with the usual Vite chunk size warning.
+- `npm run compose:build:clean` completed successfully after rerunning with a longer timeout.
+- `README.md` already reflects ingest + AST status details; no updates needed.
+- `design.md` already reflects AST tool validation updates; no further changes needed.
+- `projectStructure.md` already reflects AST tool test entries; no updates needed.
+- `npm run test --workspace client` completed successfully with existing console warnings.
+- `npm run test:integration --workspace server` completed successfully (56 scenarios passed).
+- `npm run compose:up` restarted the docker environment successfully.
+- `timeout 7m npm run e2e` completed successfully (36 passed).
+- Manual Playwright-MCP check completed; screenshots saved to `test-results/screenshots/0000032-20-home.png`, `0000032-20-ingest.png`, and `0000032-20-logs.png`.
+- PR summary draft:
+  - Added Tree-sitter AST indexing pipeline with Mongo-backed symbols/edges/references/imports, coverage tracking, and delta-aware re-embed support for JS/TS/TSX/JSX files.
+  - Implemented AST parser + tool services with REST/MCP endpoints to list symbols, definitions, references, call graphs, and module imports, including call-depth limits and query-based symbol extraction.
+  - Updated ingest status/roots metadata and UI to surface AST coverage, skip/failure banners, and per-root counts with safe fallbacks.
+  - Hardened AST tool inputs with case-insensitive repo/kind handling plus validation errors that list supported kinds and AST-enabled repositories.
+  - Added/expanded unit, integration, and e2e coverage across AST ingest/indexing, tool routing, validation, and UI surfaces; verified with full build/test/compose/manual checks.
 
 ## Code Review Summary
 

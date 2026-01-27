@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  AstIndexRequiredError,
   astCallGraph,
   astFindDefinition,
   astFindReferences,
@@ -11,7 +10,7 @@ import {
 } from '../../ast/toolService.js';
 import { IngestRequiredError } from '../../ingest/chromaClient.js';
 import type { RepoEntry } from '../../lmstudio/toolService.js';
-import { RepoNotFoundError } from '../../lmstudio/toolService.js';
+import { ValidationError } from '../../lmstudio/toolService.js';
 
 type Query = Record<string, unknown>;
 
@@ -57,6 +56,12 @@ const buildCoverageModel = (
   rows: Array<{ root: string }>,
   onQuery?: (query: Query) => void,
 ) => ({
+  find: (query: Query) => {
+    onQuery?.(query);
+    return buildFindChain(
+      rows.filter((row) => matchesQuery(row as Query, query)),
+    );
+  },
   findOne: (query: Query) => {
     onQuery?.(query);
     const match = rows.find((row) => matchesQuery(row as Query, query)) ?? null;
@@ -115,7 +120,9 @@ test('tool service errors when repo id is missing', async () => {
           astModuleImportModel: buildModel([]),
         },
       ),
-    (error: unknown) => error instanceof RepoNotFoundError,
+    (error: unknown) =>
+      error instanceof ValidationError &&
+      error.details.some((detail) => detail.includes('repo')),
   );
 });
 
@@ -136,13 +143,15 @@ test('tool service errors when coverage is missing', async () => {
           astModuleImportModel: buildModel([]),
         },
       ),
-    (error: unknown) => error instanceof AstIndexRequiredError,
+    (error: unknown) =>
+      error instanceof ValidationError &&
+      error.details.some((detail) => detail.includes('AST-enabled')),
   );
 });
 
 test('tool service selects newest repo root and uses containerPath', async () => {
   let lastSymbolRoot = '';
-  let lastCoverageRoot = '';
+  let lastCoverageQuery: Query | null = null;
   const repos = buildRepos([
     {
       id: 'Repo',
@@ -165,7 +174,7 @@ test('tool service selects newest repo root and uses containerPath', async () =>
       astCoverageModel: buildCoverageModel(
         [{ root: '/container/new' }],
         (q) => {
-          lastCoverageRoot = q.root as string;
+          lastCoverageQuery = q;
         },
       ),
       astSymbolModel: buildModel(
@@ -194,7 +203,7 @@ test('tool service selects newest repo root and uses containerPath', async () =>
     },
   );
 
-  assert.equal(lastCoverageRoot, '/container/new');
+  assert.deepEqual(lastCoverageQuery, {});
   assert.equal(lastSymbolRoot, '/container/new');
   assert.equal(result.symbols.length, 1);
 });

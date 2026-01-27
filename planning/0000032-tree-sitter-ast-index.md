@@ -2383,51 +2383,67 @@ Ensure AST tool inputs reject unsupported kinds and repositories with clear erro
 
 #### Subtasks
 
-1. [ ] Review existing AST tool error classes and repo selection:
+1. [x] Review existing AST tool error classes and repo selection:
    - Files to read:
      - `server/src/ast/toolService.ts`
      - `server/src/mcp/server.ts`
-2. [ ] Add validation for unsupported kinds:
+2. [x] Add validation for unsupported kinds:
    - Files to edit:
      - `server/src/ast/toolService.ts`
    - Implementation details:
      - Reject unknown kind values and return an error listing supported kinds.
      - Apply both to `kinds` filters and `kind` on definition/reference queries.
-3. [ ] Validate repository ids against AST-enabled repos:
+3. [x] Validate repository ids against AST-enabled repos:
    - Files to edit:
      - `server/src/ast/toolService.ts`
    - Implementation details:
      - When a repository is not ingested or has no AST coverage, return an error listing available AST-enabled repositories.
-4. [ ] Update unit tests for invalid kinds/repositories:
+4. [x] Update unit tests for invalid kinds/repositories:
    - Test type: Unit.
    - Test locations:
      - `server/src/test/unit/ast-tool-validation.test.ts`
      - `server/src/test/unit/ast-tool-service.test.ts`
    - Description: Assert error payloads include supported kinds and AST-enabled repo ids.
-5. [ ] Update documentation — `design.md`:
+5. [x] Update documentation — `design.md`:
    - Document: `design.md`.
    - Description: Document AST tool validation behaviour and error messages.
-6. [ ] Update documentation — `projectStructure.md` if new test files are added.
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+6. [x] Update documentation — `projectStructure.md` if new test files are added.
+7. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, confirm invalid kinds/repositories return clear validation errors.
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, confirm invalid kinds/repositories return clear validation errors.
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
--
+- Reviewed AST tool service validation, repo selection, and MCP error mapping to align new validation behavior.
+- Added supported-kind validation with error details listing allowed kinds.
+- Validated repository ids against AST-enabled repos and return validation errors with available repo list.
+- Updated AST tool unit tests to cover unsupported kinds and invalid repositories with supported lists.
+- Documented AST tool validation error messaging in `design.md`.
+- No new files added; `projectStructure.md` unchanged.
+- `npm run lint --workspaces` reported existing warnings; `npm run format --workspaces` fixed formatting and `npm run format:check --workspaces` passed.
+- `npm run build --workspace server` completed successfully.
+- `npm run build --workspace client` completed with the usual Vite chunk size warning.
+- `timeout 7m npm run test --workspace server` completed successfully (56 scenarios passed).
+- Server unit tests initially failed due to updated coverage selection expectations; adjusted ast-tool-service test and reran.
+- `npm run test --workspace client` completed successfully with existing console warnings.
+- `timeout 7m npm run e2e` completed successfully (36 passed).
+- `npm run compose:build` completed successfully.
+- `npm run compose:up` started the docker environment successfully.
+- Manual Playwright-MCP check confirmed invalid kinds/repositories return supported lists via `POST /tools/ast-list-symbols`.
+- `npm run compose:down` stopped the docker environment successfully.
 
 ---
 

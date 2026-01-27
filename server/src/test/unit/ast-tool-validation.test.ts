@@ -55,3 +55,24 @@ test('AST tool validation normalizes kinds casing', () => {
   });
   assert.equal(def.kind, 'Interface');
 });
+
+test('AST tool validation rejects unsupported kinds', () => {
+  assert.throws(
+    () => validateAstListSymbols({ repository: 'repo', kinds: ['mystery'] }),
+    (error: unknown) =>
+      error instanceof ValidationError &&
+      error.details.some((detail) => detail.includes('Supported kinds')),
+  );
+
+  assert.throws(
+    () =>
+      validateAstFindDefinition({
+        repository: 'repo',
+        name: 'Widget',
+        kind: 'unknown',
+      }),
+    (error: unknown) =>
+      error instanceof ValidationError &&
+      error.details.some((detail) => detail.includes('Supported kinds')),
+  );
+});

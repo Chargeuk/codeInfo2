@@ -2,7 +2,6 @@ import { IngestRequiredError } from '../ingest/chromaClient.js';
 import {
   type RepoEntry,
   type ListReposResult,
-  RepoNotFoundError,
   ValidationError,
   listIngestedRepositories,
 } from '../lmstudio/toolService.js';
@@ -144,10 +143,11 @@ type AstModuleImportModelLike = {
   find: (query: Record<string, unknown>) => FindChain<AstModuleImportRow>;
 };
 
+type AstCoverageRow = { root: string };
+
 type AstCoverageModelLike = {
-  findOne: (query: Record<string, unknown>) => FindOneChain<{
-    root: string;
-  }>;
+  find: (query: Record<string, unknown>) => FindChain<AstCoverageRow>;
+  findOne: (query: Record<string, unknown>) => FindOneChain<AstCoverageRow>;
 };
 
 export type AstToolDeps = {
@@ -237,6 +237,8 @@ const AST_KIND_LOOKUP = new Map<string, AstSymbolKind>([
   ['property', 'Property'],
 ]);
 
+const SUPPORTED_KINDS = Array.from(new Set(AST_KIND_LOOKUP.values()));
+
 function normalizeRepositoryId(value: string): string {
   return value.trim().toLowerCase();
 }
@@ -245,6 +247,37 @@ function canonicalizeKind(value: string): string {
   const trimmed = value.trim();
   const canonical = AST_KIND_LOOKUP.get(trimmed.toLowerCase());
   return canonical ?? trimmed;
+}
+
+function selectAstEnabledRepos(
+  repos: RepoEntry[],
+  coverage: AstCoverageRow[],
+): RepoEntry[] {
+  const roots = new Set(coverage.map((entry) => entry.root));
+  const latestById = new Map<string, RepoEntry>();
+  for (const repo of repos) {
+    if (!roots.has(repo.containerPath)) continue;
+    const key = normalizeRepositoryId(repo.id);
+    const current = latestById.get(key);
+    if (!current) {
+      latestById.set(key, repo);
+      continue;
+    }
+    const currentTs = parseIsoTimestamp(current.lastIngestAt);
+    const repoTs = parseIsoTimestamp(repo.lastIngestAt);
+    if (repoTs > currentTs) {
+      latestById.set(key, repo);
+    }
+  }
+  return Array.from(latestById.values());
+}
+
+function formatAstRepoList(repos: RepoEntry[]): string {
+  if (repos.length === 0) return 'none';
+  return repos
+    .map((repo) => repo.id)
+    .sort((a, b) => a.localeCompare(b))
+    .join(', ');
 }
 
 function selectRepo(repos: RepoEntry[], repository: string): RepoEntry | null {
@@ -269,16 +302,17 @@ async function resolveRepoRoot(
   if (repos.length === 0) {
     throw new IngestRequiredError('No ingested repositories available');
   }
-  const repo = selectRepo(repos, repository);
+  const coverage = await deps.astCoverageModel.find({}).lean().exec();
+  const astEnabledRepos = selectAstEnabledRepos(repos, coverage);
+  const repo = selectRepo(astEnabledRepos, repository);
   if (!repo) {
-    throw new RepoNotFoundError(repository);
+    throw new ValidationError([
+      `repository must be one of the AST-enabled repositories: ${formatAstRepoList(
+        astEnabledRepos,
+      )}`,
+    ]);
   }
-  const root = repo.containerPath;
-  const coverage = await deps.astCoverageModel.findOne({ root }).lean().exec();
-  if (!coverage) {
-    throw new AstIndexRequiredError(repository);
-  }
-  return { root, repo };
+  return { root: repo.containerPath, repo };
 }
 
 function ensureNonEmptyString(value: unknown, field: string, errors: string[]) {
@@ -300,6 +334,16 @@ function validateKinds(value: unknown, errors: string[]) {
     .filter((item) => item.length > 0);
   if (value.length > 0 && kinds.length === 0) {
     errors.push('kinds must contain at least one non-empty string');
+  }
+  const unsupported = kinds.filter(
+    (kind) => !SUPPORTED_KINDS.includes(kind as AstSymbolKind),
+  );
+  if (unsupported.length > 0) {
+    errors.push(
+      `Unsupported kinds: ${unsupported.join(
+        ', ',
+      )}. Supported kinds: ${SUPPORTED_KINDS.join(', ')}`,
+    );
   }
   return kinds;
 }
@@ -332,7 +376,14 @@ function validateKind(value: unknown, errors: string[]) {
     errors.push('kind must be a non-empty string when provided');
     return undefined;
   }
-  return canonicalizeKind(value);
+  const kind = canonicalizeKind(value);
+  if (!SUPPORTED_KINDS.includes(kind as AstSymbolKind)) {
+    errors.push(
+      `Unsupported kind: ${kind}. Supported kinds: ${SUPPORTED_KINDS.join(', ')}`,
+    );
+    return undefined;
+  }
+  return kind;
 }
 
 function validateSymbolId(value: unknown, errors: string[]) {

@@ -1035,9 +1035,9 @@ export default function ChatPage() {
               )}
               {repo.counts && (
                 <Typography variant="caption" color="text.secondary">
-                  Files: {repo.counts.files ?? 0} · Chunks:{' '}
-                  {repo.counts.chunks ?? 0} · Embedded:{' '}
-                  {repo.counts.embedded ?? 0}
+                  {`Files: ${repo.counts.files ?? 0} · Chunks: ${
+                    repo.counts.chunks ?? 0
+                  } · Embedded: ${repo.counts.embedded ?? 0}`}
                 </Typography>
               )}
               {typeof repo.lastIngestAt === 'string' && repo.lastIngestAt && (

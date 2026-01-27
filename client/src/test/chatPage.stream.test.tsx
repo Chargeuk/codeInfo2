@@ -1073,7 +1073,7 @@ describe('Chat WS streaming UI', () => {
 
     const logSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
 
-    try {
+    const runScenario = async () => {
       const user = userEvent.setup();
       const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
       render(<RouterProvider router={router} />);
@@ -1139,9 +1139,10 @@ describe('Chat WS streaming UI', () => {
         ?.context;
       expect(resetContext?.prevInflightId).toBe('i1');
       expect(resetContext?.inflightId).toBe('i2');
-    } finally {
+    };
+    await runScenario().finally(() => {
       logSpy.mockRestore();
-    }
+    });
   });
 
   it('does not reset the assistant pointer when WS user_turn repeats the same inflightId', async () => {

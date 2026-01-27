@@ -1052,7 +1052,7 @@ export default function AgentsPage() {
       const result = await runAgentCommand({
         agentName: selectedAgentName,
         commandName: selectedCommandName,
-        working_folder: workingFolder.trim() || undefined,
+        'working_folder': workingFolder.trim() || undefined,
         conversationId: nextConversationId,
       });
 
@@ -1331,9 +1331,9 @@ export default function AgentsPage() {
               )}
               {repo.counts && (
                 <Typography variant="caption" color="text.secondary">
-                  Files: {repo.counts.files ?? 0} · Chunks:{' '}
-                  {repo.counts.chunks ?? 0} · Embedded:{' '}
-                  {repo.counts.embedded ?? 0}
+                  {`Files: ${repo.counts.files ?? 0} · Chunks: ${
+                    repo.counts.chunks ?? 0
+                  } · Embedded: ${repo.counts.embedded ?? 0}`}
                 </Typography>
               )}
               {typeof repo.lastIngestAt === 'string' && repo.lastIngestAt && (

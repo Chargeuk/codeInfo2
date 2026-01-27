@@ -2123,7 +2123,7 @@ Duplicate AST coverage counts into ingest root metadata and return them from `GE
 
 ### 16. Client: Show AST stats per ingested root
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **to_do**
 
 #### Overview

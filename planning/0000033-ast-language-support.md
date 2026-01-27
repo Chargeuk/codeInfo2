@@ -404,6 +404,7 @@ Wire the Tree-sitter grammar packages for Python, C#, Rust, and C++ into the par
 #### Documentation Locations
 
 - Tree-sitter query syntax + locals capture guide: /websites/tree-sitter_github_io_tree-sitter
+- Tree-sitter init docs (query path defaults + `tree-sitter.json` structure): https://tree-sitter.github.io/tree-sitter/cli/init.html
 - Tree-sitter Python grammar (node types + queries): https://github.com/tree-sitter/tree-sitter-python
 - Tree-sitter C# grammar (node types + queries): https://github.com/tree-sitter/tree-sitter-c-sharp
 - Tree-sitter Rust grammar (node types + queries): https://github.com/tree-sitter/tree-sitter-rust

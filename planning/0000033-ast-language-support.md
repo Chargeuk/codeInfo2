@@ -23,14 +23,14 @@ This phase focuses on language coverage only. We will reuse the existing AST sch
 
 ## Acceptance Criteria
 
-- Ingest `start` and `reembed` runs attempt AST indexing for all supported file types across: JavaScript, JSX, TypeScript, TSX, Python, C#, Rust, and C++.
-- AST parsing reuses the existing Tree‑sitter pipeline and query loading approach; grammar packages are added only where needed.
-- AST indexing remains additive: embeddings, ingest counts, and model locking behavior continue unchanged.
-- AST indexing always parses supported files during ingest/reembed (no delta skip for AST), while reusing existing include/exclude and hashing rules for file discovery.
-- Server logs report unsupported extensions and any per-language query limitations; no UI changes are introduced.
-- Python, C#, Rust, and C++ have custom `locals.scm` coverage so reference queries are supported alongside definitions.
-- New languages map to the correct Tree‑sitter grammars and default file types (no custom extension list in this story).
-- MCP/REST AST tools remain schema-compatible and handle new `language` values returned by the parser without client changes.
+- Ingest `start` and `reembed` parse ASTs for any file whose language is detected as **javascript**, **typescript**, **tsx**, **python**, **c_sharp**, **rust**, or **cpp**; a repo containing at least one file per language yields AST records with those `language` values.
+- New grammars are wired to the expected packages: `tree-sitter-python`, `tree-sitter-c-sharp`, `tree-sitter-rust`, and `tree-sitter-cpp`; no custom file‑extension overrides are added beyond the grammar defaults.
+- Custom locals queries exist at `server/src/ast/queries/<language>/locals.scm` for **python**, **c_sharp**, **rust**, and **cpp**, and the parser loads these files for those languages while still loading `tags.scm` from the grammar packages.
+- Parser‑level tests with minimal fixtures for python/c_sharp/rust/cpp assert at least one `@local.definition` and one `@local.reference` capture per language, and the resulting AST output includes reference entries for those symbols.
+- AST indexing remains additive: existing embedding counts, ingest totals, and model‑locking behavior remain unchanged in current test/fixture runs (no regressions introduced).
+- AST parsing does not skip supported files during `reembed` based on delta logic; logs confirm AST parsing attempts occur for supported files on reembed.
+- Server logs report unsupported file extensions with the extension and skip reason, and do not emit “Tree‑sitter query files missing; skipping AST parse” for the four new languages.
+- MCP/REST AST tool response shape is unchanged; client builds without changes and can surface the new `language` values.
 
 ---
 

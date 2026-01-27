@@ -45,6 +45,12 @@ This phase focuses on language coverage only. We will reuse the existing AST sch
 
 ---
 
+## Message Contracts & Storage Shapes
+
+No new message contracts or storage shapes are required. Existing AST collections and tool responses already carry a `language` field; this story only expands the allowed language values. Update the type/validation surfaces that enumerate languages (e.g., `AstLanguage` and any schema guards) so new values are accepted, but keep the document/response shapes unchanged.
+
+---
+
 ## Questions
 
 ---

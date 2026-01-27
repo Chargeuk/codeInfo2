@@ -1763,6 +1763,136 @@ Render non-blocking Ingest page banners for AST skipped/failed counts using exis
 - Lint still reports existing import/order warnings in unrelated server/test files; formatting clean.
 - `npm run build --workspace server` completed successfully.
 - `npm run build --workspace client` completed with the usual Vite chunk size warning.
+
+---
+
+### 13. Server: AST relationship edges + collision logging
+
+- Task Status: **__to_do__**
+- Git Commits: **to_do**
+
+#### Overview
+
+Add missing AST edge types (`EXTENDS`, `IMPLEMENTS`, `REFERENCES_TYPE`) and log symbolId collisions so the AST index fully meets the Option B schema requirements.
+
+#### Documentation Locations
+
+- Tree-sitter query syntax: https://tree-sitter.github.io/tree-sitter/using-parsers#query-syntax
+- Tree-sitter node queries (capture filters): https://tree-sitter.github.io/tree-sitter/using-parsers#query-captures
+- Tree-sitter JavaScript/TypeScript grammar docs: https://tree-sitter.github.io/tree-sitter/creating-parsers
+- Node.js test runner (AST parser unit tests): https://nodejs.org/api/test.html
+- Markdown Guide (update `design.md` + `projectStructure.md`): https://www.markdownguide.org/basic-syntax/
+- Mermaid docs (Context7, architecture diagrams): /mermaid-js/mermaid
+- ESLint CLI (run task lint step): https://eslint.org/docs/latest/use/command-line-interface
+- Prettier CLI (run task format step): https://prettier.io/docs/cli
+- npm run-script (workspace build/test commands): https://docs.npmjs.com/cli/v9/commands/npm-run-script
+
+#### Subtasks
+
+1. [ ] Review existing AST edge handling:
+   - Documentation to read (repeat):
+     - Tree-sitter query syntax: https://tree-sitter.github.io/tree-sitter/using-parsers#query-syntax
+   - Files to read:
+     - `server/src/ast/parser.ts`
+     - `server/src/ast/types.ts`
+2. [ ] Add `EXTENDS`/`IMPLEMENTS` edge extraction:
+   - Files to edit:
+     - `server/src/ast/parser.ts`
+   - Implementation details:
+     - Detect `extends`/`implements` clauses in class/interface declarations.
+     - Map each referenced type name to the closest symbol in the same file and emit `EXTENDS` or `IMPLEMENTS` edges.
+3. [ ] Add `REFERENCES_TYPE` edge extraction:
+   - Files to edit:
+     - `server/src/ast/parser.ts`
+   - Implementation details:
+     - Use Tree-sitter query captures (`reference.type`) to collect type references.
+     - Map each reference to the matching symbol in the file and emit `REFERENCES_TYPE` edges.
+4. [ ] Log symbolId collisions:
+   - Files to edit:
+     - `server/src/ast/parser.ts`
+   - Implementation details:
+     - When `createSymbolIdFactory` detects a duplicate hash, emit `DEV-0000032:T13:ast-symbolid-collision` via `append` + `baseLogger` with the base string and the new suffix count.
+5. [ ] Unit tests — new AST edges + collision logging:
+   - Test type: Unit (AST parser).
+   - Test location: `server/src/test/unit/ast-parser.test.ts`.
+   - Description: Add fixtures that produce `extends`/`implements` clauses and type references; assert the new edge types and collision log.
+6. [ ] Update ingest AST indexing test coverage if needed:
+   - Test type: Unit (ingest indexing).
+   - Test location: `server/src/test/unit/ingest-ast-indexing.test.ts`.
+   - Description: Verify new edge types are persisted during ingest when present.
+7. [ ] Update documentation — `design.md`:
+   - Document: `design.md`.
+   - Location: `design.md`.
+   - Description: Document the new edge types and the collision log behavior.
+   - Purpose: Keep AST schema docs aligned with the implemented edges.
+8. [ ] Update documentation — `projectStructure.md`:
+   - Document: `projectStructure.md`.
+   - Location: `projectStructure.md`.
+   - Description: Update tree entries if test files are modified.
+   - Purpose: Keep project structure docs aligned with updated tests.
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier CLI: https://prettier.io/docs/cli
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, run an ingest with a repo containing `extends`/`implements` and type references, and confirm `DEV-0000032:T13:ast-symbolid-collision` appears when forcing a collision; ensure no console errors.
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- 
+
+---
+
+### 14. Final Task: Full verification + acceptance criteria (retest)
+
+- Task Status: **__to_do__**
+- Git Commits: **to_do**
+
+#### Overview
+
+Re-run full verification after the added AST edge work to ensure the story still meets all acceptance criteria.
+
+#### Documentation Locations
+
+- Docker Compose overview (clean builds + compose up): https://docs.docker.com/compose/
+- Playwright Test intro (e2e run + screenshots): https://playwright.dev/docs/intro
+- Husky docs (pre-commit hooks): https://typicode.github.io/husky/
+- Mermaid docs (Context7, diagram syntax): /mermaid-js/mermaid
+- Mermaid intro (diagram updates in `design.md`): https://mermaid.js.org/intro/
+- Jest docs (Context7): /jestjs/jest
+- Jest getting started (client/server tests): https://jestjs.io/docs/getting-started
+- Cucumber guides https://cucumber.io/docs/guides/
+
+#### Subtasks
+
+1. [ ] Build the server
+2. [ ] Build the client
+3. [ ] perform a clean docker build
+4. [ ] Ensure Readme.md is updated with any required description changes and with any new commands that have been added as part of this story
+5. [ ] Ensure Design.md is updated with any required description changes including mermaid diagrams that have been added as part of this story
+6. [ ] Ensure projectStructure.md is updated with any updated, added or removed files & folders
+7. [ ] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
+
+#### Testing
+
+1. [ ] run the client jest tests
+2. [ ] run the server cucumber tests
+3. [ ] restart the docker environment
+4. [ ] run the e2e tests
+5. [ ] use the playwright mcp tool to ensure manually check the application, saving screenshots to ./test-results/screenshots/ - Each screenshot should be named with the plan index including the preceding seroes, then a dash, and then the task number, then a dash and the name of the screenshot
+
+#### Implementation notes
+
+- 
 - `npm run test --workspace server` completed within the extended timeout (54 scenarios passed).
 - `npm run test --workspace client` passed with expected VM module warnings and console logs.
 - `npm run e2e` completed with 36 passing tests.

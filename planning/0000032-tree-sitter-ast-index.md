@@ -1543,8 +1543,8 @@ Expose AST tools through the MCP JSON-RPC server with schemas aligned to the RES
 
 ### 10. Client: Ingest status type updates
 
-- Task Status: **__in_progress__**
-- Git Commits: **to_do**
+- Task Status: **__done__**
+- Git Commits: f7e7bf8
 
 #### Overview
 
@@ -1566,13 +1566,13 @@ Extend client ingest status types to include optional AST counts and update test
 
 #### Subtasks
 
-1. [ ] Review ingest status types:
+1. [x] Review ingest status types:
    - Files to read:
      - `client/src/hooks/useChatWs.ts`
      - `client/src/hooks/useIngestStatus.ts`
    - Documentation to read (repeat):
      - React 19 hooks reference: https://react.dev/reference/react
-2. [ ] Extend ingest status types for AST counts:
+2. [x] Extend ingest status types for AST counts:
    - Files to edit:
      - `client/src/hooks/useChatWs.ts`
      - `client/src/hooks/useIngestStatus.ts`
@@ -1580,7 +1580,7 @@ Extend client ingest status types to include optional AST counts and update test
      - Add optional `ast` field with `supportedFileCount`, `skippedFileCount`, `failedFileCount`, `lastIndexedAt`.
    - Documentation to read (repeat):
      - TypeScript 5.9 release notes: https://www.typescriptlang.org/docs/handbook/release-notes/typescript-5-9.html
-3. [ ] Client tests — ingest status shape updates:
+3. [x] Client tests — ingest status shape updates:
    - Test type: Unit (client hook/types).
    - Test location: `client/src/test/ingestStatus.test.tsx`.
    - Description: Ensure ingest status rendering tolerates optional `ast` fields.
@@ -1592,7 +1592,7 @@ Extend client ingest status types to include optional AST counts and update test
    - Documentation to read (repeat):
      - Jest (React testing): https://jestjs.io/docs/getting-started
      - Testing Library: https://testing-library.com/docs/react-testing-library/intro/
-4. [ ] Update documentation — `design.md`:
+4. [x] Update documentation — `design.md`:
    - Document: `design.md`.
    - Location: `design.md`.
    - Description: Document client ingest status type updates and add a mermaid diagram for status data flow.
@@ -1600,14 +1600,14 @@ Extend client ingest status types to include optional AST counts and update test
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
      - Mermaid docs (Context7, architecture diagrams): /mermaid-js/mermaid
-5. [ ] Update documentation — `projectStructure.md`:
+5. [x] Update documentation — `projectStructure.md`:
    - Document: `projectStructure.md`.
    - Location: `projectStructure.md`.
    - Description: Update the tree if client test files are modified.
    - Purpose: Keep documentation aligned with test adjustments.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-6. [ ] Add client ingest status log line:
+6. [x] Add client ingest status log line:
    - Files to edit:
      - `client/src/hooks/useIngestStatus.ts`
    - Log line:
@@ -1617,25 +1617,33 @@ Extend client ingest status types to include optional AST counts and update test
      - Include the counts in the logged payload for verification.
    - Documentation to read (repeat):
      - React hooks reference: https://react.dev/reference/react
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+7. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, run an ingest, and confirm the browser console includes `DEV-0000032:T10:ast-status-received` with counts; ensure no console errors. Capture a screenshot of the Ingest page showing AST status fields and store it in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` for review.
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, run an ingest, and confirm the browser console includes `DEV-0000032:T10:ast-status-received` with counts; ensure no console errors. Capture a screenshot of the Ingest page showing AST status fields and store it in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` for review.
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- 
+- Added AST counts to ingest status types and surfaced AST metrics in the active ingest card.
+- Logged `DEV-0000032:T10:ast-status-received` when ingest status includes AST counts.
+- Updated ingest status UI tests to tolerate AST fields.
+- Documented AST status payload updates and WS flow diagram in `design.md`.
+- Lint still reports existing import/order warnings in unrelated files; formatting clean.
+- Server tests completed (long runtime) with no failures.
+- Client tests completed with expected VM module warnings and console noise.
+- E2E run completed (36 passed).
+- Manual Playwright-MCP check verified `DEV-0000032:T10:ast-status-received` and captured screenshot `playwright-output-local/0000032-t10-ast-status.png`.
 
 ---
 

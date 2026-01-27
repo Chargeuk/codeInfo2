@@ -46,6 +46,14 @@ export type AstParseFailure = {
   status: 'failed';
   language?: AstLanguage;
   error: string;
+  details?: {
+    line: number;
+    column: number;
+    endLine: number;
+    endColumn: number;
+    snippet: string;
+    nodeType?: string;
+  };
 };
 
 export type AstParseResult = AstParseSuccess | AstParseFailure;

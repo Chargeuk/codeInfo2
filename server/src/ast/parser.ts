@@ -108,6 +108,23 @@ function toRange(node: SyntaxNode) {
   };
 }
 
+function buildErrorDetails(node: SyntaxNode) {
+  const rawSnippet = node.text ?? '';
+  const normalizedSnippet = rawSnippet.replace(/\s+/g, ' ').trim();
+  const snippet =
+    normalizedSnippet.length > 160
+      ? `${normalizedSnippet.slice(0, 157)}...`
+      : normalizedSnippet;
+  return {
+    line: node.startPosition.row + 1,
+    column: node.startPosition.column + 1,
+    endLine: node.endPosition.row + 1,
+    endColumn: node.endPosition.column + 1,
+    snippet,
+    nodeType: node.type,
+  };
+}
+
 function normalizeLanguage(ext: string): AstLanguage | null {
   if (ext === 'js' || ext === 'jsx') return 'javascript';
   if (ext === 'ts') return 'typescript';
@@ -754,7 +771,13 @@ async function parseAstSourceInternal(
     }
     const tree = parser.parse(text);
     if (tree.rootNode.hasError) {
-      return { status: 'failed', language, error: 'Tree-sitter parse error' };
+      const errorNode = tree.rootNode.descendantsOfType('ERROR')[0];
+      return {
+        status: 'failed',
+        language,
+        error: 'Tree-sitter parse error',
+        ...(errorNode ? { details: buildErrorDetails(errorNode) } : {}),
+      };
     }
 
     const tagsQuery = new Parser.Query(parserLanguage, queries.tags);

@@ -340,7 +340,18 @@ async function processRun(runId: string, input: IngestJobInput) {
       metadata.astLastIndexedAt = astLastIndexedAt;
     };
     const astSkippedExamples: string[] = [];
-    const astFailedExamples: { relPath: string; error: string }[] = [];
+    const astFailedExamples: {
+      relPath: string;
+      error: string;
+      details?: {
+        line: number;
+        column: number;
+        endLine: number;
+        endColumn: number;
+        snippet: string;
+        nodeType?: string;
+      };
+    }[] = [];
     for (const file of files) {
       const ext = file.ext ?? path.extname(file.relPath).slice(1);
       if (isAstSupported(ext)) {
@@ -634,6 +645,7 @@ async function processRun(runId: string, input: IngestJobInput) {
           astFailedExamples.push({
             relPath: file.relPath,
             error: astResult.error,
+            ...(astResult.details ? { details: astResult.details } : {}),
           });
         }
         const errorMessage = astResult.error.toLowerCase();

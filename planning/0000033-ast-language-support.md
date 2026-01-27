@@ -422,7 +422,7 @@ Expand the AST language type and extension routing so ingest and tool validation
 
 ### 2. Server: Tree-sitter grammar dependencies + parser wiring
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits:
 
 #### Overview

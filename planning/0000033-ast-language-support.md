@@ -308,6 +308,8 @@ Expand the AST language type and extension routing so ingest and tool validation
 #### Documentation Locations
 
 - Tree-sitter language configuration (`tree-sitter.json` locals/tags defaults): /websites/tree-sitter_github_io_tree-sitter
+- Tree-sitter init docs (query path defaults + `tree-sitter.json` structure): https://tree-sitter.github.io/tree-sitter/cli/init.html
+- tree-sitter-python `tree-sitter.json` example (file-types + tags path): https://docs.rs/crate/tree-sitter-python/0.23.3/source/tree-sitter.json
 - Tree-sitter Python grammar (extension defaults + node types): https://github.com/tree-sitter/tree-sitter-python
 - Tree-sitter C# grammar (extension defaults + node types): https://github.com/tree-sitter/tree-sitter-c-sharp
 - Tree-sitter Rust grammar (extension defaults + node types): https://github.com/tree-sitter/tree-sitter-rust
@@ -338,6 +340,7 @@ Expand the AST language type and extension routing so ingest and tool validation
    - Implementation details:
      - Update any arrays or guards (e.g., warm-up language lists) so they include the new languages.
      - Keep response payload shapes unchanged.
+     - Validate extension lists against each grammar’s `tree-sitter.json` file-types so routing matches the published defaults.
 3. [ ] Extend `AstLanguage` and extension routing:
    - Files to edit:
      - `server/src/ast/types.ts`
@@ -427,7 +430,7 @@ Wire the Tree-sitter grammar packages for Python, C#, Rust, and C++ into the par
      - `server/package.json`
      - `package-lock.json`
    - Implementation details:
-     - Add `tree-sitter-python`, `tree-sitter-c-sharp`, `tree-sitter-rust`, and `tree-sitter-cpp` with versions aligned to existing Tree-sitter dependencies.
+     - Add `tree-sitter-python`, `tree-sitter-c-sharp`, `tree-sitter-rust`, and `tree-sitter-cpp` with versions aligned to existing Tree-sitter dependencies (`tree-sitter@0.21.1`, `tree-sitter-javascript@0.23.1`, `tree-sitter-typescript@0.23.2`).
      - Keep the existing `tree-sitter` binding version unchanged unless it blocks grammar loading.
 3. [ ] Extend Tree-sitter module declarations for new grammars:
    - Files to edit:
@@ -441,7 +444,16 @@ Wire the Tree-sitter grammar packages for Python, C#, Rust, and C++ into the par
      - Register `python`, `c_sharp`, `rust`, and `cpp` in `getLanguageConfig` or equivalent language map.
      - Load `queries/tags.scm` from each grammar package and load `locals.scm` from `server/src/ast/queries/<language>/locals.scm` for the new languages.
      - Extend any query warm-up lists (e.g., `warmAstParserQueries`) to include the new languages.
-5. [ ] Create custom locals queries for new languages:
+5. [ ] Verify grammar package query assets before wiring tags:
+   - Files to inspect:
+     - `node_modules/tree-sitter-python/queries`
+     - `node_modules/tree-sitter-c-sharp/queries`
+     - `node_modules/tree-sitter-rust/queries`
+     - `node_modules/tree-sitter-cpp/queries`
+   - Implementation details:
+     - Confirm each package ships `queries/tags.scm`.
+     - If any package lacks `tags.scm`, add a CodeInfo2-owned fallback at `server/src/ast/queries/<language>/tags.scm` and update the loader to prefer package tags but fallback to the local file.
+6. [ ] Create custom locals queries for new languages:
    - Files to add:
      - `server/src/ast/queries/python/locals.scm`
      - `server/src/ast/queries/c_sharp/locals.scm`
@@ -450,7 +462,7 @@ Wire the Tree-sitter grammar packages for Python, C#, Rust, and C++ into the par
    - Implementation details:
      - Use the grammar `node-types.json` for node names; capture `@local.scope`, `@local.definition`, and `@local.reference` for each language.
      - Use the code-graph-rag reference inputs listed earlier in this plan to confirm node coverage.
-6. [ ] Add parser unit coverage for new languages:
+7. [ ] Add parser unit coverage for new languages:
    - Test type: Unit (parser output).
    - Test location: `server/src/test/unit/ast-parser.test.ts`.
    - Description: Add minimal inline fixtures per language and assert at least one `@local.definition` and one `@local.reference` capture, plus non-empty references in the output.
@@ -459,19 +471,19 @@ Wire the Tree-sitter grammar packages for Python, C#, Rust, and C++ into the par
      - Tree-sitter query syntax: /websites/tree-sitter_github_io_tree-sitter
    - Notes:
      - Extend existing fixtures in `ast-parser.test.ts` instead of creating new test files.
-7. [ ] Update documentation — `design.md`:
+8. [ ] Update documentation — `design.md`:
    - Document: `design.md`.
    - Location: `design.md`.
    - Description: Note the new grammar packages and that Python/C#/Rust/C++ locals queries are CodeInfo2-owned.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-8. [ ] Update documentation — `projectStructure.md`:
+9. [ ] Update documentation — `projectStructure.md`:
    - Document: `projectStructure.md`.
    - Location: `projectStructure.md`.
-   - Description: Add the new `server/src/ast/queries/*/locals.scm` files to the tree.
+   - Description: Add the new `server/src/ast/queries/*/locals.scm` files to the tree (and `tags.scm` if fallback tags were added).
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli

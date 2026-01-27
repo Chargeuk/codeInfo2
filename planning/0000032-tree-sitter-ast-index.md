@@ -2607,3 +2607,12 @@ Ensure AST parsing runs across all supported files on each ingest/re-embed so AS
 - Security: input validation for repositories/kinds/limits prevents unsafe DB queries; repository resolution uses ingest registry without arbitrary filesystem access.
 - Acceptance criteria verified: AST indexing integration, per-file skip logging + UI banner, persisted symbols/edges/references/imports, AST coverage metadata in ingest roots, dry-run non-persistence, and AST tools returning ranges/graphs/imports per spec.
 - Outcome: no new issues found; no additional tasks required.
+
+---
+
+## Code Review Addendum (2026-01-27)
+
+- Changes reviewed: AST parser/service (`server/src/ast/*`), ingest pipeline integration (`server/src/ingest/ingestJob.ts`), Mongo schemas/repo helpers (`server/src/mongo/*`), REST/MCP tool routes (`server/src/routes/toolsAst*.ts`, `server/src/mcp/server.ts`), client ingest UI updates (`client/src/pages/IngestPage.tsx`, `client/src/components/ingest/*`), OpenAPI updates, and AST-related tests.
+- Checks performed: code quality (structure, naming, reuse), maintainability (module boundaries, validation paths, logging consistency), performance (AST parsing scope, query caching, call-graph depth limits), security (input validation, repository resolution), and best-practice alignment with existing ingest/tool patterns.
+- Acceptance criteria verified: AST indexing for JS/TS/TSX/JSX, per-file skip + banner, deterministic symbolId/edge storage, AST coverage metadata on roots + ingest status, dry-run non-persistence, and MCP/REST tool responses with ranges.
+- Outcome: no additional issues found; no new tasks required.

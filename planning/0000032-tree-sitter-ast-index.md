@@ -40,6 +40,7 @@ Note: Cross-repository symbol linking (e.g., linking imports in repo A to an ing
 - Each stored edge record includes: `root`, `fromSymbolId`, `toSymbolId`, `type`, and the `relPath`/`fileHash` that produced it.
 - References and module imports are stored persistently and keyed by `root + relPath + fileHash` to support AST tool queries.
 - The system records AST coverage per ingest root with: `supportedFileCount`, `skippedFileCount`, `failedFileCount`, and `lastIndexedAt`.
+- AST coverage counts are duplicated into ingest root metadata (vector roots) and returned by `GET /ingest/roots`; the Ingest page shows per-root AST counts and gracefully handles missing AST metadata.
 - Dry-run ingest performs the full AST parse and produces counts, but does **not** persist symbol/edge records.
 - AST index schema (Option B): symbols include `Module`, `Class`, `Function`, `Method`, `Interface`, `TypeAlias`, `Enum`, `Property`; edges include `DEFINES`, `CALLS`, `IMPORTS`, `EXPORTS`, `EXTENDS`, `IMPLEMENTS`, `REFERENCES_TYPE`.
 - When the grammar provides Tree-sitter query files (e.g., `queries/tags.scm`), those are used for definitions and references instead of custom ad-hoc AST walking.
@@ -61,6 +62,12 @@ Note: Cross-repository symbol linking (e.g., linking imports in repo A to an ing
   - `ast?: { supportedFileCount: number; skippedFileCount: number; failedFileCount: number; lastIndexedAt?: string }`.
   - `lastIndexedAt` is ISO-8601, present only when at least one file was parsed.
   - `repository`/`root` in all AST tool calls refers to the same repo id returned by `ListIngestedRepositories` (derived from the ingest root metadata).
+
+### Updated Ingest Roots Contract (REST)
+
+- Extend `GET /ingest/roots` payload to include optional AST counts per root:
+  - `ast?: { supportedFileCount: number; skippedFileCount: number; failedFileCount: number; lastIndexedAt?: string }`.
+  - When AST metadata is missing (legacy roots, dry runs, or Mongo unavailable), omit `ast` from the response and render placeholders in the client UI.
 
 ### New MCP + REST Tool Contracts (mirrors VectorSearch pattern)
 
@@ -2023,10 +2030,210 @@ Re-run full verification after the added AST edge work to ensure the story still
 
 ---
 
+### 15. Server: Persist AST stats in ingest roots
+
+- Task Status: **__to_do__**
+- Git Commits: **to_do**
+
+#### Overview
+
+Duplicate AST coverage counts into ingest root metadata and return them from `GET /ingest/roots`, while keeping legacy roots (missing AST data) compatible.
+
+#### Documentation Locations
+
+- Chroma metadata guide (root metadata storage): https://docs.trychroma.com/usage-guide#metadatas
+- OpenAPI 3.0 spec (schema updates for `/ingest/roots`): https://spec.openapis.org/oas/latest.html
+- Cucumber guides (server integration tests): https://cucumber.io/docs/guides/
+- Node.js test runner (integration/unit tests): https://nodejs.org/api/test.html
+- Markdown Guide (update `design.md` + `openapi.json`): https://www.markdownguide.org/basic-syntax/
+- Mermaid docs (Context7, architecture diagrams): /mermaid-js/mermaid
+- ESLint CLI (run task lint step): https://eslint.org/docs/latest/use/command-line-interface
+- Prettier CLI (run task format step): https://prettier.io/docs/cli
+- npm run-script (workspace build/test commands): https://docs.npmjs.com/cli/v9/commands/npm-run-script
+
+#### Subtasks
+
+1. [ ] Review ingest root metadata flow:
+   - Documentation to read (repeat):
+     - Chroma metadata guide: https://docs.trychroma.com/usage-guide#metadatas
+   - Files to read:
+     - `server/src/ingest/ingestJob.ts`
+     - `server/src/routes/ingestRoots.ts`
+2. [ ] Persist AST counts into root metadata:
+   - Files to edit:
+     - `server/src/ingest/ingestJob.ts`
+   - Implementation details:
+     - Include `ast` coverage fields (`supportedFileCount`, `skippedFileCount`, `failedFileCount`, `lastIndexedAt`) on root metadata writes for start/re-embed.
+     - Ensure dry-run/legacy roots can omit `ast` without breaking downstream consumers.
+3. [ ] Extend `GET /ingest/roots` response with optional AST counts:
+   - Files to edit:
+     - `server/src/routes/ingestRoots.ts`
+   - Implementation details:
+     - Map `ast` fields from root metadata when present.
+     - When missing, omit `ast` or return `undefined` to keep backward compatibility.
+4. [ ] Update ingest roots metadata tests (happy + missing AST):
+   - Test type: Integration (Cucumber) + unit.
+   - Test locations:
+     - `server/src/test/features/ingest-roots-metadata.feature`
+     - `server/src/test/steps/ingest-roots-metadata.steps.ts`
+   - Description: Add scenarios that assert AST counts when present and ensure responses succeed when `ast` metadata is missing.
+5. [ ] Update OpenAPI + design docs:
+   - Documents:
+     - `openapi.json`
+     - `design.md`
+   - Description: Document the optional `ast` counts in ingest root payloads and metadata flow.
+6. [ ] Update documentation — `projectStructure.md` if new test files are added.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier CLI: https://prettier.io/docs/cli
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, run ingest/re-embed, and confirm the Roots table includes AST counts; verify no console errors.
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- 
+
+---
+
+### 16. Client: Show AST stats per ingested root
+
+- Task Status: **__to_do__**
+- Git Commits: **to_do**
+
+#### Overview
+
+Surface AST coverage counts on the Ingest page per embedded root, and handle missing AST metadata gracefully in both the list and details views.
+
+#### Documentation Locations
+
+- MUI Table API (v6.4.x): https://llms.mui.com/material-ui/6.4.12/api/table.md
+- MUI TableCell API (v6.4.x): https://llms.mui.com/material-ui/6.4.12/api/table-cell.md
+- MUI Stack API (v6.4.x): https://llms.mui.com/material-ui/6.4.12/api/stack.md
+- MUI Typography API (v6.4.x): https://llms.mui.com/material-ui/6.4.12/api/typography.md
+- React 19 hooks reference: https://react.dev/reference/react
+- Testing Library intro (render + query assertions): https://testing-library.com/docs/react-testing-library/intro/
+- Jest docs (Context7): /jestjs/jest
+- Docker Compose overview (compose build/up steps): https://docs.docker.com/compose/
+- Markdown Guide (update `design.md` + `projectStructure.md`): https://www.markdownguide.org/basic-syntax/
+- Mermaid docs (Context7, architecture diagrams): /mermaid-js/mermaid
+- ESLint CLI (run task lint step): https://eslint.org/docs/latest/use/command-line-interface
+- Prettier CLI (run task format step): https://prettier.io/docs/cli
+- npm run-script (workspace build/test commands): https://docs.npmjs.com/cli/v9/commands/npm-run-script
+
+#### Subtasks
+
+1. [ ] Extend ingest roots types for AST counts:
+   - Files to edit:
+     - `client/src/hooks/useIngestRoots.ts`
+   - Implementation details:
+     - Add optional `ast` counts to `IngestRoot` and ensure fetch parsing tolerates missing data.
+2. [ ] Display AST counts in the roots table:
+   - Files to edit:
+     - `client/src/components/ingest/RootsTable.tsx`
+   - UI details:
+     - Add additional count rows (e.g., `AST Supported`, `AST Skipped`, `AST Failed`) in the counts stack.
+     - When AST counts are missing, show placeholders (`–`) rather than `0` to indicate absence.
+3. [ ] Display AST counts in the root details drawer:
+   - Files to edit:
+     - `client/src/components/ingest/RootDetailsDrawer.tsx`
+   - UI details:
+     - Include AST counts alongside existing file/chunk/embedded counts.
+     - Use the same placeholder behavior when AST metadata is missing.
+4. [ ] Client tests — happy path AST counts display:
+   - Test type: Unit (client UI).
+   - Test location: `client/src/test/ingestRoots.test.tsx`.
+   - Description: Provide roots payload with `ast` counts and assert they render in both table and details views.
+5. [ ] Client tests — missing AST counts fallback:
+   - Test type: Unit (client UI).
+   - Test location: `client/src/test/ingestRoots.test.tsx`.
+   - Description: Provide roots payload without `ast` and assert placeholders render instead of numeric values.
+6. [ ] Update documentation — `design.md`:
+   - Document: `design.md`.
+   - Location: `design.md`.
+   - Description: Document ingest roots AST counts and UI display expectations.
+7. [ ] Update documentation — `projectStructure.md` if test files change.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
+     - Prettier CLI: https://prettier.io/docs/cli
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, verify AST counts render for each root and placeholders show when missing; confirm console is clean.
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- 
+
+---
+
+### 17. Final Task: Full verification + acceptance criteria (retest)
+
+- Task Status: **__to_do__**
+- Git Commits: **to_do**
+
+#### Overview
+
+Re-run full verification after adding AST counts to ingest roots so the story meets the updated acceptance criteria.
+
+#### Documentation Locations
+
+- Docker Compose overview (clean builds + compose up): https://docs.docker.com/compose/
+- Playwright Test intro (e2e run + screenshots): https://playwright.dev/docs/intro
+- Husky docs (pre-commit hooks): https://typicode.github.io/husky/
+- Mermaid docs (Context7, diagram syntax): /mermaid-js/mermaid
+- Mermaid intro (diagram updates in `design.md`): https://mermaid.js.org/intro/
+- Jest docs (Context7): /jestjs/jest
+- Jest getting started (client/server tests): https://jestjs.io/docs/getting-started
+- Cucumber guides https://cucumber.io/docs/guides/
+
+#### Subtasks
+
+1. [ ] Build the server
+2. [ ] Build the client
+3. [ ] perform a clean docker build
+4. [ ] Ensure Readme.md is updated with any required description changes and with any new commands that have been added as part of this story
+5. [ ] Ensure Design.md is updated with any required description changes including mermaid diagrams that have been added as part of this story
+6. [ ] Ensure projectStructure.md is updated with any updated, added or removed files & folders
+7. [ ] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
+
+#### Testing
+
+1. [ ] run the client jest tests
+2. [ ] run the server cucumber tests
+3. [ ] restart the docker environment
+4. [ ] run the e2e tests
+5. [ ] use the playwright mcp tool to ensure manually check the application, saving screenshots to ./test-results/screenshots/ - Each screenshot should be named with the plan index including the preceding seroes, then a dash, and then the task number, then a dash and the name of the screenshot
+
+#### Implementation notes
+
+- 
+
+---
+
 ## Code Review Summary
 
 - Reviewed `main...HEAD` for server AST parsing/indexing, Mongo schema updates, ingest pipeline integration, MCP/REST tooling, client ingest UI changes, and documentation updates.
 - Code quality/maintainability: modular AST parser + tool services, explicit validation/error mapping, and comprehensive unit/integration tests align with existing patterns; docs updated to reflect contracts and flows.
 - Performance: AST parsing is limited to supported files with delta re-embed support and query caching; call-graph depth limiting prevents unbounded traversal.
 - Security: REST/MCP inputs validated with consistent error mapping; repository resolution uses existing ingest registry with no direct filesystem access from user input.
-- Acceptance criteria verified: supported extensions, skip banners/logs, deterministic symbol IDs + collision logging, full Option B edge types, coverage counts, dry-run behavior, MCP/REST parity, and UI banners are present.
+- Acceptance criteria verified through Task 14; new AST root metadata duplication and UI display requirements are now tracked in Tasks 15–17.

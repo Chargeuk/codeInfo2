@@ -541,19 +541,28 @@ Verify grammar query assets, add CodeInfo2-owned locals, and extend parser unit 
    - Notes:
      - Extend existing fixtures in `ast-parser.test.ts` instead of creating new test files.
      - Copy the existing TS fixture structure (inline source string + `parseAstSource` call) to keep tests consistent.
-4. [ ] Update documentation — `design.md`:
+4. [ ] Add parser error-path coverage for new languages (corner cases):
+   - Test type: Unit (parser failures).
+   - Test location: `server/src/test/unit/ast-parser.test.ts`.
+   - Description: Add at least one new-language case that asserts `Missing Tree-sitter query files` when `queryBundleOverride: null`, and another that asserts `Tree-sitter grammar unavailable` when `parserLanguageOverride: null`.
+   - Coverage notes:
+     - Use a `relPath` with a new extension (e.g., `.py`, `.rs`) so the error paths are exercised for the new language routing.
+     - Keep assertions aligned with the existing error strings returned by `parseAstSource` so the tests remain deterministic.
+   - Documentation to read (repeat):
+     - Node.js test runner: /nodejs/node/v22.17.0
+5. [ ] Update documentation — `design.md`:
    - Document: `design.md`.
    - Location: `design.md`.
    - Description: Note that Python/C#/Rust/C++ locals queries are CodeInfo2-owned and record any dependency version changes made to obtain tags.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-5. [ ] Update documentation — `projectStructure.md`:
+6. [ ] Update documentation — `projectStructure.md`:
    - Document: `projectStructure.md`.
    - Location: `projectStructure.md`.
    - Description: Add the new `server/src/ast/queries/*/locals.scm` files to the tree.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: /eslint/eslint/v9.37.0
      - Prettier CLI: /prettier/prettier/3.6.2
@@ -619,9 +628,10 @@ Extend ingest AST indexing coverage so the new language extensions are parsed du
 3. [ ] Update ingest AST indexing tests for new extensions:
    - Test type: Unit (ingest AST indexing).
    - Test location: `server/src/test/unit/ingest-ast-indexing.test.ts`.
-   - Description: Add at least one file per new extension (`.py`, `.cs`, `.rs`, `.cpp`/`.h`) and assert supported counts + reembed AST attempts.
+   - Description: Add at least one file per new extension (`.py`, `.cs`, `.rs`, `.cpp`, `.h`) plus one unsupported extension (e.g., `.pyw`) and assert supported counts + reembed AST attempts.
    - Assertions:
      - Logs include unsupported extension reasons for non-supported files.
+     - The unsupported `.pyw` (or equivalent) file is *not* treated as Python and appears in the unsupported-extension log with the skip reason.
      - Logs include AST parsing attempts for the new languages during reembed.
      - Logs do not include “Tree-sitter query files missing; skipping AST parse” for the new languages.
      - Unsupported-language log context includes the extension list and skip reason.

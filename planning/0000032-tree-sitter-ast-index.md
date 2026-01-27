@@ -2238,25 +2238,41 @@ Re-run full verification after adding AST counts to ingest roots so the story me
 
 #### Subtasks
 
-1. [ ] Build the server
-2. [ ] Build the client
-3. [ ] perform a clean docker build
-4. [ ] Ensure Readme.md is updated with any required description changes and with any new commands that have been added as part of this story
-5. [ ] Ensure Design.md is updated with any required description changes including mermaid diagrams that have been added as part of this story
-6. [ ] Ensure projectStructure.md is updated with any updated, added or removed files & folders
-7. [ ] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
+1. [x] Build the server
+2. [x] Build the client
+3. [x] perform a clean docker build
+4. [x] Ensure Readme.md is updated with any required description changes and with any new commands that have been added as part of this story
+5. [x] Ensure Design.md is updated with any required description changes including mermaid diagrams that have been added as part of this story
+6. [x] Ensure projectStructure.md is updated with any updated, added or removed files & folders
+7. [x] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
 
 #### Testing
 
-1. [ ] run the client jest tests
-2. [ ] run the server cucumber tests
-3. [ ] restart the docker environment
-4. [ ] run the e2e tests
-5. [ ] use the playwright mcp tool to ensure manually check the application, saving screenshots to ./test-results/screenshots/ - Each screenshot should be named with the plan index including the preceding seroes, then a dash, and then the task number, then a dash and the name of the screenshot
+1. [x] run the client jest tests
+2. [x] run the server cucumber tests
+3. [x] restart the docker environment
+4. [x] run the e2e tests
+5. [x] use the playwright mcp tool to ensure manually check the application, saving screenshots to ./test-results/screenshots/ - Each screenshot should be named with the plan index including the preceding seroes, then a dash, and then the task number, then a dash and the name of the screenshot
 
 #### Implementation notes
 
-- 
+- `npm run build --workspace server` completed successfully.
+- `npm run build --workspace client` completed with the usual Vite chunk size warning.
+- `npm run compose:build:clean` completed successfully.
+- `README.md` already covers ingest + AST UI details; no changes needed.
+- `design.md` already includes AST counts UI notes; no changes needed.
+- `projectStructure.md` already lists the updated ingest UI files and tests; no changes needed.
+- PR summary draft:
+  - Added Tree-sitter AST indexing pipeline with Mongo-backed symbols/edges/references/imports, coverage tracking, and delta-aware re-embed handling.
+  - Implemented AST parser + tool service with REST/MCP endpoints to list symbols, definitions, references, call graphs, and module imports.
+  - Updated ingest status payloads, ingest roots metadata, and UI (banners + table/drawer counts) to surface AST coverage with safe fallbacks.
+  - Added new AST relationship edges (EXTENDS/IMPLEMENTS/REFERENCES_TYPE) and symbolId collision logging with expanded unit/integration coverage.
+  - Verified docs and full build/test/compose/e2e/manual checks for the story.
+- `npm run test --workspace client` completed successfully with existing console warnings.
+- `npm run test --workspace server` initially timed out; `timeout 7m npm run test --workspace server` completed successfully (56 scenarios passed).
+- `npm run compose:down` and `npm run compose:up` restarted the docker environment successfully.
+- `timeout 7m npm run e2e` completed successfully (36 passed).
+- Manual Playwright-MCP check completed against `http://host.docker.internal:5001`; screenshots saved to `test-results/screenshots/0000032-17-home.png`, `0000032-17-ingest.png`, and `0000032-17-logs.png`.
 
 ---
 

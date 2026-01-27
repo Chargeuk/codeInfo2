@@ -297,10 +297,10 @@ Expand the AST language type and extension routing so ingest and tool validation
 - Tree-sitter C# grammar repo (extension defaults + node types): https://github.com/tree-sitter/tree-sitter-c-sharp
 - Tree-sitter Rust grammar repo (extension defaults + node types): https://github.com/tree-sitter/tree-sitter-rust
 - Tree-sitter C++ grammar repo (extension defaults + node types): https://github.com/tree-sitter/tree-sitter-cpp
-- TypeScript reference (Context7 `/microsoft/typescript/v5.9.2`) for union updates: /microsoft/typescript/v5.9.2
+- TypeScript reference (Context7 `/microsoft/typescript/v5.9.2`, latest available for 5.9.x) for union updates: /microsoft/typescript/v5.9.2
 - Node.js test runner API (Context7 `/nodejs/node/v22.17.0`): /nodejs/node/v22.17.0
 - npm run-script docs (CLI v10): https://docs.npmjs.com/cli/v10/commands/npm-run-script
-- ESLint CLI docs (Context7 `/eslint/eslint/v9.37.0`): /eslint/eslint/v9.37.0
+- ESLint CLI docs (Context7 `/eslint/eslint/v9.37.0`, latest available for ESLint 9.x): /eslint/eslint/v9.37.0
 - Prettier CLI docs (Context7 `/prettier/prettier/3.6.2`): /prettier/prettier/3.6.2
 - Markdown Guide (doc edits): https://www.markdownguide.org/basic-syntax/
 
@@ -403,7 +403,7 @@ Add the Tree-sitter grammar packages and wire them into the parser so language d
 - TypeScript ambient module declarations (Context7 `/microsoft/typescript/v5.9.2`): /microsoft/typescript/v5.9.2
 - Node.js test runner API (Context7 `/nodejs/node/v22.17.0`): /nodejs/node/v22.17.0
 - npm run-script docs (CLI v10): https://docs.npmjs.com/cli/v10/commands/npm-run-script
-- ESLint CLI docs (Context7 `/eslint/eslint/v9.37.0`): /eslint/eslint/v9.37.0
+- ESLint CLI docs (Context7 `/eslint/eslint/v9.37.0`, latest available for ESLint 9.x): /eslint/eslint/v9.37.0
 - Prettier CLI docs (Context7 `/prettier/prettier/3.6.2`): /prettier/prettier/3.6.2
 - Markdown Guide (doc edits): https://www.markdownguide.org/basic-syntax/
 
@@ -487,7 +487,7 @@ Add the Tree-sitter grammar packages and wire them into the parser so language d
 
 #### Overview
 
-Verify grammar query assets, add CodeInfo2-owned locals (and tags fallbacks if needed), and extend parser unit tests to cover Python, C#, Rust, and C++.
+Verify grammar query assets, add CodeInfo2-owned locals, and extend parser unit tests to cover Python, C#, Rust, and C++.
 
 #### Documentation Locations
 
@@ -500,7 +500,7 @@ Verify grammar query assets, add CodeInfo2-owned locals (and tags fallbacks if n
 - Tree-sitter C++ grammar repo (node types + queries): https://github.com/tree-sitter/tree-sitter-cpp
 - Node.js test runner API (Context7 `/nodejs/node/v22.17.0`): /nodejs/node/v22.17.0
 - npm run-script docs (CLI v10): https://docs.npmjs.com/cli/v10/commands/npm-run-script
-- ESLint CLI docs (Context7 `/eslint/eslint/v9.37.0`): /eslint/eslint/v9.37.0
+- ESLint CLI docs (Context7 `/eslint/eslint/v9.37.0`, latest available for ESLint 9.x): /eslint/eslint/v9.37.0
 - Prettier CLI docs (Context7 `/prettier/prettier/3.6.2`): /prettier/prettier/3.6.2
 - Markdown Guide (doc edits): https://www.markdownguide.org/basic-syntax/
 
@@ -589,7 +589,7 @@ Extend ingest AST indexing coverage so the new language extensions are parsed du
 - Tree-sitter query system + capture conventions (Context7 `/tree-sitter/tree-sitter`): /tree-sitter/tree-sitter
 - Node.js test runner API (Context7 `/nodejs/node/v22.17.0`): /nodejs/node/v22.17.0
 - npm run-script docs (CLI v10): https://docs.npmjs.com/cli/v10/commands/npm-run-script
-- ESLint CLI docs (Context7 `/eslint/eslint/v9.37.0`): /eslint/eslint/v9.37.0
+- ESLint CLI docs (Context7 `/eslint/eslint/v9.37.0`, latest available for ESLint 9.x): /eslint/eslint/v9.37.0
 - Prettier CLI docs (Context7 `/prettier/prettier/3.6.2`): /prettier/prettier/3.6.2
 - Markdown Guide (doc edits): https://www.markdownguide.org/basic-syntax/
 
@@ -684,14 +684,14 @@ Validate the full story against acceptance criteria, run the complete test/build
 #### Documentation Locations
 
 - Docker Compose reference (Context7 `/docker/docs`): /docker/docs
-- Playwright (Context7 `/microsoft/playwright`) for e2e runs: /microsoft/playwright
+- Playwright (Context7 `/microsoft/playwright.dev`) for e2e runs: /microsoft/playwright.dev
 - Playwright MCP server docs (Context7 `/microsoft/playwright-mcp`) for screenshots: /microsoft/playwright-mcp
 - Husky hooks (Context7 `/typicode/husky`): /typicode/husky
 - Mermaid diagrams (Context7 `/mermaid-js/mermaid/v11_0_0`): /mermaid-js/mermaid/v11_0_0
-- Jest CLI/config (Context7 `/jestjs/jest`): /jestjs/jest
+- Jest CLI/config (Context7 `/websites/jestjs_io_30_0`) for Jest 30.x: /websites/jestjs_io_30_0
 - Cucumber.js guide (https://cucumber.io/docs/guides/10-minute-tutorial): https://cucumber.io/docs/guides/10-minute-tutorial
 - Markdown Guide (doc edits): https://www.markdownguide.org/basic-syntax/
-- ESLint CLI docs (Context7 `/eslint/eslint/v9.37.0`): /eslint/eslint/v9.37.0
+- ESLint CLI docs (Context7 `/eslint/eslint/v9.37.0`, latest available for ESLint 9.x): /eslint/eslint/v9.37.0
 - Prettier CLI docs (Context7 `/prettier/prettier/3.6.2`): /prettier/prettier/3.6.2
 - npm run-script docs (CLI v10): https://docs.npmjs.com/cli/v10/commands/npm-run-script
 
@@ -724,7 +724,7 @@ Validate the full story against acceptance criteria, run the complete test/build
 
 1. [ ] Run the client Jest tests.
    - Documentation to read (repeat):
-     - Jest: /jestjs/jest
+     - Jest: /websites/jestjs_io_30_0
 2. [ ] Run the server Cucumber tests.
    - Documentation to read (repeat):
      - Cucumber guides: https://cucumber.io/docs/guides/10-minute-tutorial
@@ -733,10 +733,10 @@ Validate the full story against acceptance criteria, run the complete test/build
      - Docker/Compose: /docker/docs
 4. [ ] Run the e2e tests.
    - Documentation to read (repeat):
-     - Playwright: /microsoft/playwright
+     - Playwright: /microsoft/playwright.dev
 5. [ ] Use the Playwright MCP tool to manually check the application, saving screenshots to `./test-results/screenshots/` (name each screenshot with the plan index, task number, and scenario).
    - Documentation to read (repeat):
-     - Playwright: /microsoft/playwright
+     - Playwright: /microsoft/playwright.dev
 
 #### Implementation notes
 

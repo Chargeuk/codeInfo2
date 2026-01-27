@@ -364,10 +364,6 @@ Expand the AST language type and extension routing so ingest and tool validation
    - Purpose: Maintain an accurate file map for the repo.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-   - Documentation to read (repeat):
-     - ESLint CLI: /eslint/eslint/v9.37.0
-     - Prettier CLI: /prettier/prettier/3.6.2
 
 #### Testing
 
@@ -379,6 +375,10 @@ Expand the AST language type and extension routing so ingest and tool validation
 6. [ ] `npm run test --workspace client`
 7. [ ] `npm run e2e`
 8. [ ] `npm run compose:down`
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI: /eslint/eslint/v9.37.0
+     - Prettier CLI: /prettier/prettier/3.6.2
 
 #### Implementation notes
 
@@ -468,10 +468,6 @@ Add the Tree-sitter grammar packages and wire them into the parser so language d
    - Purpose: Keep the repo file map consistent with dependency and wiring updates.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-   - Documentation to read (repeat):
-     - ESLint CLI: /eslint/eslint/v9.37.0
-     - Prettier CLI: /prettier/prettier/3.6.2
 
 #### Testing
 
@@ -483,6 +479,10 @@ Add the Tree-sitter grammar packages and wire them into the parser so language d
 6. [ ] `npm run test --workspace client`
 7. [ ] `npm run e2e`
 8. [ ] `npm run compose:down`
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI: /eslint/eslint/v9.37.0
+     - Prettier CLI: /prettier/prettier/3.6.2
 
 #### Implementation notes
 
@@ -622,10 +622,6 @@ Verify grammar query assets, add CodeInfo2-owned locals, and extend parser unit 
    - Purpose: Keep the file tree accurate after adding new query assets and reflect all file changes.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-   - Documentation to read (repeat):
-     - ESLint CLI: /eslint/eslint/v9.37.0
-     - Prettier CLI: /prettier/prettier/3.6.2
 
 #### Testing
 
@@ -637,6 +633,10 @@ Verify grammar query assets, add CodeInfo2-owned locals, and extend parser unit 
 6. [ ] `npm run test --workspace client`
 7. [ ] `npm run e2e`
 8. [ ] `npm run compose:down`
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI: /eslint/eslint/v9.37.0
+     - Prettier CLI: /prettier/prettier/3.6.2
 
 #### Implementation notes
 
@@ -750,10 +750,6 @@ Extend ingest AST indexing coverage so the new language extensions are parsed du
    - Purpose: Keep the repo tree accurate when fixtures change and capture all file changes.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
-   - Documentation to read (repeat):
-     - ESLint CLI: /eslint/eslint/v9.37.0
-     - Prettier CLI: /prettier/prettier/3.6.2
 
 #### Testing
 
@@ -765,6 +761,10 @@ Extend ingest AST indexing coverage so the new language extensions are parsed du
 6. [ ] `npm run test --workspace client`
 7. [ ] `npm run e2e`
 8. [ ] `npm run compose:down`
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+   - Documentation to read (repeat):
+     - ESLint CLI: /eslint/eslint/v9.37.0
+     - Prettier CLI: /prettier/prettier/3.6.2
 
 #### Implementation notes
 

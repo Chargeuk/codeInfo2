@@ -304,6 +304,7 @@ Expand the AST language type and extension routing so ingest and tool validation
 - Cucumber guides: https://cucumber.io/docs/guides/
 - ESLint CLI docs (Context7 `/eslint/eslint/v9.37.0`, latest available for ESLint 9.x): /eslint/eslint/v9.37.0
 - Prettier CLI docs (Context7 `/prettier/prettier/3.6.2`): /prettier/prettier/3.6.2
+- Mermaid diagrams (Context7 `/mermaid-js/mermaid/v11_0_0`): /mermaid-js/mermaid/v11_0_0
 - Markdown Guide (doc edits): https://www.markdownguide.org/basic-syntax/
 
 #### Subtasks
@@ -353,9 +354,10 @@ Expand the AST language type and extension routing so ingest and tool validation
 5. [ ] Update documentation — `design.md`:
    - Document: `design.md`.
    - Location: `design.md`.
-   - Description: Add/confirm the supported AST language list and extension routing summary.
+   - Description: Add/confirm the supported AST language list and extension routing summary. If the ingest/AST flow changes, add or update a Mermaid diagram of the AST indexing flow.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+     - Mermaid: /mermaid-js/mermaid/v11_0_0
 6. [ ] Update documentation — `projectStructure.md` (if any new files are added in this task; otherwise confirm no change):
    - Document: `projectStructure.md`.
    - Location: `projectStructure.md`.
@@ -409,6 +411,7 @@ Add the Tree-sitter grammar packages and wire them into the parser so language d
 - Cucumber guides: https://cucumber.io/docs/guides/
 - ESLint CLI docs (Context7 `/eslint/eslint/v9.37.0`, latest available for ESLint 9.x): /eslint/eslint/v9.37.0
 - Prettier CLI docs (Context7 `/prettier/prettier/3.6.2`): /prettier/prettier/3.6.2
+- Mermaid diagrams (Context7 `/mermaid-js/mermaid/v11_0_0`): /mermaid-js/mermaid/v11_0_0
 - Markdown Guide (doc edits): https://www.markdownguide.org/basic-syntax/
 
 #### Subtasks
@@ -453,9 +456,10 @@ Add the Tree-sitter grammar packages and wire them into the parser so language d
 5. [ ] Update documentation — `design.md`:
    - Document: `design.md`.
    - Location: `design.md`.
-   - Description: Note the new grammar packages and parser wiring changes.
+   - Description: Note the new grammar packages and parser wiring changes. If parser wiring changes alter the AST flow, add/update a Mermaid diagram.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+     - Mermaid: /mermaid-js/mermaid/v11_0_0
 6. [ ] Update documentation — `projectStructure.md` (if any files were added in this task; otherwise confirm no change):
    - Document: `projectStructure.md`.
    - Location: `projectStructure.md`.
@@ -508,6 +512,7 @@ Verify grammar query assets, add CodeInfo2-owned locals, and extend parser unit 
 - Cucumber guides: https://cucumber.io/docs/guides/
 - ESLint CLI docs (Context7 `/eslint/eslint/v9.37.0`, latest available for ESLint 9.x): /eslint/eslint/v9.37.0
 - Prettier CLI docs (Context7 `/prettier/prettier/3.6.2`): /prettier/prettier/3.6.2
+- Mermaid diagrams (Context7 `/mermaid-js/mermaid/v11_0_0`): /mermaid-js/mermaid/v11_0_0
 - Markdown Guide (doc edits): https://www.markdownguide.org/basic-syntax/
 
 #### Subtasks
@@ -586,9 +591,10 @@ Verify grammar query assets, add CodeInfo2-owned locals, and extend parser unit 
 9. [ ] Update documentation — `design.md`:
    - Document: `design.md`.
    - Location: `design.md`.
-   - Description: Note that Python/C#/Rust/C++ locals queries are CodeInfo2-owned and record any dependency version changes made to obtain tags.
+   - Description: Note that Python/C#/Rust/C++ locals queries are CodeInfo2-owned and record any dependency version changes made to obtain tags. Add/update a Mermaid diagram if query wiring changes the AST flow.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+     - Mermaid: /mermaid-js/mermaid/v11_0_0
 10. [ ] Update documentation — `projectStructure.md` **after** adding locals query files:
    - Document: `projectStructure.md`.
    - Location: `projectStructure.md`.
@@ -635,6 +641,7 @@ Extend ingest AST indexing coverage so the new language extensions are parsed du
 - Cucumber guides: https://cucumber.io/docs/guides/
 - ESLint CLI docs (Context7 `/eslint/eslint/v9.37.0`, latest available for ESLint 9.x): /eslint/eslint/v9.37.0
 - Prettier CLI docs (Context7 `/prettier/prettier/3.6.2`): /prettier/prettier/3.6.2
+- Mermaid diagrams (Context7 `/mermaid-js/mermaid/v11_0_0`): /mermaid-js/mermaid/v11_0_0
 - Markdown Guide (doc edits): https://www.markdownguide.org/basic-syntax/
 
 #### Subtasks
@@ -702,9 +709,10 @@ Extend ingest AST indexing coverage so the new language extensions are parsed du
 8. [ ] Update documentation — `design.md`:
    - Document: `design.md`.
    - Location: `design.md`.
-   - Description: Document ingest AST indexing coverage for Python/C#/Rust/C++ and note the skip-log behaviour.
+   - Description: Document ingest AST indexing coverage for Python/C#/Rust/C++ and note the skip-log behaviour. Add/update a Mermaid diagram if ingest flow changes.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
+     - Mermaid: /mermaid-js/mermaid/v11_0_0
 9. [ ] Update documentation — `projectStructure.md` **after** adding any fixture files:
    - Document: `projectStructure.md`.
    - Location: `projectStructure.md`.

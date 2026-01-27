@@ -159,6 +159,17 @@ These values come from each grammar’s `tree-sitter.json` and are used to keep 
 
 ---
 
+## Edge Cases and Failure Modes
+
+- Missing grammar packages or bindings for a new language should log a grammar-load failure and return a failed AST parse result without crashing ingest.
+- Missing `locals.scm` files for the new languages should be logged once per language and skip AST parsing for that file, matching current JS/TS behavior for missing queries.
+- Unsupported extensions (e.g., `.pyw`, `.hpp` if not included) must still log a skip reason and not be treated as supported unless added intentionally.
+- C++ headers (`.h`) are shared with C; ensure we only parse them with the C++ grammar to keep results consistent with the story’s scope.
+- Tree-sitter query syntax errors in custom `locals.scm` should surface as parse failures with line/column/snippet details (as seen in existing AST error logging) so they are actionable.
+- Very large files should not change existing ingest behavior; AST indexing should fail gracefully if parsing exceeds memory/time limits.
+
+---
+
 ## Locals.scm Authoring Method (per language)
 
 We will author `locals.scm` for Python, C#, Rust, and C++ using the same repeatable approach:

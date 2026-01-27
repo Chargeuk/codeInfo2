@@ -331,6 +331,14 @@ async function processRun(runId: string, input: IngestJobInput) {
       skippedFileCount: 0,
       failedFileCount: 0,
     };
+    const astLastIndexedAt = new Date().toISOString();
+    const attachAstMetadata = (metadata: Metadata) => {
+      if (dryRun) return;
+      metadata.astSupportedFileCount = astCounts.supportedFileCount;
+      metadata.astSkippedFileCount = astCounts.skippedFileCount;
+      metadata.astFailedFileCount = astCounts.failedFileCount;
+      metadata.astLastIndexedAt = astLastIndexedAt;
+    };
     const astSkippedExamples: string[] = [];
     for (const file of files) {
       const ext = file.ext ?? path.extname(file.relPath).slice(1);
@@ -492,6 +500,7 @@ async function processRun(runId: string, input: IngestJobInput) {
             lastIngestAt: new Date().toISOString(),
             ingestedAtMs,
           };
+          attachAstMetadata(rootMetadata);
           if (description) rootMetadata.description = description;
           await roots.add({
             ids: [runId],
@@ -622,6 +631,7 @@ async function processRun(runId: string, input: IngestJobInput) {
           lastIngestAt: new Date().toISOString(),
           ingestedAtMs,
         };
+        attachAstMetadata(rootMetadata);
         if (description) rootMetadata.description = description;
         await roots.add({
           ids: [runId],
@@ -673,6 +683,7 @@ async function processRun(runId: string, input: IngestJobInput) {
           lastIngestAt: new Date().toISOString(),
           ingestedAtMs,
         };
+        attachAstMetadata(cancelMetadata);
         if (typeof description === 'string' && description.length > 0) {
           cancelMetadata.description = description;
         }
@@ -817,6 +828,7 @@ async function processRun(runId: string, input: IngestJobInput) {
       lastIngestAt: new Date().toISOString(),
       ingestedAtMs,
     };
+    attachAstMetadata(rootMetadata);
     if (description) rootMetadata.description = description;
 
     await roots.add({
@@ -1100,6 +1112,12 @@ export async function cancelRun(runId: string) {
       lastIngestAt: new Date().toISOString(),
       ingestedAtMs: Date.now(),
     };
+    if (status?.ast) {
+      cancelMetadata.astSupportedFileCount = status.ast.supportedFileCount;
+      cancelMetadata.astSkippedFileCount = status.ast.skippedFileCount;
+      cancelMetadata.astFailedFileCount = status.ast.failedFileCount;
+      cancelMetadata.astLastIndexedAt = new Date().toISOString();
+    }
     if (
       typeof input?.description === 'string' &&
       (input.description as string).length > 0

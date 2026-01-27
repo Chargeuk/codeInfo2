@@ -2053,56 +2053,71 @@ Duplicate AST coverage counts into ingest root metadata and return them from `GE
 
 #### Subtasks
 
-1. [ ] Review ingest root metadata flow:
+1. [x] Review ingest root metadata flow:
    - Documentation to read (repeat):
      - Chroma metadata guide: https://docs.trychroma.com/usage-guide#metadatas
    - Files to read:
      - `server/src/ingest/ingestJob.ts`
      - `server/src/routes/ingestRoots.ts`
-2. [ ] Persist AST counts into root metadata:
+2. [x] Persist AST counts into root metadata:
    - Files to edit:
      - `server/src/ingest/ingestJob.ts`
    - Implementation details:
      - Include `ast` coverage fields (`supportedFileCount`, `skippedFileCount`, `failedFileCount`, `lastIndexedAt`) on root metadata writes for start/re-embed.
      - Ensure dry-run/legacy roots can omit `ast` without breaking downstream consumers.
-3. [ ] Extend `GET /ingest/roots` response with optional AST counts:
+3. [x] Extend `GET /ingest/roots` response with optional AST counts:
    - Files to edit:
      - `server/src/routes/ingestRoots.ts`
    - Implementation details:
      - Map `ast` fields from root metadata when present.
      - When missing, omit `ast` or return `undefined` to keep backward compatibility.
-4. [ ] Update ingest roots metadata tests (happy + missing AST):
+4. [x] Update ingest roots metadata tests (happy + missing AST):
    - Test type: Integration (Cucumber) + unit.
    - Test locations:
      - `server/src/test/features/ingest-roots-metadata.feature`
      - `server/src/test/steps/ingest-roots-metadata.steps.ts`
    - Description: Add scenarios that assert AST counts when present and ensure responses succeed when `ast` metadata is missing.
-5. [ ] Update OpenAPI + design docs:
+5. [x] Update OpenAPI + design docs:
    - Documents:
      - `openapi.json`
      - `design.md`
    - Description: Document the optional `ast` counts in ingest root payloads and metadata flow.
-6. [ ] Update documentation — `projectStructure.md` if new test files are added.
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+6. [x] Update documentation — `projectStructure.md` if new test files are added.
+7. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: https://eslint.org/docs/latest/use/command-line-interface
      - Prettier CLI: https://prettier.io/docs/cli
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, run ingest/re-embed, and confirm the Roots table includes AST counts; verify no console errors.
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e`)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check: open `http://host.docker.internal:5001`, run ingest/re-embed, and confirm the Roots table includes AST counts; verify no console errors.
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- 
+- Reviewed ingest root metadata handling in `ingestJob.ts` and `/ingest/roots` response mapping to plan AST field placement.
+- Added AST metadata fields to root metadata writes for start/re-embed (including skip/cancel paths) while omitting the field for dry runs.
+- Mapped optional AST metadata on `/ingest/roots` responses with safe parsing when the `ast` field is missing.
+- Added Cucumber scenarios + step helpers to cover AST counts present and missing in ingest roots metadata.
+- Documented optional AST root metadata in `openapi.json` and the ingest roots section of `design.md`.
+- No `projectStructure.md` updates needed (no new files added).
+- Lint still reports existing import-order warnings; ran `npm run format --workspaces` after a formatting warning and re-checked cleanly.
+- `npm run build --workspace server` completed successfully.
+- `npm run build --workspace client` completed with the usual Vite chunk size warning.
+- `npm run test --workspace server` completed successfully after extending the timeout.
+- `npm run test --workspace client` completed successfully with existing console warnings.
+- `timeout 7m npm run e2e` completed successfully (36 passed).
+- `npm run compose:build` completed successfully.
+- `npm run compose:up` completed successfully.
+- Manual Playwright-MCP check: re-embedded `ci2-ast-heritage` from the Ingest page, verified `/ingest/roots` response includes AST counts, and saw no browser console errors.
+- `npm run compose:down` completed successfully.
 
 ---
 

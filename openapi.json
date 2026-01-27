@@ -55,6 +55,58 @@
         }
       }
     },
+    "/ingest/roots": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Ingest roots listing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "roots": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "runId": { "type": "string" },
+                          "name": { "type": "string" },
+                          "description": { "type": "string", "nullable": true },
+                          "path": { "type": "string" },
+                          "model": { "type": "string" },
+                          "status": { "type": "string" },
+                          "lastIngestAt": { "type": "string", "nullable": true },
+                          "counts": {
+                            "type": "object",
+                            "properties": {
+                              "files": { "type": "number" },
+                              "chunks": { "type": "number" },
+                              "embedded": { "type": "number" }
+                            }
+                          },
+                          "lastError": { "type": "string", "nullable": true },
+                          "ast": {
+                            "type": "object",
+                            "properties": {
+                              "supportedFileCount": { "type": "number" },
+                              "skippedFileCount": { "type": "number" },
+                              "failedFileCount": { "type": "number" },
+                              "lastIndexedAt": { "type": "string", "nullable": true }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "lockedModelId": { "type": "string", "nullable": true }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/flows/{flowName}/run": {
       "post": {
         "parameters": [

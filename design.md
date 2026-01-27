@@ -1298,6 +1298,7 @@ sequenceDiagram
 
 - Endpoint: `GET /ingest/roots` reads the `ingest_roots` collection metadata and returns stored roots sorted by `lastIngestAt` descending plus the current `lockedModelId` for the vectors collection.
 - Response is de-duplicated by `path` to keep the UI stable when multiple metadata entries exist for the same root; the server keeps the most recent entry (prefers `lastIngestAt` when present, otherwise falls back to `runId` ordering).
+- Root metadata includes optional `ast` counts (`supportedFileCount`, `skippedFileCount`, `failedFileCount`, `lastIndexedAt`); legacy/dry-run entries may omit the `ast` field.
 - Response shape:
   ```json
   {
@@ -1311,6 +1312,12 @@ sequenceDiagram
         "status": "completed",
         "lastIngestAt": "2025-01-01T12:00:00.000Z",
         "counts": { "files": 3, "chunks": 12, "embedded": 12 },
+        "ast": {
+          "supportedFileCount": 12,
+          "skippedFileCount": 4,
+          "failedFileCount": 0,
+          "lastIndexedAt": "2025-01-01T12:00:00.000Z"
+        },
         "lastError": null
       }
     ],

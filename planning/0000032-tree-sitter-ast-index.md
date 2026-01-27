@@ -1964,7 +1964,7 @@ Add missing AST edge types (`EXTENDS`, `IMPLEMENTS`, `REFERENCES_TYPE`) and log 
 
 ### 14. Final Task: Full verification + acceptance criteria (retest)
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **to_do**
 
 #### Overview

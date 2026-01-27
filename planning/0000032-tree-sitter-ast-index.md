@@ -2449,7 +2449,7 @@ Ensure AST tool inputs reject unsupported kinds and repositories with clear erro
 
 ### 20. Final Task: Full verification + acceptance criteria (retest)
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **to_do**
 
 #### Overview

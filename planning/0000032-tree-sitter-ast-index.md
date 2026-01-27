@@ -1985,15 +1985,3 @@ Re-run full verification after the added AST edge work to ensure the story still
 #### Implementation notes
 
 - 
-- `npm run test --workspace server` completed within the extended timeout (54 scenarios passed).
-- `npm run test --workspace client` passed with expected VM module warnings and console logs.
-- `npm run e2e` completed with 36 passing tests.
-- `npm run compose:build` completed successfully.
-- `npm run test --workspace server` required a longer timeout; completed with 54 scenarios passing.
-- Client tests passed with expected VM module warnings and console output.
-- `npm run e2e` completed with 36 tests passing.
-- `npm run compose:build` completed; client build still reports the chunk size warning.
-- `npm run compose:up` started the local docker stack successfully.
-- Manual Playwright-MCP check confirmed `DEV-0000032:T11:ast-banner-evaluated` and the skipped banner; screenshot saved to `playwright-output-local/0000032-t11-ast-banners.png`.
-- `npm run compose:down` stopped the local docker stack.
-

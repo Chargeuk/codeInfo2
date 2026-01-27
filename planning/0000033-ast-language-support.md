@@ -355,6 +355,7 @@ Expand the AST language type and extension routing so ingest and tool validation
    - Document: `design.md`.
    - Location: `design.md`.
    - Description: Add/confirm the supported AST language list and extension routing summary. If the ingest/AST flow changes, add or update a Mermaid diagram of the AST indexing flow.
+   - Purpose: Keep the architecture notes and diagrams aligned with the updated language support.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
      - Mermaid: /mermaid-js/mermaid/v11_0_0
@@ -362,6 +363,7 @@ Expand the AST language type and extension routing so ingest and tool validation
    - Document: `projectStructure.md`.
    - Location: `projectStructure.md`.
    - Description: Ensure the tree remains accurate if any files were added or removed.
+   - Purpose: Maintain an accurate file map for the repo.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
 7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
@@ -457,6 +459,7 @@ Add the Tree-sitter grammar packages and wire them into the parser so language d
    - Document: `design.md`.
    - Location: `design.md`.
    - Description: Note the new grammar packages and parser wiring changes. If parser wiring changes alter the AST flow, add/update a Mermaid diagram.
+   - Purpose: Record dependency and parser wiring decisions for future reference.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
      - Mermaid: /mermaid-js/mermaid/v11_0_0
@@ -464,6 +467,7 @@ Add the Tree-sitter grammar packages and wire them into the parser so language d
    - Document: `projectStructure.md`.
    - Location: `projectStructure.md`.
    - Description: Ensure the tree remains accurate after dependency and wiring changes.
+   - Purpose: Keep the repo file map consistent with dependency and wiring updates.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
 7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
@@ -592,6 +596,7 @@ Verify grammar query assets, add CodeInfo2-owned locals, and extend parser unit 
    - Document: `design.md`.
    - Location: `design.md`.
    - Description: Note that Python/C#/Rust/C++ locals queries are CodeInfo2-owned and record any dependency version changes made to obtain tags. Add/update a Mermaid diagram if query wiring changes the AST flow.
+   - Purpose: Capture AST query ownership and any flow adjustments for maintainers.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
      - Mermaid: /mermaid-js/mermaid/v11_0_0
@@ -599,6 +604,7 @@ Verify grammar query assets, add CodeInfo2-owned locals, and extend parser unit 
    - Document: `projectStructure.md`.
    - Location: `projectStructure.md`.
    - Description: Add the new `server/src/ast/queries/*/locals.scm` files to the tree.
+   - Purpose: Keep the file tree accurate after adding new query assets.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
 11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
@@ -710,6 +716,7 @@ Extend ingest AST indexing coverage so the new language extensions are parsed du
    - Document: `design.md`.
    - Location: `design.md`.
    - Description: Document ingest AST indexing coverage for Python/C#/Rust/C++ and note the skip-log behaviour. Add/update a Mermaid diagram if ingest flow changes.
+   - Purpose: Document ingest flow changes and ensure diagrams match updated behavior.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
      - Mermaid: /mermaid-js/mermaid/v11_0_0
@@ -717,6 +724,7 @@ Extend ingest AST indexing coverage so the new language extensions are parsed du
    - Document: `projectStructure.md`.
    - Location: `projectStructure.md`.
    - Description: Add new fixture files to the tree if any are introduced.
+   - Purpose: Keep the repo tree accurate when fixtures change.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
 10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
@@ -776,13 +784,16 @@ Validate the full story against acceptance criteria, run the complete test/build
    - Documentation to read (repeat):
      - Docker/Compose: /docker/docs
 4. [ ] Ensure `README.md` is updated with any required description or command changes added during this story.
+   - Purpose: Keep top-level usage and commands current.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
 5. [ ] Ensure `design.md` is updated with any required description changes and mermaid diagrams added during this story.
+   - Purpose: Ensure architecture notes and diagrams match implemented behavior.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
      - Mermaid: /mermaid-js/mermaid/v11_0_0
 6. [ ] Ensure `projectStructure.md` is updated with any updated, added or removed files & folders.
+   - Purpose: Maintain an accurate inventory of the repo tree.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
 7. [ ] Create a concise summary of all changes in this story and draft a pull request comment covering all tasks.

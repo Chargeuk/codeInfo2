@@ -2283,3 +2283,13 @@ Re-run full verification after adding AST counts to ingest roots so the story me
 - Performance: AST parsing is limited to supported files with delta re-embed support and query caching; call-graph depth limiting prevents unbounded traversal.
 - Security: REST/MCP inputs validated with consistent error mapping; repository resolution uses existing ingest registry with no direct filesystem access from user input.
 - Acceptance criteria verified through Task 14; new AST root metadata duplication and UI display requirements are now tracked in Tasks 15–17.
+
+---
+
+## Branch Code Review (Main vs feature/0000032-tree-sitter-ast-index)
+
+- Reviewed diff coverage across server AST parser/tooling, ingest pipeline updates, Mongo schemas/repo helpers, REST/MCP endpoints, client ingest UI, tests, and OpenAPI/docs updates.
+- Checked code quality/maintainability: parser and tool service are modular, validations centralised, and shared types align with existing ingest/mongo patterns.
+- Checked performance and safety: delta-aware AST indexing skips unchanged files, call-graph traversal enforces depth/limit validation, and user inputs are validated before DB access.
+- Verified acceptance criteria: AST indexing for JS/TS/TSX/JSX, per-file skip handling with UI banner, persisted symbols/edges/references/imports, AST coverage metadata in ingest roots, dry-run non-persistence, and MCP/REST tools returning ranges.
+- Verified test evidence and manual checks: build/test/compose/e2e runs + Playwright-MCP screenshots recorded in Task 17.

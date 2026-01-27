@@ -1779,8 +1779,8 @@ Render non-blocking Ingest page banners for AST skipped/failed counts using exis
 
 ### 12. Final Task: Full verification + acceptance criteria
 
-- Task Status: **__in_progress__**
-- Git Commits: **to_do**
+- Task Status: **__done__**
+- Git Commits: adf928e
 
 #### Overview
 

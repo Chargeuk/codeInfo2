@@ -2510,8 +2510,8 @@ Re-run full verification after normalising/validating AST tool inputs so the sto
 
 ### 21. Server: Always full AST parse on re-embed
 
-- Task Status: **__in_progress__**
-- Git Commits: **to_do**
+- Task Status: **__done__**
+- Git Commits: 112abf4
 
 #### Overview
 

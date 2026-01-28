@@ -1123,6 +1123,15 @@ export function __setParseAstSourceForTest(override?: ParseAstSourceFn | null) {
   parseAstSourceImpl = override ?? parseAstSourceInternal;
 }
 
+export function __resetAstParserLogStateForTest() {
+  missingQueriesLogged = false;
+  grammarLoadFailureLogged = false;
+  extensionMapLogged = false;
+  queriesLoadedLogged.clear();
+  grammarRegisteredLogged.clear();
+  localsQueryLoadedLogged.clear();
+}
+
 export async function warmAstParserQueries() {
   logAstExtensionMap();
   logGrammarRegistration('python', 'tree-sitter-python');

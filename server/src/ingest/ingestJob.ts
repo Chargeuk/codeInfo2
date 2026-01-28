@@ -367,6 +367,7 @@ async function processRun(runId: string, input: IngestJobInput) {
         nodeType?: string;
       };
     }[] = [];
+    let astIngestConfigLogged = false;
     for (const file of files) {
       const ext = file.ext ?? path.extname(file.relPath).slice(1);
       if (isAstSupported(ext)) {
@@ -380,6 +381,14 @@ async function processRun(runId: string, input: IngestJobInput) {
           astSkippedExamples.push(file.relPath);
         }
       }
+    }
+    if (!astIngestConfigLogged) {
+      astIngestConfigLogged = true;
+      logLifecycle('info', 'DEV-0000033:T4:ast-ingest-config', {
+        event: 'DEV-0000033:T4:ast-ingest-config',
+        root,
+        supportedExtensions: Array.from(astSupportedExtensions).sort(),
+      });
     }
     const astSymbols: AstSymbolRecord[] = [];
     const astEdges: AstEdgeRecord[] = [];
@@ -528,7 +537,7 @@ async function processRun(runId: string, input: IngestJobInput) {
         skippedFileCount: astCounts.skippedFileCount,
         skippedExtensions: Array.from(astSkippedExtensions).sort(),
         examplePaths: astSkippedExamples,
-        reason: 'unsupported_extension',
+        reason: 'unsupported_language',
       });
     }
 

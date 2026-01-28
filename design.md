@@ -1394,6 +1394,7 @@ sequenceDiagram
 - `DEV-0000033:T1:ast-extension-map` logs the extension and language lists once on server start.
 - Grammar registrations for Python, C#, Rust, and C++ emit `DEV-0000033:T2:ast-grammar-registered` with `{ language, package }` on startup.
 - Locals queries for Python/C#/Rust/C++ are CodeInfo2-owned under `server/src/ast/queries/<language>/locals.scm`; loading them emits `DEV-0000033:T3:ast-locals-query-loaded` with `{ language, localsPath }`.
+- Ingest runs emit `DEV-0000033:T4:ast-ingest-config` before parsing with `{ root, supportedExtensions }`, and unsupported extensions are logged with `reason: "unsupported_language"`.
 - When `createSymbolIdFactory` encounters a duplicate hash, it logs `DEV-0000032:T13:ast-symbolid-collision` with the base string and suffix count.
 - Ingest AST indexing uses `discoverFiles` output (include/exclude + hashing) and, on delta re-embed, parses all supported files while deleting AST records for changed/deleted paths so AST coverage stays complete.
 - Unsupported extensions increment `ast.skippedFileCount` and emit a warning with example paths and skipped extensions; supported parse failures increment `ast.failedFileCount` without aborting the run.

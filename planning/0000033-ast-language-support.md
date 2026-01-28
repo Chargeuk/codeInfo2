@@ -740,7 +740,7 @@ Extend ingest AST indexing coverage so the new language extensions are parsed du
 
 #### Subtasks
 
-1. [ ] Review ingest AST indexing flow + tests:
+1. [x] Review ingest AST indexing flow + tests:
    - Files to read:
      - `server/src/ingest/ingestJob.ts`
      - `server/src/ingest/deltaPlan.ts`
@@ -750,7 +750,7 @@ Extend ingest AST indexing coverage so the new language extensions are parsed du
      - Locate the AST parse call site, the supported extension check, and existing log messages for unsupported extensions.
    - Documentation to read (repeat):
      - Node.js test runner (ingest unit tests): /nodejs/node/v22.17.0
-2. [ ] Ensure ingest AST indexing covers new languages during `start` + `reembed`:
+2. [x] Ensure ingest AST indexing covers new languages during `start` + `reembed`:
    - Files to edit:
      - `server/src/ingest/ingestJob.ts`
    - Implementation details:
@@ -761,7 +761,7 @@ Extend ingest AST indexing coverage so the new language extensions are parsed du
      - `{ root, skippedFileCount, skippedExtensions: ['py', 'cs'], reason: 'unsupported_language' }`
    - Documentation to read (repeat):
      - Tree-sitter query/locals guidance: /tree-sitter/tree-sitter
-3. [ ] Add ingest test for **supported extension coverage** (happy path):
+3. [x] Add ingest test for **supported extension coverage** (happy path):
    - Test type: Unit (ingest AST indexing).
    - Test location: `server/src/test/unit/ingest-ast-indexing.test.ts`.
    - Description: Add fixture files for `.py`, `.cs`, `.rs`, `.cpp`, `.h` and assert they are counted as AST-supported during ingest.
@@ -770,7 +770,7 @@ Extend ingest AST indexing coverage so the new language extensions are parsed du
    - Purpose: Confirms new language extensions are treated as supported inputs.
    - Documentation to read (repeat):
      - Node.js test runner: /nodejs/node/v22.17.0
-4. [ ] Add ingest test for **unsupported extension skip** (error path):
+4. [x] Add ingest test for **unsupported extension skip** (error path):
    - Test type: Unit (ingest AST indexing).
    - Test location: `server/src/test/unit/ingest-ast-indexing.test.ts`.
    - Description: Include a `.pyw` (or other unsupported) file and assert it is *not* treated as Python and appears in the unsupported-extension log with the skip reason.
@@ -779,7 +779,7 @@ Extend ingest AST indexing coverage so the new language extensions are parsed du
    - Purpose: Confirms unsupported extensions are rejected with explicit logging.
    - Documentation to read (repeat):
      - Node.js test runner: /nodejs/node/v22.17.0
-5. [ ] Add ingest test for **reembed AST attempts** on new languages (happy path):
+5. [x] Add ingest test for **reembed AST attempts** on new languages (happy path):
    - Test type: Unit (ingest AST indexing).
    - Test location: `server/src/test/unit/ingest-ast-indexing.test.ts`.
    - Description: Assert reembed paths still attempt AST parsing for `.py`, `.cs`, `.rs`, `.cpp`, `.h` even when vector delta logic skips embeddings.
@@ -788,7 +788,7 @@ Extend ingest AST indexing coverage so the new language extensions are parsed du
    - Purpose: Ensures AST parsing runs during reembed for supported languages.
    - Documentation to read (repeat):
      - Node.js test runner: /nodejs/node/v22.17.0
-6. [ ] Add ingest test for **missing-queries log absence** on new languages (corner case):
+6. [x] Add ingest test for **missing-queries log absence** on new languages (corner case):
    - Test type: Unit (ingest AST indexing).
    - Test location: `server/src/test/unit/ingest-ast-indexing.test.ts`.
    - Description: Assert logs do **not** include “Tree-sitter query files missing; skipping AST parse” for `.py`, `.cs`, `.rs`, `.cpp`.
@@ -799,7 +799,7 @@ Extend ingest AST indexing coverage so the new language extensions are parsed du
      - Node.js test runner: /nodejs/node/v22.17.0
    - Notes:
      - Extend the existing ingest AST indexing test file rather than creating new tests.
-7. [ ] Add log line for AST ingest configuration:
+7. [x] Add log line for AST ingest configuration:
    - Files to edit:
      - `server/src/ingest/ingestJob.ts`
    - Implementation details:
@@ -808,7 +808,7 @@ Extend ingest AST indexing coverage so the new language extensions are parsed du
    - Purpose: Confirm ingest AST coverage is configured and visible in logs.
    - Documentation to read (repeat):
      - Node.js logging patterns in repo (read existing `logLifecycle`/`logWarning` usage in `server/src/ingest/ingestJob.ts`).
-8. [ ] Validate no regressions to embedding counts or model-locking behavior:
+8. [x] Validate no regressions to embedding counts or model-locking behavior:
    - Files to read:
      - `server/src/test/unit/ingest-status.test.ts`
      - `server/src/test/unit/ingest-root-metadata.test.ts` (if present)
@@ -817,7 +817,7 @@ Extend ingest AST indexing coverage so the new language extensions are parsed du
      - If expectations need adjustment due to new AST fields, update only the AST-related fields; keep embedding counts and model lock assertions unchanged.
    - Documentation to read (repeat):
      - Node.js test runner: /nodejs/node/v22.17.0
-9. [ ] Update documentation — `design.md`:
+9. [x] Update documentation — `design.md`:
    - Document: `design.md`.
    - Location: `design.md`.
    - Description: Document ingest AST indexing coverage for Python/C#/Rust/C++ and note the skip-log behaviour. Add/update a Mermaid diagram if ingest flow changes.
@@ -825,38 +825,40 @@ Extend ingest AST indexing coverage so the new language extensions are parsed du
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
      - Mermaid: /mermaid-js/mermaid/v11_0_0
-10. [ ] Update documentation — `projectStructure.md` **after** adding any fixture files:
+10. [x] Update documentation — `projectStructure.md` **after** adding any fixture files:
    - Document: `projectStructure.md`.
    - Location: `projectStructure.md`.
    - Description: Add **all** new fixture files (and any removed/renamed fixture files) to the tree if introduced.
    - Purpose: Keep the repo tree accurate when fixtures change and capture all file changes.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+11. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
     - Documentation to read (repeat):
       - ESLint CLI: /eslint/eslint/v9.37.0
       - Prettier CLI: /prettier/prettier/3.6.2
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m`)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check (open http://host.docker.internal:5001):
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m`)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check (open http://host.docker.internal:5001):
    - Verify the app loads and basic navigation (Chat, Ingest, Logs) works.
    - Confirm the browser console has **no errors**.
    - Capture a screenshot of the Logs page showing ingest config; ensure the agent verifies the GUI state matches expectations.
    - Screenshot storage: `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local`.
    - Logs page check: confirm `DEV-0000033:T4:ast-ingest-config` appears and lists the new extensions.
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- 
+- Added `DEV-0000033:T4:ast-ingest-config` log emission in `server/src/ingest/ingestJob.ts`, logging `root` + `supportedExtensions`, and clarified unsupported language skip reason as `unsupported_language`.
+- Extended ingest AST indexing tests to cover new extensions, unsupported `.pyw` logging via `INGEST_INCLUDE`, re-embed AST parse attempts, and to assert the missing-queries warning is absent; added an AST parser log-state reset helper for clean test runs.
+- Ran Task 4 test suite (server + client unit tests, e2e) and compose workflows, then verified the ingest config log in the Logs UI and captured the screenshot at `playwright-output-local/0000033-4-logs-ast-ingest-config.png`.
 
 ---
 

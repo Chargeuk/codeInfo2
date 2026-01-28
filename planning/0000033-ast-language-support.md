@@ -887,55 +887,62 @@ Validate the full story against acceptance criteria, run the complete test/build
 
 #### Subtasks
 
-1. [ ] Build the server.
+1. [x] Build the server.
    - Documentation to read (repeat):
      - npm run-script: https://docs.npmjs.com/cli/v10/commands/npm-run-script
-2. [ ] Build the client.
+2. [x] Build the client.
    - Documentation to read (repeat):
      - npm run-script: https://docs.npmjs.com/cli/v10/commands/npm-run-script
-3. [ ] Perform a clean docker build.
+3. [x] Perform a clean docker build.
    - Documentation to read (repeat):
      - Docker/Compose: /docker/docs
-4. [ ] Ensure `README.md` is updated with any required description or command changes added during this story.
+4. [x] Ensure `README.md` is updated with any required description or command changes added during this story.
    - Purpose: Keep top-level usage and commands current.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-5. [ ] Ensure `design.md` is updated with any required description changes and mermaid diagrams added during this story.
+5. [x] Ensure `design.md` is updated with any required description changes and mermaid diagrams added during this story.
    - Purpose: Ensure architecture notes and diagrams match implemented behavior.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
      - Mermaid: /mermaid-js/mermaid/v11_0_0
-6. [ ] Ensure `projectStructure.md` is updated with any updated, added or removed files & folders.
+6. [x] Ensure `projectStructure.md` is updated with any updated, added or removed files & folders.
    - Purpose: Maintain an accurate inventory of the repo tree.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-7. [ ] Create a concise summary of all changes in this story and draft a pull request comment covering all tasks.
+7. [x] Create a concise summary of all changes in this story and draft a pull request comment covering all tasks.
    - Documentation to read (repeat):
      - Markdown Guide: https://www.markdownguide.org/basic-syntax/
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+8. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
    - Documentation to read (repeat):
      - ESLint CLI: /eslint/eslint/v9.37.0
      - Prettier CLI: /prettier/prettier/3.6.2
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m`)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check (open http://host.docker.internal:5001):
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m`)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check (open http://host.docker.internal:5001):
    - Verify the app loads and basic navigation (Chat, Ingest, Logs) works.
    - Confirm the browser console has **no errors**.
    - Capture screenshots of Chat, Ingest, and Logs pages; ensure the agent verifies the GUI matches acceptance criteria and general regressions.
    - Screenshot storage: `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local`.
    - After capture, copy the screenshots into `./test-results/screenshots/` and name them with plan index, task number, and scenario.
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- 
+- PR summary draft:
+  - Expanded Tree-sitter AST coverage to Python, C#, Rust, and C++ by wiring grammar packages, new language enums/extension routing, and custom locals queries.
+  - Added parser + ingest logging to surface grammar/locals/ingest configuration and tightened unsupported-language skip reasons.
+  - Extended AST parser and ingest unit tests to cover locals captures, missing-grammar handling, reembed AST parsing, and missing-query warning suppression.
+  - Verified builds, tests, compose flows, and manual UI checks with updated screenshots for acceptance criteria.
+- Verification notes:
+  - Ran server/client builds, clean compose build, lint/format checks, server/client unit tests, and e2e (3 ingest scenarios skipped as expected); no failures.
+  - Captured manual UI screenshots (Chat/Ingest/Logs) and copied to `test-results/screenshots/0000033-5-*.png`.
 
 ---

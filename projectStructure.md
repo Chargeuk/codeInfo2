@@ -250,7 +250,10 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚     â”œâ”€ 0000028-8-lmstudio-final.png â€” LM Studio layout final check
 â”‚     â”œâ”€ 0000029-3-agent-transcript.png â€” Agents flow transcript verification
 â”‚     â”œâ”€ 0000029-3-chat-inflight.png â€” Chat inflight overlay verification
-â”‚     â””â”€ 0000029-3-flows-transcript.png â€” Flows transcript verification
+â”‚     â”œâ”€ 0000029-3-flows-transcript.png â€” Flows transcript verification
+â”‚     â”œâ”€ 0000033-5-chat.png â€” Chat page acceptance check for story 0000033
+â”‚     â”œâ”€ 0000033-5-ingest.png â€” Ingest page acceptance check for story 0000033
+â”‚     â””â”€ 0000033-5-logs.png â€” Logs page acceptance check for story 0000033
 â”œâ”€ server/ â€” Express API
 â”‚  â”œâ”€ .dockerignore â€” server docker build ignores
 â”‚  â”œâ”€ .env â€” server default env (PORT, LMSTUDIO_BASE_URL)

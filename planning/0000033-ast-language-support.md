@@ -719,8 +719,8 @@ Verify grammar query assets, add CodeInfo2-owned locals, and extend parser unit 
 
 ### 4. Server: Ingest AST indexing coverage + logging
 
-- Task Status: **__in_progress__**
-- Git Commits:
+- Task Status: **__done__**
+- Git Commits: bc509af
 
 #### Overview
 

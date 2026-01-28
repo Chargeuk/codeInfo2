@@ -13,6 +13,29 @@ Story convention (important for this repo’s planning style):
 
 ---
 
+## Code Review Summary (Post-Implementation)
+
+### Changes Reviewed
+
+- Added Tree-sitter grammar dependencies, AST language routing, and parser wiring for `python`, `c_sharp`, `rust`, and `cpp`.
+- Added CodeInfo2-owned `locals.scm` query files per new language and Docker packaging for queries.
+- Extended AST parser + ingest unit tests for locals captures, missing-query/grammar failures, ingest coverage, and reembed parsing.
+- Added logging for extension maps, grammar registration, locals query loading, and ingest AST config.
+- Updated documentation (`design.md`, `projectStructure.md`) and captured verification screenshots.
+
+### Checks Performed
+
+- Code quality & maintainability: reviewed new parser/ingest logic for clarity, single-responsibility, and alignment with existing patterns.
+- Performance: verified AST parsing remains additive and does not affect embedding delta logic; ingest still embeds only changed files.
+- Security: no new external inputs introduced; logs and queries avoid user-controlled paths.
+- Best practices: reused existing helpers (`loadQueryFile`, `sanitizeQuery`, log helpers) and kept schemas unchanged.
+- Acceptance criteria: confirmed language routing, locals coverage, logging, reembed AST parsing, and MCP/REST schema compatibility.
+
+### Findings
+
+- No blocking issues or regressions identified; implementation aligns with acceptance criteria and task requirements.
+
+
 ## Description
 
 CodeInfo2 currently builds AST symbol data only for JavaScript/TypeScript files during ingest, which limits AST tools to JS/TS repos. This story extends the same pipeline so Python, C#, Rust, and C++ repos can be indexed and queried without changing how ingest or the tools work for JS/TS.

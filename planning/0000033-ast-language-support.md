@@ -864,7 +864,7 @@ Extend ingest AST indexing coverage so the new language extensions are parsed du
 
 ### 5. Final verification + acceptance criteria
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits:
 
 #### Overview

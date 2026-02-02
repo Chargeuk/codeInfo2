@@ -153,9 +153,12 @@ Add ingested-repo command discovery to the agent command list so REST/MCP list r
      - `server/src/agents/service.ts`
    - Implementation details:
      - Pull ingest roots via `listIngestedRepositories` and scan `<root>/codex_agents/<agentName>/commands` for JSON files.
+     - If `listIngestedRepositories` fails (for example, Chroma unavailable), return local commands only and log/continue without throwing.
+     - Skip ingest roots that are missing on disk or do not contain `codex_agents/<agentName>/commands` (no errors, just omit).
      - Use container path (`/data/<repo>`) as `sourceId` and ingest name (fallback to container basename) as `sourceLabel`.
      - Keep local commands unlabeled (no `sourceId`/`sourceLabel`).
      - Sort the combined list by display label (`<name>` for local, `<name> - [sourceLabel]` for ingested).
+     - Do not de-duplicate names; preserve duplicates across ingest roots.
 3. [ ] Update REST/MCP list payloads and OpenAPI schema:
    - Files to edit:
      - `server/src/routes/agentsCommands.ts`
@@ -169,6 +172,8 @@ Add ingested-repo command discovery to the agent command list so REST/MCP list r
      - `server/src/test/unit/mcp-agents-router-list.test.ts`
    - Testing expectations:
      - Validate ingested commands include `sourceId`/`sourceLabel` and sorting uses the display label.
+     - Add coverage for duplicate command names across different ingest roots (both entries retained, sorted by label).
+     - Add coverage for missing ingest root directories (local commands still returned).
 5. [ ] Update documentation — `design.md`:
    - Document: `design.md`.
    - Description: Add/confirm command discovery includes ingested repos and the label/sorting rules.
@@ -295,13 +300,20 @@ Extend flow discovery to include ingested repositories, returning `sourceId`/`so
      - `server/src/routes/flows.ts`
    - Implementation details:
      - Scan `<ingestRoot>/flows` for JSON flows, add `sourceId` (container path) and `sourceLabel`.
+     - If `listIngestedRepositories` fails, return local flows only and log/continue without throwing.
+     - Skip ingest roots that are missing on disk or do not contain a `flows/` folder.
      - Keep local flows unlabeled; sort by display label.
+     - Do not de-duplicate names; preserve duplicates across ingest roots.
 3. [ ] Update OpenAPI schema for flow list response:
    - Files to edit:
      - `openapi.json`
 4. [ ] Update flow list tests:
    - Files to edit:
      - `server/src/test/integration/flows.list.test.ts`
+   - Testing expectations:
+     - Validate ingested flows include `sourceId`/`sourceLabel` and sorting uses the display label.
+     - Add coverage for duplicate flow names across different ingest roots (both entries retained).
+     - Add coverage for missing ingest root directories (local flows still returned).
 5. [ ] Update documentation — `design.md` (flow discovery changes).
 6. [ ] Update documentation — `README.md` (if any new list fields need mention).
 7. [ ] Update documentation — `projectStructure.md` (if needed).
@@ -417,15 +429,20 @@ Update the Agents UI to display ingested command labels, sort by display label, 
      - `client/src/pages/AgentsPage.tsx`
    - Implementation details:
      - Parse optional `sourceId`/`sourceLabel` and compute display labels.
+     - Store `sourceId`/`sourceLabel` with each command and use a composite selection key so duplicate command names remain selectable.
      - Sort by display label and keep local commands unlabeled.
 3. [ ] Update run payload to include `sourceId` for ingested commands:
    - Files to edit:
      - `client/src/api/agents.ts`
      - `client/src/pages/AgentsPage.tsx`
+   - Implementation details:
+     - When the selected command has a `sourceId`, include it in the run payload; omit `sourceId` for local commands.
 4. [ ] Update client tests:
    - Files to edit:
      - `client/src/test/agentsPage.commandsList.test.tsx`
      - `client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx`
+   - Testing expectations:
+     - Validate duplicate command names from different sources render distinct labels and run with the correct `sourceId`.
 5. [ ] Update documentation — `design.md` (UI behavior summary).
 6. [ ] Update documentation — `README.md` (if any UI behavior needs mention).
 7. [ ] Update documentation — `projectStructure.md` (if needed).
@@ -479,15 +496,20 @@ Update the Flows UI to display ingested flow labels, sort by display label, and 
      - `client/src/pages/FlowsPage.tsx`
    - Implementation details:
      - Parse optional `sourceId`/`sourceLabel` and compute display labels.
+     - Store `sourceId`/`sourceLabel` with each flow and use a composite selection key so duplicate flow names remain selectable.
      - Sort by display label and keep local flows unlabeled.
 3. [ ] Update run payload to include `sourceId` for ingested flows:
    - Files to edit:
      - `client/src/api/flows.ts`
      - `client/src/pages/FlowsPage.tsx`
+   - Implementation details:
+     - When the selected flow has a `sourceId`, include it in the run payload; omit `sourceId` for local flows.
 4. [ ] Update client tests:
    - Files to edit:
      - `client/src/test/flowsApi.test.ts`
      - `client/src/test/flowsPage.stop.test.tsx`
+   - Testing expectations:
+     - Validate duplicate flow names from different sources render distinct labels and run with the correct `sourceId`.
 5. [ ] Update documentation — `design.md` (UI behavior summary).
 6. [ ] Update documentation — `README.md` (if any UI behavior needs mention).
 7. [ ] Update documentation — `projectStructure.md` (if needed).

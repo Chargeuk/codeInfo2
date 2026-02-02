@@ -290,7 +290,7 @@ Add ingested-repo command discovery to the agent command list so REST/MCP list r
 
 ### 2. Server: Agent command run sourceId support (REST + MCP)
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **__to_do__**
 
 #### Overview

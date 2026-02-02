@@ -585,8 +585,9 @@ runAgentInstruction()
 - Agent commands live in each agent home at `commands/<commandName>.json` and are loaded at execution time.
 - REST endpoints:
   - `GET /agents/:agentName/commands` returns `{ commands: [{ name, description, disabled, sourceId?, sourceLabel? }] }`.
-  - `POST /agents/:agentName/commands/run` accepts `{ commandName, conversationId?, working_folder? }` and returns `{ agentName, commandName, conversationId, modelId }`.
+  - `POST /agents/:agentName/commands/run` accepts `{ commandName, conversationId?, working_folder?, sourceId? }` and returns `{ agentName, commandName, conversationId, modelId }`.
 - Command discovery includes ingested repo commands at `<ingestRoot>/codex_agents/<agentName>/commands` when the agent exists locally; ingested entries include `sourceId = RepoEntry.containerPath`, `sourceLabel = RepoEntry.id` (fallback to ingest root basename), and the list is sorted by display label `<name>` or `<name> - [sourceLabel]`.
+- Command runs accept optional `sourceId` (container path). Unknown `sourceId` values return a 404 `{ error: 'not_found' }`, and the server logs `DEV-0000034:T2:command_run_resolved` with the resolved command path.
 - REST error mapping (command run):
   - `COMMAND_NOT_FOUND` → 404 `{ error: 'not_found' }`
   - `COMMAND_INVALID` → 400 `{ error: 'invalid_request', code: 'COMMAND_INVALID', message }`

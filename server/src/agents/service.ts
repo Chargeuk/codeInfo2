@@ -358,6 +358,7 @@ export async function startAgentCommand(params: {
   commandName: string;
   conversationId?: string;
   working_folder?: string;
+  sourceId?: string;
   source: 'REST' | 'MCP';
 }): Promise<{
   agentName: string;
@@ -374,6 +375,10 @@ export async function startAgentCommand(params: {
   }
 
   const commandName = params.commandName.trim();
+  const sourceId =
+    typeof params.sourceId === 'string' && params.sourceId.trim().length > 0
+      ? params.sourceId.trim()
+      : undefined;
   const conversationId = params.conversationId ?? crypto.randomUUID();
 
   if (!tryAcquireConversationLock(conversationId)) {
@@ -393,8 +398,47 @@ export async function startAgentCommand(params: {
     }
 
     // Validate command file before returning 202 so errors map cleanly to 4xx.
-    const commandsDir = path.join(agent.home, 'commands');
-    const commandFilePath = path.join(commandsDir, commandName + '.json');
+    let commandsDir = path.join(agent.home, 'commands');
+    let commandFilePath = path.join(commandsDir, commandName + '.json');
+
+    if (sourceId) {
+      const ingestRoots = await listIngestedRepositories()
+        .then((result) => result.repos)
+        .catch(() => null);
+      const matchingRoot = ingestRoots?.find(
+        (repo) => repo.containerPath === sourceId,
+      );
+      if (!matchingRoot) {
+        throw toRunAgentError('COMMAND_NOT_FOUND');
+      }
+
+      commandsDir = path.join(
+        matchingRoot.containerPath,
+        'codex_agents',
+        agent.name,
+        'commands',
+      );
+
+      const resolved = path.resolve(commandsDir, `${commandName}.json`);
+      if (path.relative(commandsDir, resolved).startsWith('..')) {
+        throw toRunAgentError('COMMAND_INVALID');
+      }
+      commandFilePath = resolved;
+    }
+
+    append({
+      level: 'info',
+      message: 'DEV-0000034:T2:command_run_resolved',
+      timestamp: new Date().toISOString(),
+      source: 'server',
+      context: {
+        agentName: params.agentName,
+        commandName,
+        sourceId: sourceId ?? 'local',
+        commandPath: commandFilePath,
+      },
+    });
+
     const commandStat = await fs.stat(commandFilePath).catch((error) => {
       if ((error as { code?: string }).code === 'ENOENT') return null;
       throw error;
@@ -447,6 +491,8 @@ export async function startAgentCommand(params: {
         await runAgentCommandRunner({
           agentName: params.agentName,
           agentHome: agent.home,
+          commandsRoot: commandsDir,
+          commandFilePath,
           commandName,
           conversationId,
           working_folder: params.working_folder,
@@ -481,6 +527,7 @@ export async function runAgentCommand(params: {
   commandName: string;
   conversationId?: string;
   working_folder?: string;
+  sourceId?: string;
   signal?: AbortSignal;
   source: 'REST' | 'MCP';
   inflightId?: string;
@@ -495,9 +542,58 @@ export async function runAgentCommand(params: {
   const agent = discovered.find((item) => item.name === params.agentName);
   if (!agent) throw toRunAgentError('AGENT_NOT_FOUND');
 
+  const sourceId =
+    typeof params.sourceId === 'string' && params.sourceId.trim().length > 0
+      ? params.sourceId.trim()
+      : undefined;
+
+  let commandsRoot: string | undefined;
+  let commandFilePath: string | undefined;
+
+  if (sourceId) {
+    const ingestRoots = await listIngestedRepositories()
+      .then((result) => result.repos)
+      .catch(() => null);
+    const matchingRoot = ingestRoots?.find(
+      (repo) => repo.containerPath === sourceId,
+    );
+    if (!matchingRoot) {
+      throw toRunAgentError('COMMAND_NOT_FOUND');
+    }
+
+    commandsRoot = path.join(
+      matchingRoot.containerPath,
+      'codex_agents',
+      agent.name,
+      'commands',
+    );
+    const resolved = path.resolve(commandsRoot, `${params.commandName}.json`);
+    if (path.relative(commandsRoot, resolved).startsWith('..')) {
+      throw toRunAgentError('COMMAND_INVALID');
+    }
+    commandFilePath = resolved;
+  }
+
+  append({
+    level: 'info',
+    message: 'DEV-0000034:T2:command_run_resolved',
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      agentName: params.agentName,
+      commandName: params.commandName,
+      sourceId: sourceId ?? 'local',
+      commandPath:
+        commandFilePath ??
+        path.join(agent.home, 'commands', `${params.commandName}.json`),
+    },
+  });
+
   return await runAgentCommandRunner({
     agentName: params.agentName,
     agentHome: agent.home,
+    commandsRoot,
+    commandFilePath,
     commandName: params.commandName,
     conversationId: params.conversationId,
     working_folder: params.working_folder,

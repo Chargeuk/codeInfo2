@@ -159,6 +159,7 @@ codex_agents/<agentName>/
     - Optional arguments:
       - `conversationId` (continue an existing agent conversation)
       - `working_folder` (absolute path; resolved like `/agents/:agentName/run`)
+      - `sourceId` (ingested repo container path; required to disambiguate ingested commands)
     - Example request:
       ```json
       {

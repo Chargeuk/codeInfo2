@@ -153,6 +153,7 @@ Add ingested-repo command discovery to the agent command list so REST/MCP list r
      - `server/src/agents/service.ts`
    - Implementation details:
      - Pull ingest roots via `listIngestedRepositories` and scan `<root>/codex_agents/<agentName>/commands` for JSON files.
+     - Reuse `loadAgentCommandSummary` from `server/src/agents/commandsLoader.ts` for both local and ingested files so invalid JSON/schema handling stays consistent.
      - If `listIngestedRepositories` fails (for example, Chroma unavailable), return local commands only and log/continue without throwing.
      - Skip ingest roots that are missing on disk or do not contain `codex_agents/<agentName>/commands` (no errors, just omit).
      - Use container path (`/data/<repo>`) as `sourceId` and the repo `id` from `listIngestedRepositories` as `sourceLabel` (this id already reflects ingest metadata name or container basename).
@@ -304,6 +305,7 @@ Extend flow discovery to include ingested repositories, returning `sourceId`/`so
      - `server/src/routes/flows.ts`
    - Implementation details:
      - Scan `<ingestRoot>/flows` for JSON flows, add `sourceId` (container path) and `sourceLabel`.
+     - Reuse `parseFlowFile` + existing summary builder logic from `server/src/flows/discovery.ts` so invalid JSON/schema handling matches local flows.
      - If `listIngestedRepositories` fails, return local flows only and log/continue without throwing.
      - Skip ingest roots that are missing on disk or do not contain a `flows/` folder.
      - Use repo `id` from `listIngestedRepositories` as `sourceLabel` (fallback to `path.posix.basename(containerPath)` if needed).
@@ -376,6 +378,7 @@ Add optional `sourceId` support for flow execution so ingested flows run from th
      - `openapi.json`
    - Implementation details:
      - Accept `sourceId` (container path), resolve `<sourceId>/flows/<flowName>.json`, and enforce containment checks.
+     - Continue to enforce `isSafeFlowName` validation for ingested runs (same rules as local runs).
      - Unknown `sourceId` or missing flow returns 404.
      - If `sourceId` is provided but `listIngestedRepositories` fails or no matching `containerPath` exists, return `404 { error: 'not_found' }`.
 3. [ ] Update flow run tests:

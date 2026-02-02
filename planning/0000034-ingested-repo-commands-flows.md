@@ -49,6 +49,15 @@ This story adds discovery of commands and flows from ingested repositories. If a
 
 ---
 
+## Contracts and Storage Impacts
+
+- REST contracts: `GET /agents/:agentName/commands` and `GET /flows` will add optional `sourceId` and `sourceLabel` fields for ingested items; local items continue to omit these fields.
+- REST run payloads: `POST /agents/:agentName/commands/run` and `POST /flows/:flowName/run` will accept an optional `sourceId` to disambiguate duplicates (container path for ingested roots).
+- MCP contracts: the `list_commands` and `run_command` MCP payloads will mirror the REST `sourceId/sourceLabel` additions for ingested commands; no MCP flow tools are added.
+- Storage: no Mongo/Chroma schema changes are required; ingest root metadata already supplies name + container path used at runtime.
+
+---
+
 ## Questions
 
 _None. All questions resolved._

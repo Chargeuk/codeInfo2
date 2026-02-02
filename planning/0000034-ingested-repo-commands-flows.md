@@ -432,7 +432,7 @@ Add optional `sourceId` support when running agent commands so ingested command 
 
 ### 3. Server: Ingested flow discovery + list contract
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **__to_do__**
 
 #### Overview

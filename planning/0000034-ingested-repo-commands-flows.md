@@ -228,6 +228,8 @@ Add ingested-repo command discovery to the agent command list so REST/MCP list r
     - Location: repo root `projectStructure.md`.
     - Description: Record any added/removed files or confirm no change.
     - Purpose: ensure repository map stays current after structural edits.
+    - Added files: none.
+    - Removed files: none.
     - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
 22. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
     - Docs to read: npm run-script docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
@@ -342,6 +344,8 @@ Add optional `sourceId` support when running agent commands so ingested command 
     - Location: repo root `projectStructure.md`.
     - Description: Record any added/removed files or confirm no change.
     - Purpose: ensure repository map stays current after structural edits.
+    - Added files: none.
+    - Removed files: none.
     - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
 17. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
     - Docs to read: npm run-script docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
@@ -451,6 +455,8 @@ Extend flow discovery to include ingested repositories, returning `sourceId`/`so
     - Location: repo root `projectStructure.md`.
     - Description: Record any added/removed files or confirm no change.
     - Purpose: ensure repository map stays current after structural edits.
+    - Added files: none.
+    - Removed files: none.
     - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
 15. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
     - Docs to read: npm run-script docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
@@ -548,6 +554,8 @@ Add optional `sourceId` support for flow execution so ingested flows run from th
     - Location: repo root `projectStructure.md`.
     - Description: Record any added/removed files or confirm no change.
     - Purpose: ensure repository map stays current after structural edits.
+    - Added files: none.
+    - Removed files: none.
     - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
 12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
     - Docs to read: npm run-script docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
@@ -648,6 +656,8 @@ Update the Agents UI to display ingested command labels, sort by display label, 
    - Location: repo root `projectStructure.md`.
    - Description: Record any added/removed files or confirm no change.
    - Purpose: ensure repository map stays current after structural edits.
+   - Added files: none.
+   - Removed files: none.
    - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
 12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
     - Docs to read: npm run-script docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
@@ -748,6 +758,8 @@ Update the Flows UI to display ingested flow labels, sort by display label, and 
    - Location: repo root `projectStructure.md`.
    - Description: Record any added/removed files or confirm no change.
    - Purpose: ensure repository map stays current after structural edits.
+   - Added files: none.
+   - Removed files: none.
    - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
 12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
     - Docs to read: npm run-script docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
@@ -812,6 +824,8 @@ Validate the full system against the acceptance criteria, run end-to-end builds/
    - Location: repo root `projectStructure.md`.
    - Description: Record any added/removed files or confirm no change.
    - Purpose: keep repository map accurate for final handoff.
+   - Added files: none.
+   - Removed files: none.
 7. [ ] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
 
 #### Testing

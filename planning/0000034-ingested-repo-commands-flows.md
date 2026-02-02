@@ -128,10 +128,10 @@ Add ingested-repo command discovery to the agent command list so REST/MCP list r
 #### Documentation Locations
 
 - Node.js `fs.readdir` + `path.resolve`/`path.relative` (Context7 `/nodejs/node/v22.17.0`): /nodejs/node/v22.17.0
-- OpenAPI 3.0.3 spec (matches `openapi.json`): https://spec.openapis.org/oas/v3.0.3.html
+- OpenAPI 3.0.3 spec: https://spec.openapis.org/oas/v3.0.3.html
 - npm run-script docs (CLI v10): https://docs.npmjs.com/cli/v10/commands/npm-run-script
 - Node.js test runner API (Context7 `/nodejs/node/v22.17.0`): /nodejs/node/v22.17.0
-- ESLint CLI docs (Context7 `/eslint/eslint/v9.37.0`, closest to repo 9.39.1): /eslint/eslint/v9.37.0
+- ESLint CLI docs (Context7 `/eslint/eslint/v9.37.0`): /eslint/eslint/v9.37.0
 - Prettier CLI docs (Context7 `/prettier/prettier/3.6.2`): /prettier/prettier/3.6.2
 - Markdown Guide (doc edits): https://www.markdownguide.org/basic-syntax/
 
@@ -230,9 +230,9 @@ Add optional `sourceId` support when running agent commands so ingested command 
 #### Documentation Locations
 
 - Node.js `path.resolve`/`path.relative` (Context7 `/nodejs/node/v22.17.0`): /nodejs/node/v22.17.0
-- OpenAPI 3.0.3 spec (matches `openapi.json`): https://spec.openapis.org/oas/v3.0.3.html
+- OpenAPI 3.0.3 spec: https://spec.openapis.org/oas/v3.0.3.html
 - Node.js test runner API (Context7 `/nodejs/node/v22.17.0`): /nodejs/node/v22.17.0
-- ESLint CLI docs (Context7 `/eslint/eslint/v9.37.0`, closest to repo 9.39.1): /eslint/eslint/v9.37.0
+- ESLint CLI docs (Context7 `/eslint/eslint/v9.37.0`): /eslint/eslint/v9.37.0
 - Prettier CLI docs (Context7 `/prettier/prettier/3.6.2`): /prettier/prettier/3.6.2
 - Markdown Guide (doc edits): https://www.markdownguide.org/basic-syntax/
 
@@ -318,9 +318,9 @@ Extend flow discovery to include ingested repositories, returning `sourceId`/`so
 #### Documentation Locations
 
 - Node.js `fs.readdir` + `path.resolve` (Context7 `/nodejs/node/v22.17.0`): /nodejs/node/v22.17.0
-- OpenAPI 3.0.3 spec (matches `openapi.json`): https://spec.openapis.org/oas/v3.0.3.html
+- OpenAPI 3.0.3 spec: https://spec.openapis.org/oas/v3.0.3.html
 - Node.js test runner API (Context7 `/nodejs/node/v22.17.0`): /nodejs/node/v22.17.0
-- ESLint CLI docs (Context7 `/eslint/eslint/v9.37.0`, closest to repo 9.39.1): /eslint/eslint/v9.37.0
+- ESLint CLI docs (Context7 `/eslint/eslint/v9.37.0`): /eslint/eslint/v9.37.0
 - Prettier CLI docs (Context7 `/prettier/prettier/3.6.2`): /prettier/prettier/3.6.2
 - Markdown Guide (doc edits): https://www.markdownguide.org/basic-syntax/
 
@@ -405,9 +405,9 @@ Add optional `sourceId` support for flow execution so ingested flows run from th
 #### Documentation Locations
 
 - Node.js `path.resolve`/`path.relative` (Context7 `/nodejs/node/v22.17.0`): /nodejs/node/v22.17.0
-- OpenAPI 3.0.3 spec (matches `openapi.json`): https://spec.openapis.org/oas/v3.0.3.html
+- OpenAPI 3.0.3 spec: https://spec.openapis.org/oas/v3.0.3.html
 - Node.js test runner API (Context7 `/nodejs/node/v22.17.0`): /nodejs/node/v22.17.0
-- ESLint CLI docs (Context7 `/eslint/eslint/v9.37.0`, closest to repo 9.39.1): /eslint/eslint/v9.37.0
+- ESLint CLI docs (Context7 `/eslint/eslint/v9.37.0`): /eslint/eslint/v9.37.0
 - Prettier CLI docs (Context7 `/prettier/prettier/3.6.2`): /prettier/prettier/3.6.2
 - Markdown Guide (doc edits): https://www.markdownguide.org/basic-syntax/
 
@@ -483,10 +483,10 @@ Update the Agents UI to display ingested command labels, sort by display label, 
 
 #### Documentation Locations
 
-- MUI Select/Menu docs (MUI MCP `/mui/material@6.4.12`, matches `@mui/material` 6.4.x)
-- React state + hooks (Context7 `/reactjs/react.dev`, React 19.2 in repo)
+- MUI Select/Menu docs (MUI MCP `/mui/material@6.4.12`)
+- React state + hooks (Context7 `/reactjs/react.dev`)
 - Jest DOM/testing library docs: https://testing-library.com/docs/react-testing-library/intro/
-- ESLint CLI docs (Context7 `/eslint/eslint/v9.37.0`, closest to repo 9.39.1): /eslint/eslint/v9.37.0
+- ESLint CLI docs (Context7 `/eslint/eslint/v9.37.0`): /eslint/eslint/v9.37.0
 - Prettier CLI docs (Context7 `/prettier/prettier/3.6.2`): /prettier/prettier/3.6.2
 - Markdown Guide (doc edits): https://www.markdownguide.org/basic-syntax/
 
@@ -568,10 +568,10 @@ Update the Flows UI to display ingested flow labels, sort by display label, and 
 
 #### Documentation Locations
 
-- MUI Select/Menu docs (MUI MCP `/mui/material@6.4.12`, matches `@mui/material` 6.4.x)
-- React state + hooks (Context7 `/reactjs/react.dev`, React 19.2 in repo)
+- MUI Select/Menu docs (MUI MCP `/mui/material@6.4.12`)
+- React state + hooks (Context7 `/reactjs/react.dev`)
 - Jest DOM/testing library docs: https://testing-library.com/docs/react-testing-library/intro/
-- ESLint CLI docs (Context7 `/eslint/eslint/v9.37.0`, closest to repo 9.39.1): /eslint/eslint/v9.37.0
+- ESLint CLI docs (Context7 `/eslint/eslint/v9.37.0`): /eslint/eslint/v9.37.0
 - Prettier CLI docs (Context7 `/prettier/prettier/3.6.2`): /prettier/prettier/3.6.2
 - Markdown Guide (doc edits): https://www.markdownguide.org/basic-syntax/
 

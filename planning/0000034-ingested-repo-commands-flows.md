@@ -29,12 +29,14 @@ This story adds discovery of commands and flows from ingested repositories. If a
 - Duplicate command or flow names are allowed across repos.
 - Dropdown lists are sorted alphabetically by the full display label (`<name> - [Repo Name]`) so duplicates stay deterministic.
 - Imported items display the ingest root display name in brackets, formatted as `<name> - [Repo Name]`.
-- If the ingest root display name is missing or empty, the fallback label is the ingest root folder name.
+- If the ingest root display name (`ingest metadata.name`) is missing or empty, the fallback label is the basename of the ingest root container path.
 - Imported commands and flows are treated as trusted and can be executed without extra confirmation.
 - Local (CodeInfo2) commands and flows continue to appear, remain functional, and remain unlabeled.
 - MCP list/run tools surface ingested commands the same way as the UI (flows MCP parity is out of scope).
 - REST list responses include `sourceId` and `sourceLabel` for ingested items, while local items omit both fields.
 - REST run requests accept an optional `sourceId` for ingested commands/flows to disambiguate duplicates.
+- Clients must pass `sourceId` when running ingested items; when `sourceId` is omitted, the server resolves commands/flows from local folders only.
+- If `sourceId` is provided but does not match a known ingest root or file, the run endpoints return `404 { error: 'not_found' }`.
 - Server path resolution for ingested items uses Node `path.resolve` + `path.relative` checks to ensure the resolved command/flow file stays within the ingest root container path.
 
 ---
@@ -66,12 +68,12 @@ _None. All questions resolved._
 
 ## Implementation Ideas
 
-- Ingest roots source data: use `listIngestedRepositories` in `server/src/lmstudio/toolService.ts` to obtain ingest root display names (with basename fallback already handled) and the ingest root container path (`/data/<repo>`), using the container path as `sourceId` and the display name as `sourceLabel`.
+- Ingest roots source data: use `listIngestedRepositories` in `server/src/lmstudio/toolService.ts` to obtain ingest root display names (metadata `name`, falling back to the basename of the container path) plus the ingest root container path (`/data/<repo>`), using the container path as `sourceId` and the display name as `sourceLabel`.
 - Agent command discovery: extend `listAgentCommands` in `server/src/agents/service.ts` to merge local commands with ingested commands under `<ingestRoot>/codex_agents/<agentName>/commands` for each ingest root, only when the agent exists locally; add `sourceId` + `sourceLabel` for ingested items and keep local items without those fields.
 - Agent command execution: update `startAgentCommand`/`commandsRunner` plus `server/src/routes/agentsCommands.ts` and `server/src/mcpAgents/tools.ts` to accept an optional `sourceId`, resolve the ingested commands directory from the ingest root container path, and enforce path containment using `path.resolve` + `path.relative` before reading files.
 - Flow discovery: extend `server/src/flows/discovery.ts` and `server/src/routes/flows.ts` to scan the local flows folder plus each `<ingestRoot>/flows`, returning `sourceId` (container path) + `sourceLabel` for ingested flows and keeping locals unlabeled; sort by the display label (`<name>` or `<name> - [Repo]`).
 - Flow execution: update `server/src/flows/service.ts` and `server/src/routes/flowsRun.ts` to accept an optional `sourceId` (container path) and resolve the correct flow file path with the same `path.resolve` + `path.relative` containment checks.
-- Client API + UI: adjust `client/src/api/agents.ts` and `client/src/pages/AgentsPage.tsx` to parse `sourceId/sourceLabel`, render labels as `<name> - [Repo]`, keep locals unlabeled, and pass `sourceId` when running commands; mirror for flows in `client/src/api/flows.ts` and `client/src/pages/FlowsPage.tsx`.
+- Client API + UI: adjust `client/src/api/agents.ts` and `client/src/pages/AgentsPage.tsx` to parse `sourceId/sourceLabel`, render labels as `<name> - [sourceLabel]` when present or `<name>` when absent, keep locals unlabeled, and pass `sourceId` when running commands; mirror for flows in `client/src/api/flows.ts` and `client/src/pages/FlowsPage.tsx`.
 - Tests to revisit: server agent command list/run tests in `server/src/test/unit/agents-commands-router-run.test.ts` and `server/src/test/unit/mcp-agents-router-list.test.ts`; flow list/run tests in `server/src/test/integration/flows.list.test.ts` and `server/src/test/integration/flows.run.*.test.ts`; client tests for agents/flows dropdowns in `client/src/test/agentsPage.commandsList.test.tsx` and `client/src/test/flowsApi.test.ts`/`client/src/test/flowsPage.stop.test.tsx`.
 
 ---

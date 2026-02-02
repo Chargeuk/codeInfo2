@@ -761,7 +761,7 @@ Update the Agents UI to display ingested command labels, sort by display label, 
 5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e` or set `timeout_ms=420000` in the harness)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open http://host.docker.internal:5001/agents, verify duplicate command names remain selectable with `name - [Repo]` labels, run an ingested command; then open http://host.docker.internal:5001/logs and confirm `DEV-0000034:T5:agents.command_run_payload` appears with `{ commandName, sourceId }`; verify no errors appear in the debug console.
+8. [ ] Manual Playwright-MCP check: open http://host.docker.internal:5001/agents, verify duplicate command names remain selectable with `name - [Repo]` labels, run an ingested command; then open http://host.docker.internal:5001/logs and confirm `DEV-0000034:T5:agents.command_run_payload` appears with `{ commandName, sourceId }`; capture a screenshot of the Agents page dropdown + run confirmation and store it in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped by `docker-compose.local.yml`) as `0000034-5-agents-ingested-command.png`, then review the screenshot to confirm the GUI matches the expected labels and run state; verify no errors appear in the debug console.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -877,7 +877,7 @@ Update the Flows UI to display ingested flow labels, sort by display label, and 
 5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e` or set `timeout_ms=420000` in the harness)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open http://host.docker.internal:5001/flows, verify duplicate flow names remain selectable with `name - [Repo]` labels, run an ingested flow; then open http://host.docker.internal:5001/logs and confirm `DEV-0000034:T6:flows.run_payload` appears with `{ flowName, sourceId }`; verify no errors appear in the debug console.
+8. [ ] Manual Playwright-MCP check: open http://host.docker.internal:5001/flows, verify duplicate flow names remain selectable with `name - [Repo]` labels, run an ingested flow; then open http://host.docker.internal:5001/logs and confirm `DEV-0000034:T6:flows.run_payload` appears with `{ flowName, sourceId }`; capture a screenshot of the Flows dropdown + run confirmation and store it in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped by `docker-compose.local.yml`) as `0000034-6-flows-ingested-run.png`, then review the screenshot to confirm the GUI matches the expected labels and run state; verify no errors appear in the debug console.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -947,7 +947,7 @@ Validate the full system against the acceptance criteria, run end-to-end builds/
 5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e` or set `timeout_ms=420000` in the harness)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open http://host.docker.internal:5001, verify Agents + Flows pages show ingested labels and runs work; open http://host.docker.internal:5001/logs and confirm `DEV-0000034:T7:logs_page_viewed` appears after visiting the logs page; confirm no errors appear in the debug console; capture screenshots in `./test-results/screenshots/` named `<plan>-7-<name>`.
+8. [ ] Manual Playwright-MCP check: open http://host.docker.internal:5001, verify Agents + Flows pages show ingested labels and runs work; open http://host.docker.internal:5001/logs and confirm `DEV-0000034:T7:logs_page_viewed` appears after visiting the logs page; confirm no errors appear in the debug console; capture screenshots for all GUI acceptance criteria (Agents labels, command run, Flows labels, flow run, Logs filters) and store them in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped by `docker-compose.local.yml`) named `<plan>-7-<name>`, then review those screenshots to confirm the GUI matches each acceptance criterion.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes

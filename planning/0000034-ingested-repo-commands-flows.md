@@ -132,6 +132,7 @@ Add ingested-repo command discovery to the agent command list so REST/MCP list r
 - npm run-script docs (workspace script execution): https://docs.npmjs.com/cli/v10/commands/npm-run-script
 - Node.js test runner docs (`node:test` usage + CLI flags): https://nodejs.org/api/test.html
 - Jest docs (Context7 `/jestjs/jest`): /jestjs/jest
+- Mermaid docs (Context7 `/mermaid-js/mermaid`): /mermaid-js/mermaid
 - ESLint CLI docs (lint command usage + exit codes): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI docs (format/check options): https://prettier.io/docs/cli/
 - Markdown Guide (doc formatting): https://www.markdownguide.org/basic-syntax/
@@ -208,7 +209,7 @@ Add ingested-repo command discovery to the agent command list so REST/MCP list r
     - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
 18. [ ] Update documentation — `design.md`:
     - Document: `design.md`.
-    - Description: Add/confirm command discovery includes ingested repos and the label/sorting rules.
+    - Description: Add/confirm command discovery includes ingested repos and the label/sorting rules, and update the related Mermaid architecture diagram(s).
     - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
 19. [ ] Update documentation — `README.md` (if any new endpoints/fields need mention).
     - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
@@ -249,6 +250,7 @@ Add optional `sourceId` support when running agent commands so ingested command 
 - npm run-script docs (workspace script execution): https://docs.npmjs.com/cli/v10/commands/npm-run-script
 - Node.js test runner docs (`node:test` usage + CLI flags): https://nodejs.org/api/test.html
 - Jest docs (Context7 `/jestjs/jest`): /jestjs/jest
+- Mermaid docs (Context7 `/mermaid-js/mermaid`): /mermaid-js/mermaid
 - ESLint CLI docs (lint command usage + exit codes): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI docs (format/check options): https://prettier.io/docs/cli/
 - Markdown Guide (doc formatting): https://www.markdownguide.org/basic-syntax/
@@ -307,7 +309,7 @@ Add optional `sourceId` support when running agent commands so ingested command 
     - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
 13. [ ] Unit test (MCP run) — `server/src/test/unit/mcp-agents-router-run.test.ts`: missing ingested command file returns not_found; purpose: MCP missing-file error coverage.
     - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
-14. [ ] Update documentation — `design.md` (run payload changes).
+14. [ ] Update documentation — `design.md` (run payload changes, plus Mermaid diagram updates).
     - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
 15. [ ] Update documentation — `README.md` (if any new payload fields need mention).
     - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
@@ -348,6 +350,7 @@ Extend flow discovery to include ingested repositories, returning `sourceId`/`so
 - npm run-script docs (workspace script execution): https://docs.npmjs.com/cli/v10/commands/npm-run-script
 - Node.js test runner docs (`node:test` usage + CLI flags): https://nodejs.org/api/test.html
 - Jest docs (Context7 `/jestjs/jest`): /jestjs/jest
+- Mermaid docs (Context7 `/mermaid-js/mermaid`): /mermaid-js/mermaid
 - ESLint CLI docs (lint command usage + exit codes): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI docs (format/check options): https://prettier.io/docs/cli/
 - Markdown Guide (doc formatting): https://www.markdownguide.org/basic-syntax/
@@ -399,7 +402,7 @@ Extend flow discovery to include ingested repositories, returning `sourceId`/`so
    - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
 10. [ ] Integration test (flow list) — `server/src/test/integration/flows.list.test.ts`: ingest roots with no `flows/` directory are skipped and local flows still return; purpose: handle empty roots safely.
     - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
-11. [ ] Update documentation — `design.md` (flow discovery changes).
+11. [ ] Update documentation — `design.md` (flow discovery changes, plus Mermaid diagram updates).
     - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
 12. [ ] Update documentation — `README.md` (if any new list fields need mention).
     - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
@@ -521,6 +524,7 @@ Update the Agents UI to display ingested command labels, sort by display label, 
 - React state + hooks (controlled selects + derived state): Context7 `/reactjs/react.dev`
 - React Testing Library docs (queries + user events): https://testing-library.com/docs/react-testing-library/intro/
 - Jest docs (Context7 `/jestjs/jest`): /jestjs/jest
+- Mermaid docs (Context7 `/mermaid-js/mermaid`): /mermaid-js/mermaid
 - npm run-script docs (workspace script execution): https://docs.npmjs.com/cli/v10/commands/npm-run-script
 - ESLint CLI docs (lint command usage + exit codes): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI docs (format/check options): https://prettier.io/docs/cli/
@@ -567,7 +571,7 @@ Update the Agents UI to display ingested command labels, sort by display label, 
    - Docs to read: React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; React state + hooks (Context7 `/reactjs/react.dev`): /reactjs/react.dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
 8. [ ] Client unit test (commands run) — `client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx`: local command run omits `sourceId` in payload; purpose: keep local run behavior unchanged.
    - Docs to read: React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; React state + hooks (Context7 `/reactjs/react.dev`): /reactjs/react.dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
-9. [ ] Update documentation — `design.md` (UI behavior summary).
+9. [ ] Update documentation — `design.md` (UI behavior summary, plus Mermaid diagram updates where applicable).
    - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
 10. [ ] Update documentation — `README.md` (if any UI behavior needs mention).
    - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
@@ -607,6 +611,7 @@ Update the Flows UI to display ingested flow labels, sort by display label, and 
 - React state + hooks (controlled selects + derived state): Context7 `/reactjs/react.dev`
 - React Testing Library docs (queries + user events): https://testing-library.com/docs/react-testing-library/intro/
 - Jest docs (Context7 `/jestjs/jest`): /jestjs/jest
+- Mermaid docs (Context7 `/mermaid-js/mermaid`): /mermaid-js/mermaid
 - npm run-script docs (workspace script execution): https://docs.npmjs.com/cli/v10/commands/npm-run-script
 - ESLint CLI docs (lint command usage + exit codes): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI docs (format/check options): https://prettier.io/docs/cli/
@@ -653,7 +658,7 @@ Update the Flows UI to display ingested flow labels, sort by display label, and 
    - Docs to read: React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; React state + hooks (Context7 `/reactjs/react.dev`): /reactjs/react.dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
 8. [ ] Client unit test (flows run) — `client/src/test/flowsPage.stop.test.tsx`: local flow run omits `sourceId` in payload; purpose: keep local run behavior unchanged.
    - Docs to read: React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; React state + hooks (Context7 `/reactjs/react.dev`): /reactjs/react.dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
-9. [ ] Update documentation — `design.md` (UI behavior summary).
+9. [ ] Update documentation — `design.md` (UI behavior summary, plus Mermaid diagram updates where applicable).
    - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
 10. [ ] Update documentation — `README.md` (if any UI behavior needs mention).
    - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
@@ -694,6 +699,7 @@ Validate the full system against the acceptance criteria, run end-to-end builds/
 - Docker Compose down command docs: https://docs.docker.com/reference/cli/docker/compose/down/
 - Playwright writing tests guide (test runner usage): https://playwright.dev/docs/writing-tests
 - Husky docs (Git hooks + skips): https://typicode.github.io/husky/
+- Mermaid docs (Context7 `/mermaid-js/mermaid`): /mermaid-js/mermaid
 - Mermaid syntax reference (diagram updates): https://mermaid.js.org/intro/syntax-reference.html
 - Jest getting started docs (CLI + config): https://jestjs.io/docs/getting-started
 - Deepwiki MCP: `jestjs/jest` (CLI/config overview)
@@ -707,7 +713,7 @@ Validate the full system against the acceptance criteria, run end-to-end builds/
 2. [ ] Build the client
 3. [ ] perform a clean docker build
 4. [ ] Ensure Readme.md is updated with any required description changes and with any new commands that have been added as part of this story
-5. [ ] Ensure Design.md is updated with any required description changes including mermaid diagrams that have been added as part of this story
+5. [ ] Ensure Design.md is updated with any required description changes, including Mermaid diagrams added or updated as part of this story
 6. [ ] After all file adds/removes are complete, ensure `projectStructure.md` is updated with any updated, added or removed files & folders
 7. [ ] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
 

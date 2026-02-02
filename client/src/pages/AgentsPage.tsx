@@ -1052,7 +1052,7 @@ export default function AgentsPage() {
       const result = await runAgentCommand({
         agentName: selectedAgentName,
         commandName: selectedCommandName,
-        'working_folder': workingFolder.trim() || undefined,
+        working_folder: workingFolder.trim() || undefined,
         conversationId: nextConversationId,
       });
 

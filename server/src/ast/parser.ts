@@ -1,9 +1,14 @@
 import crypto from 'crypto';
 import fs from 'fs/promises';
 import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
 import path from 'path';
 import TreeSitter from 'tree-sitter';
+import csharpLanguage from 'tree-sitter-c-sharp';
+import cppLanguage from 'tree-sitter-cpp';
 import javascriptLanguage from 'tree-sitter-javascript';
+import pythonLanguage from 'tree-sitter-python';
+import rustLanguage from 'tree-sitter-rust';
 import typescriptLanguage from 'tree-sitter-typescript';
 import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
@@ -62,6 +67,49 @@ const jsPackageRoot = path.dirname(
 const tsPackageRoot = path.dirname(
   require.resolve('tree-sitter-typescript/package.json'),
 );
+const astDirectory = path.dirname(fileURLToPath(import.meta.url));
+const astRoot = path.resolve(astDirectory, '..');
+const serverRoot = path.resolve(astRoot, '..');
+const queriesRoot =
+  path.basename(astRoot) === 'dist'
+    ? path.resolve(serverRoot, 'src', 'ast', 'queries')
+    : path.resolve(astRoot, 'ast', 'queries');
+const csharpPackageRoot = path.dirname(
+  require.resolve('tree-sitter-c-sharp/package.json'),
+);
+const cppPackageRoot = path.dirname(
+  require.resolve('tree-sitter-cpp/package.json'),
+);
+const pythonPackageRoot = path.dirname(
+  require.resolve('tree-sitter-python/package.json'),
+);
+const rustPackageRoot = path.dirname(
+  require.resolve('tree-sitter-rust/package.json'),
+);
+const astExtensionList = [
+  'js',
+  'jsx',
+  'ts',
+  'tsx',
+  'py',
+  'cs',
+  'rs',
+  'cc',
+  'cpp',
+  'cxx',
+  'hpp',
+  'hxx',
+  'h',
+];
+const astLanguageList: AstLanguage[] = [
+  'javascript',
+  'typescript',
+  'tsx',
+  'python',
+  'c_sharp',
+  'rust',
+  'cpp',
+];
 
 const definitionKindMap: Record<string, AstSymbolKind> = {
   'definition.class': 'Class',
@@ -85,6 +133,9 @@ const referenceKindMap: Record<string, string> = {
 let missingQueriesLogged = false;
 let grammarLoadFailureLogged = false;
 const queriesLoadedLogged = new Set<AstLanguage>();
+let extensionMapLogged = false;
+const grammarRegisteredLogged = new Set<AstLanguage>();
+const localsQueryLoadedLogged = new Set<AstLanguage>();
 
 type QueryBundle = { tags: string; locals: string };
 
@@ -126,10 +177,48 @@ function buildErrorDetails(node: SyntaxNode) {
 }
 
 function normalizeLanguage(ext: string): AstLanguage | null {
-  if (ext === 'js' || ext === 'jsx') return 'javascript';
-  if (ext === 'ts') return 'typescript';
-  if (ext === 'tsx') return 'tsx';
+  const normalized = ext.toLowerCase();
+  if (normalized === 'js' || normalized === 'jsx') return 'javascript';
+  if (normalized === 'ts') return 'typescript';
+  if (normalized === 'tsx') return 'tsx';
+  if (normalized === 'py') return 'python';
+  if (normalized === 'cs') return 'c_sharp';
+  if (normalized === 'rs') return 'rust';
+  if (
+    normalized === 'cc' ||
+    normalized === 'cpp' ||
+    normalized === 'cxx' ||
+    normalized === 'hpp' ||
+    normalized === 'hxx' ||
+    normalized === 'h'
+  ) {
+    return 'cpp';
+  }
   return null;
+}
+
+function logAstExtensionMap() {
+  if (extensionMapLogged) return;
+  extensionMapLogged = true;
+  const timestamp = new Date().toISOString();
+  append({
+    level: 'info',
+    message: 'DEV-0000033:T1:ast-extension-map',
+    timestamp,
+    source: 'server',
+    context: {
+      extensions: astExtensionList,
+      languages: astLanguageList,
+    },
+  });
+  baseLogger.info(
+    {
+      event: 'DEV-0000033:T1:ast-extension-map',
+      extensions: astExtensionList,
+      languages: astLanguageList,
+    },
+    'AST extension map loaded',
+  );
 }
 
 function sanitizeQuery(source: string) {
@@ -185,11 +274,52 @@ async function loadQueries(language: AstLanguage): Promise<QueryBundle | null> {
   const tsTags = await loadQueryFile(tsPackageRoot, 'queries', 'tags.scm');
   const tsLocals = await loadQueryFile(tsPackageRoot, 'queries', 'locals.scm');
 
-  if (!jsTags || !jsLocals || !tsTags || !tsLocals) return null;
+  if (language === 'typescript' || language === 'tsx') {
+    if (!jsTags || !jsLocals || !tsTags || !tsLocals) return null;
+
+    const bundle = {
+      tags: [sanitizeQuery(tsTags), sanitizeQuery(jsTags)].join('\n'),
+      locals: [sanitizeQuery(tsLocals), sanitizeQuery(jsLocals)].join('\n'),
+    };
+    queryCache.set(language, bundle);
+    if (!queriesLoadedLogged.has(language)) {
+      queriesLoadedLogged.add(language);
+      const timestamp = new Date().toISOString();
+      append({
+        level: 'info',
+        message: 'DEV-0000032:T4:ast-parser-queries-loaded',
+        timestamp,
+        source: 'server',
+        context: { language },
+      });
+      baseLogger.info(
+        { event: 'DEV-0000032:T4:ast-parser-queries-loaded', language },
+        'AST parser queries loaded',
+      );
+    }
+    return bundle;
+  }
+
+  const packageRoot =
+    language === 'python'
+      ? pythonPackageRoot
+      : language === 'c_sharp'
+        ? csharpPackageRoot
+        : language === 'rust'
+          ? rustPackageRoot
+          : language === 'cpp'
+            ? cppPackageRoot
+            : null;
+  if (!packageRoot) return null;
+
+  const tags = await loadQueryFile(packageRoot, 'queries', 'tags.scm');
+  const localsPath = path.resolve(queriesRoot, language, 'locals.scm');
+  const locals = await loadQueryFile(localsPath);
+  if (!tags || !locals) return null;
 
   const bundle = {
-    tags: [sanitizeQuery(tsTags), sanitizeQuery(jsTags)].join('\n'),
-    locals: [sanitizeQuery(tsLocals), sanitizeQuery(jsLocals)].join('\n'),
+    tags: sanitizeQuery(tags),
+    locals: sanitizeQuery(locals),
   };
   queryCache.set(language, bundle);
   if (!queriesLoadedLogged.has(language)) {
@@ -207,12 +337,39 @@ async function loadQueries(language: AstLanguage): Promise<QueryBundle | null> {
       'AST parser queries loaded',
     );
   }
+  if (!localsQueryLoadedLogged.has(language)) {
+    localsQueryLoadedLogged.add(language);
+    const timestamp = new Date().toISOString();
+    append({
+      level: 'info',
+      message: 'DEV-0000033:T3:ast-locals-query-loaded',
+      timestamp,
+      source: 'server',
+      context: { language, localsPath },
+    });
+    baseLogger.info(
+      { event: 'DEV-0000033:T3:ast-locals-query-loaded', language, localsPath },
+      'AST locals query loaded',
+    );
+  }
   return bundle;
 }
 
 function getLanguageConfig(language: AstLanguage) {
   if (language === 'javascript') {
     return { language, parserLanguage: javascriptLanguage };
+  }
+  if (language === 'python') {
+    return { language, parserLanguage: pythonLanguage };
+  }
+  if (language === 'c_sharp') {
+    return { language, parserLanguage: csharpLanguage };
+  }
+  if (language === 'rust') {
+    return { language, parserLanguage: rustLanguage };
+  }
+  if (language === 'cpp') {
+    return { language, parserLanguage: cppLanguage };
   }
   const tsExports = typescriptLanguage as unknown as {
     typescript: unknown;
@@ -222,6 +379,27 @@ function getLanguageConfig(language: AstLanguage) {
     language,
     parserLanguage: language === 'tsx' ? tsExports.tsx : tsExports.typescript,
   };
+}
+
+function logGrammarRegistration(language: AstLanguage, packageName: string) {
+  if (grammarRegisteredLogged.has(language)) return;
+  grammarRegisteredLogged.add(language);
+  const timestamp = new Date().toISOString();
+  append({
+    level: 'info',
+    message: 'DEV-0000033:T2:ast-grammar-registered',
+    timestamp,
+    source: 'server',
+    context: { language, package: packageName },
+  });
+  baseLogger.info(
+    {
+      event: 'DEV-0000033:T2:ast-grammar-registered',
+      language,
+      package: packageName,
+    },
+    'AST grammar registered',
+  );
 }
 
 function logGrammarLoadFailure(language: AstLanguage, error: string) {
@@ -945,8 +1123,22 @@ export function __setParseAstSourceForTest(override?: ParseAstSourceFn | null) {
   parseAstSourceImpl = override ?? parseAstSourceInternal;
 }
 
+export function __resetAstParserLogStateForTest() {
+  missingQueriesLogged = false;
+  grammarLoadFailureLogged = false;
+  extensionMapLogged = false;
+  queriesLoadedLogged.clear();
+  grammarRegisteredLogged.clear();
+  localsQueryLoadedLogged.clear();
+}
+
 export async function warmAstParserQueries() {
-  const languages: AstLanguage[] = ['javascript', 'typescript', 'tsx'];
+  logAstExtensionMap();
+  logGrammarRegistration('python', 'tree-sitter-python');
+  logGrammarRegistration('c_sharp', 'tree-sitter-c-sharp');
+  logGrammarRegistration('rust', 'tree-sitter-rust');
+  logGrammarRegistration('cpp', 'tree-sitter-cpp');
+  const languages: AstLanguage[] = [...astLanguageList];
   await Promise.all(
     languages.map(async (language) => {
       try {

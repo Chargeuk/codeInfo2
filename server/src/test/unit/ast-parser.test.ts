@@ -1,5 +1,12 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import path from 'node:path';
 import test from 'node:test';
+import TreeSitter from 'tree-sitter';
+import csharpLanguage from 'tree-sitter-c-sharp';
+import cppLanguage from 'tree-sitter-cpp';
+import pythonLanguage from 'tree-sitter-python';
+import rustLanguage from 'tree-sitter-rust';
 import { createSymbolIdFactory, parseAstSource } from '../../ast/parser.js';
 import { query, resetStore } from '../../logStore.js';
 
@@ -43,6 +50,84 @@ const heritageSource = [
   '',
 ].join('\n');
 
+const pythonSource = [
+  'def greet():',
+  '  name = "hi"',
+  '  print(name)',
+  '',
+].join('\n');
+
+const csharpSource = [
+  'public class Greeter {',
+  '  void Greet() {',
+  '    var name = "hi";',
+  '    System.Console.WriteLine(name);',
+  '  }',
+  '}',
+  '',
+].join('\n');
+
+const rustSource = [
+  'fn greet() {',
+  '  let name = "hi";',
+  '  println!("{}", name);',
+  '}',
+  '',
+].join('\n');
+
+const cppSource = [
+  'int greet() {',
+  '  int name = 0;',
+  '  return name;',
+  '}',
+  '',
+].join('\n');
+
+const Parser = TreeSitter as unknown as {
+  new (): {
+    setLanguage: (language: unknown) => void;
+    parse: (text: string) => { rootNode: unknown };
+  };
+  Query: new (
+    language: unknown,
+    source: string,
+  ) => {
+    matches: (node: unknown) => Array<{ captures: Array<{ name: string }> }>;
+  };
+};
+
+const getLocalCaptures = async ({
+  language,
+  parserLanguage,
+  source,
+}: {
+  language: 'python' | 'c_sharp' | 'rust' | 'cpp';
+  parserLanguage: unknown;
+  source: string;
+}) => {
+  const queryPath = path.resolve(
+    'src',
+    'ast',
+    'queries',
+    language,
+    'locals.scm',
+  );
+  const localsQuery = await fs.readFile(queryPath, 'utf8');
+  const parser = new Parser();
+  parser.setLanguage(parserLanguage);
+  const tree = parser.parse(source);
+  const query = new Parser.Query(parserLanguage, localsQuery);
+  const matches = query.matches(tree.rootNode);
+  return matches.flatMap((match) =>
+    match.captures.map((capture) => capture.name),
+  );
+};
+
+const assertLocalCaptures = (captures: string[]) => {
+  assert(captures.includes('local.definition'));
+  assert(captures.includes('local.reference'));
+};
+
 test('ast parser extracts symbols for ts and tsx', async () => {
   const tsResult = await parseAstSource({
     root: '/repo',
@@ -78,6 +163,121 @@ test('ast parser extracts symbols for ts and tsx', async () => {
     assert(widget);
     assert.equal(widget.range.start.line, 1);
   }
+});
+
+test('ast parser captures locals for python', async () => {
+  const captures = await getLocalCaptures({
+    language: 'python',
+    parserLanguage: pythonLanguage,
+    source: pythonSource,
+  });
+  assertLocalCaptures(captures);
+
+  const result = await parseAstSource({
+    root: '/repo',
+    relPath: 'src/sample.py',
+    fileHash: 'hash-py',
+    text: pythonSource,
+  });
+
+  assert.equal(result.status, 'ok');
+  if (result.status === 'ok') {
+    assert.equal(result.language, 'python');
+    const ref = result.references.find(
+      (reference) => reference.kind === 'local' && reference.name === 'name',
+    );
+    assert(ref);
+  }
+});
+
+test('ast parser captures locals for c_sharp', async () => {
+  const captures = await getLocalCaptures({
+    language: 'c_sharp',
+    parserLanguage: csharpLanguage,
+    source: csharpSource,
+  });
+  assertLocalCaptures(captures);
+
+  const result = await parseAstSource({
+    root: '/repo',
+    relPath: 'src/sample.cs',
+    fileHash: 'hash-cs',
+    text: csharpSource,
+  });
+
+  assert.equal(result.status, 'ok');
+  if (result.status === 'ok') {
+    assert.equal(result.language, 'c_sharp');
+    const ref = result.references.find(
+      (reference) => reference.kind === 'local' && reference.name === 'name',
+    );
+    assert(ref);
+  }
+});
+
+test('ast parser captures locals for rust', async () => {
+  const captures = await getLocalCaptures({
+    language: 'rust',
+    parserLanguage: rustLanguage,
+    source: rustSource,
+  });
+  assertLocalCaptures(captures);
+
+  const result = await parseAstSource({
+    root: '/repo',
+    relPath: 'src/sample.rs',
+    fileHash: 'hash-rs',
+    text: rustSource,
+  });
+
+  assert.equal(result.status, 'ok');
+  if (result.status === 'ok') {
+    assert.equal(result.language, 'rust');
+    const ref = result.references.find(
+      (reference) => reference.kind === 'local' && reference.name === 'name',
+    );
+    assert(ref);
+  }
+});
+
+test('ast parser captures locals for cpp', async () => {
+  const captures = await getLocalCaptures({
+    language: 'cpp',
+    parserLanguage: cppLanguage,
+    source: cppSource,
+  });
+  assertLocalCaptures(captures);
+
+  const result = await parseAstSource({
+    root: '/repo',
+    relPath: 'src/sample.h',
+    fileHash: 'hash-cpp',
+    text: cppSource,
+  });
+
+  assert.equal(result.status, 'ok');
+  if (result.status === 'ok') {
+    assert.equal(result.language, 'cpp');
+    const ref = result.references.find(
+      (reference) => reference.kind === 'local' && reference.name === 'name',
+    );
+    assert(ref);
+  }
+});
+
+test('ast parser returns failed for missing queries on python', async () => {
+  const result = await parseAstSource(
+    {
+      root: '/repo',
+      relPath: 'src/sample.py',
+      fileHash: 'hash-missing-py',
+      text: pythonSource,
+    },
+    { queryBundleOverride: null },
+  );
+
+  assert.equal(result.status, 'failed');
+  assert.match(result.error, /Missing Tree-sitter query files/);
 });
 
 test('ast parser returns stable symbol ids', async () => {
@@ -319,4 +519,19 @@ test('ast parser logs grammar load failures once', async () => {
     text: 'DEV-0000032:T4:ast-parser-grammar-load-failed',
   });
   assert.equal(entries.length, 1);
+});
+
+test('ast parser returns failed for missing grammar binding on rust', async () => {
+  const result = await parseAstSource(
+    {
+      root: '/repo',
+      relPath: 'src/sample.rs',
+      fileHash: 'hash-missing-rs',
+      text: rustSource,
+    },
+    { parserLanguageOverride: null },
+  );
+
+  assert.equal(result.status, 'failed');
+  assert.match(result.error, /Tree-sitter grammar unavailable/);
 });

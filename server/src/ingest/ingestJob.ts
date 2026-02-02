@@ -101,7 +101,21 @@ const terminalStates = new Set<IngestRunState>([
   'skipped',
   'error',
 ]);
-const astSupportedExtensions = new Set(['ts', 'tsx', 'js', 'jsx']);
+const astSupportedExtensions = new Set([
+  'ts',
+  'tsx',
+  'js',
+  'jsx',
+  'py',
+  'cs',
+  'rs',
+  'cc',
+  'cpp',
+  'cxx',
+  'hpp',
+  'hxx',
+  'h',
+]);
 
 function setStatusAndPublish(runId: string, nextStatus: IngestJobStatus) {
   jobs.set(runId, nextStatus);
@@ -340,6 +354,7 @@ async function processRun(runId: string, input: IngestJobInput) {
       metadata.astLastIndexedAt = astLastIndexedAt;
     };
     const astSkippedExamples: string[] = [];
+    const astSkippedExtensions = new Set<string>();
     const astFailedExamples: {
       relPath: string;
       error: string;
@@ -352,16 +367,28 @@ async function processRun(runId: string, input: IngestJobInput) {
         nodeType?: string;
       };
     }[] = [];
+    let astIngestConfigLogged = false;
     for (const file of files) {
       const ext = file.ext ?? path.extname(file.relPath).slice(1);
       if (isAstSupported(ext)) {
         astCounts.supportedFileCount += 1;
       } else {
         astCounts.skippedFileCount += 1;
+        if (ext) {
+          astSkippedExtensions.add(ext.toLowerCase());
+        }
         if (astSkippedExamples.length < 5) {
           astSkippedExamples.push(file.relPath);
         }
       }
+    }
+    if (!astIngestConfigLogged) {
+      astIngestConfigLogged = true;
+      logLifecycle('info', 'DEV-0000033:T4:ast-ingest-config', {
+        event: 'DEV-0000033:T4:ast-ingest-config',
+        root,
+        supportedExtensions: Array.from(astSupportedExtensions).sort(),
+      });
     }
     const astSymbols: AstSymbolRecord[] = [];
     const astEdges: AstEdgeRecord[] = [];
@@ -508,7 +535,9 @@ async function processRun(runId: string, input: IngestJobInput) {
       logWarning('AST indexing skipped for unsupported language files', {
         root,
         skippedFileCount: astCounts.skippedFileCount,
+        skippedExtensions: Array.from(astSkippedExtensions).sort(),
         examplePaths: astSkippedExamples,
+        reason: 'unsupported_language',
       });
     }
 

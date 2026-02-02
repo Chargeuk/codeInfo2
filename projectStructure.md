@@ -250,7 +250,10 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚     â”œâ”€ 0000028-8-lmstudio-final.png â€” LM Studio layout final check
 â”‚     â”œâ”€ 0000029-3-agent-transcript.png â€” Agents flow transcript verification
 â”‚     â”œâ”€ 0000029-3-chat-inflight.png â€” Chat inflight overlay verification
-â”‚     â””â”€ 0000029-3-flows-transcript.png â€” Flows transcript verification
+â”‚     â”œâ”€ 0000029-3-flows-transcript.png â€” Flows transcript verification
+â”‚     â”œâ”€ 0000033-5-chat.png â€” Chat page acceptance check for story 0000033
+â”‚     â”œâ”€ 0000033-5-ingest.png â€” Ingest page acceptance check for story 0000033
+â”‚     â””â”€ 0000033-5-logs.png â€” Logs page acceptance check for story 0000033
 â”œâ”€ server/ â€” Express API
 â”‚  â”œâ”€ .dockerignore â€” server docker build ignores
 â”‚  â”œâ”€ .env â€” server default env (PORT, LMSTUDIO_BASE_URL)
@@ -271,7 +274,12 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚     â”œâ”€ ast/
 â”‚     â”‚  â”œâ”€ parser.ts â€” Tree-sitter parser module for AST extraction
 â”‚     â”‚  â”œâ”€ toolService.ts â€” AST tool validation and query service
-â”‚     â”‚  â””â”€ types.ts â€” AST parser types and result shapes
+â”‚     â”‚  â”œâ”€ types.ts â€” AST parser types and result shapes
+â”‚     â”‚  â””â”€ queries/
+â”‚     â”‚     â”œâ”€ python/locals.scm â€” Tree-sitter locals query for Python
+â”‚     â”‚     â”œâ”€ c_sharp/locals.scm â€” Tree-sitter locals query for C#
+â”‚     â”‚     â”œâ”€ rust/locals.scm â€” Tree-sitter locals query for Rust
+â”‚     â”‚     â””â”€ cpp/locals.scm â€” Tree-sitter locals query for C++
 â”‚     â”œâ”€ config/
 â”‚     â”‚  â”œâ”€ codexConfig.ts â€” Codex home/env config builder
 â”‚     â”‚  â””â”€ codexEnvDefaults.ts â€” Codex env defaults parser + warnings helper

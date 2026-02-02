@@ -6,7 +6,10 @@ import test, { afterEach, beforeEach, mock } from 'node:test';
 import type { LMStudioClient } from '@lmstudio/sdk';
 import { ChromaClient } from 'chromadb';
 import mongoose from 'mongoose';
-import { __setParseAstSourceForTest } from '../../ast/parser.js';
+import {
+  __resetAstParserLogStateForTest,
+  __setParseAstSourceForTest,
+} from '../../ast/parser.js';
 import type { AstParseResult, ParseAstSourceInput } from '../../ast/types.js';
 import { resetCollectionsForTests } from '../../ingest/chromaClient.js';
 import { hashFile } from '../../ingest/hashing.js';
@@ -195,6 +198,7 @@ const setupMongoMocks = () => {
 beforeEach(() => {
   process.env.NODE_ENV = 'test';
   resetStore();
+  __resetAstParserLogStateForTest();
   __resetIngestJobsForTest();
   release();
   mock.restoreAll();
@@ -262,6 +266,147 @@ test('ingest tracks supported AST file count', async () => {
     assert.equal(coverage.supportedFileCount, 4);
     assert.equal(coverage.skippedFileCount, 1);
     assert.equal(coverage.failedFileCount, 0);
+  } finally {
+    await cleanup();
+  }
+});
+
+test('ingest counts new language extensions as supported', async () => {
+  const repoMocks = mongoMocks;
+  mockParseAstSource();
+  const { root, cleanup } = await createTempRepo({
+    'python/sample.py': 'print("hi")\n',
+    'csharp/sample.cs': 'class Greeter { void Run() {} }\n',
+    'rust/sample.rs': 'fn greet() { let name = "hi"; }\n',
+    'cpp/sample.cpp': 'int greet() { return 0; }\n',
+    'cpp/sample.h': 'int greet();\n',
+    'docs/readme.md': 'Hello',
+  });
+
+  try {
+    const runId = await startIngest(
+      { path: root, name: 'repo', model: 'embed-model' },
+      buildDeps(),
+    );
+    await waitForTerminal(runId);
+
+    const coverageCall = repoMocks.astCoverageUpdateOne.mock.calls.at(-1) as
+      | { arguments: [unknown, { $set: Record<string, unknown> }] }
+      | undefined;
+    if (!coverageCall) throw new Error('Expected coverage upsert');
+    const coverage = coverageCall.arguments[1].$set as {
+      supportedFileCount: number;
+      skippedFileCount: number;
+      failedFileCount: number;
+    };
+    assert.equal(coverage.supportedFileCount, 5);
+    assert.equal(coverage.skippedFileCount, 1);
+    assert.equal(coverage.failedFileCount, 0);
+  } finally {
+    await cleanup();
+  }
+});
+
+test('ingest logs unsupported extension skips with reason', async () => {
+  const originalIncludes = process.env.INGEST_INCLUDE;
+  process.env.INGEST_INCLUDE = 'pyw';
+  mockParseAstSource();
+  const { root, cleanup } = await createTempRepo({
+    'python/unsupported.pyw': 'print("hi")',
+  });
+
+  try {
+    const runId = await startIngest(
+      { path: root, name: 'repo', model: 'embed-model' },
+      buildDeps(),
+    );
+    await waitForTerminal(runId);
+
+    const warnings = query({ level: ['warn'], text: 'unsupported language' });
+    assert.ok(warnings.length > 0);
+    const context = warnings[0]?.context as
+      | {
+          skippedFileCount?: number;
+          root?: string;
+          skippedExtensions?: string[];
+          reason?: string;
+        }
+      | undefined;
+    assert.equal(context?.skippedFileCount, 1);
+    assert.equal(context?.root, root);
+    assert.deepEqual(context?.skippedExtensions, ['pyw']);
+    assert.equal(context?.reason, 'unsupported_language');
+  } finally {
+    await cleanup();
+    if (originalIncludes === undefined) {
+      delete process.env.INGEST_INCLUDE;
+    } else {
+      process.env.INGEST_INCLUDE = originalIncludes;
+    }
+  }
+});
+
+test('reembed still attempts AST parsing for new languages', async () => {
+  const parseMock = mockParseAstSource();
+  const { root, cleanup } = await createTempRepo({
+    'python/sample.py': 'print("hi")\n',
+    'csharp/sample.cs': 'class Greeter { void Run() {} }\n',
+    'rust/sample.rs': 'fn greet() { let name = "hi"; }\n',
+    'cpp/sample.cpp': 'int greet() { return 0; }\n',
+    'cpp/sample.h': 'int greet();\n',
+  });
+
+  try {
+    const rows = await Promise.all(
+      [
+        'python/sample.py',
+        'csharp/sample.cs',
+        'rust/sample.rs',
+        'cpp/sample.cpp',
+        'cpp/sample.h',
+      ].map(async (relPath) => ({
+        relPath,
+        fileHash: await hashFile(path.join(root, relPath)),
+      })),
+    );
+    mongoMocks.setIngestFileRows(rows);
+
+    const runId = await startIngest(
+      { path: root, name: 'repo', model: 'embed-model', operation: 'reembed' },
+      buildDeps(),
+    );
+    await waitForTerminal(runId);
+
+    const parsedRelPaths = parseMock.mock.calls.map(
+      (call) => call.arguments[0].relPath,
+    );
+    assert.equal(parsedRelPaths.length, 5);
+    assert.deepEqual(
+      new Set(parsedRelPaths),
+      new Set(rows.map((row) => row.relPath)),
+    );
+  } finally {
+    await cleanup();
+  }
+});
+
+test('ingest does not log missing queries for new languages', async () => {
+  const { root, cleanup } = await createTempRepo({
+    'python/sample.py': 'print("hi")\n',
+    'csharp/sample.cs': 'class Greeter { void Run() {} }\n',
+    'rust/sample.rs': 'fn greet() { let name = "hi"; }\n',
+    'cpp/sample.cpp': 'int greet() { return 0; }\n',
+  });
+
+  try {
+    const runId = await startIngest(
+      { path: root, name: 'repo', model: 'embed-model' },
+      buildDeps(),
+    );
+    await waitForTerminal(runId);
+
+    const entries = query({ text: 'DEV-0000032:T4:ast-queries-missing' });
+    assert.equal(entries.length, 0);
   } finally {
     await cleanup();
   }
@@ -348,10 +493,15 @@ test('ingest logs unsupported-language skips', async () => {
     const warnings = query({ level: ['warn'], text: 'unsupported language' });
     assert.ok(warnings.length > 0);
     const context = warnings[0]?.context as
-      | { skippedFileCount?: number; root?: string }
+      | {
+          skippedFileCount?: number;
+          root?: string;
+          skippedExtensions?: string[];
+        }
       | undefined;
-    assert.equal(context?.skippedFileCount, 2);
+    assert.equal(context?.skippedFileCount, 1);
     assert.equal(context?.root, root);
+    assert.deepEqual(context?.skippedExtensions, ['md']);
   } finally {
     await cleanup();
   }

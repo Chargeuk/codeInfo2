@@ -35,8 +35,12 @@
     "pino-http": "11.0.0",
     "pino-roll": "4.0.0",
     "tree-sitter": "0.21.1",
+    "tree-sitter-c-sharp": "0.23.1",
     "tree-sitter-javascript": "0.23.1",
+    "tree-sitter-python": "0.23.3",
+    "tree-sitter-rust": "0.23.2",
     "tree-sitter-typescript": "0.23.2",
+    "tree-sitter-cpp": "0.23.1",
     "ws": "8.18.3",
     "zod": "3.25.76"
   },

@@ -87,7 +87,7 @@ _None. All questions resolved._
 - Flow discovery: extend `server/src/flows/discovery.ts` and `server/src/routes/flows.ts` to scan the local flows folder plus each `<ingestRoot>/flows`, returning `sourceId` (container path) + `sourceLabel` for ingested flows and keeping locals unlabeled; sort by the display label (`<name>` or `<name> - [Repo]`).
 - Flow execution: update `server/src/flows/service.ts` and `server/src/routes/flowsRun.ts` to accept an optional `sourceId` (container path) and resolve the correct flow file path with the same `path.resolve` + `path.relative` containment checks.
 - Client API + UI: adjust `client/src/api/agents.ts` and `client/src/pages/AgentsPage.tsx` to parse `sourceId/sourceLabel`, render labels as `<name> - [sourceLabel]` when present or `<name>` when absent, keep locals unlabeled, and pass `sourceId` when running commands; mirror for flows in `client/src/api/flows.ts` and `client/src/pages/FlowsPage.tsx`.
-- Tests to revisit: server agent command list/run tests in `server/src/test/unit/agents-commands-router-run.test.ts` and `server/src/test/unit/mcp-agents-router-list.test.ts`; flow list/run tests in `server/src/test/integration/flows.list.test.ts` and `server/src/test/integration/flows.run.*.test.ts`; client tests for agents/flows dropdowns in `client/src/test/agentsPage.commandsList.test.tsx` and `client/src/test/flowsApi.test.ts`/`client/src/test/flowsPage.stop.test.tsx`.
+- Tests to revisit: server agent command list/run tests in `server/src/test/unit/agents-commands-router-run.test.ts` and `server/src/test/unit/mcp-agents-commands-list.test.ts`; flow list/run tests in `server/src/test/integration/flows.list.test.ts` and `server/src/test/integration/flows.run.*.test.ts`; client tests for agents/flows dropdowns in `client/src/test/agentsPage.commandsList.test.tsx` and `client/src/test/flowsApi.test.ts`/`client/src/test/flowsPage.stop.test.tsx`.
 
 ---
 
@@ -148,7 +148,7 @@ Add ingested-repo command discovery to the agent command list so REST/MCP list r
      - `server/src/lmstudio/toolService.ts`
      - `server/src/ingest/pathMap.ts`
      - `server/src/test/unit/agent-commands-list.test.ts`
-     - `server/src/test/unit/mcp-agents-router-list.test.ts`
+    - `server/src/test/unit/mcp-agents-commands-list.test.ts`
      - `openapi.json`
    - Docs to read: Node.js `fs.readdir` + `path.resolve`/`path.relative` (Context7 `/nodejs/node/v22.17.0`): /nodejs/node/v22.17.0; OpenAPI 3.0.3 spec: https://spec.openapis.org/oas/v3.0.3.html; npm run-script docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script; Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/; Markdown Guide: https://www.markdownguide.org/basic-syntax/
 2. [ ] Add ingest repo lookup + command discovery:
@@ -197,37 +197,39 @@ Add ingested-repo command discovery to the agent command list so REST/MCP list r
     - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
 11. [ ] Unit test (REST list) — `server/src/test/unit/agent-commands-list.test.ts`: ensure missing ingest root directories are skipped and local commands still return; purpose: guard missing directories.
     - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
-12. [ ] Unit test (MCP list) — `server/src/test/unit/mcp-agents-router-list.test.ts`: ensure ingested commands include `sourceId`/`sourceLabel` and sorting uses display label; purpose: keep MCP parity with REST.
+12. [ ] Unit test (REST list) — `server/src/test/unit/agent-commands-list.test.ts`: listIngestedRepositories failures return local commands only; purpose: keep lists functional if ingest metadata is unavailable.
     - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
-13. [ ] Unit test (MCP list) — `server/src/test/unit/mcp-agents-router-list.test.ts`: ensure local commands omit `sourceId`/`sourceLabel`; purpose: keep MCP local payloads unchanged.
+13. [ ] Unit test (MCP list) — `server/src/test/unit/mcp-agents-commands-list.test.ts`: ensure ingested commands include `sourceId`/`sourceLabel` and sorting uses display label; purpose: keep MCP parity with REST.
     - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
-14. [ ] Unit test (MCP list) — `server/src/test/unit/mcp-agents-router-list.test.ts`: ensure `sourceLabel` falls back to ingest root basename when metadata name missing; purpose: enforce MCP fallback label rule.
+14. [ ] Unit test (MCP list) — `server/src/test/unit/mcp-agents-commands-list.test.ts`: ensure local commands omit `sourceId`/`sourceLabel`; purpose: keep MCP local payloads unchanged.
     - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
-15. [ ] Unit test (MCP list) — `server/src/test/unit/mcp-agents-router-list.test.ts`: ensure ingested commands are skipped when the matching agent does not exist locally; purpose: prevent invalid MCP listings.
+15. [ ] Unit test (MCP list) — `server/src/test/unit/mcp-agents-commands-list.test.ts`: ensure `sourceLabel` falls back to ingest root basename when metadata name missing; purpose: enforce MCP fallback label rule.
     - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
-16. [ ] Unit test (MCP list) — `server/src/test/unit/mcp-agents-router-list.test.ts`: ensure duplicate command names across ingest roots are retained and sorted by label; purpose: match REST duplicate handling.
+16. [ ] Unit test (MCP list) — `server/src/test/unit/mcp-agents-commands-list.test.ts`: ensure ingested commands are skipped when the matching agent does not exist locally; purpose: prevent invalid MCP listings.
     - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
-17. [ ] Unit test (MCP list) — `server/src/test/unit/mcp-agents-router-list.test.ts`: ensure missing ingest root directories are skipped and local commands still return; purpose: guard missing directories in MCP list.
+17. [ ] Unit test (MCP list) — `server/src/test/unit/mcp-agents-commands-list.test.ts`: ensure duplicate command names across ingest roots are retained and sorted by label; purpose: match REST duplicate handling.
     - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
-18. [ ] Update documentation — `design.md`:
+18. [ ] Unit test (MCP list) — `server/src/test/unit/mcp-agents-commands-list.test.ts`: ensure missing ingest root directories are skipped and local commands still return; purpose: guard missing directories in MCP list.
+    - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+19. [ ] Update documentation — `design.md`:
     - Document: `design.md`.
     - Location: repo root `design.md`.
     - Description: Add/confirm command discovery includes ingested repos and the label/sorting rules, and update the related Mermaid architecture diagram(s).
     - Purpose: keep architecture/design reference aligned with the new command discovery behavior.
     - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
-19. [ ] Update documentation — `README.md`:
+20. [ ] Update documentation — `README.md`:
     - Document: `README.md`.
     - Location: repo root `README.md`.
     - Description: Note any new agent command list fields (`sourceId`/`sourceLabel`) if documentation mentions list payloads.
     - Purpose: keep public API usage notes accurate for operators.
     - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
-20. [ ] After completing any file adds/removes in this task, update `projectStructure.md`:
+21. [ ] After completing any file adds/removes in this task, update `projectStructure.md`:
     - Document: `projectStructure.md`.
     - Location: repo root `projectStructure.md`.
     - Description: Record any added/removed files or confirm no change.
     - Purpose: ensure repository map stays current after structural edits.
     - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
-21. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
+22. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
     - Docs to read: npm run-script docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
 
 #### Testing
@@ -430,25 +432,27 @@ Extend flow discovery to include ingested repositories, returning `sourceId`/`so
    - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
 10. [ ] Integration test (flow list) — `server/src/test/integration/flows.list.test.ts`: ingest roots with no `flows/` directory are skipped and local flows still return; purpose: handle empty roots safely.
     - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
-11. [ ] Update documentation — `design.md` (flow discovery changes, plus Mermaid diagram updates).
+11. [ ] Integration test (flow list) — `server/src/test/integration/flows.list.test.ts`: listIngestedRepositories failures return local flows only; purpose: keep list responses available when ingest metadata is unavailable.
+    - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+12. [ ] Update documentation — `design.md` (flow discovery changes, plus Mermaid diagram updates).
     - Document: `design.md`.
     - Location: repo root `design.md`.
     - Description: Describe ingested flow discovery, list metadata, and update related Mermaid diagrams.
     - Purpose: keep flow architecture documentation aligned with new discovery behavior.
     - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
-12. [ ] Update documentation — `README.md`.
+13. [ ] Update documentation — `README.md`.
     - Document: `README.md`.
     - Location: repo root `README.md`.
     - Description: Note optional flow list fields (`sourceId`/`sourceLabel`) if README documents list responses.
     - Purpose: keep public API notes current.
     - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
-13. [ ] After completing any file adds/removes in this task, update `projectStructure.md`:
+14. [ ] After completing any file adds/removes in this task, update `projectStructure.md`:
     - Document: `projectStructure.md`.
     - Location: repo root `projectStructure.md`.
     - Description: Record any added/removed files or confirm no change.
     - Purpose: ensure repository map stays current after structural edits.
     - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
-14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
+15. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
     - Docs to read: npm run-script docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
 
 #### Testing
@@ -576,7 +580,7 @@ Update the Agents UI to display ingested command labels, sort by display label, 
 #### Documentation Locations
 
 - MUI Select docs (labels + MenuItem usage): MUI MCP `/mui/material@6.4.12` — https://llms.mui.com/material-ui/6.4.12/components/selects.md
-- React state + hooks (controlled selects + derived state): Context7 `/reactjs/react.dev`
+- React state + hooks (controlled selects + derived state): Context7 `/websites/react_dev`
 - React Testing Library docs (queries + user events): https://testing-library.com/docs/react-testing-library/intro/
 - Jest docs (Context7 `/jestjs/jest`): /jestjs/jest
 - Mermaid docs (Context7 `/mermaid-js/mermaid`): /mermaid-js/mermaid
@@ -593,18 +597,18 @@ Update the Agents UI to display ingested command labels, sort by display label, 
      - `client/src/pages/AgentsPage.tsx`
      - `client/src/test/agentsPage.commandsList.test.tsx`
      - `client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx`
-   - Docs to read: MUI Select docs (MUI MCP `/mui/material@6.4.12`, `components/selects.md`): https://llms.mui.com/material-ui/6.4.12/components/selects.md; React state + hooks (Context7 `/reactjs/react.dev`): /reactjs/react.dev; React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/; Markdown Guide: https://www.markdownguide.org/basic-syntax/
+   - Docs to read: MUI Select docs (MUI MCP `/mui/material@6.4.12`, `components/selects.md`): https://llms.mui.com/material-ui/6.4.12/components/selects.md; React state + hooks (Context7 `/websites/react_dev`): /websites/react_dev; React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/; Markdown Guide: https://www.markdownguide.org/basic-syntax/
 2. [ ] Update agents API list parsing:
    - Files to edit:
      - `client/src/api/agents.ts`
-   - Docs to read: React state + hooks (Context7 `/reactjs/react.dev`): /reactjs/react.dev; React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+   - Docs to read: React state + hooks (Context7 `/websites/react_dev`): /websites/react_dev; React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
    - Implementation details:
      - Extend the command type to include optional `sourceId`/`sourceLabel` fields.
      - Parse optional `sourceId`/`sourceLabel` from the command list response and include them in the returned command objects.
 3. [ ] Update dropdown rendering + selection state:
    - Files to edit:
      - `client/src/pages/AgentsPage.tsx`
-   - Docs to read: MUI Select docs (MUI MCP `/mui/material@6.4.12`, `components/selects.md`): https://llms.mui.com/material-ui/6.4.12/components/selects.md; React state + hooks (Context7 `/reactjs/react.dev`): /reactjs/react.dev; React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+   - Docs to read: MUI Select docs (MUI MCP `/mui/material@6.4.12`, `components/selects.md`): https://llms.mui.com/material-ui/6.4.12/components/selects.md; React state + hooks (Context7 `/websites/react_dev`): /websites/react_dev; React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
    - Implementation details:
      - Compute display labels (`<name>` vs `<name> - [sourceLabel]`).
      - Store `sourceId`/`sourceLabel` with each command and use a composite selection key so duplicate command names remain selectable.
@@ -612,21 +616,21 @@ Update the Agents UI to display ingested command labels, sort by display label, 
 4. [ ] Update run payload support in agents API:
    - Files to edit:
      - `client/src/api/agents.ts`
-   - Docs to read: React state + hooks (Context7 `/reactjs/react.dev`): /reactjs/react.dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+   - Docs to read: React state + hooks (Context7 `/websites/react_dev`): /websites/react_dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
    - Implementation details:
      - Accept optional `sourceId` in `runAgentCommand` params and include it in the payload when provided.
 5. [ ] Update run action to pass `sourceId`:
    - Files to edit:
      - `client/src/pages/AgentsPage.tsx`
-   - Docs to read: MUI Select docs (MUI MCP `/mui/material@6.4.12`, `components/selects.md`): https://llms.mui.com/material-ui/6.4.12/components/selects.md; React state + hooks (Context7 `/reactjs/react.dev`): /reactjs/react.dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface
+   - Docs to read: MUI Select docs (MUI MCP `/mui/material@6.4.12`, `components/selects.md`): https://llms.mui.com/material-ui/6.4.12/components/selects.md; React state + hooks (Context7 `/websites/react_dev`): /websites/react_dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface
    - Implementation details:
      - When the selected command has a `sourceId`, include it in the run payload; omit `sourceId` for local commands.
 6. [ ] Client unit test (commands list) — `client/src/test/agentsPage.commandsList.test.tsx`: duplicate command names from different sources render distinct labels; purpose: confirm display label + sorting behavior.
-   - Docs to read: React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; React state + hooks (Context7 `/reactjs/react.dev`): /reactjs/react.dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+   - Docs to read: React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; React state + hooks (Context7 `/websites/react_dev`): /websites/react_dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
 7. [ ] Client unit test (commands run) — `client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx`: ingested command run sends the correct `sourceId` in payload; purpose: verify ingest run wiring.
-   - Docs to read: React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; React state + hooks (Context7 `/reactjs/react.dev`): /reactjs/react.dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+   - Docs to read: React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; React state + hooks (Context7 `/websites/react_dev`): /websites/react_dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
 8. [ ] Client unit test (commands run) — `client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx`: local command run omits `sourceId` in payload; purpose: keep local run behavior unchanged.
-   - Docs to read: React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; React state + hooks (Context7 `/reactjs/react.dev`): /reactjs/react.dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+   - Docs to read: React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; React state + hooks (Context7 `/websites/react_dev`): /websites/react_dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
 9. [ ] Update documentation — `design.md` (UI behavior summary, plus Mermaid diagram updates where applicable).
    - Document: `design.md`.
    - Location: repo root `design.md`.
@@ -676,7 +680,7 @@ Update the Flows UI to display ingested flow labels, sort by display label, and 
 #### Documentation Locations
 
 - MUI Select docs (labels + MenuItem usage): MUI MCP `/mui/material@6.4.12` — https://llms.mui.com/material-ui/6.4.12/components/selects.md
-- React state + hooks (controlled selects + derived state): Context7 `/reactjs/react.dev`
+- React state + hooks (controlled selects + derived state): Context7 `/websites/react_dev`
 - React Testing Library docs (queries + user events): https://testing-library.com/docs/react-testing-library/intro/
 - Jest docs (Context7 `/jestjs/jest`): /jestjs/jest
 - Mermaid docs (Context7 `/mermaid-js/mermaid`): /mermaid-js/mermaid
@@ -693,18 +697,18 @@ Update the Flows UI to display ingested flow labels, sort by display label, and 
      - `client/src/pages/FlowsPage.tsx`
      - `client/src/test/flowsApi.test.ts`
      - `client/src/test/flowsPage.stop.test.tsx`
-   - Docs to read: MUI Select docs (MUI MCP `/mui/material@6.4.12`, `components/selects.md`): https://llms.mui.com/material-ui/6.4.12/components/selects.md; React state + hooks (Context7 `/reactjs/react.dev`): /reactjs/react.dev; React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/; Markdown Guide: https://www.markdownguide.org/basic-syntax/
+   - Docs to read: MUI Select docs (MUI MCP `/mui/material@6.4.12`, `components/selects.md`): https://llms.mui.com/material-ui/6.4.12/components/selects.md; React state + hooks (Context7 `/websites/react_dev`): /websites/react_dev; React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/; Markdown Guide: https://www.markdownguide.org/basic-syntax/
 2. [ ] Update flows API list parsing:
    - Files to edit:
      - `client/src/api/flows.ts`
-   - Docs to read: React state + hooks (Context7 `/reactjs/react.dev`): /reactjs/react.dev; React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+   - Docs to read: React state + hooks (Context7 `/websites/react_dev`): /websites/react_dev; React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
    - Implementation details:
      - Extend the `FlowSummary` type to include optional `sourceId`/`sourceLabel` fields.
      - Parse optional `sourceId`/`sourceLabel` from the flows list response and include them in the returned flow objects.
 3. [ ] Update dropdown rendering + selection state:
    - Files to edit:
      - `client/src/pages/FlowsPage.tsx`
-   - Docs to read: MUI Select docs (MUI MCP `/mui/material@6.4.12`, `components/selects.md`): https://llms.mui.com/material-ui/6.4.12/components/selects.md; React state + hooks (Context7 `/reactjs/react.dev`): /reactjs/react.dev; React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+   - Docs to read: MUI Select docs (MUI MCP `/mui/material@6.4.12`, `components/selects.md`): https://llms.mui.com/material-ui/6.4.12/components/selects.md; React state + hooks (Context7 `/websites/react_dev`): /websites/react_dev; React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
    - Implementation details:
      - Compute display labels (`<name>` vs `<name> - [sourceLabel]`).
      - Store `sourceId`/`sourceLabel` with each flow and use a composite selection key so duplicate flow names remain selectable.
@@ -712,21 +716,21 @@ Update the Flows UI to display ingested flow labels, sort by display label, and 
 4. [ ] Update run payload support in flows API:
    - Files to edit:
      - `client/src/api/flows.ts`
-   - Docs to read: React state + hooks (Context7 `/reactjs/react.dev`): /reactjs/react.dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+   - Docs to read: React state + hooks (Context7 `/websites/react_dev`): /websites/react_dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
    - Implementation details:
      - Accept optional `sourceId` in `runFlow` params and include it in the payload when provided.
 5. [ ] Update run action to pass `sourceId`:
    - Files to edit:
      - `client/src/pages/FlowsPage.tsx`
-   - Docs to read: MUI Select docs (MUI MCP `/mui/material@6.4.12`, `components/selects.md`): https://llms.mui.com/material-ui/6.4.12/components/selects.md; React state + hooks (Context7 `/reactjs/react.dev`): /reactjs/react.dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface
+   - Docs to read: MUI Select docs (MUI MCP `/mui/material@6.4.12`, `components/selects.md`): https://llms.mui.com/material-ui/6.4.12/components/selects.md; React state + hooks (Context7 `/websites/react_dev`): /websites/react_dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface
    - Implementation details:
      - When the selected flow has a `sourceId`, include it in the run payload; omit `sourceId` for local flows.
 6. [ ] Client unit test (flows list UI) — `client/src/test/flowsPage.stop.test.tsx`: duplicate flow names from different sources render distinct labels; purpose: confirm display label + sorting behavior.
-   - Docs to read: React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; React state + hooks (Context7 `/reactjs/react.dev`): /reactjs/react.dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+   - Docs to read: React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; React state + hooks (Context7 `/websites/react_dev`): /websites/react_dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
 7. [ ] Client unit test (flows run) — `client/src/test/flowsPage.stop.test.tsx`: ingested flow run sends the correct `sourceId` payload; purpose: verify ingest run wiring.
-   - Docs to read: React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; React state + hooks (Context7 `/reactjs/react.dev`): /reactjs/react.dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+   - Docs to read: React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; React state + hooks (Context7 `/websites/react_dev`): /websites/react_dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
 8. [ ] Client unit test (flows run) — `client/src/test/flowsPage.stop.test.tsx`: local flow run omits `sourceId` in payload; purpose: keep local run behavior unchanged.
-   - Docs to read: React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; React state + hooks (Context7 `/reactjs/react.dev`): /reactjs/react.dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+   - Docs to read: React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; React state + hooks (Context7 `/websites/react_dev`): /websites/react_dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
 9. [ ] Update documentation — `design.md` (UI behavior summary, plus Mermaid diagram updates where applicable).
    - Document: `design.md`.
    - Location: repo root `design.md`.

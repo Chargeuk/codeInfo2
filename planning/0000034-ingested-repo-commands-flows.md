@@ -26,7 +26,6 @@ This story adds discovery of commands and flows from ingested repositories. If a
 - Commands are discovered from each ingested repo at `<ingestRoot>/codex_agents/<agentName>/commands` when the matching agent exists locally.
 - Flows are discovered from each ingested repo at `<ingestRoot>/flows`.
 - Duplicate command or flow names are allowed across repos.
-- Dropdown lists are sorted alphabetically by command/flow name.
 - Dropdown lists are sorted alphabetically by the full display label (`<name> - [Repo Name]`) so duplicates stay deterministic.
 - Imported items display the ingest root display name in brackets, formatted as `<name> - [Repo Name]`.
 - If the ingest root display name is missing or empty, the fallback label is the ingest root folder name.

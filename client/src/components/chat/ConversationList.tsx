@@ -333,7 +333,7 @@ export function ConversationList({
               Active
             </ToggleButton>
             <ToggleButton value="all" data-testid="conversation-filter-all">
-              Active & Archived
+              Active &amp; Archived
             </ToggleButton>
             <ToggleButton
               value="archived"

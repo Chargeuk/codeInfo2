@@ -34,6 +34,15 @@ export function useIngestStatus(): Status {
             ? { runId: event.status.runId, state: event.status.state }
             : null,
         );
+        if (event.status?.ast) {
+          console.info('DEV-0000032:T10:ast-status-received', {
+            runId: event.status.runId,
+            supportedFileCount: event.status.ast.supportedFileCount,
+            skippedFileCount: event.status.ast.skippedFileCount,
+            failedFileCount: event.status.ast.failedFileCount,
+            lastIndexedAt: event.status.ast.lastIndexedAt,
+          });
+        }
       }
       if (event.type === 'ingest_update') {
         setStatus(event.status);
@@ -41,6 +50,15 @@ export function useIngestStatus(): Status {
           runId: event.status.runId,
           state: event.status.state,
         });
+        if (event.status.ast) {
+          console.info('DEV-0000032:T10:ast-status-received', {
+            runId: event.status.runId,
+            supportedFileCount: event.status.ast.supportedFileCount,
+            skippedFileCount: event.status.ast.skippedFileCount,
+            failedFileCount: event.status.ast.failedFileCount,
+            lastIndexedAt: event.status.ast.lastIndexedAt,
+          });
+        }
       }
     },
   });

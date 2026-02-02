@@ -123,7 +123,7 @@ When(
 );
 
 Then(
-  'ingest status eventually includes progress fields for {int} files',
+  'ingest status eventually includes progress fields and AST counts for {int} files',
   async (expected: number) => {
     assert.equal(expected, expectedFiles);
     assert(lastRunId, 'runId missing');
@@ -172,5 +172,18 @@ Then(
       snapshot?.etaMs === undefined || typeof snapshot?.etaMs === 'number',
       true,
     );
+    const ast = snapshot?.ast as
+      | {
+          supportedFileCount?: number;
+          skippedFileCount?: number;
+          failedFileCount?: number;
+        }
+      | undefined;
+    assert.equal(typeof ast?.supportedFileCount, 'number');
+    assert.equal(typeof ast?.skippedFileCount, 'number');
+    assert.equal(typeof ast?.failedFileCount, 'number');
+    assert.equal(ast?.supportedFileCount, 0);
+    assert.equal(ast?.skippedFileCount, expectedFiles);
+    assert.equal(ast?.failedFileCount, 0);
   },
 );

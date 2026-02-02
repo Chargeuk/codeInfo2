@@ -276,6 +276,7 @@ export default function RootsTable({
               const rowDisabled = busy || state === 'loading';
               const isSelected = selected.has(root.path);
               const chipColor = statusColor[root.status] ?? 'default';
+              const astCounts = root.ast;
               return (
                 <TableRow key={root.path} hover selected={isSelected}>
                   <TableCell padding="checkbox">
@@ -315,6 +316,18 @@ export default function RootsTable({
                       <Counts label="Files" value={root.counts?.files} />
                       <Counts label="Chunks" value={root.counts?.chunks} />
                       <Counts label="Embedded" value={root.counts?.embedded} />
+                      <Counts
+                        label="AST Supported"
+                        value={astCounts?.supportedFileCount}
+                      />
+                      <Counts
+                        label="AST Skipped"
+                        value={astCounts?.skippedFileCount}
+                      />
+                      <Counts
+                        label="AST Failed"
+                        value={astCounts?.failedFileCount}
+                      />
                     </Stack>
                   </TableCell>
                   <TableCell align="right">

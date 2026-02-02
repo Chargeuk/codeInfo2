@@ -20,3 +20,5 @@ You must follow these steps in order to correctly work through the story:
 9. Commit, but don't push, your changes with a comment indicating that you are marking the git commit.
 
 Once all the above is complete, provide an overview to the user that states what you did and any gotchas you had to work through. You should only provide information about the task you worked through, not any other tasks.
+
+AST indexing note: Tree-sitter supports TSX via tree-sitter-typescript, but it can flag parse errors on unescaped JSX text (for example, use `&amp;` or `{ '&' }` instead of raw `&`). If AST failures occur, check server logs for `AST indexing failed for file(s)`; the log now includes example failures with relPath, error, and line/column/snippet details to help pinpoint issues quickly.

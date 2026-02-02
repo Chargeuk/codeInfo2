@@ -5,10 +5,13 @@ import cors from 'cors';
 import { config } from 'dotenv';
 import express from 'express';
 import pkg from '../package.json' with { type: 'json' };
+import { warmAstParserQueries } from './ast/parser.js';
 import { ensureCodexConfigSeeded, getCodexHome } from './config/codexConfig.js';
 import './flows/flowSchema.js';
 import './ingest/index.js';
+import './mongo/astCoverage.js';
 import { closeAll, getClient } from './lmstudio/clientPool.js';
+import { append } from './logStore.js';
 import { baseLogger, createRequestLogger } from './logger.js';
 import { createMcpRouter } from './mcp/server.js';
 import { startMcp2Server, stopMcp2Server } from './mcp2/server.js';
@@ -41,6 +44,11 @@ import { createIngestRootsRouter } from './routes/ingestRoots.js';
 import { createIngestStartRouter } from './routes/ingestStart.js';
 import { createLmStudioRouter } from './routes/lmstudio.js';
 import { createLogsRouter } from './routes/logs.js';
+import { createToolsAstCallGraphRouter } from './routes/toolsAstCallGraph.js';
+import { createToolsAstFindDefinitionRouter } from './routes/toolsAstFindDefinition.js';
+import { createToolsAstFindReferencesRouter } from './routes/toolsAstFindReferences.js';
+import { createToolsAstListSymbolsRouter } from './routes/toolsAstListSymbols.js';
+import { createToolsAstModuleImportsRouter } from './routes/toolsAstModuleImports.js';
 import { createToolsIngestedReposRouter } from './routes/toolsIngestedRepos.js';
 import { createToolsVectorSearchRouter } from './routes/toolsVectorSearch.js';
 import { ensureCodexAuthFromHost } from './utils/codexAuthCopy.js';
@@ -111,10 +119,38 @@ app.use('/', createIngestRemoveRouter());
 app.use('/', createLmStudioRouter({ clientFactory }));
 app.use('/', createToolsIngestedReposRouter());
 app.use('/', createToolsVectorSearchRouter());
+app.use('/', createToolsAstListSymbolsRouter());
+app.use('/', createToolsAstFindDefinitionRouter());
+app.use('/', createToolsAstFindReferencesRouter());
+app.use('/', createToolsAstCallGraphRouter());
+app.use('/', createToolsAstModuleImportsRouter());
 app.use('/', createMcpRouter());
 
 let server: http.Server | undefined;
 let wsServer: WsServerHandle | undefined;
+
+const logTreeSitterReady = async () => {
+  try {
+    await import('tree-sitter');
+    const timestamp = new Date().toISOString();
+    append({
+      level: 'info',
+      message: 'DEV-0000032:T3:tree-sitter-deps-ready',
+      timestamp,
+      source: 'server',
+      context: { dependency: 'tree-sitter' },
+    });
+    baseLogger.info(
+      {
+        event: 'DEV-0000032:T3:tree-sitter-deps-ready',
+        dependency: 'tree-sitter',
+      },
+      'Tree-sitter dependency ready',
+    );
+  } catch (err) {
+    baseLogger.error({ err }, 'Failed to load Tree-sitter dependency');
+  }
+};
 
 const start = async () => {
   const mongoUri = process.env.MONGO_URI;
@@ -131,9 +167,26 @@ const start = async () => {
 
   const httpServer = http.createServer(app);
   wsServer = attachWs({ httpServer });
-  server = httpServer.listen(Number(PORT), () =>
-    baseLogger.info(`Server on ${PORT}`),
-  );
+  server = httpServer.listen(Number(PORT), () => {
+    baseLogger.info(`Server on ${PORT}`);
+    baseLogger.info(
+      { event: 'DEV-0000032:T12:verification-ready', port: Number(PORT) },
+      'DEV-0000032:T12:verification-ready',
+    );
+    const timestamp = new Date().toISOString();
+    append({
+      level: 'info',
+      message: 'DEV-0000032:T12:verification-ready',
+      timestamp,
+      source: 'server',
+      context: {
+        event: 'DEV-0000032:T12:verification-ready',
+        port: Number(PORT),
+      },
+    });
+  });
+  await logTreeSitterReady();
+  void warmAstParserQueries();
   startMcp2Server();
   startAgentsMcpServer();
 };

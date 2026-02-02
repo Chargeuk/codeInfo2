@@ -25,6 +25,12 @@ export type ActiveRunCardProps = {
     embedded?: number;
     skipped?: number;
   };
+  ast?: {
+    supportedFileCount: number;
+    skippedFileCount: number;
+    failedFileCount: number;
+    lastIndexedAt: string | null;
+  };
   currentFile?: string | null;
   fileIndex?: number;
   fileTotal?: number;
@@ -55,6 +61,7 @@ export default function ActiveRunCard({
   runId,
   status,
   counts,
+  ast,
   currentFile,
   fileIndex,
   fileTotal,
@@ -103,6 +110,25 @@ export default function ActiveRunCard({
         <Metric label="Embedded" value={counts?.embedded} />
         <Metric label="Skipped" value={counts?.skipped} />
       </Stack>
+
+      {ast ? (
+        <Stack spacing={1}>
+          <Typography variant="subtitle2" color="text.secondary">
+            AST status
+          </Typography>
+          <Stack direction="row" spacing={3} flexWrap="wrap">
+            <Metric label="AST supported" value={ast.supportedFileCount} />
+            <Metric label="AST skipped" value={ast.skippedFileCount} />
+            <Metric label="AST failed" value={ast.failedFileCount} />
+          </Stack>
+          <Typography variant="body2" color="text.secondary">
+            AST last indexed:{' '}
+            {ast.lastIndexedAt
+              ? new Date(ast.lastIndexedAt).toLocaleString()
+              : '–'}
+          </Typography>
+        </Stack>
+      ) : null}
 
       {message ? (
         <Typography color="text.secondary" variant="body2">

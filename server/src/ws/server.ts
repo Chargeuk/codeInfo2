@@ -321,6 +321,13 @@ export function broadcastIngestUpdate(status: IngestJobStatus) {
       seq: firstSeq,
       subscriberCount,
     });
+    if (status.ast) {
+      logPublish('DEV-0000032:T6:ingest-status-ast', {
+        event: 'DEV-0000032:T6:ingest-status-ast',
+        runId: status.runId,
+        supportedFileCount: status.ast.supportedFileCount,
+      });
+    }
     recordIngestLog(status, now);
   }
 }

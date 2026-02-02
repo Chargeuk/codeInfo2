@@ -29,6 +29,7 @@ test('includes per-file progress fields in ingest status snapshots', () => {
     runId,
     state: 'embedding' as const,
     counts: { files: 3, chunks: 5, embedded: 2 },
+    ast: { supportedFileCount: 2, skippedFileCount: 1, failedFileCount: 0 },
     message: 'Embedding 3 files',
     lastError: null,
     currentFile: '/repo/a.txt',
@@ -48,6 +49,12 @@ test('includes per-file progress fields in ingest status snapshots', () => {
   assert.equal(snapshot?.fileTotal, status.fileTotal);
   assert.equal(snapshot?.percent, status.percent);
   assert.equal(snapshot?.etaMs, status.etaMs);
+  assert.equal(
+    snapshot?.ast?.supportedFileCount,
+    status.ast.supportedFileCount,
+  );
+  assert.equal(snapshot?.ast?.skippedFileCount, status.ast.skippedFileCount);
+  assert.equal(snapshot?.ast?.failedFileCount, status.ast.failedFileCount);
 });
 
 test('getActiveStatus prefers active lock owner', () => {

@@ -14,6 +14,12 @@ type RootEntry = {
   lastIngestAt: string | null;
   counts: { files: number; chunks: number; embedded: number };
   lastError: string | null;
+  ast?: {
+    supportedFileCount: number;
+    skippedFileCount: number;
+    failedFileCount: number;
+    lastIndexedAt: string | null;
+  };
 };
 
 function logLifecycle(message: string, context: Record<string, unknown>) {
@@ -32,6 +38,35 @@ function toTimestamp(value: string | null): number {
   if (!value) return 0;
   const ts = Date.parse(value);
   return Number.isFinite(ts) ? ts : 0;
+}
+
+function parseAstMetadata(
+  meta: Record<string, unknown>,
+): RootEntry['ast'] | undefined {
+  const astRaw = meta.ast;
+  const ast =
+    astRaw && typeof astRaw === 'object'
+      ? (astRaw as Record<string, unknown>)
+      : {
+          supportedFileCount: meta.astSupportedFileCount,
+          skippedFileCount: meta.astSkippedFileCount,
+          failedFileCount: meta.astFailedFileCount,
+          lastIndexedAt: meta.astLastIndexedAt,
+        };
+  const hasAstFields =
+    ast.supportedFileCount !== undefined ||
+    ast.skippedFileCount !== undefined ||
+    ast.failedFileCount !== undefined ||
+    ast.lastIndexedAt !== undefined;
+  if (!hasAstFields) return undefined;
+
+  return {
+    supportedFileCount: Number(ast.supportedFileCount ?? 0),
+    skippedFileCount: Number(ast.skippedFileCount ?? 0),
+    failedFileCount: Number(ast.failedFileCount ?? 0),
+    lastIndexedAt:
+      typeof ast.lastIndexedAt === 'string' ? ast.lastIndexedAt : null,
+  };
 }
 
 export function dedupeRootsByPath(roots: RootEntry[]): RootEntry[] {
@@ -92,6 +127,7 @@ export function createIngestRootsRouter() {
           const m = (meta ?? {}) as Record<string, unknown>;
           const lastIngestAt =
             typeof m.lastIngestAt === 'string' ? m.lastIngestAt : null;
+          const ast = parseAstMetadata(m);
           return {
             runId: typeof ids[idx] === 'string' ? ids[idx] : `run-${idx}`,
             name: typeof m.name === 'string' ? m.name : '',
@@ -112,6 +148,7 @@ export function createIngestRootsRouter() {
                 : m.lastError === null
                   ? null
                   : null,
+            ast,
           } satisfies RootEntry;
         })
         .sort((a, b) => {

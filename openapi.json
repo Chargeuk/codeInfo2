@@ -55,6 +55,58 @@
         }
       }
     },
+    "/ingest/roots": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Ingest roots listing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "roots": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "runId": { "type": "string" },
+                          "name": { "type": "string" },
+                          "description": { "type": "string", "nullable": true },
+                          "path": { "type": "string" },
+                          "model": { "type": "string" },
+                          "status": { "type": "string" },
+                          "lastIngestAt": { "type": "string", "nullable": true },
+                          "counts": {
+                            "type": "object",
+                            "properties": {
+                              "files": { "type": "number" },
+                              "chunks": { "type": "number" },
+                              "embedded": { "type": "number" }
+                            }
+                          },
+                          "lastError": { "type": "string", "nullable": true },
+                          "ast": {
+                            "type": "object",
+                            "properties": {
+                              "supportedFileCount": { "type": "number" },
+                              "skippedFileCount": { "type": "number" },
+                              "failedFileCount": { "type": "number" },
+                              "lastIndexedAt": { "type": "string", "nullable": true }
+                            }
+                          }
+                        }
+                      }
+                    },
+                    "lockedModelId": { "type": "string", "nullable": true }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/flows/{flowName}/run": {
       "post": {
         "parameters": [
@@ -98,6 +150,599 @@
         "responses": {
           "202": {
             "description": "Flow run started"
+          }
+        }
+      }
+    },
+    "/tools/ast-list-symbols": {
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "repository": {
+                    "type": "string"
+                  },
+                  "kinds": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 200
+                  }
+                },
+                "required": ["repository"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "AST symbols",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "symbols": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "symbolId": { "type": "string" },
+                          "root": { "type": "string" },
+                          "relPath": { "type": "string" },
+                          "fileHash": { "type": "string" },
+                          "language": { "type": "string" },
+                          "kind": { "type": "string" },
+                          "name": { "type": "string" },
+                          "container": { "type": "string" },
+                          "range": {
+                            "type": "object",
+                            "properties": {
+                              "start": {
+                                "type": "object",
+                                "properties": {
+                                  "line": { "type": "integer" },
+                                  "column": { "type": "integer" }
+                                },
+                                "required": ["line", "column"]
+                              },
+                              "end": {
+                                "type": "object",
+                                "properties": {
+                                  "line": { "type": "integer" },
+                                  "column": { "type": "integer" }
+                                },
+                                "required": ["line", "column"]
+                              }
+                            },
+                            "required": ["start", "end"]
+                          }
+                        },
+                        "required": [
+                          "symbolId",
+                          "root",
+                          "relPath",
+                          "fileHash",
+                          "language",
+                          "kind",
+                          "name",
+                          "range"
+                        ]
+                      }
+                    }
+                  },
+                  "required": ["symbols"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": { "type": "string" },
+                    "details": {
+                      "type": "array",
+                      "items": { "type": "string" }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Repo not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "AST index required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": { "type": "string" },
+                    "message": { "type": "string" },
+                    "repository": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tools/ast-find-definition": {
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "repository": { "type": "string" },
+                  "symbolId": { "type": "string" },
+                  "name": { "type": "string" },
+                  "kind": { "type": "string" }
+                },
+                "required": ["repository"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "AST definition",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "symbol": {
+                      "anyOf": [
+                        { "type": "null" },
+                        {
+                          "type": "object",
+                          "properties": {
+                            "symbolId": { "type": "string" },
+                            "root": { "type": "string" },
+                            "relPath": { "type": "string" },
+                            "fileHash": { "type": "string" },
+                            "language": { "type": "string" },
+                            "kind": { "type": "string" },
+                            "name": { "type": "string" },
+                            "container": { "type": "string" },
+                            "range": {
+                              "type": "object",
+                              "properties": {
+                                "start": {
+                                  "type": "object",
+                                  "properties": {
+                                    "line": { "type": "integer" },
+                                    "column": { "type": "integer" }
+                                  },
+                                  "required": ["line", "column"]
+                                },
+                                "end": {
+                                  "type": "object",
+                                  "properties": {
+                                    "line": { "type": "integer" },
+                                    "column": { "type": "integer" }
+                                  },
+                                  "required": ["line", "column"]
+                                }
+                              },
+                              "required": ["start", "end"]
+                            }
+                          },
+                          "required": [
+                            "symbolId",
+                            "root",
+                            "relPath",
+                            "fileHash",
+                            "language",
+                            "kind",
+                            "name",
+                            "range"
+                          ]
+                        }
+                      ]
+                    }
+                  },
+                  "required": ["symbol"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": { "type": "string" },
+                    "details": {
+                      "type": "array",
+                      "items": { "type": "string" }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Repo not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "AST index required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": { "type": "string" },
+                    "message": { "type": "string" },
+                    "repository": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tools/ast-find-references": {
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "repository": { "type": "string" },
+                  "symbolId": { "type": "string" },
+                  "name": { "type": "string" },
+                  "kind": { "type": "string" }
+                },
+                "required": ["repository"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "AST references",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "references": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "relPath": { "type": "string" },
+                          "range": {
+                            "type": "object",
+                            "properties": {
+                              "start": {
+                                "type": "object",
+                                "properties": {
+                                  "line": { "type": "integer" },
+                                  "column": { "type": "integer" }
+                                },
+                                "required": ["line", "column"]
+                              },
+                              "end": {
+                                "type": "object",
+                                "properties": {
+                                  "line": { "type": "integer" },
+                                  "column": { "type": "integer" }
+                                },
+                                "required": ["line", "column"]
+                              }
+                            },
+                            "required": ["start", "end"]
+                          },
+                          "symbolId": { "type": "string" }
+                        },
+                        "required": ["relPath", "range"]
+                      }
+                    }
+                  },
+                  "required": ["references"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": { "type": "string" },
+                    "details": {
+                      "type": "array",
+                      "items": { "type": "string" }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Repo not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "AST index required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": { "type": "string" },
+                    "message": { "type": "string" },
+                    "repository": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tools/ast-call-graph": {
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "repository": { "type": "string" },
+                  "symbolId": { "type": "string" },
+                  "depth": { "type": "integer", "minimum": 1 }
+                },
+                "required": ["repository", "symbolId"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "AST call graph",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "nodes": {
+                      "type": "array",
+                      "items": { "type": "object" }
+                    },
+                    "edges": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "root": { "type": "string" },
+                          "relPath": { "type": "string" },
+                          "fileHash": { "type": "string" },
+                          "fromSymbolId": { "type": "string" },
+                          "toSymbolId": { "type": "string" },
+                          "type": { "type": "string" }
+                        },
+                        "required": [
+                          "root",
+                          "relPath",
+                          "fileHash",
+                          "fromSymbolId",
+                          "toSymbolId",
+                          "type"
+                        ]
+                      }
+                    }
+                  },
+                  "required": ["nodes", "edges"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": { "type": "string" },
+                    "details": {
+                      "type": "array",
+                      "items": { "type": "string" }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Repo not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "AST index required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": { "type": "string" },
+                    "message": { "type": "string" },
+                    "repository": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tools/ast-module-imports": {
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "repository": { "type": "string" },
+                  "relPath": { "type": "string" }
+                },
+                "required": ["repository"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "AST module imports",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "modules": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "relPath": { "type": "string" },
+                          "imports": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "properties": {
+                                "source": { "type": "string" },
+                                "names": {
+                                  "type": "array",
+                                  "items": { "type": "string" }
+                                }
+                              },
+                              "required": ["source", "names"]
+                            }
+                          }
+                        },
+                        "required": ["relPath", "imports"]
+                      }
+                    }
+                  },
+                  "required": ["modules"]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": { "type": "string" },
+                    "details": {
+                      "type": "array",
+                      "items": { "type": "string" }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Repo not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "AST index required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": { "type": "string" },
+                    "message": { "type": "string" },
+                    "repository": { "type": "string" }
+                  }
+                }
+              }
+            }
           }
         }
       }

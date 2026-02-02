@@ -84,6 +84,15 @@ describe('RootsTable', () => {
     counts: { files: 2, chunks: 4, embedded: 4 },
     lastError: null,
   } as const;
+  const rootWithAst = {
+    ...root,
+    ast: {
+      supportedFileCount: 9,
+      skippedFileCount: 8,
+      failedFileCount: 7,
+      lastIndexedAt: '2025-01-01T01:23:45.000Z',
+    },
+  } as const;
 
   it('shows empty state copy when no roots', () => {
     render(
@@ -183,6 +192,44 @@ describe('RootsTable', () => {
     const btn = within(row).getByRole('button', { name: /re-embed/i });
     expect(btn).toBeDisabled();
   });
+
+  it('renders AST counts in the table when available', async () => {
+    render(
+      <RootsTable
+        roots={[rootWithAst]}
+        lockedModelId={undefined}
+        isLoading={false}
+        error={undefined}
+        disabled={false}
+        onRefresh={() => Promise.resolve()}
+      />,
+    );
+
+    const row = await screen.findByRole('row', { name: /repo/i });
+    expect(row).toHaveTextContent('AST Supported:');
+    expect(row).toHaveTextContent('AST Skipped:');
+    expect(row).toHaveTextContent('AST Failed:');
+    expect(row).toHaveTextContent('9');
+    expect(row).toHaveTextContent('8');
+    expect(row).toHaveTextContent('7');
+  });
+
+  it('shows placeholders for AST counts when missing', async () => {
+    render(
+      <RootsTable
+        roots={[root]}
+        lockedModelId={undefined}
+        isLoading={false}
+        error={undefined}
+        disabled={false}
+        onRefresh={() => Promise.resolve()}
+      />,
+    );
+
+    const row = await screen.findByRole('row', { name: /repo/i });
+    const placeholders = within(row).getAllByText('–');
+    expect(placeholders).toHaveLength(3);
+  });
 });
 
 describe('RootDetailsDrawer', () => {
@@ -210,5 +257,58 @@ describe('RootDetailsDrawer', () => {
     expect(screen.getByText(/Embedding model locked/)).toBeInTheDocument();
     expect(screen.getAllByText(/^ts$/i).length).toBeGreaterThan(0);
     expect(screen.getByText(/node_modules/)).toBeInTheDocument();
+  });
+
+  it('renders AST counts when present', () => {
+    render(
+      <RootDetailsDrawer
+        open
+        onClose={() => undefined}
+        root={{
+          runId: 'run-1',
+          name: 'repo',
+          description: 'demo repo',
+          path: '/repo',
+          model: 'embed-1',
+          status: 'completed',
+          lastIngestAt: '2025-01-01T00:00:00.000Z',
+          counts: { files: 2, chunks: 4, embedded: 4 },
+          ast: {
+            supportedFileCount: 9,
+            skippedFileCount: 8,
+            failedFileCount: 7,
+            lastIndexedAt: '2025-01-01T01:23:45.000Z',
+          },
+        }}
+      />,
+    );
+
+    expect(screen.getByText(/AST Supported: 9/)).toBeInTheDocument();
+    expect(screen.getByText(/AST Skipped: 8/)).toBeInTheDocument();
+    expect(screen.getByText(/AST Failed: 7/)).toBeInTheDocument();
+  });
+
+  it('shows AST placeholders when metadata is missing', () => {
+    render(
+      <RootDetailsDrawer
+        open
+        onClose={() => undefined}
+        root={{
+          runId: 'run-1',
+          name: 'repo',
+          description: 'demo repo',
+          path: '/repo',
+          model: 'embed-1',
+          status: 'completed',
+          lastIngestAt: '2025-01-01T00:00:00.000Z',
+          counts: { files: 2, chunks: 4, embedded: 4 },
+          lastError: null,
+        }}
+      />,
+    );
+
+    expect(screen.getByText(/AST Supported: –/)).toBeInTheDocument();
+    expect(screen.getByText(/AST Skipped: –/)).toBeInTheDocument();
+    expect(screen.getByText(/AST Failed: –/)).toBeInTheDocument();
   });
 });

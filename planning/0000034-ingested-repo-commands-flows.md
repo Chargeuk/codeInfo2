@@ -148,7 +148,7 @@ Add ingested-repo command discovery to the agent command list so REST/MCP list r
      - `server/src/test/unit/agent-commands-list.test.ts`
      - `server/src/test/unit/mcp-agents-router-list.test.ts`
      - `openapi.json`
-2. [ ] Implement ingested command discovery and label sorting:
+2. [ ] Add ingest repo lookup + command discovery:
    - Files to edit:
      - `server/src/agents/service.ts`
    - Implementation details:
@@ -156,19 +156,27 @@ Add ingested-repo command discovery to the agent command list so REST/MCP list r
      - Reuse `loadAgentCommandSummary` from `server/src/agents/commandsLoader.ts` for both local and ingested files so invalid JSON/schema handling stays consistent.
      - If `listIngestedRepositories` fails (for example, Chroma unavailable), return local commands only and log/continue without throwing.
      - Skip ingest roots that are missing on disk or do not contain `codex_agents/<agentName>/commands` (no errors, just omit).
+3. [ ] Add labels + sort for local/ingested commands:
+   - Files to edit:
+     - `server/src/agents/service.ts`
+   - Implementation details:
      - Use container path (`/data/<repo>`) as `sourceId` and the repo `id` from `listIngestedRepositories` as `sourceLabel` (this id already reflects ingest metadata name or container basename).
      - If the repo `id` is empty, fall back to `path.posix.basename(containerPath)` for the label.
      - Keep local commands unlabeled (no `sourceId`/`sourceLabel`).
      - Sort the combined list by display label (`<name>` for local, `<name> - [sourceLabel]` for ingested).
      - Do not de-duplicate names; preserve duplicates across ingest roots.
-3. [ ] Update REST/MCP list payloads and OpenAPI schema:
+4. [ ] Update REST list payload + OpenAPI schema:
    - Files to edit:
      - `server/src/routes/agentsCommands.ts`
-     - `server/src/mcpAgents/tools.ts`
      - `openapi.json`
    - Implementation details:
-     - Add optional `sourceId`/`sourceLabel` fields to list payloads for ingested items only.
-4. [ ] Update/extend list tests:
+     - Add optional `sourceId`/`sourceLabel` fields to REST list payloads for ingested items only.
+5. [ ] Update MCP list payload:
+   - Files to edit:
+     - `server/src/mcpAgents/tools.ts`
+   - Implementation details:
+     - Add optional `sourceId`/`sourceLabel` fields to MCP list payloads for ingested items only.
+6. [ ] Update/extend list tests:
    - Files to edit:
      - `server/src/test/unit/agent-commands-list.test.ts`
      - `server/src/test/unit/mcp-agents-router-list.test.ts`
@@ -177,12 +185,12 @@ Add ingested-repo command discovery to the agent command list so REST/MCP list r
      - Validate local commands omit `sourceId`/`sourceLabel`.
      - Add coverage for duplicate command names across different ingest roots (both entries retained, sorted by label).
      - Add coverage for missing ingest root directories (local commands still returned).
-5. [ ] Update documentation — `design.md`:
+7. [ ] Update documentation — `design.md`:
    - Document: `design.md`.
    - Description: Add/confirm command discovery includes ingested repos and the label/sorting rules.
-6. [ ] Update documentation — `README.md` (if any new endpoints/fields need mention).
-7. [ ] Update documentation — `projectStructure.md` (if any files added/removed in this task; otherwise confirm no change).
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
+8. [ ] Update documentation — `README.md` (if any new endpoints/fields need mention).
+9. [ ] Update documentation — `projectStructure.md` (if any files added/removed in this task; otherwise confirm no change).
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
 
 #### Testing
 
@@ -231,18 +239,26 @@ Add optional `sourceId` support when running agent commands so ingested command 
      - `server/src/test/unit/agents-commands-router-run.test.ts`
      - `server/src/test/unit/mcp-agents-router-run.test.ts`
      - `openapi.json`
-2. [ ] Add optional `sourceId` to run payloads and resolve command paths:
+2. [ ] Add sourceId resolution + containment checks:
    - Files to edit:
-     - `server/src/routes/agentsCommands.ts`
      - `server/src/agents/service.ts`
      - `server/src/agents/commandsRunner.ts`
-     - `server/src/mcpAgents/tools.ts`
-     - `openapi.json`
    - Implementation details:
      - Accept `sourceId` (container path) for ingested commands and reject unknown roots with 404.
      - Resolve `<sourceId>/codex_agents/<agentName>/commands/<command>.json` and validate containment with `path.resolve` + `path.relative`.
      - If `sourceId` is provided but `listIngestedRepositories` fails or no matching `containerPath` exists, return `404 { error: 'not_found' }`.
-3. [ ] Update run tests:
+3. [ ] Update REST run payload + OpenAPI schema:
+   - Files to edit:
+     - `server/src/routes/agentsCommands.ts`
+     - `openapi.json`
+   - Implementation details:
+     - Accept optional `sourceId` in REST payloads and pass it into the service layer.
+4. [ ] Update MCP run payload:
+   - Files to edit:
+     - `server/src/mcpAgents/tools.ts`
+   - Implementation details:
+     - Accept optional `sourceId` in MCP payloads and forward to `runAgentCommand`.
+5. [ ] Update run tests:
    - Files to edit:
      - `server/src/test/unit/agents-commands-router-run.test.ts`
      - `server/src/test/unit/mcp-agents-router-run.test.ts`
@@ -250,10 +266,10 @@ Add optional `sourceId` support when running agent commands so ingested command 
    - Testing expectations:
      - Validate 404 on unknown `sourceId` and success when `sourceId` resolves to an ingested command.
      - Validate local command runs still work when `sourceId` is omitted.
-4. [ ] Update documentation — `design.md` (run payload changes).
-5. [ ] Update documentation — `README.md` (if any new payload fields need mention).
-6. [ ] Update documentation — `projectStructure.md` (if needed).
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
+6. [ ] Update documentation — `design.md` (run payload changes).
+7. [ ] Update documentation — `README.md` (if any new payload fields need mention).
+8. [ ] Update documentation — `projectStructure.md` (if needed).
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
 
 #### Testing
 
@@ -299,22 +315,28 @@ Extend flow discovery to include ingested repositories, returning `sourceId`/`so
      - `server/src/lmstudio/toolService.ts`
      - `server/src/test/integration/flows.list.test.ts`
      - `openapi.json`
-2. [ ] Implement ingested flow discovery and label sorting:
+2. [ ] Add ingest repo lookup + flow discovery:
    - Files to edit:
      - `server/src/flows/discovery.ts`
-     - `server/src/routes/flows.ts`
    - Implementation details:
      - Scan `<ingestRoot>/flows` for JSON flows, add `sourceId` (container path) and `sourceLabel`.
      - Reuse `parseFlowFile` + existing summary builder logic from `server/src/flows/discovery.ts` so invalid JSON/schema handling matches local flows.
      - If `listIngestedRepositories` fails, return local flows only and log/continue without throwing.
      - Skip ingest roots that are missing on disk or do not contain a `flows/` folder.
+3. [ ] Add labels + sort for local/ingested flows:
+   - Files to edit:
+     - `server/src/flows/discovery.ts`
+   - Implementation details:
      - Use repo `id` from `listIngestedRepositories` as `sourceLabel` (fallback to `path.posix.basename(containerPath)` if needed).
      - Keep local flows unlabeled; sort by display label.
      - Do not de-duplicate names; preserve duplicates across ingest roots.
-3. [ ] Update OpenAPI schema for flow list response:
+4. [ ] Update REST list payload + OpenAPI schema:
    - Files to edit:
+     - `server/src/routes/flows.ts`
      - `openapi.json`
-4. [ ] Update flow list tests:
+   - Implementation details:
+     - Add optional `sourceId`/`sourceLabel` fields to REST list payloads for ingested items only.
+5. [ ] Update flow list tests:
    - Files to edit:
      - `server/src/test/integration/flows.list.test.ts`
    - Testing expectations:
@@ -322,10 +344,10 @@ Extend flow discovery to include ingested repositories, returning `sourceId`/`so
      - Validate local flows omit `sourceId`/`sourceLabel`.
      - Add coverage for duplicate flow names across different ingest roots (both entries retained).
      - Add coverage for missing ingest root directories (local flows still returned).
-5. [ ] Update documentation — `design.md` (flow discovery changes).
-6. [ ] Update documentation — `README.md` (if any new list fields need mention).
-7. [ ] Update documentation — `projectStructure.md` (if needed).
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
+6. [ ] Update documentation — `design.md` (flow discovery changes).
+7. [ ] Update documentation — `README.md` (if any new list fields need mention).
+8. [ ] Update documentation — `projectStructure.md` (if needed).
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
 
 #### Testing
 
@@ -371,17 +393,21 @@ Add optional `sourceId` support for flow execution so ingested flows run from th
      - `server/src/test/integration/flows.run.basic.test.ts`
      - `server/src/test/integration/flows.run.hot-reload.test.ts`
      - `openapi.json`
-2. [ ] Add optional `sourceId` to flow run payload and resolve file path:
+2. [ ] Add sourceId resolution + containment checks:
    - Files to edit:
      - `server/src/flows/service.ts`
-     - `server/src/routes/flowsRun.ts`
-     - `openapi.json`
    - Implementation details:
      - Accept `sourceId` (container path), resolve `<sourceId>/flows/<flowName>.json`, and enforce containment checks.
      - Continue to enforce `isSafeFlowName` validation for ingested runs (same rules as local runs).
      - Unknown `sourceId` or missing flow returns 404.
      - If `sourceId` is provided but `listIngestedRepositories` fails or no matching `containerPath` exists, return `404 { error: 'not_found' }`.
-3. [ ] Update flow run tests:
+3. [ ] Update REST run payload + OpenAPI schema:
+   - Files to edit:
+     - `server/src/routes/flowsRun.ts`
+     - `openapi.json`
+   - Implementation details:
+     - Accept optional `sourceId` in REST payloads and pass it into the flow service.
+4. [ ] Update flow run tests:
    - Files to edit:
      - `server/src/test/integration/flows.run.basic.test.ts`
      - `server/src/test/integration/flows.run.hot-reload.test.ts`
@@ -389,10 +415,10 @@ Add optional `sourceId` support for flow execution so ingested flows run from th
    - Testing expectations:
      - Validate 404 on unknown `sourceId` and success when `sourceId` resolves to an ingested flow.
      - Validate local flow runs still work when `sourceId` is omitted.
-4. [ ] Update documentation — `design.md` (run payload changes).
-5. [ ] Update documentation — `README.md` (if any new payload fields need mention).
-6. [ ] Update documentation — `projectStructure.md` (if needed).
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
+5. [ ] Update documentation — `design.md` (run payload changes).
+6. [ ] Update documentation — `README.md` (if any new payload fields need mention).
+7. [ ] Update documentation — `projectStructure.md` (if needed).
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
 
 #### Testing
 
@@ -436,30 +462,38 @@ Update the Agents UI to display ingested command labels, sort by display label, 
      - `client/src/pages/AgentsPage.tsx`
      - `client/src/test/agentsPage.commandsList.test.tsx`
      - `client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx`
-2. [ ] Update list parsing + dropdown rendering:
+2. [ ] Update agents API list parsing:
    - Files to edit:
      - `client/src/api/agents.ts`
+   - Implementation details:
+     - Parse optional `sourceId`/`sourceLabel` from the command list response and include them in the returned command objects.
+3. [ ] Update dropdown rendering + selection state:
+   - Files to edit:
      - `client/src/pages/AgentsPage.tsx`
    - Implementation details:
-     - Parse optional `sourceId`/`sourceLabel` and compute display labels.
+     - Compute display labels (`<name>` vs `<name> - [sourceLabel]`).
      - Store `sourceId`/`sourceLabel` with each command and use a composite selection key so duplicate command names remain selectable.
      - Sort by display label and keep local commands unlabeled.
-3. [ ] Update run payload to include `sourceId` for ingested commands:
+4. [ ] Update run payload support in agents API:
    - Files to edit:
      - `client/src/api/agents.ts`
+   - Implementation details:
+     - Accept optional `sourceId` in `runAgentCommand` params and include it in the payload when provided.
+5. [ ] Update run action to pass `sourceId`:
+   - Files to edit:
      - `client/src/pages/AgentsPage.tsx`
    - Implementation details:
      - When the selected command has a `sourceId`, include it in the run payload; omit `sourceId` for local commands.
-4. [ ] Update client tests:
+6. [ ] Update client tests:
    - Files to edit:
      - `client/src/test/agentsPage.commandsList.test.tsx`
      - `client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx`
    - Testing expectations:
      - Validate duplicate command names from different sources render distinct labels and run with the correct `sourceId`.
-5. [ ] Update documentation — `design.md` (UI behavior summary).
-6. [ ] Update documentation — `README.md` (if any UI behavior needs mention).
-7. [ ] Update documentation — `projectStructure.md` (if needed).
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
+7. [ ] Update documentation — `design.md` (UI behavior summary).
+8. [ ] Update documentation — `README.md` (if any UI behavior needs mention).
+9. [ ] Update documentation — `projectStructure.md` (if needed).
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
 
 #### Testing
 
@@ -503,30 +537,38 @@ Update the Flows UI to display ingested flow labels, sort by display label, and 
      - `client/src/pages/FlowsPage.tsx`
      - `client/src/test/flowsApi.test.ts`
      - `client/src/test/flowsPage.stop.test.tsx`
-2. [ ] Update list parsing + dropdown rendering:
+2. [ ] Update flows API list parsing:
    - Files to edit:
      - `client/src/api/flows.ts`
+   - Implementation details:
+     - Parse optional `sourceId`/`sourceLabel` from the flows list response and include them in the returned flow objects.
+3. [ ] Update dropdown rendering + selection state:
+   - Files to edit:
      - `client/src/pages/FlowsPage.tsx`
    - Implementation details:
-     - Parse optional `sourceId`/`sourceLabel` and compute display labels.
+     - Compute display labels (`<name>` vs `<name> - [sourceLabel]`).
      - Store `sourceId`/`sourceLabel` with each flow and use a composite selection key so duplicate flow names remain selectable.
      - Sort by display label and keep local flows unlabeled.
-3. [ ] Update run payload to include `sourceId` for ingested flows:
+4. [ ] Update run payload support in flows API:
    - Files to edit:
      - `client/src/api/flows.ts`
+   - Implementation details:
+     - Accept optional `sourceId` in `runFlow` params and include it in the payload when provided.
+5. [ ] Update run action to pass `sourceId`:
+   - Files to edit:
      - `client/src/pages/FlowsPage.tsx`
    - Implementation details:
      - When the selected flow has a `sourceId`, include it in the run payload; omit `sourceId` for local flows.
-4. [ ] Update client tests:
+6. [ ] Update client tests:
    - Files to edit:
      - `client/src/test/flowsApi.test.ts`
      - `client/src/test/flowsPage.stop.test.tsx`
    - Testing expectations:
      - Validate duplicate flow names from different sources render distinct labels and run with the correct `sourceId`.
-5. [ ] Update documentation — `design.md` (UI behavior summary).
-6. [ ] Update documentation — `README.md` (if any UI behavior needs mention).
-7. [ ] Update documentation — `projectStructure.md` (if needed).
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
+7. [ ] Update documentation — `design.md` (UI behavior summary).
+8. [ ] Update documentation — `README.md` (if any UI behavior needs mention).
+9. [ ] Update documentation — `projectStructure.md` (if needed).
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
 
 #### Testing
 

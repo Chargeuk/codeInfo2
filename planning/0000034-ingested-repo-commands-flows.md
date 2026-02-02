@@ -25,6 +25,7 @@ This story adds discovery of commands and flows from ingested repositories. If a
 
 - Commands are discovered from each ingested repo at `<ingestRoot>/codex_agents/<agentName>/commands` when the matching agent exists locally.
 - Flows are discovered from each ingested repo at `<ingestRoot>/flows`.
+- Only the ingest root container path (`/data/<repo>`) is used for `sourceId` in REST/MCP payloads and flow/command execution.
 - Duplicate command or flow names are allowed across repos.
 - Dropdown lists are sorted alphabetically by the full display label (`<name> - [Repo Name]`) so duplicates stay deterministic.
 - Imported items display the ingest root display name in brackets, formatted as `<name> - [Repo Name]`.
@@ -32,7 +33,6 @@ This story adds discovery of commands and flows from ingested repositories. If a
 - Imported commands and flows are treated as trusted and can be executed without extra confirmation.
 - Local (CodeInfo2) commands and flows continue to appear, remain functional, and remain unlabeled.
 - MCP list/run tools surface ingested commands the same way as the UI (flows MCP parity is out of scope).
-- For ingested commands and flows, the execution `sourceId` uses the ingest root container path; the dropdown label still uses the ingest name (or folder-name fallback).
 
 ---
 

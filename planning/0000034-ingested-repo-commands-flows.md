@@ -118,7 +118,7 @@ This should only be started once all the above sections are clear and understood
 
 ### 1. Server: Ingested agent command discovery + list contract
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **__to_do__**
 
 #### Overview
@@ -698,9 +698,10 @@ Update the Agents UI to display ingested command labels, sort by display label, 
      - `client/src/pages/AgentsPage.tsx`
    - Docs to read: MUI Select docs (MUI MCP `/mui/material@6.4.12`, `components/selects.md`): https://llms.mui.com/material-ui/6.4.12/components/selects.md; React state + hooks (Context7 `/websites/react_dev`): /websites/react_dev; React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
    - Implementation details:
-     - Compute display labels (`<name>` vs `<name> - [sourceLabel]`).
-     - Store `sourceId`/`sourceLabel` with each command and use a composite selection key so duplicate command names remain selectable.
-     - Sort by display label and keep local commands unlabeled.
+   - Compute display labels (`<name>` vs `<name> - [sourceLabel]`).
+   - Store `sourceId`/`sourceLabel` with each command and use a composite selection key so duplicate command names remain selectable.
+   - Sort by display label and keep local commands unlabeled.
+   - Ensure ingested commands run without extra confirmation prompts (same trusted flow as local commands).
      - Example display label + key:
        - `const label = sourceLabel ? name + ' - [' + sourceLabel + ']' : name;`
        - `const key = name + '::' + (sourceId ?? 'local');`
@@ -761,7 +762,7 @@ Update the Agents UI to display ingested command labels, sort by display label, 
 5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e` or set `timeout_ms=420000` in the harness)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open http://host.docker.internal:5001/agents, verify duplicate command names remain selectable with `name - [Repo]` labels, run an ingested command; then open http://host.docker.internal:5001/logs and confirm `DEV-0000034:T5:agents.command_run_payload` appears with `{ commandName, sourceId }`; capture a screenshot of the Agents page dropdown + run confirmation and store it in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped by `docker-compose.local.yml`) as `0000034-5-agents-ingested-command.png`, then review the screenshot to confirm the GUI matches the expected labels and run state; verify no errors appear in the debug console.
+8. [ ] Manual Playwright-MCP check: open http://host.docker.internal:5001/agents, verify duplicate command names remain selectable with `name - [Repo]` labels, run an ingested command (confirm no extra confirmation prompt appears); then open http://host.docker.internal:5001/logs and confirm `DEV-0000034:T5:agents.command_run_payload` appears with `{ commandName, sourceId }`; capture a screenshot of the Agents page dropdown + run confirmation and store it in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped by `docker-compose.local.yml`) as `0000034-5-agents-ingested-command.png`, then review the screenshot to confirm the GUI matches the expected labels and run state; verify no errors appear in the debug console.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -814,9 +815,10 @@ Update the Flows UI to display ingested flow labels, sort by display label, and 
      - `client/src/pages/FlowsPage.tsx`
    - Docs to read: MUI Select docs (MUI MCP `/mui/material@6.4.12`, `components/selects.md`): https://llms.mui.com/material-ui/6.4.12/components/selects.md; React state + hooks (Context7 `/websites/react_dev`): /websites/react_dev; React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
    - Implementation details:
-     - Compute display labels (`<name>` vs `<name> - [sourceLabel]`).
-     - Store `sourceId`/`sourceLabel` with each flow and use a composite selection key so duplicate flow names remain selectable.
-     - Sort by display label and keep local flows unlabeled.
+   - Compute display labels (`<name>` vs `<name> - [sourceLabel]`).
+   - Store `sourceId`/`sourceLabel` with each flow and use a composite selection key so duplicate flow names remain selectable.
+   - Sort by display label and keep local flows unlabeled.
+   - Ensure ingested flows run without extra confirmation prompts (same trusted flow as local runs).
      - Example display label + key:
        - `const label = sourceLabel ? name + ' - [' + sourceLabel + ']' : name;`
        - `const key = name + '::' + (sourceId ?? 'local');`
@@ -877,7 +879,7 @@ Update the Flows UI to display ingested flow labels, sort by display label, and 
 5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e` or set `timeout_ms=420000` in the harness)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open http://host.docker.internal:5001/flows, verify duplicate flow names remain selectable with `name - [Repo]` labels, run an ingested flow; then open http://host.docker.internal:5001/logs and confirm `DEV-0000034:T6:flows.run_payload` appears with `{ flowName, sourceId }`; capture a screenshot of the Flows dropdown + run confirmation and store it in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped by `docker-compose.local.yml`) as `0000034-6-flows-ingested-run.png`, then review the screenshot to confirm the GUI matches the expected labels and run state; verify no errors appear in the debug console.
+8. [ ] Manual Playwright-MCP check: open http://host.docker.internal:5001/flows, verify duplicate flow names remain selectable with `name - [Repo]` labels, run an ingested flow (confirm no extra confirmation prompt appears); then open http://host.docker.internal:5001/logs and confirm `DEV-0000034:T6:flows.run_payload` appears with `{ flowName, sourceId }`; capture a screenshot of the Flows dropdown + run confirmation and store it in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped by `docker-compose.local.yml`) as `0000034-6-flows-ingested-run.png`, then review the screenshot to confirm the GUI matches the expected labels and run state; verify no errors appear in the debug console.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes

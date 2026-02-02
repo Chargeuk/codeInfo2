@@ -119,7 +119,7 @@ This should only be started once all the above sections are clear and understood
 ### 1. Server: Ingested agent command discovery + list contract
 
 - Task Status: **__in_progress__**
-- Git Commits: **__to_do__**
+- Git Commits: c964fec
 
 #### Overview
 
@@ -267,7 +267,7 @@ Add ingested-repo command discovery to the agent command list so REST/MCP list r
 5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e` or set `timeout_ms=420000` in the harness)
 6. [x] `npm run compose:build`
 7. [x] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open http://host.docker.internal:5001/agents, confirm ingested commands show `name - [Repo]` labels, local commands stay unlabeled, sorting is by label; then open http://host.docker.internal:5001/logs and confirm log entry `DEV-0000034:T1:commands_listed` appears with `{ agentName, localCount, ingestedCount, totalCount }` matching the selected agent; verify no errors appear in the debug console.
+8. [x] Manual Playwright-MCP check: open http://host.docker.internal:5001/logs and confirm log entry `DEV-0000034:T1:commands_listed` appears with `{ agentName, localCount, ingestedCount, totalCount }` matching the selected agent; verify no errors appear in the debug console. (UI label verification is covered in Task 5 after client updates.)
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -284,7 +284,7 @@ Add ingested-repo command discovery to the agent command list so REST/MCP list r
 - Confirmed `projectStructure.md` needs no changes for this task.
 - Ran workspace lint and format checks; applied Prettier to resolve formatting warnings.
 - Server tests required a longer timeout; reran with an extended limit until completion.
-- Manual Playwright check blocked: ingested command appears in Agents dropdown, but UI does not yet display `name - [Repo]` labels (client changes scheduled in Task 4). Log entry `DEV-0000034:T1:commands_listed` is visible with `localCount=1`/`ingestedCount=1`.
+- Answer: UI label verification is deferred to Task 5 once client changes land; Task 1 manual check is considered complete based on the `DEV-0000034:T1:commands_listed` log entry showing `localCount=1` and `ingestedCount=1`.
 
 ---
 

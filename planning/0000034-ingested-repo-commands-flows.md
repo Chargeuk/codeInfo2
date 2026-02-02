@@ -148,9 +148,10 @@ Add ingested-repo command discovery to the agent command list so REST/MCP list r
      - `server/src/lmstudio/toolService.ts`
      - `server/src/ingest/pathMap.ts`
      - `server/src/test/unit/agent-commands-list.test.ts`
-    - `server/src/test/unit/mcp-agents-commands-list.test.ts`
+     - `server/src/test/unit/mcp-agents-commands-list.test.ts`
      - `openapi.json`
    - Docs to read: Node.js `fs.readdir` + `path.resolve`/`path.relative` (Context7 `/nodejs/node/v22.17.0`): /nodejs/node/v22.17.0; OpenAPI 3.0.3 spec: https://spec.openapis.org/oas/v3.0.3.html; npm run-script docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script; Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/; Markdown Guide: https://www.markdownguide.org/basic-syntax/
+   - Checklist (duplicate rules): confirm `sourceId = RepoEntry.containerPath`, `sourceLabel = RepoEntry.id` fallback, and label format `<name> - [sourceLabel]`.
 2. [ ] Add ingest repo lookup + command discovery:
    - Files to edit:
      - `server/src/agents/service.ts`
@@ -161,6 +162,9 @@ Add ingested-repo command discovery to the agent command list so REST/MCP list r
      - Reuse `loadAgentCommandSummary` from `server/src/agents/commandsLoader.ts` for both local and ingested files so invalid JSON/schema handling stays consistent.
      - If `listIngestedRepositories` fails (for example, Chroma unavailable), return local commands only without adding new logging.
      - Skip ingest roots that are missing on disk or do not contain `codex_agents/<agentName>/commands` (no errors, just omit).
+     - Example (pseudo):
+       - `const roots = await listIngestedRepositories().catch(() => null);`
+       - `const commandsRoot = path.join(repo.containerPath, 'codex_agents', agentName, 'commands');`
 3. [ ] Add labels + sort for local/ingested commands:
    - Files to edit:
      - `server/src/agents/service.ts`
@@ -171,6 +175,9 @@ Add ingested-repo command discovery to the agent command list so REST/MCP list r
      - Keep local commands unlabeled (no `sourceId`/`sourceLabel`).
      - Sort the combined list by display label (`<name>` for local, `<name> - [sourceLabel]` for ingested).
      - Do not de-duplicate names; preserve duplicates across ingest roots.
+     - Example display label logic:
+       - `const displayLabel = sourceLabel ? name + ' - [' + sourceLabel + ']' : name;`
+       - `commands.sort((a, b) => displayLabel(a).localeCompare(displayLabel(b)));`
 4. [ ] Update REST list payload + OpenAPI schema:
    - Files to edit:
      - `server/src/routes/agentsCommands.ts`
@@ -179,48 +186,65 @@ Add ingested-repo command discovery to the agent command list so REST/MCP list r
    - Implementation details:
      - Add optional `sourceId`/`sourceLabel` fields to REST list payloads for ingested items only.
      - Update the list command DTO/type in `server/src/agents/service.ts` so `sourceId`/`sourceLabel` are optional and omitted for local commands.
+     - Example REST item: `{ name: 'build', description: 'Builds', disabled: false, sourceId: '/data/repo', sourceLabel: 'My Repo' }`.
 5. [ ] Update MCP list payload:
    - Files to edit:
      - `server/src/mcpAgents/tools.ts`
    - Docs to read: Node.js `fs.readdir` + `path.resolve`/`path.relative` (Context7 `/nodejs/node/v22.17.0`): /nodejs/node/v22.17.0; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/; Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Implementation details:
      - Add optional `sourceId`/`sourceLabel` fields to MCP list payloads for ingested items only.
+     - Example MCP payload item (JSON): `{ name: 'build', description: 'Builds', disabled: false, sourceId: '/data/repo', sourceLabel: 'My Repo' }`.
 6. [ ] Unit test (REST list) — `server/src/test/unit/agent-commands-list.test.ts`: ensure ingested commands include `sourceId`/`sourceLabel` and sorting uses the display label; purpose: lock down REST list contract + deterministic ordering.
    - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+   - Example expectation: returned list contains `{ name: 'build', sourceId: '/data/repo', sourceLabel: 'My Repo' }` and sorts by `build - [My Repo]`.
 7. [ ] Unit test (REST list) — `server/src/test/unit/agent-commands-list.test.ts`: ensure local commands omit `sourceId`/`sourceLabel`; purpose: keep local payloads unchanged.
    - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+   - Example expectation: local entry equals `{ name: 'build', description: 'Builds', disabled: false }` with no `sourceId`/`sourceLabel` keys.
 8. [ ] Unit test (REST list) — `server/src/test/unit/agent-commands-list.test.ts`: ensure `sourceLabel` falls back to ingest root basename when metadata name missing; purpose: enforce fallback label rule.
    - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+   - Example expectation: metadata name missing => `sourceLabel === 'repo-folder'` and display label `build - [repo-folder]`.
 9. [ ] Unit test (REST list) — `server/src/test/unit/agent-commands-list.test.ts`: ensure ingested commands are skipped when the matching agent does not exist locally; purpose: avoid invalid listings.
    - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+   - Example expectation: if `agentName` not discovered locally, list excludes ingested commands entirely.
 10. [ ] Unit test (REST list) — `server/src/test/unit/agent-commands-list.test.ts`: ensure duplicate command names across ingest roots are retained and sorted by label; purpose: confirm deterministic duplicate handling.
     - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+    - Example expectation: two entries named `build` with different `sourceId` values both appear and order is by `build - [A]` then `build - [B]`.
 11. [ ] Unit test (REST list) — `server/src/test/unit/agent-commands-list.test.ts`: ensure missing ingest root directories are skipped and local commands still return; purpose: guard missing directories.
     - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+    - Example expectation: missing `/data/repo/codex_agents/.../commands` does not throw and local list remains unchanged.
 12. [ ] Unit test (REST list) — `server/src/test/unit/agent-commands-list.test.ts`: listIngestedRepositories failures return local commands only; purpose: keep lists functional if ingest metadata is unavailable.
     - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+    - Example expectation: when `listIngestedRepositories` rejects, output equals the local-only list with no ingested entries.
 13. [ ] Unit test (MCP list) — `server/src/test/unit/mcp-agents-commands-list.test.ts`: ensure ingested commands include `sourceId`/`sourceLabel` and sorting uses display label; purpose: keep MCP parity with REST.
     - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+    - Example expectation: MCP JSON contains `{ name: 'build', sourceId: '/data/repo', sourceLabel: 'My Repo' }` and sorts by display label.
 14. [ ] Unit test (MCP list) — `server/src/test/unit/mcp-agents-commands-list.test.ts`: ensure local commands omit `sourceId`/`sourceLabel`; purpose: keep MCP local payloads unchanged.
     - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+    - Example expectation: MCP local entry excludes `sourceId`/`sourceLabel` keys.
 15. [ ] Unit test (MCP list) — `server/src/test/unit/mcp-agents-commands-list.test.ts`: ensure `sourceLabel` falls back to ingest root basename when metadata name missing; purpose: enforce MCP fallback label rule.
     - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+    - Example expectation: `sourceLabel` equals basename of `sourceId` when metadata name is empty.
 16. [ ] Unit test (MCP list) — `server/src/test/unit/mcp-agents-commands-list.test.ts`: ensure ingested commands are skipped when the matching agent does not exist locally; purpose: prevent invalid MCP listings.
     - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+    - Example expectation: MCP response omits ingested entries for unknown local agents.
 17. [ ] Unit test (MCP list) — `server/src/test/unit/mcp-agents-commands-list.test.ts`: ensure duplicate command names across ingest roots are retained and sorted by label; purpose: match REST duplicate handling.
     - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+    - Example expectation: MCP `build - [A]` appears before `build - [B]` with both entries present.
 18. [ ] Unit test (MCP list) — `server/src/test/unit/mcp-agents-commands-list.test.ts`: ensure missing ingest root directories are skipped and local commands still return; purpose: guard missing directories in MCP list.
     - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+    - Example expectation: missing ingest directories do not remove local commands from MCP output.
 19. [ ] Update documentation — `design.md`:
     - Document: `design.md`.
     - Location: repo root `design.md`.
     - Description: Add/confirm command discovery includes ingested repos and the label/sorting rules, and update the related Mermaid architecture diagram(s).
+    - Include (duplicate rules): `sourceId = RepoEntry.containerPath`, `sourceLabel = RepoEntry.id` (fallback to ingest root basename), and label format `<name> - [sourceLabel]`.
     - Purpose: keep architecture/design reference aligned with the new command discovery behavior.
     - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
 20. [ ] Update documentation — `README.md`:
     - Document: `README.md`.
     - Location: repo root `README.md`.
     - Description: Note any new agent command list fields (`sourceId`/`sourceLabel`) if documentation mentions list payloads.
+    - Include (duplicate rules): `sourceId` optional, `sourceLabel` optional, local entries omit both.
     - Purpose: keep public API usage notes accurate for operators.
     - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
 21. [ ] After completing any file adds/removes in this task, update `projectStructure.md`:
@@ -285,6 +309,7 @@ Add optional `sourceId` support when running agent commands so ingested command 
      - `server/src/test/unit/mcp-agents-router-run.test.ts`
      - `openapi.json`
    - Docs to read: Node.js `path.resolve`/`path.relative` (Context7 `/nodejs/node/v22.17.0`): /nodejs/node/v22.17.0; OpenAPI 3.0.3 spec: https://spec.openapis.org/oas/v3.0.3.html; Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/; Markdown Guide: https://www.markdownguide.org/basic-syntax/
+   - Checklist (duplicate rules): unknown `sourceId` must map to `COMMAND_NOT_FOUND` (404) and local runs omit `sourceId`.
 2. [ ] Add sourceId resolution + containment checks:
    - Files to edit:
      - `server/src/agents/service.ts`
@@ -296,6 +321,9 @@ Add optional `sourceId` support when running agent commands so ingested command 
      - Extend `RunAgentCommandRunnerParams` + `runAgentCommandRunner` to accept an optional ingested `commandsRoot`/`commandFilePath` override (use local `agent.home/commands` when `sourceId` is omitted).
      - Resolve `<sourceId>/codex_agents/<agentName>/commands/<command>.json` and validate containment with `path.resolve` + `path.relative`.
      - If `sourceId` is provided but no matching `containerPath` exists, return `404 { error: 'not_found' }`.
+     - Example containment check:
+       - `const resolved = path.resolve(commandsRoot, commandName + '.json');`
+       - `if (path.relative(commandsRoot, resolved).startsWith('..')) throw { code: 'COMMAND_INVALID' };`
 3. [ ] Update REST run payload + OpenAPI schema:
    - Files to edit:
      - `server/src/routes/agentsCommands.ts`
@@ -303,40 +331,53 @@ Add optional `sourceId` support when running agent commands so ingested command 
    - Docs to read: OpenAPI 3.0.3 spec: https://spec.openapis.org/oas/v3.0.3.html; Node.js `path.resolve`/`path.relative` (Context7 `/nodejs/node/v22.17.0`): /nodejs/node/v22.17.0; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface
    - Implementation details:
      - Accept optional `sourceId` in REST payloads and pass it into the service layer.
+     - Example request JSON: `{ "commandName": "build", "sourceId": "/data/repo" }`.
 4. [ ] Update MCP run payload:
    - Files to edit:
      - `server/src/mcpAgents/tools.ts`
    - Docs to read: Node.js `path.resolve`/`path.relative` (Context7 `/nodejs/node/v22.17.0`): /nodejs/node/v22.17.0; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface
    - Implementation details:
      - Accept optional `sourceId` in MCP payloads and forward to `runAgentCommand`.
+     - Example MCP args: `{ agentName: "planning_agent", commandName: "build", sourceId: "/data/repo" }`.
 5. [ ] Unit test (REST run) — `server/src/test/unit/agents-commands-router-run.test.ts`: unknown `sourceId` returns 404; purpose: validate error handling for invalid ingest roots.
    - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+   - Example expectation: `POST /agents/:agent/commands/run` with `{ commandName: 'build', sourceId: '/data/missing' }` returns `404 { error: 'not_found' }`.
 6. [ ] Unit test (REST run) — `server/src/test/unit/agents-commands-router-run.test.ts`: local command run works when `sourceId` is omitted; purpose: ensure local behavior unchanged.
    - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+   - Example expectation: payload `{ commandName: 'build' }` routes to local command path and returns 202.
 7. [ ] Unit test (REST run) — `server/src/test/unit/agents-commands-router-run.test.ts`: ingested command runs when `sourceId` resolves to a valid command file; purpose: cover happy-path ingest execution.
    - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+   - Example expectation: `{ commandName: 'build', sourceId: '/data/repo' }` returns 202 and uses ingested file path.
 8. [ ] Unit test (REST run) — `server/src/test/unit/agents-commands-router-run.test.ts`: missing ingested command file returns 404; purpose: validate not_found for missing files.
    - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+   - Example expectation: `{ commandName: 'missing', sourceId: '/data/repo' }` yields `404 { error: 'not_found' }`.
 9. [ ] Unit test (command runner) — `server/src/test/unit/agent-commands-runner.test.ts`: path traversal attempt in command name is rejected by containment checks; purpose: enforce path safety.
    - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+   - Example expectation: commandName `../escape` triggers `COMMAND_INVALID` or equivalent rejection.
 10. [ ] Unit test (MCP run) — `server/src/test/unit/mcp-agents-router-run.test.ts`: unknown `sourceId` returns not_found; purpose: validate MCP error handling.
     - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+    - Example expectation: MCP `run_command` with `sourceId: '/data/missing'` throws `InvalidParamsError` mapped from `COMMAND_NOT_FOUND`.
 11. [ ] Unit test (MCP run) — `server/src/test/unit/mcp-agents-router-run.test.ts`: local command run works when `sourceId` is omitted; purpose: keep MCP local behavior unchanged.
     - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+    - Example expectation: MCP args without `sourceId` run the local command folder.
 12. [ ] Unit test (MCP run) — `server/src/test/unit/mcp-agents-router-run.test.ts`: ingested command runs when `sourceId` resolves to a valid command file; purpose: MCP happy-path coverage.
     - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+    - Example expectation: MCP args with `sourceId: '/data/repo'` resolve to `<sourceId>/codex_agents/<agent>/commands/<command>.json`.
 13. [ ] Unit test (MCP run) — `server/src/test/unit/mcp-agents-router-run.test.ts`: missing ingested command file returns not_found; purpose: MCP missing-file error coverage.
     - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+    - Example expectation: MCP `run_command` with missing ingested file maps to not_found error response.
 14. [ ] Update documentation — `design.md` (run payload changes, plus Mermaid diagram updates).
     - Document: `design.md`.
     - Location: repo root `design.md`.
     - Description: Describe `sourceId` run support and update any related Mermaid flow/run diagrams.
+    - Include (duplicate rules): REST/MCP run accepts optional `sourceId` (container path) and unknown `sourceId` returns 404.
     - Purpose: keep architecture/design references aligned with new run payload behavior.
     - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
 15. [ ] Update documentation — `README.md`.
     - Document: `README.md`.
     - Location: repo root `README.md`.
     - Description: Note optional `sourceId` on agent command run payloads if README covers endpoints.
+    - Include (duplicate rules): local runs omit `sourceId`; ingested runs require it to disambiguate.
     - Purpose: keep API usage instructions current.
     - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
 16. [ ] After completing any file adds/removes in this task, update `projectStructure.md`:
@@ -398,6 +439,7 @@ Extend flow discovery to include ingested repositories, returning `sourceId`/`so
      - `server/src/test/integration/flows.list.test.ts`
      - `openapi.json`
    - Docs to read: Node.js `fs.readdir` + `path.resolve` (Context7 `/nodejs/node/v22.17.0`): /nodejs/node/v22.17.0; OpenAPI 3.0.3 spec: https://spec.openapis.org/oas/v3.0.3.html; Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/; Markdown Guide: https://www.markdownguide.org/basic-syntax/
+   - Checklist (duplicate rules): ingested flows use `sourceId = RepoEntry.containerPath` and label format `<name> - [sourceLabel]`.
 2. [ ] Add ingest repo lookup + flow discovery:
    - Files to edit:
      - `server/src/flows/discovery.ts`
@@ -407,6 +449,9 @@ Extend flow discovery to include ingested repositories, returning `sourceId`/`so
      - Reuse `parseFlowFile` + existing summary builder logic from `server/src/flows/discovery.ts` so invalid JSON/schema handling matches local flows.
      - If `listIngestedRepositories` fails, return local flows only without adding new logging.
      - Skip ingest roots that are missing on disk or do not contain a `flows/` folder.
+     - Example (pseudo):
+       - `const flowsRoot = path.join(repo.containerPath, 'flows');`
+       - `summaries.push({ name, sourceId: repo.containerPath, sourceLabel: repo.id, ... });`
 3. [ ] Add labels + sort for local/ingested flows:
    - Files to edit:
      - `server/src/flows/discovery.ts`
@@ -416,6 +461,9 @@ Extend flow discovery to include ingested repositories, returning `sourceId`/`so
      - Only apply an extra `path.posix.basename` fallback if `RepoEntry.id` is unexpectedly empty.
      - Keep local flows unlabeled; sort by display label.
      - Do not de-duplicate names; preserve duplicates across ingest roots.
+     - Example display label logic:
+       - `const displayLabel = sourceLabel ? name + ' - [' + sourceLabel + ']' : name;`
+       - `flows.sort((a, b) => displayLabel(a).localeCompare(displayLabel(b)));`
 4. [ ] Update REST list payload + OpenAPI schema:
    - Files to edit:
      - `server/src/routes/flows.ts`
@@ -424,30 +472,40 @@ Extend flow discovery to include ingested repositories, returning `sourceId`/`so
    - Implementation details:
      - Add optional `sourceId`/`sourceLabel` fields to REST list payloads for ingested items only.
      - Update the `FlowSummary` type in `server/src/flows/discovery.ts` to include optional `sourceId`/`sourceLabel` for ingested flows.
+     - Example REST item: `{ name: 'release', description: 'Ship', disabled: false, sourceId: '/data/repo', sourceLabel: 'My Repo' }`.
 5. [ ] Integration test (flow list) — `server/src/test/integration/flows.list.test.ts`: ingested flows include `sourceId`/`sourceLabel` and sorting uses display label; purpose: verify list contract + ordering.
    - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+   - Example expectation: flow list includes `{ name: 'release', sourceId: '/data/repo', sourceLabel: 'My Repo' }` and order uses `release - [My Repo]`.
 6. [ ] Integration test (flow list) — `server/src/test/integration/flows.list.test.ts`: local flows omit `sourceId`/`sourceLabel`; purpose: preserve local payload shape.
    - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+   - Example expectation: local entry contains only `{ name, description, disabled }` without `sourceId`/`sourceLabel`.
 7. [ ] Integration test (flow list) — `server/src/test/integration/flows.list.test.ts`: `sourceLabel` falls back to ingest root basename when metadata name missing; purpose: enforce fallback rule.
    - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+   - Example expectation: empty metadata name => `sourceLabel === 'repo-folder'` and label `release - [repo-folder]`.
 8. [ ] Integration test (flow list) — `server/src/test/integration/flows.list.test.ts`: duplicate flow names across ingest roots are retained and sorted; purpose: deterministic duplicate handling.
    - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+   - Example expectation: two `release` flows with different `sourceId` values both appear and order is by display label.
 9. [ ] Integration test (flow list) — `server/src/test/integration/flows.list.test.ts`: missing ingest root directories are skipped and local flows still return; purpose: guard missing directories.
    - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+   - Example expectation: missing `/data/repo/flows` does not remove local flows from the response.
 10. [ ] Integration test (flow list) — `server/src/test/integration/flows.list.test.ts`: ingest roots with no `flows/` directory are skipped and local flows still return; purpose: handle empty roots safely.
     - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+    - Example expectation: ingest root `/data/repo` without `flows/` yields local flows only (no error).
 11. [ ] Integration test (flow list) — `server/src/test/integration/flows.list.test.ts`: listIngestedRepositories failures return local flows only; purpose: keep list responses available when ingest metadata is unavailable.
     - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+    - Example expectation: when `listIngestedRepositories` rejects, response equals the local-only flow list.
 12. [ ] Update documentation — `design.md` (flow discovery changes, plus Mermaid diagram updates).
     - Document: `design.md`.
     - Location: repo root `design.md`.
     - Description: Describe ingested flow discovery, list metadata, and update related Mermaid diagrams.
+    - Include (duplicate rules): `sourceId = RepoEntry.containerPath`, `sourceLabel = RepoEntry.id` fallback, label format `<name> - [sourceLabel]`.
     - Purpose: keep flow architecture documentation aligned with new discovery behavior.
     - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
 13. [ ] Update documentation — `README.md`.
     - Document: `README.md`.
     - Location: repo root `README.md`.
     - Description: Note optional flow list fields (`sourceId`/`sourceLabel`) if README documents list responses.
+    - Include (duplicate rules): local flow list entries omit `sourceId`/`sourceLabel`.
     - Purpose: keep public API notes current.
     - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
 14. [ ] After completing any file adds/removes in this task, update `projectStructure.md`:
@@ -508,6 +566,7 @@ Add optional `sourceId` support for flow execution so ingested flows run from th
      - `server/src/test/integration/flows.run.hot-reload.test.ts`
      - `openapi.json`
    - Docs to read: Node.js `path.resolve`/`path.relative` (Context7 `/nodejs/node/v22.17.0`): /nodejs/node/v22.17.0; OpenAPI 3.0.3 spec: https://spec.openapis.org/oas/v3.0.3.html; Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/; Markdown Guide: https://www.markdownguide.org/basic-syntax/
+   - Checklist (duplicate rules): `sourceId` selects `<sourceId>/flows/<flow>.json`; unknown `sourceId` returns 404.
 2. [ ] Add sourceId resolution + containment checks:
    - Files to edit:
      - `server/src/flows/service.ts`
@@ -520,6 +579,9 @@ Add optional `sourceId` support for flow execution so ingested flows run from th
      - Continue to enforce `isSafeFlowName` validation for ingested runs (same rules as local runs).
      - Treat unknown `sourceId` as `FLOW_NOT_FOUND` so REST returns `404 { error: 'not_found' }`.
      - Missing ingested flow files should surface `FLOW_NOT_FOUND` (same 404 contract).
+     - Example containment check:
+       - `const resolved = path.resolve(flowsRoot, flowName + '.json');`
+       - `if (path.relative(flowsRoot, resolved).startsWith('..')) throw { code: 'FLOW_NOT_FOUND' };`
 3. [ ] Update REST run payload + OpenAPI schema:
    - Files to edit:
      - `server/src/routes/flowsRun.ts`
@@ -527,26 +589,34 @@ Add optional `sourceId` support for flow execution so ingested flows run from th
    - Docs to read: OpenAPI 3.0.3 spec: https://spec.openapis.org/oas/v3.0.3.html; Node.js `path.resolve`/`path.relative` (Context7 `/nodejs/node/v22.17.0`): /nodejs/node/v22.17.0; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface
    - Implementation details:
      - Accept optional `sourceId` in REST payloads and pass it into the flow service.
+     - Example request JSON: `{ "sourceId": "/data/repo", "customTitle": "Release Run" }`.
 4. [ ] Integration test (flow run) — `server/src/test/integration/flows.run.basic.test.ts`: unknown `sourceId` returns 404; purpose: validate error handling for invalid ingest roots.
    - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+   - Example expectation: `POST /flows/release/run` with `{ sourceId: '/data/missing' }` returns `404 { error: 'not_found' }`.
 5. [ ] Integration test (flow run) — `server/src/test/integration/flows.run.basic.test.ts`: ingested flow runs when `sourceId` resolves to a valid flow file; purpose: cover happy-path ingest execution.
    - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+   - Example expectation: `{ sourceId: '/data/repo' }` returns 202 and uses `/data/repo/flows/<flow>.json`.
 6. [ ] Integration test (flow run) — `server/src/test/integration/flows.run.basic.test.ts`: local flow run works when `sourceId` is omitted; purpose: ensure local behavior unchanged.
    - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+   - Example expectation: request without `sourceId` loads from the local flows directory.
 7. [ ] Integration test (flow run) — `server/src/test/integration/flows.run.hot-reload.test.ts`: missing ingested flow file returns 404; purpose: validate not_found for missing files.
    - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+   - Example expectation: `{ sourceId: '/data/repo' }` with missing file returns `404 { error: 'not_found' }`.
 8. [ ] Integration test (flow run) — `server/src/test/integration/flows.run.command.test.ts`: path traversal attempt in flow name is rejected by containment checks; purpose: enforce path safety.
    - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+   - Example expectation: flowName `../escape` triggers `FLOW_NOT_FOUND` or equivalent 404.
 9. [ ] Update documentation — `design.md` (run payload changes).
    - Document: `design.md`.
    - Location: repo root `design.md`.
    - Description: Document flow run `sourceId` behavior and update Mermaid diagrams covering run flows.
+   - Include (duplicate rules): `sourceId` selects `<sourceId>/flows/<flowName>.json` and unknown values return 404.
    - Purpose: keep flow execution architecture accurate.
    - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
 10. [ ] Update documentation — `README.md`.
     - Document: `README.md`.
     - Location: repo root `README.md`.
     - Description: Note optional `sourceId` on flow run payloads if README documents run endpoints.
+    - Include (duplicate rules): local flow runs omit `sourceId`; ingested runs require it.
     - Purpose: keep API usage instructions current.
     - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
 11. [ ] After completing any file adds/removes in this task, update `projectStructure.md`:
@@ -606,6 +676,7 @@ Update the Agents UI to display ingested command labels, sort by display label, 
      - `client/src/test/agentsPage.commandsList.test.tsx`
      - `client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx`
    - Docs to read: MUI Select docs (MUI MCP `/mui/material@6.4.12`, `components/selects.md`): https://llms.mui.com/material-ui/6.4.12/components/selects.md; React state + hooks (Context7 `/websites/react_dev`): /websites/react_dev; React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/; Markdown Guide: https://www.markdownguide.org/basic-syntax/
+   - Checklist (duplicate rules): dropdown labels use `<name> - [sourceLabel]` and run payloads include `sourceId` for ingested items.
 2. [ ] Update agents API list parsing:
    - Files to edit:
      - `client/src/api/agents.ts`
@@ -613,6 +684,7 @@ Update the Agents UI to display ingested command labels, sort by display label, 
    - Implementation details:
      - Extend the command type to include optional `sourceId`/`sourceLabel` fields.
      - Parse optional `sourceId`/`sourceLabel` from the command list response and include them in the returned command objects.
+     - Example type: `type Command = { name: string; description: string; disabled: boolean; sourceId?: string; sourceLabel?: string };`.
 3. [ ] Update dropdown rendering + selection state:
    - Files to edit:
      - `client/src/pages/AgentsPage.tsx`
@@ -621,34 +693,44 @@ Update the Agents UI to display ingested command labels, sort by display label, 
      - Compute display labels (`<name>` vs `<name> - [sourceLabel]`).
      - Store `sourceId`/`sourceLabel` with each command and use a composite selection key so duplicate command names remain selectable.
      - Sort by display label and keep local commands unlabeled.
+     - Example display label + key:
+       - `const label = sourceLabel ? name + ' - [' + sourceLabel + ']' : name;`
+       - `const key = name + '::' + (sourceId ?? 'local');`
 4. [ ] Update run payload support in agents API:
    - Files to edit:
      - `client/src/api/agents.ts`
    - Docs to read: React state + hooks (Context7 `/websites/react_dev`): /websites/react_dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
    - Implementation details:
      - Accept optional `sourceId` in `runAgentCommand` params and include it in the payload when provided.
+     - Example payload: `{ commandName: 'build', sourceId: '/data/repo' }` (omit `sourceId` for local).
 5. [ ] Update run action to pass `sourceId`:
    - Files to edit:
      - `client/src/pages/AgentsPage.tsx`
    - Docs to read: MUI Select docs (MUI MCP `/mui/material@6.4.12`, `components/selects.md`): https://llms.mui.com/material-ui/6.4.12/components/selects.md; React state + hooks (Context7 `/websites/react_dev`): /websites/react_dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface
    - Implementation details:
      - When the selected command has a `sourceId`, include it in the run payload; omit `sourceId` for local commands.
+     - Example: selected `{ name: 'build', sourceId: '/data/repo' }` => payload includes `sourceId`.
 6. [ ] Client unit test (commands list) — `client/src/test/agentsPage.commandsList.test.tsx`: duplicate command names from different sources render distinct labels; purpose: confirm display label + sorting behavior.
    - Docs to read: React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; React state + hooks (Context7 `/websites/react_dev`): /websites/react_dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+   - Example expectation: menu shows `build - [Repo A]` and `build - [Repo B]` as separate options.
 7. [ ] Client unit test (commands run) — `client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx`: ingested command run sends the correct `sourceId` in payload; purpose: verify ingest run wiring.
    - Docs to read: React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; React state + hooks (Context7 `/websites/react_dev`): /websites/react_dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+   - Example expectation: selecting `build - [Repo A]` triggers `POST /commands/run` with `{ sourceId: '/data/repo-a' }`.
 8. [ ] Client unit test (commands run) — `client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx`: local command run omits `sourceId` in payload; purpose: keep local run behavior unchanged.
    - Docs to read: React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; React state + hooks (Context7 `/websites/react_dev`): /websites/react_dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+   - Example expectation: selecting local `build` results in payload `{ commandName: 'build' }` without `sourceId`.
 9. [ ] Update documentation — `design.md` (UI behavior summary, plus Mermaid diagram updates where applicable).
    - Document: `design.md`.
    - Location: repo root `design.md`.
    - Description: Describe command dropdown label/sort behavior and update any related Mermaid UI/flow diagrams.
+   - Include (duplicate rules): display label format `<name> - [sourceLabel]`, local commands unlabeled, sort by label.
    - Purpose: keep UI/architecture references aligned with new ingested command UX.
    - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
 10. [ ] Update documentation — `README.md`.
    - Document: `README.md`.
    - Location: repo root `README.md`.
    - Description: Mention UI behavior changes if README documents command execution workflows.
+   - Include (duplicate rules): UI shows ingested labels and uses `sourceId` for runs.
    - Purpose: keep user-facing usage notes current.
    - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
 11. [ ] After completing any file adds/removes in this task, update `projectStructure.md`:
@@ -708,6 +790,7 @@ Update the Flows UI to display ingested flow labels, sort by display label, and 
      - `client/src/test/flowsApi.test.ts`
      - `client/src/test/flowsPage.stop.test.tsx`
    - Docs to read: MUI Select docs (MUI MCP `/mui/material@6.4.12`, `components/selects.md`): https://llms.mui.com/material-ui/6.4.12/components/selects.md; React state + hooks (Context7 `/websites/react_dev`): /websites/react_dev; React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/; Markdown Guide: https://www.markdownguide.org/basic-syntax/
+   - Checklist (duplicate rules): flow labels use `<name> - [sourceLabel]` and runs include `sourceId` for ingested flows.
 2. [ ] Update flows API list parsing:
    - Files to edit:
      - `client/src/api/flows.ts`
@@ -715,6 +798,7 @@ Update the Flows UI to display ingested flow labels, sort by display label, and 
    - Implementation details:
      - Extend the `FlowSummary` type to include optional `sourceId`/`sourceLabel` fields.
      - Parse optional `sourceId`/`sourceLabel` from the flows list response and include them in the returned flow objects.
+     - Example type: `type FlowSummary = { name: string; description: string; disabled: boolean; sourceId?: string; sourceLabel?: string };`.
 3. [ ] Update dropdown rendering + selection state:
    - Files to edit:
      - `client/src/pages/FlowsPage.tsx`
@@ -723,34 +807,44 @@ Update the Flows UI to display ingested flow labels, sort by display label, and 
      - Compute display labels (`<name>` vs `<name> - [sourceLabel]`).
      - Store `sourceId`/`sourceLabel` with each flow and use a composite selection key so duplicate flow names remain selectable.
      - Sort by display label and keep local flows unlabeled.
+     - Example display label + key:
+       - `const label = sourceLabel ? name + ' - [' + sourceLabel + ']' : name;`
+       - `const key = name + '::' + (sourceId ?? 'local');`
 4. [ ] Update run payload support in flows API:
    - Files to edit:
      - `client/src/api/flows.ts`
    - Docs to read: React state + hooks (Context7 `/websites/react_dev`): /websites/react_dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
    - Implementation details:
      - Accept optional `sourceId` in `runFlow` params and include it in the payload when provided.
+     - Example payload: `{ sourceId: '/data/repo' }` (omit for local runs).
 5. [ ] Update run action to pass `sourceId`:
    - Files to edit:
      - `client/src/pages/FlowsPage.tsx`
    - Docs to read: MUI Select docs (MUI MCP `/mui/material@6.4.12`, `components/selects.md`): https://llms.mui.com/material-ui/6.4.12/components/selects.md; React state + hooks (Context7 `/websites/react_dev`): /websites/react_dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface
    - Implementation details:
      - When the selected flow has a `sourceId`, include it in the run payload; omit `sourceId` for local flows.
+     - Example: selected `{ name: 'release', sourceId: '/data/repo' }` => payload includes `sourceId`.
 6. [ ] Client unit test (flows list UI) — `client/src/test/flowsPage.stop.test.tsx`: duplicate flow names from different sources render distinct labels; purpose: confirm display label + sorting behavior.
    - Docs to read: React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; React state + hooks (Context7 `/websites/react_dev`): /websites/react_dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+   - Example expectation: dropdown shows `release - [Repo A]` and `release - [Repo B]` as separate options.
 7. [ ] Client unit test (flows run) — `client/src/test/flowsPage.stop.test.tsx`: ingested flow run sends the correct `sourceId` payload; purpose: verify ingest run wiring.
    - Docs to read: React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; React state + hooks (Context7 `/websites/react_dev`): /websites/react_dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+   - Example expectation: selecting `release - [Repo A]` sends `{ sourceId: '/data/repo-a' }`.
 8. [ ] Client unit test (flows run) — `client/src/test/flowsPage.stop.test.tsx`: local flow run omits `sourceId` in payload; purpose: keep local run behavior unchanged.
    - Docs to read: React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; React state + hooks (Context7 `/websites/react_dev`): /websites/react_dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+   - Example expectation: selecting local `release` sends payload without `sourceId`.
 9. [ ] Update documentation — `design.md` (UI behavior summary, plus Mermaid diagram updates where applicable).
    - Document: `design.md`.
    - Location: repo root `design.md`.
    - Description: Describe flow dropdown label/sort behavior and update any related Mermaid UI/flow diagrams.
+   - Include (duplicate rules): display label format `<name> - [sourceLabel]`, local flows unlabeled, sort by label.
    - Purpose: keep UI/architecture references aligned with new ingested flow UX.
    - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
 10. [ ] Update documentation — `README.md`.
    - Document: `README.md`.
    - Location: repo root `README.md`.
    - Description: Mention UI behavior changes if README documents flow execution workflows.
+   - Include (duplicate rules): UI uses `sourceId` when running ingested flows.
    - Purpose: keep user-facing usage notes current.
    - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
 11. [ ] After completing any file adds/removes in this task, update `projectStructure.md`:

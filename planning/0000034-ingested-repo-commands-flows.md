@@ -60,6 +60,19 @@ This story adds discovery of commands and flows from ingested repositories. If a
 
 ---
 
+## Edge Cases and Failure Modes
+
+- Ingest roots list is empty: ingested commands/flows are simply omitted and local items continue to work.
+- Ingest root metadata is missing a name: `sourceLabel` falls back to the basename of the container path and display labels stay deterministic.
+- Ingest root folders are deleted or moved: list APIs should skip missing folders; run requests with that `sourceId` return `404 { error: 'not_found' }`.
+- Duplicate names across repos: items appear separately with different labels; runs must include the correct `sourceId` to avoid ambiguity.
+- Invalid/unknown `sourceId`: command/flow run returns `404 { error: 'not_found' }`.
+- Path traversal attempts (e.g., `../` in `sourceId` or command/flow name): rejected by containment checks (`path.resolve` + `path.relative`).
+- Invalid JSON or schema in ingested flow files: flows list marks them disabled with error text, matching existing local behavior.
+- Ingested command JSON invalid: commands list marks them disabled (same behavior as local command discovery).
+
+---
+
 ## Questions
 
 _None. All questions resolved._

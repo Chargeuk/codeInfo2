@@ -155,7 +155,8 @@ Add ingested-repo command discovery to the agent command list so REST/MCP list r
      - Pull ingest roots via `listIngestedRepositories` and scan `<root>/codex_agents/<agentName>/commands` for JSON files.
      - If `listIngestedRepositories` fails (for example, Chroma unavailable), return local commands only and log/continue without throwing.
      - Skip ingest roots that are missing on disk or do not contain `codex_agents/<agentName>/commands` (no errors, just omit).
-     - Use container path (`/data/<repo>`) as `sourceId` and ingest name (fallback to container basename) as `sourceLabel`.
+     - Use container path (`/data/<repo>`) as `sourceId` and the repo `id` from `listIngestedRepositories` as `sourceLabel` (this id already reflects ingest metadata name or container basename).
+     - If the repo `id` is empty, fall back to `path.posix.basename(containerPath)` for the label.
      - Keep local commands unlabeled (no `sourceId`/`sourceLabel`).
      - Sort the combined list by display label (`<name>` for local, `<name> - [sourceLabel]` for ingested).
      - Do not de-duplicate names; preserve duplicates across ingest roots.
@@ -172,6 +173,7 @@ Add ingested-repo command discovery to the agent command list so REST/MCP list r
      - `server/src/test/unit/mcp-agents-router-list.test.ts`
    - Testing expectations:
      - Validate ingested commands include `sourceId`/`sourceLabel` and sorting uses the display label.
+     - Validate local commands omit `sourceId`/`sourceLabel`.
      - Add coverage for duplicate command names across different ingest roots (both entries retained, sorted by label).
      - Add coverage for missing ingest root directories (local commands still returned).
 5. [ ] Update documentation — `design.md`:
@@ -238,6 +240,7 @@ Add optional `sourceId` support when running agent commands so ingested command 
    - Implementation details:
      - Accept `sourceId` (container path) for ingested commands and reject unknown roots with 404.
      - Resolve `<sourceId>/codex_agents/<agentName>/commands/<command>.json` and validate containment with `path.resolve` + `path.relative`.
+     - If `sourceId` is provided but `listIngestedRepositories` fails or no matching `containerPath` exists, return `404 { error: 'not_found' }`.
 3. [ ] Update run tests:
    - Files to edit:
      - `server/src/test/unit/agents-commands-router-run.test.ts`
@@ -245,6 +248,7 @@ Add optional `sourceId` support when running agent commands so ingested command 
      - `server/src/test/unit/agent-commands-runner.test.ts`
    - Testing expectations:
      - Validate 404 on unknown `sourceId` and success when `sourceId` resolves to an ingested command.
+     - Validate local command runs still work when `sourceId` is omitted.
 4. [ ] Update documentation — `design.md` (run payload changes).
 5. [ ] Update documentation — `README.md` (if any new payload fields need mention).
 6. [ ] Update documentation — `projectStructure.md` (if needed).
@@ -302,6 +306,7 @@ Extend flow discovery to include ingested repositories, returning `sourceId`/`so
      - Scan `<ingestRoot>/flows` for JSON flows, add `sourceId` (container path) and `sourceLabel`.
      - If `listIngestedRepositories` fails, return local flows only and log/continue without throwing.
      - Skip ingest roots that are missing on disk or do not contain a `flows/` folder.
+     - Use repo `id` from `listIngestedRepositories` as `sourceLabel` (fallback to `path.posix.basename(containerPath)` if needed).
      - Keep local flows unlabeled; sort by display label.
      - Do not de-duplicate names; preserve duplicates across ingest roots.
 3. [ ] Update OpenAPI schema for flow list response:
@@ -312,6 +317,7 @@ Extend flow discovery to include ingested repositories, returning `sourceId`/`so
      - `server/src/test/integration/flows.list.test.ts`
    - Testing expectations:
      - Validate ingested flows include `sourceId`/`sourceLabel` and sorting uses the display label.
+     - Validate local flows omit `sourceId`/`sourceLabel`.
      - Add coverage for duplicate flow names across different ingest roots (both entries retained).
      - Add coverage for missing ingest root directories (local flows still returned).
 5. [ ] Update documentation — `design.md` (flow discovery changes).
@@ -371,11 +377,15 @@ Add optional `sourceId` support for flow execution so ingested flows run from th
    - Implementation details:
      - Accept `sourceId` (container path), resolve `<sourceId>/flows/<flowName>.json`, and enforce containment checks.
      - Unknown `sourceId` or missing flow returns 404.
+     - If `sourceId` is provided but `listIngestedRepositories` fails or no matching `containerPath` exists, return `404 { error: 'not_found' }`.
 3. [ ] Update flow run tests:
    - Files to edit:
      - `server/src/test/integration/flows.run.basic.test.ts`
      - `server/src/test/integration/flows.run.hot-reload.test.ts`
      - `server/src/test/integration/flows.run.command.test.ts`
+   - Testing expectations:
+     - Validate 404 on unknown `sourceId` and success when `sourceId` resolves to an ingested flow.
+     - Validate local flow runs still work when `sourceId` is omitted.
 4. [ ] Update documentation — `design.md` (run payload changes).
 5. [ ] Update documentation — `README.md` (if any new payload fields need mention).
 6. [ ] Update documentation — `projectStructure.md` (if needed).

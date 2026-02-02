@@ -29,6 +29,13 @@ test('callTool list_commands without agentName returns all agents and excludes d
           return {
             commands: [
               {
+                name: 'build',
+                description: 'Builds',
+                disabled: false,
+                sourceId: '/data/repo',
+                sourceLabel: 'My Repo',
+              },
+              {
                 name: 'improve_plan',
                 description: 'Improves a plan',
                 disabled: false,
@@ -68,7 +75,11 @@ test('callTool list_commands without agentName returns all agents and excludes d
   assert.ok(planning);
   assert.deepEqual(
     planning.commands.map((command) => command.name),
-    ['improve_plan'],
+    ['build', 'improve_plan'],
+  );
+  assert.equal(
+    (planning.commands[0] as { sourceId?: string }).sourceId,
+    '/data/repo',
   );
 
   const coding = parsed.agents.find(
@@ -139,5 +150,157 @@ test('callTool list_commands rejects invalid params (empty agentName)', async ()
         },
       ),
     InvalidParamsError,
+  );
+});
+
+test('callTool list_commands local entries omit source metadata', async () => {
+  const response = await callTool(
+    'list_commands',
+    { agentName: 'planning_agent' },
+    {
+      listAgents: async () => ({ agents: [] }),
+      listAgentCommands: async () => ({
+        commands: [{ name: 'local', description: 'Local', disabled: false }],
+      }),
+      runAgentInstruction: async () => {
+        throw new Error('not used');
+      },
+    },
+  );
+
+  const parsed = JSON.parse(response.content[0].text) as {
+    commands: Array<{ name: string; sourceId?: string }>;
+  };
+
+  assert.equal(parsed.commands.length, 1);
+  assert.equal('sourceId' in parsed.commands[0], false);
+});
+
+test('callTool list_commands returns fallback sourceLabel metadata', async () => {
+  const response = await callTool(
+    'list_commands',
+    { agentName: 'planning_agent' },
+    {
+      listAgents: async () => ({ agents: [] }),
+      listAgentCommands: async () => ({
+        commands: [
+          {
+            name: 'build',
+            description: 'Build',
+            disabled: false,
+            sourceId: '/data/repo-folder',
+            sourceLabel: 'repo-folder',
+          },
+        ],
+      }),
+      runAgentInstruction: async () => {
+        throw new Error('not used');
+      },
+    },
+  );
+
+  const parsed = JSON.parse(response.content[0].text) as {
+    commands: Array<{ name: string; sourceLabel?: string }>;
+  };
+
+  assert.equal(parsed.commands[0].sourceLabel, 'repo-folder');
+});
+
+test('callTool list_commands omits agents missing locally', async () => {
+  const response = await callTool(
+    'list_commands',
+    {},
+    {
+      listAgents: async () => ({
+        agents: [
+          {
+            name: 'planning_agent',
+            description: '',
+            disabled: false,
+            warnings: [],
+          },
+        ],
+      }),
+      listAgentCommands: async () => ({
+        commands: [{ name: 'local', description: 'Local', disabled: false }],
+      }),
+      runAgentInstruction: async () => {
+        throw new Error('not used');
+      },
+    },
+  );
+
+  const parsed = JSON.parse(response.content[0].text) as {
+    agents: Array<{ agentName: string }>;
+  };
+
+  assert.deepEqual(
+    parsed.agents.map((agent) => agent.agentName),
+    ['planning_agent'],
+  );
+});
+
+test('callTool list_commands preserves duplicate ingested labels order', async () => {
+  const response = await callTool(
+    'list_commands',
+    { agentName: 'planning_agent' },
+    {
+      listAgents: async () => ({ agents: [] }),
+      listAgentCommands: async () => ({
+        commands: [
+          {
+            name: 'build',
+            description: 'Build A',
+            disabled: false,
+            sourceId: '/data/a',
+            sourceLabel: 'A',
+          },
+          {
+            name: 'build',
+            description: 'Build B',
+            disabled: false,
+            sourceId: '/data/b',
+            sourceLabel: 'B',
+          },
+        ],
+      }),
+      runAgentInstruction: async () => {
+        throw new Error('not used');
+      },
+    },
+  );
+
+  const parsed = JSON.parse(response.content[0].text) as {
+    commands: Array<{ sourceLabel?: string }>;
+  };
+
+  assert.deepEqual(
+    parsed.commands.map((command) => command.sourceLabel),
+    ['A', 'B'],
+  );
+});
+
+test('callTool list_commands returns local commands when ingest roots missing', async () => {
+  const response = await callTool(
+    'list_commands',
+    { agentName: 'planning_agent' },
+    {
+      listAgents: async () => ({ agents: [] }),
+      listAgentCommands: async () => ({
+        commands: [{ name: 'local', description: 'Local', disabled: false }],
+      }),
+      runAgentInstruction: async () => {
+        throw new Error('not used');
+      },
+    },
+  );
+
+  const parsed = JSON.parse(response.content[0].text) as {
+    commands: Array<{ name: string }>;
+  };
+
+  assert.deepEqual(
+    parsed.commands.map((command) => command.name),
+    ['local'],
   );
 });

@@ -20,6 +20,7 @@ import {
 } from '../chat/memoryPersistence.js';
 import { McpResponder } from '../chat/responders/McpResponder.js';
 import { mapHostWorkingFolderToWorkdir } from '../ingest/pathMap.js';
+import { listIngestedRepositories } from '../lmstudio/toolService.js';
 import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
 import { ConversationModel } from '../mongo/conversation.js';
@@ -732,41 +733,119 @@ export async function runAgentInstructionUnlocked(params: {
   };
 }
 
-export async function listAgentCommands(params: {
-  agentName: string;
-}): Promise<{
-  commands: Array<{ name: string; description: string; disabled: boolean }>;
-}> {
+export type AgentCommandSummary = {
+  name: string;
+  description: string;
+  disabled: boolean;
+  sourceId?: string;
+  sourceLabel?: string;
+};
+
+export async function listAgentCommands(
+  params: {
+    agentName: string;
+  },
+  deps: {
+    listIngestedRepositories?: typeof listIngestedRepositories;
+  } = {},
+): Promise<{ commands: AgentCommandSummary[] }> {
   const discovered = await discoverAgents();
   const agent = discovered.find((item) => item.name === params.agentName);
   if (!agent) throw toRunAgentError('AGENT_NOT_FOUND');
 
+  const listCommandsFromDir = async (params: {
+    commandsDir: string;
+    sourceId?: string;
+    sourceLabel?: string;
+  }): Promise<AgentCommandSummary[]> => {
+    const dirents = await fs
+      .readdir(params.commandsDir, { withFileTypes: true })
+      .catch((error) => {
+        if ((error as { code?: string }).code === 'ENOENT') return null;
+        throw error;
+      });
+
+    if (!dirents) return [];
+
+    const jsonEntries = dirents.filter(
+      (dirent) =>
+        dirent.isFile() &&
+        dirent.name.toLowerCase().endsWith('.json') &&
+        dirent.name.length > '.json'.length,
+    );
+
+    const commands = await Promise.all(
+      jsonEntries.map(async (dirent) => {
+        const name = path.basename(dirent.name, path.extname(dirent.name));
+        const filePath = path.join(params.commandsDir, dirent.name);
+        const summary = await loadAgentCommandSummary({ filePath, name });
+        if (params.sourceId && params.sourceLabel) {
+          return {
+            ...summary,
+            sourceId: params.sourceId,
+            sourceLabel: params.sourceLabel,
+          } satisfies AgentCommandSummary;
+        }
+        return summary;
+      }),
+    );
+
+    return commands;
+  };
+
   const commandsDir = path.join(agent.home, 'commands');
-  const dirents = await fs
-    .readdir(commandsDir, { withFileTypes: true })
-    .catch((error) => {
-      if ((error as { code?: string }).code === 'ENOENT') return null;
-      throw error;
-    });
+  const localCommands = await listCommandsFromDir({ commandsDir });
 
-  if (!dirents) return { commands: [] };
+  let ingestedCommands: AgentCommandSummary[] = [];
+  const resolvedListIngestedRepositories =
+    deps.listIngestedRepositories ?? listIngestedRepositories;
+  const ingestRoots = await resolvedListIngestedRepositories()
+    .then((result) => result.repos)
+    .catch(() => null);
 
-  const jsonEntries = dirents.filter(
-    (dirent) =>
-      dirent.isFile() &&
-      dirent.name.toLowerCase().endsWith('.json') &&
-      dirent.name.length > '.json'.length,
-  );
+  if (ingestRoots) {
+    const ingestResults = await Promise.all(
+      ingestRoots.map(async (repo) => {
+        const sourceId = repo.containerPath;
+        const sourceLabel =
+          repo.id?.trim() || path.posix.basename(sourceId.replace(/\\/g, '/'));
+        if (!sourceLabel) return [];
+        const ingestedCommandsDir = path.join(
+          sourceId,
+          'codex_agents',
+          agent.name,
+          'commands',
+        );
+        return await listCommandsFromDir({
+          commandsDir: ingestedCommandsDir,
+          sourceId,
+          sourceLabel,
+        });
+      }),
+    );
+    ingestedCommands = ingestResults.flat();
+  }
 
-  const commands = await Promise.all(
-    jsonEntries.map(async (dirent) => {
-      const name = path.basename(dirent.name, path.extname(dirent.name));
-      const filePath = path.join(commandsDir, dirent.name);
-      return loadAgentCommandSummary({ filePath, name });
-    }),
-  );
+  const commands = [...localCommands, ...ingestedCommands];
+  const displayLabel = (command: AgentCommandSummary) =>
+    command.sourceLabel
+      ? `${command.name} - [${command.sourceLabel}]`
+      : command.name;
 
-  commands.sort((a, b) => a.name.localeCompare(b.name));
+  commands.sort((a, b) => displayLabel(a).localeCompare(displayLabel(b)));
+
+  append({
+    level: 'info',
+    message: 'DEV-0000034:T1:commands_listed',
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      agentName: params.agentName,
+      localCount: localCommands.length,
+      ingestedCount: ingestedCommands.length,
+      totalCount: commands.length,
+    },
+  });
 
   return { commands };
 }

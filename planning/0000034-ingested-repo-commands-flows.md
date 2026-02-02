@@ -139,7 +139,7 @@ Add ingested-repo command discovery to the agent command list so REST/MCP list r
 
 #### Subtasks
 
-1. [ ] Review current list logic and ingest metadata usage:
+1. [x] Review current list logic and ingest metadata usage:
    - Files to read:
      - `server/src/agents/service.ts`
      - `server/src/agents/commandsLoader.ts`
@@ -152,7 +152,7 @@ Add ingested-repo command discovery to the agent command list so REST/MCP list r
      - `openapi.json`
    - Docs to read: Node.js `fs.readdir` + `path.resolve`/`path.relative` (Context7 `/nodejs/node/v22.17.0`): /nodejs/node/v22.17.0; OpenAPI 3.0.3 spec: https://spec.openapis.org/oas/v3.0.3.html; npm run-script docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script; Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/; Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Checklist (duplicate rules): confirm `sourceId = RepoEntry.containerPath`, `sourceLabel = RepoEntry.id` fallback, and label format `<name> - [sourceLabel]`.
-2. [ ] Add ingest repo lookup + command discovery:
+2. [x] Add ingest repo lookup + command discovery:
    - Files to edit:
      - `server/src/agents/service.ts`
    - Docs to read: Node.js `fs.readdir` + `path.resolve`/`path.relative` (Context7 `/nodejs/node/v22.17.0`): /nodejs/node/v22.17.0; OpenAPI 3.0.3 spec: https://spec.openapis.org/oas/v3.0.3.html; npm run-script docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script; Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/; Markdown Guide: https://www.markdownguide.org/basic-syntax/
@@ -166,7 +166,7 @@ Add ingested-repo command discovery to the agent command list so REST/MCP list r
      - Example (pseudo):
        - `const roots = await listIngestedRepositories().catch(() => null);`
        - `const commandsRoot = path.join(repo.containerPath, 'codex_agents', agentName, 'commands');`
-3. [ ] Add labels + sort for local/ingested commands:
+3. [x] Add labels + sort for local/ingested commands:
    - Files to edit:
      - `server/src/agents/service.ts`
    - Docs to read: Node.js `fs.readdir` + `path.resolve`/`path.relative` (Context7 `/nodejs/node/v22.17.0`): /nodejs/node/v22.17.0; OpenAPI 3.0.3 spec: https://spec.openapis.org/oas/v3.0.3.html; npm run-script docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script; Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/; Markdown Guide: https://www.markdownguide.org/basic-syntax/
@@ -179,7 +179,7 @@ Add ingested-repo command discovery to the agent command list so REST/MCP list r
      - Example display label logic:
        - `const displayLabel = sourceLabel ? name + ' - [' + sourceLabel + ']' : name;`
        - `commands.sort((a, b) => displayLabel(a).localeCompare(displayLabel(b)));`
-4. [ ] Update REST list payload + OpenAPI schema:
+4. [x] Update REST list payload + OpenAPI schema:
    - Files to edit:
      - `server/src/routes/agentsCommands.ts`
      - `openapi.json`
@@ -188,67 +188,67 @@ Add ingested-repo command discovery to the agent command list so REST/MCP list r
      - Add optional `sourceId`/`sourceLabel` fields to REST list payloads for ingested items only.
      - Update the list command DTO/type in `server/src/agents/service.ts` so `sourceId`/`sourceLabel` are optional and omitted for local commands.
      - Example REST item: `{ name: 'build', description: 'Builds', disabled: false, sourceId: '/data/repo', sourceLabel: 'My Repo' }`.
-5. [ ] Update MCP list payload:
+5. [x] Update MCP list payload:
    - Files to edit:
      - `server/src/mcpAgents/tools.ts`
    - Docs to read: Node.js `fs.readdir` + `path.resolve`/`path.relative` (Context7 `/nodejs/node/v22.17.0`): /nodejs/node/v22.17.0; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/; Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Implementation details:
      - Add optional `sourceId`/`sourceLabel` fields to MCP list payloads for ingested items only.
      - Example MCP payload item (JSON): `{ name: 'build', description: 'Builds', disabled: false, sourceId: '/data/repo', sourceLabel: 'My Repo' }`.
-6. [ ] Unit test (REST list) — `server/src/test/unit/agent-commands-list.test.ts`: ensure ingested commands include `sourceId`/`sourceLabel` and sorting uses the display label; purpose: lock down REST list contract + deterministic ordering.
+6. [x] Unit test (REST list) — `server/src/test/unit/agent-commands-list.test.ts`: ensure ingested commands include `sourceId`/`sourceLabel` and sorting uses the display label; purpose: lock down REST list contract + deterministic ordering.
    - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
    - Example expectation: returned list contains `{ name: 'build', sourceId: '/data/repo', sourceLabel: 'My Repo' }` and sorts by `build - [My Repo]`.
-7. [ ] Unit test (REST list) — `server/src/test/unit/agent-commands-list.test.ts`: ensure local commands omit `sourceId`/`sourceLabel`; purpose: keep local payloads unchanged.
+7. [x] Unit test (REST list) — `server/src/test/unit/agent-commands-list.test.ts`: ensure local commands omit `sourceId`/`sourceLabel`; purpose: keep local payloads unchanged.
    - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
    - Example expectation: local entry equals `{ name: 'build', description: 'Builds', disabled: false }` with no `sourceId`/`sourceLabel` keys.
-8. [ ] Unit test (REST list) — `server/src/test/unit/agent-commands-list.test.ts`: ensure `sourceLabel` falls back to ingest root basename when metadata name missing; purpose: enforce fallback label rule.
+8. [x] Unit test (REST list) — `server/src/test/unit/agent-commands-list.test.ts`: ensure `sourceLabel` falls back to ingest root basename when metadata name missing; purpose: enforce fallback label rule.
    - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
    - Example expectation: metadata name missing => `sourceLabel === 'repo-folder'` and display label `build - [repo-folder]`.
-9. [ ] Unit test (REST list) — `server/src/test/unit/agent-commands-list.test.ts`: ensure ingested commands are skipped when the matching agent does not exist locally; purpose: avoid invalid listings.
+9. [x] Unit test (REST list) — `server/src/test/unit/agent-commands-list.test.ts`: ensure ingested commands are skipped when the matching agent does not exist locally; purpose: avoid invalid listings.
    - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
    - Example expectation: if `agentName` not discovered locally, list excludes ingested commands entirely.
-10. [ ] Unit test (REST list) — `server/src/test/unit/agent-commands-list.test.ts`: ensure duplicate command names across ingest roots are retained and sorted by label; purpose: confirm deterministic duplicate handling.
+10. [x] Unit test (REST list) — `server/src/test/unit/agent-commands-list.test.ts`: ensure duplicate command names across ingest roots are retained and sorted by label; purpose: confirm deterministic duplicate handling.
     - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
     - Example expectation: two entries named `build` with different `sourceId` values both appear and order is by `build - [A]` then `build - [B]`.
-11. [ ] Unit test (REST list) — `server/src/test/unit/agent-commands-list.test.ts`: ensure missing ingest root directories are skipped and local commands still return; purpose: guard missing directories.
+11. [x] Unit test (REST list) — `server/src/test/unit/agent-commands-list.test.ts`: ensure missing ingest root directories are skipped and local commands still return; purpose: guard missing directories.
     - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
     - Example expectation: missing `/data/repo/codex_agents/.../commands` does not throw and local list remains unchanged.
-12. [ ] Unit test (REST list) — `server/src/test/unit/agent-commands-list.test.ts`: listIngestedRepositories failures return local commands only; purpose: keep lists functional if ingest metadata is unavailable.
+12. [x] Unit test (REST list) — `server/src/test/unit/agent-commands-list.test.ts`: listIngestedRepositories failures return local commands only; purpose: keep lists functional if ingest metadata is unavailable.
     - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
     - Example expectation: when `listIngestedRepositories` rejects, output equals the local-only list with no ingested entries.
-13. [ ] Unit test (MCP list) — `server/src/test/unit/mcp-agents-commands-list.test.ts`: ensure ingested commands include `sourceId`/`sourceLabel` and sorting uses display label; purpose: keep MCP parity with REST.
+13. [x] Unit test (MCP list) — `server/src/test/unit/mcp-agents-commands-list.test.ts`: ensure ingested commands include `sourceId`/`sourceLabel` and sorting uses display label; purpose: keep MCP parity with REST.
     - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
     - Example expectation: MCP JSON contains `{ name: 'build', sourceId: '/data/repo', sourceLabel: 'My Repo' }` and sorts by display label.
-14. [ ] Unit test (MCP list) — `server/src/test/unit/mcp-agents-commands-list.test.ts`: ensure local commands omit `sourceId`/`sourceLabel`; purpose: keep MCP local payloads unchanged.
+14. [x] Unit test (MCP list) — `server/src/test/unit/mcp-agents-commands-list.test.ts`: ensure local commands omit `sourceId`/`sourceLabel`; purpose: keep MCP local payloads unchanged.
     - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
     - Example expectation: MCP local entry excludes `sourceId`/`sourceLabel` keys.
-15. [ ] Unit test (MCP list) — `server/src/test/unit/mcp-agents-commands-list.test.ts`: ensure `sourceLabel` falls back to ingest root basename when metadata name missing; purpose: enforce MCP fallback label rule.
+15. [x] Unit test (MCP list) — `server/src/test/unit/mcp-agents-commands-list.test.ts`: ensure `sourceLabel` falls back to ingest root basename when metadata name missing; purpose: enforce MCP fallback label rule.
     - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
     - Example expectation: `sourceLabel` equals basename of `sourceId` when metadata name is empty.
-16. [ ] Unit test (MCP list) — `server/src/test/unit/mcp-agents-commands-list.test.ts`: ensure ingested commands are skipped when the matching agent does not exist locally; purpose: prevent invalid MCP listings.
+16. [x] Unit test (MCP list) — `server/src/test/unit/mcp-agents-commands-list.test.ts`: ensure ingested commands are skipped when the matching agent does not exist locally; purpose: prevent invalid MCP listings.
     - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
     - Example expectation: MCP response omits ingested entries for unknown local agents.
-17. [ ] Unit test (MCP list) — `server/src/test/unit/mcp-agents-commands-list.test.ts`: ensure duplicate command names across ingest roots are retained and sorted by label; purpose: match REST duplicate handling.
+17. [x] Unit test (MCP list) — `server/src/test/unit/mcp-agents-commands-list.test.ts`: ensure duplicate command names across ingest roots are retained and sorted by label; purpose: match REST duplicate handling.
     - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
     - Example expectation: MCP `build - [A]` appears before `build - [B]` with both entries present.
-18. [ ] Unit test (MCP list) — `server/src/test/unit/mcp-agents-commands-list.test.ts`: ensure missing ingest root directories are skipped and local commands still return; purpose: guard missing directories in MCP list.
+18. [x] Unit test (MCP list) — `server/src/test/unit/mcp-agents-commands-list.test.ts`: ensure missing ingest root directories are skipped and local commands still return; purpose: guard missing directories in MCP list.
     - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
     - Example expectation: missing ingest directories do not remove local commands from MCP output.
-19. [ ] Update documentation — `design.md`:
+19. [x] Update documentation — `design.md`:
     - Document: `design.md`.
     - Location: repo root `design.md`.
     - Description: Add/confirm command discovery includes ingested repos and the label/sorting rules, and update the related Mermaid architecture diagram(s).
     - Include (duplicate rules): `sourceId = RepoEntry.containerPath`, `sourceLabel = RepoEntry.id` (fallback to ingest root basename), and label format `<name> - [sourceLabel]`.
     - Purpose: keep architecture/design reference aligned with the new command discovery behavior.
     - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
-20. [ ] Update documentation — `README.md`:
+20. [x] Update documentation — `README.md`:
     - Document: `README.md`.
     - Location: repo root `README.md`.
     - Description: Note any new agent command list fields (`sourceId`/`sourceLabel`) if documentation mentions list payloads.
     - Include (duplicate rules): `sourceId` optional, `sourceLabel` optional, local entries omit both.
     - Purpose: keep public API usage notes accurate for operators.
     - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
-21. [ ] After completing any file adds/removes in this task, update `projectStructure.md`:
+21. [x] After completing any file adds/removes in this task, update `projectStructure.md`:
     - Document: `projectStructure.md`.
     - Location: repo root `projectStructure.md`.
     - Description: Record any added/removed files or confirm no change.
@@ -256,23 +256,35 @@ Add ingested-repo command discovery to the agent command list so REST/MCP list r
     - Added files: none.
     - Removed files: none.
     - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
-22. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+22. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e` or set `timeout_ms=420000` in the harness)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e` or set `timeout_ms=420000` in the harness)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
 8. [ ] Manual Playwright-MCP check: open http://host.docker.internal:5001/agents, confirm ingested commands show `name - [Repo]` labels, local commands stay unlabeled, sorting is by label; then open http://host.docker.internal:5001/logs and confirm log entry `DEV-0000034:T1:commands_listed` appears with `{ agentName, localCount, ingestedCount, totalCount }` matching the selected agent; verify no errors appear in the debug console.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
-- _To be completed during implementation._
+- Reviewed current command listing, MCP list mapping, ingest repo metadata (`RepoEntry`), and tests to align upcoming changes with existing list/run flows.
+- Added ingested command discovery in `listAgentCommands`, reusing the command summary loader and ignoring missing/failed ingest roots.
+- Added `sourceId`/`sourceLabel` metadata for ingested commands and sorted combined results by display label.
+- Documented the agent commands list response in `openapi.json`, including optional source fields.
+- MCP `list_commands` now returns `sourceId`/`sourceLabel` for ingested entries while keeping local entries unchanged.
+- Extended REST/MCP unit tests to cover ingested metadata, label sorting, fallback labels, duplicate names, and failure/missing-root handling.
+- Added MCP list tests for local-only payloads, fallback labels, and duplicate ingested labels.
+- Updated `design.md` to document ingested command discovery, source metadata, and label sorting, plus refreshed the agents flow diagram.
+- Updated `README.md` with optional `sourceId`/`sourceLabel` notes for ingested command lists.
+- Confirmed `projectStructure.md` needs no changes for this task.
+- Ran workspace lint and format checks; applied Prettier to resolve formatting warnings.
+- Server tests required a longer timeout; reran with an extended limit until completion.
+- Manual Playwright check blocked: ingested command appears in Agents dropdown, but UI does not yet display `name - [Repo]` labels (client changes scheduled in Task 4). Log entry `DEV-0000034:T1:commands_listed` is visible with `localCount=1`/`ingestedCount=1`.
 
 ---
 

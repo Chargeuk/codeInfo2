@@ -249,6 +249,12 @@ async function runListCommands(params: unknown, deps: Partial<CallToolDeps>) {
         .map((command) => ({
           name: command.name,
           description: command.description,
+          ...(command.sourceId && command.sourceLabel
+            ? {
+                sourceId: command.sourceId,
+                sourceLabel: command.sourceLabel,
+              }
+            : {}),
         }));
       return {
         content: [
@@ -275,6 +281,12 @@ async function runListCommands(params: unknown, deps: Partial<CallToolDeps>) {
         .map((command) => ({
           name: command.name,
           description: command.description,
+          ...(command.sourceId && command.sourceLabel
+            ? {
+                sourceId: command.sourceId,
+                sourceLabel: command.sourceLabel,
+              }
+            : {}),
         }));
       return { agentName: agent.name, commands };
     }),

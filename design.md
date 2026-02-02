@@ -584,8 +584,9 @@ runAgentInstruction()
 
 - Agent commands live in each agent home at `commands/<commandName>.json` and are loaded at execution time.
 - REST endpoints:
-  - `GET /agents/:agentName/commands` returns `{ commands: [{ name, description, disabled }] }`.
+  - `GET /agents/:agentName/commands` returns `{ commands: [{ name, description, disabled, sourceId?, sourceLabel? }] }`.
   - `POST /agents/:agentName/commands/run` accepts `{ commandName, conversationId?, working_folder? }` and returns `{ agentName, commandName, conversationId, modelId }`.
+- Command discovery includes ingested repo commands at `<ingestRoot>/codex_agents/<agentName>/commands` when the agent exists locally; ingested entries include `sourceId = RepoEntry.containerPath`, `sourceLabel = RepoEntry.id` (fallback to ingest root basename), and the list is sorted by display label `<name>` or `<name> - [sourceLabel]`.
 - REST error mapping (command run):
   - `COMMAND_NOT_FOUND` → 404 `{ error: 'not_found' }`
   - `COMMAND_INVALID` → 400 `{ error: 'invalid_request', code: 'COMMAND_INVALID', message }`
@@ -889,7 +890,7 @@ flowchart TD
 flowchart TD
   Load[Open /agents] --> ListAgents[GET /agents]
   ListAgents --> SelectAgent[Select agent]
-  SelectAgent --> ListCommands[GET /agents/<agentName>/commands]
+  SelectAgent --> ListCommands[GET /agents/<agentName>/commands\n(local + ingested labels)]
   ListCommands --> SelectCommand{Select command?}
   SelectAgent --> ListConvos[GET /conversations?agentName=<agentName>]
   ListConvos --> SelectConvo{Select conversation?}

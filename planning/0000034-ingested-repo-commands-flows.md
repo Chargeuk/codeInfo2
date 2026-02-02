@@ -55,16 +55,15 @@ _None. All questions resolved._
 
 ---
 
-## Rough Implementation Outline
+## Implementation Ideas
 
-- Server ingest roots: reuse `listIngestedRepositories` in `server/src/lmstudio/toolService.ts` to obtain ingest root names (with fallback to basename) and container paths; treat the display name as the `sourceLabel` for UI/MCP and the container path as `sourceId`.
-- Agent commands discovery: extend `listAgentCommands` in `server/src/agents/service.ts` to merge local commands with any found under `<ingestRoot>/codex_agents/<agentName>/commands`, only when the agent exists locally; include `sourceId` (ingest root container path) + `sourceLabel` for ingested items and keep local items unlabeled.
-- Agent command execution: update the command run path (e.g., `startAgentCommand`/`commandsRunner`) and REST/MCP inputs to accept an optional `sourceId`, resolve the correct `commands` directory from the ingest roots list (container path), and keep validation that paths stay inside the ingest root using `path.resolve` + `path.relative` checks.
-- Flow discovery: update `server/src/flows/discovery.ts` (and the `/flows` route) to scan the local flows directory plus each `<ingestRoot>/flows` folder; return `sourceId` (ingest root container path) + `sourceLabel` for ingested flows, keep locals unlabeled, and sort by display label.
-- Flow execution: update `server/src/flows/service.ts` and `server/src/routes/flowsRun.ts` to accept an optional `sourceId` (ingest root container path), resolve the matching flow file path for that source, and keep existing hot-reload/validation behavior with `path.resolve` + `path.relative` checks.
-- MCP parity: update `server/src/mcpAgents/tools.ts` list/run command payloads to include source metadata and accept `sourceId`; flows MCP tools are out of scope.
-- Client updates: adjust `client/src/api/agents.ts` and `client/src/pages/AgentsPage.tsx` to handle `sourceId/sourceLabel`, render labels as `<name> - [Repo]`, keep locals unlabeled, and pass `sourceId` on run; mirror the same approach in `client/src/api/flows.ts` and `client/src/pages/FlowsPage.tsx`.
-- Validation/tests: update existing REST/MCP and UI tests that assert command/flow lists to account for source metadata, label formatting, and duplicate name handling (sorted by `name`).
+- Ingest roots source data: use `listIngestedRepositories` in `server/src/lmstudio/toolService.ts` to obtain ingest root display names (with basename fallback already handled) and the ingest root container path (`/data/<repo>`), using the container path as `sourceId` and the display name as `sourceLabel`.
+- Agent command discovery: extend `listAgentCommands` in `server/src/agents/service.ts` to merge local commands with ingested commands under `<ingestRoot>/codex_agents/<agentName>/commands` for each ingest root, only when the agent exists locally; add `sourceId` + `sourceLabel` for ingested items and keep local items without those fields.
+- Agent command execution: update `startAgentCommand`/`commandsRunner` plus `server/src/routes/agentsCommands.ts` and `server/src/mcpAgents/tools.ts` to accept an optional `sourceId`, resolve the ingested commands directory from the ingest root container path, and enforce path containment using `path.resolve` + `path.relative` before reading files.
+- Flow discovery: extend `server/src/flows/discovery.ts` and `server/src/routes/flows.ts` to scan the local flows folder plus each `<ingestRoot>/flows`, returning `sourceId` (container path) + `sourceLabel` for ingested flows and keeping locals unlabeled; sort by the display label (`<name>` or `<name> - [Repo]`).
+- Flow execution: update `server/src/flows/service.ts` and `server/src/routes/flowsRun.ts` to accept an optional `sourceId` (container path) and resolve the correct flow file path with the same `path.resolve` + `path.relative` containment checks.
+- Client API + UI: adjust `client/src/api/agents.ts` and `client/src/pages/AgentsPage.tsx` to parse `sourceId/sourceLabel`, render labels as `<name> - [Repo]`, keep locals unlabeled, and pass `sourceId` when running commands; mirror for flows in `client/src/api/flows.ts` and `client/src/pages/FlowsPage.tsx`.
+- Tests to revisit: server agent command list/run tests in `server/src/test/unit/agents-commands-router-run.test.ts` and `server/src/test/unit/mcp-agents-router-list.test.ts`; flow list/run tests in `server/src/test/integration/flows.list.test.ts` and `server/src/test/integration/flows.run.*.test.ts`; client tests for agents/flows dropdowns in `client/src/test/agentsPage.commandsList.test.tsx` and `client/src/test/flowsApi.test.ts`/`client/src/test/flowsPage.stop.test.tsx`.
 
 ---
 

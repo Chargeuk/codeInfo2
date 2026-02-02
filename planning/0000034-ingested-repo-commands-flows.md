@@ -255,8 +255,6 @@ Add ingested-repo command discovery to the agent command list so REST/MCP list r
     - Added files: none.
     - Removed files: none.
     - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
-22. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
-    - Docs to read: npm run-script docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
 
 #### Testing
 
@@ -266,7 +264,9 @@ Add ingested-repo command discovery to the agent command list so REST/MCP list r
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test --workspace server`
 6. [ ] `npm run test --workspace client`
-7. [ ] `npm run compose:down`
+7. [ ] `npm run lint --workspaces`
+8. [ ] `npm run format:check --workspaces`
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -388,8 +388,6 @@ Add optional `sourceId` support when running agent commands so ingested command 
     - Added files: none.
     - Removed files: none.
     - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
-17. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
-    - Docs to read: npm run-script docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
 
 #### Testing
 
@@ -399,7 +397,9 @@ Add optional `sourceId` support when running agent commands so ingested command 
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test --workspace server`
 6. [ ] `npm run test --workspace client`
-7. [ ] `npm run compose:down`
+7. [ ] `npm run lint --workspaces`
+8. [ ] `npm run format:check --workspaces`
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -516,8 +516,6 @@ Extend flow discovery to include ingested repositories, returning `sourceId`/`so
     - Added files: none.
     - Removed files: none.
     - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
-15. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
-    - Docs to read: npm run-script docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
 
 #### Testing
 
@@ -527,7 +525,9 @@ Extend flow discovery to include ingested repositories, returning `sourceId`/`so
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test --workspace server`
 6. [ ] `npm run test --workspace client`
-7. [ ] `npm run compose:down`
+7. [ ] `npm run lint --workspaces`
+8. [ ] `npm run format:check --workspaces`
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -627,8 +627,6 @@ Add optional `sourceId` support for flow execution so ingested flows run from th
     - Added files: none.
     - Removed files: none.
     - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
-12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
-    - Docs to read: npm run-script docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
 
 #### Testing
 
@@ -638,7 +636,9 @@ Add optional `sourceId` support for flow execution so ingested flows run from th
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test --workspace server`
 6. [ ] `npm run test --workspace client`
-7. [ ] `npm run compose:down`
+7. [ ] `npm run lint --workspaces`
+8. [ ] `npm run format:check --workspaces`
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -741,8 +741,6 @@ Update the Agents UI to display ingested command labels, sort by display label, 
    - Added files: none.
    - Removed files: none.
    - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
-12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
-    - Docs to read: npm run-script docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
 
 #### Testing
 
@@ -752,7 +750,9 @@ Update the Agents UI to display ingested command labels, sort by display label, 
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test --workspace server`
 6. [ ] `npm run test --workspace client`
-7. [ ] `npm run compose:down`
+7. [ ] `npm run lint --workspaces`
+8. [ ] `npm run format:check --workspaces`
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -855,8 +855,6 @@ Update the Flows UI to display ingested flow labels, sort by display label, and 
    - Added files: none.
    - Removed files: none.
    - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
-12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
-    - Docs to read: npm run-script docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
 
 #### Testing
 
@@ -866,7 +864,9 @@ Update the Flows UI to display ingested flow labels, sort by display label, and 
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test --workspace server`
 6. [ ] `npm run test --workspace client`
-7. [ ] `npm run compose:down`
+7. [ ] `npm run lint --workspaces`
+8. [ ] `npm run format:check --workspaces`
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -900,35 +900,35 @@ Validate the full system against the acceptance criteria, run end-to-end builds/
 
 #### Subtasks
 
-1. [ ] Build the server
-2. [ ] Build the client
-3. [ ] perform a clean docker build
-4. [ ] Documentation update — `README.md`:
+1. [ ] Documentation update — `README.md`:
    - Document: `README.md`.
    - Location: repo root `README.md`.
    - Description: Capture any new commands or API usage notes introduced by this story.
    - Purpose: keep user-facing setup/run guidance current before final verification.
-5. [ ] Documentation update — `design.md`:
+2. [ ] Documentation update — `design.md`:
    - Document: `design.md`.
    - Location: repo root `design.md`.
    - Description: Capture architecture updates and refresh Mermaid diagrams added/updated in this story.
    - Purpose: ensure design reference is current before final verification.
-6. [ ] After all file adds/removes are complete, update `projectStructure.md`:
+3. [ ] After all file adds/removes are complete, update `projectStructure.md`:
    - Document: `projectStructure.md`.
    - Location: repo root `projectStructure.md`.
    - Description: Record any added/removed files or confirm no change.
    - Purpose: keep repository map accurate for final handoff.
    - Added files: none.
    - Removed files: none.
-7. [ ] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
+4. [ ] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
 
 #### Testing
 
-1. [ ] run the client jest tests
-2. [ ] run the server cucumber tests
-3. [ ] restart the docker environment
-4. [ ] run the e2e tests
-5. [ ] use the playwright mcp tool to ensure manually check the application, saving screenshots to ./test-results/screenshots/ - Each screenshot should be named with the plan index including the preceding seroes, then a dash, and then the task number, then a dash and the name of the screenshot
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run compose:build`
+4. [ ] run the client jest tests
+5. [ ] run the server cucumber tests
+6. [ ] restart the docker environment
+7. [ ] run the e2e tests
+8. [ ] use the playwright mcp tool to ensure manually check the application, saving screenshots to ./test-results/screenshots/ - Each screenshot should be named with the plan index including the preceding seroes, then a dash, and then the task number, then a dash and the name of the screenshot
 
 #### Implementation notes
 

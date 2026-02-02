@@ -154,7 +154,7 @@ Add ingested-repo command discovery to the agent command list so REST/MCP list r
    - Implementation details:
      - Pull ingest roots via `listIngestedRepositories` and scan `<root>/codex_agents/<agentName>/commands` for JSON files.
      - Reuse `loadAgentCommandSummary` from `server/src/agents/commandsLoader.ts` for both local and ingested files so invalid JSON/schema handling stays consistent.
-     - If `listIngestedRepositories` fails (for example, Chroma unavailable), return local commands only and log/continue without throwing.
+     - If `listIngestedRepositories` fails (for example, Chroma unavailable), return local commands only without adding new logging.
      - Skip ingest roots that are missing on disk or do not contain `codex_agents/<agentName>/commands` (no errors, just omit).
 3. [ ] Add labels + sort for local/ingested commands:
    - Files to edit:
@@ -246,7 +246,7 @@ Add optional `sourceId` support when running agent commands so ingested command 
    - Implementation details:
      - Accept `sourceId` (container path) for ingested commands and reject unknown roots with 404.
      - Resolve `<sourceId>/codex_agents/<agentName>/commands/<command>.json` and validate containment with `path.resolve` + `path.relative`.
-     - If `sourceId` is provided but `listIngestedRepositories` fails or no matching `containerPath` exists, return `404 { error: 'not_found' }`.
+     - If `sourceId` is provided but no matching `containerPath` exists, return `404 { error: 'not_found' }`.
 3. [ ] Update REST run payload + OpenAPI schema:
    - Files to edit:
      - `server/src/routes/agentsCommands.ts`
@@ -321,7 +321,7 @@ Extend flow discovery to include ingested repositories, returning `sourceId`/`so
    - Implementation details:
      - Scan `<ingestRoot>/flows` for JSON flows, add `sourceId` (container path) and `sourceLabel`.
      - Reuse `parseFlowFile` + existing summary builder logic from `server/src/flows/discovery.ts` so invalid JSON/schema handling matches local flows.
-     - If `listIngestedRepositories` fails, return local flows only and log/continue without throwing.
+     - If `listIngestedRepositories` fails, return local flows only without adding new logging.
      - Skip ingest roots that are missing on disk or do not contain a `flows/` folder.
 3. [ ] Add labels + sort for local/ingested flows:
    - Files to edit:
@@ -400,7 +400,7 @@ Add optional `sourceId` support for flow execution so ingested flows run from th
      - Accept `sourceId` (container path), resolve `<sourceId>/flows/<flowName>.json`, and enforce containment checks.
      - Continue to enforce `isSafeFlowName` validation for ingested runs (same rules as local runs).
      - Unknown `sourceId` or missing flow returns 404.
-     - If `sourceId` is provided but `listIngestedRepositories` fails or no matching `containerPath` exists, return `404 { error: 'not_found' }`.
+     - If `sourceId` is provided but no matching `containerPath` exists, return `404 { error: 'not_found' }`.
 3. [ ] Update REST run payload + OpenAPI schema:
    - Files to edit:
      - `server/src/routes/flowsRun.ts`

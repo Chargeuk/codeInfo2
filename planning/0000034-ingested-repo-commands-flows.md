@@ -209,11 +209,21 @@ Add ingested-repo command discovery to the agent command list so REST/MCP list r
     - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
 18. [ ] Update documentation — `design.md`:
     - Document: `design.md`.
+    - Location: repo root `design.md`.
     - Description: Add/confirm command discovery includes ingested repos and the label/sorting rules, and update the related Mermaid architecture diagram(s).
+    - Purpose: keep architecture/design reference aligned with the new command discovery behavior.
     - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
-19. [ ] Update documentation — `README.md` (if any new endpoints/fields need mention).
+19. [ ] Update documentation — `README.md`:
+    - Document: `README.md`.
+    - Location: repo root `README.md`.
+    - Description: Note any new agent command list fields (`sourceId`/`sourceLabel`) if documentation mentions list payloads.
+    - Purpose: keep public API usage notes accurate for operators.
     - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
-20. [ ] After completing any file adds/removes in this task, update `projectStructure.md` (otherwise confirm no change).
+20. [ ] After completing any file adds/removes in this task, update `projectStructure.md`:
+    - Document: `projectStructure.md`.
+    - Location: repo root `projectStructure.md`.
+    - Description: Record any added/removed files or confirm no change.
+    - Purpose: ensure repository map stays current after structural edits.
     - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
 21. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
     - Docs to read: npm run-script docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
@@ -310,10 +320,22 @@ Add optional `sourceId` support when running agent commands so ingested command 
 13. [ ] Unit test (MCP run) — `server/src/test/unit/mcp-agents-router-run.test.ts`: missing ingested command file returns not_found; purpose: MCP missing-file error coverage.
     - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
 14. [ ] Update documentation — `design.md` (run payload changes, plus Mermaid diagram updates).
+    - Document: `design.md`.
+    - Location: repo root `design.md`.
+    - Description: Describe `sourceId` run support and update any related Mermaid flow/run diagrams.
+    - Purpose: keep architecture/design references aligned with new run payload behavior.
     - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
-15. [ ] Update documentation — `README.md` (if any new payload fields need mention).
+15. [ ] Update documentation — `README.md`.
+    - Document: `README.md`.
+    - Location: repo root `README.md`.
+    - Description: Note optional `sourceId` on agent command run payloads if README covers endpoints.
+    - Purpose: keep API usage instructions current.
     - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
-16. [ ] After completing any file adds/removes in this task, update `projectStructure.md` (otherwise confirm no change).
+16. [ ] After completing any file adds/removes in this task, update `projectStructure.md`:
+    - Document: `projectStructure.md`.
+    - Location: repo root `projectStructure.md`.
+    - Description: Record any added/removed files or confirm no change.
+    - Purpose: ensure repository map stays current after structural edits.
     - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
 17. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
     - Docs to read: npm run-script docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
@@ -403,10 +425,22 @@ Extend flow discovery to include ingested repositories, returning `sourceId`/`so
 10. [ ] Integration test (flow list) — `server/src/test/integration/flows.list.test.ts`: ingest roots with no `flows/` directory are skipped and local flows still return; purpose: handle empty roots safely.
     - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
 11. [ ] Update documentation — `design.md` (flow discovery changes, plus Mermaid diagram updates).
+    - Document: `design.md`.
+    - Location: repo root `design.md`.
+    - Description: Describe ingested flow discovery, list metadata, and update related Mermaid diagrams.
+    - Purpose: keep flow architecture documentation aligned with new discovery behavior.
     - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
-12. [ ] Update documentation — `README.md` (if any new list fields need mention).
+12. [ ] Update documentation — `README.md`.
+    - Document: `README.md`.
+    - Location: repo root `README.md`.
+    - Description: Note optional flow list fields (`sourceId`/`sourceLabel`) if README documents list responses.
+    - Purpose: keep public API notes current.
     - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
-13. [ ] After completing any file adds/removes in this task, update `projectStructure.md` (otherwise confirm no change).
+13. [ ] After completing any file adds/removes in this task, update `projectStructure.md`:
+    - Document: `projectStructure.md`.
+    - Location: repo root `projectStructure.md`.
+    - Description: Record any added/removed files or confirm no change.
+    - Purpose: ensure repository map stays current after structural edits.
     - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
 14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
     - Docs to read: npm run-script docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
@@ -485,10 +519,22 @@ Add optional `sourceId` support for flow execution so ingested flows run from th
 8. [ ] Integration test (flow run) — `server/src/test/integration/flows.run.command.test.ts`: path traversal attempt in flow name is rejected by containment checks; purpose: enforce path safety.
    - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
 9. [ ] Update documentation — `design.md` (run payload changes).
+   - Document: `design.md`.
+   - Location: repo root `design.md`.
+   - Description: Document flow run `sourceId` behavior and update Mermaid diagrams covering run flows.
+   - Purpose: keep flow execution architecture accurate.
    - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
-10. [ ] Update documentation — `README.md` (if any new payload fields need mention).
+10. [ ] Update documentation — `README.md`.
+    - Document: `README.md`.
+    - Location: repo root `README.md`.
+    - Description: Note optional `sourceId` on flow run payloads if README documents run endpoints.
+    - Purpose: keep API usage instructions current.
     - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
-11. [ ] After completing any file adds/removes in this task, update `projectStructure.md` (otherwise confirm no change).
+11. [ ] After completing any file adds/removes in this task, update `projectStructure.md`:
+    - Document: `projectStructure.md`.
+    - Location: repo root `projectStructure.md`.
+    - Description: Record any added/removed files or confirm no change.
+    - Purpose: ensure repository map stays current after structural edits.
     - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
 12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
     - Docs to read: npm run-script docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
@@ -572,10 +618,22 @@ Update the Agents UI to display ingested command labels, sort by display label, 
 8. [ ] Client unit test (commands run) — `client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx`: local command run omits `sourceId` in payload; purpose: keep local run behavior unchanged.
    - Docs to read: React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; React state + hooks (Context7 `/reactjs/react.dev`): /reactjs/react.dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
 9. [ ] Update documentation — `design.md` (UI behavior summary, plus Mermaid diagram updates where applicable).
+   - Document: `design.md`.
+   - Location: repo root `design.md`.
+   - Description: Describe command dropdown label/sort behavior and update any related Mermaid UI/flow diagrams.
+   - Purpose: keep UI/architecture references aligned with new ingested command UX.
    - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
-10. [ ] Update documentation — `README.md` (if any UI behavior needs mention).
+10. [ ] Update documentation — `README.md`.
+   - Document: `README.md`.
+   - Location: repo root `README.md`.
+   - Description: Mention UI behavior changes if README documents command execution workflows.
+   - Purpose: keep user-facing usage notes current.
    - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
-11. [ ] After completing any file adds/removes in this task, update `projectStructure.md` (otherwise confirm no change).
+11. [ ] After completing any file adds/removes in this task, update `projectStructure.md`:
+   - Document: `projectStructure.md`.
+   - Location: repo root `projectStructure.md`.
+   - Description: Record any added/removed files or confirm no change.
+   - Purpose: ensure repository map stays current after structural edits.
    - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
 12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
     - Docs to read: npm run-script docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
@@ -659,10 +717,22 @@ Update the Flows UI to display ingested flow labels, sort by display label, and 
 8. [ ] Client unit test (flows run) — `client/src/test/flowsPage.stop.test.tsx`: local flow run omits `sourceId` in payload; purpose: keep local run behavior unchanged.
    - Docs to read: React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; React state + hooks (Context7 `/reactjs/react.dev`): /reactjs/react.dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
 9. [ ] Update documentation — `design.md` (UI behavior summary, plus Mermaid diagram updates where applicable).
+   - Document: `design.md`.
+   - Location: repo root `design.md`.
+   - Description: Describe flow dropdown label/sort behavior and update any related Mermaid UI/flow diagrams.
+   - Purpose: keep UI/architecture references aligned with new ingested flow UX.
    - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
-10. [ ] Update documentation — `README.md` (if any UI behavior needs mention).
+10. [ ] Update documentation — `README.md`.
+   - Document: `README.md`.
+   - Location: repo root `README.md`.
+   - Description: Mention UI behavior changes if README documents flow execution workflows.
+   - Purpose: keep user-facing usage notes current.
    - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
-11. [ ] After completing any file adds/removes in this task, update `projectStructure.md` (otherwise confirm no change).
+11. [ ] After completing any file adds/removes in this task, update `projectStructure.md`:
+   - Document: `projectStructure.md`.
+   - Location: repo root `projectStructure.md`.
+   - Description: Record any added/removed files or confirm no change.
+   - Purpose: ensure repository map stays current after structural edits.
    - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
 12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
     - Docs to read: npm run-script docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
@@ -712,9 +782,21 @@ Validate the full system against the acceptance criteria, run end-to-end builds/
 1. [ ] Build the server
 2. [ ] Build the client
 3. [ ] perform a clean docker build
-4. [ ] Ensure Readme.md is updated with any required description changes and with any new commands that have been added as part of this story
-5. [ ] Ensure Design.md is updated with any required description changes, including Mermaid diagrams added or updated as part of this story
-6. [ ] After all file adds/removes are complete, ensure `projectStructure.md` is updated with any updated, added or removed files & folders
+4. [ ] Documentation update — `README.md`:
+   - Document: `README.md`.
+   - Location: repo root `README.md`.
+   - Description: Capture any new commands or API usage notes introduced by this story.
+   - Purpose: keep user-facing setup/run guidance current before final verification.
+5. [ ] Documentation update — `design.md`:
+   - Document: `design.md`.
+   - Location: repo root `design.md`.
+   - Description: Capture architecture updates and refresh Mermaid diagrams added/updated in this story.
+   - Purpose: ensure design reference is current before final verification.
+6. [ ] After all file adds/removes are complete, update `projectStructure.md`:
+   - Document: `projectStructure.md`.
+   - Location: repo root `projectStructure.md`.
+   - Description: Record any added/removed files or confirm no change.
+   - Purpose: keep repository map accurate for final handoff.
 7. [ ] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
 
 #### Testing

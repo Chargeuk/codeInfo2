@@ -162,6 +162,7 @@ Add ingested-repo command discovery to the agent command list so REST/MCP list r
      - Reuse `loadAgentCommandSummary` from `server/src/agents/commandsLoader.ts` for both local and ingested files so invalid JSON/schema handling stays consistent.
      - If `listIngestedRepositories` fails (for example, Chroma unavailable), return local commands only without adding new logging.
      - Skip ingest roots that are missing on disk or do not contain `codex_agents/<agentName>/commands` (no errors, just omit).
+     - Add log line (server logStore append) after the combined list is built: message `DEV-0000034:T1:commands_listed` with context `{ agentName, localCount, ingestedCount, totalCount }`.
      - Example (pseudo):
        - `const roots = await listIngestedRepositories().catch(() => null);`
        - `const commandsRoot = path.join(repo.containerPath, 'codex_agents', agentName, 'commands');`
@@ -266,7 +267,7 @@ Add ingested-repo command discovery to the agent command list so REST/MCP list r
 5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e` or set `timeout_ms=420000` in the harness)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open http://host.docker.internal:5001/agents, confirm ingested commands show `name - [Repo]` labels, local commands stay unlabeled, sorting is by label, and no errors appear in the debug console.
+8. [ ] Manual Playwright-MCP check: open http://host.docker.internal:5001/agents, confirm ingested commands show `name - [Repo]` labels, local commands stay unlabeled, sorting is by label; then open http://host.docker.internal:5001/logs and confirm log entry `DEV-0000034:T1:commands_listed` appears with `{ agentName, localCount, ingestedCount, totalCount }` matching the selected agent; verify no errors appear in the debug console.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -319,12 +320,13 @@ Add optional `sourceId` support when running agent commands so ingested command 
    - Implementation details:
      - Accept `sourceId` (container path) for ingested commands and map it to a `RepoEntry.containerPath` from `listIngestedRepositories`.
      - Treat unknown `sourceId` values as `COMMAND_NOT_FOUND` so REST/MCP return `404 { error: 'not_found' }`.
-     - Extend `RunAgentCommandRunnerParams` + `runAgentCommandRunner` to accept an optional ingested `commandsRoot`/`commandFilePath` override (use local `agent.home/commands` when `sourceId` is omitted).
-     - Resolve `<sourceId>/codex_agents/<agentName>/commands/<command>.json` and validate containment with `path.resolve` + `path.relative`.
-     - If `sourceId` is provided but no matching `containerPath` exists, return `404 { error: 'not_found' }`.
-     - Example containment check:
-       - `const resolved = path.resolve(commandsRoot, commandName + '.json');`
-       - `if (path.relative(commandsRoot, resolved).startsWith('..')) throw { code: 'COMMAND_INVALID' };`
+   - Extend `RunAgentCommandRunnerParams` + `runAgentCommandRunner` to accept an optional ingested `commandsRoot`/`commandFilePath` override (use local `agent.home/commands` when `sourceId` is omitted).
+   - Resolve `<sourceId>/codex_agents/<agentName>/commands/<command>.json` and validate containment with `path.resolve` + `path.relative`.
+   - If `sourceId` is provided but no matching `containerPath` exists, return `404 { error: 'not_found' }`.
+   - Add log line (server logStore append) after resolving the command file (local or ingested): message `DEV-0000034:T2:command_run_resolved` with context `{ agentName, commandName, sourceId: sourceId ?? 'local', commandPath }`.
+   - Example containment check:
+     - `const resolved = path.resolve(commandsRoot, commandName + '.json');`
+     - `if (path.relative(commandsRoot, resolved).startsWith('..')) throw { code: 'COMMAND_INVALID' };`
 3. [ ] Update REST run payload + OpenAPI schema:
    - Files to edit:
      - `server/src/routes/agentsCommands.ts`
@@ -400,7 +402,7 @@ Add optional `sourceId` support when running agent commands so ingested command 
 5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e` or set `timeout_ms=420000` in the harness)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open http://host.docker.internal:5001/agents, run an ingested command, confirm run starts successfully, and verify no errors appear in the debug console.
+8. [ ] Manual Playwright-MCP check: open http://host.docker.internal:5001/agents, run an ingested command, confirm run starts successfully; then open http://host.docker.internal:5001/logs and confirm `DEV-0000034:T2:command_run_resolved` appears with `{ agentName, commandName, sourceId, commandPath }` (sourceId should match the ingested `/data/...` root); verify no errors appear in the debug console.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -459,13 +461,14 @@ Extend flow discovery to include ingested repositories, returning `sourceId`/`so
      - `server/src/flows/discovery.ts`
    - Docs to read: Node.js `fs.readdir` + `path.resolve` (Context7 `/nodejs/node/v22.17.0`): /nodejs/node/v22.17.0; OpenAPI 3.0.3 spec: https://spec.openapis.org/oas/v3.0.3.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
    - Implementation details:
-     - Use `RepoEntry.id` as `sourceLabel` (it already falls back to ingest metadata name or container basename).
-     - Only apply an extra `path.posix.basename` fallback if `RepoEntry.id` is unexpectedly empty.
-     - Keep local flows unlabeled; sort by display label.
-     - Do not de-duplicate names; preserve duplicates across ingest roots.
-     - Example display label logic:
-       - `const displayLabel = sourceLabel ? name + ' - [' + sourceLabel + ']' : name;`
-       - `flows.sort((a, b) => displayLabel(a).localeCompare(displayLabel(b)));`
+   - Use `RepoEntry.id` as `sourceLabel` (it already falls back to ingest metadata name or container basename).
+   - Only apply an extra `path.posix.basename` fallback if `RepoEntry.id` is unexpectedly empty.
+   - Keep local flows unlabeled; sort by display label.
+   - Do not de-duplicate names; preserve duplicates across ingest roots.
+   - Add log line (server logStore append) after the combined list is built: message `DEV-0000034:T3:flows_listed` with context `{ localCount, ingestedCount, totalCount }`.
+   - Example display label logic:
+     - `const displayLabel = sourceLabel ? name + ' - [' + sourceLabel + ']' : name;`
+     - `flows.sort((a, b) => displayLabel(a).localeCompare(displayLabel(b)));`
 4. [ ] Update REST list payload + OpenAPI schema:
    - Files to edit:
      - `server/src/routes/flows.ts`
@@ -529,7 +532,7 @@ Extend flow discovery to include ingested repositories, returning `sourceId`/`so
 5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e` or set `timeout_ms=420000` in the harness)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open http://host.docker.internal:5001/flows, confirm ingested flows show `name - [Repo]` labels, local flows stay unlabeled, sorting is by label, and no errors appear in the debug console.
+8. [ ] Manual Playwright-MCP check: open http://host.docker.internal:5001/flows, confirm ingested flows show `name - [Repo]` labels, local flows stay unlabeled, sorting is by label; then open http://host.docker.internal:5001/logs and confirm log entry `DEV-0000034:T3:flows_listed` appears with `{ localCount, ingestedCount, totalCount }`; verify no errors appear in the debug console.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -579,12 +582,13 @@ Add optional `sourceId` support for flow execution so ingested flows run from th
      - Extend `FlowRunStartParams` and `startFlowRun` signatures to accept optional `sourceId` and thread it to flow loading.
      - Extend `loadFlowFile` to accept an optional base directory (local flows dir vs. `<sourceId>/flows`) and reuse it for both local and ingested runs.
      - Resolve `<sourceId>/flows/<flowName>.json` and enforce containment checks with `path.resolve` + `path.relative`.
-     - Continue to enforce `isSafeFlowName` validation for ingested runs (same rules as local runs).
-     - Treat unknown `sourceId` as `FLOW_NOT_FOUND` so REST returns `404 { error: 'not_found' }`.
-     - Missing ingested flow files should surface `FLOW_NOT_FOUND` (same 404 contract).
-     - Example containment check:
-       - `const resolved = path.resolve(flowsRoot, flowName + '.json');`
-       - `if (path.relative(flowsRoot, resolved).startsWith('..')) throw { code: 'FLOW_NOT_FOUND' };`
+   - Continue to enforce `isSafeFlowName` validation for ingested runs (same rules as local runs).
+   - Treat unknown `sourceId` as `FLOW_NOT_FOUND` so REST returns `404 { error: 'not_found' }`.
+   - Missing ingested flow files should surface `FLOW_NOT_FOUND` (same 404 contract).
+   - Add log line (server logStore append) after resolving the flow file (local or ingested): message `DEV-0000034:T4:flow_run_resolved` with context `{ flowName, sourceId: sourceId ?? 'local', flowPath }`.
+   - Example containment check:
+     - `const resolved = path.resolve(flowsRoot, flowName + '.json');`
+     - `if (path.relative(flowsRoot, resolved).startsWith('..')) throw { code: 'FLOW_NOT_FOUND' };`
 3. [ ] Update REST run payload + OpenAPI schema:
    - Files to edit:
      - `server/src/routes/flowsRun.ts`
@@ -641,7 +645,7 @@ Add optional `sourceId` support for flow execution so ingested flows run from th
 5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e` or set `timeout_ms=420000` in the harness)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open http://host.docker.internal:5001/flows, run an ingested flow, confirm run starts successfully, and verify no errors appear in the debug console.
+8. [ ] Manual Playwright-MCP check: open http://host.docker.internal:5001/flows, run an ingested flow, confirm run starts successfully; then open http://host.docker.internal:5001/logs and confirm `DEV-0000034:T4:flow_run_resolved` appears with `{ flowName, sourceId, flowPath }` (sourceId should match the ingested `/data/...` root); verify no errors appear in the debug console.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -712,8 +716,9 @@ Update the Agents UI to display ingested command labels, sort by display label, 
      - `client/src/pages/AgentsPage.tsx`
    - Docs to read: MUI Select docs (MUI MCP `/mui/material@6.4.12`, `components/selects.md`): https://llms.mui.com/material-ui/6.4.12/components/selects.md; React state + hooks (Context7 `/websites/react_dev`): /websites/react_dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface
    - Implementation details:
-     - When the selected command has a `sourceId`, include it in the run payload; omit `sourceId` for local commands.
-     - Example: selected `{ name: 'build', sourceId: '/data/repo' }` => payload includes `sourceId`.
+   - When the selected command has a `sourceId`, include it in the run payload; omit `sourceId` for local commands.
+   - Example: selected `{ name: 'build', sourceId: '/data/repo' }` => payload includes `sourceId`.
+   - Add log line (client logger) before firing the run request: message `DEV-0000034:T5:agents.command_run_payload` with context `{ commandName, sourceId: selected.sourceId ?? 'local' }`.
 6. [ ] Client unit test (commands list) — `client/src/test/agentsPage.commandsList.test.tsx`: duplicate command names from different sources render distinct labels; purpose: confirm display label + sorting behavior.
    - Docs to read: React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; React state + hooks (Context7 `/websites/react_dev`): /websites/react_dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
    - Example expectation: menu shows `build - [Repo A]` and `build - [Repo B]` as separate options.
@@ -756,7 +761,7 @@ Update the Agents UI to display ingested command labels, sort by display label, 
 5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e` or set `timeout_ms=420000` in the harness)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open http://host.docker.internal:5001/agents, verify duplicate command names remain selectable with `name - [Repo]` labels, run an ingested command, and confirm no errors appear in the debug console.
+8. [ ] Manual Playwright-MCP check: open http://host.docker.internal:5001/agents, verify duplicate command names remain selectable with `name - [Repo]` labels, run an ingested command; then open http://host.docker.internal:5001/logs and confirm `DEV-0000034:T5:agents.command_run_payload` appears with `{ commandName, sourceId }`; verify no errors appear in the debug console.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -827,8 +832,9 @@ Update the Flows UI to display ingested flow labels, sort by display label, and 
      - `client/src/pages/FlowsPage.tsx`
    - Docs to read: MUI Select docs (MUI MCP `/mui/material@6.4.12`, `components/selects.md`): https://llms.mui.com/material-ui/6.4.12/components/selects.md; React state + hooks (Context7 `/websites/react_dev`): /websites/react_dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface
    - Implementation details:
-     - When the selected flow has a `sourceId`, include it in the run payload; omit `sourceId` for local flows.
-     - Example: selected `{ name: 'release', sourceId: '/data/repo' }` => payload includes `sourceId`.
+   - When the selected flow has a `sourceId`, include it in the run payload; omit `sourceId` for local flows.
+   - Example: selected `{ name: 'release', sourceId: '/data/repo' }` => payload includes `sourceId`.
+   - Add log line (client logger) before firing the run request: message `DEV-0000034:T6:flows.run_payload` with context `{ flowName, sourceId: selected.sourceId ?? 'local' }`.
 6. [ ] Client unit test (flows list UI) — `client/src/test/flowsPage.stop.test.tsx`: duplicate flow names from different sources render distinct labels; purpose: confirm display label + sorting behavior.
    - Docs to read: React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; React state + hooks (Context7 `/websites/react_dev`): /websites/react_dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
    - Example expectation: dropdown shows `release - [Repo A]` and `release - [Repo B]` as separate options.
@@ -871,7 +877,7 @@ Update the Flows UI to display ingested flow labels, sort by display label, and 
 5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e` or set `timeout_ms=420000` in the harness)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open http://host.docker.internal:5001/flows, verify duplicate flow names remain selectable with `name - [Repo]` labels, run an ingested flow, and confirm no errors appear in the debug console.
+8. [ ] Manual Playwright-MCP check: open http://host.docker.internal:5001/flows, verify duplicate flow names remain selectable with `name - [Repo]` labels, run an ingested flow; then open http://host.docker.internal:5001/logs and confirm `DEV-0000034:T6:flows.run_payload` appears with `{ flowName, sourceId }`; verify no errors appear in the debug console.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -898,6 +904,7 @@ Validate the full system against the acceptance criteria, run end-to-end builds/
 - Husky docs (Git hooks + skips): https://typicode.github.io/husky/
 - Mermaid docs (Context7 `/mermaid-js/mermaid`): /mermaid-js/mermaid
 - Mermaid syntax reference (diagram updates): https://mermaid.js.org/intro/syntax-reference.html
+- React docs (hooks + effects): Context7 `/websites/react_dev`
 - Jest docs (Context7 `/jestjs/jest`): /jestjs/jest
 - Jest getting started docs (CLI + config): https://jestjs.io/docs/getting-started
 - Cucumber guides (BDD workflow): https://cucumber.io/docs/guides/
@@ -923,8 +930,13 @@ Validate the full system against the acceptance criteria, run end-to-end builds/
    - Purpose: keep repository map accurate for final handoff.
    - Added files: none.
    - Removed files: none.
-4. [ ] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+4. [ ] Add log line for final verification:
+   - Files to edit:
+     - `client/src/pages/LogsPage.tsx`
+   - Description: add a one-time log on page mount with message `DEV-0000034:T7:logs_page_viewed` and context `{ route: '/logs' }` using the existing `createLogger('client')` instance.
+   - Purpose: provide a verifiable log entry for the final manual Playwright check.
+5. [ ] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -935,7 +947,7 @@ Validate the full system against the acceptance criteria, run end-to-end builds/
 5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e` or set `timeout_ms=420000` in the harness)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open http://host.docker.internal:5001, verify Agents + Flows pages show ingested labels and runs work, confirm no errors appear in the debug console, and capture screenshots in `./test-results/screenshots/` named `<plan>-7-<name>`.
+8. [ ] Manual Playwright-MCP check: open http://host.docker.internal:5001, verify Agents + Flows pages show ingested labels and runs work; open http://host.docker.internal:5001/logs and confirm `DEV-0000034:T7:logs_page_viewed` appears after visiting the logs page; confirm no errors appear in the debug console; capture screenshots in `./test-results/screenshots/` named `<plan>-7-<name>`.
 9. [ ] `npm run compose:down`
 
 #### Implementation notes

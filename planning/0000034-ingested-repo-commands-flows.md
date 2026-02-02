@@ -255,6 +255,7 @@ Add ingested-repo command discovery to the agent command list so REST/MCP list r
     - Added files: none.
     - Removed files: none.
     - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
+22. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -264,9 +265,7 @@ Add ingested-repo command discovery to the agent command list so REST/MCP list r
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test --workspace server`
 6. [ ] `npm run test --workspace client`
-7. [ ] `npm run lint --workspaces`
-8. [ ] `npm run format:check --workspaces`
-9. [ ] `npm run compose:down`
+7. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -388,6 +387,7 @@ Add optional `sourceId` support when running agent commands so ingested command 
     - Added files: none.
     - Removed files: none.
     - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
+17. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -397,9 +397,7 @@ Add optional `sourceId` support when running agent commands so ingested command 
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test --workspace server`
 6. [ ] `npm run test --workspace client`
-7. [ ] `npm run lint --workspaces`
-8. [ ] `npm run format:check --workspaces`
-9. [ ] `npm run compose:down`
+7. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -516,6 +514,7 @@ Extend flow discovery to include ingested repositories, returning `sourceId`/`so
     - Added files: none.
     - Removed files: none.
     - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
+15. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -525,9 +524,7 @@ Extend flow discovery to include ingested repositories, returning `sourceId`/`so
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test --workspace server`
 6. [ ] `npm run test --workspace client`
-7. [ ] `npm run lint --workspaces`
-8. [ ] `npm run format:check --workspaces`
-9. [ ] `npm run compose:down`
+7. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -627,6 +624,7 @@ Add optional `sourceId` support for flow execution so ingested flows run from th
     - Added files: none.
     - Removed files: none.
     - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
+12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -636,9 +634,7 @@ Add optional `sourceId` support for flow execution so ingested flows run from th
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test --workspace server`
 6. [ ] `npm run test --workspace client`
-7. [ ] `npm run lint --workspaces`
-8. [ ] `npm run format:check --workspaces`
-9. [ ] `npm run compose:down`
+7. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -741,6 +737,7 @@ Update the Agents UI to display ingested command labels, sort by display label, 
    - Added files: none.
    - Removed files: none.
    - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
+12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -750,9 +747,7 @@ Update the Agents UI to display ingested command labels, sort by display label, 
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test --workspace server`
 6. [ ] `npm run test --workspace client`
-7. [ ] `npm run lint --workspaces`
-8. [ ] `npm run format:check --workspaces`
-9. [ ] `npm run compose:down`
+7. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -855,6 +850,7 @@ Update the Flows UI to display ingested flow labels, sort by display label, and 
    - Added files: none.
    - Removed files: none.
    - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
+12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -864,9 +860,7 @@ Update the Flows UI to display ingested flow labels, sort by display label, and 
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test --workspace server`
 6. [ ] `npm run test --workspace client`
-7. [ ] `npm run lint --workspaces`
-8. [ ] `npm run format:check --workspaces`
-9. [ ] `npm run compose:down`
+7. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -918,6 +912,7 @@ Validate the full system against the acceptance criteria, run end-to-end builds/
    - Added files: none.
    - Removed files: none.
 4. [ ] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
+5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 

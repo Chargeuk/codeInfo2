@@ -181,27 +181,39 @@ Add ingested-repo command discovery to the agent command list so REST/MCP list r
    - Docs to read: Node.js `fs.readdir` + `path.resolve`/`path.relative` (Context7 `/nodejs/node/v22.17.0`): /nodejs/node/v22.17.0; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/; Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Implementation details:
      - Add optional `sourceId`/`sourceLabel` fields to MCP list payloads for ingested items only.
-6. [ ] Update/extend list tests:
-   - Files to edit:
-     - `server/src/test/unit/agent-commands-list.test.ts`
-     - `server/src/test/unit/mcp-agents-router-list.test.ts`
-   - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/; Markdown Guide: https://www.markdownguide.org/basic-syntax/
-   - Testing expectations:
-     - Validate ingested commands include `sourceId`/`sourceLabel` and sorting uses the display label.
-     - Validate local commands omit `sourceId`/`sourceLabel`.
-     - Validate `sourceLabel` falls back to the ingest root basename when ingest metadata name is missing.
-     - Validate ingested commands are skipped when the matching agent does not exist locally.
-     - Add coverage for duplicate command names across different ingest roots (both entries retained, sorted by label).
-     - Add coverage for missing ingest root directories (local commands still returned).
-7. [ ] Update documentation — `design.md`:
-   - Document: `design.md`.
-   - Description: Add/confirm command discovery includes ingested repos and the label/sorting rules.
-   - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
-8. [ ] Update documentation — `README.md` (if any new endpoints/fields need mention).
-   - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
-9. [ ] Update documentation — `projectStructure.md` (if any files added/removed in this task; otherwise confirm no change).
-   - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
+6. [ ] Unit test (REST list) — `server/src/test/unit/agent-commands-list.test.ts`: ensure ingested commands include `sourceId`/`sourceLabel` and sorting uses the display label; purpose: lock down REST list contract + deterministic ordering.
+   - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+7. [ ] Unit test (REST list) — `server/src/test/unit/agent-commands-list.test.ts`: ensure local commands omit `sourceId`/`sourceLabel`; purpose: keep local payloads unchanged.
+   - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+8. [ ] Unit test (REST list) — `server/src/test/unit/agent-commands-list.test.ts`: ensure `sourceLabel` falls back to ingest root basename when metadata name missing; purpose: enforce fallback label rule.
+   - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+9. [ ] Unit test (REST list) — `server/src/test/unit/agent-commands-list.test.ts`: ensure ingested commands are skipped when the matching agent does not exist locally; purpose: avoid invalid listings.
+   - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+10. [ ] Unit test (REST list) — `server/src/test/unit/agent-commands-list.test.ts`: ensure duplicate command names across ingest roots are retained and sorted by label; purpose: confirm deterministic duplicate handling.
+    - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+11. [ ] Unit test (REST list) — `server/src/test/unit/agent-commands-list.test.ts`: ensure missing ingest root directories are skipped and local commands still return; purpose: guard missing directories.
+    - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+12. [ ] Unit test (MCP list) — `server/src/test/unit/mcp-agents-router-list.test.ts`: ensure ingested commands include `sourceId`/`sourceLabel` and sorting uses display label; purpose: keep MCP parity with REST.
+    - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+13. [ ] Unit test (MCP list) — `server/src/test/unit/mcp-agents-router-list.test.ts`: ensure local commands omit `sourceId`/`sourceLabel`; purpose: keep MCP local payloads unchanged.
+    - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+14. [ ] Unit test (MCP list) — `server/src/test/unit/mcp-agents-router-list.test.ts`: ensure `sourceLabel` falls back to ingest root basename when metadata name missing; purpose: enforce MCP fallback label rule.
+    - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+15. [ ] Unit test (MCP list) — `server/src/test/unit/mcp-agents-router-list.test.ts`: ensure ingested commands are skipped when the matching agent does not exist locally; purpose: prevent invalid MCP listings.
+    - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+16. [ ] Unit test (MCP list) — `server/src/test/unit/mcp-agents-router-list.test.ts`: ensure duplicate command names across ingest roots are retained and sorted by label; purpose: match REST duplicate handling.
+    - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+17. [ ] Unit test (MCP list) — `server/src/test/unit/mcp-agents-router-list.test.ts`: ensure missing ingest root directories are skipped and local commands still return; purpose: guard missing directories in MCP list.
+    - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+18. [ ] Update documentation — `design.md`:
+    - Document: `design.md`.
+    - Description: Add/confirm command discovery includes ingested repos and the label/sorting rules.
+    - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
+19. [ ] Update documentation — `README.md` (if any new endpoints/fields need mention).
+    - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
+20. [ ] Update documentation — `projectStructure.md` (if any files added/removed in this task; otherwise confirm no change).
+    - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
+21. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
     - Docs to read: npm run-script docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
 
 #### Testing
@@ -275,24 +287,31 @@ Add optional `sourceId` support when running agent commands so ingested command 
    - Docs to read: Node.js `path.resolve`/`path.relative` (Context7 `/nodejs/node/v22.17.0`): /nodejs/node/v22.17.0; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface
    - Implementation details:
      - Accept optional `sourceId` in MCP payloads and forward to `runAgentCommand`.
-5. [ ] Update run tests:
-   - Files to edit:
-     - `server/src/test/unit/agents-commands-router-run.test.ts`
-     - `server/src/test/unit/mcp-agents-router-run.test.ts`
-     - `server/src/test/unit/agent-commands-runner.test.ts`
-   - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/; Markdown Guide: https://www.markdownguide.org/basic-syntax/
-   - Testing expectations:
-     - Validate 404 on unknown `sourceId` and success when `sourceId` resolves to an ingested command.
-     - Validate local command runs still work when `sourceId` is omitted.
-     - Validate 404 when the ingested command file does not exist under the resolved root.
-     - Validate path traversal attempts in command names are rejected by containment checks.
-6. [ ] Update documentation — `design.md` (run payload changes).
-   - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
-7. [ ] Update documentation — `README.md` (if any new payload fields need mention).
-   - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
-8. [ ] Update documentation — `projectStructure.md` (if needed).
-   - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
+5. [ ] Unit test (REST run) — `server/src/test/unit/agents-commands-router-run.test.ts`: unknown `sourceId` returns 404; purpose: validate error handling for invalid ingest roots.
+   - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+6. [ ] Unit test (REST run) — `server/src/test/unit/agents-commands-router-run.test.ts`: local command run works when `sourceId` is omitted; purpose: ensure local behavior unchanged.
+   - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+7. [ ] Unit test (REST run) — `server/src/test/unit/agents-commands-router-run.test.ts`: ingested command runs when `sourceId` resolves to a valid command file; purpose: cover happy-path ingest execution.
+   - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+8. [ ] Unit test (REST run) — `server/src/test/unit/agents-commands-router-run.test.ts`: missing ingested command file returns 404; purpose: validate not_found for missing files.
+   - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+9. [ ] Unit test (command runner) — `server/src/test/unit/agent-commands-runner.test.ts`: path traversal attempt in command name is rejected by containment checks; purpose: enforce path safety.
+   - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+10. [ ] Unit test (MCP run) — `server/src/test/unit/mcp-agents-router-run.test.ts`: unknown `sourceId` returns not_found; purpose: validate MCP error handling.
+    - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+11. [ ] Unit test (MCP run) — `server/src/test/unit/mcp-agents-router-run.test.ts`: local command run works when `sourceId` is omitted; purpose: keep MCP local behavior unchanged.
+    - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+12. [ ] Unit test (MCP run) — `server/src/test/unit/mcp-agents-router-run.test.ts`: ingested command runs when `sourceId` resolves to a valid command file; purpose: MCP happy-path coverage.
+    - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+13. [ ] Unit test (MCP run) — `server/src/test/unit/mcp-agents-router-run.test.ts`: missing ingested command file returns not_found; purpose: MCP missing-file error coverage.
+    - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+14. [ ] Update documentation — `design.md` (run payload changes).
+    - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
+15. [ ] Update documentation — `README.md` (if any new payload fields need mention).
+    - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
+16. [ ] Update documentation — `projectStructure.md` (if needed).
+    - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
+17. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
     - Docs to read: npm run-script docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
 
 #### Testing
@@ -365,24 +384,25 @@ Extend flow discovery to include ingested repositories, returning `sourceId`/`so
    - Docs to read: OpenAPI 3.0.3 spec: https://spec.openapis.org/oas/v3.0.3.html; Node.js `fs.readdir` + `path.resolve` (Context7 `/nodejs/node/v22.17.0`): /nodejs/node/v22.17.0; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface
    - Implementation details:
      - Add optional `sourceId`/`sourceLabel` fields to REST list payloads for ingested items only.
-5. [ ] Update flow list tests:
-   - Files to edit:
-     - `server/src/test/integration/flows.list.test.ts`
-   - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/; Markdown Guide: https://www.markdownguide.org/basic-syntax/
-   - Testing expectations:
-     - Validate ingested flows include `sourceId`/`sourceLabel` and sorting uses the display label.
-     - Validate local flows omit `sourceId`/`sourceLabel`.
-     - Validate `sourceLabel` falls back to the ingest root basename when ingest metadata name is missing.
-     - Add coverage for duplicate flow names across different ingest roots (both entries retained).
-     - Add coverage for missing ingest root directories (local flows still returned).
-     - Add coverage for ingest roots with no `flows/` directory (local flows still returned).
-6. [ ] Update documentation — `design.md` (flow discovery changes).
-   - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
-7. [ ] Update documentation — `README.md` (if any new list fields need mention).
-   - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
-8. [ ] Update documentation — `projectStructure.md` (if needed).
-   - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
+5. [ ] Integration test (flow list) — `server/src/test/integration/flows.list.test.ts`: ingested flows include `sourceId`/`sourceLabel` and sorting uses display label; purpose: verify list contract + ordering.
+   - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+6. [ ] Integration test (flow list) — `server/src/test/integration/flows.list.test.ts`: local flows omit `sourceId`/`sourceLabel`; purpose: preserve local payload shape.
+   - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+7. [ ] Integration test (flow list) — `server/src/test/integration/flows.list.test.ts`: `sourceLabel` falls back to ingest root basename when metadata name missing; purpose: enforce fallback rule.
+   - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+8. [ ] Integration test (flow list) — `server/src/test/integration/flows.list.test.ts`: duplicate flow names across ingest roots are retained and sorted; purpose: deterministic duplicate handling.
+   - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+9. [ ] Integration test (flow list) — `server/src/test/integration/flows.list.test.ts`: missing ingest root directories are skipped and local flows still return; purpose: guard missing directories.
+   - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+10. [ ] Integration test (flow list) — `server/src/test/integration/flows.list.test.ts`: ingest roots with no `flows/` directory are skipped and local flows still return; purpose: handle empty roots safely.
+    - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+11. [ ] Update documentation — `design.md` (flow discovery changes).
+    - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
+12. [ ] Update documentation — `README.md` (if any new list fields need mention).
+    - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
+13. [ ] Update documentation — `projectStructure.md` (if needed).
+    - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
+14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
     - Docs to read: npm run-script docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
 
 #### Testing
@@ -447,24 +467,23 @@ Add optional `sourceId` support for flow execution so ingested flows run from th
    - Docs to read: OpenAPI 3.0.3 spec: https://spec.openapis.org/oas/v3.0.3.html; Node.js `path.resolve`/`path.relative` (Context7 `/nodejs/node/v22.17.0`): /nodejs/node/v22.17.0; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface
    - Implementation details:
      - Accept optional `sourceId` in REST payloads and pass it into the flow service.
-4. [ ] Update flow run tests:
-   - Files to edit:
-     - `server/src/test/integration/flows.run.basic.test.ts`
-     - `server/src/test/integration/flows.run.hot-reload.test.ts`
-     - `server/src/test/integration/flows.run.command.test.ts`
-   - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/; Markdown Guide: https://www.markdownguide.org/basic-syntax/
-   - Testing expectations:
-     - Validate 404 on unknown `sourceId` and success when `sourceId` resolves to an ingested flow.
-     - Validate local flow runs still work when `sourceId` is omitted.
-     - Validate 404 when the ingested flow file does not exist under the resolved root.
-     - Validate path traversal attempts in flow names are rejected by containment checks.
-5. [ ] Update documentation — `design.md` (run payload changes).
+4. [ ] Integration test (flow run) — `server/src/test/integration/flows.run.basic.test.ts`: unknown `sourceId` returns 404; purpose: validate error handling for invalid ingest roots.
+   - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+5. [ ] Integration test (flow run) — `server/src/test/integration/flows.run.basic.test.ts`: ingested flow runs when `sourceId` resolves to a valid flow file; purpose: cover happy-path ingest execution.
+   - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+6. [ ] Integration test (flow run) — `server/src/test/integration/flows.run.basic.test.ts`: local flow run works when `sourceId` is omitted; purpose: ensure local behavior unchanged.
+   - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+7. [ ] Integration test (flow run) — `server/src/test/integration/flows.run.hot-reload.test.ts`: missing ingested flow file returns 404; purpose: validate not_found for missing files.
+   - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+8. [ ] Integration test (flow run) — `server/src/test/integration/flows.run.command.test.ts`: path traversal attempt in flow name is rejected by containment checks; purpose: enforce path safety.
+   - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+9. [ ] Update documentation — `design.md` (run payload changes).
    - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
-6. [ ] Update documentation — `README.md` (if any new payload fields need mention).
-   - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
-7. [ ] Update documentation — `projectStructure.md` (if needed).
-   - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
+10. [ ] Update documentation — `README.md` (if any new payload fields need mention).
+    - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
+11. [ ] Update documentation — `projectStructure.md` (if needed).
+    - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
+12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
     - Docs to read: npm run-script docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
 
 #### Testing
@@ -537,21 +556,19 @@ Update the Agents UI to display ingested command labels, sort by display label, 
    - Docs to read: MUI Select docs (MUI MCP `/mui/material@6.4.12`, `components/selects.md`): https://llms.mui.com/material-ui/6.4.12/components/selects.md; React state + hooks (Context7 `/reactjs/react.dev`): /reactjs/react.dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface
    - Implementation details:
      - When the selected command has a `sourceId`, include it in the run payload; omit `sourceId` for local commands.
-6. [ ] Update client tests:
-   - Files to edit:
-     - `client/src/test/agentsPage.commandsList.test.tsx`
-     - `client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx`
+6. [ ] Client unit test (commands list) — `client/src/test/agentsPage.commandsList.test.tsx`: duplicate command names from different sources render distinct labels; purpose: confirm display label + sorting behavior.
    - Docs to read: React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; React state + hooks (Context7 `/reactjs/react.dev`): /reactjs/react.dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
-   - Testing expectations:
-     - Validate duplicate command names from different sources render distinct labels and run with the correct `sourceId`.
-     - Validate runs for local commands omit `sourceId` in the request payload.
-7. [ ] Update documentation — `design.md` (UI behavior summary).
+7. [ ] Client unit test (commands run) — `client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx`: ingested command run sends the correct `sourceId` in payload; purpose: verify ingest run wiring.
+   - Docs to read: React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; React state + hooks (Context7 `/reactjs/react.dev`): /reactjs/react.dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+8. [ ] Client unit test (commands run) — `client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx`: local command run omits `sourceId` in payload; purpose: keep local run behavior unchanged.
+   - Docs to read: React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; React state + hooks (Context7 `/reactjs/react.dev`): /reactjs/react.dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+9. [ ] Update documentation — `design.md` (UI behavior summary).
    - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
-8. [ ] Update documentation — `README.md` (if any UI behavior needs mention).
+10. [ ] Update documentation — `README.md` (if any UI behavior needs mention).
    - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
-9. [ ] Update documentation — `projectStructure.md` (if needed).
+11. [ ] Update documentation — `projectStructure.md` (if needed).
    - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
+12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
     - Docs to read: npm run-script docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
 
 #### Testing
@@ -624,21 +641,19 @@ Update the Flows UI to display ingested flow labels, sort by display label, and 
    - Docs to read: MUI Select docs (MUI MCP `/mui/material@6.4.12`, `components/selects.md`): https://llms.mui.com/material-ui/6.4.12/components/selects.md; React state + hooks (Context7 `/reactjs/react.dev`): /reactjs/react.dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface
    - Implementation details:
      - When the selected flow has a `sourceId`, include it in the run payload; omit `sourceId` for local flows.
-6. [ ] Update client tests:
-   - Files to edit:
-     - `client/src/test/flowsApi.test.ts`
-     - `client/src/test/flowsPage.stop.test.tsx`
+6. [ ] Client unit test (flows list UI) — `client/src/test/flowsPage.stop.test.tsx`: duplicate flow names from different sources render distinct labels; purpose: confirm display label + sorting behavior.
    - Docs to read: React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; React state + hooks (Context7 `/reactjs/react.dev`): /reactjs/react.dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
-   - Testing expectations:
-     - Validate duplicate flow names from different sources render distinct labels and run with the correct `sourceId`.
-     - Validate runs for local flows omit `sourceId` in the request payload.
-7. [ ] Update documentation — `design.md` (UI behavior summary).
+7. [ ] Client unit test (flows run) — `client/src/test/flowsPage.stop.test.tsx`: ingested flow run sends the correct `sourceId` payload; purpose: verify ingest run wiring.
+   - Docs to read: React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; React state + hooks (Context7 `/reactjs/react.dev`): /reactjs/react.dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+8. [ ] Client unit test (flows run) — `client/src/test/flowsPage.stop.test.tsx`: local flow run omits `sourceId` in payload; purpose: keep local run behavior unchanged.
+   - Docs to read: React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; React state + hooks (Context7 `/reactjs/react.dev`): /reactjs/react.dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
+9. [ ] Update documentation — `design.md` (UI behavior summary).
    - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
-8. [ ] Update documentation — `README.md` (if any UI behavior needs mention).
+10. [ ] Update documentation — `README.md` (if any UI behavior needs mention).
    - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
-9. [ ] Update documentation — `projectStructure.md` (if needed).
+11. [ ] Update documentation — `projectStructure.md` (if needed).
    - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
+12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
     - Docs to read: npm run-script docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
 
 #### Testing

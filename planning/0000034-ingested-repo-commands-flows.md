@@ -261,11 +261,13 @@ Add ingested-repo command discovery to the agent command list so REST/MCP list r
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run build --workspace client`
-3. [ ] `npm run compose:build`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test --workspace server`
-6. [ ] `npm run test --workspace client`
-7. [ ] `npm run compose:down`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e` or set `timeout_ms=420000` in the harness)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: open http://host.docker.internal:5001/agents, confirm ingested commands show `name - [Repo]` labels, local commands stay unlabeled, sorting is by label, and no errors appear in the debug console.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -393,11 +395,13 @@ Add optional `sourceId` support when running agent commands so ingested command 
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run build --workspace client`
-3. [ ] `npm run compose:build`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test --workspace server`
-6. [ ] `npm run test --workspace client`
-7. [ ] `npm run compose:down`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e` or set `timeout_ms=420000` in the harness)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: open http://host.docker.internal:5001/agents, run an ingested command, confirm run starts successfully, and verify no errors appear in the debug console.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -520,11 +524,13 @@ Extend flow discovery to include ingested repositories, returning `sourceId`/`so
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run build --workspace client`
-3. [ ] `npm run compose:build`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test --workspace server`
-6. [ ] `npm run test --workspace client`
-7. [ ] `npm run compose:down`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e` or set `timeout_ms=420000` in the harness)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: open http://host.docker.internal:5001/flows, confirm ingested flows show `name - [Repo]` labels, local flows stay unlabeled, sorting is by label, and no errors appear in the debug console.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -630,11 +636,13 @@ Add optional `sourceId` support for flow execution so ingested flows run from th
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run build --workspace client`
-3. [ ] `npm run compose:build`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test --workspace server`
-6. [ ] `npm run test --workspace client`
-7. [ ] `npm run compose:down`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e` or set `timeout_ms=420000` in the harness)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: open http://host.docker.internal:5001/flows, run an ingested flow, confirm run starts successfully, and verify no errors appear in the debug console.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -743,11 +751,13 @@ Update the Agents UI to display ingested command labels, sort by display label, 
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run build --workspace client`
-3. [ ] `npm run compose:build`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test --workspace server`
-6. [ ] `npm run test --workspace client`
-7. [ ] `npm run compose:down`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e` or set `timeout_ms=420000` in the harness)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: open http://host.docker.internal:5001/agents, verify duplicate command names remain selectable with `name - [Repo]` labels, run an ingested command, and confirm no errors appear in the debug console.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -856,11 +866,13 @@ Update the Flows UI to display ingested flow labels, sort by display label, and 
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run build --workspace client`
-3. [ ] `npm run compose:build`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test --workspace server`
-6. [ ] `npm run test --workspace client`
-7. [ ] `npm run compose:down`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e` or set `timeout_ms=420000` in the harness)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: open http://host.docker.internal:5001/flows, verify duplicate flow names remain selectable with `name - [Repo]` labels, run an ingested flow, and confirm no errors appear in the debug console.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -918,12 +930,13 @@ Validate the full system against the acceptance criteria, run end-to-end builds/
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run build --workspace client`
-3. [ ] `npm run compose:build`
-4. [ ] run the client jest tests
-5. [ ] run the server cucumber tests
-6. [ ] restart the docker environment
-7. [ ] run the e2e tests
-8. [ ] use the playwright mcp tool to ensure manually check the application, saving screenshots to ./test-results/screenshots/ - Each screenshot should be named with the plan index including the preceding seroes, then a dash, and then the task number, then a dash and the name of the screenshot
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e` or set `timeout_ms=420000` in the harness)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: open http://host.docker.internal:5001, verify Agents + Flows pages show ingested labels and runs work, confirm no errors appear in the debug console, and capture screenshots in `./test-results/screenshots/` named `<plan>-7-<name>`.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 

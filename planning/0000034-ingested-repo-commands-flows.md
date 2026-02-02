@@ -111,3 +111,441 @@ This should only be started once all the above sections are clear and understood
 11. As soon as a task’s implementation is done, add detailed notes in the Implementation notes section covering the code changes, decisions made, and any issues encountered. Push immediately after writing the notes.
 12. Record the relevant git commit hash(es) in the Git Commits section. Once they are pushed, set the task status to `Done`, and push again so both the commit IDs and updated status are captured in this document.
 13. After a task is fully documented (status, notes, commits), proceed to the next task and repeat the same process.
+
+---
+
+## Tasks
+
+### 1. Server: Ingested agent command discovery + list contract
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Add ingested-repo command discovery to the agent command list so REST/MCP list responses include `sourceId`/`sourceLabel` for ingested items, with deterministic label sorting. This task is limited to listing and does not change command execution.
+
+#### Documentation Locations
+
+- Node.js `fs.readdir` + `path.resolve`/`path.relative` (Context7 `/nodejs/node/v22.17.0`): /nodejs/node/v22.17.0
+- OpenAPI 3.1 spec (for `openapi.json` updates): https://spec.openapis.org/oas/v3.1.0
+- npm run-script docs (CLI v10): https://docs.npmjs.com/cli/v10/commands/npm-run-script
+- Node.js test runner API (Context7 `/nodejs/node/v22.17.0`): /nodejs/node/v22.17.0
+- ESLint CLI docs (Context7 `/eslint/eslint/v9.37.0`): /eslint/eslint/v9.37.0
+- Prettier CLI docs (Context7 `/prettier/prettier/3.6.2`): /prettier/prettier/3.6.2
+- Markdown Guide (doc edits): https://www.markdownguide.org/basic-syntax/
+
+#### Subtasks
+
+1. [ ] Review current list logic and ingest metadata usage:
+   - Files to read:
+     - `server/src/agents/service.ts`
+     - `server/src/agents/commandsLoader.ts`
+     - `server/src/routes/agentsCommands.ts`
+     - `server/src/mcpAgents/tools.ts`
+     - `server/src/lmstudio/toolService.ts`
+     - `server/src/ingest/pathMap.ts`
+     - `server/src/test/unit/agent-commands-list.test.ts`
+     - `server/src/test/unit/mcp-agents-router-list.test.ts`
+     - `openapi.json`
+2. [ ] Implement ingested command discovery and label sorting:
+   - Files to edit:
+     - `server/src/agents/service.ts`
+   - Implementation details:
+     - Pull ingest roots via `listIngestedRepositories` and scan `<root>/codex_agents/<agentName>/commands` for JSON files.
+     - Use container path (`/data/<repo>`) as `sourceId` and ingest name (fallback to container basename) as `sourceLabel`.
+     - Keep local commands unlabeled (no `sourceId`/`sourceLabel`).
+     - Sort the combined list by display label (`<name>` for local, `<name> - [sourceLabel]` for ingested).
+3. [ ] Update REST/MCP list payloads and OpenAPI schema:
+   - Files to edit:
+     - `server/src/routes/agentsCommands.ts`
+     - `server/src/mcpAgents/tools.ts`
+     - `openapi.json`
+   - Implementation details:
+     - Add optional `sourceId`/`sourceLabel` fields to list payloads for ingested items only.
+4. [ ] Update/extend list tests:
+   - Files to edit:
+     - `server/src/test/unit/agent-commands-list.test.ts`
+     - `server/src/test/unit/mcp-agents-router-list.test.ts`
+   - Testing expectations:
+     - Validate ingested commands include `sourceId`/`sourceLabel` and sorting uses the display label.
+5. [ ] Update documentation — `design.md`:
+   - Document: `design.md`.
+   - Description: Add/confirm command discovery includes ingested repos and the label/sorting rules.
+6. [ ] Update documentation — `README.md` (if any new endpoints/fields need mention).
+7. [ ] Update documentation — `projectStructure.md` (if any files added/removed in this task; otherwise confirm no change).
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run compose:build`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test --workspace server`
+6. [ ] `npm run test --workspace client`
+7. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- _To be completed during implementation._
+
+---
+
+### 2. Server: Agent command run sourceId support (REST + MCP)
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Add optional `sourceId` support when running agent commands so ingested command files can be executed safely from their ingest root. This task focuses on run-time resolution and validation, not list discovery.
+
+#### Documentation Locations
+
+- Node.js `path.resolve`/`path.relative` (Context7 `/nodejs/node/v22.17.0`): /nodejs/node/v22.17.0
+- OpenAPI 3.1 spec: https://spec.openapis.org/oas/v3.1.0
+- Node.js test runner API (Context7 `/nodejs/node/v22.17.0`): /nodejs/node/v22.17.0
+- ESLint CLI docs (Context7 `/eslint/eslint/v9.37.0`): /eslint/eslint/v9.37.0
+- Prettier CLI docs (Context7 `/prettier/prettier/3.6.2`): /prettier/prettier/3.6.2
+- Markdown Guide (doc edits): https://www.markdownguide.org/basic-syntax/
+
+#### Subtasks
+
+1. [ ] Review current run validation + command loading:
+   - Files to read:
+     - `server/src/agents/service.ts`
+     - `server/src/agents/commandsRunner.ts`
+     - `server/src/routes/agentsCommands.ts`
+     - `server/src/mcpAgents/tools.ts`
+     - `server/src/lmstudio/toolService.ts`
+     - `server/src/agents/commandsLoader.ts`
+     - `server/src/test/unit/agents-commands-router-run.test.ts`
+     - `server/src/test/unit/mcp-agents-router-run.test.ts`
+     - `openapi.json`
+2. [ ] Add optional `sourceId` to run payloads and resolve command paths:
+   - Files to edit:
+     - `server/src/routes/agentsCommands.ts`
+     - `server/src/agents/service.ts`
+     - `server/src/agents/commandsRunner.ts`
+     - `server/src/mcpAgents/tools.ts`
+     - `openapi.json`
+   - Implementation details:
+     - Accept `sourceId` (container path) for ingested commands and reject unknown roots with 404.
+     - Resolve `<sourceId>/codex_agents/<agentName>/commands/<command>.json` and validate containment with `path.resolve` + `path.relative`.
+3. [ ] Update run tests:
+   - Files to edit:
+     - `server/src/test/unit/agents-commands-router-run.test.ts`
+     - `server/src/test/unit/mcp-agents-router-run.test.ts`
+     - `server/src/test/unit/agent-commands-runner.test.ts`
+   - Testing expectations:
+     - Validate 404 on unknown `sourceId` and success when `sourceId` resolves to an ingested command.
+4. [ ] Update documentation — `design.md` (run payload changes).
+5. [ ] Update documentation — `README.md` (if any new payload fields need mention).
+6. [ ] Update documentation — `projectStructure.md` (if needed).
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run compose:build`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test --workspace server`
+6. [ ] `npm run test --workspace client`
+7. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- _To be completed during implementation._
+
+---
+
+### 3. Server: Ingested flow discovery + list contract
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Extend flow discovery to include ingested repositories, returning `sourceId`/`sourceLabel` metadata in the list response and maintaining deterministic sorting by display label.
+
+#### Documentation Locations
+
+- Node.js `fs.readdir` + `path.resolve` (Context7 `/nodejs/node/v22.17.0`): /nodejs/node/v22.17.0
+- OpenAPI 3.1 spec: https://spec.openapis.org/oas/v3.1.0
+- Node.js test runner API (Context7 `/nodejs/node/v22.17.0`): /nodejs/node/v22.17.0
+- ESLint CLI docs (Context7 `/eslint/eslint/v9.37.0`): /eslint/eslint/v9.37.0
+- Prettier CLI docs (Context7 `/prettier/prettier/3.6.2`): /prettier/prettier/3.6.2
+- Markdown Guide (doc edits): https://www.markdownguide.org/basic-syntax/
+
+#### Subtasks
+
+1. [ ] Review current flow discovery and list contract:
+   - Files to read:
+     - `server/src/flows/discovery.ts`
+     - `server/src/routes/flows.ts`
+     - `server/src/flows/flowSchema.ts`
+     - `server/src/lmstudio/toolService.ts`
+     - `server/src/test/integration/flows.list.test.ts`
+     - `openapi.json`
+2. [ ] Implement ingested flow discovery and label sorting:
+   - Files to edit:
+     - `server/src/flows/discovery.ts`
+     - `server/src/routes/flows.ts`
+   - Implementation details:
+     - Scan `<ingestRoot>/flows` for JSON flows, add `sourceId` (container path) and `sourceLabel`.
+     - Keep local flows unlabeled; sort by display label.
+3. [ ] Update OpenAPI schema for flow list response:
+   - Files to edit:
+     - `openapi.json`
+4. [ ] Update flow list tests:
+   - Files to edit:
+     - `server/src/test/integration/flows.list.test.ts`
+5. [ ] Update documentation — `design.md` (flow discovery changes).
+6. [ ] Update documentation — `README.md` (if any new list fields need mention).
+7. [ ] Update documentation — `projectStructure.md` (if needed).
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run compose:build`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test --workspace server`
+6. [ ] `npm run test --workspace client`
+7. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- _To be completed during implementation._
+
+---
+
+### 4. Server: Flow run sourceId support
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Add optional `sourceId` support for flow execution so ingested flows run from their ingest root container paths with containment checks.
+
+#### Documentation Locations
+
+- Node.js `path.resolve`/`path.relative` (Context7 `/nodejs/node/v22.17.0`): /nodejs/node/v22.17.0
+- OpenAPI 3.1 spec: https://spec.openapis.org/oas/v3.1.0
+- Node.js test runner API (Context7 `/nodejs/node/v22.17.0`): /nodejs/node/v22.17.0
+- ESLint CLI docs (Context7 `/eslint/eslint/v9.37.0`): /eslint/eslint/v9.37.0
+- Prettier CLI docs (Context7 `/prettier/prettier/3.6.2`): /prettier/prettier/3.6.2
+- Markdown Guide (doc edits): https://www.markdownguide.org/basic-syntax/
+
+#### Subtasks
+
+1. [ ] Review flow run loading and validation:
+   - Files to read:
+     - `server/src/flows/service.ts`
+     - `server/src/routes/flowsRun.ts`
+     - `server/src/flows/types.ts`
+     - `server/src/test/integration/flows.run.basic.test.ts`
+     - `server/src/test/integration/flows.run.hot-reload.test.ts`
+     - `openapi.json`
+2. [ ] Add optional `sourceId` to flow run payload and resolve file path:
+   - Files to edit:
+     - `server/src/flows/service.ts`
+     - `server/src/routes/flowsRun.ts`
+     - `openapi.json`
+   - Implementation details:
+     - Accept `sourceId` (container path), resolve `<sourceId>/flows/<flowName>.json`, and enforce containment checks.
+     - Unknown `sourceId` or missing flow returns 404.
+3. [ ] Update flow run tests:
+   - Files to edit:
+     - `server/src/test/integration/flows.run.basic.test.ts`
+     - `server/src/test/integration/flows.run.hot-reload.test.ts`
+     - `server/src/test/integration/flows.run.command.test.ts`
+4. [ ] Update documentation — `design.md` (run payload changes).
+5. [ ] Update documentation — `README.md` (if any new payload fields need mention).
+6. [ ] Update documentation — `projectStructure.md` (if needed).
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run compose:build`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test --workspace server`
+6. [ ] `npm run test --workspace client`
+7. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- _To be completed during implementation._
+
+---
+
+### 5. Client: Agents commands dropdown + run payload sourceId
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Update the Agents UI to display ingested command labels, sort by display label, and pass `sourceId` when running ingested commands. This task depends on the server list/run contracts already being updated.
+
+#### Documentation Locations
+
+- MUI Select/Menu docs (MUI MCP `/mui/material@7.2.0`)
+- React state + hooks (React docs): https://react.dev/reference/react
+- Jest DOM/testing library docs: https://testing-library.com/docs/react-testing-library/intro/
+- ESLint CLI docs (Context7 `/eslint/eslint/v9.37.0`): /eslint/eslint/v9.37.0
+- Prettier CLI docs (Context7 `/prettier/prettier/3.6.2`): /prettier/prettier/3.6.2
+- Markdown Guide (doc edits): https://www.markdownguide.org/basic-syntax/
+
+#### Subtasks
+
+1. [ ] Review current agents command list + run flow:
+   - Files to read:
+     - `client/src/api/agents.ts`
+     - `client/src/pages/AgentsPage.tsx`
+     - `client/src/test/agentsPage.commandsList.test.tsx`
+     - `client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx`
+2. [ ] Update list parsing + dropdown rendering:
+   - Files to edit:
+     - `client/src/api/agents.ts`
+     - `client/src/pages/AgentsPage.tsx`
+   - Implementation details:
+     - Parse optional `sourceId`/`sourceLabel` and compute display labels.
+     - Sort by display label and keep local commands unlabeled.
+3. [ ] Update run payload to include `sourceId` for ingested commands:
+   - Files to edit:
+     - `client/src/api/agents.ts`
+     - `client/src/pages/AgentsPage.tsx`
+4. [ ] Update client tests:
+   - Files to edit:
+     - `client/src/test/agentsPage.commandsList.test.tsx`
+     - `client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx`
+5. [ ] Update documentation — `design.md` (UI behavior summary).
+6. [ ] Update documentation — `README.md` (if any UI behavior needs mention).
+7. [ ] Update documentation — `projectStructure.md` (if needed).
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run compose:build`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test --workspace server`
+6. [ ] `npm run test --workspace client`
+7. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- _To be completed during implementation._
+
+---
+
+### 6. Client: Flows dropdown + run payload sourceId
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Update the Flows UI to display ingested flow labels, sort by display label, and pass `sourceId` when running ingested flows. This task depends on the server flow list/run contracts being updated.
+
+#### Documentation Locations
+
+- MUI Select/Menu docs (MUI MCP `/mui/material@7.2.0`)
+- React state + hooks (React docs): https://react.dev/reference/react
+- Jest DOM/testing library docs: https://testing-library.com/docs/react-testing-library/intro/
+- ESLint CLI docs (Context7 `/eslint/eslint/v9.37.0`): /eslint/eslint/v9.37.0
+- Prettier CLI docs (Context7 `/prettier/prettier/3.6.2`): /prettier/prettier/3.6.2
+- Markdown Guide (doc edits): https://www.markdownguide.org/basic-syntax/
+
+#### Subtasks
+
+1. [ ] Review current flows list + run flow:
+   - Files to read:
+     - `client/src/api/flows.ts`
+     - `client/src/pages/FlowsPage.tsx`
+     - `client/src/test/flowsApi.test.ts`
+     - `client/src/test/flowsPage.stop.test.tsx`
+2. [ ] Update list parsing + dropdown rendering:
+   - Files to edit:
+     - `client/src/api/flows.ts`
+     - `client/src/pages/FlowsPage.tsx`
+   - Implementation details:
+     - Parse optional `sourceId`/`sourceLabel` and compute display labels.
+     - Sort by display label and keep local flows unlabeled.
+3. [ ] Update run payload to include `sourceId` for ingested flows:
+   - Files to edit:
+     - `client/src/api/flows.ts`
+     - `client/src/pages/FlowsPage.tsx`
+4. [ ] Update client tests:
+   - Files to edit:
+     - `client/src/test/flowsApi.test.ts`
+     - `client/src/test/flowsPage.stop.test.tsx`
+5. [ ] Update documentation — `design.md` (UI behavior summary).
+6. [ ] Update documentation — `README.md` (if any UI behavior needs mention).
+7. [ ] Update documentation — `projectStructure.md` (if needed).
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues if needed.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run compose:build`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test --workspace server`
+6. [ ] `npm run test --workspace client`
+7. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- _To be completed during implementation._
+
+---
+
+### 7. Final verification + documentation + PR summary
+
+- Task Status: **__to_do__**
+- Git Commits: **__to_do__**
+
+#### Overview
+
+Validate the full system against the acceptance criteria, run end-to-end builds/tests, ensure documentation is current, and prepare a pull request summary covering all changes from this story.
+
+#### Documentation Locations
+
+- Docker/Compose: Context7 `/docker/docs`
+- Playwright: Context7 `/microsoft/playwright`
+- Husky: Context7 `/typicode/husky`
+- Mermaid: Context7 `/mermaid-js/mermaid`
+- Jest: Context7 `/jestjs/jest`
+- Cucumber guides https://cucumber.io/docs/guides/
+
+#### Subtasks
+
+1. [ ] Build the server
+2. [ ] Build the client
+3. [ ] perform a clean docker build
+4. [ ] Ensure Readme.md is updated with any required description changes and with any new commands that have been added as part of this story
+5. [ ] Ensure Design.md is updated with any required description changes including mermaid diagrams that have been added as part of this story
+6. [ ] Ensure projectStructure.md is updated with any updated, added or removed files & folders
+7. [ ] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
+
+#### Testing
+
+1. [ ] run the client jest tests
+2. [ ] run the server cucumber tests
+3. [ ] restart the docker environment
+4. [ ] run the e2e tests
+5. [ ] use the playwright mcp tool to ensure manually check the application, saving screenshots to ./test-results/screenshots/ - Each screenshot should be named with the plan index including the preceding seroes, then a dash, and then the task number, then a dash and the name of the screenshot
+
+#### Implementation notes
+
+- Details about the implementation. Include what went to plan and what did not.
+- Essential that any decisions that got made during the implementation are documented here

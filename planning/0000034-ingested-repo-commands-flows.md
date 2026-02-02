@@ -44,9 +44,9 @@ This story adds discovery of commands and flows from ingested repositories. If a
 
 ## Questions
 
-- Should local (CodeInfo2) commands/flows show a label like `[CodeInfo2]`, or remain unlabeled?
-- If an ingest root display name is missing or empty, should we fall back to the folder name?
-- Should MCP list/run tools surface ingested commands/flows the same way as the UI?
+- Local (CodeInfo2) commands/flows remain unlabeled.
+- If an ingest root display name is missing or empty, fall back to the root folder name.
+- MCP list/run tools surface ingested commands/flows the same way as the UI.
 
 ---
 

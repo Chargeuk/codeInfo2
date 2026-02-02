@@ -131,6 +131,7 @@ Add ingested-repo command discovery to the agent command list so REST/MCP list r
 - OpenAPI 3.0.3 spec (schema field updates): https://spec.openapis.org/oas/v3.0.3.html
 - npm run-script docs (workspace script execution): https://docs.npmjs.com/cli/v10/commands/npm-run-script
 - Node.js test runner docs (`node:test` usage + CLI flags): https://nodejs.org/api/test.html
+- Jest docs (Context7 `/jestjs/jest`): /jestjs/jest
 - ESLint CLI docs (lint command usage + exit codes): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI docs (format/check options): https://prettier.io/docs/cli/
 - Markdown Guide (doc formatting): https://www.markdownguide.org/basic-syntax/
@@ -247,6 +248,7 @@ Add optional `sourceId` support when running agent commands so ingested command 
 - OpenAPI 3.0.3 spec (schema field updates): https://spec.openapis.org/oas/v3.0.3.html
 - npm run-script docs (workspace script execution): https://docs.npmjs.com/cli/v10/commands/npm-run-script
 - Node.js test runner docs (`node:test` usage + CLI flags): https://nodejs.org/api/test.html
+- Jest docs (Context7 `/jestjs/jest`): /jestjs/jest
 - ESLint CLI docs (lint command usage + exit codes): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI docs (format/check options): https://prettier.io/docs/cli/
 - Markdown Guide (doc formatting): https://www.markdownguide.org/basic-syntax/
@@ -345,6 +347,7 @@ Extend flow discovery to include ingested repositories, returning `sourceId`/`so
 - OpenAPI 3.0.3 spec (schema field updates): https://spec.openapis.org/oas/v3.0.3.html
 - npm run-script docs (workspace script execution): https://docs.npmjs.com/cli/v10/commands/npm-run-script
 - Node.js test runner docs (`node:test` usage + CLI flags): https://nodejs.org/api/test.html
+- Jest docs (Context7 `/jestjs/jest`): /jestjs/jest
 - ESLint CLI docs (lint command usage + exit codes): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI docs (format/check options): https://prettier.io/docs/cli/
 - Markdown Guide (doc formatting): https://www.markdownguide.org/basic-syntax/
@@ -436,6 +439,7 @@ Add optional `sourceId` support for flow execution so ingested flows run from th
 - OpenAPI 3.0.3 spec (schema field updates): https://spec.openapis.org/oas/v3.0.3.html
 - npm run-script docs (workspace script execution): https://docs.npmjs.com/cli/v10/commands/npm-run-script
 - Node.js test runner docs (`node:test` usage + CLI flags): https://nodejs.org/api/test.html
+- Jest docs (Context7 `/jestjs/jest`): /jestjs/jest
 - ESLint CLI docs (lint command usage + exit codes): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI docs (format/check options): https://prettier.io/docs/cli/
 - Markdown Guide (doc formatting): https://www.markdownguide.org/basic-syntax/
@@ -516,6 +520,7 @@ Update the Agents UI to display ingested command labels, sort by display label, 
 - MUI Select docs (labels + MenuItem usage): MUI MCP `/mui/material@6.4.12` — https://llms.mui.com/material-ui/6.4.12/components/selects.md
 - React state + hooks (controlled selects + derived state): Context7 `/reactjs/react.dev`
 - React Testing Library docs (queries + user events): https://testing-library.com/docs/react-testing-library/intro/
+- Jest docs (Context7 `/jestjs/jest`): /jestjs/jest
 - npm run-script docs (workspace script execution): https://docs.npmjs.com/cli/v10/commands/npm-run-script
 - ESLint CLI docs (lint command usage + exit codes): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI docs (format/check options): https://prettier.io/docs/cli/
@@ -601,6 +606,7 @@ Update the Flows UI to display ingested flow labels, sort by display label, and 
 - MUI Select docs (labels + MenuItem usage): MUI MCP `/mui/material@6.4.12` — https://llms.mui.com/material-ui/6.4.12/components/selects.md
 - React state + hooks (controlled selects + derived state): Context7 `/reactjs/react.dev`
 - React Testing Library docs (queries + user events): https://testing-library.com/docs/react-testing-library/intro/
+- Jest docs (Context7 `/jestjs/jest`): /jestjs/jest
 - npm run-script docs (workspace script execution): https://docs.npmjs.com/cli/v10/commands/npm-run-script
 - ESLint CLI docs (lint command usage + exit codes): https://eslint.org/docs/latest/use/command-line-interface
 - Prettier CLI docs (format/check options): https://prettier.io/docs/cli/

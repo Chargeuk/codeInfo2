@@ -157,6 +157,7 @@ Add ingested-repo command discovery to the agent command list so REST/MCP list r
    - Docs to read: Node.js `fs.readdir` + `path.resolve`/`path.relative` (Context7 `/nodejs/node/v22.17.0`): /nodejs/node/v22.17.0; OpenAPI 3.0.3 spec: https://spec.openapis.org/oas/v3.0.3.html; npm run-script docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script; Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/; Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Implementation details:
      - Pull ingest roots via `listIngestedRepositories` and scan `<root>/codex_agents/<agentName>/commands` for JSON files.
+     - Use `RepoEntry.containerPath` as the ingest root path and `RepoEntry.id` (already built via `buildRepoId`) as the display label.
      - Reuse `loadAgentCommandSummary` from `server/src/agents/commandsLoader.ts` for both local and ingested files so invalid JSON/schema handling stays consistent.
      - If `listIngestedRepositories` fails (for example, Chroma unavailable), return local commands only without adding new logging.
      - Skip ingest roots that are missing on disk or do not contain `codex_agents/<agentName>/commands` (no errors, just omit).
@@ -165,8 +166,8 @@ Add ingested-repo command discovery to the agent command list so REST/MCP list r
      - `server/src/agents/service.ts`
    - Docs to read: Node.js `fs.readdir` + `path.resolve`/`path.relative` (Context7 `/nodejs/node/v22.17.0`): /nodejs/node/v22.17.0; OpenAPI 3.0.3 spec: https://spec.openapis.org/oas/v3.0.3.html; npm run-script docs: https://docs.npmjs.com/cli/v10/commands/npm-run-script; Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/; Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Implementation details:
-     - Use container path (`/data/<repo>`) as `sourceId` and the repo `id` from `listIngestedRepositories` as `sourceLabel` (this id already reflects ingest metadata name or container basename).
-     - If the repo `id` is empty, fall back to `path.posix.basename(containerPath)` for the label.
+     - Use `RepoEntry.containerPath` as `sourceId` and `RepoEntry.id` as `sourceLabel` (it already falls back to ingest metadata name or container basename).
+     - Only apply an extra `path.posix.basename` fallback if `RepoEntry.id` is unexpectedly empty.
      - Keep local commands unlabeled (no `sourceId`/`sourceLabel`).
      - Sort the combined list by display label (`<name>` for local, `<name> - [sourceLabel]` for ingested).
      - Do not de-duplicate names; preserve duplicates across ingest roots.
@@ -177,6 +178,7 @@ Add ingested-repo command discovery to the agent command list so REST/MCP list r
    - Docs to read: OpenAPI 3.0.3 spec: https://spec.openapis.org/oas/v3.0.3.html; Node.js `fs.readdir` + `path.resolve`/`path.relative` (Context7 `/nodejs/node/v22.17.0`): /nodejs/node/v22.17.0; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/; Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Implementation details:
      - Add optional `sourceId`/`sourceLabel` fields to REST list payloads for ingested items only.
+     - Update the list command DTO/type in `server/src/agents/service.ts` so `sourceId`/`sourceLabel` are optional and omitted for local commands.
 5. [ ] Update MCP list payload:
    - Files to edit:
      - `server/src/mcpAgents/tools.ts`
@@ -285,7 +287,9 @@ Add optional `sourceId` support when running agent commands so ingested command 
      - `server/src/agents/commandsRunner.ts`
    - Docs to read: Node.js `path.resolve`/`path.relative` (Context7 `/nodejs/node/v22.17.0`): /nodejs/node/v22.17.0; OpenAPI 3.0.3 spec: https://spec.openapis.org/oas/v3.0.3.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
    - Implementation details:
-     - Accept `sourceId` (container path) for ingested commands and reject unknown roots with 404.
+     - Accept `sourceId` (container path) for ingested commands and map it to a `RepoEntry.containerPath` from `listIngestedRepositories`.
+     - Treat unknown `sourceId` values as `COMMAND_NOT_FOUND` so REST/MCP return `404 { error: 'not_found' }`.
+     - Extend `RunAgentCommandRunnerParams` + `runAgentCommandRunner` to accept an optional ingested `commandsRoot`/`commandFilePath` override (use local `agent.home/commands` when `sourceId` is omitted).
      - Resolve `<sourceId>/codex_agents/<agentName>/commands/<command>.json` and validate containment with `path.resolve` + `path.relative`.
      - If `sourceId` is provided but no matching `containerPath` exists, return `404 { error: 'not_found' }`.
 3. [ ] Update REST run payload + OpenAPI schema:
@@ -393,7 +397,7 @@ Extend flow discovery to include ingested repositories, returning `sourceId`/`so
      - `server/src/flows/discovery.ts`
    - Docs to read: Node.js `fs.readdir` + `path.resolve` (Context7 `/nodejs/node/v22.17.0`): /nodejs/node/v22.17.0; OpenAPI 3.0.3 spec: https://spec.openapis.org/oas/v3.0.3.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
    - Implementation details:
-     - Scan `<ingestRoot>/flows` for JSON flows, add `sourceId` (container path) and `sourceLabel`.
+     - Scan `<ingestRoot>/flows` for JSON flows, add `sourceId` from `RepoEntry.containerPath` and `sourceLabel` from `RepoEntry.id`.
      - Reuse `parseFlowFile` + existing summary builder logic from `server/src/flows/discovery.ts` so invalid JSON/schema handling matches local flows.
      - If `listIngestedRepositories` fails, return local flows only without adding new logging.
      - Skip ingest roots that are missing on disk or do not contain a `flows/` folder.
@@ -402,7 +406,8 @@ Extend flow discovery to include ingested repositories, returning `sourceId`/`so
      - `server/src/flows/discovery.ts`
    - Docs to read: Node.js `fs.readdir` + `path.resolve` (Context7 `/nodejs/node/v22.17.0`): /nodejs/node/v22.17.0; OpenAPI 3.0.3 spec: https://spec.openapis.org/oas/v3.0.3.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
    - Implementation details:
-     - Use repo `id` from `listIngestedRepositories` as `sourceLabel` (fallback to `path.posix.basename(containerPath)` if needed).
+     - Use `RepoEntry.id` as `sourceLabel` (it already falls back to ingest metadata name or container basename).
+     - Only apply an extra `path.posix.basename` fallback if `RepoEntry.id` is unexpectedly empty.
      - Keep local flows unlabeled; sort by display label.
      - Do not de-duplicate names; preserve duplicates across ingest roots.
 4. [ ] Update REST list payload + OpenAPI schema:
@@ -412,6 +417,7 @@ Extend flow discovery to include ingested repositories, returning `sourceId`/`so
    - Docs to read: OpenAPI 3.0.3 spec: https://spec.openapis.org/oas/v3.0.3.html; Node.js `fs.readdir` + `path.resolve` (Context7 `/nodejs/node/v22.17.0`): /nodejs/node/v22.17.0; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface
    - Implementation details:
      - Add optional `sourceId`/`sourceLabel` fields to REST list payloads for ingested items only.
+     - Update the `FlowSummary` type in `server/src/flows/discovery.ts` to include optional `sourceId`/`sourceLabel` for ingested flows.
 5. [ ] Integration test (flow list) — `server/src/test/integration/flows.list.test.ts`: ingested flows include `sourceId`/`sourceLabel` and sorting uses display label; purpose: verify list contract + ordering.
    - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
 6. [ ] Integration test (flow list) — `server/src/test/integration/flows.list.test.ts`: local flows omit `sourceId`/`sourceLabel`; purpose: preserve local payload shape.
@@ -497,10 +503,13 @@ Add optional `sourceId` support for flow execution so ingested flows run from th
      - `server/src/flows/service.ts`
    - Docs to read: Node.js `path.resolve`/`path.relative` (Context7 `/nodejs/node/v22.17.0`): /nodejs/node/v22.17.0; OpenAPI 3.0.3 spec: https://spec.openapis.org/oas/v3.0.3.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
    - Implementation details:
-     - Accept `sourceId` (container path), resolve `<sourceId>/flows/<flowName>.json`, and enforce containment checks.
+     - Accept `sourceId` (container path) and map it to `RepoEntry.containerPath` from `listIngestedRepositories`.
+     - Extend `FlowRunStartParams` and `startFlowRun` signatures to accept optional `sourceId` and thread it to flow loading.
+     - Extend `loadFlowFile` to accept an optional base directory (local flows dir vs. `<sourceId>/flows`) and reuse it for both local and ingested runs.
+     - Resolve `<sourceId>/flows/<flowName>.json` and enforce containment checks with `path.resolve` + `path.relative`.
      - Continue to enforce `isSafeFlowName` validation for ingested runs (same rules as local runs).
-     - Unknown `sourceId` or missing flow returns 404.
-     - If `sourceId` is provided but no matching `containerPath` exists, return `404 { error: 'not_found' }`.
+     - Treat unknown `sourceId` as `FLOW_NOT_FOUND` so REST returns `404 { error: 'not_found' }`.
+     - Missing ingested flow files should surface `FLOW_NOT_FOUND` (same 404 contract).
 3. [ ] Update REST run payload + OpenAPI schema:
    - Files to edit:
      - `server/src/routes/flowsRun.ts`
@@ -590,6 +599,7 @@ Update the Agents UI to display ingested command labels, sort by display label, 
      - `client/src/api/agents.ts`
    - Docs to read: React state + hooks (Context7 `/reactjs/react.dev`): /reactjs/react.dev; React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
    - Implementation details:
+     - Extend the command type to include optional `sourceId`/`sourceLabel` fields.
      - Parse optional `sourceId`/`sourceLabel` from the command list response and include them in the returned command objects.
 3. [ ] Update dropdown rendering + selection state:
    - Files to edit:
@@ -689,6 +699,7 @@ Update the Flows UI to display ingested flow labels, sort by display label, and 
      - `client/src/api/flows.ts`
    - Docs to read: React state + hooks (Context7 `/reactjs/react.dev`): /reactjs/react.dev; React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
    - Implementation details:
+     - Extend the `FlowSummary` type to include optional `sourceId`/`sourceLabel` fields.
      - Parse optional `sourceId`/`sourceLabel` from the flows list response and include them in the returned flow objects.
 3. [ ] Update dropdown rendering + selection state:
    - Files to edit:

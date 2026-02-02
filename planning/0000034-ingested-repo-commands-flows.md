@@ -786,8 +786,8 @@ Validate the full system against the acceptance criteria, run end-to-end builds/
 - Husky docs (Git hooks + skips): https://typicode.github.io/husky/
 - Mermaid docs (Context7 `/mermaid-js/mermaid`): /mermaid-js/mermaid
 - Mermaid syntax reference (diagram updates): https://mermaid.js.org/intro/syntax-reference.html
+- Jest docs (Context7 `/jestjs/jest`): /jestjs/jest
 - Jest getting started docs (CLI + config): https://jestjs.io/docs/getting-started
-- Deepwiki MCP: `jestjs/jest` (CLI/config overview)
 - Cucumber guides (BDD workflow): https://cucumber.io/docs/guides/
 - npm run-script docs (workspace script execution): https://docs.npmjs.com/cli/v10/commands/npm-run-script
 - Markdown Guide (doc formatting): https://www.markdownguide.org/basic-syntax/

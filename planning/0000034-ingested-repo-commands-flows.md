@@ -189,6 +189,8 @@ Add ingested-repo command discovery to the agent command list so REST/MCP list r
    - Testing expectations:
      - Validate ingested commands include `sourceId`/`sourceLabel` and sorting uses the display label.
      - Validate local commands omit `sourceId`/`sourceLabel`.
+     - Validate `sourceLabel` falls back to the ingest root basename when ingest metadata name is missing.
+     - Validate ingested commands are skipped when the matching agent does not exist locally.
      - Add coverage for duplicate command names across different ingest roots (both entries retained, sorted by label).
      - Add coverage for missing ingest root directories (local commands still returned).
 7. [ ] Update documentation — `design.md`:
@@ -282,6 +284,8 @@ Add optional `sourceId` support when running agent commands so ingested command 
    - Testing expectations:
      - Validate 404 on unknown `sourceId` and success when `sourceId` resolves to an ingested command.
      - Validate local command runs still work when `sourceId` is omitted.
+     - Validate 404 when the ingested command file does not exist under the resolved root.
+     - Validate path traversal attempts in command names are rejected by containment checks.
 6. [ ] Update documentation — `design.md` (run payload changes).
    - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
 7. [ ] Update documentation — `README.md` (if any new payload fields need mention).
@@ -368,8 +372,10 @@ Extend flow discovery to include ingested repositories, returning `sourceId`/`so
    - Testing expectations:
      - Validate ingested flows include `sourceId`/`sourceLabel` and sorting uses the display label.
      - Validate local flows omit `sourceId`/`sourceLabel`.
+     - Validate `sourceLabel` falls back to the ingest root basename when ingest metadata name is missing.
      - Add coverage for duplicate flow names across different ingest roots (both entries retained).
      - Add coverage for missing ingest root directories (local flows still returned).
+     - Add coverage for ingest roots with no `flows/` directory (local flows still returned).
 6. [ ] Update documentation — `design.md` (flow discovery changes).
    - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
 7. [ ] Update documentation — `README.md` (if any new list fields need mention).
@@ -450,6 +456,8 @@ Add optional `sourceId` support for flow execution so ingested flows run from th
    - Testing expectations:
      - Validate 404 on unknown `sourceId` and success when `sourceId` resolves to an ingested flow.
      - Validate local flow runs still work when `sourceId` is omitted.
+     - Validate 404 when the ingested flow file does not exist under the resolved root.
+     - Validate path traversal attempts in flow names are rejected by containment checks.
 5. [ ] Update documentation — `design.md` (run payload changes).
    - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
 6. [ ] Update documentation — `README.md` (if any new payload fields need mention).
@@ -536,6 +544,7 @@ Update the Agents UI to display ingested command labels, sort by display label, 
    - Docs to read: React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; React state + hooks (Context7 `/reactjs/react.dev`): /reactjs/react.dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
    - Testing expectations:
      - Validate duplicate command names from different sources render distinct labels and run with the correct `sourceId`.
+     - Validate runs for local commands omit `sourceId` in the request payload.
 7. [ ] Update documentation — `design.md` (UI behavior summary).
    - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
 8. [ ] Update documentation — `README.md` (if any UI behavior needs mention).
@@ -622,6 +631,7 @@ Update the Flows UI to display ingested flow labels, sort by display label, and 
    - Docs to read: React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; React state + hooks (Context7 `/reactjs/react.dev`): /reactjs/react.dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
    - Testing expectations:
      - Validate duplicate flow names from different sources render distinct labels and run with the correct `sourceId`.
+     - Validate runs for local flows omit `sourceId` in the request payload.
 7. [ ] Update documentation — `design.md` (UI behavior summary).
    - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
 8. [ ] Update documentation — `README.md` (if any UI behavior needs mention).

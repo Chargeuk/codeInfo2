@@ -27,12 +27,13 @@ This story adds discovery of commands and flows from ingested repositories. If a
 - Flows are discovered from each ingested repo at `<ingestRoot>/flows`.
 - Duplicate command or flow names are allowed across repos.
 - Dropdown lists are sorted alphabetically by command/flow name.
+- Dropdown lists are sorted alphabetically by the full display label (`<name> - [Repo Name]`) so duplicates stay deterministic.
 - Imported items display the ingest root display name in brackets, formatted as `<name> - [Repo Name]`.
 - If the ingest root display name is missing or empty, the fallback label is the ingest root folder name.
 - Imported commands and flows are treated as trusted and can be executed without extra confirmation.
 - Local (CodeInfo2) commands and flows continue to appear, remain functional, and remain unlabeled.
-- MCP list/run tools surface ingested commands and flows the same way as the UI.
-- For ingested flows, the execution `sourceId` uses the ingest root folder path; the dropdown label still uses the ingest name (or folder-name fallback).
+- MCP list/run tools surface ingested commands the same way as the UI (flows MCP parity is out of scope).
+- For ingested commands and flows, the execution `sourceId` uses the ingest root container path; the dropdown label still uses the ingest name (or folder-name fallback).
 
 ---
 
@@ -42,6 +43,7 @@ This story adds discovery of commands and flows from ingested repositories. If a
 - Editing or validating commands/flows inside ingested repos beyond existing validation.
 - UI redesigns beyond list labels and sorting.
 - Changes to ingest workflows or repository ingestion behavior.
+- Adding new MCP tools for flows (list/run) or changing MCP flow behavior.
 
 ---
 
@@ -53,12 +55,12 @@ _None. All questions resolved._
 
 ## Rough Implementation Outline
 
-- Server ingest roots: reuse `listIngestedRepositories` in `server/src/lmstudio/toolService.ts` to obtain ingest root names (with fallback to basename), container paths, and host paths; treat the display name as the `sourceLabel` for UI/MCP.
-- Agent commands discovery: extend `listAgentCommands` in `server/src/agents/service.ts` to merge local commands with any found under `<ingestRoot>/codex_agents/<agentName>/commands`, only when the agent exists locally; include `sourceId` + `sourceLabel` for ingested items and keep local items unlabeled.
-- Agent command execution: update the command run path (e.g., `startAgentCommand`/`commandsRunner`) and REST/MCP inputs to accept an optional `sourceId`, resolve the correct `commands` directory from the ingest roots list, and keep validation that paths stay inside the ingest root.
-- Flow discovery: update `server/src/flows/discovery.ts` (and the `/flows` route) to scan the local flows directory plus each `<ingestRoot>/flows` folder; return `sourceId` (ingest root folder path) + `sourceLabel` for ingested flows, keep locals unlabeled, and sort by `name`.
-- Flow execution: update `server/src/flows/service.ts` and `server/src/routes/flowsRun.ts` to accept an optional `sourceId` (ingest root folder path), resolve the matching flow file path for that source, and keep existing hot-reload/validation behavior.
-- MCP parity: update `server/src/mcpAgents/tools.ts` list/run command payloads to include source metadata and accept `sourceId`; add/extend MCP tools for flow list/run if not already present so they mirror the REST/UI behavior.
+- Server ingest roots: reuse `listIngestedRepositories` in `server/src/lmstudio/toolService.ts` to obtain ingest root names (with fallback to basename) and container paths; treat the display name as the `sourceLabel` for UI/MCP and the container path as `sourceId`.
+- Agent commands discovery: extend `listAgentCommands` in `server/src/agents/service.ts` to merge local commands with any found under `<ingestRoot>/codex_agents/<agentName>/commands`, only when the agent exists locally; include `sourceId` (ingest root container path) + `sourceLabel` for ingested items and keep local items unlabeled.
+- Agent command execution: update the command run path (e.g., `startAgentCommand`/`commandsRunner`) and REST/MCP inputs to accept an optional `sourceId`, resolve the correct `commands` directory from the ingest roots list (container path), and keep validation that paths stay inside the ingest root.
+- Flow discovery: update `server/src/flows/discovery.ts` (and the `/flows` route) to scan the local flows directory plus each `<ingestRoot>/flows` folder; return `sourceId` (ingest root container path) + `sourceLabel` for ingested flows, keep locals unlabeled, and sort by display label.
+- Flow execution: update `server/src/flows/service.ts` and `server/src/routes/flowsRun.ts` to accept an optional `sourceId` (ingest root container path), resolve the matching flow file path for that source, and keep existing hot-reload/validation behavior.
+- MCP parity: update `server/src/mcpAgents/tools.ts` list/run command payloads to include source metadata and accept `sourceId`; flows MCP tools are out of scope.
 - Client updates: adjust `client/src/api/agents.ts` and `client/src/pages/AgentsPage.tsx` to handle `sourceId/sourceLabel`, render labels as `<name> - [Repo]`, keep locals unlabeled, and pass `sourceId` on run; mirror the same approach in `client/src/api/flows.ts` and `client/src/pages/FlowsPage.tsx`.
 - Validation/tests: update existing REST/MCP and UI tests that assert command/flow lists to account for source metadata, label formatting, and duplicate name handling (sorted by `name`).
 

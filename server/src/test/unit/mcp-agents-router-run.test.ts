@@ -282,3 +282,182 @@ test('tools/call run_command aborts tool call on disconnect (AbortSignal propaga
     server.close();
   }
 });
+
+test('tools/call run_command maps unknown sourceId to InvalidParams error', async () => {
+  const original = process.env.MCP_FORCE_CODEX_AVAILABLE;
+  process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
+
+  setToolDeps({
+    runAgentCommand: async () => {
+      throw { code: 'COMMAND_NOT_FOUND' };
+    },
+  });
+
+  const server = http.createServer(handleAgentsRpc);
+  server.listen(0);
+  const { port } = server.address() as AddressInfo;
+
+  try {
+    const body = await postJson(port, {
+      jsonrpc: '2.0',
+      id: 45,
+      method: 'tools/call',
+      params: {
+        name: 'run_command',
+        arguments: {
+          agentName: 'planning_agent',
+          commandName: 'improve_plan',
+          sourceId: '/data/missing',
+        },
+      },
+    });
+
+    assert.equal(body.id, 45);
+    assert.equal(body.error.code, -32602);
+    assert.equal(body.error.message, 'Command not found');
+  } finally {
+    process.env.MCP_FORCE_CODEX_AVAILABLE = original;
+    resetToolDeps();
+    server.close();
+  }
+});
+
+test('tools/call run_command runs local commands when sourceId is omitted', async () => {
+  const original = process.env.MCP_FORCE_CODEX_AVAILABLE;
+  process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
+
+  let receivedSourceId: string | undefined;
+
+  setToolDeps({
+    runAgentCommand: async (params) => {
+      receivedSourceId = (params as { sourceId?: string }).sourceId;
+      return {
+        agentName: 'planning_agent',
+        commandName: 'improve_plan',
+        conversationId: 'c1',
+        modelId: 'm1',
+      };
+    },
+  });
+
+  const server = http.createServer(handleAgentsRpc);
+  server.listen(0);
+  const { port } = server.address() as AddressInfo;
+
+  try {
+    const body = await postJson(port, {
+      jsonrpc: '2.0',
+      id: 46,
+      method: 'tools/call',
+      params: {
+        name: 'run_command',
+        arguments: {
+          agentName: 'planning_agent',
+          commandName: 'improve_plan',
+        },
+      },
+    });
+
+    assert.equal(body.id, 46);
+    const parsed = JSON.parse(body.result.content[0].text) as {
+      agentName: string;
+      commandName: string;
+    };
+    assert.equal(parsed.agentName, 'planning_agent');
+    assert.equal(parsed.commandName, 'improve_plan');
+    assert.equal(receivedSourceId, undefined);
+  } finally {
+    process.env.MCP_FORCE_CODEX_AVAILABLE = original;
+    resetToolDeps();
+    server.close();
+  }
+});
+
+test('tools/call run_command maps missing ingested command file to InvalidParams error', async () => {
+  const original = process.env.MCP_FORCE_CODEX_AVAILABLE;
+  process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
+
+  setToolDeps({
+    runAgentCommand: async () => {
+      throw { code: 'COMMAND_NOT_FOUND' };
+    },
+  });
+
+  const server = http.createServer(handleAgentsRpc);
+  server.listen(0);
+  const { port } = server.address() as AddressInfo;
+
+  try {
+    const body = await postJson(port, {
+      jsonrpc: '2.0',
+      id: 47,
+      method: 'tools/call',
+      params: {
+        name: 'run_command',
+        arguments: {
+          agentName: 'planning_agent',
+          commandName: 'missing',
+          sourceId: '/data/repo',
+        },
+      },
+    });
+
+    assert.equal(body.id, 47);
+    assert.equal(body.error.code, -32602);
+    assert.equal(body.error.message, 'Command not found');
+  } finally {
+    process.env.MCP_FORCE_CODEX_AVAILABLE = original;
+    resetToolDeps();
+    server.close();
+  }
+});
+
+test('tools/call run_command forwards sourceId when provided', async () => {
+  const original = process.env.MCP_FORCE_CODEX_AVAILABLE;
+  process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
+
+  let receivedSourceId: string | undefined;
+
+  setToolDeps({
+    runAgentCommand: async (params) => {
+      receivedSourceId = (params as { sourceId?: string }).sourceId;
+      return {
+        agentName: 'planning_agent',
+        commandName: 'improve_plan',
+        conversationId: 'c1',
+        modelId: 'm1',
+      };
+    },
+  });
+
+  const server = http.createServer(handleAgentsRpc);
+  server.listen(0);
+  const { port } = server.address() as AddressInfo;
+
+  try {
+    const body = await postJson(port, {
+      jsonrpc: '2.0',
+      id: 55,
+      method: 'tools/call',
+      params: {
+        name: 'run_command',
+        arguments: {
+          agentName: 'planning_agent',
+          commandName: 'improve_plan',
+          sourceId: '/data/repo',
+        },
+      },
+    });
+
+    assert.equal(body.id, 55);
+    const parsed = JSON.parse(body.result.content[0].text) as {
+      agentName: string;
+    };
+    assert.equal(parsed.agentName, 'planning_agent');
+    assert.equal(receivedSourceId, '/data/repo');
+  } finally {
+    process.env.MCP_FORCE_CODEX_AVAILABLE = original;
+    resetToolDeps();
+    server.close();
+  }
+});

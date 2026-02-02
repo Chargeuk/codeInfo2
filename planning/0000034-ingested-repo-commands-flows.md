@@ -311,7 +311,7 @@ Add optional `sourceId` support when running agent commands so ingested command 
 
 #### Subtasks
 
-1. [ ] Review current run validation + command loading:
+1. [x] Review current run validation + command loading:
    - Files to read:
      - `server/src/agents/service.ts`
      - `server/src/agents/commandsRunner.ts`
@@ -324,7 +324,7 @@ Add optional `sourceId` support when running agent commands so ingested command 
      - `openapi.json`
    - Docs to read: Node.js `path.resolve`/`path.relative` (Context7 `/nodejs/node/v22.17.0`): /nodejs/node/v22.17.0; OpenAPI 3.0.3 spec: https://spec.openapis.org/oas/v3.0.3.html; Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/; Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Checklist (duplicate rules): unknown `sourceId` must map to `COMMAND_NOT_FOUND` (404) and local runs omit `sourceId`.
-2. [ ] Add sourceId resolution + containment checks:
+2. [x] Add sourceId resolution + containment checks:
    - Files to edit:
      - `server/src/agents/service.ts`
      - `server/src/agents/commandsRunner.ts`
@@ -339,7 +339,7 @@ Add optional `sourceId` support when running agent commands so ingested command 
    - Example containment check:
      - `const resolved = path.resolve(commandsRoot, commandName + '.json');`
      - `if (path.relative(commandsRoot, resolved).startsWith('..')) throw { code: 'COMMAND_INVALID' };`
-3. [ ] Update REST run payload + OpenAPI schema:
+3. [x] Update REST run payload + OpenAPI schema:
    - Files to edit:
      - `server/src/routes/agentsCommands.ts`
      - `openapi.json`
@@ -347,55 +347,55 @@ Add optional `sourceId` support when running agent commands so ingested command 
    - Implementation details:
      - Accept optional `sourceId` in REST payloads and pass it into the service layer.
      - Example request JSON: `{ "commandName": "build", "sourceId": "/data/repo" }`.
-4. [ ] Update MCP run payload:
+4. [x] Update MCP run payload:
    - Files to edit:
      - `server/src/mcpAgents/tools.ts`
    - Docs to read: Node.js `path.resolve`/`path.relative` (Context7 `/nodejs/node/v22.17.0`): /nodejs/node/v22.17.0; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface
    - Implementation details:
      - Accept optional `sourceId` in MCP payloads and forward to `runAgentCommand`.
      - Example MCP args: `{ agentName: "planning_agent", commandName: "build", sourceId: "/data/repo" }`.
-5. [ ] Unit test (REST run) — `server/src/test/unit/agents-commands-router-run.test.ts`: unknown `sourceId` returns 404; purpose: validate error handling for invalid ingest roots.
+5. [x] Unit test (REST run) — `server/src/test/unit/agents-commands-router-run.test.ts`: unknown `sourceId` returns 404; purpose: validate error handling for invalid ingest roots.
    - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
    - Example expectation: `POST /agents/:agent/commands/run` with `{ commandName: 'build', sourceId: '/data/missing' }` returns `404 { error: 'not_found' }`.
-6. [ ] Unit test (REST run) — `server/src/test/unit/agents-commands-router-run.test.ts`: local command run works when `sourceId` is omitted; purpose: ensure local behavior unchanged.
+6. [x] Unit test (REST run) — `server/src/test/unit/agents-commands-router-run.test.ts`: local command run works when `sourceId` is omitted; purpose: ensure local behavior unchanged.
    - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
    - Example expectation: payload `{ commandName: 'build' }` routes to local command path and returns 202.
-7. [ ] Unit test (REST run) — `server/src/test/unit/agents-commands-router-run.test.ts`: ingested command runs when `sourceId` resolves to a valid command file; purpose: cover happy-path ingest execution.
+7. [x] Unit test (REST run) — `server/src/test/unit/agents-commands-router-run.test.ts`: ingested command runs when `sourceId` resolves to a valid command file; purpose: cover happy-path ingest execution.
    - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
    - Example expectation: `{ commandName: 'build', sourceId: '/data/repo' }` returns 202 and uses ingested file path.
-8. [ ] Unit test (REST run) — `server/src/test/unit/agents-commands-router-run.test.ts`: missing ingested command file returns 404; purpose: validate not_found for missing files.
+8. [x] Unit test (REST run) — `server/src/test/unit/agents-commands-router-run.test.ts`: missing ingested command file returns 404; purpose: validate not_found for missing files.
    - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
    - Example expectation: `{ commandName: 'missing', sourceId: '/data/repo' }` yields `404 { error: 'not_found' }`.
-9. [ ] Unit test (command runner) — `server/src/test/unit/agent-commands-runner.test.ts`: path traversal attempt in command name is rejected by containment checks; purpose: enforce path safety.
+9. [x] Unit test (command runner) — `server/src/test/unit/agent-commands-runner.test.ts`: path traversal attempt in command name is rejected by containment checks; purpose: enforce path safety.
    - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
    - Example expectation: commandName `../escape` triggers `COMMAND_INVALID` or equivalent rejection.
-10. [ ] Unit test (MCP run) — `server/src/test/unit/mcp-agents-router-run.test.ts`: unknown `sourceId` returns not_found; purpose: validate MCP error handling.
+10. [x] Unit test (MCP run) — `server/src/test/unit/mcp-agents-router-run.test.ts`: unknown `sourceId` returns not_found; purpose: validate MCP error handling.
     - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
     - Example expectation: MCP `run_command` with `sourceId: '/data/missing'` throws `InvalidParamsError` mapped from `COMMAND_NOT_FOUND`.
-11. [ ] Unit test (MCP run) — `server/src/test/unit/mcp-agents-router-run.test.ts`: local command run works when `sourceId` is omitted; purpose: keep MCP local behavior unchanged.
+11. [x] Unit test (MCP run) — `server/src/test/unit/mcp-agents-router-run.test.ts`: local command run works when `sourceId` is omitted; purpose: keep MCP local behavior unchanged.
     - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
     - Example expectation: MCP args without `sourceId` run the local command folder.
-12. [ ] Unit test (MCP run) — `server/src/test/unit/mcp-agents-router-run.test.ts`: ingested command runs when `sourceId` resolves to a valid command file; purpose: MCP happy-path coverage.
+12. [x] Unit test (MCP run) — `server/src/test/unit/mcp-agents-router-run.test.ts`: ingested command runs when `sourceId` resolves to a valid command file; purpose: MCP happy-path coverage.
     - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
     - Example expectation: MCP args with `sourceId: '/data/repo'` resolve to `<sourceId>/codex_agents/<agent>/commands/<command>.json`.
-13. [ ] Unit test (MCP run) — `server/src/test/unit/mcp-agents-router-run.test.ts`: missing ingested command file returns not_found; purpose: MCP missing-file error coverage.
+13. [x] Unit test (MCP run) — `server/src/test/unit/mcp-agents-router-run.test.ts`: missing ingested command file returns not_found; purpose: MCP missing-file error coverage.
     - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
     - Example expectation: MCP `run_command` with missing ingested file maps to not_found error response.
-14. [ ] Update documentation — `design.md` (run payload changes, plus Mermaid diagram updates).
+14. [x] Update documentation — `design.md` (run payload changes, plus Mermaid diagram updates).
     - Document: `design.md`.
     - Location: repo root `design.md`.
     - Description: Describe `sourceId` run support and update any related Mermaid flow/run diagrams.
     - Include (duplicate rules): REST/MCP run accepts optional `sourceId` (container path) and unknown `sourceId` returns 404.
     - Purpose: keep architecture/design references aligned with new run payload behavior.
     - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
-15. [ ] Update documentation — `README.md`.
+15. [x] Update documentation — `README.md`.
     - Document: `README.md`.
     - Location: repo root `README.md`.
     - Description: Note optional `sourceId` on agent command run payloads if README covers endpoints.
     - Include (duplicate rules): local runs omit `sourceId`; ingested runs require it to disambiguate.
     - Purpose: keep API usage instructions current.
     - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
-16. [ ] After completing any file adds/removes in this task, update `projectStructure.md`:
+16. [x] After completing any file adds/removes in this task, update `projectStructure.md`:
     - Document: `projectStructure.md`.
     - Location: repo root `projectStructure.md`.
     - Description: Record any added/removed files or confirm no change.
@@ -403,23 +403,30 @@ Add optional `sourceId` support when running agent commands so ingested command 
     - Added files: none.
     - Removed files: none.
     - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
-17. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+17. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e` or set `timeout_ms=420000` in the harness)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e` or set `timeout_ms=420000` in the harness)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
 8. [ ] Manual Playwright-MCP check: open http://host.docker.internal:5001/agents, run an ingested command, confirm run starts successfully; then open http://host.docker.internal:5001/logs and confirm `DEV-0000034:T2:command_run_resolved` appears with `{ agentName, commandName, sourceId, commandPath }` (sourceId should match the ingested `/data/...` root); verify no errors appear in the debug console.
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- _To be completed during implementation._
+- Reviewed existing run validation and command runner behavior to align new sourceId support with current error mapping and containment checks.
+- Added sourceId-aware resolution, containment guards, and `DEV-0000034:T2:command_run_resolved` logging to command execution.
+- Updated REST/MCP run payload handling plus OpenAPI docs, and added targeted tests for sourceId handling.
+- Updated `design.md` and `README.md` to note optional `sourceId` in command run payloads.
+- Confirmed `projectStructure.md` needs no updates for this task.
+- Ran workspace lint and format checks; applied Prettier to resolve formatting warnings.
+- Added REST/MCP run coverage for ingested command payloads and command runner path traversal protection; extended MCP tool schema to accept `sourceId`.
+- Blocker: Manual Playwright run on `/agents` fails with 404 because the client does not yet include `sourceId` in command run payloads. Logs show `DEV-0000034:T2:command_run_resolved` with `sourceId: "local"` and local command path; waiting on Task 5 UI updates to complete manual check.
 
 ---
 

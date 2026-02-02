@@ -73,6 +73,7 @@ const runCommandParamsSchema = z
   .object({
     agentName: z.string().min(1),
     commandName: safeCommandNameSchema,
+    sourceId: z.string().min(1).optional(),
     conversationId: z.string().min(1).optional(),
     working_folder: z.string().min(1).optional(),
   })
@@ -190,6 +191,11 @@ function runCommandDefinition() {
           type: 'string',
           description:
             'Command macro name (without .json) under <agent>/commands/.',
+        },
+        sourceId: {
+          type: 'string',
+          description:
+            'Optional ingested repository container path when running a command discovered from an ingested repo (for example, /data/my-repo).',
         },
         conversationId: {
           type: 'string',
@@ -322,6 +328,7 @@ async function runRunCommand(params: unknown, deps: Partial<CallToolDeps>) {
     const result = await resolvedRunAgentCommand({
       agentName: parsed.agentName,
       commandName: parsed.commandName,
+      sourceId: parsed.sourceId,
       conversationId: parsed.conversationId,
       working_folder: parsed.working_folder,
       signal: deps.signal,

@@ -590,7 +590,7 @@ Add optional `sourceId` support for flow execution so ingested flows run from th
 
 #### Subtasks
 
-1. [ ] Review flow run loading and validation:
+1. [x] Review flow run loading and validation:
    - Files to read:
      - `server/src/flows/service.ts`
      - `server/src/routes/flowsRun.ts`
@@ -600,7 +600,7 @@ Add optional `sourceId` support for flow execution so ingested flows run from th
      - `openapi.json`
    - Docs to read: Node.js `path.resolve`/`path.relative` (Context7 `/nodejs/node/v22.17.0`): /nodejs/node/v22.17.0; OpenAPI 3.0.3 spec: https://spec.openapis.org/oas/v3.0.3.html; Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/; Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Checklist (duplicate rules): `sourceId` selects `<sourceId>/flows/<flow>.json`; unknown `sourceId` returns 404.
-2. [ ] Add sourceId resolution + containment checks:
+2. [x] Add sourceId resolution + containment checks:
    - Files to edit:
      - `server/src/flows/service.ts`
    - Docs to read: Node.js `path.resolve`/`path.relative` (Context7 `/nodejs/node/v22.17.0`): /nodejs/node/v22.17.0; OpenAPI 3.0.3 spec: https://spec.openapis.org/oas/v3.0.3.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
@@ -616,7 +616,7 @@ Add optional `sourceId` support for flow execution so ingested flows run from th
    - Example containment check:
      - `const resolved = path.resolve(flowsRoot, flowName + '.json');`
      - `if (path.relative(flowsRoot, resolved).startsWith('..')) throw { code: 'FLOW_NOT_FOUND' };`
-3. [ ] Update REST run payload + OpenAPI schema:
+3. [x] Update REST run payload + OpenAPI schema:
    - Files to edit:
      - `server/src/routes/flowsRun.ts`
      - `openapi.json`
@@ -800,7 +800,9 @@ Update the Agents UI to display ingested command labels, sort by display label, 
 
 #### Implementation notes
 
-- _To be completed during implementation._
+- Added sourceId-aware flow file resolution with containment checks and `DEV-0000034:T4:flow_run_resolved` logging in the flow run service.
+- Extended flow run request parsing to accept `sourceId`, updated flow run types, and documented the new field in `openapi.json`.
+- Tests and manual verification are still pending for this task.
 
 ---
 
@@ -843,7 +845,7 @@ Update the Flows UI to display ingested flow labels, sort by display label, and 
      - Extend the `FlowSummary` type to include optional `sourceId`/`sourceLabel` fields.
      - Parse optional `sourceId`/`sourceLabel` from the flows list response and include them in the returned flow objects.
      - Example type: `type FlowSummary = { name: string; description: string; disabled: boolean; sourceId?: string; sourceLabel?: string };`.
-3. [x] Update dropdown rendering + selection state:
+3. [ ] Update dropdown rendering + selection state:
    - Files to edit:
      - `client/src/pages/FlowsPage.tsx`
    - Docs to read: MUI Select docs (MUI MCP `/mui/material@6.4.12`, `components/selects.md`): https://llms.mui.com/material-ui/6.4.12/components/selects.md; React state + hooks (Context7 `/websites/react_dev`): /websites/react_dev; React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
@@ -862,7 +864,7 @@ Update the Flows UI to display ingested flow labels, sort by display label, and 
    - Implementation details:
      - Accept optional `sourceId` in `runFlow` params and include it in the payload when provided.
      - Example payload: `{ sourceId: '/data/repo' }` (omit for local runs).
-5. [x] Update run action to pass `sourceId`:
+5. [ ] Update run action to pass `sourceId`:
    - Files to edit:
      - `client/src/pages/FlowsPage.tsx`
    - Docs to read: MUI Select docs (MUI MCP `/mui/material@6.4.12`, `components/selects.md`): https://llms.mui.com/material-ui/6.4.12/components/selects.md; React state + hooks (Context7 `/websites/react_dev`): /websites/react_dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface
@@ -879,7 +881,7 @@ Update the Flows UI to display ingested flow labels, sort by display label, and 
 8. [x] Client unit test (flows run) — `client/src/test/flowsPage.stop.test.tsx`: local flow run omits `sourceId` in payload; purpose: keep local run behavior unchanged.
    - Docs to read: React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; React state + hooks (Context7 `/websites/react_dev`): /websites/react_dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
    - Example expectation: selecting local `release` sends payload without `sourceId`.
-9. [x] Update documentation — `design.md` (UI behavior summary, plus Mermaid diagram updates where applicable).
+9. [ ] Update documentation — `design.md` (UI behavior summary, plus Mermaid diagram updates where applicable).
    - Document: `design.md`.
    - Location: repo root `design.md`.
    - Description: Describe flow dropdown label/sort behavior and update any related Mermaid UI/flow diagrams.

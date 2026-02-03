@@ -263,6 +263,9 @@
                   "conversationId": {
                     "type": "string"
                   },
+                  "sourceId": {
+                    "type": "string"
+                  },
                   "working_folder": {
                     "type": "string"
                   },

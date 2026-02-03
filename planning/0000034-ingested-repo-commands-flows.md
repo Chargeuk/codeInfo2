@@ -807,7 +807,7 @@ Update the Agents UI to display ingested command labels, sort by display label, 
 
 ### 6. Client: Flows dropdown + run payload sourceId
 
-- Task Status: **__in_progress__**
+- Task Status: **__done__**
 - Git Commits: eb22ef5, c8fe2ed
 
 #### Overview
@@ -906,22 +906,22 @@ Update the Flows UI to display ingested flow labels, sort by display label, and 
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e` or set `timeout_ms=420000` in the harness)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open http://host.docker.internal:5001/flows, verify duplicate flow names remain selectable with `name - [Repo]` labels, run an ingested flow (confirm no extra confirmation prompt appears); then open http://host.docker.internal:5001/logs and confirm `DEV-0000034:T6:flows.run_payload` appears with `{ flowName, sourceId }`; capture a screenshot of the Flows dropdown + run confirmation and store it in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped by `docker-compose.local.yml`) as `0000034-6-flows-ingested-run.png`, then review the screenshot to confirm the GUI matches the expected labels and run state; verify no errors appear in the debug console.
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e` or set `timeout_ms=420000` in the harness)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check: open http://host.docker.internal:5001/flows, verify duplicate flow names remain selectable with `name - [Repo]` labels, run an ingested flow (confirm no extra confirmation prompt appears); then open http://host.docker.internal:5001/logs and confirm `DEV-0000034:T6:flows.run_payload` appears with `{ flowName, sourceId }`; capture a screenshot of the Flows dropdown + run confirmation and store it in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped by `docker-compose.local.yml`) as `0000034-6-flows-ingested-run.png`, then review the screenshot to confirm the GUI matches the expected labels and run state; verify no errors appear in the debug console.
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
 - Updated the Flows page dropdown to render `name - [sourceLabel]` labels, sort by display label, and keep local flows unlabeled.
 - Wired run payloads to include `sourceId` for ingested flows and logged `DEV-0000034:T6:flows.run_payload` before firing the request.
-- Extended flow list/run UI tests and updated `design.md` + `README.md` for the new label and payload behavior; confirmed `projectStructure.md` needs no changes.
-- Answer: Rerun the manual ingested flow execution now that Task 4 has landed, then complete Testing step 8.
+- Manual check: ran `demo-flow - [Ingested Commands Demo]`, confirmed `DEV-0000034:T6:flows.run_payload` with `{ flowName, sourceId }`, and saved `playwright-output-local/0000034-6-flows-ingested-run.png`.
+- Testing rerun: `npm run build --workspace server`, `npm run build --workspace client`, `npm run test --workspace server`, `npm run test --workspace client`, `npm run e2e`, `npm run compose:build`, `npm run compose:up`, manual flows run + logs check, `npm run compose:down`.
 
 ---
 

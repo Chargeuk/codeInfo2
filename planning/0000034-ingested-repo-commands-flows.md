@@ -928,8 +928,8 @@ Update the Flows UI to display ingested flow labels, sort by display label, and 
 
 ### 7. Final verification + documentation + PR summary
 
-- Task Status: **__in_progress__**
-- Git Commits: **__to_do__**
+- Task Status: **__done__**
+- Git Commits: 7f139ef
 
 #### Overview
 
@@ -953,44 +953,53 @@ Validate the full system against the acceptance criteria, run end-to-end builds/
 
 #### Subtasks
 
-1. [ ] Documentation update — `README.md`:
+1. [x] Documentation update — `README.md`:
    - Document: `README.md`.
    - Location: repo root `README.md`.
    - Description: Capture any new commands or API usage notes introduced by this story.
    - Purpose: keep user-facing setup/run guidance current before final verification.
-2. [ ] Documentation update — `design.md`:
+2. [x] Documentation update — `design.md`:
    - Document: `design.md`.
    - Location: repo root `design.md`.
    - Description: Capture architecture updates and refresh Mermaid diagrams added/updated in this story.
    - Purpose: ensure design reference is current before final verification.
-3. [ ] After all file adds/removes are complete, update `projectStructure.md`:
+3. [x] After all file adds/removes are complete, update `projectStructure.md`:
    - Document: `projectStructure.md`.
    - Location: repo root `projectStructure.md`.
    - Description: Record any added/removed files or confirm no change.
    - Purpose: keep repository map accurate for final handoff.
    - Added files: none.
    - Removed files: none.
-4. [ ] Add log line for final verification:
+4. [x] Add log line for final verification:
    - Files to edit:
      - `client/src/pages/LogsPage.tsx`
    - Description: add a one-time log on page mount with message `DEV-0000034:T7:logs_page_viewed` and context `{ route: '/logs' }` using the existing `createLogger('client')` instance.
    - Purpose: provide a verifiable log entry for the final manual Playwright check.
-5. [ ] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+5. [x] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
+6. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e` or set `timeout_ms=420000` in the harness)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open http://host.docker.internal:5001, verify Agents + Flows pages show ingested labels and runs work; open http://host.docker.internal:5001/logs and confirm `DEV-0000034:T7:logs_page_viewed` appears after visiting the logs page; confirm no errors appear in the debug console; capture screenshots for all GUI acceptance criteria (Agents labels, command run, Flows labels, flow run, Logs filters) and store them in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped by `docker-compose.local.yml`) named `<plan>-7-<name>`, then review those screenshots to confirm the GUI matches each acceptance criterion.
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e` or set `timeout_ms=420000` in the harness)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check: open http://host.docker.internal:5001, verify Agents + Flows pages show ingested labels and runs work; open http://host.docker.internal:5001/logs and confirm `DEV-0000034:T7:logs_page_viewed` appears after visiting the logs page; confirm no errors appear in the debug console; capture screenshots for all GUI acceptance criteria (Agents labels, command run, Flows labels, flow run, Logs filters) and store them in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped by `docker-compose.local.yml`) named `<plan>-7-<name>`, then review those screenshots to confirm the GUI matches each acceptance criterion.
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- Details about the implementation. Include what went to plan and what did not.
-- Essential that any decisions that got made during the implementation are documented here
+- ProjectStructure check: no file additions/removals, no updates required.
+- PR summary draft:
+  - Added ingested command and flow discovery (REST + MCP) with `sourceId`/`sourceLabel` surfaced in list payloads, safe path resolution checks, and optional run payload support.
+  - Updated Agents and Flows UIs to label ingested entries, keep duplicates selectable via composite keys, and send `sourceId` on ingested runs while logging verification payloads.
+  - Expanded API/unit/integration tests for ingested listing, duplicate ordering, run resolution, and error handling across commands and flows.
+  - Verified behavior with full build/test/e2e/compose runs plus manual Playwright checks and screenshots for Agents/Flows/Logs acceptance criteria.
+- Manual check: Agents ingested command ran ("Hello from ingested command"), Flows ingested run completed, and logs showed `DEV-0000034:T7:logs_page_viewed`; screenshots saved to `playwright-output-local/0000034-7-agents-labels.png`, `playwright-output-local/0000034-7-agents-run.png`, `playwright-output-local/0000034-7-flows-labels.png`, `playwright-output-local/0000034-7-flows-run.png`, and `playwright-output-local/0000034-7-logs-filters.png`.
+- Verification notes:
+  - `npm run lint --workspaces` reported existing import-order warnings and a baseline-browser-mapping warning; `npm run format:check --workspaces` clean.
+  - Console reported a 404 resource load during the Agents command run; no other console errors surfaced.
+  - Testing rerun: `npm run build --workspace server`, `npm run build --workspace client`, `npm run test --workspace server`, `npm run test --workspace client`, `npm run e2e`, `npm run compose:build`, `npm run compose:up`, manual Playwright checks, `npm run compose:down`.

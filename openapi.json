@@ -209,6 +209,38 @@
         }
       }
     },
+    "/flows": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Flows list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "flows": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": { "type": "string" },
+                          "description": { "type": "string" },
+                          "disabled": { "type": "boolean" },
+                          "sourceId": { "type": "string" },
+                          "sourceLabel": { "type": "string" }
+                        },
+                        "required": ["name", "description", "disabled"]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/flows/{flowName}/run": {
       "post": {
         "parameters": [

@@ -44,7 +44,10 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - By default, `flows/` is resolved as a sibling to `CODEINFO_CODEX_AGENT_HOME` (so it sits alongside `codex_agents`); `FLOWS_DIR` can override this path.
 - Non-JSON files are ignored; missing `flows/` returns an empty list.
 - Invalid JSON or schema still appears as `disabled: true` with error text.
+- Ingested repos add flows from `<ingestRoot>/flows`, setting `sourceId = RepoEntry.containerPath` and `sourceLabel = RepoEntry.id` (fallbacks to container basename). Local flows omit both fields.
+- Flow list sorting uses display labels (`<name>` vs `<name> - [sourceLabel]`) and preserves duplicate flow names across repos.
 - Each scan logs `flows.discovery.scan` with `{ totalFlows, disabledFlows }`.
+- Combined lists log `DEV-0000034:T3:flows_listed` with `{ localCount, ingestedCount, totalCount }`.
 
 ## Flows (run core)
 
@@ -111,9 +114,9 @@ sequenceDiagram
 ## Flows (UI)
 
 - Client route `/flows` provides the Flows page with a drawer sidebar and transcript layout matching Chat/Agents.
-- The flow selector is populated by `GET /flows` and disables invalid flows (shows description + error banner when disabled).
+- The flow selector is populated by `GET /flows`, shows ingested entries as `<name> - [sourceLabel]` (locals remain unlabeled), sorts by display label, and disables invalid flows (shows description + error banner when disabled).
 - Conversations are filtered to the selected flow name and displayed via `ConversationList` (archive/restore/bulk still available).
-- Run/resume controls call `POST /flows/:flowName/run` with `conversationId`, optional `working_folder`, and `resumeStepPath` derived from `flags.flow.stepPath`.
+- Run/resume controls call `POST /flows/:flowName/run` with `conversationId`, optional `sourceId` (ingested flows), optional `working_folder`, and `resumeStepPath` derived from `flags.flow.stepPath`.
 - The transcript uses `useChatStream` + `useChatWs` to render per-step metadata (label + agentType/identifier) alongside standard timestamp/usage/timing lines; Stop issues `cancel_inflight` over WS.
 - Flow command metadata normalization emits `flows.metadata.normalized` when flow labels are parsed for UI rendering.
 
@@ -136,7 +139,7 @@ sequenceDiagram
   participant Mongo
 
   User->>UI: Select flow + Run/Resume
-  UI->>Server: POST /flows/:flowName/run (conversationId, resumeStepPath?)
+  UI->>Server: POST /flows/:flowName/run (conversationId, sourceId?, resumeStepPath?)
   Server->>Mongo: persist conversation + resume flags
   Server-->>UI: 202 started (conversationId, inflightId)
   Server-->>WS: stream step turns with command metadata

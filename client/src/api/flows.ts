@@ -6,6 +6,8 @@ export type FlowSummary = {
   description?: string;
   disabled?: boolean;
   error?: string;
+  sourceId?: string;
+  sourceLabel?: string;
 };
 
 export type FlowApiErrorDetails = {
@@ -106,6 +108,12 @@ export async function listFlows(): Promise<{ flows: FlowSummary[] }> {
           disabled:
             typeof record.disabled === 'boolean' ? record.disabled : undefined,
           error: typeof record.error === 'string' ? record.error : undefined,
+          sourceId:
+            typeof record.sourceId === 'string' ? record.sourceId : undefined,
+          sourceLabel:
+            typeof record.sourceLabel === 'string'
+              ? record.sourceLabel
+              : undefined,
         } satisfies FlowSummary;
       })
       .filter(Boolean) as FlowSummary[],
@@ -114,6 +122,7 @@ export async function listFlows(): Promise<{ flows: FlowSummary[] }> {
 
 export async function runFlow(params: {
   flowName: string;
+  sourceId?: string;
   conversationId?: string;
   customTitle?: string;
   isNewConversation?: boolean;
@@ -152,6 +161,7 @@ export async function runFlow(params: {
         ...(params.conversationId
           ? { conversationId: params.conversationId }
           : {}),
+        ...(params.sourceId?.trim() ? { sourceId: params.sourceId } : {}),
         ...(shouldIncludeCustomTitle
           ? { customTitle: trimmedCustomTitle }
           : {}),

@@ -570,7 +570,7 @@ Extend flow discovery to include ingested repositories, returning `sourceId`/`so
 
 ### 4. Server: Flow run sourceId support
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **__to_do__**
 
 #### Overview

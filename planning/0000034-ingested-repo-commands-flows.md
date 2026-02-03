@@ -687,8 +687,8 @@ Add optional `sourceId` support for flow execution so ingested flows run from th
 
 ### 5. Client: Agents commands dropdown + run payload sourceId
 
-- Task Status: **__in_progress__**
-- Git Commits: **__to_do__**
+- Task Status: **__done__**
+- Git Commits: ea9d0e8
 
 #### Overview
 
@@ -708,7 +708,7 @@ Update the Agents UI to display ingested command labels, sort by display label, 
 
 #### Subtasks
 
-1. [ ] Review current agents command list + run flow:
+1. [x] Review current agents command list + run flow:
    - Files to read:
      - `client/src/api/agents.ts`
      - `client/src/pages/AgentsPage.tsx`
@@ -716,7 +716,7 @@ Update the Agents UI to display ingested command labels, sort by display label, 
      - `client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx`
    - Docs to read: MUI Select docs (MUI MCP `/mui/material@6.4.12`, `components/selects.md`): https://llms.mui.com/material-ui/6.4.12/components/selects.md; React state + hooks (Context7 `/websites/react_dev`): /websites/react_dev; React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/; Markdown Guide: https://www.markdownguide.org/basic-syntax/
    - Checklist (duplicate rules): dropdown labels use `<name> - [sourceLabel]` and run payloads include `sourceId` for ingested items.
-2. [ ] Update agents API list parsing:
+2. [x] Update agents API list parsing:
    - Files to edit:
      - `client/src/api/agents.ts`
    - Docs to read: React state + hooks (Context7 `/websites/react_dev`): /websites/react_dev; React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
@@ -724,7 +724,7 @@ Update the Agents UI to display ingested command labels, sort by display label, 
      - Extend the command type to include optional `sourceId`/`sourceLabel` fields.
      - Parse optional `sourceId`/`sourceLabel` from the command list response and include them in the returned command objects.
      - Example type: `type Command = { name: string; description: string; disabled: boolean; sourceId?: string; sourceLabel?: string };`.
-3. [ ] Update dropdown rendering + selection state:
+3. [x] Update dropdown rendering + selection state:
    - Files to edit:
      - `client/src/pages/AgentsPage.tsx`
    - Docs to read: MUI Select docs (MUI MCP `/mui/material@6.4.12`, `components/selects.md`): https://llms.mui.com/material-ui/6.4.12/components/selects.md; React state + hooks (Context7 `/websites/react_dev`): /websites/react_dev; React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
@@ -736,14 +736,14 @@ Update the Agents UI to display ingested command labels, sort by display label, 
      - Example display label + key:
        - `const label = sourceLabel ? name + ' - [' + sourceLabel + ']' : name;`
        - `const key = name + '::' + (sourceId ?? 'local');`
-4. [ ] Update run payload support in agents API:
+4. [x] Update run payload support in agents API:
    - Files to edit:
      - `client/src/api/agents.ts`
    - Docs to read: React state + hooks (Context7 `/websites/react_dev`): /websites/react_dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
    - Implementation details:
      - Accept optional `sourceId` in `runAgentCommand` params and include it in the payload when provided.
      - Example payload: `{ commandName: 'build', sourceId: '/data/repo' }` (omit `sourceId` for local).
-5. [ ] Update run action to pass `sourceId`:
+5. [x] Update run action to pass `sourceId`:
    - Files to edit:
      - `client/src/pages/AgentsPage.tsx`
    - Docs to read: MUI Select docs (MUI MCP `/mui/material@6.4.12`, `components/selects.md`): https://llms.mui.com/material-ui/6.4.12/components/selects.md; React state + hooks (Context7 `/websites/react_dev`): /websites/react_dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface
@@ -751,30 +751,30 @@ Update the Agents UI to display ingested command labels, sort by display label, 
    - When the selected command has a `sourceId`, include it in the run payload; omit `sourceId` for local commands.
    - Example: selected `{ name: 'build', sourceId: '/data/repo' }` => payload includes `sourceId`.
    - Add log line (client logger) before firing the run request: message `DEV-0000034:T5:agents.command_run_payload` with context `{ commandName, sourceId: selected.sourceId ?? 'local' }`.
-6. [ ] Client unit test (commands list) — `client/src/test/agentsPage.commandsList.test.tsx`: duplicate command names from different sources render distinct labels; purpose: confirm display label + sorting behavior.
+6. [x] Client unit test (commands list) — `client/src/test/agentsPage.commandsList.test.tsx`: duplicate command names from different sources render distinct labels; purpose: confirm display label + sorting behavior.
    - Docs to read: React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; React state + hooks (Context7 `/websites/react_dev`): /websites/react_dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
    - Example expectation: menu shows `build - [Repo A]` and `build - [Repo B]` as separate options.
-7. [ ] Client unit test (commands run) — `client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx`: ingested command run sends the correct `sourceId` in payload; purpose: verify ingest run wiring.
+7. [x] Client unit test (commands run) — `client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx`: ingested command run sends the correct `sourceId` in payload; purpose: verify ingest run wiring.
    - Docs to read: React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; React state + hooks (Context7 `/websites/react_dev`): /websites/react_dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
    - Example expectation: selecting `build - [Repo A]` triggers `POST /commands/run` with `{ sourceId: '/data/repo-a' }`.
-8. [ ] Client unit test (commands run) — `client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx`: local command run omits `sourceId` in payload; purpose: keep local run behavior unchanged.
+8. [x] Client unit test (commands run) — `client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx`: local command run omits `sourceId` in payload; purpose: keep local run behavior unchanged.
    - Docs to read: React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; React state + hooks (Context7 `/websites/react_dev`): /websites/react_dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
    - Example expectation: selecting local `build` results in payload `{ commandName: 'build' }` without `sourceId`.
-9. [ ] Update documentation — `design.md` (UI behavior summary, plus Mermaid diagram updates where applicable).
+9. [x] Update documentation — `design.md` (UI behavior summary, plus Mermaid diagram updates where applicable).
    - Document: `design.md`.
    - Location: repo root `design.md`.
    - Description: Describe command dropdown label/sort behavior and update any related Mermaid UI/flow diagrams.
    - Include (duplicate rules): display label format `<name> - [sourceLabel]`, local commands unlabeled, sort by label.
    - Purpose: keep UI/architecture references aligned with new ingested command UX.
    - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
-10. [ ] Update documentation — `README.md`.
+10. [x] Update documentation — `README.md`.
    - Document: `README.md`.
    - Location: repo root `README.md`.
    - Description: Mention UI behavior changes if README documents command execution workflows.
    - Include (duplicate rules): UI shows ingested labels and uses `sourceId` for runs.
    - Purpose: keep user-facing usage notes current.
    - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
-11. [ ] After completing any file adds/removes in this task, update `projectStructure.md`:
+11. [x] After completing any file adds/removes in this task, update `projectStructure.md`:
    - Document: `projectStructure.md`.
    - Location: repo root `projectStructure.md`.
    - Description: Record any added/removed files or confirm no change.
@@ -782,25 +782,26 @@ Update the Agents UI to display ingested command labels, sort by display label, 
    - Added files: none.
    - Removed files: none.
    - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
-12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+12. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e` or set `timeout_ms=420000` in the harness)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open http://host.docker.internal:5001/agents, verify duplicate command names remain selectable with `name - [Repo]` labels, run an ingested command (confirm no extra confirmation prompt appears); then open http://host.docker.internal:5001/logs and confirm `DEV-0000034:T5:agents.command_run_payload` appears with `{ commandName, sourceId }`; capture a screenshot of the Agents page dropdown + run confirmation and store it in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped by `docker-compose.local.yml`) as `0000034-5-agents-ingested-command.png`, then review the screenshot to confirm the GUI matches the expected labels and run state; verify no errors appear in the debug console.
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e` or set `timeout_ms=420000` in the harness)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check: open http://host.docker.internal:5001/agents, verify duplicate command names remain selectable with `name - [Repo]` labels, run an ingested command (confirm no extra confirmation prompt appears); then open http://host.docker.internal:5001/logs and confirm `DEV-0000034:T5:agents.command_run_payload` appears with `{ commandName, sourceId }`; capture a screenshot of the Agents page dropdown + run confirmation and store it in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped by `docker-compose.local.yml`) as `0000034-5-agents-ingested-command.png`, then review the screenshot to confirm the GUI matches the expected labels and run state; verify no errors appear in the debug console.
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- Added sourceId-aware flow file resolution with containment checks and `DEV-0000034:T4:flow_run_resolved` logging in the flow run service.
-- Extended flow run request parsing to accept `sourceId`, updated flow run types, and documented the new field in `openapi.json`.
-- Tests and manual verification are still pending for this task.
+- Added `sourceId`/`sourceLabel` handling to agent command list parsing, display label + selection key sorting, and run payload logging in the Agents UI.
+- Updated agents list/run tests (UI + API) to cover ingested duplicate labels and `sourceId` payloads while keeping local runs unchanged.
+- Manual check: ran `ingested demo - [Ingested Commands Demo]`, observed "Hello from ingested command", confirmed `DEV-0000034:T5:agents.command_run_payload` with `{ commandName, sourceId }`, and saved `playwright-output-local/0000034-5-agents-ingested-command.png`.
+- Testing rerun: `npm run build --workspace server`, `npm run build --workspace client`, `npm run test --workspace server`, `npm run test --workspace client`, `npm run e2e`, `npm run compose:build`, `npm run compose:up`, manual Agents run + logs check, `npm run compose:down`.
 
 ---
 

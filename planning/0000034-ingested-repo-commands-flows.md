@@ -677,19 +677,11 @@ Add optional `sourceId` support for flow execution so ingested flows run from th
 
 #### Implementation notes
 
-- Parsed `sourceId`/`sourceLabel` in `client/src/api/flows.ts` and added optional `sourceId` to run payloads.
-- Updated `client/src/pages/FlowsPage.tsx` to compute display labels, use composite selection keys for duplicate names, sort by label, and log `DEV-0000034:T6:flows.run_payload` before run requests.
-- Adjusted flow selection tests to expect composite keys and added UI/run coverage for ingested/local flow payloads in `client/src/test/flowsPage.stop.test.tsx`.
-- Updated `design.md` and `README.md` to document flow selector labels and `sourceId` behavior.
-- Lint continues to emit existing repo warnings (import order in server tests, baseline-browser-mapping advisory) but no new errors were introduced.
-- Manual check: dropdown shows `demo-flow - [Ingested Commands Demo]`; logs include `DEV-0000034:T6:flows.run_payload`; screenshot saved to `playwright-output-local/0000034-6-flows-ingested-run.png`.
-- Blocker: ingested flow run returns 404 because server-side flow run `sourceId` support is not implemented yet (Task 4), so Testing step 8 cannot be fully completed.
-- Added flow run integration coverage for unknown `sourceId`, ingested flow runs, and local-only runs in `server/src/test/integration/flows.run.basic.test.ts`; lint and format checks rerun with only existing repo warnings.
-- Added hot-reload coverage for missing ingested flow files returning 404 in `server/src/test/integration/flows.run.hot-reload.test.ts`; lint and format checks rerun with existing warnings only.
-- Added path traversal regression coverage for flow runs in `server/src/test/integration/flows.run.command.test.ts`; lint and format checks rerun with existing warnings only.
-- Updated `design.md` flow run notes + Mermaid diagram to cover `sourceId`-based flow resolution and 404 behavior; lint and format checks rerun with existing warnings only.
-- Fixed missing `fixturesDir` reference in `server/src/test/integration/flows.run.basic.test.ts` during build/test reruns; lint and format checks rerun with existing warnings only.
-- Testing rerun: `npm run build --workspace server` (after fixture fix), `npm run build --workspace client`, `npm run test --workspace server` (reran with longer timeout after initial 120s timeout), `npm run test --workspace client`, `npm run e2e`, `npm run compose:build`, `npm run compose:up`, manual flows run + log check, and `npm run compose:down`.
+- Added sourceId-aware flow file resolution with containment checks plus `DEV-0000034:T4:flow_run_resolved` logging in the flow run service.
+- Added flow run integration coverage for unknown `sourceId`, ingested flow runs, local-only runs, missing ingested files, and path traversal attempts.
+- Updated flow run docs in `design.md` and `README.md`, plus `openapi.json`, to cover optional `sourceId` behavior.
+- Fixed missing `fixturesDir` reference in `server/src/test/integration/flows.run.basic.test.ts` while rerunning the Task 4 build/test matrix.
+- Testing rerun: `npm run build --workspace server`, `npm run build --workspace client`, `npm run test --workspace server` (reran with longer timeout after initial 120s timeout), `npm run test --workspace client`, `npm run e2e`, `npm run compose:build`, `npm run compose:up`, manual flows run + log check, and `npm run compose:down`.
 
 ---
 
@@ -732,7 +724,7 @@ Update the Agents UI to display ingested command labels, sort by display label, 
      - Extend the command type to include optional `sourceId`/`sourceLabel` fields.
      - Parse optional `sourceId`/`sourceLabel` from the command list response and include them in the returned command objects.
      - Example type: `type Command = { name: string; description: string; disabled: boolean; sourceId?: string; sourceLabel?: string };`.
-3. [x] Update dropdown rendering + selection state:
+3. [ ] Update dropdown rendering + selection state:
    - Files to edit:
      - `client/src/pages/AgentsPage.tsx`
    - Docs to read: MUI Select docs (MUI MCP `/mui/material@6.4.12`, `components/selects.md`): https://llms.mui.com/material-ui/6.4.12/components/selects.md; React state + hooks (Context7 `/websites/react_dev`): /websites/react_dev; React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
@@ -751,7 +743,7 @@ Update the Agents UI to display ingested command labels, sort by display label, 
    - Implementation details:
      - Accept optional `sourceId` in `runAgentCommand` params and include it in the payload when provided.
      - Example payload: `{ commandName: 'build', sourceId: '/data/repo' }` (omit `sourceId` for local).
-5. [x] Update run action to pass `sourceId`:
+5. [ ] Update run action to pass `sourceId`:
    - Files to edit:
      - `client/src/pages/AgentsPage.tsx`
    - Docs to read: MUI Select docs (MUI MCP `/mui/material@6.4.12`, `components/selects.md`): https://llms.mui.com/material-ui/6.4.12/components/selects.md; React state + hooks (Context7 `/websites/react_dev`): /websites/react_dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface
@@ -768,7 +760,7 @@ Update the Agents UI to display ingested command labels, sort by display label, 
 8. [ ] Client unit test (commands run) — `client/src/test/agentsPage.commandsRun.refreshTurns.test.tsx`: local command run omits `sourceId` in payload; purpose: keep local run behavior unchanged.
    - Docs to read: React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; React state + hooks (Context7 `/websites/react_dev`): /websites/react_dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
    - Example expectation: selecting local `build` results in payload `{ commandName: 'build' }` without `sourceId`.
-9. [x] Update documentation — `design.md` (UI behavior summary, plus Mermaid diagram updates where applicable).
+9. [ ] Update documentation — `design.md` (UI behavior summary, plus Mermaid diagram updates where applicable).
    - Document: `design.md`.
    - Location: repo root `design.md`.
    - Description: Describe command dropdown label/sort behavior and update any related Mermaid UI/flow diagrams.
@@ -851,7 +843,7 @@ Update the Flows UI to display ingested flow labels, sort by display label, and 
      - Extend the `FlowSummary` type to include optional `sourceId`/`sourceLabel` fields.
      - Parse optional `sourceId`/`sourceLabel` from the flows list response and include them in the returned flow objects.
      - Example type: `type FlowSummary = { name: string; description: string; disabled: boolean; sourceId?: string; sourceLabel?: string };`.
-3. [ ] Update dropdown rendering + selection state:
+3. [x] Update dropdown rendering + selection state:
    - Files to edit:
      - `client/src/pages/FlowsPage.tsx`
    - Docs to read: MUI Select docs (MUI MCP `/mui/material@6.4.12`, `components/selects.md`): https://llms.mui.com/material-ui/6.4.12/components/selects.md; React state + hooks (Context7 `/websites/react_dev`): /websites/react_dev; React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
@@ -870,7 +862,7 @@ Update the Flows UI to display ingested flow labels, sort by display label, and 
    - Implementation details:
      - Accept optional `sourceId` in `runFlow` params and include it in the payload when provided.
      - Example payload: `{ sourceId: '/data/repo' }` (omit for local runs).
-5. [ ] Update run action to pass `sourceId`:
+5. [x] Update run action to pass `sourceId`:
    - Files to edit:
      - `client/src/pages/FlowsPage.tsx`
    - Docs to read: MUI Select docs (MUI MCP `/mui/material@6.4.12`, `components/selects.md`): https://llms.mui.com/material-ui/6.4.12/components/selects.md; React state + hooks (Context7 `/websites/react_dev`): /websites/react_dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface
@@ -887,7 +879,7 @@ Update the Flows UI to display ingested flow labels, sort by display label, and 
 8. [x] Client unit test (flows run) — `client/src/test/flowsPage.stop.test.tsx`: local flow run omits `sourceId` in payload; purpose: keep local run behavior unchanged.
    - Docs to read: React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; React state + hooks (Context7 `/websites/react_dev`): /websites/react_dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
    - Example expectation: selecting local `release` sends payload without `sourceId`.
-9. [ ] Update documentation — `design.md` (UI behavior summary, plus Mermaid diagram updates where applicable).
+9. [x] Update documentation — `design.md` (UI behavior summary, plus Mermaid diagram updates where applicable).
    - Document: `design.md`.
    - Location: repo root `design.md`.
    - Description: Describe flow dropdown label/sort behavior and update any related Mermaid UI/flow diagrams.
@@ -928,8 +920,7 @@ Update the Flows UI to display ingested flow labels, sort by display label, and 
 - Updated the Flows page dropdown to render `name - [sourceLabel]` labels, sort by display label, and keep local flows unlabeled.
 - Wired run payloads to include `sourceId` for ingested flows and logged `DEV-0000034:T6:flows.run_payload` before firing the request.
 - Extended flow list/run UI tests and updated `design.md` + `README.md` for the new label and payload behavior; confirmed `projectStructure.md` needs no changes.
-- Blocker: Manual ingested flow run is pending because server flow run `sourceId` support (Task 4) is not implemented yet.
-- Answer: Complete the manual run verification after Task 4 adds flow run `sourceId` support.
+- Answer: Rerun the manual ingested flow execution now that Task 4 has landed, then complete Testing step 8.
 
 ---
 

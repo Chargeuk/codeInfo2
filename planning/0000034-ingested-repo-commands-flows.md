@@ -1003,3 +1003,15 @@ Validate the full system against the acceptance criteria, run end-to-end builds/
   - `npm run lint --workspaces` reported existing import-order warnings and a baseline-browser-mapping warning; `npm run format:check --workspaces` clean.
   - Console reported a 404 resource load during the Agents command run; no other console errors surfaced.
   - Testing rerun: `npm run build --workspace server`, `npm run build --workspace client`, `npm run test --workspace server`, `npm run test --workspace client`, `npm run e2e`, `npm run compose:build`, `npm run compose:up`, manual Playwright checks, `npm run compose:down`.
+
+---
+
+## Code Review Summary (2026-02-03)
+
+- Compared `origin/main` → `feature/0000034-ingested-repo-commands-flows` for all server/client/docs/test changes.
+- Reviewed server changes: ingested command discovery, sourceId-aware command/flow run resolution, containment checks, logging, and REST/MCP/OpenAPI updates.
+- Reviewed client changes: Agents/Flows list labels, composite selection keys for duplicate names, sourceId run payloads, log entries, and UI tests.
+- Reviewed expanded test coverage for list/run behaviors, duplicate handling, invalid sourceId/file paths, and hot-reload cases.
+- Acceptance criteria check: all criteria met (ingested list/run support, sourceId/sourceLabel labeling, deterministic sorting, duplicate handling, and error cases).
+- Security/performance check: path resolution uses `path.resolve`/`path.relative` containment checks; no new performance red flags found.
+- No additional remediation tasks required.

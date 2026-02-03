@@ -118,7 +118,7 @@ This should only be started once all the above sections are clear and understood
 
 ### 1. Server: Ingested agent command discovery + list contract
 
-- Task Status: **__in_progress__**
+- Task Status: **__done__**
 - Git Commits: c964fec
 
 #### Overview
@@ -843,7 +843,7 @@ Update the Flows UI to display ingested flow labels, sort by display label, and 
      - Extend the `FlowSummary` type to include optional `sourceId`/`sourceLabel` fields.
      - Parse optional `sourceId`/`sourceLabel` from the flows list response and include them in the returned flow objects.
      - Example type: `type FlowSummary = { name: string; description: string; disabled: boolean; sourceId?: string; sourceLabel?: string };`.
-3. [ ] Update dropdown rendering + selection state:
+3. [x] Update dropdown rendering + selection state:
    - Files to edit:
      - `client/src/pages/FlowsPage.tsx`
    - Docs to read: MUI Select docs (MUI MCP `/mui/material@6.4.12`, `components/selects.md`): https://llms.mui.com/material-ui/6.4.12/components/selects.md; React state + hooks (Context7 `/websites/react_dev`): /websites/react_dev; React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
@@ -862,7 +862,7 @@ Update the Flows UI to display ingested flow labels, sort by display label, and 
    - Implementation details:
      - Accept optional `sourceId` in `runFlow` params and include it in the payload when provided.
      - Example payload: `{ sourceId: '/data/repo' }` (omit for local runs).
-5. [ ] Update run action to pass `sourceId`:
+5. [x] Update run action to pass `sourceId`:
    - Files to edit:
      - `client/src/pages/FlowsPage.tsx`
    - Docs to read: MUI Select docs (MUI MCP `/mui/material@6.4.12`, `components/selects.md`): https://llms.mui.com/material-ui/6.4.12/components/selects.md; React state + hooks (Context7 `/websites/react_dev`): /websites/react_dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface
@@ -879,21 +879,21 @@ Update the Flows UI to display ingested flow labels, sort by display label, and 
 8. [x] Client unit test (flows run) — `client/src/test/flowsPage.stop.test.tsx`: local flow run omits `sourceId` in payload; purpose: keep local run behavior unchanged.
    - Docs to read: React Testing Library docs: https://testing-library.com/docs/react-testing-library/intro/; React state + hooks (Context7 `/websites/react_dev`): /websites/react_dev; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
    - Example expectation: selecting local `release` sends payload without `sourceId`.
-9. [ ] Update documentation — `design.md` (UI behavior summary, plus Mermaid diagram updates where applicable).
+9. [x] Update documentation — `design.md` (UI behavior summary, plus Mermaid diagram updates where applicable).
    - Document: `design.md`.
    - Location: repo root `design.md`.
    - Description: Describe flow dropdown label/sort behavior and update any related Mermaid UI/flow diagrams.
    - Include (duplicate rules): display label format `<name> - [sourceLabel]`, local flows unlabeled, sort by label.
    - Purpose: keep UI/architecture references aligned with new ingested flow UX.
    - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
-10. [ ] Update documentation — `README.md`.
+10. [x] Update documentation — `README.md`.
    - Document: `README.md`.
    - Location: repo root `README.md`.
    - Description: Mention UI behavior changes if README documents flow execution workflows.
    - Include (duplicate rules): UI uses `sourceId` when running ingested flows.
    - Purpose: keep user-facing usage notes current.
    - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
-11. [ ] After completing any file adds/removes in this task, update `projectStructure.md`:
+11. [x] After completing any file adds/removes in this task, update `projectStructure.md`:
    - Document: `projectStructure.md`.
    - Location: repo root `projectStructure.md`.
    - Description: Record any added/removed files or confirm no change.
@@ -917,7 +917,11 @@ Update the Flows UI to display ingested flow labels, sort by display label, and 
 
 #### Implementation notes
 
-- _To be completed during implementation._
+- Updated the Flows page dropdown to render `name - [sourceLabel]` labels, sort by display label, and keep local flows unlabeled.
+- Wired run payloads to include `sourceId` for ingested flows and logged `DEV-0000034:T6:flows.run_payload` before firing the request.
+- Extended flow list/run UI tests and updated `design.md` + `README.md` for the new label and payload behavior; confirmed `projectStructure.md` needs no changes.
+- Blocker: Manual ingested flow run is pending because server flow run `sourceId` support (Task 4) is not implemented yet.
+- Answer: Complete the manual run verification after Task 4 adds flow run `sourceId` support.
 
 ---
 

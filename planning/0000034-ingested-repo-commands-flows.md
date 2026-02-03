@@ -807,7 +807,7 @@ Update the Agents UI to display ingested command labels, sort by display label, 
 
 ### 6. Client: Flows dropdown + run payload sourceId
 
-- Task Status: **__in_progress__**
+- Task Status: **__done__**
 - Git Commits: eb22ef5, c8fe2ed, 702ffb3
 
 #### Overview
@@ -902,7 +902,7 @@ Update the Flows UI to display ingested flow labels, sort by display label, and 
    - Added files: none.
    - Removed files: none.
    - Docs to read: Markdown Guide: https://www.markdownguide.org/basic-syntax/
-12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+12. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -922,7 +922,7 @@ Update the Flows UI to display ingested flow labels, sort by display label, and 
 - Wired run payloads to include `sourceId` for ingested flows and logged `DEV-0000034:T6:flows.run_payload` before firing the request.
 - Manual check: ran `demo-flow - [Ingested Commands Demo]`, confirmed `DEV-0000034:T6:flows.run_payload` with `{ flowName, sourceId }`, and saved `playwright-output-local/0000034-6-flows-ingested-run.png`.
 - Testing rerun: `npm run build --workspace server`, `npm run build --workspace client`, `npm run test --workspace server`, `npm run test --workspace client`, `npm run e2e`, `npm run compose:build`, `npm run compose:up`, manual flows run + logs check, `npm run compose:down`.
-- Pending: run `npm run lint --workspaces` and `npm run format:check --workspaces`, then mark subtask 12 complete.
+- Lint/format check completed with existing repo warnings only.
 
 ---
 

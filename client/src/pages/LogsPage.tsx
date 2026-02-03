@@ -58,6 +58,7 @@ export default function LogsPage() {
 
   useEffect(() => {
     logger('info', '0000020 logs page opened', { route: '/logs' });
+    logger('info', 'DEV-0000034:T7:logs_page_viewed', { route: '/logs' });
     logger('info', '0000022 verification logs reviewed', {
       story: '0000022',
     });

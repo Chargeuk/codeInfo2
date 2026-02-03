@@ -154,6 +154,7 @@ codex_agents/<agentName>/
       }
       ```
     - Ingested repo commands include optional `sourceId` and `sourceLabel`; local entries omit both fields.
+    - Agents UI displays ingested commands as `<name> - [sourceLabel]` and includes `sourceId` when executing them.
   - Run a command:
     - `curl -s -X POST http://localhost:5010/agents/coding_agent/commands/run -H 'content-type: application/json' -d '{"commandName":"improve_plan"}' | jq`
     - Optional arguments:

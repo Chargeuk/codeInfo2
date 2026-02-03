@@ -884,6 +884,7 @@ flowchart TD
 - Conversation continuation is done by selecting a prior conversation from the sidebar (no manual `conversationId` entry).
 - Command runs do not use client-side locking; the server rejects concurrent runs for the same `conversationId` with `RUN_IN_PROGRESS` (HTTP 409), and the UI surfaces this as a friendly error.
 - After a successful command run, the UI refreshes the conversation list and hydrates the transcript from persisted turns so multi-step results show in order.
+- The command dropdown labels ingested entries as `<name> - [sourceLabel]` (locals are unlabeled), sorts by display label, and includes `sourceId` in run payloads for ingested commands.
 
 ```mermaid
 flowchart TD
@@ -899,7 +900,7 @@ flowchart TD
 flowchart TD
   Load[Open /agents] --> ListAgents[GET /agents]
   ListAgents --> SelectAgent[Select agent]
-  SelectAgent --> ListCommands[GET /agents/<agentName>/commands\n(local + ingested labels)]
+  SelectAgent --> ListCommands[GET /agents/<agentName>/commands\n(label format <name> - [sourceLabel])]
   ListCommands --> SelectCommand{Select command?}
   SelectAgent --> ListConvos[GET /conversations?agentName=<agentName>]
   ListConvos --> SelectConvo{Select conversation?}
@@ -910,7 +911,7 @@ flowchart TD
   Ready --> Send[POST /agents/<agentName>/run]
   Send --> Render[Render segments (thinking/vector_summary/answer)]
   Render --> ListConvos
-  SelectCommand -->|Yes| Execute[POST /agents/<agentName>/commands/run]
+  SelectCommand -->|Yes| Execute[POST /agents/<agentName>/commands/run\n(commandName + sourceId?)]
   Execute -->|200| RefreshConvos[Refresh conversations]
   RefreshConvos --> HydrateTurns
   Execute -->|409 RUN_IN_PROGRESS| CmdErr[Render friendly conflict message]

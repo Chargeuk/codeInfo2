@@ -89,8 +89,10 @@ describe('Agents page - commands list', () => {
     });
     await waitFor(() => expect(commandSelect).toBeEnabled());
     await user.click(commandSelect);
-    await screen.findByTestId('agent-command-option-first_cmd');
-    expect(screen.queryByTestId('agent-command-option-second_cmd')).toBeNull();
+    await screen.findByTestId('agent-command-option-first_cmd::local');
+    expect(
+      screen.queryByTestId('agent-command-option-second_cmd::local'),
+    ).toBeNull();
     await user.keyboard('{Escape}');
 
     await user.click(agentSelect);
@@ -99,8 +101,10 @@ describe('Agents page - commands list', () => {
     await waitFor(() => expect(agentSelect).toHaveTextContent('a2'));
 
     await user.click(commandSelect);
-    await screen.findByTestId('agent-command-option-second_cmd');
-    expect(screen.queryByTestId('agent-command-option-first_cmd')).toBeNull();
+    await screen.findByTestId('agent-command-option-second_cmd::local');
+    expect(
+      screen.queryByTestId('agent-command-option-first_cmd::local'),
+    ).toBeNull();
   });
 
   it('renders invalid commands as disabled/unselectable', async () => {
@@ -146,7 +150,7 @@ describe('Agents page - commands list', () => {
     await user.click(commandSelect);
 
     const disabledOption = await screen.findByTestId(
-      'agent-command-option-bad',
+      'agent-command-option-bad::local',
     );
     expect(disabledOption).toHaveAttribute('aria-disabled', 'true');
 
@@ -205,10 +209,81 @@ describe('Agents page - commands list', () => {
     await user.click(commandSelect);
 
     const option = await screen.findByTestId(
-      'agent-command-option-improve_plan',
+      'agent-command-option-improve_plan::local',
     );
     expect(option).toHaveTextContent('improve plan');
     expect(option).not.toHaveTextContent('improve_plan');
+  });
+
+  it('renders duplicate command names with source labels and sorted order', async () => {
+    const user = userEvent.setup();
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const target = typeof url === 'string' ? url : url.toString();
+
+      if (target.includes('/health')) {
+        return mockJsonResponse({ mongoConnected: true });
+      }
+
+      if (target.includes('/agents') && !target.includes('/commands')) {
+        return mockJsonResponse({ agents: [{ name: 'a1' }] });
+      }
+
+      if (target.includes('/agents/a1/commands')) {
+        return mockJsonResponse({
+          commands: [
+            {
+              name: 'build',
+              description: 'Repo B',
+              disabled: false,
+              sourceId: '/data/repo-b',
+              sourceLabel: 'Repo B',
+            },
+            {
+              name: 'build',
+              description: 'Repo A',
+              disabled: false,
+              sourceId: '/data/repo-a',
+              sourceLabel: 'Repo A',
+            },
+            {
+              name: 'build',
+              description: 'Local',
+              disabled: false,
+            },
+          ],
+        });
+      }
+
+      if (target.includes('/conversations')) {
+        return mockJsonResponse({ items: [] });
+      }
+
+      return mockJsonResponse({});
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    const commandSelect = await screen.findByRole('combobox', {
+      name: /command/i,
+    });
+    await waitFor(() => expect(commandSelect).toBeEnabled());
+    await user.click(commandSelect);
+
+    await screen.findByTestId('agent-command-option-build::local');
+    await screen.findByTestId('agent-command-option-build::/data/repo-a');
+    await screen.findByTestId('agent-command-option-build::/data/repo-b');
+
+    const optionLabels = screen
+      .getAllByRole('option')
+      .map((option) => option.textContent ?? '')
+      .filter((label) => label && label !== 'Select a command');
+
+    expect(optionLabels).toEqual([
+      'build',
+      'build - [Repo A]',
+      'build - [Repo B]',
+    ]);
   });
 
   it('shows the selected command Description and never renders raw JSON', async () => {
@@ -252,7 +327,7 @@ describe('Agents page - commands list', () => {
     await waitFor(() => expect(commandSelect).toBeEnabled());
     await user.click(commandSelect);
     const option = await screen.findByTestId(
-      'agent-command-option-improve_plan',
+      'agent-command-option-improve_plan::local',
     );
     await user.click(option);
 

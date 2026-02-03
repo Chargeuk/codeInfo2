@@ -126,6 +126,18 @@ const buildStepLine = (command: ChatMessage['command']) => {
   return `Step ${command.stepIndex} of ${command.totalSteps}`;
 };
 
+const buildCommandDisplayName = (name: string) => name.replace(/_/g, ' ');
+
+const buildCommandLabel = (params: { name: string; sourceLabel?: string }) => {
+  const displayName = buildCommandDisplayName(params.name);
+  return params.sourceLabel
+    ? `${displayName} - [${params.sourceLabel}]`
+    : displayName;
+};
+
+const buildCommandKey = (params: { name: string; sourceId?: string }) =>
+  `${params.name}::${params.sourceId ?? 'local'}`;
+
 export default function AgentsPage() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -156,11 +168,17 @@ export default function AgentsPage() {
   const { providers, refreshProviders } = useChatModel();
 
   const [commands, setCommands] = useState<
-    Array<{ name: string; description: string; disabled: boolean }>
+    Array<{
+      name: string;
+      description: string;
+      disabled: boolean;
+      sourceId?: string;
+      sourceLabel?: string;
+    }>
   >([]);
   const [commandsError, setCommandsError] = useState<string | null>(null);
   const [commandsLoading, setCommandsLoading] = useState(false);
-  const [selectedCommandName, setSelectedCommandName] = useState('');
+  const [selectedCommandKey, setSelectedCommandKey] = useState('');
 
   const [agentModelId, setAgentModelId] = useState<string>('unknown');
   const {
@@ -478,7 +496,7 @@ export default function AgentsPage() {
       setCommands([]);
       setCommandsError(null);
       setCommandsLoading(false);
-      setSelectedCommandName('');
+      setSelectedCommandKey('');
       return;
     }
 
@@ -489,17 +507,19 @@ export default function AgentsPage() {
         if (cancelled) return;
         const nextCommands = result.commands ?? [];
         setCommands(nextCommands);
-        setSelectedCommandName((prev) =>
-          nextCommands.some((cmd) => cmd.name === prev && !cmd.disabled)
-            ? prev
-            : '',
-        );
+        setSelectedCommandKey((prev) => {
+          if (!prev) return '';
+          const isStillValid = nextCommands.some(
+            (cmd) => buildCommandKey(cmd) === prev && !cmd.disabled,
+          );
+          return isStillValid ? prev : '';
+        });
       })
       .catch((err) => {
         if (cancelled) return;
         setCommandsError((err as Error).message);
         setCommands([]);
-        setSelectedCommandName('');
+        setSelectedCommandKey('');
       })
       .finally(() => {
         if (cancelled) return;
@@ -511,19 +531,29 @@ export default function AgentsPage() {
     };
   }, [selectedAgentName]);
 
+  const commandOptions = useMemo(() => {
+    const options = commands.map((cmd) => ({
+      ...cmd,
+      key: buildCommandKey(cmd),
+      label: buildCommandLabel(cmd),
+      displayName: buildCommandDisplayName(cmd.name),
+    }));
+    return options.sort((a, b) => a.label.localeCompare(b.label));
+  }, [commands]);
+
   const selectedCommand = useMemo(
-    () => commands.find((cmd) => cmd.name === selectedCommandName),
-    [commands, selectedCommandName],
+    () => commandOptions.find((cmd) => cmd.key === selectedCommandKey),
+    [commandOptions, selectedCommandKey],
   );
 
   const selectedCommandDescription = useMemo(() => {
-    if (!selectedCommandName || !selectedCommand) {
+    if (!selectedCommandKey || !selectedCommand) {
       return 'Select a command to see its description.';
     }
     if (selectedCommand.disabled) return 'Invalid command file.';
     const description = selectedCommand.description.trim();
     return description || 'No description provided.';
-  }, [selectedCommand, selectedCommandName]);
+  }, [selectedCommand, selectedCommandKey]);
 
   const {
     conversations,
@@ -763,7 +793,7 @@ export default function AgentsPage() {
       const next = event.target.value;
       if (next === selectedAgentName) return;
       setSelectedAgentName(next);
-      setSelectedCommandName('');
+      setSelectedCommandKey('');
       setAgentModelId('unknown');
       resetConversation();
     },
@@ -772,7 +802,7 @@ export default function AgentsPage() {
 
   const handleCommandChange = useCallback(
     (event: SelectChangeEvent<string>) => {
-      setSelectedCommandName(event.target.value);
+      setSelectedCommandKey(event.target.value);
     },
     [],
   );
@@ -1014,7 +1044,7 @@ export default function AgentsPage() {
     setRunError(null);
     if (
       !selectedAgentName ||
-      !selectedCommandName ||
+      !selectedCommand ||
       startPending ||
       persistenceUnavailable ||
       !wsTranscriptReady
@@ -1049,9 +1079,14 @@ export default function AgentsPage() {
       });
       subscribeConversation(nextConversationId);
 
+      log('info', 'DEV-0000034:T5:agents.command_run_payload', {
+        commandName: selectedCommand.name,
+        sourceId: selectedCommand.sourceId ?? 'local',
+      });
       const result = await runAgentCommand({
         agentName: selectedAgentName,
-        commandName: selectedCommandName,
+        commandName: selectedCommand.name,
+        sourceId: selectedCommand.sourceId,
         working_folder: workingFolder.trim() || undefined,
         conversationId: nextConversationId,
       });
@@ -1115,7 +1150,7 @@ export default function AgentsPage() {
     persistenceUnavailable,
     refreshConversations,
     selectedAgentName,
-    selectedCommandName,
+    selectedCommand,
     setConversation,
     startPending,
     stop,
@@ -1880,23 +1915,23 @@ export default function AgentsPage() {
                       <Select
                         labelId="agent-command-select-label"
                         label="Command"
-                        value={selectedCommandName}
+                        value={selectedCommandKey}
                         onChange={handleCommandChange}
                         inputProps={{ 'data-testid': 'agent-command-select' }}
                       >
                         <MenuItem value="" disabled>
                           Select a command
                         </MenuItem>
-                        {commands.map((cmd) => (
+                        {commandOptions.map((cmd) => (
                           <MenuItem
-                            key={cmd.name}
-                            value={cmd.name}
+                            key={cmd.key}
+                            value={cmd.key}
                             disabled={cmd.disabled}
-                            data-testid={`agent-command-option-${cmd.name}`}
+                            data-testid={`agent-command-option-${cmd.key}`}
                           >
                             <Stack spacing={0.25}>
                               <Typography variant="body2">
-                                {cmd.name.replace(/_/g, ' ')}
+                                {cmd.label}
                               </Typography>
                               {cmd.disabled ? (
                                 <Typography
@@ -1916,7 +1951,7 @@ export default function AgentsPage() {
                       variant="contained"
                       size="small"
                       disabled={
-                        !selectedCommandName ||
+                        !selectedCommandKey ||
                         isSending ||
                         persistenceUnavailable ||
                         !wsTranscriptReady ||

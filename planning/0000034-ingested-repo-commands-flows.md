@@ -624,22 +624,22 @@ Add optional `sourceId` support for flow execution so ingested flows run from th
    - Implementation details:
      - Accept optional `sourceId` in REST payloads and pass it into the flow service.
      - Example request JSON: `{ "sourceId": "/data/repo", "customTitle": "Release Run" }`.
-4. [ ] Integration test (flow run) — `server/src/test/integration/flows.run.basic.test.ts`: unknown `sourceId` returns 404; purpose: validate error handling for invalid ingest roots.
+4. [x] Integration test (flow run) — `server/src/test/integration/flows.run.basic.test.ts`: unknown `sourceId` returns 404; purpose: validate error handling for invalid ingest roots.
    - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
    - Example expectation: `POST /flows/release/run` with `{ sourceId: '/data/missing' }` returns `404 { error: 'not_found' }`.
-5. [ ] Integration test (flow run) — `server/src/test/integration/flows.run.basic.test.ts`: ingested flow runs when `sourceId` resolves to a valid flow file; purpose: cover happy-path ingest execution.
+5. [x] Integration test (flow run) — `server/src/test/integration/flows.run.basic.test.ts`: ingested flow runs when `sourceId` resolves to a valid flow file; purpose: cover happy-path ingest execution.
    - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
    - Example expectation: `{ sourceId: '/data/repo' }` returns 202 and uses `/data/repo/flows/<flow>.json`.
-6. [ ] Integration test (flow run) — `server/src/test/integration/flows.run.basic.test.ts`: local flow run works when `sourceId` is omitted; purpose: ensure local behavior unchanged.
+6. [x] Integration test (flow run) — `server/src/test/integration/flows.run.basic.test.ts`: local flow run works when `sourceId` is omitted; purpose: ensure local behavior unchanged.
    - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
    - Example expectation: request without `sourceId` loads from the local flows directory.
-7. [ ] Integration test (flow run) — `server/src/test/integration/flows.run.hot-reload.test.ts`: missing ingested flow file returns 404; purpose: validate not_found for missing files.
+7. [x] Integration test (flow run) — `server/src/test/integration/flows.run.hot-reload.test.ts`: missing ingested flow file returns 404; purpose: validate not_found for missing files.
    - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
    - Example expectation: `{ sourceId: '/data/repo' }` with missing file returns `404 { error: 'not_found' }`.
-8. [ ] Integration test (flow run) — `server/src/test/integration/flows.run.command.test.ts`: path traversal attempt in flow name is rejected by containment checks; purpose: enforce path safety.
+8. [x] Integration test (flow run) — `server/src/test/integration/flows.run.command.test.ts`: path traversal attempt in flow name is rejected by containment checks; purpose: enforce path safety.
    - Docs to read: Node.js test runner docs: https://nodejs.org/api/test.html; ESLint CLI docs: https://eslint.org/docs/latest/use/command-line-interface; Prettier CLI docs: https://prettier.io/docs/cli/
    - Example expectation: flowName `../escape` triggers `FLOW_NOT_FOUND` or equivalent 404.
-9. [ ] Update documentation — `design.md` (run payload changes).
+9. [x] Update documentation — `design.md` (run payload changes).
    - Document: `design.md`.
    - Location: repo root `design.md`.
    - Description: Document flow run `sourceId` behavior and update Mermaid diagrams covering run flows.
@@ -672,8 +672,8 @@ Add optional `sourceId` support for flow execution so ingested flows run from th
 5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m npm run e2e` or set `timeout_ms=420000` in the harness)
 6. [x] `npm run compose:build`
 7. [x] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open http://host.docker.internal:5001/flows, run an ingested flow, confirm run starts successfully; then open http://host.docker.internal:5001/logs and confirm `DEV-0000034:T4:flow_run_resolved` appears with `{ flowName, sourceId, flowPath }` (sourceId should match the ingested `/data/...` root); verify no errors appear in the debug console.
-9. [ ] `npm run compose:down`
+8. [x] Manual Playwright-MCP check: open http://host.docker.internal:5001/flows, run an ingested flow, confirm run starts successfully; then open http://host.docker.internal:5001/logs and confirm `DEV-0000034:T4:flow_run_resolved` appears with `{ flowName, sourceId, flowPath }` (sourceId should match the ingested `/data/...` root); verify no errors appear in the debug console.
+9. [x] `npm run compose:down`
 
 #### Implementation notes
 
@@ -684,6 +684,12 @@ Add optional `sourceId` support for flow execution so ingested flows run from th
 - Lint continues to emit existing repo warnings (import order in server tests, baseline-browser-mapping advisory) but no new errors were introduced.
 - Manual check: dropdown shows `demo-flow - [Ingested Commands Demo]`; logs include `DEV-0000034:T6:flows.run_payload`; screenshot saved to `playwright-output-local/0000034-6-flows-ingested-run.png`.
 - Blocker: ingested flow run returns 404 because server-side flow run `sourceId` support is not implemented yet (Task 4), so Testing step 8 cannot be fully completed.
+- Added flow run integration coverage for unknown `sourceId`, ingested flow runs, and local-only runs in `server/src/test/integration/flows.run.basic.test.ts`; lint and format checks rerun with only existing repo warnings.
+- Added hot-reload coverage for missing ingested flow files returning 404 in `server/src/test/integration/flows.run.hot-reload.test.ts`; lint and format checks rerun with existing warnings only.
+- Added path traversal regression coverage for flow runs in `server/src/test/integration/flows.run.command.test.ts`; lint and format checks rerun with existing warnings only.
+- Updated `design.md` flow run notes + Mermaid diagram to cover `sourceId`-based flow resolution and 404 behavior; lint and format checks rerun with existing warnings only.
+- Fixed missing `fixturesDir` reference in `server/src/test/integration/flows.run.basic.test.ts` during build/test reruns; lint and format checks rerun with existing warnings only.
+- Testing rerun: `npm run build --workspace server` (after fixture fix), `npm run build --workspace client`, `npm run test --workspace server` (reran with longer timeout after initial 120s timeout), `npm run test --workspace client`, `npm run e2e`, `npm run compose:build`, `npm run compose:up`, manual flows run + log check, and `npm run compose:down`.
 
 ---
 

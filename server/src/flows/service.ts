@@ -33,6 +33,7 @@ import {
   shouldUseMemoryPersistence,
   updateMemoryConversationMeta,
 } from '../chat/memoryPersistence.js';
+import { listIngestedRepositories } from '../lmstudio/toolService.js';
 import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
 import { ConversationModel } from '../mongo/conversation.js';
@@ -44,7 +45,6 @@ import {
   updateConversationFlowState,
   updateConversationThreadId,
 } from '../mongo/repo.js';
-import { listIngestedRepositories } from '../lmstudio/toolService.js';
 import type {
   TurnCommandMetadata,
   Turn,
@@ -1724,7 +1724,8 @@ export async function startFlowRun(
   try {
     let flowsRoot = flowsDirForRun();
     if (sourceId) {
-      const listRepos = params.listIngestedRepositories ?? listIngestedRepositories;
+      const listRepos =
+        params.listIngestedRepositories ?? listIngestedRepositories;
       const { repos } = await listRepos();
       const repo = repos.find((item) => item.containerPath === sourceId);
       if (!repo) {

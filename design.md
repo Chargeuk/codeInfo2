@@ -52,6 +52,7 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 ## Flows (run core)
 
 - `POST /flows/:flowName/run` validates the flow file on disk (hot-reload per run) and returns `202 { status: "started", flowName, conversationId, inflightId, modelId }`.
+- Optional `sourceId` selects the ingest root for execution (`<sourceId>/flows/<flowName>.json`); unknown `sourceId` or missing files return `404 { error: 'not_found' }`.
 - Flow runs create a conversation titled `customTitle` when provided (fallback `Flow: <name>`) and set `flowName` for sidebar filtering.
 - Per-agent flow conversations use `${customTitle} (<identifier>)` when provided (fallback `Flow: <name> (<identifier>)`) and remain agent-only (no `flowName`).
 - Resume requests never rename existing flow or per-agent conversation titles; `customTitle` applies only on creation.
@@ -68,7 +69,11 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 
 ```mermaid
 flowchart TD
-  Start[Start flow run] --> TitleCheck{customTitle provided?}
+  Start[Start flow run] --> SourceCheck{sourceId provided?}
+  SourceCheck -- Yes --> SourceRoot[Flows root = <sourceId>/flows]
+  SourceCheck -- No --> LocalRoot[Flows root = local flows dir]
+  SourceRoot --> TitleCheck{customTitle provided?}
+  LocalRoot --> TitleCheck
   TitleCheck -- Yes --> MainTitle[Main title = customTitle]
   TitleCheck -- No --> MainFallback[Main title = Flow: <flowName>]
   MainTitle --> AgentTitle[Per-agent title = customTitle (identifier)]

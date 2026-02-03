@@ -24,6 +24,10 @@ import {
 } from '../support/wsClient.js';
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+const fixturesDir = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '../fixtures/flows',
+);
 
 class StreamingChat extends ChatInterface {
   async execute(
@@ -51,6 +55,22 @@ class StreamingChat extends ChatInterface {
     await delay(30);
     if (abortIfNeeded()) return;
     this.emit('final', { type: 'final', content: 'Hello flow' });
+    this.emit('complete', { type: 'complete', threadId: conversationId });
+  }
+}
+
+class InstantChat extends ChatInterface {
+  async execute(
+    _message: string,
+    _flags: Record<string, unknown>,
+    conversationId: string,
+    _model: string,
+  ) {
+    void _message;
+    void _flags;
+    void _model;
+    this.emit('thread', { type: 'thread', threadId: conversationId });
+    this.emit('final', { type: 'final', content: 'ok' });
     this.emit('complete', { type: 'complete', threadId: conversationId });
   }
 }
@@ -239,5 +259,166 @@ test('POST /flows/:flowName/run ignores whitespace customTitle', async () => {
       delete process.env.FLOWS_DIR;
     }
     await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('POST /flows/:flowName/run returns 404 for unknown sourceId', async () => {
+  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const prevFlowsDir = process.env.FLOWS_DIR;
+  const repoRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../../../',
+  );
+  const tmpDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-run-unknown-source-'),
+  );
+  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+  process.env.FLOWS_DIR = tmpDir;
+
+  const app = express();
+  app.use(
+    createFlowsRunRouter({
+      startFlowRun: (params) =>
+        startFlowRun({
+          ...params,
+          chatFactory: () => new InstantChat(),
+          listIngestedRepositories: async () => ({
+            repos: [{ containerPath: '/data/known-repo' }],
+            lockedModelId: null,
+          }),
+        }),
+    }),
+  );
+
+  try {
+    await supertest(app)
+      .post('/flows/llm-basic/run')
+      .send({ sourceId: '/data/unknown-repo' })
+      .expect(404);
+  } finally {
+    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    if (prevFlowsDir) {
+      process.env.FLOWS_DIR = prevFlowsDir;
+    } else {
+      delete process.env.FLOWS_DIR;
+    }
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('POST /flows/:flowName/run uses ingested flow when sourceId provided', async () => {
+  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const prevFlowsDir = process.env.FLOWS_DIR;
+  const repoRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../../../',
+  );
+  const tmpLocalDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-run-local-'),
+  );
+  const tmpRepoRoot = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-run-ingested-'),
+  );
+  const tmpRepoFlows = path.join(tmpRepoRoot, 'flows');
+  await fs.mkdir(tmpRepoFlows, { recursive: true });
+  await fs.cp(fixturesDir, tmpRepoFlows, { recursive: true });
+
+  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+  process.env.FLOWS_DIR = tmpLocalDir;
+
+  const app = express();
+  app.use(
+    createFlowsRunRouter({
+      startFlowRun: (params) =>
+        startFlowRun({
+          ...params,
+          chatFactory: () => new InstantChat(),
+          listIngestedRepositories: async () => ({
+            repos: [{ containerPath: tmpRepoRoot }],
+            lockedModelId: null,
+          }),
+        }),
+    }),
+  );
+
+  try {
+    const conversationId = 'flow-ingested-conv-1';
+    const res = await supertest(app)
+      .post('/flows/llm-basic/run')
+      .send({ conversationId, sourceId: tmpRepoRoot })
+      .expect(202);
+
+    assert.equal(res.body.status, 'started');
+    assert.equal(res.body.flowName, 'llm-basic');
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
+  } finally {
+    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    if (prevFlowsDir) {
+      process.env.FLOWS_DIR = prevFlowsDir;
+    } else {
+      delete process.env.FLOWS_DIR;
+    }
+    await fs.rm(tmpLocalDir, { recursive: true, force: true });
+    await fs.rm(tmpRepoRoot, { recursive: true, force: true });
+  }
+});
+
+test('POST /flows/:flowName/run uses local flows when sourceId omitted', async () => {
+  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const prevFlowsDir = process.env.FLOWS_DIR;
+  const repoRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../../../',
+  );
+  const tmpLocalDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-run-local-only-'),
+  );
+  await fs.cp(fixturesDir, tmpLocalDir, { recursive: true });
+  const tmpRepoRoot = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-run-ingested-only-'),
+  );
+  const tmpRepoFlows = path.join(tmpRepoRoot, 'flows');
+  await fs.mkdir(tmpRepoFlows, { recursive: true });
+  await fs.cp(fixturesDir, tmpRepoFlows, { recursive: true });
+
+  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+  process.env.FLOWS_DIR = tmpLocalDir;
+
+  const app = express();
+  app.use(
+    createFlowsRunRouter({
+      startFlowRun: (params) =>
+        startFlowRun({
+          ...params,
+          chatFactory: () => new InstantChat(),
+          listIngestedRepositories: async () => ({
+            repos: [{ containerPath: tmpRepoRoot }],
+            lockedModelId: null,
+          }),
+        }),
+    }),
+  );
+
+  try {
+    const conversationId = 'flow-local-conv-1';
+    const res = await supertest(app)
+      .post('/flows/llm-basic/run')
+      .send({ conversationId })
+      .expect(202);
+
+    assert.equal(res.body.status, 'started');
+    assert.equal(res.body.flowName, 'llm-basic');
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
+  } finally {
+    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    if (prevFlowsDir) {
+      process.env.FLOWS_DIR = prevFlowsDir;
+    } else {
+      delete process.env.FLOWS_DIR;
+    }
+    await fs.rm(tmpLocalDir, { recursive: true, force: true });
+    await fs.rm(tmpRepoRoot, { recursive: true, force: true });
   }
 });

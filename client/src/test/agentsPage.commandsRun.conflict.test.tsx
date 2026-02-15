@@ -92,7 +92,7 @@ describe('Agents page - run conflict handling', () => {
     await waitFor(() => expect(commandSelect).toBeEnabled());
     await user.click(commandSelect);
     const option = await screen.findByTestId(
-      'agent-command-option-improve_plan',
+      'agent-command-option-improve_plan::local',
     );
     await user.click(option);
 

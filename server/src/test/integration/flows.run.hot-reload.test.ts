@@ -127,3 +127,53 @@ test('Flow run reloads flow file between runs', async () => {
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
+
+test('Flow run returns 404 when ingested flow file is missing', async () => {
+  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const prevFlowsDir = process.env.FLOWS_DIR;
+  const repoRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../../../',
+  );
+  const tmpLocalDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-run-local-ingest-missing-'),
+  );
+  const tmpRepoRoot = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-run-ingest-missing-'),
+  );
+  await fs.mkdir(path.join(tmpRepoRoot, 'flows'), { recursive: true });
+
+  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+  process.env.FLOWS_DIR = tmpLocalDir;
+
+  const app = express();
+  app.use(
+    createFlowsRunRouter({
+      startFlowRun: (params) =>
+        startFlowRun({
+          ...params,
+          chatFactory: () => new CapturingChat(() => undefined),
+          listIngestedRepositories: async () => ({
+            repos: [{ containerPath: tmpRepoRoot }],
+            lockedModelId: null,
+          }),
+        }),
+    }),
+  );
+
+  try {
+    await supertest(app)
+      .post('/flows/missing-ingested/run')
+      .send({ sourceId: tmpRepoRoot })
+      .expect(404);
+  } finally {
+    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    if (prevFlowsDir) {
+      process.env.FLOWS_DIR = prevFlowsDir;
+    } else {
+      delete process.env.FLOWS_DIR;
+    }
+    await fs.rm(tmpLocalDir, { recursive: true, force: true });
+    await fs.rm(tmpRepoRoot, { recursive: true, force: true });
+  }
+});

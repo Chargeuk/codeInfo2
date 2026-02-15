@@ -38,6 +38,8 @@ describe('Flows API helpers', () => {
             name: 'daily',
             description: 'Daily flow',
             disabled: false,
+            sourceId: '/data/repo-a',
+            sourceLabel: 'Repo A',
           },
           {
             name: 'broken',
@@ -54,7 +56,13 @@ describe('Flows API helpers', () => {
 
     expect(result).toEqual({
       flows: [
-        { name: 'daily', description: 'Daily flow', disabled: false },
+        {
+          name: 'daily',
+          description: 'Daily flow',
+          disabled: false,
+          sourceId: '/data/repo-a',
+          sourceLabel: 'Repo A',
+        },
         {
           name: 'broken',
           description: 'Broken',

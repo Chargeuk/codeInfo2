@@ -33,7 +33,13 @@ describe('Agents API listAgentCommands', () => {
       status: 200,
       json: async () => ({
         commands: [
-          { name: 'smoke', description: 'Smoke command', disabled: false },
+          {
+            name: 'smoke',
+            description: 'Smoke command',
+            disabled: false,
+            sourceId: '/data/repo-a',
+            sourceLabel: 'Repo A',
+          },
           { name: 'broken', description: 'Invalid command', disabled: true },
         ],
       }),
@@ -43,7 +49,13 @@ describe('Agents API listAgentCommands', () => {
 
     expect(result).toEqual({
       commands: [
-        { name: 'smoke', description: 'Smoke command', disabled: false },
+        {
+          name: 'smoke',
+          description: 'Smoke command',
+          disabled: false,
+          sourceId: '/data/repo-a',
+          sourceLabel: 'Repo A',
+        },
         { name: 'broken', description: 'Invalid command', disabled: true },
       ],
     });

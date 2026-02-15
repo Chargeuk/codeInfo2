@@ -93,7 +93,7 @@ describe('Agents page - command execute refresh + turns hydration', () => {
     await waitFor(() => expect(commandSelect).toBeEnabled());
     await user.click(commandSelect);
     const option = await screen.findByTestId(
-      'agent-command-option-improve_plan',
+      'agent-command-option-improve_plan::local',
     );
     await user.click(option);
 
@@ -103,8 +103,79 @@ describe('Agents page - command execute refresh + turns hydration', () => {
 
     await waitFor(() => expect(runBodies.length).toBe(1));
     expect(runBodies[0]).toMatchObject({ commandName: 'improve_plan' });
+    expect(runBodies[0]).not.toHaveProperty('sourceId');
     expect(typeof runBodies[0].conversationId).toBe('string');
     expect((runBodies[0].conversationId as string).length).toBeGreaterThan(0);
+  });
+
+  it('includes sourceId when executing an ingested command', async () => {
+    const user = userEvent.setup();
+    const runBodies: Record<string, unknown>[] = [];
+
+    mockFetch.mockImplementation(
+      (url: RequestInfo | URL, init?: RequestInit) => {
+        const target = typeof url === 'string' ? url : url.toString();
+
+        if (target.includes('/health')) return okJson({ mongoConnected: true });
+        if (target.includes('/agents') && !target.includes('/commands')) {
+          return okJson({ agents: [{ name: 'a1' }] });
+        }
+        if (target.includes('/agents/a1/commands/run')) {
+          if (init?.body) {
+            runBodies.push(JSON.parse(init.body.toString()));
+          }
+          return okJson({
+            agentName: 'a1',
+            commandName: 'build',
+            conversationId: 'c-ingest',
+            modelId: 'gpt-5.1-codex-max',
+          });
+        }
+        if (target.includes('/agents/a1/commands')) {
+          return okJson({
+            commands: [
+              {
+                name: 'build',
+                description: 'd',
+                disabled: false,
+                sourceId: '/data/repo-a',
+                sourceLabel: 'Repo A',
+              },
+            ],
+          });
+        }
+        if (target.includes('/conversations')) {
+          return okJson({ items: [] });
+        }
+        if (target.includes('/conversations/c-ingest/turns')) {
+          return okJson({ items: [] });
+        }
+        return okJson({});
+      },
+    );
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    const commandSelect = await screen.findByRole('combobox', {
+      name: /command/i,
+    });
+    await waitFor(() => expect(commandSelect).toBeEnabled());
+    await user.click(commandSelect);
+    const option = await screen.findByTestId(
+      'agent-command-option-build::/data/repo-a',
+    );
+    await user.click(option);
+
+    const execute = await screen.findByTestId('agent-command-execute');
+    await waitFor(() => expect(execute).toBeEnabled());
+    await user.click(execute);
+
+    await waitFor(() => expect(runBodies.length).toBe(1));
+    expect(runBodies[0]).toMatchObject({
+      commandName: 'build',
+      sourceId: '/data/repo-a',
+    });
   });
 
   it('successful execute refreshes conversations and hydrates turns for the new conversation', async () => {
@@ -224,7 +295,7 @@ describe('Agents page - command execute refresh + turns hydration', () => {
     await waitFor(() => expect(commandSelect).toBeEnabled());
     await user.click(commandSelect);
     const option = await screen.findByTestId(
-      'agent-command-option-improve_plan',
+      'agent-command-option-improve_plan::local',
     );
     await user.click(option);
 

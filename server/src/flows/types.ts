@@ -23,6 +23,7 @@ export type FlowRunError = {
 
 export type FlowRunStartParams = {
   flowName: string;
+  sourceId?: string;
   conversationId?: string;
   working_folder?: string;
   resumeStepPath?: number[];
@@ -30,6 +31,10 @@ export type FlowRunStartParams = {
   source: 'REST' | 'MCP';
   inflightId?: string;
   chatFactory?: FlowChatFactory;
+  listIngestedRepositories?: () => Promise<{
+    repos: Array<{ containerPath: string }>;
+    lockedModelId: string | null;
+  }>;
 };
 
 export type FlowRunStartResult = {

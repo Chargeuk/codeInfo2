@@ -69,11 +69,17 @@ const safeCommandNameSchema = z
     return true;
   }, 'commandName must not contain path separators or ..');
 
+const optionalTrimmedSourceIdSchema = z.preprocess((value) => {
+  if (typeof value !== 'string') return value;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}, z.string().min(1).optional());
+
 const runCommandParamsSchema = z
   .object({
     agentName: z.string().min(1),
     commandName: safeCommandNameSchema,
-    sourceId: z.string().min(1).optional(),
+    sourceId: optionalTrimmedSourceIdSchema,
     conversationId: z.string().min(1).optional(),
     working_folder: z.string().min(1).optional(),
   })

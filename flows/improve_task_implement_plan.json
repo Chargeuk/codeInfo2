@@ -10,10 +10,17 @@
                 {
                     "role": "user",
                     "content": [
-                        "Please tell me the next plan that has not yet been executed. This will be the story I we will be working on, but for now just provide me with an overview without making changes."
+                        "Please tell me the next plan that has not yet been executed. This will be the story I will ask you to improve, but for now just tell me what it is without making changes. Remember that I do not want you to task up."
                     ]
                 }
             ]
+        },
+        {
+            "type": "command",
+            "label": "Improve plan",
+            "agentType": "planning_agent",
+            "identifier": "planner",
+            "commandName": "improve_plan"
         },
         {
             "type": "command",

@@ -16,6 +16,7 @@ FROM node:22-slim AS build
 WORKDIR /app
 ENV HUSKY=0
 COPY --from=deps /app/node_modules /app/node_modules
+COPY --from=deps /app/server/node_modules /app/server/node_modules
 COPY package*.json ./
 COPY package-lock.json ./
 COPY common/package*.json ./common/

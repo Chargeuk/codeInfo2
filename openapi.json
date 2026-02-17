@@ -55,6 +55,108 @@
         }
       }
     },
+    "/agents/{agentName}/commands": {
+      "get": {
+        "parameters": [
+          {
+            "name": "agentName",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Agent commands list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "commands": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": { "type": "string" },
+                          "description": { "type": "string" },
+                          "disabled": { "type": "boolean" },
+                          "sourceId": { "type": "string" },
+                          "sourceLabel": { "type": "string" }
+                        },
+                        "required": ["name", "description", "disabled"]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Agent not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/agents/{agentName}/commands/run": {
+      "post": {
+        "parameters": [
+          {
+            "name": "agentName",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "commandName": { "type": "string" },
+                  "conversationId": { "type": "string" },
+                  "working_folder": { "type": "string" },
+                  "sourceId": { "type": "string" }
+                },
+                "required": ["commandName"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Command run started"
+          },
+          "404": {
+            "description": "Command or agent not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/ingest/roots": {
       "get": {
         "responses": {
@@ -107,6 +209,38 @@
         }
       }
     },
+    "/flows": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Flows list",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "flows": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": { "type": "string" },
+                          "description": { "type": "string" },
+                          "disabled": { "type": "boolean" },
+                          "sourceId": { "type": "string" },
+                          "sourceLabel": { "type": "string" }
+                        },
+                        "required": ["name", "description", "disabled"]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/flows/{flowName}/run": {
       "post": {
         "parameters": [
@@ -127,6 +261,9 @@
                 "type": "object",
                 "properties": {
                   "conversationId": {
+                    "type": "string"
+                  },
+                  "sourceId": {
                     "type": "string"
                   },
                   "working_folder": {

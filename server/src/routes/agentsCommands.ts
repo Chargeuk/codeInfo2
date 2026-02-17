@@ -12,6 +12,7 @@ type AgentCommandsBody = {
   commandName?: unknown;
   conversationId?: unknown;
   working_folder?: unknown;
+  sourceId?: unknown;
 };
 
 type AgentCommandsError =
@@ -36,6 +37,7 @@ const validateRunBody = (
   commandName: string;
   conversationId?: string;
   working_folder?: string;
+  sourceId?: string;
 } => {
   const candidate = (body ?? {}) as AgentCommandsBody;
 
@@ -65,7 +67,18 @@ const validateRunBody = (
       ? rawWorkingFolder.trim()
       : undefined;
 
-  return { commandName, conversationId, working_folder };
+  const rawSourceId = candidate.sourceId;
+  if (rawSourceId !== undefined && rawSourceId !== null) {
+    if (typeof rawSourceId !== 'string') {
+      throw new Error('sourceId must be a string');
+    }
+  }
+  const sourceId =
+    typeof rawSourceId === 'string' && rawSourceId.trim().length > 0
+      ? rawSourceId.trim()
+      : undefined;
+
+  return { commandName, conversationId, working_folder, sourceId };
 };
 
 export function createAgentsCommandsRouter(
@@ -120,6 +133,7 @@ export function createAgentsCommandsRouter(
       commandName: string;
       conversationId?: string;
       working_folder?: string;
+      sourceId?: string;
     };
     try {
       parsedBody = validateRunBody(req.body);
@@ -135,6 +149,7 @@ export function createAgentsCommandsRouter(
         commandName: parsedBody.commandName,
         conversationId: parsedBody.conversationId,
         working_folder: parsedBody.working_folder,
+        sourceId: parsedBody.sourceId,
         source: 'REST',
       });
 

@@ -33,6 +33,7 @@ import {
   shouldUseMemoryPersistence,
   updateMemoryConversationMeta,
 } from '../chat/memoryPersistence.js';
+import { listIngestedRepositories } from '../lmstudio/toolService.js';
 import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
 import { ConversationModel } from '../mongo/conversation.js';
@@ -333,12 +334,36 @@ const flowsDirForRun = () => {
   return path.resolve('flows');
 };
 
-const loadFlowFile = async (flowName: string): Promise<FlowFile> => {
+const resolveFlowFilePath = (flowName: string, flowsRoot: string) => {
   if (!isSafeFlowName(flowName)) {
-    throw toFlowRunError('FLOW_INVALID_NAME', 'Invalid flow name');
+    throw toFlowRunError('FLOW_NOT_FOUND', 'Invalid flow name');
   }
 
-  const filePath = path.join(flowsDirForRun(), `${flowName}.json`);
+  const filePath = path.resolve(flowsRoot, `${flowName}.json`);
+  const relativePath = path.relative(flowsRoot, filePath);
+  if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
+    throw toFlowRunError('FLOW_NOT_FOUND', 'Invalid flow path');
+  }
+  return filePath;
+};
+
+const loadFlowFile = async (params: {
+  flowName: string;
+  flowsRoot: string;
+  sourceId?: string;
+}): Promise<FlowFile> => {
+  const filePath = resolveFlowFilePath(params.flowName, params.flowsRoot);
+  append({
+    level: 'info',
+    message: 'DEV-0000034:T4:flow_run_resolved',
+    source: 'server',
+    timestamp: new Date().toISOString(),
+    context: {
+      flowName: params.flowName,
+      sourceId: params.sourceId ?? 'local',
+      flowPath: filePath,
+    },
+  });
   const jsonText = await fs.readFile(filePath, 'utf8').catch((error) => {
     if ((error as { code?: string }).code === 'ENOENT') {
       throw toFlowRunError('FLOW_NOT_FOUND');
@@ -1680,6 +1705,7 @@ export async function startFlowRun(
   params: FlowRunStartParams,
 ): Promise<FlowRunStartResult> {
   const flowName = params.flowName.trim();
+  const sourceId = params.sourceId?.trim() || undefined;
   const conversationId = params.conversationId ?? crypto.randomUUID();
   const inflightId = params.inflightId ?? crypto.randomUUID();
   const resumeStepPath = params.resumeStepPath;
@@ -1696,7 +1722,18 @@ export async function startFlowRun(
   let resumeState: FlowResumeState | null = null;
 
   try {
-    flow = await loadFlowFile(flowName);
+    let flowsRoot = flowsDirForRun();
+    if (sourceId) {
+      const listRepos =
+        params.listIngestedRepositories ?? listIngestedRepositories;
+      const { repos } = await listRepos();
+      const repo = repos.find((item) => item.containerPath === sourceId);
+      if (!repo) {
+        throw toFlowRunError('FLOW_NOT_FOUND');
+      }
+      flowsRoot = path.resolve(repo.containerPath, 'flows');
+    }
+    flow = await loadFlowFile({ flowName, flowsRoot, sourceId });
     if (!flow.steps.length) {
       throw toFlowRunError('NO_STEPS', 'Flow has no steps');
     }

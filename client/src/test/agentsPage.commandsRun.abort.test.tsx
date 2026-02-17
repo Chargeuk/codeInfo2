@@ -127,7 +127,7 @@ describe('Agents page - abort command execute', () => {
     await waitFor(() => expect(commandSelect).toBeEnabled());
     await user.click(commandSelect);
     const option = await screen.findByTestId(
-      'agent-command-option-improve_plan',
+      'agent-command-option-improve_plan::local',
     );
     await user.click(option);
     await user.keyboard('{Escape}');
@@ -275,7 +275,7 @@ describe('Agents page - abort command execute', () => {
     await waitFor(() => expect(commandSelect).toBeEnabled());
     await user.click(commandSelect);
     const option = await screen.findByTestId(
-      'agent-command-option-improve_plan',
+      'agent-command-option-improve_plan::local',
     );
     await user.click(option);
     await user.keyboard('{Escape}');

@@ -31,7 +31,12 @@ import {
   useRef,
   useState,
 } from 'react';
-import { FlowApiError, listFlows, runFlow } from '../api/flows';
+import {
+  FlowApiError,
+  type FlowSummary,
+  listFlows,
+  runFlow,
+} from '../api/flows';
 import Markdown from '../components/Markdown';
 import ConversationList from '../components/chat/ConversationList';
 import DirectoryPickerDialog from '../components/ingest/DirectoryPickerDialog';
@@ -124,6 +129,16 @@ const buildFlowMetaLine = (command: ChatMessage['command']) => {
   return agentSuffix ? `${label} · ${agentSuffix}` : label;
 };
 
+const buildFlowLabel = (flow: FlowSummary) => {
+  const sourceLabel = flow.sourceLabel?.trim();
+  return sourceLabel ? `${flow.name} - [${sourceLabel}]` : flow.name;
+};
+
+const buildFlowKey = (flow: FlowSummary) =>
+  `${flow.name}::${flow.sourceId ?? 'local'}`;
+
+type FlowOption = FlowSummary & { key: string; label: string };
+
 type FlowResumeState = {
   stepPath?: unknown;
 };
@@ -154,17 +169,10 @@ export default function FlowsPage() {
   );
   const drawerOpen = isMobile ? mobileDrawerOpen : desktopDrawerOpen;
 
-  const [flows, setFlows] = useState<
-    Array<{
-      name: string;
-      description?: string;
-      disabled?: boolean;
-      error?: string;
-    }>
-  >([]);
+  const [flows, setFlows] = useState<FlowSummary[]>([]);
   const [flowsLoading, setFlowsLoading] = useState(true);
   const [flowsError, setFlowsError] = useState<string | null>(null);
-  const [selectedFlowName, setSelectedFlowName] = useState('');
+  const [selectedFlowKey, setSelectedFlowKey] = useState('');
   const [customTitle, setCustomTitle] = useState('');
   const [suppressAutoSelect, setSuppressAutoSelect] = useState(false);
   const [flowInfoAnchorEl, setFlowInfoAnchorEl] = useState<HTMLElement | null>(
@@ -178,6 +186,21 @@ export default function FlowsPage() {
   const [flowModelId, setFlowModelId] = useState('unknown');
 
   const log = useMemo(() => createLogger('client-flows'), []);
+
+  const flowOptions = useMemo<FlowOption[]>(() => {
+    const options = flows.map((flow) => ({
+      ...flow,
+      key: buildFlowKey(flow),
+      label: buildFlowLabel(flow),
+    }));
+    return options.sort((a, b) => a.label.localeCompare(b.label));
+  }, [flows]);
+
+  const selectedFlow = useMemo(
+    () => flowOptions.find((flow) => flow.key === selectedFlowKey),
+    [flowOptions, selectedFlowKey],
+  );
+  const selectedFlowName = selectedFlow?.name ?? '';
 
   const {
     conversations,
@@ -223,10 +246,6 @@ export default function FlowsPage() {
     [messages],
   );
 
-  const selectedFlow = useMemo(
-    () => flows.find((flow) => flow.name === selectedFlowName),
-    [flows, selectedFlowName],
-  );
   const flowDescription = selectedFlow?.description?.trim();
   const flowWarnings =
     selectedFlow?.disabled && selectedFlow?.error ? [selectedFlow.error] : [];
@@ -406,12 +425,15 @@ export default function FlowsPage() {
     try {
       const result = await listFlows();
       setFlows(result.flows);
-      if (!selectedFlowName) {
+      const flowKeys = result.flows.map((flow) => buildFlowKey(flow));
+      if (!selectedFlowKey || !flowKeys.includes(selectedFlowKey)) {
         const firstAvailable = result.flows.find((flow) => !flow.disabled);
         if (firstAvailable) {
-          setSelectedFlowName(firstAvailable.name);
+          setSelectedFlowKey(buildFlowKey(firstAvailable));
         } else if (result.flows.length > 0) {
-          setSelectedFlowName(result.flows[0].name);
+          setSelectedFlowKey(buildFlowKey(result.flows[0]));
+        } else {
+          setSelectedFlowKey('');
         }
       }
     } catch (err) {
@@ -420,7 +442,7 @@ export default function FlowsPage() {
     } finally {
       setFlowsLoading(false);
     }
-  }, [selectedFlowName]);
+  }, [selectedFlowKey]);
 
   useEffect(() => {
     void loadFlows();
@@ -608,12 +630,12 @@ export default function FlowsPage() {
   const handleFlowChange = useCallback(
     (event: ChangeEvent<HTMLInputElement>) => {
       const next = event.target.value;
-      if (next === selectedFlowName) return;
-      setSelectedFlowName(next);
+      if (next === selectedFlowKey) return;
+      setSelectedFlowKey(next);
       setSuppressAutoSelect(false);
       resetConversation();
     },
-    [resetConversation, selectedFlowName, setSuppressAutoSelect],
+    [resetConversation, selectedFlowKey, setSuppressAutoSelect],
   );
 
   const handleFlowInfoOpen = (event: MouseEvent<HTMLElement>) => {
@@ -711,8 +733,13 @@ export default function FlowsPage() {
       subscribeConversation(nextConversationId);
 
       try {
+        log('info', 'DEV-0000034:T6:flows.run_payload', {
+          flowName: selectedFlowName,
+          sourceId: selectedFlow?.sourceId ?? 'local',
+        });
         const result = await runFlow({
           flowName: selectedFlowName,
+          sourceId: selectedFlow?.sourceId,
           conversationId: nextConversationId,
           customTitle: shouldIncludeCustomTitle
             ? trimmedCustomTitle
@@ -779,6 +806,7 @@ export default function FlowsPage() {
       refreshConversations,
       resumeStepPath,
       selectedFlowDisabled,
+      selectedFlow?.sourceId,
       selectedFlowName,
       setConversation,
       setSuppressAutoSelect,
@@ -955,18 +983,18 @@ export default function FlowsPage() {
                       fullWidth
                       size="small"
                       label="Flow"
-                      value={selectedFlowName}
+                      value={selectedFlowKey}
                       onChange={handleFlowChange}
                       disabled={flowsLoading || !!flowsError}
                       inputProps={{ 'data-testid': 'flow-select' }}
                     >
-                      {flows.map((flow) => (
+                      {flowOptions.map((flow) => (
                         <MenuItem
-                          key={flow.name}
-                          value={flow.name}
+                          key={flow.key}
+                          value={flow.key}
                           disabled={flow.disabled}
                         >
-                          {flow.name}
+                          {flow.label}
                         </MenuItem>
                       ))}
                     </TextField>

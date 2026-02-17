@@ -10,6 +10,7 @@ type Deps = {
 
 type FlowRunBody = {
   conversationId?: unknown;
+  sourceId?: unknown;
   working_folder?: unknown;
   resumeStepPath?: unknown;
   customTitle?: unknown;
@@ -24,6 +25,7 @@ const validateBody = (
   body: unknown,
 ): {
   conversationId?: string;
+  sourceId?: string;
   working_folder?: string;
   resumeStepPath?: number[];
   customTitle?: string;
@@ -39,6 +41,17 @@ const validateBody = (
   const conversationId =
     typeof rawConversationId === 'string' && rawConversationId.trim().length > 0
       ? rawConversationId
+      : undefined;
+
+  const rawSourceId = candidate.sourceId;
+  if (rawSourceId !== undefined && rawSourceId !== null) {
+    if (typeof rawSourceId !== 'string') {
+      throw new Error('sourceId must be a string');
+    }
+  }
+  const sourceId =
+    typeof rawSourceId === 'string' && rawSourceId.trim().length > 0
+      ? rawSourceId.trim()
       : undefined;
 
   const rawWorkingFolder = candidate.working_folder;
@@ -81,7 +94,13 @@ const validateBody = (
       ? rawCustomTitle.trim()
       : undefined;
 
-  return { conversationId, working_folder, resumeStepPath, customTitle };
+  return {
+    conversationId,
+    sourceId,
+    working_folder,
+    resumeStepPath,
+    customTitle,
+  };
 };
 
 export function createFlowsRunRouter(
@@ -108,6 +127,7 @@ export function createFlowsRunRouter(
 
     let parsedBody: {
       conversationId?: string;
+      sourceId?: string;
       working_folder?: string;
       resumeStepPath?: number[];
       customTitle?: string;
@@ -134,6 +154,7 @@ export function createFlowsRunRouter(
       const result = await deps.startFlowRun({
         flowName,
         conversationId: parsedBody.conversationId,
+        sourceId: parsedBody.sourceId,
         working_folder: parsedBody.working_folder,
         resumeStepPath: parsedBody.resumeStepPath,
         customTitle: parsedBody.customTitle,

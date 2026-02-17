@@ -35,6 +35,8 @@ export type RunAgentCommandRunnerParams = {
   agentHome: string;
   commandName: string;
   conversationId?: string;
+  commandsRoot?: string;
+  commandFilePath?: string;
   lockAlreadyHeld?: boolean;
   working_folder?: string;
   signal?: AbortSignal;
@@ -89,8 +91,10 @@ export async function runAgentCommandRunner(
   }
 
   const commandName = params.commandName.trim();
-  const commandsDir = path.join(params.agentHome, 'commands');
-  const filePath = path.join(commandsDir, `${commandName}.json`);
+  const commandsDir =
+    params.commandsRoot ?? path.join(params.agentHome, 'commands');
+  const filePath =
+    params.commandFilePath ?? path.join(commandsDir, `${commandName}.json`);
 
   const commandStat = await fs.stat(filePath).catch((error) => {
     if ((error as { code?: string }).code === 'ENOENT') return null;

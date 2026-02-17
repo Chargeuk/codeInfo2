@@ -111,7 +111,13 @@ export async function listAgents(): Promise<{ agents: AgentSummary[] }> {
   };
 }
 export async function listAgentCommands(agentName: string): Promise<{
-  commands: Array<{ name: string; description: string; disabled: boolean }>;
+  commands: Array<{
+    name: string;
+    description: string;
+    disabled: boolean;
+    sourceId?: string;
+    sourceLabel?: string;
+  }>;
 }> {
   const res = await fetch(
     new URL(
@@ -137,6 +143,12 @@ export async function listAgentCommands(agentName: string): Promise<{
               typeof record.description === 'string' ? record.description : '',
             disabled:
               typeof record.disabled === 'boolean' ? record.disabled : false,
+            sourceId:
+              typeof record.sourceId === 'string' ? record.sourceId : undefined,
+            sourceLabel:
+              typeof record.sourceLabel === 'string'
+                ? record.sourceLabel
+                : undefined,
           };
         })
         .filter(Boolean)
@@ -147,6 +159,8 @@ export async function listAgentCommands(agentName: string): Promise<{
       name: string;
       description: string;
       disabled: boolean;
+      sourceId?: string;
+      sourceLabel?: string;
     }>,
   };
 }
@@ -212,6 +226,7 @@ export async function runAgentInstruction(params: {
 export async function runAgentCommand(params: {
   agentName: string;
   commandName: string;
+  sourceId?: string;
   conversationId?: string;
   working_folder?: string;
   signal?: AbortSignal;
@@ -232,6 +247,7 @@ export async function runAgentCommand(params: {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         commandName: params.commandName,
+        ...(params.sourceId?.trim() ? { sourceId: params.sourceId } : {}),
         ...(params.conversationId
           ? { conversationId: params.conversationId }
           : {}),

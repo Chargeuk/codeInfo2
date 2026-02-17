@@ -5,7 +5,7 @@
       "type": "message",
       "role": "user",
       "content": [
-        "Please read Agents.md and follow its instructions. Give me an overview of the project and where we are up to and how the next steps will be achieved by taking a look at the next unfinished plan within /home/d_a_s/code/kadshow/KaDshow_Web/planning and also checking the last 3 git commits. Note that the next unfinishhed plan is the lowest index where some or all of the tasks are not yet in the completed state (though it may be that the next plan to be worked on has not yet been tasked up). Please note and remember this story plan, as it will for the basis my next tasks."
+        "Please read Agents.md and follow its instructions. Give me an overview of the project and where we are up to and how the next steps will be achieved by taking a look at the next unfinished plan within /home/d_a_s/code/kadshow/KaDshow_Web/planning and also checking the last 3 git commits. Note that the next unfinishhed plan is the lowest index where some or all of the tasks are not yet in the completed state (though it may be that the next plan to be worked on has not yet been tasked up). Please note and remember this story plan, as it will form the basis of my next tasks."
       ]
     },
     {

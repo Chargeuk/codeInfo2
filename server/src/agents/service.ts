@@ -420,7 +420,8 @@ export async function startAgentCommand(params: {
       );
 
       const resolved = path.resolve(commandsDir, `${commandName}.json`);
-      if (path.relative(commandsDir, resolved).startsWith('..')) {
+      const relativePath = path.relative(commandsDir, resolved);
+      if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
         throw toRunAgentError('COMMAND_INVALID');
       }
       commandFilePath = resolved;
@@ -568,7 +569,8 @@ export async function runAgentCommand(params: {
       'commands',
     );
     const resolved = path.resolve(commandsRoot, `${params.commandName}.json`);
-    if (path.relative(commandsRoot, resolved).startsWith('..')) {
+    const relativePath = path.relative(commandsRoot, resolved);
+    if (relativePath.startsWith('..') || path.isAbsolute(relativePath)) {
       throw toRunAgentError('COMMAND_INVALID');
     }
     commandFilePath = resolved;

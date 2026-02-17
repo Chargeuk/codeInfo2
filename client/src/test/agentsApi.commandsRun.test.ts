@@ -37,6 +37,20 @@ describe('Agents API runAgentCommand', () => {
     expect(JSON.parse(init.body as string)).toEqual({ commandName: 'smoke' });
   });
 
+  it('includes sourceId when provided', async () => {
+    await runAgentCommand({
+      agentName: 'planning_agent',
+      commandName: 'smoke',
+      sourceId: '/data/repo-a',
+    });
+
+    const [, init] = mockFetch.mock.calls[0] as [unknown, RequestInit];
+    const body = JSON.parse(init.body as string) as Record<string, unknown>;
+
+    expect(body).toHaveProperty('commandName', 'smoke');
+    expect(body).toHaveProperty('sourceId', '/data/repo-a');
+  });
+
   it('omits optional fields when not provided', async () => {
     await runAgentCommand({
       agentName: 'planning_agent',
@@ -49,5 +63,6 @@ describe('Agents API runAgentCommand', () => {
     expect(body).toHaveProperty('commandName', 'smoke');
     expect(body).not.toHaveProperty('working_folder');
     expect(body).not.toHaveProperty('conversationId');
+    expect(body).not.toHaveProperty('sourceId');
   });
 });

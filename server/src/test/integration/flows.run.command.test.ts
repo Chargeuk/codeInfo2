@@ -200,3 +200,12 @@ test('invalid command steps return 400 invalid_request', async () => {
     assert.equal(res.body.error, 'invalid_request');
   });
 });
+
+test('flow run rejects path traversal attempts', async () => {
+  await withFlowServer(async ({ baseUrl }) => {
+    await supertest(baseUrl)
+      .post('/flows/..%2Fescape/run')
+      .send({})
+      .expect(404);
+  });
+});

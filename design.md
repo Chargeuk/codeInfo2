@@ -44,11 +44,15 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - By default, `flows/` is resolved as a sibling to `CODEINFO_CODEX_AGENT_HOME` (so it sits alongside `codex_agents`); `FLOWS_DIR` can override this path.
 - Non-JSON files are ignored; missing `flows/` returns an empty list.
 - Invalid JSON or schema still appears as `disabled: true` with error text.
+- Ingested repos add flows from `<ingestRoot>/flows`, setting `sourceId = RepoEntry.containerPath` and `sourceLabel = RepoEntry.id` (fallbacks to container basename). Local flows omit both fields.
+- Flow list sorting uses display labels (`<name>` vs `<name> - [sourceLabel]`) and preserves duplicate flow names across repos.
 - Each scan logs `flows.discovery.scan` with `{ totalFlows, disabledFlows }`.
+- Combined lists log `DEV-0000034:T3:flows_listed` with `{ localCount, ingestedCount, totalCount }`.
 
 ## Flows (run core)
 
 - `POST /flows/:flowName/run` validates the flow file on disk (hot-reload per run) and returns `202 { status: "started", flowName, conversationId, inflightId, modelId }`.
+- Optional `sourceId` selects the ingest root for execution (`<sourceId>/flows/<flowName>.json`); unknown `sourceId` or missing files return `404 { error: 'not_found' }`.
 - Flow runs create a conversation titled `customTitle` when provided (fallback `Flow: <name>`) and set `flowName` for sidebar filtering.
 - Per-agent flow conversations use `${customTitle} (<identifier>)` when provided (fallback `Flow: <name> (<identifier>)`) and remain agent-only (no `flowName`).
 - Resume requests never rename existing flow or per-agent conversation titles; `customTitle` applies only on creation.
@@ -65,7 +69,11 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 
 ```mermaid
 flowchart TD
-  Start[Start flow run] --> TitleCheck{customTitle provided?}
+  Start[Start flow run] --> SourceCheck{sourceId provided?}
+  SourceCheck -- Yes --> SourceRoot[Flows root = <sourceId>/flows]
+  SourceCheck -- No --> LocalRoot[Flows root = local flows dir]
+  SourceRoot --> TitleCheck{customTitle provided?}
+  LocalRoot --> TitleCheck
   TitleCheck -- Yes --> MainTitle[Main title = customTitle]
   TitleCheck -- No --> MainFallback[Main title = Flow: <flowName>]
   MainTitle --> AgentTitle[Per-agent title = customTitle (identifier)]
@@ -111,9 +119,9 @@ sequenceDiagram
 ## Flows (UI)
 
 - Client route `/flows` provides the Flows page with a drawer sidebar and transcript layout matching Chat/Agents.
-- The flow selector is populated by `GET /flows` and disables invalid flows (shows description + error banner when disabled).
+- The flow selector is populated by `GET /flows`, shows ingested entries as `<name> - [sourceLabel]` (locals remain unlabeled), sorts by display label, and disables invalid flows (shows description + error banner when disabled).
 - Conversations are filtered to the selected flow name and displayed via `ConversationList` (archive/restore/bulk still available).
-- Run/resume controls call `POST /flows/:flowName/run` with `conversationId`, optional `working_folder`, and `resumeStepPath` derived from `flags.flow.stepPath`.
+- Run/resume controls call `POST /flows/:flowName/run` with `conversationId`, optional `sourceId` (ingested flows), optional `working_folder`, and `resumeStepPath` derived from `flags.flow.stepPath`.
 - The transcript uses `useChatStream` + `useChatWs` to render per-step metadata (label + agentType/identifier) alongside standard timestamp/usage/timing lines; Stop issues `cancel_inflight` over WS.
 - Flow command metadata normalization emits `flows.metadata.normalized` when flow labels are parsed for UI rendering.
 
@@ -136,7 +144,7 @@ sequenceDiagram
   participant Mongo
 
   User->>UI: Select flow + Run/Resume
-  UI->>Server: POST /flows/:flowName/run (conversationId, resumeStepPath?)
+  UI->>Server: POST /flows/:flowName/run (conversationId, sourceId?, resumeStepPath?)
   Server->>Mongo: persist conversation + resume flags
   Server-->>UI: 202 started (conversationId, inflightId)
   Server-->>WS: stream step turns with command metadata
@@ -584,8 +592,10 @@ runAgentInstruction()
 
 - Agent commands live in each agent home at `commands/<commandName>.json` and are loaded at execution time.
 - REST endpoints:
-  - `GET /agents/:agentName/commands` returns `{ commands: [{ name, description, disabled }] }`.
-  - `POST /agents/:agentName/commands/run` accepts `{ commandName, conversationId?, working_folder? }` and returns `{ agentName, commandName, conversationId, modelId }`.
+  - `GET /agents/:agentName/commands` returns `{ commands: [{ name, description, disabled, sourceId?, sourceLabel? }] }`.
+  - `POST /agents/:agentName/commands/run` accepts `{ commandName, conversationId?, working_folder?, sourceId? }` and returns `{ agentName, commandName, conversationId, modelId }`.
+- Command discovery includes ingested repo commands at `<ingestRoot>/codex_agents/<agentName>/commands` when the agent exists locally; ingested entries include `sourceId = RepoEntry.containerPath`, `sourceLabel = RepoEntry.id` (fallback to ingest root basename), and the list is sorted by display label `<name>` or `<name> - [sourceLabel]`.
+- Command runs accept optional `sourceId` (container path). Unknown `sourceId` values return a 404 `{ error: 'not_found' }`, and the server logs `DEV-0000034:T2:command_run_resolved` with the resolved command path.
 - REST error mapping (command run):
   - `COMMAND_NOT_FOUND` → 404 `{ error: 'not_found' }`
   - `COMMAND_INVALID` → 400 `{ error: 'invalid_request', code: 'COMMAND_INVALID', message }`
@@ -874,6 +884,7 @@ flowchart TD
 - Conversation continuation is done by selecting a prior conversation from the sidebar (no manual `conversationId` entry).
 - Command runs do not use client-side locking; the server rejects concurrent runs for the same `conversationId` with `RUN_IN_PROGRESS` (HTTP 409), and the UI surfaces this as a friendly error.
 - After a successful command run, the UI refreshes the conversation list and hydrates the transcript from persisted turns so multi-step results show in order.
+- The command dropdown labels ingested entries as `<name> - [sourceLabel]` (locals are unlabeled), sorts by display label, and includes `sourceId` in run payloads for ingested commands.
 
 ```mermaid
 flowchart TD
@@ -889,7 +900,7 @@ flowchart TD
 flowchart TD
   Load[Open /agents] --> ListAgents[GET /agents]
   ListAgents --> SelectAgent[Select agent]
-  SelectAgent --> ListCommands[GET /agents/<agentName>/commands]
+  SelectAgent --> ListCommands[GET /agents/<agentName>/commands\n(label format <name> - [sourceLabel])]
   ListCommands --> SelectCommand{Select command?}
   SelectAgent --> ListConvos[GET /conversations?agentName=<agentName>]
   ListConvos --> SelectConvo{Select conversation?}
@@ -900,7 +911,7 @@ flowchart TD
   Ready --> Send[POST /agents/<agentName>/run]
   Send --> Render[Render segments (thinking/vector_summary/answer)]
   Render --> ListConvos
-  SelectCommand -->|Yes| Execute[POST /agents/<agentName>/commands/run]
+  SelectCommand -->|Yes| Execute[POST /agents/<agentName>/commands/run\n(commandName + sourceId?)]
   Execute -->|200| RefreshConvos[Refresh conversations]
   RefreshConvos --> HydrateTurns
   Execute -->|409 RUN_IN_PROGRESS| CmdErr[Render friendly conflict message]
@@ -1848,6 +1859,7 @@ sequenceDiagram
 ### Logs page UI
 
 - Controls: free-text filter, clickable chips for levels (`error|warn|info|debug`) and sources (`server|client`), live toggle (SSE on/off), manual refresh, and a “Send sample log” button that emits an example entry via `createLogger('client-logs')`.
+- On mount, the page logs `DEV-0000034:T7:logs_page_viewed` with `{ route: '/logs' }` for verification.
 - States: loading shows CircularProgress with text; errors surface in an Alert; empty state reads “No logs yet. Emit one with ‘Send sample log’.” SSE auto-reconnects with 15s heartbeats and replays missed entries using `Last-Event-ID` so the UI stays in sync when live mode is on.
 - Layout: table on md+ screens with chips per level/source and monospace context column; stacked outlined cards on small screens to avoid horizontal scroll.
 - Live behaviour: when Live is on, EventSource streams `/logs/stream` with auto-reconnect; turning it off keeps the last fetched snapshot. Refresh clears cached data and re-fetches `/logs` with current filters.

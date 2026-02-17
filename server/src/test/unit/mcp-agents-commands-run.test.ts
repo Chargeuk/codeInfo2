@@ -64,6 +64,32 @@ test('callTool run_command maps RUN_IN_PROGRESS to RunInProgressError', async ()
   );
 });
 
+test('callTool run_command trims sourceId and treats whitespace-only as undefined', async () => {
+  let captured: { sourceId?: string } | undefined;
+
+  await callTool(
+    'run_command',
+    {
+      agentName: 'planning_agent',
+      commandName: 'improve_plan',
+      sourceId: '   ',
+    },
+    {
+      runAgentCommand: async (params) => {
+        captured = { sourceId: params.sourceId };
+        return {
+          agentName: 'planning_agent',
+          commandName: 'improve_plan',
+          conversationId: 'c1',
+          modelId: 'm1',
+        };
+      },
+    },
+  );
+
+  assert.deepEqual(captured, { sourceId: undefined });
+});
+
 test('callTool run_command rejects invalid commandName with InvalidParamsError', async () => {
   await assert.rejects(
     () =>

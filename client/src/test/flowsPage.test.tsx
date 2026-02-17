@@ -127,7 +127,7 @@ describe('Flows page basics', () => {
 
     const flowSelect = await screen.findByTestId('flow-select');
     await waitFor(() =>
-      expect((flowSelect as HTMLInputElement).value).toBe('daily'),
+      expect((flowSelect as HTMLInputElement).value).toBe('daily::local'),
     );
 
     const metadata = await screen.findByTestId('bubble-flow-meta');
@@ -202,7 +202,9 @@ describe('Flows page basics', () => {
 
     const flowSelect = await screen.findByTestId('flow-select');
     await waitFor(() =>
-      expect((flowSelect as HTMLInputElement).value).toBe('execute_plan'),
+      expect((flowSelect as HTMLInputElement).value).toBe(
+        'execute_plan::local',
+      ),
     );
 
     await waitFor(() =>
@@ -261,7 +263,7 @@ describe('Flows page basics', () => {
 
     const flowSelect = await screen.findByTestId('flow-select');
     await waitFor(() =>
-      expect((flowSelect as HTMLInputElement).value).toBe('daily'),
+      expect((flowSelect as HTMLInputElement).value).toBe('daily::local'),
     );
     await screen.findByText('Flow: daily');
 
@@ -322,7 +324,7 @@ describe('Flows info popover', () => {
 
     const flowSelect = await screen.findByTestId('flow-select');
     await waitFor(() =>
-      expect((flowSelect as HTMLInputElement).value).toBe('broken_flow'),
+      expect((flowSelect as HTMLInputElement).value).toBe('broken_flow::local'),
     );
 
     fireEvent.click(screen.getByTestId('flow-info'));
@@ -369,7 +371,7 @@ describe('Flows info popover', () => {
 
     const flowSelect = await screen.findByTestId('flow-select');
     await waitFor(() =>
-      expect((flowSelect as HTMLInputElement).value).toBe('daily'),
+      expect((flowSelect as HTMLInputElement).value).toBe('daily::local'),
     );
 
     fireEvent.click(screen.getByTestId('flow-info'));
@@ -408,7 +410,7 @@ describe('Flows info popover', () => {
 
     const flowSelect = await screen.findByTestId('flow-select');
     await waitFor(() =>
-      expect((flowSelect as HTMLInputElement).value).toBe('simple_flow'),
+      expect((flowSelect as HTMLInputElement).value).toBe('simple_flow::local'),
     );
 
     fireEvent.click(screen.getByTestId('flow-info'));

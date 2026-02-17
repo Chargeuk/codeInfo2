@@ -26,6 +26,7 @@ function buildApp(deps?: {
 }
 
 test('POST /agents/:agentName/commands/run returns 202 + a stable started payload shape', async () => {
+  let receivedSourceId: string | undefined;
   const res = await request(
     buildApp({
       startAgentCommand: async (params: unknown) => {
@@ -33,6 +34,7 @@ test('POST /agents/:agentName/commands/run returns 202 + a stable started payloa
           (params as { commandName?: string }).commandName,
           'improve_plan',
         );
+        receivedSourceId = (params as { sourceId?: string }).sourceId;
         return {
           agentName: 'planning_agent',
           commandName: 'improve_plan',
@@ -52,6 +54,60 @@ test('POST /agents/:agentName/commands/run returns 202 + a stable started payloa
   assert.equal(res.body.conversationId, 'conv-1');
   assert.equal(typeof res.body.modelId, 'string');
   assert.equal(res.body.modelId.length > 0, true);
+  assert.equal(receivedSourceId, undefined);
+});
+
+test('POST /agents/:agentName/commands/run forwards sourceId for ingested command runs', async () => {
+  let receivedSourceId: string | undefined;
+  const res = await request(
+    buildApp({
+      startAgentCommand: async (params: unknown) => {
+        receivedSourceId = (params as { sourceId?: string }).sourceId;
+        return {
+          agentName: 'planning_agent',
+          commandName: 'build',
+          conversationId: 'conv-2',
+          modelId: 'model-from-config',
+        };
+      },
+    }),
+  )
+    .post('/agents/planning_agent/commands/run')
+    .send({ commandName: 'build', sourceId: '/data/repo' });
+
+  assert.equal(res.status, 202);
+  assert.equal(res.body.status, 'started');
+  assert.equal(receivedSourceId, '/data/repo');
+});
+
+test('POST /agents/:agentName/commands/run maps unknown sourceId to 404', async () => {
+  const res = await request(
+    buildApp({
+      startAgentCommand: async () => {
+        throw { code: 'COMMAND_NOT_FOUND' };
+      },
+    }),
+  )
+    .post('/agents/planning_agent/commands/run')
+    .send({ commandName: 'improve_plan', sourceId: '/data/missing' });
+
+  assert.equal(res.status, 404);
+  assert.deepEqual(res.body, { error: 'not_found' });
+});
+
+test('POST /agents/:agentName/commands/run maps missing ingested command files to 404', async () => {
+  const res = await request(
+    buildApp({
+      startAgentCommand: async () => {
+        throw { code: 'COMMAND_NOT_FOUND' };
+      },
+    }),
+  )
+    .post('/agents/planning_agent/commands/run')
+    .send({ commandName: 'missing', sourceId: '/data/repo' });
+
+  assert.equal(res.status, 404);
+  assert.deepEqual(res.body, { error: 'not_found' });
 });
 
 test('POST /agents/:agentName/commands/run maps RUN_IN_PROGRESS to 409 conflict + stable payload', async () => {

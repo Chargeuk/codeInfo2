@@ -148,7 +148,7 @@ describe('Agents page - navigate away keeps run', () => {
       await user.click(commandSelect);
     });
     const option = await screen.findByTestId(
-      'agent-command-option-improve_plan',
+      'agent-command-option-improve_plan::local',
     );
     await act(async () => {
       await user.click(option);

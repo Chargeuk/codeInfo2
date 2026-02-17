@@ -124,7 +124,7 @@ describe('Agents page - command start errors', () => {
       await user.click(commandSelect);
     });
     const option = await screen.findByTestId(
-      'agent-command-option-improve_plan',
+      'agent-command-option-improve_plan::local',
     );
     await act(async () => {
       await user.click(option);
@@ -229,7 +229,7 @@ describe('Agents page - command start errors', () => {
       await user.click(commandSelect);
     });
     const option = await screen.findByTestId(
-      'agent-command-option-improve_plan',
+      'agent-command-option-improve_plan::local',
     );
     await act(async () => {
       await user.click(option);

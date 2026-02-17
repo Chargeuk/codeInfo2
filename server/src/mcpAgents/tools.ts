@@ -69,10 +69,17 @@ const safeCommandNameSchema = z
     return true;
   }, 'commandName must not contain path separators or ..');
 
+const optionalTrimmedSourceIdSchema = z.preprocess((value) => {
+  if (typeof value !== 'string') return value;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}, z.string().min(1).optional());
+
 const runCommandParamsSchema = z
   .object({
     agentName: z.string().min(1),
     commandName: safeCommandNameSchema,
+    sourceId: optionalTrimmedSourceIdSchema,
     conversationId: z.string().min(1).optional(),
     working_folder: z.string().min(1).optional(),
   })
@@ -191,6 +198,11 @@ function runCommandDefinition() {
           description:
             'Command macro name (without .json) under <agent>/commands/.',
         },
+        sourceId: {
+          type: 'string',
+          description:
+            'Optional ingested repository container path when running a command discovered from an ingested repo (for example, /data/my-repo).',
+        },
         conversationId: {
           type: 'string',
           description:
@@ -249,6 +261,12 @@ async function runListCommands(params: unknown, deps: Partial<CallToolDeps>) {
         .map((command) => ({
           name: command.name,
           description: command.description,
+          ...(command.sourceId && command.sourceLabel
+            ? {
+                sourceId: command.sourceId,
+                sourceLabel: command.sourceLabel,
+              }
+            : {}),
         }));
       return {
         content: [
@@ -275,6 +293,12 @@ async function runListCommands(params: unknown, deps: Partial<CallToolDeps>) {
         .map((command) => ({
           name: command.name,
           description: command.description,
+          ...(command.sourceId && command.sourceLabel
+            ? {
+                sourceId: command.sourceId,
+                sourceLabel: command.sourceLabel,
+              }
+            : {}),
         }));
       return { agentName: agent.name, commands };
     }),
@@ -310,6 +334,7 @@ async function runRunCommand(params: unknown, deps: Partial<CallToolDeps>) {
     const result = await resolvedRunAgentCommand({
       agentName: parsed.agentName,
       commandName: parsed.commandName,
+      sourceId: parsed.sourceId,
       conversationId: parsed.conversationId,
       working_folder: parsed.working_folder,
       signal: deps.signal,

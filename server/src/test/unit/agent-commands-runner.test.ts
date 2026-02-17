@@ -555,4 +555,21 @@ describe('agent commands runner (v1)', () => {
     barrier.resolve();
     await first;
   });
+
+  test('rejects command names that attempt path traversal', async () => {
+    tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-commands-runner-'));
+    const agentHome = path.join(tmpDir, 'a1');
+
+    await assert.rejects(
+      async () =>
+        runAgentCommandRunner({
+          agentName: 'a1',
+          agentHome,
+          commandName: '../escape',
+          source: 'REST',
+          runAgentInstructionUnlocked: async () => ({ modelId: 'm1' }),
+        }),
+      (err) => (err as { code?: string }).code === 'COMMAND_INVALID',
+    );
+  });
 });

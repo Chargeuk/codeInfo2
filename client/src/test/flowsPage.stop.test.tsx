@@ -41,6 +41,247 @@ function mockJsonResponse(payload: unknown, init?: { status?: number }) {
 }
 
 describe('Flows page stop control', () => {
+  it('renders ingested flow labels and keeps duplicate names selectable', async () => {
+    const user = userEvent.setup();
+
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const target = typeof url === 'string' ? url : url.toString();
+
+      if (target.includes('/health')) {
+        return mockJsonResponse({ mongoConnected: true });
+      }
+
+      if (target.includes('/flows') && !target.includes('/run')) {
+        return mockJsonResponse({
+          flows: [
+            {
+              name: 'release',
+              description: 'Release flow',
+              disabled: false,
+              sourceId: '/data/repo-b',
+              sourceLabel: 'Repo B',
+            },
+            {
+              name: 'release',
+              description: 'Release flow',
+              disabled: false,
+              sourceId: '/data/repo-a',
+              sourceLabel: 'Repo A',
+            },
+            { name: 'smoke', description: 'Smoke flow', disabled: false },
+          ],
+        });
+      }
+
+      if (target.includes('/conversations/') && target.includes('/turns')) {
+        return mockJsonResponse({ items: [] });
+      }
+
+      if (target.includes('/conversations')) {
+        return mockJsonResponse({ items: [] });
+      }
+
+      return mockJsonResponse({});
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+    render(<RouterProvider router={router} />);
+
+    const flowSelect = await screen.findByRole('combobox', { name: /flow/i });
+    await waitFor(() => expect(flowSelect).toBeEnabled());
+    await user.click(flowSelect);
+
+    const options = await screen.findAllByRole('option');
+    const optionLabels = options.map((option) => option.textContent ?? '');
+    expect(optionLabels).toEqual([
+      'release - [Repo A]',
+      'release - [Repo B]',
+      'smoke',
+    ]);
+  });
+
+  it('includes sourceId when running an ingested flow', async () => {
+    const user = userEvent.setup();
+    const now = new Date().toISOString();
+
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const target = typeof url === 'string' ? url : url.toString();
+
+      if (target.includes('/health')) {
+        return mockJsonResponse({ mongoConnected: true });
+      }
+
+      if (target.includes('/flows') && !target.includes('/run')) {
+        return mockJsonResponse({
+          flows: [
+            {
+              name: 'release',
+              description: 'Release flow',
+              disabled: false,
+              sourceId: '/data/repo-a',
+              sourceLabel: 'Repo A',
+            },
+          ],
+        });
+      }
+
+      if (target.includes('/conversations/') && target.includes('/turns')) {
+        return mockJsonResponse({
+          items: [],
+          inflight: {
+            inflightId: 'i1',
+            assistantText: '',
+            assistantThink: '',
+            toolEvents: [],
+            startedAt: now,
+            seq: 1,
+          },
+        });
+      }
+
+      if (target.includes('/conversations')) {
+        return mockJsonResponse({
+          items: [
+            {
+              conversationId: 'flow-1',
+              title: 'Flow: release',
+              provider: 'codex',
+              model: 'gpt-5',
+              source: 'REST',
+              lastMessageAt: now,
+              archived: false,
+              flowName: 'release',
+              flags: {},
+            },
+          ],
+        });
+      }
+
+      if (target.includes('/flows/release/run')) {
+        return mockJsonResponse({
+          status: 'started',
+          flowName: 'release',
+          conversationId: 'flow-1',
+          inflightId: 'i1',
+          modelId: 'gpt-5',
+        });
+      }
+
+      return mockJsonResponse({});
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+    render(<RouterProvider router={router} />);
+
+    const flowSelect = await screen.findByRole('combobox', { name: /flow/i });
+    await waitFor(() => expect(flowSelect).toBeEnabled());
+    await user.click(flowSelect);
+    const option = await screen.findByRole('option', {
+      name: 'release - [Repo A]',
+    });
+    await user.click(option);
+
+    const runButton = await screen.findByTestId('flow-run');
+    await waitFor(() => expect(runButton).toBeEnabled());
+    await user.click(runButton);
+
+    await waitFor(() => {
+      const runCall = mockFetch.mock.calls.find(([url]) =>
+        url.toString().includes('/flows/release/run'),
+      );
+      expect(runCall).toBeDefined();
+      const [, init] = runCall as [unknown, RequestInit];
+      const body = JSON.parse(init.body as string) as Record<string, unknown>;
+      expect(body.sourceId).toBe('/data/repo-a');
+    });
+  });
+
+  it('omits sourceId when running a local flow', async () => {
+    const user = userEvent.setup();
+    const now = new Date().toISOString();
+
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const target = typeof url === 'string' ? url : url.toString();
+
+      if (target.includes('/health')) {
+        return mockJsonResponse({ mongoConnected: true });
+      }
+
+      if (target.includes('/flows') && !target.includes('/run')) {
+        return mockJsonResponse({
+          flows: [
+            {
+              name: 'smoke',
+              description: 'Smoke flow',
+              disabled: false,
+            },
+          ],
+        });
+      }
+
+      if (target.includes('/conversations/') && target.includes('/turns')) {
+        return mockJsonResponse({
+          items: [],
+          inflight: {
+            inflightId: 'i1',
+            assistantText: '',
+            assistantThink: '',
+            toolEvents: [],
+            startedAt: now,
+            seq: 1,
+          },
+        });
+      }
+
+      if (target.includes('/conversations')) {
+        return mockJsonResponse({
+          items: [
+            {
+              conversationId: 'flow-1',
+              title: 'Flow: smoke',
+              provider: 'codex',
+              model: 'gpt-5',
+              source: 'REST',
+              lastMessageAt: now,
+              archived: false,
+              flowName: 'smoke',
+              flags: {},
+            },
+          ],
+        });
+      }
+
+      if (target.includes('/flows/smoke/run')) {
+        return mockJsonResponse({
+          status: 'started',
+          flowName: 'smoke',
+          conversationId: 'flow-1',
+          inflightId: 'i1',
+          modelId: 'gpt-5',
+        });
+      }
+
+      return mockJsonResponse({});
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/flows'] });
+    render(<RouterProvider router={router} />);
+
+    const runButton = await screen.findByTestId('flow-run');
+    await waitFor(() => expect(runButton).toBeEnabled());
+    await user.click(runButton);
+
+    await waitFor(() => {
+      const runCall = mockFetch.mock.calls.find(([url]) =>
+        url.toString().includes('/flows/smoke/run'),
+      );
+      expect(runCall).toBeDefined();
+      const [, init] = runCall as [unknown, RequestInit];
+      const body = JSON.parse(init.body as string) as Record<string, unknown>;
+      expect(body).not.toHaveProperty('sourceId');
+    });
+  });
+
   it('sends cancel_inflight over WS when stopping a flow run', async () => {
     const user = userEvent.setup();
     const now = new Date().toISOString();

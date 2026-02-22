@@ -30,6 +30,15 @@ For markdown parity, user bubbles will use the exact same renderer and sanitizat
 - Mermaid fenced code blocks (language `mermaid`) rendered as diagrams, with script tags stripped before render.
 - Standard markdown elements already styled in the component (`p`, `ul/ol/li`, `code/pre`, `blockquote`, `table`, `img`, `a`).
 
+### Story Output Summary (Junior-Friendly)
+
+At story completion, a junior developer should be able to verify these outcomes directly:
+- All MCP servers use one shared keepalive implementation with identical lifecycle behavior.
+- REST chat and MCP `codebase_question` choose provider/model from the same precedence rules, with the same fallback defaults and runtime provider auto-fallback behavior.
+- `reingest_repository` exists on both MCP surfaces with one identical request/response/error contract and strict existing-root-only safety.
+- Codex responses in the UI no longer show cropped starts or duplicated final answer text when tool calls occur during streaming.
+- User message bubbles in Chat and Agents render with the same markdown/sanitization behavior as assistant bubbles, and valid non-whitespace user input is sent raw (no trimming).
+
 ### Verified Current Behavior (Baseline)
 
 - Keepalive timer logic is currently duplicated in `server/src/mcp2/router.ts` and `server/src/mcpAgents/router.ts`, while `server/src/mcp/server.ts` currently has no keepalive writes for long-running calls.
@@ -74,7 +83,7 @@ For markdown parity, user bubbles will use the exact same renderer and sanitizat
 - User bubbles in both Chat and Agents render through the same markdown component (`client/src/components/Markdown.tsx`) and therefore use the same sanitization and feature support as assistant bubbles, including mermaid fenced blocks.
 - User input sent to providers is preserved as raw text with no trimming, including leading/trailing spaces and newlines, for both Chat and Agents flows.
 - Whitespace-only/newline-only user input is rejected server-side before provider execution with explicit HTTP 400 validation errors (`POST /chat` and `POST /agents/:agentName/run`) as defined in this document.
-- Detailed regression matrix definition remains deferred for later planning, but final implementation must include Cucumber, Jest, and e2e coverage.
+- Regression planning is intentionally non-tasked in this document, but required coverage families are fixed now: Cucumber for server contract flows, Jest for unit/integration behavior, and e2e for user-visible stream/render outcomes.
 - Unrelated public contracts stay unchanged; only contract changes explicitly documented in this story are allowed.
 
 ## Out Of Scope
@@ -87,6 +96,8 @@ For markdown parity, user bubbles will use the exact same renderer and sanitizat
 - Changing agent execution/provider-selection architecture (agents remain Codex-driven and continue using existing agent config/default model behavior outside this story's input/rendering fixes).
 
 ## Questions
+
+None currently. Scope-defining questions for this story are resolved; if any new unknown appears during implementation, it must be added here and resolved before tasking begins.
 
 ## Scope Locks (Authoritative)
 
@@ -137,6 +148,9 @@ Contract decision summary:
   - success -> `runId`
   - busy -> `BUSY`
   - unknown -> `NOT_FOUND`
+- Existing REST start-run behavior for chat/agents remains unchanged in this story:
+  - `POST /chat` stays asynchronous with HTTP `202` start response + WS transcript events.
+  - `POST /agents/:agentName/run` stays HTTP `202` with the existing started payload shape.
 
 ### New MCP Tool Contract In This Story
 

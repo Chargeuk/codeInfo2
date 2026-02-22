@@ -517,6 +517,7 @@ Create one authoritative provider/model default resolver and wire it into REST c
      - Expose deterministic resolution: explicit request -> env override -> hardcoded fallback.
      - Hardcoded fallback must be exactly `provider=codex`, `model=gpt-5.3-codex`.
      - Validate unknown/empty env values as unresolved so fallback still applies.
+     - Reuse existing env/default validation approach from `server/src/config/codexEnvDefaults.ts` (no duplicate enum/boolean parsing utilities).
 3. [ ] Integrate resolver into REST chat validation/execution path.
    - Files to edit:
      - `server/src/routes/chatValidators.ts`
@@ -587,6 +588,7 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
 
 1. [ ] Review provider availability sources and current fallback behavior.
    - Files to read:
+     - `server/src/config/chatDefaults.ts` (if already created in Task 1)
      - `server/src/routes/chatProviders.ts`
      - `server/src/routes/chatModels.ts`
      - `server/src/routes/chat.ts`
@@ -856,6 +858,10 @@ Build a shared re-ingest service that enforces strict existing-root-only safety 
      - missing/non-string/empty/non-absolute/non-normalized/unknown -> failure
      - ambiguous path forms (`..` segments, mixed slash styles, trailing-slash variants that cannot map uniquely) -> failure
      - only exact known ingested root match allowed
+   - Reuse requirements:
+     - delegate run-start semantics to existing `isBusy` and `reembed` in `server/src/ingest/ingestJob.ts`
+     - derive retry option lists from existing `listIngestedRepositories` in `server/src/lmstudio/toolService.ts`
+     - do not duplicate ingest-job lock or reembed execution logic
 3. [ ] Implement canonical contract mappers for success and error `data` payloads.
    - Files to edit:
      - `server/src/ingest/reingestService.ts`
@@ -1066,8 +1072,9 @@ Fix server stream aggregation so tool-interleaved Codex runs do not produce crop
      - `server/src/chat/inflightRegistry.ts` (if required)
 4. [ ] Add regression tests for non-monotonic, tool-interleaved event order.
    - Files to add/edit:
-     - `server/src/test/unit/chat.codex.streamMerge.test.ts` (new)
-     - `server/src/test/unit/chat.streamBridge.finalization.test.ts` (new/update)
+     - `server/src/test/unit/chat-interface-codex.test.ts` (update existing suite)
+     - `server/src/test/unit/ws-chat-stream.test.ts` (update existing suite)
+     - `server/src/test/integration/chat-codex.test.ts` (update existing suite)
    - Required scenarios:
      - initial text -> tool call -> truncated/non-prefix update -> completed final
      - interleaved updates across multiple assistant item ids in one turn
@@ -1088,10 +1095,11 @@ Fix server stream aggregation so tool-interleaved Codex runs do not produce crop
 2. [ ] `npm run build --workspace client`
 3. [ ] `npm run compose:build`
 4. [ ] `npm run compose:up`
-5. [ ] `npm run test --workspace server -- codex.streamMerge`
-6. [ ] `npm run test --workspace server -- streamBridge`
-7. [ ] Manual smoke: run Codex chat with tool call and verify no cropped/duplicate final text
-8. [ ] `npm run compose:down`
+5. [ ] `npm run test --workspace server -- chat-interface-codex`
+6. [ ] `npm run test --workspace server -- ws-chat-stream`
+7. [ ] `npm run test --workspace server -- chat-codex`
+8. [ ] Manual smoke: run Codex chat with tool call and verify no cropped/duplicate final text
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1147,9 +1155,10 @@ Update Chat page send behavior to preserve raw user text and render user bubbles
      - newline formatting preserved
      - messages that differ only by whitespace are not merged/deduped into one user turn
      - user bubble markdown features (including mermaid fences) mirror assistant rendering
-5. [ ] Add Chat e2e coverage for user-visible raw-input + markdown rendering behavior.
+5. [ ] Extend existing Chat e2e coverage for user-visible raw-input + markdown rendering behavior.
    - Files to add/edit:
-     - `e2e/chat-user-markdown.spec.ts` (new)
+     - `e2e/chat.spec.ts` (update existing)
+     - `e2e/chat-mermaid.spec.ts` (update existing)
    - Required checks:
      - outbound payload preserves leading/trailing whitespace for non-empty content
      - user bubble markdown/mermaid rendering matches assistant renderer behavior
@@ -1171,7 +1180,7 @@ Update Chat page send behavior to preserve raw user text and render user bubbles
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test --workspace client -- chatPage.userMarkdown`
 6. [ ] `npm run test --workspace client -- useChatStream.rawInput`
-7. [ ] `npm run e2e:test -- e2e/chat-user-markdown.spec.ts`
+7. [ ] `npm run e2e:test -- e2e/chat.spec.ts e2e/chat-mermaid.spec.ts`
 8. [ ] Manual smoke: Chat UI send multiline markdown and verify user bubble formatting matches assistant markdown renderer
 9. [ ] `npm run compose:down`
 
@@ -1220,9 +1229,10 @@ Update Agents page send behavior to preserve raw user text and render user bubbl
      - multiline formatting preserved
      - agent user turns that differ only by whitespace are not merged in transcript hydration
      - user bubble markdown rendering (including mermaid fences) matches assistant rendering
-5. [ ] Add Agents e2e coverage for user-visible raw-input + markdown rendering behavior.
+5. [ ] Extend existing Agents Jest suites for user-visible raw-input + markdown rendering behavior (reuse existing agents page test harness).
    - Files to add/edit:
-     - `e2e/agents-user-markdown.spec.ts` (new)
+     - `client/src/test/agentsPage.run.test.tsx` (update existing if needed)
+     - `client/src/test/agentsPage.turnHydration.test.tsx` (update existing if needed)
    - Required checks:
      - outbound payload preserves leading/trailing whitespace for non-empty content
      - user bubble markdown/mermaid rendering matches assistant renderer behavior
@@ -1243,9 +1253,10 @@ Update Agents page send behavior to preserve raw user text and render user bubbl
 3. [ ] `npm run compose:build`
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test --workspace client -- agentsPage.userMarkdown`
-6. [ ] `npm run e2e:test -- e2e/agents-user-markdown.spec.ts`
-7. [ ] Manual smoke: Agents UI send multiline markdown and verify user bubble formatting parity
-8. [ ] `npm run compose:down`
+6. [ ] `npm run test --workspace client -- agentsPage.run`
+7. [ ] `npm run test --workspace client -- agentsPage.turnHydration`
+8. [ ] Manual smoke: Agents UI send multiline markdown and verify user bubble formatting parity
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 

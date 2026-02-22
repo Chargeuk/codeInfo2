@@ -38,3 +38,29 @@ test('tools/call with unknown tool name returns -32601 with ToolNotFoundError me
     server.close();
   }
 });
+
+test('unknown tool contract is unchanged even when Codex is unavailable', async () => {
+  const original = process.env.MCP_FORCE_CODEX_AVAILABLE;
+  process.env.MCP_FORCE_CODEX_AVAILABLE = 'false';
+
+  const server = http.createServer(handleRpc);
+  server.listen(0);
+  const { port } = server.address() as AddressInfo;
+
+  try {
+    const body = await postJson(port, {
+      jsonrpc: '2.0',
+      id: 12,
+      method: 'tools/call',
+      params: { name: 'still-nope', arguments: {} },
+    });
+    assert.equal(body.id, 12);
+    assert.deepEqual(body.error, {
+      code: -32601,
+      message: 'Tool not found: still-nope',
+    });
+  } finally {
+    process.env.MCP_FORCE_CODEX_AVAILABLE = original;
+    server.close();
+  }
+});

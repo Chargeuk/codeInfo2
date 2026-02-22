@@ -2,10 +2,10 @@ import { IncomingMessage, ServerResponse } from 'http';
 import serverPackage from '../../package.json' with { type: 'json' };
 import { dispatchJsonRpc } from '../mcpCommon/dispatch.js';
 import { isObject } from '../mcpCommon/guards.js';
-import { isCodexAvailable } from './codexAvailability.js';
 import {
   ArchivedConversationError,
   InvalidParamsError,
+  ProviderUnavailableError,
   ToolNotFoundError,
   callTool,
   listTools,
@@ -21,7 +21,6 @@ const INVALID_REQUEST_CODE = -32600;
 const METHOD_NOT_FOUND_CODE = -32601;
 const INVALID_PARAMS_CODE = -32602;
 const PARSE_ERROR_CODE = -32700;
-const CODE_INFO_LLM_UNAVAILABLE = -32001;
 const PROTOCOL_VERSION = '2024-11-05';
 const SERVER_INFO = {
   name: 'codeinfo2-mcp',
@@ -100,26 +99,10 @@ export async function handleRpc(req: IncomingMessage, res: ServerResponse) {
       resourcesListTemplates: (requestId) =>
         jsonRpcResult(requestId, { resource_templates: [] }),
       toolsList: async (requestId) => {
-        if (!(await isCodexAvailable())) {
-          return jsonRpcError(
-            requestId,
-            CODE_INFO_LLM_UNAVAILABLE,
-            'CODE_INFO_LLM_UNAVAILABLE',
-          );
-        }
-
         const tools = await listTools();
         return jsonRpcResult(requestId, tools);
       },
       toolsCall: async (requestId, paramsUnknown) => {
-        if (!(await isCodexAvailable())) {
-          return jsonRpcError(
-            requestId,
-            CODE_INFO_LLM_UNAVAILABLE,
-            'CODE_INFO_LLM_UNAVAILABLE',
-          );
-        }
-
         const params = isObject(paramsUnknown) ? paramsUnknown : {};
         const name = params.name;
         const args = params.arguments;
@@ -146,6 +129,10 @@ export async function handleRpc(req: IncomingMessage, res: ServerResponse) {
           }
 
           if (err instanceof ArchivedConversationError) {
+            return jsonRpcError(requestId, err.code, err.message);
+          }
+
+          if (err instanceof ProviderUnavailableError) {
             return jsonRpcError(requestId, err.code, err.message);
           }
 

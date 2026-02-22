@@ -9,6 +9,11 @@ import {
 } from '../agents/runLock.js';
 import { attachChatStreamBridge } from '../chat/chatStreamBridge.js';
 import { UnsupportedProviderError, getChatInterface } from '../chat/factory.js';
+import { getCodexModelList } from '../config/codexEnvDefaults.js';
+import {
+  resolveRuntimeProviderSelection,
+  type ChatDefaultProvider,
+} from '../config/chatDefaults.js';
 import {
   cleanupInflight,
   createInflight,
@@ -71,6 +76,28 @@ export const getContentItems = (message: unknown): LMContentItem[] => {
   const msg = message as LMMessage;
   const items = msg.data?.content;
   return Array.isArray(items) ? (items as LMContentItem[]) : [];
+};
+
+const toWebSocketUrl = (value: string) => {
+  if (value.startsWith('http://')) return value.replace(/^http:/i, 'ws:');
+  if (value.startsWith('https://')) return value.replace(/^https:/i, 'wss:');
+  return value;
+};
+
+const isChatModel = (model: { type?: string; architecture?: string }) => {
+  const kind = (model.type ?? '').toLowerCase();
+  return kind !== 'embedding' && kind !== 'vector';
+};
+
+const sanitizeFlagsForProvider = (
+  provider: ChatDefaultProvider,
+  flags: Record<string, unknown> | undefined,
+) => {
+  const current = { ...(flags ?? {}) };
+  if (provider !== 'codex') {
+    delete current.threadId;
+  }
+  return current;
 };
 
 export function createChatRouter({
@@ -168,6 +195,105 @@ export function createChatRouter({
       'DEV-0000035:T1:defaults_resolution_result',
     );
 
+    const requestedProvider = provider as ChatDefaultProvider;
+    const requestedModel = model;
+    const baseUrl = process.env.LMSTUDIO_BASE_URL ?? '';
+    const safeBase = scrubBaseUrl(baseUrl);
+
+    const codexDetection = getCodexDetection();
+    const codexState = {
+      available: codexDetection.available,
+      models: getCodexModelList().models,
+      reason: codexDetection.reason ?? 'codex unavailable',
+    };
+
+    let lmstudioModels: string[] = [];
+    let lmstudioReason: string | undefined;
+    let lmstudioAvailable = false;
+    if (!BASE_URL_REGEX.test(baseUrl)) {
+      lmstudioReason = 'lmstudio unavailable';
+    } else {
+      try {
+        const client = clientFactory(toWebSocketUrl(baseUrl));
+        const models = await client.system.listDownloadedModels();
+        lmstudioModels = models
+          .filter(isChatModel)
+          .map((entry) => entry.modelKey)
+          .filter((value) => typeof value === 'string' && value.trim().length);
+        if (lmstudioModels.length > 0) {
+          lmstudioAvailable = true;
+        } else {
+          lmstudioReason = 'lmstudio unavailable';
+        }
+      } catch {
+        lmstudioReason = 'lmstudio unavailable';
+      }
+    }
+    if (
+      !lmstudioAvailable &&
+      requestedProvider === 'lmstudio' &&
+      typeof requestedModel === 'string' &&
+      requestedModel.trim().length > 0
+    ) {
+      lmstudioAvailable = true;
+      lmstudioReason = undefined;
+      lmstudioModels = [requestedModel];
+    }
+
+    const runtimeSelection = resolveRuntimeProviderSelection({
+      requestedProvider,
+      requestedModel,
+      codex: codexState,
+      lmstudio: {
+        available: lmstudioAvailable,
+        models: lmstudioModels,
+        reason: lmstudioReason,
+      },
+    });
+
+    const executionProvider = runtimeSelection.executionProvider;
+    const executionModel = runtimeSelection.executionModel;
+    const effectiveCodexFlags = executionProvider === 'codex' ? codexFlags : {};
+
+    const fallbackLogContext = {
+      requestId,
+      conversationId,
+      requestedProvider: runtimeSelection.requestedProvider,
+      requestedModel: runtimeSelection.requestedModel,
+      executionProvider: runtimeSelection.executionProvider,
+      executionModel: runtimeSelection.executionModel,
+      fallbackApplied: runtimeSelection.fallbackApplied,
+      decision: runtimeSelection.decision,
+      requestedReason: runtimeSelection.requestedReason,
+      fallbackReason: runtimeSelection.fallbackReason,
+      lmstudioModelCount: lmstudioModels.length,
+      baseUrl: safeBase,
+    };
+    append({
+      level: 'info',
+      message: 'DEV-0000035:T2:provider_fallback_evaluated',
+      timestamp: now.toISOString(),
+      source: 'server',
+      requestId,
+      context: fallbackLogContext,
+    });
+    baseLogger.info(
+      fallbackLogContext,
+      'DEV-0000035:T2:provider_fallback_evaluated',
+    );
+    append({
+      level: 'info',
+      message: 'DEV-0000035:T2:provider_fallback_result',
+      timestamp: now.toISOString(),
+      source: 'server',
+      requestId,
+      context: fallbackLogContext,
+    });
+    baseLogger.info(
+      fallbackLogContext,
+      'DEV-0000035:T2:provider_fallback_result',
+    );
+
     const ensureConversation = async (): Promise<Conversation | null> => {
       if (shouldUseMemoryPersistence()) {
         const existing = memoryConversations.get(conversationId) ?? null;
@@ -176,11 +302,12 @@ export function createChatRouter({
         if (!existing) {
           const created: Conversation = {
             _id: conversationId,
-            provider,
-            model,
+            provider: executionProvider,
+            model: executionModel,
             title: message.trim().slice(0, 80) || 'Untitled conversation',
             source: 'REST',
-            flags: provider === 'codex' ? { ...codexFlags } : {},
+            flags:
+              executionProvider === 'codex' ? { ...effectiveCodexFlags } : {},
             lastMessageAt: now,
             archivedAt: null,
             createdAt: now,
@@ -192,12 +319,12 @@ export function createChatRouter({
 
         const updated: Conversation = {
           ...existing,
-          provider,
-          model,
+          provider: executionProvider,
+          model: executionModel,
           flags:
-            provider === 'codex'
-              ? { ...(existing.flags ?? {}), ...codexFlags }
-              : existing.flags,
+            executionProvider === 'codex'
+              ? { ...(existing.flags ?? {}), ...effectiveCodexFlags }
+              : sanitizeFlagsForProvider('lmstudio', existing.flags),
           source: existing.source ?? 'REST',
           lastMessageAt: now,
           updatedAt: now,
@@ -214,11 +341,12 @@ export function createChatRouter({
       if (!existing) {
         await createConversation({
           conversationId,
-          provider,
-          model,
+          provider: executionProvider,
+          model: executionModel,
           title: message.trim().slice(0, 80) || 'Untitled conversation',
           source: 'REST',
-          flags: provider === 'codex' ? { ...codexFlags } : {},
+          flags:
+            executionProvider === 'codex' ? { ...effectiveCodexFlags } : {},
           lastMessageAt: now,
         });
         const created = (await ConversationModel.findById(conversationId)
@@ -229,12 +357,12 @@ export function createChatRouter({
 
       await updateConversationMeta({
         conversationId,
-        provider,
-        model,
+        provider: executionProvider,
+        model: executionModel,
         flags:
-          provider === 'codex'
-            ? { ...(existing.flags ?? {}), ...codexFlags }
-            : existing.flags,
+          executionProvider === 'codex'
+            ? { ...(existing.flags ?? {}), ...effectiveCodexFlags }
+            : sanitizeFlagsForProvider('lmstudio', existing.flags),
         lastMessageAt: now,
       });
       const updated = (await ConversationModel.findById(conversationId)
@@ -258,46 +386,24 @@ export function createChatRouter({
         timestamp: new Date().toISOString(),
         source: 'server',
         requestId,
-        context: { provider, warning },
+        context: { provider: executionProvider, warning },
       });
-      baseLogger.warn({ requestId, provider, warning }, 'chat flag ignored');
+      baseLogger.warn(
+        { requestId, provider: executionProvider, warning },
+        'chat flag ignored',
+      );
     });
 
-    // Provider availability checks before starting background execution.
-    if (provider === 'codex') {
-      const detection = getCodexDetection();
-      if (!detection.available) {
-        return res.status(503).json({
-          status: 'error',
-          code: 'PROVIDER_UNAVAILABLE',
-          message: detection.reason ?? 'codex unavailable',
-        });
-      }
-    }
-
-    const baseUrl = process.env.LMSTUDIO_BASE_URL ?? '';
-    const safeBase = scrubBaseUrl(baseUrl);
-
-    if (provider === 'lmstudio') {
-      if (!BASE_URL_REGEX.test(baseUrl)) {
-        append({
-          level: 'error',
-          message: 'chat run invalid baseUrl',
-          timestamp: new Date().toISOString(),
-          source: 'server',
-          requestId,
-          context: { baseUrl: safeBase, model, provider },
-        });
-        baseLogger.error(
-          { requestId, baseUrl: safeBase, model, provider },
-          'chat run invalid baseUrl',
-        );
-        return res.status(503).json({
-          status: 'error',
-          code: 'PROVIDER_UNAVAILABLE',
-          message: 'lmstudio unavailable',
-        });
-      }
+    if (runtimeSelection.unavailable) {
+      const message =
+        requestedProvider === 'codex'
+          ? (codexState.reason ?? 'codex unavailable')
+          : 'lmstudio unavailable';
+      return res.status(503).json({
+        status: 'error',
+        code: 'PROVIDER_UNAVAILABLE',
+        message,
+      });
     }
 
     const existingConversation = await ensureConversation();
@@ -325,8 +431,8 @@ export function createChatRouter({
     createInflight({
       conversationId,
       inflightId,
-      provider,
-      model,
+      provider: executionProvider,
+      model: executionModel,
       source: 'REST',
       userTurn: { content: message, createdAt: now.toISOString() },
     });
@@ -340,7 +446,7 @@ export function createChatRouter({
 
     let chat: ChatInterface;
     try {
-      chat = chatFactory(provider, {
+      chat = chatFactory(executionProvider, {
         clientFactory,
         codexFactory,
         toolFactory,
@@ -362,8 +468,8 @@ export function createChatRouter({
     const bridge = attachChatStreamBridge({
       conversationId,
       inflightId,
-      provider,
-      model,
+      provider: executionProvider,
+      model: executionModel,
       requestId,
       chat,
     });
@@ -375,14 +481,20 @@ export function createChatRouter({
       source: 'server',
       requestId,
       context: {
-        provider,
-        model,
+        provider: executionProvider,
+        model: executionModel,
         conversationId,
         inflightId,
       },
     });
     baseLogger.info(
-      { requestId, provider, model, conversationId, inflightId },
+      {
+        requestId,
+        provider: executionProvider,
+        model: executionModel,
+        conversationId,
+        inflightId,
+      },
       'chat.run.started',
     );
 
@@ -391,13 +503,13 @@ export function createChatRouter({
       status: 'started',
       conversationId,
       inflightId,
-      provider,
-      model,
+      provider: executionProvider,
+      model: executionModel,
     });
 
     void (async () => {
       try {
-        if (provider === 'codex') {
+        if (executionProvider === 'codex') {
           const activeThreadId =
             threadId ??
             (existingConversation.flags?.threadId as string | undefined) ??
@@ -408,14 +520,14 @@ export function createChatRouter({
             {
               provider: 'codex',
               threadId: activeThreadId,
-              codexFlags,
+              codexFlags: effectiveCodexFlags,
               requestId,
               inflightId,
               signal: getInflight(conversationId)?.abortController.signal,
               source: 'REST',
             },
             conversationId,
-            model,
+            executionModel,
           );
           return;
         }
@@ -427,7 +539,7 @@ export function createChatRouter({
         await chat.run(
           message,
           {
-            provider,
+            provider: executionProvider,
             requestId,
             baseUrl,
             inflightId,
@@ -436,14 +548,14 @@ export function createChatRouter({
             source: 'REST',
           },
           conversationId,
-          model,
+          executionModel,
         );
       } catch (err) {
         baseLogger.error(
           {
             requestId,
-            provider,
-            model,
+            provider: executionProvider,
+            model: executionModel,
             conversationId,
             inflightId,
             err,

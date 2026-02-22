@@ -24,6 +24,8 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - Depends on `@codeinfo2/common` for DTO helper; built with `tsc -b`, started via `npm run start --workspace server`.
 - Shared chat provider/model defaults are resolved in `server/src/config/chatDefaults.ts` with strict precedence: explicit request value -> `CHAT_DEFAULT_PROVIDER` / `CHAT_DEFAULT_MODEL` env -> hardcoded fallback (`codex`, `gpt-5.3-codex`).
 - `validateChatRequest` now accepts omitted `provider`/`model`, resolves both through the shared resolver, and keeps existing REST validation envelopes unchanged.
+- Runtime provider selection is single-hop and shared: if the selected/default provider is unavailable, execution switches once to the alternate provider only when that alternate has at least one selectable runtime model. If the alternate has no selectable model, execution stays on the original provider and surfaces existing unavailable contracts (`REST: 503 PROVIDER_UNAVAILABLE`, `MCP codebase_question: -32001 CODE_INFO_LLM_UNAVAILABLE`).
+- The resolved execution provider/model are persisted on conversation metadata for both REST `/chat` and MCP `codebase_question`; when execution is not Codex, stale `flags.threadId` is removed so Codex resume state is not reused across providers.
 - Codex env defaults are resolved by `server/src/config/codexEnvDefaults.ts`, which parses `Codex_*` env vars into validated defaults plus warnings and logs `[codex-env-defaults] resolved`.
 - `validateChatRequest` applies Codex env defaults when request flags are missing, surfaces env warnings on the response payload, and logs `[codex-validate] applied env defaults` with the defaulted flag list.
 - `ChatInterfaceCodex` builds thread options from validated flags without extra fallback defaults, leaving missing values undefined so Codex config/env defaults apply, and logs `[codex-thread-options] prepared` with `undefinedFlags`.
@@ -47,6 +49,20 @@ flowchart LR
   RME --> V
   RMF --> V
   V --> C[chat route persists resolved provider/model]
+```
+
+```mermaid
+flowchart TD
+  R[Resolved default provider/model] --> A{Selected provider available?}
+  A -- yes --> S[Execute selected provider/model]
+  A -- no --> B{Alternate provider has selectable model?}
+  B -- yes --> F[Single-hop fallback to alternate provider + first selectable model]
+  B -- no --> U[Keep selected provider and return existing unavailable contract]
+  S --> P[Persist execution provider/model]
+  F --> P
+  P --> T{Execution provider == codex?}
+  T -- yes --> K[Keep/use Codex threadId]
+  T -- no --> X[Drop stale flags.threadId before persistence]
 ```
 
 ## Flows (schema)
@@ -1769,7 +1785,7 @@ flowchart LR
 - Provider specifics:
   - `provider=codex`: uses Codex thread options (workingDirectory, sandbox, web search, reasoning effort) and relies on Codex thread history (only the latest message is submitted per turn).
   - `provider=lmstudio`: uses `LMSTUDIO_BASE_URL` and the requested/default LM Studio model; history comes from stored turns for `conversationId`.
-- Error handling: the MCP v2 server is Codex-gated; when Codex is unavailable, `tools/list` and `tools/call` return `CODE_INFO_LLM_UNAVAILABLE` (-32001) even if the requested provider is `lmstudio`.
+- Error handling: MCP v2 `tools/list` and `tools/call` are no longer globally Codex-gated. Provider availability is resolved inside `codebase_question`, so LM Studio fallback remains reachable; terminal unavailable remains `CODE_INFO_LLM_UNAVAILABLE` (`-32001`) only when neither provider can execute.
 
 ```mermaid
 sequenceDiagram

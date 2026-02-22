@@ -1,10 +1,17 @@
 import crypto from 'node:crypto';
 
+import { LMStudioClient } from '@lmstudio/sdk';
 import type { ThreadOptions } from '@openai/codex-sdk';
 import mongoose from 'mongoose';
 import { z } from 'zod';
 
 import { attachChatStreamBridge } from '../../chat/chatStreamBridge.js';
+import { getCodexModelList } from '../../config/codexEnvDefaults.js';
+import {
+  resolveChatDefaults,
+  resolveRuntimeProviderSelection,
+  type ChatDefaultProvider,
+} from '../../config/chatDefaults.js';
 import {
   UnsupportedProviderError,
   getChatInterface,
@@ -26,12 +33,20 @@ import { McpResponder } from '../../chat/responders/McpResponder.js';
 import { append } from '../../logStore.js';
 import { ConversationModel } from '../../mongo/conversation.js';
 import type { Conversation } from '../../mongo/conversation.js';
-import { createConversation } from '../../mongo/repo.js';
+import {
+  createConversation,
+  updateConversationMeta,
+} from '../../mongo/repo.js';
 import {
   getCodexDetection,
   setCodexDetection,
 } from '../../providers/codexRegistry.js';
-import { ArchivedConversationError, InvalidParamsError } from '../errors.js';
+import { isCodexAvailable } from '../codexAvailability.js';
+import {
+  ArchivedConversationError,
+  InvalidParamsError,
+  ProviderUnavailableError,
+} from '../errors.js';
 
 export const CODEBASE_QUESTION_TOOL_NAME = 'codebase_question';
 
@@ -85,6 +100,31 @@ const shouldUseMemoryPersistence = () =>
   preferMemoryPersistence || mongoose.connection.readyState !== 1;
 const memoryConversations = new Map<string, Conversation>();
 
+const BASE_URL_REGEX = /^(https?|wss?):\/\//i;
+
+const toWebSocketUrl = (value: string) => {
+  if (value.startsWith('http://')) return value.replace(/^http:/i, 'ws:');
+  if (value.startsWith('https://')) return value.replace(/^https:/i, 'wss:');
+  return value;
+};
+
+const isChatModel = (model: { type?: string; architecture?: string }) => {
+  const kind = (model.type ?? '').toLowerCase();
+  return kind !== 'embedding' && kind !== 'vector';
+};
+
+const sanitizeFlagsForProvider = (
+  provider: ChatDefaultProvider,
+  flags: Record<string, unknown> | undefined,
+) => {
+  const current = { ...(flags ?? {}) };
+  if (provider !== 'codex') {
+    delete current.threadId;
+    return current;
+  }
+  return current;
+};
+
 export function validateParams(params: unknown): CodebaseQuestionParams {
   const parsed = paramsSchema.safeParse(params);
   if (!parsed.success) {
@@ -133,7 +173,10 @@ async function ensureConversation(
         ...existing,
         provider,
         model,
-        flags: { ...(existing.flags ?? {}), ...(flags ?? {}) },
+        flags: sanitizeFlagsForProvider(provider, {
+          ...(existing.flags ?? {}),
+          ...(flags ?? {}),
+        }),
         source: existing.source ?? 'MCP',
         lastMessageAt: now,
         updatedAt: now,
@@ -146,6 +189,16 @@ async function ensureConversation(
     .lean()
     .exec()) as Conversation | null;
   if (existing) {
+    await updateConversationMeta({
+      conversationId,
+      provider,
+      model,
+      flags: sanitizeFlagsForProvider(provider, {
+        ...(existing.flags ?? {}),
+        ...(flags ?? {}),
+      }),
+      lastMessageAt: now,
+    });
     return;
   }
 
@@ -155,7 +208,7 @@ async function ensureConversation(
     model,
     title,
     source: 'MCP',
-    flags,
+    flags: sanitizeFlagsForProvider(provider, flags),
     lastMessageAt: now,
   });
 }
@@ -167,31 +220,26 @@ export async function runCodebaseQuestion(
   const parsed = validateParams(params);
   const question = parsed.question;
   const conversationId = parsed.conversationId;
-  const provider = parsed.provider ?? 'codex';
-  const requestedModel = parsed.model;
+  const resolvedDefaults = resolveChatDefaults({
+    requestProvider: parsed.provider as ChatDefaultProvider | undefined,
+    requestModel:
+      typeof parsed.model === 'string' && parsed.model.trim().length > 0
+        ? parsed.model.trim()
+        : undefined,
+  });
+  const requestedProvider = resolvedDefaults.provider;
+  const requestedModel = resolvedDefaults.model;
 
+  const existingConversation = conversationId
+    ? await getConversation(conversationId)
+    : null;
   if (conversationId) {
-    const existing = await getConversation(conversationId);
-    if (existing?.archivedAt) {
+    if (existingConversation?.archivedAt) {
       throw new ArchivedConversationError(
         'Conversation is archived and must be restored before use',
       );
     }
   }
-
-  const codexWorkingDirectory =
-    process.env.CODEX_WORKDIR ?? process.env.CODEINFO_CODEX_WORKDIR ?? '/data';
-
-  const threadOpts: ThreadOptions = {
-    model: 'gpt-5.1-codex-max',
-    workingDirectory: codexWorkingDirectory,
-    skipGitRepoCheck: true,
-    sandboxMode: 'workspace-write',
-    networkAccessEnabled: true,
-    webSearchEnabled: true,
-    approvalPolicy: 'on-failure',
-    modelReasoningEffort: 'high',
-  } as ThreadOptions;
 
   if (
     process.env.MCP_FORCE_CODEX_AVAILABLE === 'true' &&
@@ -204,10 +252,105 @@ export async function runCodebaseQuestion(
     });
   }
 
+  const codexAvailable = await isCodexAvailable();
+  const codexState = {
+    available: codexAvailable,
+    models: getCodexModelList().models,
+    reason: codexAvailable ? undefined : 'CODE_INFO_LLM_UNAVAILABLE',
+  };
+
+  const baseUrl =
+    process.env.LMSTUDIO_BASE_URL ?? 'http://host.docker.internal:1234';
+  let lmstudioModels: string[] = [];
+  let lmstudioReason: string | undefined;
+  if (!BASE_URL_REGEX.test(baseUrl)) {
+    lmstudioReason = 'lmstudio unavailable';
+  } else {
+    try {
+      const factory =
+        deps.clientFactory ??
+        ((url: string) => new LMStudioClient({ baseUrl: url }));
+      const lmClient = factory(toWebSocketUrl(baseUrl));
+      const listed = await lmClient.system.listDownloadedModels();
+      lmstudioModels = listed
+        .filter(isChatModel)
+        .map((entry) => entry.modelKey)
+        .filter((value) => typeof value === 'string' && value.trim().length);
+      if (lmstudioModels.length === 0) {
+        lmstudioReason = 'lmstudio unavailable';
+      }
+    } catch {
+      lmstudioReason = 'lmstudio unavailable';
+    }
+  }
+
+  const runtimeSelection = resolveRuntimeProviderSelection({
+    requestedProvider,
+    requestedModel,
+    codex: codexState,
+    lmstudio: {
+      available: lmstudioModels.length > 0,
+      models: lmstudioModels,
+      reason: lmstudioReason,
+    },
+  });
+  append({
+    level: 'info',
+    message: 'DEV-0000035:T2:provider_fallback_evaluated',
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      surface: 'mcp2.codebase_question',
+      conversationId,
+      requestedProvider: runtimeSelection.requestedProvider,
+      requestedModel: runtimeSelection.requestedModel,
+      executionProvider: runtimeSelection.executionProvider,
+      executionModel: runtimeSelection.executionModel,
+      fallbackApplied: runtimeSelection.fallbackApplied,
+      decision: runtimeSelection.decision,
+      requestedReason: runtimeSelection.requestedReason,
+      fallbackReason: runtimeSelection.fallbackReason,
+      lmstudioModelCount: lmstudioModels.length,
+    },
+  });
+  append({
+    level: 'info',
+    message: 'DEV-0000035:T2:provider_fallback_result',
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      surface: 'mcp2.codebase_question',
+      executionProvider: runtimeSelection.executionProvider,
+      executionModel: runtimeSelection.executionModel,
+      fallbackApplied: runtimeSelection.fallbackApplied,
+      decision: runtimeSelection.decision,
+    },
+  });
+
+  if (runtimeSelection.unavailable) {
+    throw new ProviderUnavailableError('CODE_INFO_LLM_UNAVAILABLE');
+  }
+
+  const executionProvider = runtimeSelection.executionProvider;
+  const executionModel = runtimeSelection.executionModel;
+  const codexWorkingDirectory =
+    process.env.CODEX_WORKDIR ?? process.env.CODEINFO_CODEX_WORKDIR ?? '/data';
+
+  const threadOpts: ThreadOptions = {
+    model: executionModel,
+    workingDirectory: codexWorkingDirectory,
+    skipGitRepoCheck: true,
+    sandboxMode: 'workspace-write',
+    networkAccessEnabled: true,
+    webSearchEnabled: true,
+    approvalPolicy: 'on-failure',
+    modelReasoningEffort: 'high',
+  } as ThreadOptions;
+
   let chat: ChatInterface;
   const resolvedChatFactory = deps.chatFactory ?? getChatInterface;
   try {
-    chat = resolvedChatFactory(provider, {
+    chat = resolvedChatFactory(executionProvider, {
       codexFactory: deps.codexFactory,
       clientFactory: deps.clientFactory,
       toolFactory: deps.toolFactory,
@@ -229,71 +372,63 @@ export async function runCodebaseQuestion(
 
   const resolvedConversationId =
     conversationId ??
-    `${provider === 'lmstudio' ? 'lmstudio' : 'codex'}-thread-${Date.now()}`;
+    `${executionProvider === 'lmstudio' ? 'lmstudio' : 'codex'}-thread-${Date.now()}`;
 
   const inflightId = crypto.randomUUID();
 
+  const existingFlags =
+    existingConversation && existingConversation._id === resolvedConversationId
+      ? (existingConversation.flags as Record<string, unknown> | undefined)
+      : undefined;
+  const conversationFlags =
+    executionProvider === 'codex'
+      ? { ...(existingFlags ?? {}), ...threadOpts }
+      : sanitizeFlagsForProvider('lmstudio', existingFlags);
+
   await ensureConversation(
     resolvedConversationId,
-    provider,
-    provider === 'codex'
-      ? (threadOpts.model ?? 'gpt-5.1-codex-max')
-      : (requestedModel ??
-          process.env.MCP_LMSTUDIO_MODEL ??
-          process.env.LMSTUDIO_DEFAULT_MODEL ??
-          'gpt-3.1'),
+    executionProvider,
+    executionModel,
     question.trim().slice(0, 80) || 'Untitled conversation',
-    provider === 'codex' ? { ...threadOpts } : undefined,
+    conversationFlags,
   );
 
   createInflight({ conversationId: resolvedConversationId, inflightId });
   const bridge = attachChatStreamBridge({
     conversationId: resolvedConversationId,
     inflightId,
-    provider,
-    model:
-      provider === 'codex'
-        ? (threadOpts.model ?? 'gpt-5.1-codex-max')
-        : (requestedModel ??
-          process.env.MCP_LMSTUDIO_MODEL ??
-          process.env.LMSTUDIO_DEFAULT_MODEL ??
-          'gpt-3.1'),
+    provider: executionProvider,
+    model: executionModel,
     chat,
   });
 
   try {
-    if (provider === 'codex') {
+    if (executionProvider === 'codex') {
+      const activeThreadId =
+        typeof conversationId === 'string' ? conversationId : undefined;
       await chat.run(
         question,
         {
-          provider,
-          threadId: conversationId,
+          provider: executionProvider,
+          threadId: activeThreadId,
           codexFlags: threadOpts,
           signal: getInflight(resolvedConversationId)?.abortController.signal,
           source: 'MCP',
         },
         resolvedConversationId,
-        threadOpts.model ?? 'gpt-5.1-codex-max',
+        executionModel,
       );
     } else {
-      const lmstudioModel =
-        requestedModel ??
-        process.env.MCP_LMSTUDIO_MODEL ??
-        process.env.LMSTUDIO_DEFAULT_MODEL ??
-        'gpt-3.1';
-      const baseUrl =
-        process.env.LMSTUDIO_BASE_URL ?? 'http://host.docker.internal:1234';
-
       await chat.run(
         question,
         {
-          provider,
+          provider: executionProvider,
           baseUrl,
           signal: getInflight(resolvedConversationId)?.abortController.signal,
           source: 'MCP',
         },
         resolvedConversationId,
-        lmstudioModel,
+        executionModel,
       );
     }
   } finally {
@@ -305,12 +440,7 @@ export async function runCodebaseQuestion(
   }
 
   const payload: CodebaseQuestionResult = responder.toResult(
-    provider === 'codex'
-      ? (threadOpts.model ?? 'gpt-5.1-codex-max')
-      : (requestedModel ??
-          process.env.MCP_LMSTUDIO_MODEL ??
-          process.env.LMSTUDIO_DEFAULT_MODEL ??
-          'gpt-3.1'),
+    executionModel,
     resolvedConversationId,
   );
 

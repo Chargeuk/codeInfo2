@@ -23,3 +23,24 @@ Feature: chat streaming endpoint
     Given chat stream scenario "chat-fixture"
     When I POST to the chat endpoint with a two-message chat history
     Then the LM Studio chat history length is 4
+
+  Scenario: Alternate provider executes when selected/default provider is unavailable
+    Given chat stream scenario "chat-fixture"
+    And codex detection is unavailable
+    When I POST to the chat endpoint with provider "codex" and model "gpt-5.3-codex"
+    Then the chat stream status code is 202
+    And the chat start response provider is "lmstudio"
+
+  Scenario: No-model alternate provider returns existing unavailable contract
+    Given chat stream scenario "empty"
+    And codex detection is unavailable
+    When I POST to the chat endpoint with provider "codex" and model "gpt-5.3-codex"
+    Then the chat stream status code is 503
+    And the chat error code is "PROVIDER_UNAVAILABLE"
+
+  Scenario: No provider switch when selected/default provider is available
+    Given chat stream scenario "chat-fixture"
+    And codex detection is available
+    When I POST to the chat endpoint with provider "codex" and model "gpt-5.3-codex"
+    Then the chat stream status code is 202
+    And the chat start response provider is "codex"

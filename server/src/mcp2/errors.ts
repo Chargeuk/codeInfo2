@@ -33,3 +33,12 @@ export class RunInProgressError extends Error {
     this.data = data;
   }
 }
+
+export class ProviderUnavailableError extends Error {
+  code: number;
+  constructor(message = 'CODE_INFO_LLM_UNAVAILABLE') {
+    super(message);
+    this.name = 'ProviderUnavailableError';
+    this.code = -32001;
+  }
+}

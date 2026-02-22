@@ -1,6 +1,7 @@
 import {
   ArchivedConversationError,
   InvalidParamsError,
+  ProviderUnavailableError,
   ToolNotFoundError,
 } from './errors.js';
 import {
@@ -13,7 +14,12 @@ import type { ToolDefinition } from './types.js';
 
 export type ToolListResult = { tools: ToolDefinition[] };
 
-export { InvalidParamsError, ToolNotFoundError, ArchivedConversationError };
+export {
+  InvalidParamsError,
+  ToolNotFoundError,
+  ArchivedConversationError,
+  ProviderUnavailableError,
+};
 
 type CallToolDeps = CodebaseQuestionDeps;
 

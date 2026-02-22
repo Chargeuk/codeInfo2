@@ -132,7 +132,7 @@ test('codebase_question returns answer-only payloads and preserves conversationI
     const firstPayload = JSON.parse(firstCall.result.content[0].text);
 
     assert.equal(firstPayload.conversationId, 'thread-abc');
-    assert.equal(firstPayload.modelId, 'gpt-5.1-codex-max');
+    assert.equal(firstPayload.modelId, 'gpt-5.3-codex');
     assert.deepEqual(
       firstPayload.segments.map((s: { type: string }) => s.type),
       ['answer'],

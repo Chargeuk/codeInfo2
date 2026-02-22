@@ -10,9 +10,95 @@ export type ChatDefaultsResolution = {
   warnings: string[];
 };
 
+export type RuntimeProviderState = {
+  available: boolean;
+  models: string[];
+  reason?: string;
+};
+
+export type RuntimeProviderSelection = {
+  requestedProvider: ChatDefaultProvider;
+  requestedModel: string;
+  executionProvider: ChatDefaultProvider;
+  executionModel: string;
+  fallbackApplied: boolean;
+  unavailable: boolean;
+  decision: 'selected' | 'fallback' | 'unavailable';
+  requestedReason?: string;
+  fallbackReason?: string;
+};
+
 const FALLBACK_PROVIDER: ChatDefaultProvider = 'codex';
 const FALLBACK_MODEL = 'gpt-5.3-codex';
 const VALID_PROVIDERS: readonly ChatDefaultProvider[] = ['codex', 'lmstudio'];
+
+const firstSelectableModel = (models: string[]): string | undefined => {
+  for (const model of models) {
+    if (typeof model !== 'string') continue;
+    const trimmed = model.trim();
+    if (trimmed.length > 0) return trimmed;
+  }
+  return undefined;
+};
+
+const alternateProvider = (
+  provider: ChatDefaultProvider,
+): ChatDefaultProvider => (provider === 'codex' ? 'lmstudio' : 'codex');
+
+export const resolveRuntimeProviderSelection = ({
+  requestedProvider,
+  requestedModel,
+  codex,
+  lmstudio,
+}: {
+  requestedProvider: ChatDefaultProvider;
+  requestedModel: string;
+  codex: RuntimeProviderState;
+  lmstudio: RuntimeProviderState;
+}): RuntimeProviderSelection => {
+  const requestedState = requestedProvider === 'codex' ? codex : lmstudio;
+  if (requestedState.available) {
+    return {
+      requestedProvider,
+      requestedModel,
+      executionProvider: requestedProvider,
+      executionModel: requestedModel,
+      fallbackApplied: false,
+      unavailable: false,
+      decision: 'selected',
+      requestedReason: requestedState.reason,
+    };
+  }
+
+  const fallbackProvider = alternateProvider(requestedProvider);
+  const fallbackState = fallbackProvider === 'codex' ? codex : lmstudio;
+  const fallbackModel = firstSelectableModel(fallbackState.models);
+  if (fallbackState.available && fallbackModel) {
+    return {
+      requestedProvider,
+      requestedModel,
+      executionProvider: fallbackProvider,
+      executionModel: fallbackModel,
+      fallbackApplied: true,
+      unavailable: false,
+      decision: 'fallback',
+      requestedReason: requestedState.reason,
+      fallbackReason: fallbackState.reason,
+    };
+  }
+
+  return {
+    requestedProvider,
+    requestedModel,
+    executionProvider: requestedProvider,
+    executionModel: requestedModel,
+    fallbackApplied: false,
+    unavailable: true,
+    decision: 'unavailable',
+    requestedReason: requestedState.reason,
+    fallbackReason: fallbackState.reason,
+  };
+};
 
 const parseEnvProvider = (
   value: string | undefined,

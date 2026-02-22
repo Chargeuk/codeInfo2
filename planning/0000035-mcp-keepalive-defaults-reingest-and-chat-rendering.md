@@ -776,7 +776,7 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
 
 #### Subtasks
 
-1. [ ] Review provider availability sources and current fallback behavior.
+1. [x] Review provider availability sources and current fallback behavior.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | MCP server tools guidance: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: defines tool registration/call semantics and expected error behavior.) | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Cucumber guide (continuous integration): https://cucumber.io/docs/guides/continuous-integration/ (Reason: execution/reporting behavior used for CI-style cucumber verification.) | Cucumber guide (10-minute tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/ (Reason: step-definition and feature-file authoring reference for implementing Cucumber scenarios.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -793,7 +793,7 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
      - `server/src/routes/chat.ts`
      - `server/src/mcp2/tools/codebaseQuestion.ts`
      - `server/src/mcp2/router.ts`
-2. [ ] Extend shared resolver/runtime selection logic with single-hop auto-fallback.
+2. [x] Extend shared resolver/runtime selection logic with single-hop auto-fallback.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | MCP server tools guidance: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: defines tool registration/call semantics and expected error behavior.) | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Cucumber guide (continuous integration): https://cucumber.io/docs/guides/continuous-integration/ (Reason: execution/reporting behavior used for CI-style cucumber verification.) | Cucumber guide (10-minute tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/ (Reason: step-definition and feature-file authoring reference for implementing Cucumber scenarios.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -813,7 +813,7 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
      - If selected/default provider unavailable and other provider available, switch once.
      - Select fallback provider first available/runtime-default model.
      - If no fallback model/provider available, keep original provider and return existing unavailable behavior.
-3. [ ] Apply shared default resolution order and runtime fallback behavior to MCP `codebase_question`.
+3. [x] Apply shared default resolution order and runtime fallback behavior to MCP `codebase_question`.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | MCP server tools guidance: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: defines tool registration/call semantics and expected error behavior.) | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Cucumber guide (continuous integration): https://cucumber.io/docs/guides/continuous-integration/ (Reason: execution/reporting behavior used for CI-style cucumber verification.) | Cucumber guide (10-minute tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/ (Reason: step-definition and feature-file authoring reference for implementing Cucumber scenarios.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -828,7 +828,7 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
      ```
    - Files to edit:
      - `server/src/mcp2/tools/codebaseQuestion.ts`
-4. [ ] Apply the same deterministic availability-fallback/default-selection behavior to chat UI default sources.
+4. [x] Apply the same deterministic availability-fallback/default-selection behavior to chat UI default sources.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | MCP server tools guidance: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: defines tool registration/call semantics and expected error behavior.) | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Cucumber guide (continuous integration): https://cucumber.io/docs/guides/continuous-integration/ (Reason: execution/reporting behavior used for CI-style cucumber verification.) | Cucumber guide (10-minute tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/ (Reason: step-definition and feature-file authoring reference for implementing Cucumber scenarios.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -844,7 +844,7 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
    - Files to edit:
      - `server/src/routes/chatProviders.ts`
      - `server/src/routes/chatModels.ts`
-5. [ ] Ensure resolved provider/model persistence is correct for existing conversations when fallback switches provider.
+5. [x] Ensure resolved provider/model persistence is correct for existing conversations when fallback switches provider.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | MCP server tools guidance: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: defines tool registration/call semantics and expected error behavior.) | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Cucumber guide (continuous integration): https://cucumber.io/docs/guides/continuous-integration/ (Reason: execution/reporting behavior used for CI-style cucumber verification.) | Cucumber guide (10-minute tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/ (Reason: step-definition and feature-file authoring reference for implementing Cucumber scenarios.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -867,7 +867,7 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
      - REST `/chat` updates existing conversation provider/model to the resolved execution provider/model
      - MCP `codebase_question` updates existing conversation provider/model to the resolved execution provider/model
      - when resolved provider is not `codex`, do not reuse stale Codex `flags.threadId`; preserve Codex thread resume behavior only when resolved provider is `codex`
-6. [ ] Remove global Codex-only router pre-blocking that prevents provider-aware fallback for `codebase_question`.
+6. [x] Remove global Codex-only router pre-blocking that prevents provider-aware fallback for `codebase_question`.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | MCP server tools guidance: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: defines tool registration/call semantics and expected error behavior.) | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Cucumber guide (continuous integration): https://cucumber.io/docs/guides/continuous-integration/ (Reason: execution/reporting behavior used for CI-style cucumber verification.) | Cucumber guide (10-minute tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/ (Reason: step-definition and feature-file authoring reference for implementing Cucumber scenarios.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -884,7 +884,7 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
      - `server/src/mcp2/router.ts`
    - Constraint:
      - Keep existing terminal unavailable envelopes/codes unchanged.
-7. [ ] Add tests for runtime fallback determinism, persistence, UI default selection, and terminal unavailable contracts.
+7. [x] Add tests for runtime fallback determinism, persistence, UI default selection, and terminal unavailable contracts.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | MCP server tools guidance: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: defines tool registration/call semantics and expected error behavior.) | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Cucumber guide (continuous integration): https://cucumber.io/docs/guides/continuous-integration/ (Reason: execution/reporting behavior used for CI-style cucumber verification.) | Cucumber guide (10-minute tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/ (Reason: step-definition and feature-file authoring reference for implementing Cucumber scenarios.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -917,73 +917,73 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
        // Assert
      });
      ```
-     1. [ ] Single-hop provider switch.
+     1. [x] Single-hop provider switch.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Integration + MCP tool happy path.
         - Test location: `server/src/test/integration/chat-codex.test.ts`, `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`.
         - Description: Add/adjust tests where initial provider is unavailable and alternate is available; assert exactly one switch occurs.
         - Purpose: Prove fallback does not oscillate.
-     2. [ ] Fallback provider/model persistence on conversation metadata.
+     2. [x] Fallback provider/model persistence on conversation metadata.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Integration persistence.
         - Test location: `server/src/test/integration/chat-assistant-persistence.test.ts`, `server/src/test/integration/chat-codex-mcp.test.ts`.
         - Description: Add/adjust tests asserting stored conversation provider/model match resolved execution provider/model after fallback.
         - Purpose: Ensure persistence aligns with actual execution path.
-     3. [ ] Chat UI defaults choose available provider/model when configured defaults are unavailable.
+     3. [x] Chat UI defaults choose available provider/model when configured defaults are unavailable.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Unit route test.
         - Test location: `server/src/test/unit/chatModels.codex.test.ts`.
         - Description: Add/adjust tests for default model/provider endpoints where configured defaults are unavailable and alternate is available.
         - Purpose: Keep UI default selection deterministic and runnable.
-     4. [ ] Fallback dead-end when alternate provider has no selectable model.
+     4. [x] Fallback dead-end when alternate provider has no selectable model.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Integration + MCP unavailable-path.
         - Test location: `server/src/test/integration/chat-codex.test.ts`, `server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts`.
         - Description: Add/adjust tests where alternate provider exists but has no model; assert existing unavailable behavior for original provider.
         - Purpose: Prevent silent invalid fallback execution.
-     5. [ ] REST unavailable contract when neither provider can run.
+     5. [x] REST unavailable contract when neither provider can run.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Integration error contract.
         - Test location: `server/src/test/integration/chat-codex.test.ts`.
         - Description: Add/adjust tests asserting HTTP `503` with existing `PROVIDER_UNAVAILABLE` envelope.
         - Purpose: Lock REST terminal error compatibility.
-     6. [ ] MCP unavailable contract when neither provider can run.
+     6. [x] MCP unavailable contract when neither provider can run.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: MCP tool error contract.
         - Test location: `server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts`.
         - Description: Add/adjust tests asserting JSON-RPC error `-32001 CODE_INFO_LLM_UNAVAILABLE`.
         - Purpose: Lock MCP terminal error compatibility.
-     7. [ ] MCP v2 `tools/list` remains available when Codex is unavailable.
+     7. [x] MCP v2 `tools/list` remains available when Codex is unavailable.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Unit router contract.
         - Test location: `server/src/test/unit/mcp2-router-list-unavailable.test.ts`.
         - Description: Add/adjust tests asserting `tools/list` succeeds without Codex availability.
         - Purpose: Preserve provider-aware fallback reachability.
-     8. [ ] Provider-switch thread-id safety contract.
+     8. [x] Provider-switch thread-id safety contract.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Integration persistence/compatibility.
         - Test location: `server/src/test/integration/chat-codex-mcp.test.ts`, `server/src/test/integration/chat-assistant-persistence.test.ts`.
         - Description: Add/adjust tests asserting fallback from Codex to LM Studio does not carry stale `flags.threadId` into non-Codex execution and does not break subsequent resumed runs.
         - Purpose: Prevent provider/thread mismatch regressions after fallback.
-     9. [ ] Chat providers route reflects deterministic fallback-ready availability ordering.
+     9. [x] Chat providers route reflects deterministic fallback-ready availability ordering.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Unit route contract.
         - Test location: `server/src/test/unit/chatProviders.test.ts`.
         - Description: Add tests covering `/chat/providers` responses where configured/default provider is unavailable but alternate provider is available, asserting stable provider list shape, availability flags, and reason fields.
         - Purpose: Prevent UI default-source regressions when fallback conditions are present.
-     10. [ ] MCP v2 unknown-tool contract remains unchanged after removing global Codex pre-block.
+     10. [x] MCP v2 unknown-tool contract remains unchanged after removing global Codex pre-block.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Unit router regression.
         - Test location: `server/src/test/unit/mcp2-router-tool-not-found.test.ts`.
         - Description: Add/adjust tests asserting unknown tool calls still return existing method-not-found behavior even when Codex is unavailable.
         - Purpose: Prevent unintended contract drift in non-codebase_question paths.
-     11. [ ] MCP v2 `tools/call(codebase_question)` is not globally pre-blocked by Codex availability.
+     11. [x] MCP v2 `tools/call(codebase_question)` is not globally pre-blocked by Codex availability.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Unit router fallback reachability.
         - Test location: `server/src/test/unit/mcp2-router-list-unavailable.test.ts`.
         - Description: Add/adjust tests where Codex is unavailable but LM Studio is available and assert router execution reaches tool-call handling (no immediate global `CODE_INFO_LLM_UNAVAILABLE` pre-block).
         - Purpose: Lock provider-aware fallback reachability on the `tools/call` path.
-8. [ ] Add server Cucumber contract scenarios for provider fallback and terminal unavailable behavior by extending existing chat feature coverage.
+8. [x] Add server Cucumber contract scenarios for provider fallback and terminal unavailable behavior by extending existing chat feature coverage.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | MCP server tools guidance: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: defines tool registration/call semantics and expected error behavior.) | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Cucumber guide (continuous integration): https://cucumber.io/docs/guides/continuous-integration/ (Reason: execution/reporting behavior used for CI-style cucumber verification.) | Cucumber guide (10-minute tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/ (Reason: step-definition and feature-file authoring reference for implementing Cucumber scenarios.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -1009,25 +1009,25 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
        // Assert
      });
      ```
-     1. [ ] Alternate provider executes when selected/default provider is unavailable.
+     1. [x] Alternate provider executes when selected/default provider is unavailable.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Cucumber contract.
         - Test location: `server/src/test/features/chat_stream.feature`, `server/src/test/steps/chat_stream.steps.ts`.
         - Description: Add a scenario with unavailable selected provider and available alternate provider; assert request completes via alternate.
         - Purpose: Prove runtime fallback at behavior-contract level.
-     2. [ ] No-model alternate provider returns existing unavailable contract.
+     2. [x] No-model alternate provider returns existing unavailable contract.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Cucumber contract.
         - Test location: `server/src/test/features/chat_stream.feature`, `server/src/test/steps/chat_stream.steps.ts`.
         - Description: Add a scenario where alternate provider has no selectable model; assert existing unavailable response contract.
         - Purpose: Lock fallback dead-end behavior.
-     3. [ ] No provider switch when selected/default provider is available.
+     3. [x] No provider switch when selected/default provider is available.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Cucumber contract.
         - Test location: `server/src/test/features/chat_stream.feature`, `server/src/test/steps/chat_stream.steps.ts`.
         - Description: Add a scenario proving execution remains on selected/default provider when available.
         - Purpose: Prevent unnecessary provider switching.
-9. [ ] Update `design.md` for runtime auto-fallback/model-selection architecture.
+9. [x] Update `design.md` for runtime auto-fallback/model-selection architecture.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | MCP server tools guidance: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: defines tool registration/call semantics and expected error behavior.) | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Cucumber guide (continuous integration): https://cucumber.io/docs/guides/continuous-integration/ (Reason: execution/reporting behavior used for CI-style cucumber verification.) | Cucumber guide (10-minute tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/ (Reason: step-definition and feature-file authoring reference for implementing Cucumber scenarios.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -1045,7 +1045,7 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
    - Purpose: Keep architecture-level fallback behavior concrete and auditable for future changes.
    - `design.md` requirements:
      - Add/update Mermaid diagram(s) that show single-hop provider fallback decisions, fallback model selection, and persistence of resolved provider/model for REST and MCP `codebase_question`.
-10. [ ] Update `README.md` for runtime auto-fallback/model-selection behavior.
+10. [x] Update `README.md` for runtime auto-fallback/model-selection behavior.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | MCP server tools guidance: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: defines tool registration/call semantics and expected error behavior.) | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Cucumber guide (continuous integration): https://cucumber.io/docs/guides/continuous-integration/ (Reason: execution/reporting behavior used for CI-style cucumber verification.) | Cucumber guide (10-minute tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/ (Reason: step-definition and feature-file authoring reference for implementing Cucumber scenarios.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -1061,7 +1061,7 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
    - Document location: `README.md`
    - Description: Document runtime provider availability fallback behavior and user-visible model/provider selection outcomes.
    - Purpose: Ensure operational docs match fallback behavior exposed to clients and tooling.
-11. [ ] Update `projectStructure.md` with every file/folder added, removed, or renamed in this task (after file changes are complete).
+11. [x] Update `projectStructure.md` with every file/folder added, removed, or renamed in this task (after file changes are complete).
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | MCP server tools guidance: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: defines tool registration/call semantics and expected error behavior.) | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Cucumber guide (continuous integration): https://cucumber.io/docs/guides/continuous-integration/ (Reason: execution/reporting behavior used for CI-style cucumber verification.) | Cucumber guide (10-minute tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/ (Reason: step-definition and feature-file authoring reference for implementing Cucumber scenarios.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -1076,7 +1076,7 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
        - `server/src/test/unit/chatProviders.test.ts`
      - Removed files:
        - None planned in this task.
-12. [ ] Add task-specific structured log lines for Manual Playwright-MCP verification.
+12. [x] Add task-specific structured log lines for Manual Playwright-MCP verification.
    - Files to edit:
      - `server/src/routes/chat.ts`
      - `server/src/mcp2/tools/codebaseQuestion.ts`
@@ -1084,13 +1084,13 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
      - `DEV-0000035:T2:provider_fallback_evaluated`
      - `DEV-0000035:T2:provider_fallback_result`
    - Expected outcome: During a fallback scenario, both tags appear once and the result tag records the selected execution provider/model.
-13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+13. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
 3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
+4. [x] `npm run test --workspace client`
 5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
@@ -1098,19 +1098,42 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
    - Required log tags to verify: `DEV-0000035:T2:provider_fallback_evaluated`, `DEV-0000035:T2:provider_fallback_result`.
    - Expected outcome: During a fallback scenario, both tags appear once and the result tag records the selected execution provider/model. Also confirm no unexpected `[error]`/uncaught console errors in browser debug console during this check.
 9. [ ] `npm run compose:down`
-10. [ ] `npm run test --workspace server -- chat-codex`
-11. [ ] `npm run test --workspace server -- codebaseQuestion`
-12. [ ] `npm run test --workspace server -- chatModels.codex`
-13. [ ] `npm run test --workspace server -- chatProviders`
-14. [ ] `npm run test --workspace server -- chat-assistant-persistence`
-15. [ ] `npm run test --workspace server -- chat-codex-mcp`
-16. [ ] `npm run test --workspace server -- mcp2-router-list-unavailable`
-17. [ ] `npm run test --workspace server -- mcp2-router-tool-not-found`
-18. [ ] `npm run lint --workspaces`
-19. [ ] `npm run format:check --workspaces`
+10. [x] `npm run test --workspace server -- chat-codex`
+11. [x] `npm run test --workspace server -- codebaseQuestion`
+12. [x] `npm run test --workspace server -- chatModels.codex`
+13. [x] `npm run test --workspace server -- chatProviders`
+14. [x] `npm run test --workspace server -- chat-assistant-persistence`
+15. [x] `npm run test --workspace server -- chat-codex-mcp`
+16. [x] `npm run test --workspace server -- mcp2-router-list-unavailable`
+17. [x] `npm run test --workspace server -- mcp2-router-tool-not-found`
+18. [x] `npm run lint --workspaces`
+19. [x] `npm run format:check --workspaces`
 #### Implementation notes
 
-- to_do
+- Subtask 1 completed: reviewed provider availability + fallback touchpoints in `server/src/config/chatDefaults.ts`, `server/src/routes/chatProviders.ts`, `server/src/routes/chatModels.ts`, `server/src/routes/chat.ts`, `server/src/mcp2/tools/codebaseQuestion.ts`, and `server/src/mcp2/router.ts`; confirmed codex global pre-block still exists in router and runtime fallback is not yet centralized.
+- Subtasks 2-6 completed:
+  - extended runtime single-hop fallback behavior in `server/src/config/chatDefaults.ts`, `server/src/routes/chat.ts`, `server/src/mcp2/tools/codebaseQuestion.ts`, `server/src/routes/chatProviders.ts`, `server/src/routes/chatModels.ts`, and `server/src/mcp2/router.ts`
+  - removed MCP v2 global Codex pre-blocking for `tools/list`/`tools/call` so provider-aware fallback stays reachable
+  - added thread-id safety by clearing stale `flags.threadId` when resolved execution provider is non-Codex
+  - ensured fallback-resolved provider/model are persisted via existing conversation meta update paths
+- Subtasks 7-8 completed with tests:
+  - added `server/src/test/unit/chatProviders.test.ts`
+  - updated `server/src/test/unit/chatModels.codex.test.ts`, `server/src/test/unit/mcp2-router-list-unavailable.test.ts`, `server/src/test/unit/mcp2-router-tool-not-found.test.ts`
+  - updated `server/src/test/integration/chat-codex.test.ts`, `server/src/test/integration/chat-codex-mcp.test.ts`, `server/src/test/integration/mcp-codex-wrapper.test.ts`, `server/src/test/integration/mcp-lmstudio-wrapper.test.ts`
+  - updated `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`, `server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts`
+  - extended Cucumber coverage in `server/src/test/features/chat_stream.feature` and `server/src/test/steps/chat_stream.steps.ts` for provider-switch/no-switch/no-model-alt scenarios
+- Subtasks 9-12 completed:
+  - documentation updates in `design.md`, `README.md`, and `projectStructure.md`
+  - added required log tags `DEV-0000035:T2:provider_fallback_evaluated` and `DEV-0000035:T2:provider_fallback_result` in REST and MCP fallback paths
+- Subtask 13 completed:
+  - `npm run lint --workspaces` passed (warnings only, no errors)
+  - `npm run format:check --workspaces` passed
+- Testing completed/blocked summary:
+  - passed: `npm run build --workspace server`, `npm run build --workspace client`, `npm run test --workspace client`
+  - full `npm run test --workspace server` ran unit suites successfully then failed in Cucumber integration because Docker/Testcontainers runtime is unavailable (`Could not find a working container runtime strategy`)
+  - Docker-gated checks remain blocked in this environment and are left unchecked: `npm run e2e`, `npm run compose:build`, `npm run compose:up`, Manual Playwright-MCP via `http://host.docker.internal:5001`, `npm run compose:down`
+  - deterministic targeted equivalent for checklist items 10-17 passed via one focused node test run:
+    `cd server && npm run build && npm exec cross-env -- ... node --test ... chat-codex/chat-assistant-persistence/chat-codex-mcp/codebaseQuestion/chatModels.codex/chatProviders/mcp2-router-list-unavailable/mcp2-router-tool-not-found`
 
 ---
 

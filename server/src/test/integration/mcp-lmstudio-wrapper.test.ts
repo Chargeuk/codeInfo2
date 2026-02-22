@@ -73,6 +73,15 @@ class MockModel {
 const makeMockClientFactory = () => (baseUrl: string) => {
   void baseUrl;
   return {
+    system: {
+      listDownloadedModels: async () => [
+        {
+          modelKey: 'mock-model',
+          displayName: 'mock-model',
+          type: 'gguf',
+        },
+      ],
+    },
     llm: {
       model: (model: string) => {
         void model;

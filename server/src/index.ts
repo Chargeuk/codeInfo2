@@ -100,7 +100,7 @@ app.get('/info', (_req, res) => {
 
 app.use('/logs', createLogsRouter());
 app.use('/chat', createChatRouter({ clientFactory }));
-app.use('/chat', createChatProvidersRouter());
+app.use('/chat', createChatProvidersRouter({ clientFactory }));
 app.use('/chat', createChatModelsRouter({ clientFactory }));
 app.use('/codex', createCodexDeviceAuthRouter());
 app.use('/', createAgentsRouter());

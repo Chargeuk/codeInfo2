@@ -10,6 +10,7 @@ import type WebSocket from 'ws';
 
 import { query, resetStore } from '../../logStore.js';
 import { createRequestLogger } from '../../logger.js';
+import { setCodexDetection } from '../../providers/codexRegistry.js';
 import { createChatRouter } from '../../routes/chat.js';
 import { attachWs, type WsServerHandle } from '../../ws/server.js';
 import {
@@ -51,6 +52,7 @@ let ws: WebSocket | null = null;
 let baseUrl = '';
 let statusCode: number | null = null;
 let startResponse: ChatStartResponse | null = null;
+let errorResponse: { code?: string; message?: string } | null = null;
 let received: WsEvent[] = [];
 
 async function ensureWsSubscribed(conversationId: string) {
@@ -118,6 +120,7 @@ After(async () => {
   received = [];
   statusCode = null;
   startResponse = null;
+  errorResponse = null;
 });
 
 Given('chat stream scenario {string}', (name: string) => {
@@ -152,10 +155,12 @@ When('I POST to the chat endpoint with the chat request fixture', async () => {
 
 Then('the chat stream status code is {int}', (status: number) => {
   assert.strictEqual(statusCode, status);
-  assert.ok(startResponse);
-  assert.equal(startResponse.status, 'started');
-  assert.ok(startResponse.conversationId);
-  assert.ok(startResponse.inflightId);
+  if (status === 202) {
+    assert.ok(startResponse);
+    assert.equal(startResponse.status, 'started');
+    assert.ok(startResponse.conversationId);
+    assert.ok(startResponse.inflightId);
+  }
 });
 
 Then(
@@ -345,4 +350,63 @@ When(
 
 Then('the LM Studio chat history length is {int}', (expected: number) => {
   assert.strictEqual(getLastChatHistory().length, expected);
+});
+
+Given('codex detection is unavailable', () => {
+  setCodexDetection({
+    available: false,
+    authPresent: false,
+    configPresent: false,
+    reason: 'codex unavailable in test',
+  });
+});
+
+Given('codex detection is available', () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+});
+
+When(
+  'I POST to the chat endpoint with provider {string} and model {string}',
+  async (provider: string, model: string) => {
+    const conversationId = `chat-provider-${provider}-${Date.now()}`;
+    await ensureWsSubscribed(conversationId);
+
+    const res = await fetch(`${baseUrl}/chat`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        provider,
+        model,
+        conversationId,
+        message: 'provider fallback check',
+      }),
+    });
+    statusCode = res.status;
+    const body = (await res.json()) as Record<string, unknown>;
+    if (statusCode === 202) {
+      startResponse = body as unknown as ChatStartResponse;
+      errorResponse = null;
+    } else {
+      startResponse = null;
+      errorResponse = {
+        code: body.code as string | undefined,
+        message: body.message as string | undefined,
+      };
+    }
+  },
+);
+
+Then('the chat start response provider is {string}', (provider: string) => {
+  assert.ok(startResponse);
+  assert.equal(startResponse.provider, provider);
+});
+
+Then('the chat error code is {string}', (code: string) => {
+  assert.ok(errorResponse);
+  assert.equal(errorResponse.code, code);
 });

@@ -77,6 +77,30 @@ const dummyClientFactory = () =>
     llm: { model: async () => ({ act: async () => undefined }) },
   }) as unknown as LMStudioClient;
 
+const lmstudioAvailableClientFactory = () =>
+  ({
+    system: {
+      listDownloadedModels: async () => [
+        { modelKey: 'model-1', displayName: 'model-1', type: 'gguf' },
+      ],
+    },
+    llm: {
+      model: async () => ({
+        act: async (_chat: unknown, _tools: unknown, opts?: unknown) => {
+          const callbacks = opts as {
+            onPredictionFragment?: (fragment: { content?: string }) => void;
+            onMessage?: (message: unknown) => void;
+          };
+          callbacks.onPredictionFragment?.({ content: 'Hello' });
+          callbacks.onMessage?.({
+            role: 'assistant',
+            content: [{ type: 'text', text: 'Hello from LM Studio' }],
+          });
+        },
+      }),
+    },
+  }) as unknown as LMStudioClient;
+
 const ORIGINAL_CODEX_WORKDIR = process.env.CODEX_WORKDIR;
 const ORIGINAL_CODEINFO_CODEX_WORKDIR = process.env.CODEINFO_CODEX_WORKDIR;
 
@@ -330,6 +354,33 @@ test('codex chat rejects when detection is unavailable', async () => {
   assert.equal(resUnavailable.body.code, 'PROVIDER_UNAVAILABLE');
   assert.equal(typeof resUnavailable.body.message, 'string');
   assert.ok(String(resUnavailable.body.message).length > 0);
+});
+
+test('codex request falls back once to lmstudio when codex is unavailable', async () => {
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({ clientFactory: lmstudioAvailableClientFactory }),
+  );
+
+  const response = await request(app).post('/chat').send(buildCodexBody());
+  assert.equal(response.status, 202);
+  assert.equal(response.body.provider, 'lmstudio');
+  assert.equal(response.body.model, 'model-1');
+
+  const turns = await waitForAssistantTurn(response.body.conversationId);
+  assert.ok(turns.some((turn) => turn.role === 'assistant'));
+});
+
+test('codex request returns PROVIDER_UNAVAILABLE when fallback provider has no selectable model', async () => {
+  const app = express();
+  app.use(express.json());
+  app.use('/chat', createChatRouter({ clientFactory: dummyClientFactory }));
+
+  const response = await request(app).post('/chat').send(buildCodexBody());
+  assert.equal(response.status, 503);
+  assert.equal(response.body.code, 'PROVIDER_UNAVAILABLE');
 });
 
 test('POST /chat persists turns without WS subscribers (run continues)', async () => {

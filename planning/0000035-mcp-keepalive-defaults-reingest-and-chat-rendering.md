@@ -574,6 +574,8 @@ Create one authoritative provider/model default resolver and wire it into REST c
      - explicit values win
      - env values applied when explicit missing
      - hardcoded fallback used when env missing/invalid
+     - partial env overrides still resolve missing fields via hardcoded fallback
+     - invalid/empty env values are ignored and never persist mixed invalid provider/model combinations
 6. [ ] Update documentation for shared defaults behavior.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Node.js environment variables: https://nodejs.org/api/environment_variables.html (Reason: authoritative rules for reading and validating runtime env defaults in Node.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
@@ -703,6 +705,7 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
      - fallback switches at most once (`codex -> lmstudio` or `lmstudio -> codex`)
      - resolved fallback provider/model are what get persisted on the conversation record
      - chat UI defaults select an available provider/model when configured defaults are unavailable
+     - fallback provider with no selectable model keeps original provider and returns existing unavailable behavior
      - when neither provider is available, REST returns existing `503 PROVIDER_UNAVAILABLE` envelope
      - when neither provider is available, MCP returns existing `-32001 CODE_INFO_LLM_UNAVAILABLE` error
      - MCP v2 `tools/list` remains available when Codex is unavailable
@@ -713,6 +716,10 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
    - Files to add/edit:
      - `server/src/test/features/chat_stream.feature` (update existing)
      - `server/src/test/steps/chat_stream.steps.ts` (update existing)
+   - Required scenarios:
+     - selected/default provider unavailable and alternate provider available executes via alternate provider
+     - selected/default provider unavailable and alternate provider has no selectable model returns existing unavailable contract
+     - selected/default provider available executes without provider switching
 9. [ ] Update documentation for runtime auto-fallback and model selection rules.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | MCP server tools guidance: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: defines tool registration/call semantics and expected error behavior.) | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Cucumber guide (continuous integration): https://cucumber.io/docs/guides/continuous-integration/ (Reason: execution/reporting behavior used for CI-style cucumber verification.) | Cucumber guide (10-minute tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/ (Reason: step-definition and feature-file authoring reference for implementing Cucumber scenarios.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
@@ -743,7 +750,8 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
 7. [ ] `npm run test --workspace server -- chatModels.codex`
 8. [ ] `npm run test --workspace server -- chat-assistant-persistence`
 9. [ ] `npm run test --workspace server -- chat-codex-mcp`
-10. [ ] `npm run compose:down`
+10. [ ] `npm run test --workspace server -- mcp2-router-list-unavailable`
+11. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -925,6 +933,8 @@ Create one shared keepalive helper and use it for classic MCP, MCP v2, and agent
      - keepalive starts before tool dispatch on all three surfaces
      - keepalive stops on success, thrown error, socket close, and response end
      - no heartbeat writes occur after response end/close
+     - keepalive is not started for non-tool execution paths (parse/invalid-request/unknown-tool)
+     - heartbeat bytes are JSON whitespace only and do not change final JSON parse behavior
 7. [ ] Update docs for shared MCP keepalive behavior.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): MCP server concepts and tool lifecycle: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: lifecycle reference for when keepalive can start/stop around tool calls.) | JSON text grammar and whitespace: https://www.rfc-editor.org/rfc/rfc8259 (Reason: confirms whitespace heartbeats remain valid around final JSON payloads.) | Node.js timers API: https://nodejs.org/api/timers.html (Reason: authoritative timer lifecycle behavior for keepalive start/cleanup.) | Node.js HTTP response lifecycle: https://nodejs.org/api/http.html (Reason: confirms safe write/end/close handling for keepalive output.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
@@ -1020,6 +1030,7 @@ Build a shared re-ingest service that enforces strict existing-root-only safety 
    - Files to add/edit:
      - `server/src/test/unit/reingestService.test.ts` (new)
    - Required cases:
+     - success branch returns canonical payload `{ status, operation, runId, sourceId }`
      - every invalid `sourceId` reason branch maps to the expected `error.code`/`error.message`
      - unknown root response includes AI-retry guidance fields
      - busy response maps to canonical `BUSY` contract
@@ -1105,6 +1116,7 @@ Expose `reingest_repository` on the classic MCP surface and map service outputs 
    - Files to add/edit:
      - `server/src/test/unit/mcp.reingest.classic.test.ts` (new)
    - Required cases:
+     - success returns canonical wrapped content payload containing `status`, `operation`, `runId`, and `sourceId`
      - failures are emitted as JSON-RPC `error` envelopes (not `result.isError`)
      - `INVALID_PARAMS`/`NOT_FOUND` include canonical retry guidance fields in `error.data`
      - `BUSY` maps to `error.code=429`, `error.message="BUSY"`
@@ -1191,6 +1203,7 @@ Expose `reingest_repository` on MCP v2 and enforce the exact same name and contr
    - Files to add/edit:
      - `server/src/test/unit/mcp2.reingest.tool.test.ts` (new)
    - Required cases:
+     - success returns canonical wrapped content payload containing `status`, `operation`, `runId`, and `sourceId`
      - failures are emitted as JSON-RPC `error` envelopes (not `result.isError`)
      - `INVALID_PARAMS`/`NOT_FOUND` include canonical retry guidance fields in `error.data`
      - `BUSY` maps to `error.code=429`, `error.message="BUSY"`
@@ -1298,6 +1311,8 @@ Fix server stream aggregation so tool-interleaved Codex runs do not produce crop
      - interleaved updates across multiple assistant item ids in one turn
      - completed event followed by late delta
      - ensure final answer published once
+     - cancelled/failed turn emits at most one terminal assistant bubble with no duplicate final append
+     - stale events from a previous inflight id do not mutate the current conversation transcript
 5. [ ] Update docs for Codex merge invariants and finalization rules.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): OpenAI Codex app server events (authoritative item lifecycle): https://developers.openai.com/codex/app-server (Reason: defines item started/delta/completed event model used by stream merge logic.) | OpenAI Codex repo app-server README: https://raw.githubusercontent.com/openai/codex/main/codex-rs/app-server/README.md (Reason: implementation-level event and streaming details for Codex app-server integration.) | DeepWiki MCP docs (`openai/codex`, see `4.5.3 Event Translation and Streaming`): `openai/codex` (Reason: architecture cross-check for how Codex app-server events are translated into streamed turn updates.) | Node.js streams/events: https://nodejs.org/api/stream.html (Reason: stream/event ordering reference for robust assistant delta aggregation.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
@@ -1383,6 +1398,7 @@ Update Chat page send behavior to preserve raw user text exactly as entered whil
      - leading/trailing whitespace preserved in sent payload
      - newline formatting preserved
      - messages that differ only by whitespace are not merged/deduped into one user turn
+     - whitespace-only input is blocked client-side and does not dispatch a send request
 4. [ ] Extend existing Chat e2e coverage for raw-input outbound payload behavior.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
@@ -1391,6 +1407,8 @@ Update Chat page send behavior to preserve raw user text exactly as entered whil
      - `e2e/chat.spec.ts` (update existing)
    - Required checks:
      - outbound payload preserves leading/trailing whitespace for non-empty content
+     - outbound payload preserves multiline newline structure exactly
+     - whitespace-only input does not dispatch a `POST /chat` request
 5. [ ] Update docs for Chat raw-input send behavior.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
@@ -1478,6 +1496,8 @@ Render Chat user bubbles with the same markdown/sanitization component used by a
    - Required cases:
      - user markdown rendering matches assistant renderer behavior
      - user bubble mermaid fenced blocks render with same sanitize behavior as assistant path
+     - unsafe inline HTML/scripts are sanitized identically to assistant rendering
+     - malformed mermaid fences follow the same safe fallback behavior as assistant rendering
 4. [ ] Extend Chat e2e markdown parity coverage.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | `react-markdown` docs: https://github.com/remarkjs/react-markdown (Reason: renderer API and component behavior used by shared Markdown pipeline.) | `remark-gfm` docs: https://github.com/remarkjs/remark-gfm (Reason: GFM syntax support details for lists/tables/fences in user bubbles.) | `rehype-sanitize` docs: https://github.com/rehypejs/rehype-sanitize (Reason: sanitization schema rules to keep markdown rendering safe.) | Mermaid docs (Context7): `/mermaid-js/mermaid` (Reason: confirms fenced mermaid syntax/rendering behavior for markdown parity verification.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
@@ -1487,6 +1507,7 @@ Render Chat user bubbles with the same markdown/sanitization component used by a
      - `e2e/chat-mermaid.spec.ts` (update existing)
    - Required checks:
      - user bubble markdown/mermaid rendering matches assistant renderer behavior
+     - malformed mermaid input does not break rendering and follows assistant fallback behavior
 5. [ ] Update docs for Chat user markdown parity behavior.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | `react-markdown` docs: https://github.com/remarkjs/react-markdown (Reason: renderer API and component behavior used by shared Markdown pipeline.) | `remark-gfm` docs: https://github.com/remarkjs/remark-gfm (Reason: GFM syntax support details for lists/tables/fences in user bubbles.) | `rehype-sanitize` docs: https://github.com/rehypejs/rehype-sanitize (Reason: sanitization schema rules to keep markdown rendering safe.) | Mermaid docs (Context7): `/mermaid-js/mermaid` (Reason: confirms fenced mermaid syntax/rendering behavior for markdown parity verification.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
@@ -1571,18 +1592,29 @@ Update Agents page send behavior to preserve raw user text exactly as entered wh
      - leading/trailing whitespace preserved in outbound payload
      - newline formatting preserved
      - messages that differ only by whitespace are not merged in transcript hydration
-4. [ ] Update docs for Agents raw-input send behavior.
+     - whitespace-only input is blocked client-side and does not dispatch a run request
+4. [ ] Extend existing Agents e2e coverage for raw-input outbound payload behavior.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
+   - Files to add/edit:
+     - `e2e/agents.spec.ts` (new)
+   - Required checks:
+     - outbound payload preserves leading/trailing whitespace for non-empty content
+     - outbound payload preserves multiline newline structure exactly
+     - whitespace-only input is blocked before request dispatch
+5. [ ] Update docs for Agents raw-input send behavior.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to edit:
      - `README.md`
      - `design.md`
-5. [ ] Update `projectStructure.md` if files were added/removed.
+6. [ ] Update `projectStructure.md` if files were added/removed.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
-6. [ ] Run lint/format checks for workspace.
+7. [ ] Run lint/format checks for workspace.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -1598,8 +1630,9 @@ Update Agents page send behavior to preserve raw user text exactly as entered wh
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test --workspace client -- agentsPage.run`
 6. [ ] `npm run test --workspace client -- agentsPage.turnHydration`
-7. [ ] Manual smoke: Agents UI send multiline input with leading/trailing whitespace and verify outbound request preserves raw content while whitespace-only input is blocked
-8. [ ] `npm run compose:down`
+7. [ ] `npm run e2e:test -- e2e/agents.spec.ts`
+8. [ ] Manual smoke: Agents UI send multiline input with leading/trailing whitespace and verify outbound request preserves raw content while whitespace-only input is blocked
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1656,18 +1689,29 @@ Render Agents user bubbles with the same markdown/sanitization component used by
      - `client/src/test/agentsPage.turnHydration.test.tsx` (update existing if needed)
    - Required cases:
      - user bubble markdown rendering (including mermaid fences) matches assistant rendering
-4. [ ] Update docs for Agents user markdown parity behavior.
+     - unsafe inline HTML/scripts are sanitized identically to assistant rendering
+     - malformed mermaid fences follow the same safe fallback behavior as assistant rendering
+4. [ ] Extend Agents e2e markdown parity coverage.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | `react-markdown` docs: https://github.com/remarkjs/react-markdown (Reason: renderer API and component behavior used by shared Markdown pipeline.) | `remark-gfm` docs: https://github.com/remarkjs/remark-gfm (Reason: GFM syntax support details for lists/tables/fences in user bubbles.) | `rehype-sanitize` docs: https://github.com/rehypejs/rehype-sanitize (Reason: sanitization schema rules to keep markdown rendering safe.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | Mermaid docs (Context7): `/mermaid-js/mermaid` (Reason: confirms fenced mermaid syntax/rendering behavior for markdown parity verification.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
+   - Files to add/edit:
+     - `e2e/agents.spec.ts` (update existing from Task 11)
+   - Required checks:
+     - user bubble markdown/mermaid rendering matches assistant renderer behavior
+     - malformed mermaid input does not break rendering and follows assistant fallback behavior
+5. [ ] Update docs for Agents user markdown parity behavior.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | `react-markdown` docs: https://github.com/remarkjs/react-markdown (Reason: renderer API and component behavior used by shared Markdown pipeline.) | `remark-gfm` docs: https://github.com/remarkjs/remark-gfm (Reason: GFM syntax support details for lists/tables/fences in user bubbles.) | `rehype-sanitize` docs: https://github.com/rehypejs/rehype-sanitize (Reason: sanitization schema rules to keep markdown rendering safe.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | Mermaid docs (Context7): `/mermaid-js/mermaid` (Reason: confirms fenced mermaid syntax/rendering behavior for markdown parity verification.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to edit:
      - `README.md`
      - `design.md`
-5. [ ] Update `projectStructure.md` if files were added/removed.
+6. [ ] Update `projectStructure.md` if files were added/removed.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | `react-markdown` docs: https://github.com/remarkjs/react-markdown (Reason: renderer API and component behavior used by shared Markdown pipeline.) | `remark-gfm` docs: https://github.com/remarkjs/remark-gfm (Reason: GFM syntax support details for lists/tables/fences in user bubbles.) | `rehype-sanitize` docs: https://github.com/rehypejs/rehype-sanitize (Reason: sanitization schema rules to keep markdown rendering safe.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | Mermaid docs (Context7): `/mermaid-js/mermaid` (Reason: confirms fenced mermaid syntax/rendering behavior for markdown parity verification.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
-6. [ ] Run lint/format checks for workspace.
+7. [ ] Run lint/format checks for workspace.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | `react-markdown` docs: https://github.com/remarkjs/react-markdown (Reason: renderer API and component behavior used by shared Markdown pipeline.) | `remark-gfm` docs: https://github.com/remarkjs/remark-gfm (Reason: GFM syntax support details for lists/tables/fences in user bubbles.) | `rehype-sanitize` docs: https://github.com/rehypejs/rehype-sanitize (Reason: sanitization schema rules to keep markdown rendering safe.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | Mermaid docs (Context7): `/mermaid-js/mermaid` (Reason: confirms fenced mermaid syntax/rendering behavior for markdown parity verification.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -1684,8 +1728,9 @@ Render Agents user bubbles with the same markdown/sanitization component used by
 5. [ ] `npm run test --workspace client -- agentsPage.run`
 6. [ ] `npm run test --workspace client -- agentsPage.turnHydration`
 7. [ ] `npm run test --workspace client -- agentsPage.descriptionPopover`
-8. [ ] Manual smoke: Agents UI send multiline markdown and verify user bubble formatting parity
-9. [ ] `npm run compose:down`
+8. [ ] `npm run e2e:test -- e2e/agents.spec.ts`
+9. [ ] Manual smoke: Agents UI send multiline markdown and verify user bubble formatting parity
+10. [ ] `npm run compose:down`
 
 #### Implementation notes
 

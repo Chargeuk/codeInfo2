@@ -634,6 +634,7 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
      - `server/src/mcp2/tools/codebaseQuestion.ts`
    - Required behavior:
      - metadata update helpers can persist `provider` as well as `model`
+     - extend the existing `updateConversationMeta` path rather than introducing a parallel conversation-metadata updater
      - REST `/chat` updates existing conversation provider/model to the resolved execution provider/model
      - MCP `codebase_question` updates existing conversation provider/model to the resolved execution provider/model
 6. [ ] Remove global Codex-only router pre-blocking that prevents provider-aware fallback for `codebase_question`.
@@ -643,13 +644,13 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
      - Keep existing terminal unavailable envelopes/codes unchanged.
 7. [ ] Add tests for runtime fallback determinism, persistence, UI default selection, and terminal unavailable contracts.
    - Files to add/edit:
-     - `server/src/test/unit/chat.providerFallback.test.ts` (new)
-     - `server/src/test/unit/mcp2.codebaseQuestion.fallback.test.ts` (new or existing file update)
-     - `server/src/test/unit/chat.models.providers.defaultSelection.test.ts` (new or existing file update)
+     - `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` (update existing suite)
+     - `server/src/test/unit/chatModels.codex.test.ts` (update existing suite)
      - `server/src/test/unit/mcp2-router-list-unavailable.test.ts` (update)
      - `server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts` (update)
-     - `server/src/test/integration/chat.providerFallback.persistence.test.ts` (new)
-     - `server/src/test/integration/mcp.providerFallback.persistence.test.ts` (new)
+     - `server/src/test/integration/chat-codex.test.ts` (update existing suite for REST fallback behavior)
+     - `server/src/test/integration/chat-assistant-persistence.test.ts` (update existing suite for persistence assertions)
+     - `server/src/test/integration/chat-codex-mcp.test.ts` (update existing suite for MCP persistence assertion)
    - Cases:
      - fallback switches at most once (`codex -> lmstudio` or `lmstudio -> codex`)
      - resolved fallback provider/model are what get persisted on the conversation record
@@ -657,10 +658,10 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
      - when neither provider is available, REST returns existing `503 PROVIDER_UNAVAILABLE` envelope
      - when neither provider is available, MCP returns existing `-32001 CODE_INFO_LLM_UNAVAILABLE` error
      - MCP v2 `tools/list` remains available when Codex is unavailable
-8. [ ] Add server Cucumber contract scenarios for provider fallback and terminal unavailable behavior.
+8. [ ] Add server Cucumber contract scenarios for provider fallback and terminal unavailable behavior by extending existing chat feature coverage.
    - Files to add/edit:
-     - `server/src/test/features/chat-provider-fallback.feature` (new)
-     - `server/src/test/steps/chatProviderFallback.steps.ts` (new)
+     - `server/src/test/features/chat_stream.feature` (update existing)
+     - `server/src/test/steps/chat_stream.steps.ts` (update existing)
 9. [ ] Update documentation for runtime auto-fallback and model selection rules.
    - Files to edit:
      - `design.md`
@@ -677,11 +678,11 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
 2. [ ] `npm run build --workspace client`
 3. [ ] `npm run compose:build`
 4. [ ] `npm run compose:up`
-5. [ ] `npm run test --workspace server -- providerFallback`
+5. [ ] `npm run test --workspace server -- chat-codex`
 6. [ ] `npm run test --workspace server -- codebaseQuestion`
-7. [ ] `npm run test --workspace server -- chat.models`
-8. [ ] `npm run test --workspace server -- providerFallback.persistence`
-9. [ ] `npm run test --workspace server`
+7. [ ] `npm run test --workspace server -- chatModels.codex`
+8. [ ] `npm run test --workspace server -- chat-assistant-persistence`
+9. [ ] `npm run test --workspace server -- chat-codex-mcp`
 10. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -729,16 +730,16 @@ Implement server-side non-empty-content enforcement without trimming valid user 
      - `400 { error: "invalid_request", message: "instruction must contain at least one non-whitespace character" }`
 4. [ ] Add validation contract tests for both endpoints.
    - Files to add/edit:
-     - `server/src/test/unit/chatValidators.messageContent.test.ts` (new)
-     - `server/src/test/unit/agentsRun.validation.test.ts` (new or existing update)
+     - `server/src/test/unit/chatValidators.test.ts` (update existing suite)
+     - `server/src/test/unit/agents-router-run.test.ts` (update existing suite)
    - Cases:
      - whitespace-only rejected with exact message
      - newline-only rejected with exact message
      - leading/trailing whitespace with real content accepted and preserved
-5. [ ] Add server Cucumber contract scenarios for whitespace-only rejection message contracts.
+5. [ ] Add server Cucumber contract scenarios for whitespace-only rejection message contracts by extending existing chat stream contract coverage.
    - Files to add/edit:
-     - `server/src/test/features/chat-agent-input-validation.feature` (new)
-     - `server/src/test/steps/chatAgentInputValidation.steps.ts` (new)
+     - `server/src/test/features/chat_stream.feature` (update existing)
+     - `server/src/test/steps/chat_stream.steps.ts` (update existing)
 6. [ ] Update API docs/spec for exact validation messages.
    - Files to edit:
      - `openapi.json`
@@ -757,7 +758,7 @@ Implement server-side non-empty-content enforcement without trimming valid user 
 3. [ ] `npm run compose:build`
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test --workspace server -- chatValidators`
-6. [ ] `npm run test --workspace server -- agentsRun`
+6. [ ] `npm run test --workspace server -- agents-router-run`
 7. [ ] `npm run test --workspace server`
 8. [ ] `npm run compose:down`
 
@@ -812,9 +813,9 @@ Create one shared keepalive helper and use it for classic MCP, MCP v2, and agent
 6. [ ] Add server tests covering helper lifecycle and no write-after-close behavior.
    - Files to add/edit:
      - `server/src/test/unit/mcp.keepalive.helper.test.ts` (new)
-     - `server/src/test/unit/mcp.server.keepalive.test.ts` (new/update)
-     - `server/src/test/unit/mcp2.router.keepalive.test.ts` (new/update)
-     - `server/src/test/unit/mcpAgents.router.keepalive.test.ts` (new/update)
+     - `server/src/test/unit/mcp2-router-list-happy.test.ts` (update existing suite)
+     - `server/src/test/unit/mcp-agents-router-run.test.ts` (update existing suite)
+     - `server/src/test/integration/mcp-server.test.ts` (update existing suite)
    - Required cases:
      - keepalive starts before tool dispatch on all three surfaces
      - keepalive stops on success, thrown error, socket close, and response end
@@ -834,8 +835,8 @@ Create one shared keepalive helper and use it for classic MCP, MCP v2, and agent
 2. [ ] `npm run build --workspace client`
 3. [ ] `npm run compose:build`
 4. [ ] `npm run compose:up`
-5. [ ] `npm run test --workspace server -- keepalive`
-6. [ ] `npm run test --workspace server -- mcp.server.keepalive`
+5. [ ] `npm run test --workspace server -- mcp.keepalive.helper`
+6. [ ] `npm run test --workspace server -- mcp2-router && npm run test --workspace server -- mcp-agents-router-run && npm run test --workspace server -- mcp-server`
 7. [ ] Manual JSON parse smoke: invoke long-running MCP tool on each surface and confirm client parses final JSON-RPC payload.
 8. [ ] `npm run compose:down`
 
@@ -879,6 +880,7 @@ Build a shared re-ingest service that enforces strict existing-root-only safety 
    - Reuse requirements:
      - delegate run-start semantics to existing `isBusy` and `reembed` in `server/src/ingest/ingestJob.ts`
      - derive retry option lists from existing `listIngestedRepositories` in `server/src/lmstudio/toolService.ts`
+     - reuse the existing POSIX normalization strategy already used by `server/src/ingest/pathMap.ts` to avoid introducing a second path-normalization behavior
      - do not duplicate ingest-job lock or reembed execution logic
 3. [ ] Implement canonical contract mappers for success and error `data` payloads.
    - Files to edit:
@@ -1021,9 +1023,10 @@ Expose `reingest_repository` on MCP v2 and enforce the exact same name and contr
      - failures are emitted as JSON-RPC `error` envelopes (not `result.isError`)
      - `INVALID_PARAMS`/`NOT_FOUND` include canonical retry guidance fields in `error.data`
      - `BUSY` maps to `error.code=429`, `error.message="BUSY"`
-5. [ ] Add parity tests comparing classic MCP and MCP v2 response shapes for same inputs.
+5. [ ] Add parity assertions in existing classic/MCP-v2 suites for same inputs (avoid separate parity harness file).
    - Files to add/edit:
-     - `server/src/test/unit/mcp.reingest.parity.test.ts` (new)
+     - `server/src/test/unit/mcp.reingest.classic.test.ts` (update from Task 6)
+     - `server/src/test/unit/mcp2.reingest.tool.test.ts` (update)
    - Required cases:
      - success payload parity
      - error envelope parity (code/message/data) for `INVALID_PARAMS`, `NOT_FOUND`, and `BUSY`
@@ -1158,8 +1161,8 @@ Update Chat page send behavior to preserve raw user text exactly as entered whil
      - remove user-turn dedupe comparisons that normalize/collapse whitespace so distinct raw inputs remain distinct in transcript hydration
 3. [ ] Add chat UI tests for raw payload preservation behavior.
    - Files to add/edit:
-     - `client/src/test/chatPage.userMarkdown.test.tsx` (new/update for raw-input assertions)
-     - `client/src/test/useChatStream.rawInput.test.tsx` (new/update)
+     - `client/src/test/chatPage.stream.test.tsx` (update existing suite)
+     - `client/src/test/useChatStream.toolPayloads.test.tsx` (update existing suite)
    - Required cases:
      - leading/trailing whitespace preserved in sent payload
      - newline formatting preserved
@@ -1185,8 +1188,8 @@ Update Chat page send behavior to preserve raw user text exactly as entered whil
 2. [ ] `npm run build --workspace client`
 3. [ ] `npm run compose:build`
 4. [ ] `npm run compose:up`
-5. [ ] `npm run test --workspace client -- useChatStream.rawInput`
-6. [ ] `npm run test --workspace client -- chatPage.userMarkdown`
+5. [ ] `npm run test --workspace client -- useChatStream.toolPayloads`
+6. [ ] `npm run test --workspace client -- chatPage.stream`
 7. [ ] `npm run e2e:test -- e2e/chat.spec.ts`
 8. [ ] Manual smoke: Chat UI send multiline input with leading/trailing whitespace and verify outbound request preserves raw content while whitespace-only input is blocked
 9. [ ] `npm run compose:down`
@@ -1228,7 +1231,6 @@ Render Chat user bubbles with the same markdown/sanitization component used by a
      - preserve current bubble container layout/chrome
 3. [ ] Add Chat UI tests for user markdown parity and mermaid rendering.
    - Files to add/edit:
-     - `client/src/test/chatPage.userMarkdown.test.tsx` (new/update for markdown assertions)
      - `client/src/test/chatPage.markdown.test.tsx` (update existing)
      - `client/src/test/chatPage.mermaid.test.tsx` (update existing)
    - Required cases:
@@ -1256,8 +1258,8 @@ Render Chat user bubbles with the same markdown/sanitization component used by a
 2. [ ] `npm run build --workspace client`
 3. [ ] `npm run compose:build`
 4. [ ] `npm run compose:up`
-5. [ ] `npm run test --workspace client -- chatPage.userMarkdown`
-6. [ ] `npm run test --workspace client -- chatPage.markdown`
+5. [ ] `npm run test --workspace client -- chatPage.markdown`
+6. [ ] `npm run test --workspace client -- chatPage.stream`
 7. [ ] `npm run test --workspace client -- chatPage.mermaid`
 8. [ ] `npm run e2e:test -- e2e/chat.spec.ts e2e/chat-mermaid.spec.ts`
 9. [ ] Manual smoke: Chat UI send multiline markdown and verify user bubble formatting parity
@@ -1299,8 +1301,8 @@ Update Agents page send behavior to preserve raw user text exactly as entered wh
      - keep local "cannot send empty" behavior aligned with server rule
 3. [ ] Add Agents UI tests for raw payload preservation behavior.
    - Files to add/edit:
-     - `client/src/test/agentsPage.userMarkdown.test.tsx` (new/update for raw-input assertions)
      - `client/src/test/agentsPage.run.test.tsx` (update existing if needed)
+     - `client/src/test/agentsPage.turnHydration.test.tsx` (update existing if needed)
    - Required cases:
      - leading/trailing whitespace preserved in outbound payload
      - newline formatting preserved
@@ -1321,8 +1323,8 @@ Update Agents page send behavior to preserve raw user text exactly as entered wh
 2. [ ] `npm run build --workspace client`
 3. [ ] `npm run compose:build`
 4. [ ] `npm run compose:up`
-5. [ ] `npm run test --workspace client -- agentsPage.userMarkdown`
-6. [ ] `npm run test --workspace client -- agentsPage.run`
+5. [ ] `npm run test --workspace client -- agentsPage.run`
+6. [ ] `npm run test --workspace client -- agentsPage.turnHydration`
 7. [ ] Manual smoke: Agents UI send multiline input with leading/trailing whitespace and verify outbound request preserves raw content while whitespace-only input is blocked
 8. [ ] `npm run compose:down`
 
@@ -1366,7 +1368,6 @@ Render Agents user bubbles with the same markdown/sanitization component used by
      - preserve current bubble container layout/chrome
 3. [ ] Add Agents UI tests for markdown parity in both realtime and hydrated turns.
    - Files to add/edit:
-     - `client/src/test/agentsPage.userMarkdown.test.tsx` (new/update for markdown assertions)
      - `client/src/test/agentsPage.run.test.tsx` (update existing if needed)
      - `client/src/test/agentsPage.turnHydration.test.tsx` (update existing if needed)
    - Required cases:
@@ -1387,9 +1388,9 @@ Render Agents user bubbles with the same markdown/sanitization component used by
 2. [ ] `npm run build --workspace client`
 3. [ ] `npm run compose:build`
 4. [ ] `npm run compose:up`
-5. [ ] `npm run test --workspace client -- agentsPage.userMarkdown`
-6. [ ] `npm run test --workspace client -- agentsPage.run`
-7. [ ] `npm run test --workspace client -- agentsPage.turnHydration`
+5. [ ] `npm run test --workspace client -- agentsPage.run`
+6. [ ] `npm run test --workspace client -- agentsPage.turnHydration`
+7. [ ] `npm run test --workspace client -- agentsPage.descriptionPopover`
 8. [ ] Manual smoke: Agents UI send multiline markdown and verify user bubble formatting parity
 9. [ ] `npm run compose:down`
 

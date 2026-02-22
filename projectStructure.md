@@ -363,6 +363,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚     â”‚  â”œâ”€ hashing.ts â€” sha256 hashing for files/chunks
 â”‚     â”‚  â”œâ”€ deltaPlan.ts â€” pure delta planner for added/changed/deleted files (no IO)
 â”‚     â”‚  â”œâ”€ pathMap.ts — maps container ingest paths to host paths for tooling responses
+â”‚     â”‚  â”œâ”€ reingestService.ts — shared `reingest_repository` validation + canonical success/error mapping service
 â”‚     â”‚  â”œâ”€ index.ts â€” barrel export for ingest helpers
 â”‚     â”‚  â””â”€ types.ts â€” ingest types (DiscoveredFile, Chunk, IngestConfig)
 â”‚     â”œâ”€ lmstudio/
@@ -464,6 +465,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚           â”œâ”€ mcp2-router-method-not-found.test.ts â€” MCP v2 method not found (-32601) characterization (unknown method)
 â”‚           â”œâ”€ mcp2-router-tool-not-found.test.ts â€” MCP v2 unknown tool mapping characterization (tools/call -> -32601)
 â”‚           â”œâ”€ mcp.keepalive.helper.test.ts â€” unit coverage for shared keepalive helper lifecycle and write-after-close protection
+â”‚           â”œâ”€ reingestService.test.ts â€” unit coverage for `reingest_repository` validation, success mapping, unknown root retry guidance, and busy contracts
 â”‚           â”œâ”€ mcp-unsupported-provider.test.ts — MCP tools/call unsupported provider error path
 â”‚           â””â”€ tools-vector-search.test.ts â€” supertest coverage for /tools/vector-search
 â”‚        â”œâ”€ integration/

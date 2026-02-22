@@ -1737,7 +1737,7 @@ Create one shared keepalive helper and use it for classic MCP, MCP v2, and agent
 
 ### 5. Server: `reingest_repository` shared service + canonical validation/error mapping
 
-- Task Status: **__in_progress__**
+- Task Status: **__done__**
 - Git Commits: to_do
 
 #### Overview
@@ -1757,7 +1757,7 @@ Build a shared re-ingest service that enforces strict existing-root-only safety 
 
 #### Subtasks
 
-1. [ ] Review current ingest re-embed and repository listing behavior.
+1. [x] Review current ingest re-embed and repository listing behavior.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: canonical contract for tool names, arguments, and execution semantics.) | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | Node.js path utilities: https://nodejs.org/api/path.html (Reason: authoritative normalization/join/isAbsolute behavior for sourceId path validation.) | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -1771,7 +1771,7 @@ Build a shared re-ingest service that enforces strict existing-root-only safety 
      - `server/src/routes/ingestReembed.ts`
      - `server/src/lmstudio/toolService.ts`
      - `server/src/ingest/*` (relevant service files)
-2. [ ] Create shared `reingest_repository` service with strict `sourceId` validation and root matching.
+2. [x] Create shared `reingest_repository` service with strict `sourceId` validation and root matching.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: canonical contract for tool names, arguments, and execution semantics.) | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | Node.js path utilities: https://nodejs.org/api/path.html (Reason: authoritative normalization/join/isAbsolute behavior for sourceId path validation.) | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -1795,7 +1795,7 @@ Build a shared re-ingest service that enforces strict existing-root-only safety 
      - derive retry option lists from existing `listIngestedRepositories` in `server/src/lmstudio/toolService.ts`
      - reuse the existing POSIX normalization strategy already used by `server/src/ingest/pathMap.ts` to avoid introducing a second path-normalization behavior
      - do not duplicate ingest-job lock or reembed execution logic
-3. [ ] Implement canonical contract mappers for success and error `data` payloads.
+3. [x] Implement canonical contract mappers for success and error `data` payloads.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: canonical contract for tool names, arguments, and execution semantics.) | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | Node.js path utilities: https://nodejs.org/api/path.html (Reason: authoritative normalization/join/isAbsolute behavior for sourceId path validation.) | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -1814,7 +1814,7 @@ Build a shared re-ingest service that enforces strict existing-root-only safety 
      - success: `{ status, operation, runId, sourceId }`
      - errors: `INVALID_PARAMS`, `NOT_FOUND`, `BUSY` with required `error.data` retry payloads
      - include deterministic `fieldErrors.reason` values and `reingestableRepositoryIds` + `reingestableSourceIds` where required by the story contract
-4. [ ] Add unit tests for all validation and busy-state branches.
+4. [x] Add unit tests for all validation and busy-state branches.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: canonical contract for tool names, arguments, and execution semantics.) | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | Node.js path utilities: https://nodejs.org/api/path.html (Reason: authoritative normalization/join/isAbsolute behavior for sourceId path validation.) | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -1839,31 +1839,31 @@ Build a shared re-ingest service that enforces strict existing-root-only safety 
        // Assert
      });
      ```
-     1. [ ] Success branch returns canonical payload.
+     1. [x] Success branch returns canonical payload.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Unit service contract.
         - Test location: `server/src/test/unit/reingestService.test.ts`.
         - Description: Add/adjust a success-path test asserting `status`, `operation`, `runId`, and `sourceId` fields.
         - Purpose: Lock canonical success shape.
-     2. [ ] Invalid `sourceId` reason branches map to expected error code/message.
+     2. [x] Invalid `sourceId` reason branches map to expected error code/message.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Unit validation contract.
         - Test location: `server/src/test/unit/reingestService.test.ts`.
         - Description: Add/adjust table-driven tests for missing, non-string, empty, non-absolute, non-normalized, and ambiguous `sourceId`.
         - Purpose: Ensure deterministic validation mapping.
-     3. [ ] Unknown root response includes AI-retry guidance fields.
+     3. [x] Unknown root response includes AI-retry guidance fields.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Unit error-data contract.
         - Test location: `server/src/test/unit/reingestService.test.ts`.
         - Description: Add/adjust tests asserting `reingestableRepositoryIds` and `reingestableSourceIds` are present for unknown root.
         - Purpose: Preserve AI-retry contract.
-     4. [ ] Busy response maps to canonical `BUSY` contract.
+     4. [x] Busy response maps to canonical `BUSY` contract.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Unit busy-state contract.
         - Test location: `server/src/test/unit/reingestService.test.ts`.
         - Description: Add/adjust tests for locked ingest state and assert `BUSY` mapping.
         - Purpose: Lock busy-state behavior.
-5. [ ] Update `design.md` for canonical error/retry architecture and diagrams.
+5. [x] Update `design.md` for canonical error/retry architecture and diagrams.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: canonical contract for tool names, arguments, and execution semantics.) | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | Node.js path utilities: https://nodejs.org/api/path.html (Reason: authoritative normalization/join/isAbsolute behavior for sourceId path validation.) | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -1881,7 +1881,7 @@ Build a shared re-ingest service that enforces strict existing-root-only safety 
    - Purpose: Keep service-level behavior and error contracts unambiguous in architecture docs.
    - `design.md` requirements:
      - Add/update Mermaid diagram(s) that show `reingest_repository` service validation branches and canonical success/error mappings (`INVALID_PARAMS`, `NOT_FOUND`, `BUSY`).
-6. [ ] Update `README.md` for canonical re-ingest error/retry behavior.
+6. [x] Update `README.md` for canonical re-ingest error/retry behavior.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: canonical contract for tool names, arguments, and execution semantics.) | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | Node.js path utilities: https://nodejs.org/api/path.html (Reason: authoritative normalization/join/isAbsolute behavior for sourceId path validation.) | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -1897,7 +1897,7 @@ Build a shared re-ingest service that enforces strict existing-root-only safety 
    - Document location: `README.md`
    - Description: Document canonical success/error payloads and retry-guidance fields for re-ingest.
    - Purpose: Ensure operators and integrators can implement against stable contracts.
-7. [ ] Update `projectStructure.md` with every file/folder added, removed, or renamed in this task (after file changes are complete).
+7. [x] Update `projectStructure.md` with every file/folder added, removed, or renamed in this task (after file changes are complete).
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: canonical contract for tool names, arguments, and execution semantics.) | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | Node.js path utilities: https://nodejs.org/api/path.html (Reason: authoritative normalization/join/isAbsolute behavior for sourceId path validation.) | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -1913,33 +1913,87 @@ Build a shared re-ingest service that enforces strict existing-root-only safety 
        - `server/src/test/unit/reingestService.test.ts`
      - Removed files:
        - None planned in this task.
-8. [ ] Add task-specific structured log lines for Manual Playwright-MCP verification.
+8. [x] Add task-specific structured log lines for Manual Playwright-MCP verification.
    - Files to edit:
      - `server/src/ingest/reingestService.ts`
    - Add exactly these stable log tags (do not rename):
      - `DEV-0000035:T5:reingest_validation_evaluated`
      - `DEV-0000035:T5:reingest_validation_result`
    - Expected outcome: During reingest invocation, both tags appear and the result tag records canonical success or mapped error code/data payload shape.
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+9. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check to manually confirm story items and general regression checks for this task; include a check that there are no logged errors within the debug console; use `http://host.docker.internal:5001` via Playwright MCP tools.
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check to manually confirm story items and general regression checks for this task; include a check that there are no logged errors within the debug console; use `http://host.docker.internal:5001` via Playwright MCP tools.
    - Required log tags to verify: `DEV-0000035:T5:reingest_validation_evaluated`, `DEV-0000035:T5:reingest_validation_result`.
    - Expected outcome: During reingest invocation, both tags appear and the result tag records canonical success or mapped error code/data payload shape. Also confirm no unexpected `[error]`/uncaught console errors in browser debug console during this check.
-9. [ ] `npm run compose:down`
-10. [ ] `npm run test --workspace server -- reingestService`
-11. [ ] `npm run lint --workspaces`
-12. [ ] `npm run format:check --workspaces`
+9. [x] `npm run compose:down`
+10. [x] `npm run test --workspace server -- reingestService`
+11. [x] `npm run lint --workspaces`
+12. [x] `npm run format:check --workspaces`
 #### Implementation notes
 
-- to_do
+- Subtask 1 completed:
+  - reviewed `server/src/routes/ingestReembed.ts`, `server/src/lmstudio/toolService.ts`, `server/src/ingest/ingestJob.ts`, and `server/src/ingest/pathMap.ts`.
+  - confirmed existing re-embed run-start/error semantics are `isBusy()` pre-check and `reembed(root)` error codes (`BUSY`, `NOT_FOUND`).
+  - confirmed re-ingestable source roots can be derived from `listIngestedRepositories()` via canonical `containerPath` values already normalized with `mapIngestPath()`.
+- Subtasks 2-3 completed:
+  - added `server/src/ingest/reingestService.ts` with strict `sourceId` validation (missing/non-string/empty/non-absolute/non-normalized/ambiguous/unknown), exact known-root matching, and canonical response mapping.
+  - delegated run-start behavior to existing `isBusy` + `reembed` semantics and source-list derivation to `listIngestedRepositories`, with POSIX normalization aligned to existing `pathMap` strategy.
+  - implemented canonical success payload `{ status, operation, runId, sourceId }` and canonical error mappings `INVALID_PARAMS` (`-32602`), `NOT_FOUND` (`404`), and `BUSY` (`429`) including deterministic `fieldErrors.reason` and retry guidance lists.
+- Subtask 4 completed:
+  - added `server/src/test/unit/reingestService.test.ts` covering success, invalid reason branches, unknown-root retry guidance, and busy-state mappings (lock and thrown busy).
+  - verification command: `npm run build --workspace server` (pass).
+- Subtask 8 completed:
+  - added required structured log tags in `server/src/ingest/reingestService.ts`:
+    - `DEV-0000035:T5:reingest_validation_evaluated`
+    - `DEV-0000035:T5:reingest_validation_result`
+- Subtask 5 completed:
+  - updated `design.md` with a dedicated reingest service section and Mermaid flow diagram for validation branches and canonical mappings (`INVALID_PARAMS`, `NOT_FOUND`, `BUSY`).
+- Subtask 6 completed:
+  - updated `README.md` MCP section with canonical `reingest_repository` request/success/error contract and retry-guidance fields.
+- Subtask 7 completed:
+  - updated `projectStructure.md` for added files:
+    - `server/src/ingest/reingestService.ts`
+    - `server/src/test/unit/reingestService.test.ts`
+- Subtask 9 completed:
+  - initial `npm run lint --workspaces && npm run format:check --workspaces` failed due formatting in new Task 5 files.
+  - applied `npm run format --workspace server`, then re-ran `npm run lint --workspaces && npm run format:check --workspaces` (pass; existing baseline lint warnings in unrelated files unchanged).
+- Testing 1 completed:
+  - `npm run build --workspace server` (pass).
+- Testing 2 completed:
+  - `npm run build --workspace client` (pass).
+- Testing 3 completed:
+  - `npm run test --workspace server` (pass).
+  - unit/integration-node: `tests 607`, `pass 607`, `fail 0`.
+  - cucumber integration: `62 scenarios (62 passed)`, `366 steps (366 passed)`.
+- Testing 4 completed:
+  - `npm run test --workspace client` (pass; `Test Suites: 90 passed`, `Tests: 320 passed`).
+- Testing 5 completed:
+  - `npm run e2e` (pass; `36 passed`).
+- Testing 6 completed:
+  - `npm run compose:build` (pass; docker build completed for `codeinfo2-server` and `codeinfo2-client`).
+- Testing 7 completed:
+  - `npm run compose:up` (pass; stack started and health checks reached healthy for server/client path).
+- Testing 8 completed (Manual Playwright-MCP):
+  - Playwright MCP browser check against `http://host.docker.internal:5001` navigated and exercised `/ingest`; no browser console `[error]` entries observed.
+  - required log tags verified during direct reingest service invocation:
+    - `DEV-0000035:T5:reingest_validation_evaluated`
+    - `DEV-0000035:T5:reingest_validation_result`
+- Testing 9 completed:
+  - `npm run compose:down` (pass; local compose stack stopped and removed cleanly).
+- Testing 10 completed:
+  - `npm run test --workspace server -- reingestService` (pass; unit/integration-node `607 passed`, cucumber `62 scenarios / 366 steps passed`).
+- Testing 11 completed:
+  - `npm run lint --workspaces` (pass with baseline warnings only; no lint errors).
+- Testing 12 completed:
+  - `npm run format:check --workspaces` (pass for client/server/common).
 
 ---
 

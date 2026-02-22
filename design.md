@@ -95,6 +95,31 @@ flowchart TD
   E --> F
 ```
 
+## Reingest repository service (canonical validation + mapping)
+
+- Shared service `server/src/ingest/reingestService.ts` defines canonical validation and mapping for `reingest_repository` before MCP surface wiring.
+- Validation is strict and field-level for `sourceId`: missing, non-string, empty, non-absolute, non-normalized, ambiguous path forms, and unknown roots are rejected.
+- Reingest is existing-root-only: known roots are derived from `listIngestedRepositories()` container paths and must match exactly after POSIX normalization.
+- Run-start behavior reuses existing ingest semantics (`isBusy()` + `reembed(...)`) and maps outcomes to canonical contracts:
+  - invalid params -> JSON-RPC error `-32602` / `INVALID_PARAMS`
+  - unknown root -> JSON-RPC error `404` / `NOT_FOUND`
+  - busy -> JSON-RPC error `429` / `BUSY`
+- Validation/result logs are emitted with stable tags for manual verification:
+  - `DEV-0000035:T5:reingest_validation_evaluated`
+  - `DEV-0000035:T5:reingest_validation_result`
+
+```mermaid
+flowchart TD
+  A[reingest_repository args] --> B{sourceId valid?}
+  B -- no --> E1[-32602 INVALID_PARAMS\\nerror.data INVALID_SOURCE_ID]
+  B -- yes --> C{known ingested root exact match?}
+  C -- no --> E2[404 NOT_FOUND\\nerror.data unknown_root + retry lists]
+  C -- yes --> D{ingest lock held?}
+  D -- yes --> E3[429 BUSY\\nerror.data BUSY + retry lists]
+  D -- no --> F[reembed(sourceId)]
+  F --> G[success payload\\nstatus started, operation reembed, runId, sourceId]
+```
+
 ## Flows (schema)
 
 - Flow definitions live under `flows/<flowName>.json` and are validated with a strict Zod schema before use.

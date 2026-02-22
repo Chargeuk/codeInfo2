@@ -214,6 +214,11 @@ codex_agents/<agentName>/
   - `curl -X POST http://localhost:5010/mcp -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":2,"method":"tools/list"}'`
   - `curl -X POST http://localhost:5010/mcp -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"VectorSearch","arguments":{"query":"hello"}}}'`
 - Tools exposed: `ListIngestedRepositories` (no params) and `VectorSearch` (`query` required, optional `repository`, `limit` capped at 20). Results are returned as `content: [{ type: "text", text: "<json>" }]` (JSON string).
+- Reingest canonical contract (shared service behavior used by MCP wiring tasks):
+  - request args: `{ "sourceId": "<absolute-normalized-container-path>" }`
+  - success payload: `{ "status": "started", "operation": "reembed", "runId": "...", "sourceId": "..." }`
+  - failure mappings: invalid params -> `error.code=-32602`, `error.message="INVALID_PARAMS"`; unknown root -> `error.code=404`, `error.message="NOT_FOUND"`; busy -> `error.code=429`, `error.message="BUSY"`
+  - error retry guidance includes deterministic `fieldErrors.reason` plus `reingestableRepositoryIds` and `reingestableSourceIds`.
 
 ## Workspace layout
 

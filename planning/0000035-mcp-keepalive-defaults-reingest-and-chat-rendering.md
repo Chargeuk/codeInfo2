@@ -20,6 +20,8 @@ On chat/agents UX, user-authored text formatting is not rendered in user bubbles
 
 The target end state for this story is consistent MCP keepalive behavior, unified default provider/model resolution across REST and MCP, controlled MCP re-ingest support on both relevant MCP surfaces, corrected Codex stream assembly to prevent cropped/duplicate text, and user bubble markdown rendering that preserves intended formatting in both Chat and Agents pages. The defaulting decision for this story is explicit: only `CHAT_DEFAULT_PROVIDER` and `CHAT_DEFAULT_MODEL` are used as overrides, and when those env vars are absent the system defaults to provider `codex` and model `gpt-5.3-codex` for both REST chat and MCP `codebase_question`. Committed `.env` files are updated as part of this story to set those same values.
 
+Provider availability fallback behavior for this story is explicit: if the selected/default provider is unavailable at runtime, the system should automatically fall back to the other provider when that other provider is available (`codex -> lmstudio`, `lmstudio -> codex`). If neither provider is available, keep the selected/default provider and surface the existing unavailable state/error behavior.
+
 For MCP re-ingest safety, this story uses strict exact-match validation against known ingested roots. Input must be a `sourceId` string representing an already ingested repository root, normalized to POSIX form before matching. Re-ingest must reject unknown/non-string/empty/non-absolute `sourceId` values and must not perform any first-time ingest behavior.
 
 For markdown parity, user bubbles will use the exact same renderer and sanitization profile as assistant bubbles (`client/src/components/Markdown.tsx`). Current assistant markdown support (to be matched exactly for users) is:
@@ -34,6 +36,7 @@ For markdown parity, user bubbles will use the exact same renderer and sanitizat
 - Only `CHAT_DEFAULT_PROVIDER` and `CHAT_DEFAULT_MODEL` are used for shared provider/model env overrides.
 - Shared defaults are applied consistently in both REST chat and MCP `codebase_question`.
 - When `CHAT_DEFAULT_PROVIDER` and/or `CHAT_DEFAULT_MODEL` are not set, the fallback defaults are provider `codex` and model `gpt-5.3-codex` (not the previous mixed REST/MCP behavior).
+- If the selected/default provider is unavailable at runtime, provider selection automatically falls back to the other provider when available; if both are unavailable, the selected/default provider remains and existing unavailable-state behavior is shown.
 - Committed `.env` files used by normal and e2e server runs include `CHAT_DEFAULT_PROVIDER=codex` and `CHAT_DEFAULT_MODEL=gpt-5.3-codex`.
 - Re-ingest is exposed as an MCP tool in both the MCP server that exposes chat/codebase-question and the MCP server that exposes vector/ingest tooling.
 - The canonical MCP tool name is `reingest_repository` on both MCP surfaces.
@@ -50,7 +53,7 @@ For markdown parity, user bubbles will use the exact same renderer and sanitizat
 - User message bubbles in both Chat and Agents render user content with the exact same markdown component and sanitization profile as assistant bubbles.
 - User message bubbles support the same markdown feature set as assistant bubbles, including mermaid fenced blocks and existing sanitization behavior.
 - User input sent to AI is preserved as full raw input with no trimming (including leading/trailing spaces and newlines) in both Chat and Agents flows.
-- Send eligibility checks are aligned with raw-input preservation and no longer depend on `trim()`-based emptiness checks.
+- Whitespace-only/newline-only input is rejected before model execution, with a clear validation error from the server.
 - Detailed regression matrix definition is deferred to later planning, but the final matrix for this story must include Cucumber, Jest, and e2e coverage consistent with prior story plans.
 - Existing public contracts remain backward-compatible unless a contract change is explicitly agreed in this story.
 
@@ -63,9 +66,6 @@ For markdown parity, user bubbles will use the exact same renderer and sanitizat
 - General model-quality tuning unrelated to the concrete duplicate/cropped stream assembly bug.
 
 ## Questions
-
-- If `codex` is selected by fallback default but Codex is unavailable at runtime, should the system automatically fall back to `lmstudio` (UI and server), or should it keep `codex` selected and require explicit user selection/change?
-- For raw-input preservation (no trimming), should whitespace-only/newline-only user messages be allowed to send, or should raw formatting be preserved only when at least one non-whitespace character is present?
 
 ## Message Contracts & Storage Shapes
 
@@ -214,6 +214,9 @@ Ingest-root metadata storage shape used by re-ingest selection (existing storage
   - provider selection path (`server/src/routes/chatProviders.ts` + `client/src/hooks/useChatModel.ts`)
   - initial model selection path (`server/src/routes/chatModels.ts` + `client/src/hooks/useChatModel.ts`)
   ensuring the default provider/model shown in UI is `codex` / `gpt-5.3-codex` when env overrides are absent.
+- Add runtime provider-availability fallback behavior to both UI and server selection paths:
+  - selected/default provider auto-switches to the other provider when available
+  - if both providers are unavailable, keep selected/default provider and surface unavailable behavior.
 - Update committed env files to make intended defaults explicit:
   - `server/.env`
   - `server/.env.e2e`
@@ -251,7 +254,10 @@ Ingest-root metadata storage shape used by re-ingest selection (existing storage
   - `client/src/pages/AgentsPage.tsx`
   - `server/src/routes/chatValidators.ts`
   - `server/src/routes/agentsRun.ts`
-  so leading/trailing whitespace and newlines are preserved into provider calls.
+  so leading/trailing whitespace and newlines are preserved into provider calls when content exists.
+- Enforce non-empty semantic content validation before model execution:
+  - reject whitespace-only/newline-only input with explicit validation error response
+  - keep this rejection server-authoritative even if client-side send guards exist.
 - Add focused tests for:
   - shared keepalive helper behavior + coverage on all MCP surfaces
   - shared provider/model default resolution and fallback (`codex` / `gpt-5.3-codex`) for REST, MCP, and UI selection paths

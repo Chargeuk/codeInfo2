@@ -1738,7 +1738,7 @@ Create one shared keepalive helper and use it for classic MCP, MCP v2, and agent
 ### 5. Server: `reingest_repository` shared service + canonical validation/error mapping
 
 - Task Status: **__done__**
-- Git Commits: to_do
+- Git Commits: 5b0c2be2a154e6bb0b33f2715136c581721866c8
 
 #### Overview
 

@@ -38,6 +38,11 @@ For markdown parity, user bubbles will use the exact same renderer and sanitizat
 - Re-ingest is exposed as an MCP tool in both the MCP server that exposes chat/codebase-question and the MCP server that exposes vector/ingest tooling.
 - The canonical MCP tool name is `reingest_repository` on both MCP surfaces.
 - The `reingest_repository` request contract is `{"sourceId":"<containerPath>"}` and the response contract is `{"status":"started","runId":"...","sourceId":"...","operation":"reembed"}` (returned in each surface's existing MCP wrapper format).
+- `reingest_repository` uses one canonical cross-surface error contract:
+  - invalid params: JSON-RPC `error.code = -32602`, `error.message = "INVALID_PARAMS"`
+  - unknown root: JSON-RPC `error.code = 404`, `error.message = "NOT_FOUND"`
+  - ingest busy: JSON-RPC `error.code = 429`, `error.message = "BUSY"`
+- All `sourceId` validation failures return field-level details and retry guidance for AI callers, including a list of currently re-ingestable repository ids/sourceIds that can be retried immediately.
 - MCP re-ingest can only target repositories that are already present in ingested roots; it does not allow first-time ingest.
 - `reingest_repository` validates `sourceId` with strict exact match against the known ingested root set (after normalization), and rejects non-string, empty, non-absolute, unknown, or ambiguous values.
 - Codex streaming no longer produces cropped starts or duplicated final text in assistant bubbles for tool-interleaved responses.
@@ -59,9 +64,133 @@ For markdown parity, user bubbles will use the exact same renderer and sanitizat
 
 ## Questions
 
-- What is the canonical error contract for `reingest_repository` across both MCP surfaces (exact codes/messages for invalid params, unknown root, and busy states)?
-- For `sourceId` validation failures, should responses return field-level detail (for example non-absolute vs unknown) or a single generic invalid request message?
+## Message Contracts & Storage Shapes
 
+Canonical MCP tool name on both MCP surfaces:
+- `reingest_repository`
+
+Canonical request payload (inside MCP `tools/call` arguments):
+```json
+{
+  "sourceId": "/data/my-repo"
+}
+```
+
+Canonical success payload (inside each surface's existing MCP content wrapper):
+```json
+{
+  "status": "started",
+  "operation": "reembed",
+  "runId": "ingest-1730000000000",
+  "sourceId": "/data/my-repo"
+}
+```
+
+Canonical JSON-RPC error envelope used on both MCP surfaces:
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "request-id",
+  "error": {
+    "code": 0,
+    "message": "ERROR_CODE",
+    "data": {}
+  }
+}
+```
+
+Canonical `reingest_repository` error mapping:
+- Invalid params:
+  - `error.code`: `-32602`
+  - `error.message`: `"INVALID_PARAMS"`
+  - Used for malformed or invalid `sourceId` (missing, non-string, empty, non-absolute, ambiguous format).
+- Unknown root:
+  - `error.code`: `404`
+  - `error.message`: `"NOT_FOUND"`
+  - Used when `sourceId` is syntactically valid but does not exactly match a known ingested root after normalization.
+- Busy:
+  - `error.code`: `429`
+  - `error.message`: `"BUSY"`
+  - Used when ingest/reembed lock is currently held and the operation cannot start.
+
+Canonical `error.data` for `sourceId` validation failures (AI-retry friendly, field-level):
+```json
+{
+  "tool": "reingest_repository",
+  "code": "INVALID_SOURCE_ID",
+  "retryable": true,
+  "retryMessage": "The AI can retry using one of the provided re-ingestable repository ids/sourceIds.",
+  "fieldErrors": [
+    {
+      "field": "sourceId",
+      "reason": "non_absolute",
+      "message": "sourceId must be an absolute normalized container path"
+    }
+  ],
+  "reingestableRepositoryIds": [
+    "repo-id-1",
+    "repo-id-2"
+  ],
+  "reingestableSourceIds": [
+    "/data/repo-1",
+    "/data/repo-2"
+  ]
+}
+```
+
+Canonical `error.data` for unknown root (`NOT_FOUND`) and busy (`BUSY`):
+```json
+{
+  "tool": "reingest_repository",
+  "code": "NOT_FOUND",
+  "retryable": true,
+  "retryMessage": "The AI can retry using one of the provided re-ingestable repository ids/sourceIds.",
+  "fieldErrors": [
+    {
+      "field": "sourceId",
+      "reason": "unknown_root",
+      "message": "sourceId is not in the current ingested-root set"
+    }
+  ],
+  "reingestableRepositoryIds": [
+    "repo-id-1",
+    "repo-id-2"
+  ],
+  "reingestableSourceIds": [
+    "/data/repo-1",
+    "/data/repo-2"
+  ]
+}
+```
+
+```json
+{
+  "tool": "reingest_repository",
+  "code": "BUSY",
+  "retryable": true,
+  "retryAfterMs": 3000
+}
+```
+
+Repository/source listing shape used to build retry options (existing contract, no schema change):
+```json
+{
+  "id": "repo-id",
+  "description": "optional description",
+  "containerPath": "/data/my-repo",
+  "hostPath": "/Users/me/dev/my-repo",
+  "hostPathWarning": "optional warning",
+  "lastIngestAt": "2026-02-22T10:00:00.000Z",
+  "modelId": "text-embedding-model",
+  "counts": { "files": 123, "chunks": 456, "embedded": 456 },
+  "lastError": null
+}
+```
+
+Ingest-root metadata storage shape used by re-ingest selection (existing storage, no schema change in this story):
+- Root metadata keys currently include `root`, `name`, `description`, `model`, `state`, `lastIngestAt`, `ingestedAtMs`, file/chunk/embed counts, and optional AST counters/timestamps.
+- Re-ingest selection remains strict root-based (`meta.root === sourceId` after normalization) and chooses the latest matching metadata snapshot by timestamp/run ordering.
+- This story does not introduce any new persistence schema or collection.
 
 ## Implementation Ideas
 
@@ -84,6 +213,7 @@ For markdown parity, user bubbles will use the exact same renderer and sanitizat
   - MCP v2 tools in `server/src/mcp2/tools.ts` (and tool definition module)
   - Shared request: `sourceId` only
   - Shared payload result: `status`, `runId`, `sourceId`, `operation: "reembed"`
+  - Shared error contract: `-32602/INVALID_PARAMS`, `404/NOT_FOUND`, `429/BUSY` with AI-retry `error.data` payload including `reingestableRepositoryIds` and `reingestableSourceIds`
 - Enforce strict source authorization/safety rules for `reingest_repository`:
   - Accept `sourceId` only when it exactly matches an existing ingested root after normalization.
   - Reject non-string, empty, non-absolute, unknown, and ambiguous `sourceId` values.

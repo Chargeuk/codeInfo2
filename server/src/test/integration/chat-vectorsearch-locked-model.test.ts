@@ -224,6 +224,7 @@ test('chat surfaces INGEST_REQUIRED over WS when no locked model exists', async 
     const res = await request(server.httpServer)
       .post('/chat')
       .send({
+        provider: 'lmstudio',
         model: 'm',
         conversationId: 'conv-vectorsearch-locked',
         message: 'hello',
@@ -342,6 +343,7 @@ test('chat VectorSearch uses locked embedding model and streams tool-result', as
     const res = await request(server.httpServer)
       .post('/chat')
       .send({
+        provider: 'lmstudio',
         model: 'm',
         conversationId: 'conv-vectorsearch-locked-2',
         message: 'hello',

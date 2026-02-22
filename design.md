@@ -22,9 +22,32 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - Express 5 app with CORS enabled and env-driven port (default 5010 via `server/.env`).
 - Routes: `/health` returns `{ status: 'ok', uptime, timestamp }`; `/version` returns `VersionInfo` using `package.json` version; `/info` echoes a friendly message plus VersionInfo.
 - Depends on `@codeinfo2/common` for DTO helper; built with `tsc -b`, started via `npm run start --workspace server`.
+- Shared chat provider/model defaults are resolved in `server/src/config/chatDefaults.ts` with strict precedence: explicit request value -> `CHAT_DEFAULT_PROVIDER` / `CHAT_DEFAULT_MODEL` env -> hardcoded fallback (`codex`, `gpt-5.3-codex`).
+- `validateChatRequest` now accepts omitted `provider`/`model`, resolves both through the shared resolver, and keeps existing REST validation envelopes unchanged.
 - Codex env defaults are resolved by `server/src/config/codexEnvDefaults.ts`, which parses `Codex_*` env vars into validated defaults plus warnings and logs `[codex-env-defaults] resolved`.
 - `validateChatRequest` applies Codex env defaults when request flags are missing, surfaces env warnings on the response payload, and logs `[codex-validate] applied env defaults` with the defaulted flag list.
 - `ChatInterfaceCodex` builds thread options from validated flags without extra fallback defaults, leaving missing values undefined so Codex config/env defaults apply, and logs `[codex-thread-options] prepared` with `undefinedFlags`.
+
+```mermaid
+flowchart LR
+  Req[POST /chat body] --> P{provider supplied?}
+  Req --> M{model supplied?}
+  P -- yes --> RP[provider=request]
+  P -- no --> EP{CHAT_DEFAULT_PROVIDER valid?}
+  EP -- yes --> RPE[provider=env]
+  EP -- no --> RPF[provider=codex fallback]
+  M -- yes --> RM[model=request]
+  M -- no --> EM{CHAT_DEFAULT_MODEL valid?}
+  EM -- yes --> RME[model=env]
+  EM -- no --> RMF[model=gpt-5.3-codex fallback]
+  RP --> V[validateChatRequest]
+  RPE --> V
+  RPF --> V
+  RM --> V
+  RME --> V
+  RMF --> V
+  V --> C[chat route persists resolved provider/model]
+```
 
 ## Flows (schema)
 

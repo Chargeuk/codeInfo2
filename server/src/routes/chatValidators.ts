@@ -3,10 +3,13 @@ import type {
   ModelReasoningEffort,
   SandboxMode,
 } from '@openai/codex-sdk';
+import {
+  resolveChatDefaults,
+  type ChatDefaultProvider,
+} from '../config/chatDefaults.js';
 import { getCodexEnvDefaults } from '../config/codexEnvDefaults.js';
 import { baseLogger } from '../logger.js';
 
-const DEFAULT_PROVIDER = 'lmstudio';
 export type AppModelReasoningEffort = ModelReasoningEffort | 'xhigh';
 
 type Provider = 'codex' | 'lmstudio';
@@ -41,6 +44,12 @@ export type ValidatedChatRequest = {
     modelReasoningEffort?: AppModelReasoningEffort;
   };
   warnings: string[];
+  defaultsResolution: {
+    providerSource: 'request' | 'env' | 'fallback';
+    modelSource: 'request' | 'env' | 'fallback';
+    requestedProvider?: Provider;
+    requestedModel?: string;
+  };
 };
 
 export class ChatValidationError extends Error {
@@ -86,9 +95,13 @@ export function validateChatRequest(
     );
   }
 
-  const model = body.model;
-  if (typeof model !== 'string' || model.trim().length === 0) {
-    throw new ChatValidationError('model is required');
+  const rawModel = body.model;
+  let requestedModel: string | undefined;
+  if (rawModel !== undefined) {
+    if (typeof rawModel !== 'string' || rawModel.trim().length === 0) {
+      throw new ChatValidationError('model must be a non-empty string');
+    }
+    requestedModel = rawModel.trim();
   }
 
   const message = body.message;
@@ -105,15 +118,26 @@ export function validateChatRequest(
   }
 
   const rawProvider = body.provider;
-  let provider: Provider = DEFAULT_PROVIDER;
-  if (typeof rawProvider === 'string' && rawProvider.length > 0) {
-    if (rawProvider !== 'codex' && rawProvider !== 'lmstudio') {
+  let requestedProvider: Provider | undefined;
+  if (rawProvider !== undefined) {
+    if (typeof rawProvider !== 'string' || rawProvider.trim().length === 0) {
       throw new ChatValidationError('provider must be "codex" or "lmstudio"');
     }
-    provider = rawProvider;
+    const normalizedProvider = rawProvider.trim();
+    if (normalizedProvider !== 'codex' && normalizedProvider !== 'lmstudio') {
+      throw new ChatValidationError('provider must be "codex" or "lmstudio"');
+    }
+    requestedProvider = normalizedProvider as Provider;
   }
 
-  const warnings: string[] = [];
+  const resolvedDefaults = resolveChatDefaults({
+    requestProvider: requestedProvider as ChatDefaultProvider | undefined,
+    requestModel: requestedModel,
+  });
+  const provider: Provider = resolvedDefaults.provider;
+  const model = resolvedDefaults.model;
+
+  const warnings: string[] = [...resolvedDefaults.warnings];
 
   const threadId =
     typeof body.threadId === 'string' && body.threadId.length > 0
@@ -262,5 +286,11 @@ export function validateChatRequest(
     inflightId,
     codexFlags,
     warnings,
+    defaultsResolution: {
+      providerSource: resolvedDefaults.providerSource,
+      modelSource: resolvedDefaults.modelSource,
+      requestedProvider,
+      requestedModel,
+    },
   };
 }

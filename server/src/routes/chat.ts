@@ -123,9 +123,50 @@ export function createChatRouter({
       inflightId: requestedInflightId,
       codexFlags,
       warnings,
+      defaultsResolution,
     } = validatedBody;
 
     const now = new Date();
+    const defaultsLogContext = {
+      requestId,
+      conversationId,
+      provider,
+      model,
+      providerSource: defaultsResolution.providerSource,
+      modelSource: defaultsResolution.modelSource,
+      requestedProvider: defaultsResolution.requestedProvider,
+      requestedModel: defaultsResolution.requestedModel,
+      envProviderPresent:
+        typeof process.env.CHAT_DEFAULT_PROVIDER === 'string' &&
+        process.env.CHAT_DEFAULT_PROVIDER.trim().length > 0,
+      envModelPresent:
+        typeof process.env.CHAT_DEFAULT_MODEL === 'string' &&
+        process.env.CHAT_DEFAULT_MODEL.trim().length > 0,
+    };
+    append({
+      level: 'info',
+      message: 'DEV-0000035:T1:defaults_resolution_evaluated',
+      timestamp: now.toISOString(),
+      source: 'server',
+      requestId,
+      context: defaultsLogContext,
+    });
+    baseLogger.info(
+      defaultsLogContext,
+      'DEV-0000035:T1:defaults_resolution_evaluated',
+    );
+    append({
+      level: 'info',
+      message: 'DEV-0000035:T1:defaults_resolution_result',
+      timestamp: now.toISOString(),
+      source: 'server',
+      requestId,
+      context: defaultsLogContext,
+    });
+    baseLogger.info(
+      defaultsLogContext,
+      'DEV-0000035:T1:defaults_resolution_result',
+    );
 
     const ensureConversation = async (): Promise<Conversation | null> => {
       if (shouldUseMemoryPersistence()) {
@@ -151,6 +192,7 @@ export function createChatRouter({
 
         const updated: Conversation = {
           ...existing,
+          provider,
           model,
           flags:
             provider === 'codex'
@@ -187,6 +229,7 @@ export function createChatRouter({
 
       await updateConversationMeta({
         conversationId,
+        provider,
         model,
         flags:
           provider === 'codex'

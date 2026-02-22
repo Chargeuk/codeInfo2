@@ -527,7 +527,7 @@ Create one authoritative provider/model default resolver and wire it into REST c
 
 #### Subtasks
 
-1. [ ] Review existing defaulting behavior and current fallbacks.
+1. [x] Review existing defaulting behavior and current fallbacks.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Node.js environment variables: https://nodejs.org/api/environment_variables.html (Reason: authoritative rules for reading and validating runtime env defaults in Node.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -545,7 +545,7 @@ Create one authoritative provider/model default resolver and wire it into REST c
      - `server/src/routes/chatModels.ts`
      - `server/.env`
      - `server/.env.e2e`
-2. [ ] Create shared resolver module for provider/model defaults.
+2. [x] Create shared resolver module for provider/model defaults.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Node.js environment variables: https://nodejs.org/api/environment_variables.html (Reason: authoritative rules for reading and validating runtime env defaults in Node.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -565,7 +565,7 @@ Create one authoritative provider/model default resolver and wire it into REST c
      - Hardcoded fallback must be exactly `provider=codex`, `model=gpt-5.3-codex`.
      - Validate unknown/empty env values as unresolved so fallback still applies.
      - Reuse existing env/default validation approach from `server/src/config/codexEnvDefaults.ts` (no duplicate enum/boolean parsing utilities).
-3. [ ] Integrate resolver into REST chat validation/execution path.
+3. [x] Integrate resolver into REST chat validation/execution path.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Node.js environment variables: https://nodejs.org/api/environment_variables.html (Reason: authoritative rules for reading and validating runtime env defaults in Node.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -584,7 +584,7 @@ Create one authoritative provider/model default resolver and wire it into REST c
    - Implementation requirements:
      - Keep existing REST envelopes unchanged.
      - Persist resolved provider/model on created/updated conversation metadata.
-4. [ ] Update committed env defaults.
+4. [x] Update committed env defaults.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Node.js environment variables: https://nodejs.org/api/environment_variables.html (Reason: authoritative rules for reading and validating runtime env defaults in Node.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -603,7 +603,7 @@ Create one authoritative provider/model default resolver and wire it into REST c
    - Required values:
      - `CHAT_DEFAULT_PROVIDER=codex`
      - `CHAT_DEFAULT_MODEL=gpt-5.3-codex`
-5. [ ] Add server unit tests for shared resolver precedence and REST default application.
+5. [x] Add server unit tests for shared resolver precedence and REST default application.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Node.js environment variables: https://nodejs.org/api/environment_variables.html (Reason: authoritative rules for reading and validating runtime env defaults in Node.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -629,37 +629,37 @@ Create one authoritative provider/model default resolver and wire it into REST c
        // Assert
      });
      ```
-     1. [ ] Explicit values win.
+     1. [x] Explicit values win.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Unit.
         - Test location: `server/src/test/unit/config.chatDefaults.test.ts`.
         - Description: Add/adjust a test that passes explicit request provider/model values and asserts resolver output uses those exact values.
         - Purpose: Prove request-level inputs have highest precedence.
-     2. [ ] Env values apply when explicit values are missing.
+     2. [x] Env values apply when explicit values are missing.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Unit.
         - Test location: `server/src/test/unit/config.chatDefaults.test.ts`.
         - Description: Add/adjust a test where request fields are omitted and valid env defaults are set; assert resolved provider/model come from env.
         - Purpose: Prove env overrides are used correctly as second precedence tier.
-     3. [ ] Hardcoded fallback applies when env is missing/invalid.
+     3. [x] Hardcoded fallback applies when env is missing/invalid.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Unit.
         - Test location: `server/src/test/unit/config.chatDefaults.test.ts`.
         - Description: Add/adjust a test that clears/invalidates env values and asserts resolver returns `codex` + `gpt-5.3-codex`.
         - Purpose: Prove deterministic fallback behavior.
-     4. [ ] Partial env override resolves missing fields via fallback.
+     4. [x] Partial env override resolves missing fields via fallback.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Unit.
         - Test location: `server/src/test/unit/config.chatDefaults.test.ts`.
         - Description: Add/adjust a test with only one env default set and assert the missing field uses hardcoded fallback.
         - Purpose: Prevent mixed unresolved state when only one env key is configured.
-     5. [ ] Invalid/empty env values are ignored and never persisted as mixed invalid state.
+     5. [x] Invalid/empty env values are ignored and never persisted as mixed invalid state.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Unit + route validation.
         - Test location: `server/src/test/unit/config.chatDefaults.test.ts`, `server/src/test/unit/chatValidators.test.ts`.
         - Description: Add/adjust tests where env defaults are empty/invalid and assert resolver/validator drop them and resolve to valid values.
         - Purpose: Prevent invalid env configuration from leaking into runtime behavior.
-6. [ ] Update `design.md` for shared defaults architecture behavior.
+6. [x] Update `design.md` for shared defaults architecture behavior.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Node.js environment variables: https://nodejs.org/api/environment_variables.html (Reason: authoritative rules for reading and validating runtime env defaults in Node.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -677,7 +677,7 @@ Create one authoritative provider/model default resolver and wire it into REST c
    - Purpose: Keep architecture documentation aligned with implemented default-resolution behavior.
    - `design.md` requirements:
      - Add/update Mermaid diagram(s) that show provider/model default resolution precedence (`request -> env -> hardcoded fallback`) and where this resolution is applied in the REST chat path.
-7. [ ] Update `README.md` for shared defaults runtime behavior.
+7. [x] Update `README.md` for shared defaults runtime behavior.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Node.js environment variables: https://nodejs.org/api/environment_variables.html (Reason: authoritative rules for reading and validating runtime env defaults in Node.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -693,7 +693,7 @@ Create one authoritative provider/model default resolver and wire it into REST c
    - Document location: `README.md`
    - Description: Document shared provider/model defaults and how env/request precedence works.
    - Purpose: Provide accurate operator/developer usage guidance for runtime defaults.
-8. [ ] Update `projectStructure.md` with every file/folder added, removed, or renamed in this task (after file changes are complete).
+8. [x] Update `projectStructure.md` with every file/folder added, removed, or renamed in this task (after file changes are complete).
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Node.js environment variables: https://nodejs.org/api/environment_variables.html (Reason: authoritative rules for reading and validating runtime env defaults in Node.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -709,7 +709,7 @@ Create one authoritative provider/model default resolver and wire it into REST c
        - `server/src/test/unit/config.chatDefaults.test.ts`
      - Removed files:
        - None planned in this task.
-9. [ ] Add task-specific structured log lines for Manual Playwright-MCP verification.
+9. [x] Add task-specific structured log lines for Manual Playwright-MCP verification.
    - Files to edit:
      - `server/src/config/chatDefaults.ts`
      - `server/src/routes/chat.ts`
@@ -720,8 +720,8 @@ Create one authoritative provider/model default resolver and wire it into REST c
 10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
 3. [ ] `npm run test --workspace server`
 4. [ ] `npm run test --workspace client`
 5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
@@ -733,11 +733,20 @@ Create one authoritative provider/model default resolver and wire it into REST c
 9. [ ] `npm run compose:down`
 10. [ ] `npm run test --workspace server -- config.chatDefaults`
 11. [ ] `npm run test --workspace server -- chatValidators`
-12. [ ] `npm run lint --workspaces`
+12. [x] `npm run lint --workspaces`
 13. [ ] `npm run format:check --workspaces`
 #### Implementation notes
 
-- to_do
+- Added `server/src/config/chatDefaults.ts` with deterministic shared resolution (`request -> CHAT_DEFAULT_* env -> codex/gpt-5.3-codex fallback`) and env-warning capture for empty/invalid defaults.
+- Updated `server/src/routes/chatValidators.ts` to allow omitted provider/model, resolve via shared defaults, and return `defaultsResolution` metadata without changing existing REST error envelope shape.
+- Updated `server/src/routes/chat.ts` + `server/src/mongo/repo.ts` so resolved provider/model are persisted on conversation metadata updates and added required log tags `DEV-0000035:T1:defaults_resolution_evaluated` / `DEV-0000035:T1:defaults_resolution_result`.
+- Updated committed defaults in `server/.env` and `server/.env.e2e` to `CHAT_DEFAULT_PROVIDER=codex` and `CHAT_DEFAULT_MODEL=gpt-5.3-codex`.
+- Added/updated tests: `server/src/test/unit/config.chatDefaults.test.ts` and `server/src/test/unit/chatValidators.test.ts` for precedence/fallback/invalid-env handling.
+- Documentation updates completed in `design.md`, `README.md`, and `projectStructure.md` for shared defaults behavior and new files.
+- Verification run: `npm run build --workspace server` passed; `npm run build --workspace client` passed; `npm run lint --workspaces` passed (warnings only).
+- Fixed new-default regression in tests by setting explicit `provider: 'lmstudio'` in `server/src/test/unit/chat-tools-wire.test.ts`.
+- Blocker: Docker socket access is denied in this environment (`permission denied while trying to connect to the docker API at unix:///var/run/docker.sock`), so compose/e2e checks and the Cucumber integration stage inside `npm run test --workspace server` cannot complete.
+- Secondary note: `npm run format:check --workspaces` intermittently fails while long-running server test sessions create/delete `server/tmp-flows-*` fixture directories; rerun after Docker-backed test processes are stopped.
 
 ---
 

@@ -564,6 +564,8 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 - server/src/test/unit/mcp-responder-transient-error.test.ts — unit coverage that McpResponder ignores transient reconnect error events
 - server/src/test/unit/chat-command-metadata.test.ts — unit coverage that chat persistence attaches `command` metadata to turns created by command runs
 - server/src/test/unit/chatModels.codex.test.ts — unit coverage for `/chat/models` Codex defaults, warnings, and env model lists
+- server/src/config/chatDefaults.ts — shared resolver for chat provider/model defaults (`request -> env -> fallback`)
+- server/src/test/unit/config.chatDefaults.test.ts — unit coverage for shared chat default resolution precedence
 - server/src/test/unit/chatValidators.test.ts — unit coverage for Codex env defaults + warnings in chat validation
 - server/src/test/unit/chat-codex-workingDirectoryOverride.test.ts — ensures ChatInterfaceCodex honors per-call workingDirectory overrides
 - server/src/test/unit/conversations-router-agent-filter.test.ts — Supertest coverage for `/conversations?agentName=...` request forwarding

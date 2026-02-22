@@ -38,21 +38,38 @@ For markdown parity, user bubbles will use the exact same renderer and sanitizat
 - Chat/Agents client send paths currently trim user input before sending (`client/src/pages/ChatPage.tsx`, `client/src/pages/AgentsPage.tsx`, `client/src/hooks/useChatStream.ts`), so leading/trailing whitespace is dropped before request dispatch.
 - Chat/Agents user bubbles currently render text with `<Typography data-testid="user-text">` while assistant bubbles use `client/src/components/Markdown.tsx`, which causes formatting parity gaps for user text.
 
+### Research Findings (2026-02-22)
+
+- MCP tools guidance distinguishes protocol errors (JSON-RPC `error`) from tool execution errors (`result.isError=true`), and recommends execution failures be surfaced as tool results so LLM callers can self-correct.
+  - Source: https://modelcontextprotocol.io/specification/draft/server/tools
+- JSON-RPC 2.0 allows application-defined error codes outside reserved ranges; only `-32768..-32000` is reserved.
+  - Source: https://www.jsonrpc.org/specification
+- JSON text grammar allows surrounding whitespace (`JSON-text = ws value ws`), which means whitespace heartbeat bytes do not invalidate the final JSON payload when parsers are standards-compliant.
+  - Source: https://www.rfc-editor.org/rfc/rfc8259
+- OpenAI Codex App Server lifecycle is item-based (`item/started`, optional deltas, `item/completed` terminal payload), so completed item state should be treated as authoritative final state for merge correctness.
+  - Sources:
+    - https://openai.com/index/unlocking-the-codex-harness/
+    - https://raw.githubusercontent.com/openai/codex/main/codex-rs/app-server/README.md
+
 ## Acceptance Criteria
 
 - Keepalive logic is centralized in one shared helper under `server/src/mcpCommon/` and is used by all three MCP surfaces: `server/src/mcp/server.ts`, `server/src/mcp2/router.ts`, and `server/src/mcpAgents/router.ts`.
 - For long-running MCP `tools/call`, keepalive starts before tool dispatch and always stops on success, error, socket close, and response end; all three surfaces use the same heartbeat interval and initial-flush behavior.
+- Keepalive heartbeat bytes are JSON-whitespace-only, and final responses remain valid JSON-RPC payloads parseable by standards-compliant clients.
 - Shared default env keys are exactly `CHAT_DEFAULT_PROVIDER` and `CHAT_DEFAULT_MODEL`; no provider-specific override keys are introduced in this story.
 - Provider/model resolution order is identical for REST chat (`POST /chat`) and MCP `codebase_question`: explicit request value -> env override value -> hardcoded fallback (`provider=codex`, `model=gpt-5.3-codex`).
 - Committed defaults are present in both `server/.env` and `server/.env.e2e` with `CHAT_DEFAULT_PROVIDER=codex` and `CHAT_DEFAULT_MODEL=gpt-5.3-codex`.
 - Runtime provider availability fallback is deterministic for chat UI defaults, REST chat execution, and MCP `codebase_question` execution: selected/default provider unavailable -> switch to the other provider only if that provider is available.
 - Provider auto-fallback model rule is deterministic: select the fallback provider's first available/runtime-default model; if no fallback model is available, treat fallback as unavailable and keep the originally selected/default provider.
+- Auto-fallback is single-hop per request (no oscillation), and the resolved provider/model for that request are what get persisted on the created/updated conversation metadata.
 - Re-ingest is exposed on both MCP surfaces (`POST /mcp` and MCP v2 JSON-RPC on `MCP_PORT`) using one canonical tool name: `reingest_repository`.
 - `reingest_repository` request contract is `{"sourceId":"<containerPath>"}` and success payload is `{"status":"started","runId":"...","sourceId":"...","operation":"reembed"}` wrapped in each surface's existing MCP response envelope.
 - `reingest_repository` uses one cross-surface error contract: invalid params -> `error.code=-32602`, `error.message="INVALID_PARAMS"`; unknown root -> `error.code=404`, `error.message="NOT_FOUND"`; ingest busy -> `error.code=429`, `error.message="BUSY"`.
+- `reingest_repository` error behavior is a deliberate compatibility lock for this story: keep the established JSON-RPC error envelope above (do not switch to `result.isError` in this story), and document this deviation from MCP tool execution guidance.
 - `sourceId` validation is strict and field-level: reject missing, non-string, empty, non-absolute, non-normalized, unknown, and ambiguous values; return AI-retry guidance with `reingestableRepositoryIds` and `reingestableSourceIds`.
 - Re-ingest safety is strict: only existing ingested roots are allowed; no first-time ingest behavior is reachable from MCP `reingest_repository`.
 - Codex stream assembly no longer produces cropped starts or duplicate final text for tool-interleaved responses; final assistant bubble text equals the final completed assistant message exactly once.
+- Codex stream merge invariants are explicit and tested: aggregate assistant text by item identity, append deltas in sequence order, and on completed-item events treat completed text as authoritative final content for that item.
 - Existing bubble visual presentation remains unchanged (layout, colors, status chips, metadata placement); this story changes content correctness and user-markdown rendering only.
 - User bubbles in both Chat and Agents render through the same markdown component (`client/src/components/Markdown.tsx`) and therefore use the same sanitization and feature support as assistant bubbles, including mermaid fenced blocks.
 - User input sent to providers is preserved as raw text with no trimming, including leading/trailing spaces and newlines, for both Chat and Agents flows.
@@ -83,6 +100,7 @@ For markdown parity, user bubbles will use the exact same renderer and sanitizat
   - if both unavailable, keep selected/default provider and show existing unavailable behavior
   - when auto-switching providers, select the fallback provider's first available/runtime-default model (deterministic across REST chat, MCP `codebase_question`, and chat UI defaults)
   - if the fallback provider has no available model to select, treat fallback as unavailable and keep the original selected/default provider
+  - fallback is single-hop per request and persisted for that request (no provider oscillation)
 - Raw-input policy is end-to-end:
   - preserve user input exactly as entered (including leading/trailing spaces/newlines) when sending to provider
   - reject whitespace-only/newline-only messages before any provider call
@@ -172,6 +190,9 @@ Canonical `reingest_repository` error mapping:
   - `error.code`: `429`
   - `error.message`: `"BUSY"`
   - Used when ingest/reembed lock is currently held and the operation cannot start.
+
+Compatibility note:
+- MCP guidance commonly models tool execution failures as `result.isError=true`; this story intentionally keeps the JSON-RPC error envelope above for `reingest_repository` to preserve existing cross-surface behavior/contracts in this codebase.
 
 Canonical `error.data` for `sourceId` validation failures (AI-retry friendly, field-level):
 ```json
@@ -302,6 +323,7 @@ Ingest-root metadata storage shape used by re-ingest selection (existing storage
   - selected/default provider auto-switches to the other provider when available
   - auto-switched provider uses its first available/runtime-default model
   - if fallback provider has no selectable model, treat fallback as unavailable and keep original selected/default provider
+  - fallback executes once per request and persists the resolved provider/model for that request path
   - if both providers are unavailable, keep selected/default provider and surface unavailable behavior.
 - Update committed env files to make intended defaults explicit:
   - `server/.env`
@@ -317,6 +339,7 @@ Ingest-root metadata storage shape used by re-ingest selection (existing storage
   - success payload fields: `status`, `runId`, `sourceId`, `operation: "reembed"`
   - error mapping: `-32602/INVALID_PARAMS`, `404/NOT_FOUND`, `429/BUSY`
   - AI-retry payload in `error.data` including `fieldErrors`, `reingestableRepositoryIds`, `reingestableSourceIds`.
+  - include an inline comment/docstring stating this is a deliberate compatibility contract even though MCP tools docs commonly prefer `result.isError` for execution failures.
 - Enforce strict source safety rules for `reingest_repository`:
   - accept only normalized absolute `sourceId` values that exactly match known ingested roots
   - reject non-string, empty, non-absolute, unknown, and ambiguous inputs with field-level detail

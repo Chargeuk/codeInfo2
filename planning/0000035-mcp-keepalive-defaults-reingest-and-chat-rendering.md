@@ -14,7 +14,7 @@ On the MCP side, keepalive handling is duplicated across some servers and missin
 
 On tooling coverage, re-ingest is available via REST but not consistently exposed in the MCP surfaces where users already work, and we need a safe MCP-level re-ingest path that only allows re-ingesting repositories that are already known/ingested. The naming decision for this story is to use one canonical tool name on both MCP surfaces: `reingest_repository`.
 
-On output correctness, after upgrading to `@openai/codex-sdk@0.101.0` (with `gpt-5.3-codex` usage), assistant output can appear cropped and duplicated in the web GUI around tool-call boundaries. This creates direct trust issues because final visible answers can be wrong even when the model execution was otherwise successful.
+On output correctness, after upgrading to `@openai/codex-sdk@0.101.0` (with `gpt-5.3-codex` usage), assistant output can appear cropped and duplicated in the web GUI around tool-call boundaries. This creates direct trust issues because final visible answers can be wrong even when the model execution was otherwise successful. The decision for this story is to keep existing bubble formatting and presentation behavior as-is, and only correct text assembly so content is complete and not duplicated.
 
 On chat/agents UX, user-authored text formatting is not rendered in user bubbles even though assistant text is markdown-rendered. Current send logic trims leading/trailing whitespace before sending to AI in both chat and agents paths, while interior whitespace/newlines are preserved. This story now fixes that policy to preserve full raw user input end-to-end with no trimming.
 
@@ -41,10 +41,12 @@ For markdown parity, user bubbles will use the exact same renderer and sanitizat
 - MCP re-ingest can only target repositories that are already present in ingested roots; it does not allow first-time ingest.
 - `reingest_repository` validates `sourceId` with strict exact match against the known ingested root set (after normalization), and rejects non-string, empty, non-absolute, unknown, or ambiguous values.
 - Codex streaming no longer produces cropped starts or duplicated final text in assistant bubbles for tool-interleaved responses.
+- Existing chat/agents bubble formatting and presentation style remain unchanged while implementing the Codex stream fix.
 - User message bubbles in both Chat and Agents render user content with the exact same markdown component and sanitization profile as assistant bubbles.
 - User message bubbles support the same markdown feature set as assistant bubbles, including mermaid fenced blocks and existing sanitization behavior.
 - User input sent to AI is preserved as full raw input with no trimming (including leading/trailing spaces and newlines) in both Chat and Agents flows.
 - Send eligibility checks are aligned with raw-input preservation and no longer depend on `trim()`-based emptiness checks.
+- Detailed regression matrix definition is deferred to later planning, but the final matrix for this story must include Cucumber, Jest, and e2e coverage consistent with prior story plans.
 - Existing public contracts remain backward-compatible unless a contract change is explicitly agreed in this story.
 
 ## Out Of Scope
@@ -57,8 +59,7 @@ For markdown parity, user bubbles will use the exact same renderer and sanitizat
 
 ## Questions
 
-- For Codex stream handling, should progress/status messages ever appear in the final answer bubble, or must progress remain a separate channel only?
-- What regression test matrix is required for the stream fix (minimum scenarios, providers, and UI paths) before we can mark the story scoped?
+
 
 ## Implementation Ideas
 
@@ -87,6 +88,7 @@ For markdown parity, user bubbles will use the exact same renderer and sanitizat
   - Re-check root existence at execution time (not only at tool discovery/list time).
 - Fix Codex output assembly in `server/src/chat/interfaces/ChatInterfaceCodex.ts` to handle non-monotonic updates safely (tool-call boundary aware, no append-on-divergence behavior).
 - Align bridge/finalization behavior in `server/src/chat/chatStreamBridge.ts` and `server/src/chat/inflightRegistry.ts` so non-prefix final text does not duplicate already-streamed content.
+- Keep existing chat/agents bubble formatting unchanged while fixing stream text correctness (no UI style or structure changes in scope for this fix).
 - Update user-bubble rendering in:
   - `client/src/pages/ChatPage.tsx`
   - `client/src/pages/AgentsPage.tsx`
@@ -103,3 +105,4 @@ For markdown parity, user bubbles will use the exact same renderer and sanitizat
   - Codex stream non-prefix/truncation/tool-boundary cases
   - chat/agents user markdown rendering parity with assistant markdown (including mermaid handling)
   - chat/agents raw-input send behavior with leading/trailing whitespace and newline-only payloads
+  - final regression mix includes Cucumber, Jest, and e2e suites (exact matrix detail to be defined later in planning)

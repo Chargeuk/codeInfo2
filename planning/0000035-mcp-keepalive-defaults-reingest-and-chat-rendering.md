@@ -18,13 +18,15 @@ On output correctness, after upgrading to `@openai/codex-sdk@0.101.0` (with `gpt
 
 On chat/agents UX, user-authored text formatting is not rendered in user bubbles even though assistant text is markdown-rendered. In addition, current send logic trims leading/trailing whitespace before sending to AI, while interior whitespace/newlines are preserved; we need to confirm and agree whether this behavior should remain or be changed.
 
-The target end state for this story is consistent MCP keepalive behavior, unified default provider/model resolution across REST and MCP (with safe fallback to current behavior), controlled MCP re-ingest support on both relevant MCP surfaces, corrected Codex stream assembly to prevent cropped/duplicate text, and user bubble markdown rendering that preserves intended formatting in both Chat and Agents pages.
+The target end state for this story is consistent MCP keepalive behavior, unified default provider/model resolution across REST and MCP, controlled MCP re-ingest support on both relevant MCP surfaces, corrected Codex stream assembly to prevent cropped/duplicate text, and user bubble markdown rendering that preserves intended formatting in both Chat and Agents pages. The defaulting decision for this story is explicit: only `CHAT_DEFAULT_PROVIDER` and `CHAT_DEFAULT_MODEL` are used as overrides, and when those env vars are absent the system defaults to provider `codex` and model `gpt-5.3-codex` for both REST chat and MCP `codebase_question`. Committed `.env` files are updated as part of this story to set those same values.
 
 ## Acceptance Criteria
 
 - MCP keepalive behavior is implemented via shared common logic and used consistently across all MCP servers that can run long-lived tool calls.
-- The default provider/model can be configured in `.env` and is applied consistently in both REST and MCP interfaces.
-- If new `.env` defaults are missing or invalid, behavior falls back to current defaults without breaking existing clients.
+- Only `CHAT_DEFAULT_PROVIDER` and `CHAT_DEFAULT_MODEL` are used for shared provider/model env overrides.
+- Shared defaults are applied consistently in both REST chat and MCP `codebase_question`.
+- When `CHAT_DEFAULT_PROVIDER` and/or `CHAT_DEFAULT_MODEL` are not set, the fallback defaults are provider `codex` and model `gpt-5.3-codex` (not the previous mixed REST/MCP behavior).
+- Committed `.env` files used by normal and e2e server runs include `CHAT_DEFAULT_PROVIDER=codex` and `CHAT_DEFAULT_MODEL=gpt-5.3-codex`.
 - Re-ingest is exposed as an MCP tool in both the MCP server that exposes chat/codebase-question and the MCP server that exposes vector/ingest tooling.
 - MCP re-ingest can only target repositories that are already present in ingested roots; it does not allow first-time ingest.
 - Codex streaming no longer produces cropped starts or duplicated final text in assistant bubbles for tool-interleaved responses.
@@ -42,8 +44,6 @@ The target end state for this story is consistent MCP keepalive behavior, unifie
 
 ## Questions
 
-- Which exact env variable names and precedence order should be authoritative for shared provider/model defaults? (for example: global default plus provider-specific overrides)
-- Should REST continue to default provider to `lmstudio` and MCP `codebase_question` continue to default provider to `codex` when env defaults are absent, or should both interfaces share one provider fallback?
 - For whitespace handling, should leading/trailing whitespace continue to be trimmed before send, or should raw user input (including leading/trailing newlines) be preserved end-to-end?
 - For user markdown rendering, should user bubbles use the exact same markdown component and sanitization profile as assistant bubbles, or a restricted variant?
 - Should user markdown rendering include advanced blocks (for example mermaid fences) or only standard markdown formatting?
@@ -61,7 +61,11 @@ The target end state for this story is consistent MCP keepalive behavior, unifie
 - Introduce a shared chat defaults resolver (for provider/model) under `server/src/config/` and wire it into:
   - REST validation path in `server/src/routes/chatValidators.ts`
   - MCP codebase-question path in `server/src/mcp2/tools/codebaseQuestion.ts`
-- Keep fallback compatibility explicit in resolver logic so existing behavior remains when env values are missing/invalid.
+- Use only these env vars for provider/model overrides: `CHAT_DEFAULT_PROVIDER`, `CHAT_DEFAULT_MODEL`.
+- Use this precedence for provider/model selection: explicit request value -> env override -> hardcoded fallback (`codex` / `gpt-5.3-codex`).
+- Update committed server env defaults (`server/.env` and `server/.env.e2e`) to set:
+  - `CHAT_DEFAULT_PROVIDER=codex`
+  - `CHAT_DEFAULT_MODEL=gpt-5.3-codex`
 - Add a shared re-ingest service wrapper around existing re-embed logic using current ingest primitives (`listIngestedRepositories` + `reembed`), with strict source validation against known ingested roots.
 - Expose re-ingest tool in both MCP surfaces:
   - Classic MCP router in `server/src/mcp/server.ts`

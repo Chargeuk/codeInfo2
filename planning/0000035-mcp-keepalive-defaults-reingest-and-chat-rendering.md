@@ -520,6 +520,9 @@ Create one authoritative provider/model default resolver and wire it into REST c
 #### Subtasks
 
 1. [ ] Review existing defaulting behavior and current fallbacks.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html | Node.js environment variables: https://nodejs.org/api/environment_variables.html | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to read:
      - `server/src/routes/chatValidators.ts`
      - `server/src/routes/chat.ts`
@@ -529,6 +532,9 @@ Create one authoritative provider/model default resolver and wire it into REST c
      - `server/.env`
      - `server/.env.e2e`
 2. [ ] Create shared resolver module for provider/model defaults.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html | Node.js environment variables: https://nodejs.org/api/environment_variables.html | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to edit:
      - `server/src/config/chatDefaults.ts` (new file)
    - Implementation requirements:
@@ -537,6 +543,9 @@ Create one authoritative provider/model default resolver and wire it into REST c
      - Validate unknown/empty env values as unresolved so fallback still applies.
      - Reuse existing env/default validation approach from `server/src/config/codexEnvDefaults.ts` (no duplicate enum/boolean parsing utilities).
 3. [ ] Integrate resolver into REST chat validation/execution path.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html | Node.js environment variables: https://nodejs.org/api/environment_variables.html | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to edit:
      - `server/src/routes/chatValidators.ts`
      - `server/src/routes/chat.ts`
@@ -544,6 +553,9 @@ Create one authoritative provider/model default resolver and wire it into REST c
      - Keep existing REST envelopes unchanged.
      - Persist resolved provider/model on created/updated conversation metadata.
 4. [ ] Update committed env defaults.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html | Node.js environment variables: https://nodejs.org/api/environment_variables.html | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to edit:
      - `server/.env`
      - `server/.env.e2e`
@@ -551,6 +563,9 @@ Create one authoritative provider/model default resolver and wire it into REST c
      - `CHAT_DEFAULT_PROVIDER=codex`
      - `CHAT_DEFAULT_MODEL=gpt-5.3-codex`
 5. [ ] Add server unit tests for shared resolver precedence and REST default application.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html | Node.js environment variables: https://nodejs.org/api/environment_variables.html | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to add/edit:
      - `server/src/test/unit/config.chatDefaults.test.ts` (new test file)
      - `server/src/test/unit/chatValidators.test.ts` (or nearest existing validator test file)
@@ -559,11 +574,20 @@ Create one authoritative provider/model default resolver and wire it into REST c
      - env values applied when explicit missing
      - hardcoded fallback used when env missing/invalid
 6. [ ] Update documentation for shared defaults behavior.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html | Node.js environment variables: https://nodejs.org/api/environment_variables.html | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to edit:
      - `design.md`
      - `README.md`
 7. [ ] Update `projectStructure.md` if files were added/removed.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html | Node.js environment variables: https://nodejs.org/api/environment_variables.html | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
 8. [ ] Run lint/format checks for workspace.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html | Node.js environment variables: https://nodejs.org/api/environment_variables.html | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Commands:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
@@ -605,6 +629,9 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
 #### Subtasks
 
 1. [ ] Review provider availability sources and current fallback behavior.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification | MCP server tools guidance: https://modelcontextprotocol.io/specification/draft/server/tools | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html | Cucumber guides: https://cucumber.io/docs/guides/ | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to read:
      - `server/src/config/chatDefaults.ts` (if already created in Task 1)
      - `server/src/routes/chatProviders.ts`
@@ -613,6 +640,9 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
      - `server/src/mcp2/tools/codebaseQuestion.ts`
      - `server/src/mcp2/router.ts`
 2. [ ] Extend shared resolver/runtime selection logic with single-hop auto-fallback.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification | MCP server tools guidance: https://modelcontextprotocol.io/specification/draft/server/tools | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html | Cucumber guides: https://cucumber.io/docs/guides/ | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to edit:
      - `server/src/config/chatDefaults.ts`
      - `server/src/routes/chat.ts`
@@ -621,13 +651,22 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
      - Select fallback provider first available/runtime-default model.
      - If no fallback model/provider available, keep original provider and return existing unavailable behavior.
 3. [ ] Apply shared default resolution order and runtime fallback behavior to MCP `codebase_question`.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification | MCP server tools guidance: https://modelcontextprotocol.io/specification/draft/server/tools | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html | Cucumber guides: https://cucumber.io/docs/guides/ | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to edit:
      - `server/src/mcp2/tools/codebaseQuestion.ts`
 4. [ ] Apply the same deterministic availability-fallback/default-selection behavior to chat UI default sources.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification | MCP server tools guidance: https://modelcontextprotocol.io/specification/draft/server/tools | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html | Cucumber guides: https://cucumber.io/docs/guides/ | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to edit:
      - `server/src/routes/chatProviders.ts`
      - `server/src/routes/chatModels.ts`
 5. [ ] Ensure resolved provider/model persistence is correct for existing conversations when fallback switches provider.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification | MCP server tools guidance: https://modelcontextprotocol.io/specification/draft/server/tools | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html | Cucumber guides: https://cucumber.io/docs/guides/ | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to edit:
      - `server/src/mongo/repo.ts`
      - `server/src/routes/chat.ts`
@@ -638,11 +677,17 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
      - REST `/chat` updates existing conversation provider/model to the resolved execution provider/model
      - MCP `codebase_question` updates existing conversation provider/model to the resolved execution provider/model
 6. [ ] Remove global Codex-only router pre-blocking that prevents provider-aware fallback for `codebase_question`.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification | MCP server tools guidance: https://modelcontextprotocol.io/specification/draft/server/tools | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html | Cucumber guides: https://cucumber.io/docs/guides/ | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to edit:
      - `server/src/mcp2/router.ts`
    - Constraint:
      - Keep existing terminal unavailable envelopes/codes unchanged.
 7. [ ] Add tests for runtime fallback determinism, persistence, UI default selection, and terminal unavailable contracts.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification | MCP server tools guidance: https://modelcontextprotocol.io/specification/draft/server/tools | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html | Cucumber guides: https://cucumber.io/docs/guides/ | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to add/edit:
      - `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` (update existing suite)
      - `server/src/test/unit/chatModels.codex.test.ts` (update existing suite)
@@ -659,15 +704,27 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
      - when neither provider is available, MCP returns existing `-32001 CODE_INFO_LLM_UNAVAILABLE` error
      - MCP v2 `tools/list` remains available when Codex is unavailable
 8. [ ] Add server Cucumber contract scenarios for provider fallback and terminal unavailable behavior by extending existing chat feature coverage.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification | MCP server tools guidance: https://modelcontextprotocol.io/specification/draft/server/tools | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html | Cucumber guides: https://cucumber.io/docs/guides/ | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to add/edit:
      - `server/src/test/features/chat_stream.feature` (update existing)
      - `server/src/test/steps/chat_stream.steps.ts` (update existing)
 9. [ ] Update documentation for runtime auto-fallback and model selection rules.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification | MCP server tools guidance: https://modelcontextprotocol.io/specification/draft/server/tools | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html | Cucumber guides: https://cucumber.io/docs/guides/ | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to edit:
      - `design.md`
      - `README.md`
 10. [ ] Update `projectStructure.md` if files were added/removed.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification | MCP server tools guidance: https://modelcontextprotocol.io/specification/draft/server/tools | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html | Cucumber guides: https://cucumber.io/docs/guides/ | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
 11. [ ] Run lint/format checks for workspace.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification | MCP server tools guidance: https://modelcontextprotocol.io/specification/draft/server/tools | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html | Cucumber guides: https://cucumber.io/docs/guides/ | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Commands:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
@@ -712,6 +769,9 @@ Implement server-side non-empty-content enforcement without trimming valid user 
 #### Subtasks
 
 1. [ ] Review current request validation and trimming behavior.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html | Express 5 error handling: https://expressjs.com/en/guide/error-handling.html | HTTP Semantics (status codes): https://www.rfc-editor.org/rfc/rfc9110 | Cucumber guides: https://cucumber.io/docs/guides/ | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to read:
      - `server/src/routes/chatValidators.ts`
      - `server/src/routes/agentsRun.ts`
@@ -719,16 +779,25 @@ Implement server-side non-empty-content enforcement without trimming valid user 
      - `client/src/pages/ChatPage.tsx`
      - `client/src/pages/AgentsPage.tsx`
 2. [ ] Update REST chat validation to reject only whitespace-only/newline-only content while preserving raw non-whitespace payload.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html | Express 5 error handling: https://expressjs.com/en/guide/error-handling.html | HTTP Semantics (status codes): https://www.rfc-editor.org/rfc/rfc9110 | Cucumber guides: https://cucumber.io/docs/guides/ | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to edit:
      - `server/src/routes/chatValidators.ts`
    - Required error:
      - `400 { status: "error", code: "VALIDATION_FAILED", message: "message must contain at least one non-whitespace character" }`
 3. [ ] Update agents run validation to same semantic rule with agents envelope.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html | Express 5 error handling: https://expressjs.com/en/guide/error-handling.html | HTTP Semantics (status codes): https://www.rfc-editor.org/rfc/rfc9110 | Cucumber guides: https://cucumber.io/docs/guides/ | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to edit:
      - `server/src/routes/agentsRun.ts`
    - Required error:
      - `400 { error: "invalid_request", message: "instruction must contain at least one non-whitespace character" }`
 4. [ ] Add validation contract tests for both endpoints.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html | Express 5 error handling: https://expressjs.com/en/guide/error-handling.html | HTTP Semantics (status codes): https://www.rfc-editor.org/rfc/rfc9110 | Cucumber guides: https://cucumber.io/docs/guides/ | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to add/edit:
      - `server/src/test/unit/chatValidators.test.ts` (update existing suite)
      - `server/src/test/unit/agents-router-run.test.ts` (update existing suite)
@@ -737,16 +806,28 @@ Implement server-side non-empty-content enforcement without trimming valid user 
      - newline-only rejected with exact message
      - leading/trailing whitespace with real content accepted and preserved
 5. [ ] Add server Cucumber contract scenarios for whitespace-only rejection message contracts by extending existing chat stream contract coverage.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html | Express 5 error handling: https://expressjs.com/en/guide/error-handling.html | HTTP Semantics (status codes): https://www.rfc-editor.org/rfc/rfc9110 | Cucumber guides: https://cucumber.io/docs/guides/ | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to add/edit:
      - `server/src/test/features/chat_stream.feature` (update existing)
      - `server/src/test/steps/chat_stream.steps.ts` (update existing)
 6. [ ] Update API docs/spec for exact validation messages.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html | Express 5 error handling: https://expressjs.com/en/guide/error-handling.html | HTTP Semantics (status codes): https://www.rfc-editor.org/rfc/rfc9110 | Cucumber guides: https://cucumber.io/docs/guides/ | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to edit:
      - `openapi.json`
      - `README.md`
      - `design.md`
 7. [ ] Update `projectStructure.md` if files were added/removed.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html | Express 5 error handling: https://expressjs.com/en/guide/error-handling.html | HTTP Semantics (status codes): https://www.rfc-editor.org/rfc/rfc9110 | Cucumber guides: https://cucumber.io/docs/guides/ | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
 8. [ ] Run lint/format checks for workspace.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html | Express 5 error handling: https://expressjs.com/en/guide/error-handling.html | HTTP Semantics (status codes): https://www.rfc-editor.org/rfc/rfc9110 | Cucumber guides: https://cucumber.io/docs/guides/ | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Commands:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
@@ -788,11 +869,17 @@ Create one shared keepalive helper and use it for classic MCP, MCP v2, and agent
 #### Subtasks
 
 1. [ ] Review existing keepalive implementations and lifecycle hooks.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): MCP server concepts and tool lifecycle: https://modelcontextprotocol.io/specification/draft/server/tools | JSON text grammar and whitespace: https://www.rfc-editor.org/rfc/rfc8259 | Node.js timers API: https://nodejs.org/api/timers.html | Node.js HTTP response lifecycle: https://nodejs.org/api/http.html | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to read:
      - `server/src/mcp2/router.ts`
      - `server/src/mcpAgents/router.ts`
      - `server/src/mcp/server.ts`
 2. [ ] Implement shared keepalive utility under `mcpCommon`.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): MCP server concepts and tool lifecycle: https://modelcontextprotocol.io/specification/draft/server/tools | JSON text grammar and whitespace: https://www.rfc-editor.org/rfc/rfc8259 | Node.js timers API: https://nodejs.org/api/timers.html | Node.js HTTP response lifecycle: https://nodejs.org/api/http.html | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to edit:
      - `server/src/mcpCommon/keepAlive.ts` (new file)
    - Required behavior:
@@ -802,15 +889,27 @@ Create one shared keepalive helper and use it for classic MCP, MCP v2, and agent
      - cleanup on success/error/end/close
      - whitespace-only heartbeat writes
 3. [ ] Replace MCP v2 local keepalive logic with shared helper.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): MCP server concepts and tool lifecycle: https://modelcontextprotocol.io/specification/draft/server/tools | JSON text grammar and whitespace: https://www.rfc-editor.org/rfc/rfc8259 | Node.js timers API: https://nodejs.org/api/timers.html | Node.js HTTP response lifecycle: https://nodejs.org/api/http.html | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to edit:
      - `server/src/mcp2/router.ts`
 4. [ ] Replace agents MCP local keepalive logic with shared helper.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): MCP server concepts and tool lifecycle: https://modelcontextprotocol.io/specification/draft/server/tools | JSON text grammar and whitespace: https://www.rfc-editor.org/rfc/rfc8259 | Node.js timers API: https://nodejs.org/api/timers.html | Node.js HTTP response lifecycle: https://nodejs.org/api/http.html | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to edit:
      - `server/src/mcpAgents/router.ts`
 5. [ ] Replace classic MCP local keepalive logic with shared helper for long-running `tools/call`.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): MCP server concepts and tool lifecycle: https://modelcontextprotocol.io/specification/draft/server/tools | JSON text grammar and whitespace: https://www.rfc-editor.org/rfc/rfc8259 | Node.js timers API: https://nodejs.org/api/timers.html | Node.js HTTP response lifecycle: https://nodejs.org/api/http.html | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to edit:
      - `server/src/mcp/server.ts`
 6. [ ] Add server tests covering helper lifecycle and no write-after-close behavior.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): MCP server concepts and tool lifecycle: https://modelcontextprotocol.io/specification/draft/server/tools | JSON text grammar and whitespace: https://www.rfc-editor.org/rfc/rfc8259 | Node.js timers API: https://nodejs.org/api/timers.html | Node.js HTTP response lifecycle: https://nodejs.org/api/http.html | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to add/edit:
      - `server/src/test/unit/mcp.keepalive.helper.test.ts` (new)
      - `server/src/test/unit/mcp2-router-list-happy.test.ts` (update existing suite)
@@ -821,10 +920,19 @@ Create one shared keepalive helper and use it for classic MCP, MCP v2, and agent
      - keepalive stops on success, thrown error, socket close, and response end
      - no heartbeat writes occur after response end/close
 7. [ ] Update docs for shared MCP keepalive behavior.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): MCP server concepts and tool lifecycle: https://modelcontextprotocol.io/specification/draft/server/tools | JSON text grammar and whitespace: https://www.rfc-editor.org/rfc/rfc8259 | Node.js timers API: https://nodejs.org/api/timers.html | Node.js HTTP response lifecycle: https://nodejs.org/api/http.html | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to edit:
      - `design.md`
 8. [ ] Update `projectStructure.md` if files were added/removed.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): MCP server concepts and tool lifecycle: https://modelcontextprotocol.io/specification/draft/server/tools | JSON text grammar and whitespace: https://www.rfc-editor.org/rfc/rfc8259 | Node.js timers API: https://nodejs.org/api/timers.html | Node.js HTTP response lifecycle: https://nodejs.org/api/http.html | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
 9. [ ] Run lint/format checks for workspace.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): MCP server concepts and tool lifecycle: https://modelcontextprotocol.io/specification/draft/server/tools | JSON text grammar and whitespace: https://www.rfc-editor.org/rfc/rfc8259 | Node.js timers API: https://nodejs.org/api/timers.html | Node.js HTTP response lifecycle: https://nodejs.org/api/http.html | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Commands:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
@@ -866,11 +974,17 @@ Build a shared re-ingest service that enforces strict existing-root-only safety 
 #### Subtasks
 
 1. [ ] Review current ingest re-embed and repository listing behavior.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification | Node.js path utilities: https://nodejs.org/api/path.html | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to read:
      - `server/src/routes/ingestReembed.ts`
      - `server/src/lmstudio/toolService.ts`
      - `server/src/ingest/*` (relevant service files)
 2. [ ] Create shared `reingest_repository` service with strict `sourceId` validation and root matching.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification | Node.js path utilities: https://nodejs.org/api/path.html | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to edit:
      - `server/src/ingest/reingestService.ts` (new file)
    - Required validation:
@@ -883,6 +997,9 @@ Build a shared re-ingest service that enforces strict existing-root-only safety 
      - reuse the existing POSIX normalization strategy already used by `server/src/ingest/pathMap.ts` to avoid introducing a second path-normalization behavior
      - do not duplicate ingest-job lock or reembed execution logic
 3. [ ] Implement canonical contract mappers for success and error `data` payloads.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification | Node.js path utilities: https://nodejs.org/api/path.html | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to edit:
      - `server/src/ingest/reingestService.ts`
    - Required outputs:
@@ -890,6 +1007,9 @@ Build a shared re-ingest service that enforces strict existing-root-only safety 
      - errors: `INVALID_PARAMS`, `NOT_FOUND`, `BUSY` with required `error.data` retry payloads
      - include deterministic `fieldErrors.reason` values and `reingestableRepositoryIds` + `reingestableSourceIds` where required by the story contract
 4. [ ] Add unit tests for all validation and busy-state branches.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification | Node.js path utilities: https://nodejs.org/api/path.html | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to add/edit:
      - `server/src/test/unit/reingestService.test.ts` (new)
    - Required cases:
@@ -897,11 +1017,20 @@ Build a shared re-ingest service that enforces strict existing-root-only safety 
      - unknown root response includes AI-retry guidance fields
      - busy response maps to canonical `BUSY` contract
 5. [ ] Update docs for canonical error contract and retry fields.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification | Node.js path utilities: https://nodejs.org/api/path.html | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to edit:
      - `design.md`
      - `README.md`
 6. [ ] Update `projectStructure.md` if files were added/removed.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification | Node.js path utilities: https://nodejs.org/api/path.html | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
 7. [ ] Run lint/format checks for workspace.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification | Node.js path utilities: https://nodejs.org/api/path.html | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Commands:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
@@ -941,18 +1070,30 @@ Expose `reingest_repository` on the classic MCP surface and map service outputs 
 #### Subtasks
 
 1. [ ] Review classic MCP tool registration and call dispatch flow.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to read:
      - `server/src/mcp/server.ts`
      - `server/src/mcp/types.ts` (if present)
 2. [ ] Add tool metadata in `tools/list` for `reingest_repository`.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to edit:
      - `server/src/mcp/server.ts`
 3. [ ] Add `tools/call` handler wiring to shared re-ingest service.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to edit:
      - `server/src/mcp/server.ts`
    - Contract requirements:
      - success and error maps exactly to plan `Message Contracts & Storage Shapes`.
 4. [ ] Add classic MCP tests for list + call success + each error code.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to add/edit:
      - `server/src/test/unit/mcp.reingest.classic.test.ts` (new)
    - Required cases:
@@ -960,11 +1101,20 @@ Expose `reingest_repository` on the classic MCP surface and map service outputs 
      - `INVALID_PARAMS`/`NOT_FOUND` include canonical retry guidance fields in `error.data`
      - `BUSY` maps to `error.code=429`, `error.message="BUSY"`
 5. [ ] Update docs with classic MCP tool exposure.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to edit:
      - `README.md`
      - `design.md`
 6. [ ] Update `projectStructure.md` if files were added/removed.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
 7. [ ] Run lint/format checks for workspace.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Commands:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
@@ -1005,18 +1155,30 @@ Expose `reingest_repository` on MCP v2 and enforce the exact same name and contr
 #### Subtasks
 
 1. [ ] Review MCP v2 tool registry and dispatch path.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to read:
      - `server/src/mcp2/tools.ts`
      - `server/src/mcp2/router.ts`
      - `server/src/mcp2/tools/*` (related modules)
 2. [ ] Add MCP v2 tool definition for `reingest_repository`.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to edit:
      - `server/src/mcp2/tools.ts`
      - `server/src/mcp2/tools/reingestRepository.ts` (new file)
 3. [ ] Wire tool execution to shared re-ingest service with canonical error mapping.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to edit:
      - `server/src/mcp2/tools/reingestRepository.ts`
 4. [ ] Add MCP v2 tests for list + call success + each error contract branch.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to add/edit:
      - `server/src/test/unit/mcp2.reingest.tool.test.ts` (new)
    - Required cases:
@@ -1024,6 +1186,9 @@ Expose `reingest_repository` on MCP v2 and enforce the exact same name and contr
      - `INVALID_PARAMS`/`NOT_FOUND` include canonical retry guidance fields in `error.data`
      - `BUSY` maps to `error.code=429`, `error.message="BUSY"`
 5. [ ] Add parity assertions in existing classic/MCP-v2 suites for same inputs (avoid separate parity harness file).
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to add/edit:
      - `server/src/test/unit/mcp.reingest.classic.test.ts` (update from Task 6)
      - `server/src/test/unit/mcp2.reingest.tool.test.ts` (update)
@@ -1031,11 +1196,20 @@ Expose `reingest_repository` on MCP v2 and enforce the exact same name and contr
      - success payload parity
      - error envelope parity (code/message/data) for `INVALID_PARAMS`, `NOT_FOUND`, and `BUSY`
 6. [ ] Update docs for MCP v2 tool availability and parity.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to edit:
      - `README.md`
      - `design.md`
 7. [ ] Update `projectStructure.md` if files were added/removed.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
 8. [ ] Run lint/format checks for workspace.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Commands:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
@@ -1076,11 +1250,17 @@ Fix server stream aggregation so tool-interleaved Codex runs do not produce crop
 #### Subtasks
 
 1. [ ] Review current Codex event merge path and publication boundaries.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): OpenAI Codex app server events (authoritative item lifecycle): https://developers.openai.com/codex/app-server | OpenAI Codex repo app-server README: https://raw.githubusercontent.com/openai/codex/main/codex-rs/app-server/README.md | Node.js streams/events: https://nodejs.org/api/stream.html | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to read:
      - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
      - `server/src/chat/chatStreamBridge.ts`
      - `server/src/chat/inflightRegistry.ts`
 2. [ ] Implement item-keyed merge strategy and completed-item authoritative finalization.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): OpenAI Codex app server events (authoritative item lifecycle): https://developers.openai.com/codex/app-server | OpenAI Codex repo app-server README: https://raw.githubusercontent.com/openai/codex/main/codex-rs/app-server/README.md | Node.js streams/events: https://nodejs.org/api/stream.html | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to edit:
      - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
    - Required behavior:
@@ -1088,10 +1268,16 @@ Fix server stream aggregation so tool-interleaved Codex runs do not produce crop
      - prevent duplicate final append
      - ignore stale/late post-completion deltas per item
 3. [ ] Stabilize final publish path to avoid double finalization across bridge/inflight boundaries.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): OpenAI Codex app server events (authoritative item lifecycle): https://developers.openai.com/codex/app-server | OpenAI Codex repo app-server README: https://raw.githubusercontent.com/openai/codex/main/codex-rs/app-server/README.md | Node.js streams/events: https://nodejs.org/api/stream.html | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to edit:
      - `server/src/chat/chatStreamBridge.ts`
      - `server/src/chat/inflightRegistry.ts` (if required)
 4. [ ] Add regression tests for non-monotonic, tool-interleaved event order.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): OpenAI Codex app server events (authoritative item lifecycle): https://developers.openai.com/codex/app-server | OpenAI Codex repo app-server README: https://raw.githubusercontent.com/openai/codex/main/codex-rs/app-server/README.md | Node.js streams/events: https://nodejs.org/api/stream.html | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to add/edit:
      - `server/src/test/unit/chat-interface-codex.test.ts` (update existing suite)
      - `server/src/test/unit/ws-chat-stream.test.ts` (update existing suite)
@@ -1102,10 +1288,19 @@ Fix server stream aggregation so tool-interleaved Codex runs do not produce crop
      - completed event followed by late delta
      - ensure final answer published once
 5. [ ] Update docs for Codex merge invariants and finalization rules.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): OpenAI Codex app server events (authoritative item lifecycle): https://developers.openai.com/codex/app-server | OpenAI Codex repo app-server README: https://raw.githubusercontent.com/openai/codex/main/codex-rs/app-server/README.md | Node.js streams/events: https://nodejs.org/api/stream.html | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to edit:
      - `design.md`
 6. [ ] Update `projectStructure.md` if files were added/removed.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): OpenAI Codex app server events (authoritative item lifecycle): https://developers.openai.com/codex/app-server | OpenAI Codex repo app-server README: https://raw.githubusercontent.com/openai/codex/main/codex-rs/app-server/README.md | Node.js streams/events: https://nodejs.org/api/stream.html | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
 7. [ ] Run lint/format checks for workspace.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): OpenAI Codex app server events (authoritative item lifecycle): https://developers.openai.com/codex/app-server | OpenAI Codex repo app-server README: https://raw.githubusercontent.com/openai/codex/main/codex-rs/app-server/README.md | Node.js streams/events: https://nodejs.org/api/stream.html | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Commands:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
@@ -1148,10 +1343,16 @@ Update Chat page send behavior to preserve raw user text exactly as entered whil
 #### Subtasks
 
 1. [ ] Review current chat send-path trimming and outbound payload flow.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md | Playwright docs (Context7): `/microsoft/playwright` | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to read:
      - `client/src/pages/ChatPage.tsx`
      - `client/src/hooks/useChatStream.ts`
 2. [ ] Remove client-side trim mutation from chat send path while preserving empty-input guard UX.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md | Playwright docs (Context7): `/microsoft/playwright` | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to edit:
      - `client/src/pages/ChatPage.tsx`
      - `client/src/hooks/useChatStream.ts`
@@ -1160,6 +1361,9 @@ Update Chat page send behavior to preserve raw user text exactly as entered whil
      - keep local "cannot send empty" behavior aligned with server rule
      - remove user-turn dedupe comparisons that normalize/collapse whitespace so distinct raw inputs remain distinct in transcript hydration
 3. [ ] Add chat UI tests for raw payload preservation behavior.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md | Playwright docs (Context7): `/microsoft/playwright` | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to add/edit:
      - `client/src/test/chatPage.stream.test.tsx` (update existing suite)
      - `client/src/test/useChatStream.toolPayloads.test.tsx` (update existing suite)
@@ -1168,16 +1372,28 @@ Update Chat page send behavior to preserve raw user text exactly as entered whil
      - newline formatting preserved
      - messages that differ only by whitespace are not merged/deduped into one user turn
 4. [ ] Extend existing Chat e2e coverage for raw-input outbound payload behavior.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md | Playwright docs (Context7): `/microsoft/playwright` | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to add/edit:
      - `e2e/chat.spec.ts` (update existing)
    - Required checks:
      - outbound payload preserves leading/trailing whitespace for non-empty content
 5. [ ] Update docs for Chat raw-input send behavior.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md | Playwright docs (Context7): `/microsoft/playwright` | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to edit:
      - `README.md`
      - `design.md`
 6. [ ] Update `projectStructure.md` if files were added/removed.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md | Playwright docs (Context7): `/microsoft/playwright` | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
 7. [ ] Run lint/format checks for workspace.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md | Playwright docs (Context7): `/microsoft/playwright` | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Commands:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
@@ -1220,16 +1436,25 @@ Render Chat user bubbles with the same markdown/sanitization component used by a
 #### Subtasks
 
 1. [ ] Review current Chat user bubble rendering path and markdown component behavior.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md | Playwright docs (Context7): `/microsoft/playwright` | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to read:
      - `client/src/pages/ChatPage.tsx`
      - `client/src/components/Markdown.tsx`
 2. [ ] Replace Chat user bubble `Typography` rendering with shared markdown renderer.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md | Playwright docs (Context7): `/microsoft/playwright` | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to edit:
      - `client/src/pages/ChatPage.tsx`
    - Constraints:
      - use `client/src/components/Markdown.tsx`
      - preserve current bubble container layout/chrome
 3. [ ] Add Chat UI tests for user markdown parity and mermaid rendering.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md | Playwright docs (Context7): `/microsoft/playwright` | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to add/edit:
      - `client/src/test/chatPage.markdown.test.tsx` (update existing)
      - `client/src/test/chatPage.mermaid.test.tsx` (update existing)
@@ -1237,17 +1462,29 @@ Render Chat user bubbles with the same markdown/sanitization component used by a
      - user markdown rendering matches assistant renderer behavior
      - user bubble mermaid fenced blocks render with same sanitize behavior as assistant path
 4. [ ] Extend Chat e2e markdown parity coverage.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md | Playwright docs (Context7): `/microsoft/playwright` | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to add/edit:
      - `e2e/chat.spec.ts` (update existing)
      - `e2e/chat-mermaid.spec.ts` (update existing)
    - Required checks:
      - user bubble markdown/mermaid rendering matches assistant renderer behavior
 5. [ ] Update docs for Chat user markdown parity behavior.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md | Playwright docs (Context7): `/microsoft/playwright` | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to edit:
      - `README.md`
      - `design.md`
 6. [ ] Update `projectStructure.md` if files were added/removed.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md | Playwright docs (Context7): `/microsoft/playwright` | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
 7. [ ] Run lint/format checks for workspace.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md | Playwright docs (Context7): `/microsoft/playwright` | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Commands:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
@@ -1291,15 +1528,24 @@ Update Agents page send behavior to preserve raw user text exactly as entered wh
 #### Subtasks
 
 1. [ ] Review current Agents send-path trimming and outbound payload flow.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md | Playwright docs (Context7): `/microsoft/playwright` | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to read:
      - `client/src/pages/AgentsPage.tsx`
 2. [ ] Remove client-side trim mutation from Agents send payload while preserving empty-input guard UX.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md | Playwright docs (Context7): `/microsoft/playwright` | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to edit:
      - `client/src/pages/AgentsPage.tsx`
    - Constraints:
      - do not mutate outbound payload text before send when content is non-whitespace
      - keep local "cannot send empty" behavior aligned with server rule
 3. [ ] Add Agents UI tests for raw payload preservation behavior.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md | Playwright docs (Context7): `/microsoft/playwright` | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to add/edit:
      - `client/src/test/agentsPage.run.test.tsx` (update existing if needed)
      - `client/src/test/agentsPage.turnHydration.test.tsx` (update existing if needed)
@@ -1308,11 +1554,20 @@ Update Agents page send behavior to preserve raw user text exactly as entered wh
      - newline formatting preserved
      - messages that differ only by whitespace are not merged in transcript hydration
 4. [ ] Update docs for Agents raw-input send behavior.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md | Playwright docs (Context7): `/microsoft/playwright` | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to edit:
      - `README.md`
      - `design.md`
 5. [ ] Update `projectStructure.md` if files were added/removed.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md | Playwright docs (Context7): `/microsoft/playwright` | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
 6. [ ] Run lint/format checks for workspace.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md | Playwright docs (Context7): `/microsoft/playwright` | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Commands:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
@@ -1357,27 +1612,45 @@ Render Agents user bubbles with the same markdown/sanitization component used by
 #### Subtasks
 
 1. [ ] Review current Agents user bubble rendering path and markdown component behavior.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md | `react-markdown` docs: https://github.com/remarkjs/react-markdown | `remark-gfm` docs: https://github.com/remarkjs/remark-gfm | `rehype-sanitize` docs: https://github.com/rehypejs/rehype-sanitize | Playwright docs (Context7): `/microsoft/playwright` | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to read:
      - `client/src/pages/AgentsPage.tsx`
      - `client/src/components/Markdown.tsx`
 2. [ ] Replace Agents user bubble `Typography` rendering with shared markdown renderer.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md | `react-markdown` docs: https://github.com/remarkjs/react-markdown | `remark-gfm` docs: https://github.com/remarkjs/remark-gfm | `rehype-sanitize` docs: https://github.com/rehypejs/rehype-sanitize | Playwright docs (Context7): `/microsoft/playwright` | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to edit:
      - `client/src/pages/AgentsPage.tsx`
    - Constraints:
      - use `client/src/components/Markdown.tsx`
      - preserve current bubble container layout/chrome
 3. [ ] Add Agents UI tests for markdown parity in both realtime and hydrated turns.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md | `react-markdown` docs: https://github.com/remarkjs/react-markdown | `remark-gfm` docs: https://github.com/remarkjs/remark-gfm | `rehype-sanitize` docs: https://github.com/rehypejs/rehype-sanitize | Playwright docs (Context7): `/microsoft/playwright` | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to add/edit:
      - `client/src/test/agentsPage.run.test.tsx` (update existing if needed)
      - `client/src/test/agentsPage.turnHydration.test.tsx` (update existing if needed)
    - Required cases:
      - user bubble markdown rendering (including mermaid fences) matches assistant rendering
 4. [ ] Update docs for Agents user markdown parity behavior.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md | `react-markdown` docs: https://github.com/remarkjs/react-markdown | `remark-gfm` docs: https://github.com/remarkjs/remark-gfm | `rehype-sanitize` docs: https://github.com/rehypejs/rehype-sanitize | Playwright docs (Context7): `/microsoft/playwright` | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to edit:
      - `README.md`
      - `design.md`
 5. [ ] Update `projectStructure.md` if files were added/removed.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md | `react-markdown` docs: https://github.com/remarkjs/react-markdown | `remark-gfm` docs: https://github.com/remarkjs/remark-gfm | `rehype-sanitize` docs: https://github.com/rehypejs/rehype-sanitize | Playwright docs (Context7): `/microsoft/playwright` | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
 6. [ ] Run lint/format checks for workspace.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md | `react-markdown` docs: https://github.com/remarkjs/react-markdown | `remark-gfm` docs: https://github.com/remarkjs/remark-gfm | `rehype-sanitize` docs: https://github.com/rehypejs/rehype-sanitize | Playwright docs (Context7): `/microsoft/playwright` | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Commands:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
@@ -1420,15 +1693,27 @@ Validate every acceptance criterion end-to-end after all feature tasks are compl
 #### Subtasks
 
 1. [ ] Re-check all acceptance criteria against implemented behavior and mark any gap before final testing.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): Docker docs (Context7): `/docker/docs` | Playwright docs (Context7): `/microsoft/playwright` | Jest docs (Context7): `/jestjs/jest` | Cucumber guides: https://cucumber.io/docs/guides/ | Mermaid docs (Context7): `/mermaid-js/mermaid`
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to read:
      - `planning/0000035-mcp-keepalive-defaults-reingest-and-chat-rendering.md`
 2. [ ] Ensure documentation is fully synchronized with final code behavior.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): Docker docs (Context7): `/docker/docs` | Playwright docs (Context7): `/microsoft/playwright` | Jest docs (Context7): `/jestjs/jest` | Cucumber guides: https://cucumber.io/docs/guides/ | Mermaid docs (Context7): `/mermaid-js/mermaid`
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to edit:
      - `README.md`
      - `design.md`
      - `projectStructure.md`
 3. [ ] Prepare manual verification artifacts in `test-results/screenshots/` with naming `0000035-13-<label>.png`.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): Docker docs (Context7): `/docker/docs` | Playwright docs (Context7): `/microsoft/playwright` | Jest docs (Context7): `/jestjs/jest` | Cucumber guides: https://cucumber.io/docs/guides/ | Mermaid docs (Context7): `/mermaid-js/mermaid`
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
 4. [ ] Create a PR summary comment covering all task outcomes, contract changes, and verification evidence.
+   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
+   - Documentation links (do not skip for this single subtask): Docker docs (Context7): `/docker/docs` | Playwright docs (Context7): `/microsoft/playwright` | Jest docs (Context7): `/jestjs/jest` | Cucumber guides: https://cucumber.io/docs/guides/ | Mermaid docs (Context7): `/mermaid-js/mermaid`
+   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
 
 #### Testing
 

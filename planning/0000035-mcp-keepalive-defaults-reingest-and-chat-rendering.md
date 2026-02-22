@@ -1140,7 +1140,7 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
 ### 3. Server: Raw-input acceptance policy and whitespace-only rejection message contracts
 
 - Task Status: **__in_progress__**
-- Git Commits: to_do
+- Git Commits: 4219f76
 
 #### Overview
 
@@ -1433,6 +1433,8 @@ Implement server-side non-empty-content enforcement without trimming valid user 
   - ran `npm run lint --workspaces` (pass with existing non-blocking import-order warnings only)
 - Testing 13 completed:
   - ran `npm run format:check --workspaces` (pass across client/server/common)
+- Task documentation completion:
+  - Task 3 status set to `__done__` and git commit hash `4219f76` recorded in the task `Git Commits` field.
 
 ---
 

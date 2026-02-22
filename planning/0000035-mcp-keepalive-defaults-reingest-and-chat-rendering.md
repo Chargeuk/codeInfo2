@@ -68,6 +68,12 @@ For markdown parity, user bubbles will use the exact same renderer and sanitizat
 
 ## Questions
 
+- When runtime provider auto-fallback occurs (`codex -> lmstudio` or `lmstudio -> codex`), what is the canonical model-selection rule on the fallback provider?
+  - Keep originally requested model id if valid on fallback provider.
+  - Use `CHAT_DEFAULT_MODEL`.
+  - Use the fallback provider's first available/runtime-default model.
+  - This must be deterministic across REST chat, MCP `codebase_question`, and chat UI defaults.
+
 ## Scope Locks (Authoritative)
 
 - Only `CHAT_DEFAULT_PROVIDER` and `CHAT_DEFAULT_MODEL` are in-scope for shared chat defaults. No provider-specific default env vars are in scope for this story.

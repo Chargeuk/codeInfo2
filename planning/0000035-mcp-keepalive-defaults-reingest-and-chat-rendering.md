@@ -2,9 +2,14 @@
 
 ## Implementation Plan Instructions
 
-This story follows `planning/plan_format_no_tasks.md`.
+This story follows `planning/plan_format.md`.
 
-Follow `planning/plan_format_no_tasks.md` exactly for structure and intent while this story remains in discussion/scoping mode.
+Follow `planning/plan_format.md` (update Task Status before coding; work tasks in order; run required tests; update docs; record commits; push at each stage).
+
+Story convention (important for this repo's planning style):
+
+- Each task's **Documentation Locations** section contains external references only (website docs, Context7 library docs, Deepwiki MCP docs where needed).
+- Repo file paths to read/edit are listed only inside **Subtasks**.
 
 ## Description
 
@@ -88,7 +93,7 @@ At story completion, a junior developer should be able to verify these outcomes 
 - User bubbles in both Chat and Agents render through the same markdown component (`client/src/components/Markdown.tsx`) and therefore use the same sanitization and feature support as assistant bubbles, including mermaid fenced blocks.
 - User input sent to providers is preserved as raw text with no trimming, including leading/trailing spaces and newlines, for both Chat and Agents flows.
 - Whitespace-only/newline-only user input is rejected server-side before provider execution with explicit HTTP 400 validation errors (`POST /chat` and `POST /agents/:agentName/run`) as defined in this document.
-- Regression planning is intentionally non-tasked in this document, but required coverage families are fixed now: Cucumber for server contract flows, Jest for unit/integration behavior, and e2e for user-visible stream/render outcomes.
+- Required regression coverage families are fixed: Cucumber for server contract flows, Jest for unit/integration behavior, and e2e for user-visible stream/render outcomes.
 - Unrelated public contracts stay unchanged; only contract changes explicitly documented in this story are allowed.
 
 ## Out Of Scope
@@ -375,7 +380,7 @@ This section is implementation-authoritative for failure handling in this story.
 
 ## Implementation Ideas
 
-This section is a rough implementation sequence only (non-tasked), validated against current code and external docs (`code_info`, `deepwiki`, `context7`).
+This section is a rough pre-tasking implementation sequence, validated against current code and external docs (`code_info`, `deepwiki`, `context7`).
 
 ### Phase 1: Shared Chat Defaults + Runtime Fallback Core
 
@@ -440,7 +445,7 @@ This section is a rough implementation sequence only (non-tasked), validated aga
   - replace user `<Typography data-testid="user-text">` rendering path with shared `client/src/components/Markdown.tsx` in both Chat and Agents pages.
   - keep same sanitization and feature profile as assistant messages (including mermaid handling).
 
-### Phase 6: Regression Surfaces (Still Non-Tasked)
+### Phase 6: Regression Surfaces (Pre-Tasking Notes)
 
 - Server tests:
   - keepalive helper lifecycle behavior across all MCP surfaces.
@@ -453,3 +458,762 @@ This section is a rough implementation sequence only (non-tasked), validated aga
 - End-to-end:
   - one representative chat flow validating no duplicate/cropped final output.
   - one representative agents/chat markdown user bubble parity validation.
+
+# Implementation Plan
+
+## Instructions
+
+This is a list of steps that must be copied into each new plan. It instructs how a developer work through the tasks.
+This should only be started once all the above sections are clear and understood AND all tasks have been created to a level that a very junior, inexperienced developer could work through without asking for help from a senior developer.
+
+1. Read and fully understand the design and tasks below before doing anything else so you know exactly what is required and why.
+2. Create (or reuse if it already exists) the feature branch for this phase using the established naming convention (for example `feature/<number>-<Title>`).
+3. Work through the tasks **in order**. Before touching any code, update the Task Status to `In progress`, commit and push that change, and only then begin implementation.
+4. For each subtask, read the listed docs first, then complete implementation, then run the listed targeted tests before moving on.
+5. Once a subtask is complete, mark its checkbox.
+6. Once all subtasks are done, move to the Testing section and execute each testing item in order.
+7. Once a testing item is complete, mark its checkbox.
+8. After tests pass, perform each documentation update listed for the task.
+9. Once a document update is complete, mark its checkbox.
+10. Record detailed implementation notes and git hashes before setting Task Status to `Done`, then push.
+11. Repeat for the next task in sequence.
+
+---
+
+## Tasks
+
+### 1. Server: Shared default resolver for REST chat + committed env defaults
+
+- Task Status: **__to_do__**
+- Git Commits: to_do
+
+#### Overview
+
+Create one authoritative provider/model default resolver and wire it into REST chat so request defaults follow the locked precedence rules. This task also updates committed server env defaults to `codex` + `gpt-5.3-codex`.
+
+#### Documentation Locations
+
+- OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html
+- Node.js environment variables: https://nodejs.org/api/environment_variables.html
+- npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script
+- JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification
+- Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+
+#### Subtasks
+
+1. [ ] Review existing defaulting behavior and current fallbacks.
+   - Files to read:
+     - `server/src/routes/chatValidators.ts`
+     - `server/src/routes/chat.ts`
+     - `server/src/mcp2/tools/codebaseQuestion.ts`
+     - `server/src/routes/chatProviders.ts`
+     - `server/src/routes/chatModels.ts`
+     - `server/.env`
+     - `server/.env.e2e`
+2. [ ] Create shared resolver module for provider/model defaults.
+   - Files to edit:
+     - `server/src/config/chatDefaults.ts` (new file)
+   - Implementation requirements:
+     - Expose deterministic resolution: explicit request -> env override -> hardcoded fallback.
+     - Hardcoded fallback must be exactly `provider=codex`, `model=gpt-5.3-codex`.
+     - Validate unknown/empty env values as unresolved so fallback still applies.
+3. [ ] Integrate resolver into REST chat validation/execution path.
+   - Files to edit:
+     - `server/src/routes/chatValidators.ts`
+     - `server/src/routes/chat.ts`
+   - Implementation requirements:
+     - Keep existing REST envelopes unchanged.
+     - Persist resolved provider/model on created/updated conversation metadata.
+4. [ ] Update committed env defaults.
+   - Files to edit:
+     - `server/.env`
+     - `server/.env.e2e`
+   - Required values:
+     - `CHAT_DEFAULT_PROVIDER=codex`
+     - `CHAT_DEFAULT_MODEL=gpt-5.3-codex`
+5. [ ] Add server unit tests for shared resolver precedence and REST default application.
+   - Files to add/edit:
+     - `server/src/test/unit/config.chatDefaults.test.ts` (new test file)
+     - `server/src/test/unit/chatValidators.test.ts` (or nearest existing validator test file)
+   - Cases:
+     - explicit values win
+     - env values applied when explicit missing
+     - hardcoded fallback used when env missing/invalid
+6. [ ] Update documentation for shared defaults behavior.
+   - Files to edit:
+     - `design.md`
+     - `README.md`
+7. [ ] Update `projectStructure.md` if files were added/removed.
+8. [ ] Run lint/format checks for workspace.
+   - Commands:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run compose:build`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test --workspace server -- config.chatDefaults`
+6. [ ] `npm run test --workspace server -- chatValidators`
+7. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- to_do
+
+---
+
+### 2. Server: Runtime provider availability auto-fallback across REST + MCP selection paths
+
+- Task Status: **__to_do__**
+- Git Commits: to_do
+
+#### Overview
+
+Implement runtime provider availability fallback (`codex <-> lmstudio`) with single-hop behavior and fallback-model selection rules. This task is only about runtime provider switching behavior, not message validation or UI rendering.
+
+#### Documentation Locations
+
+- JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification
+- MCP server tools guidance: https://modelcontextprotocol.io/specification/draft/server/tools
+- OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html
+- npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script
+- Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+
+#### Subtasks
+
+1. [ ] Review provider availability sources and current fallback behavior.
+   - Files to read:
+     - `server/src/routes/chatProviders.ts`
+     - `server/src/routes/chatModels.ts`
+     - `server/src/routes/chat.ts`
+     - `server/src/mcp2/tools/codebaseQuestion.ts`
+     - `server/src/mcp2/router.ts`
+2. [ ] Extend shared resolver/runtime selection logic with single-hop auto-fallback.
+   - Files to edit:
+     - `server/src/config/chatDefaults.ts`
+     - `server/src/routes/chat.ts`
+   - Required behavior:
+     - If selected/default provider unavailable and other provider available, switch once.
+     - Select fallback provider first available/runtime-default model.
+     - If no fallback model/provider available, keep original provider and return existing unavailable behavior.
+3. [ ] Apply the same runtime fallback behavior to MCP `codebase_question`.
+   - Files to edit:
+     - `server/src/mcp2/tools/codebaseQuestion.ts`
+4. [ ] Remove global Codex-only router pre-blocking that prevents provider-aware fallback for `codebase_question`.
+   - Files to edit:
+     - `server/src/mcp2/router.ts`
+   - Constraint:
+     - Keep existing terminal unavailable envelopes/codes unchanged.
+5. [ ] Add tests for runtime fallback determinism and single-hop rules.
+   - Files to add/edit:
+     - `server/src/test/unit/chat.providerFallback.test.ts` (new)
+     - `server/src/test/unit/mcp2.codebaseQuestion.fallback.test.ts` (new or existing file update)
+6. [ ] Update documentation for runtime auto-fallback and model selection rules.
+   - Files to edit:
+     - `design.md`
+     - `README.md`
+7. [ ] Update `projectStructure.md` if files were added/removed.
+8. [ ] Run lint/format checks for workspace.
+   - Commands:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run compose:build`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test --workspace server -- providerFallback`
+6. [ ] `npm run test --workspace server -- codebaseQuestion`
+7. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- to_do
+
+---
+
+### 3. Server: Raw-input acceptance policy and whitespace-only rejection message contracts
+
+- Task Status: **__to_do__**
+- Git Commits: to_do
+
+#### Overview
+
+Implement server-side non-empty-content enforcement without trimming valid user payloads and lock exact rejection messages for chat and agents endpoints. This task is intentionally separate and must complete before frontend send-path changes.
+
+#### Documentation Locations
+
+- OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html
+- Express 5 error handling: https://expressjs.com/en/guide/error-handling.html
+- HTTP Semantics (status codes): https://www.rfc-editor.org/rfc/rfc9110
+- npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script
+- Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+
+#### Subtasks
+
+1. [ ] Review current request validation and trimming behavior.
+   - Files to read:
+     - `server/src/routes/chatValidators.ts`
+     - `server/src/routes/agentsRun.ts`
+     - `client/src/hooks/useChatStream.ts`
+     - `client/src/pages/ChatPage.tsx`
+     - `client/src/pages/AgentsPage.tsx`
+2. [ ] Update REST chat validation to reject only whitespace-only/newline-only content while preserving raw non-whitespace payload.
+   - Files to edit:
+     - `server/src/routes/chatValidators.ts`
+   - Required error:
+     - `400 { status: "error", code: "VALIDATION_FAILED", message: "message must contain at least one non-whitespace character" }`
+3. [ ] Update agents run validation to same semantic rule with agents envelope.
+   - Files to edit:
+     - `server/src/routes/agentsRun.ts`
+   - Required error:
+     - `400 { error: "invalid_request", message: "instruction must contain at least one non-whitespace character" }`
+4. [ ] Add validation contract tests for both endpoints.
+   - Files to add/edit:
+     - `server/src/test/unit/chatValidators.messageContent.test.ts` (new)
+     - `server/src/test/unit/agentsRun.validation.test.ts` (new or existing update)
+   - Cases:
+     - whitespace-only rejected with exact message
+     - newline-only rejected with exact message
+     - leading/trailing whitespace with real content accepted and preserved
+5. [ ] Update API docs/spec for exact validation messages.
+   - Files to edit:
+     - `openapi.json`
+     - `README.md`
+     - `design.md`
+6. [ ] Update `projectStructure.md` if files were added/removed.
+7. [ ] Run lint/format checks for workspace.
+   - Commands:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run compose:build`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test --workspace server -- chatValidators`
+6. [ ] `npm run test --workspace server -- agentsRun`
+7. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- to_do
+
+---
+
+### 4. Server: MCP keepalive helper unification across all MCP surfaces
+
+- Task Status: **__to_do__**
+- Git Commits: to_do
+
+#### Overview
+
+Create one shared keepalive helper and use it for classic MCP, MCP v2, and agents MCP long-running tool calls. This task only covers keepalive lifecycle behavior and does not add tools or change business contracts.
+
+#### Documentation Locations
+
+- MCP server concepts and tool lifecycle: https://modelcontextprotocol.io/specification/draft/server/tools
+- JSON text grammar and whitespace: https://www.rfc-editor.org/rfc/rfc8259
+- Node.js timers API: https://nodejs.org/api/timers.html
+- Node.js HTTP response lifecycle: https://nodejs.org/api/http.html
+- Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+
+#### Subtasks
+
+1. [ ] Review existing keepalive implementations and lifecycle hooks.
+   - Files to read:
+     - `server/src/mcp2/router.ts`
+     - `server/src/mcpAgents/router.ts`
+     - `server/src/mcp/server.ts`
+2. [ ] Implement shared keepalive utility under `mcpCommon`.
+   - Files to edit:
+     - `server/src/mcpCommon/keepAlive.ts` (new file)
+   - Required behavior:
+     - start/stop API
+     - safe write wrapper
+     - cleanup on success/error/end/close
+     - whitespace-only heartbeat writes
+3. [ ] Replace MCP v2 local keepalive logic with shared helper.
+   - Files to edit:
+     - `server/src/mcp2/router.ts`
+4. [ ] Replace agents MCP local keepalive logic with shared helper.
+   - Files to edit:
+     - `server/src/mcpAgents/router.ts`
+5. [ ] Add keepalive to classic MCP route for long-running `tools/call`.
+   - Files to edit:
+     - `server/src/mcp/server.ts`
+6. [ ] Add server tests covering helper lifecycle and no write-after-close behavior.
+   - Files to add/edit:
+     - `server/src/test/unit/mcp.keepalive.helper.test.ts` (new)
+     - `server/src/test/unit/mcp2.router.keepalive.test.ts` (new/update)
+     - `server/src/test/unit/mcpAgents.router.keepalive.test.ts` (new/update)
+7. [ ] Update docs for shared MCP keepalive behavior.
+   - Files to edit:
+     - `design.md`
+8. [ ] Update `projectStructure.md` if files were added/removed.
+9. [ ] Run lint/format checks for workspace.
+   - Commands:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run compose:build`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test --workspace server -- keepalive`
+6. [ ] Manual JSON parse smoke: invoke long-running MCP tool on each surface and confirm client parses final JSON-RPC payload.
+7. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- to_do
+
+---
+
+### 5. Server: `reingest_repository` shared service + canonical validation/error mapping
+
+- Task Status: **__to_do__**
+- Git Commits: to_do
+
+#### Overview
+
+Build a shared re-ingest service that enforces strict existing-root-only safety and returns canonical success/error payloads for both MCP surfaces. This task does not wire endpoints yet; it produces the shared engine and contract mapping.
+
+#### Documentation Locations
+
+- MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools
+- JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification
+- Node.js path utilities: https://nodejs.org/api/path.html
+- OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html
+- Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+
+#### Subtasks
+
+1. [ ] Review current ingest re-embed and repository listing behavior.
+   - Files to read:
+     - `server/src/routes/ingestReembed.ts`
+     - `server/src/lmstudio/toolService.ts`
+     - `server/src/ingest/*` (relevant service files)
+2. [ ] Create shared `reingest_repository` service with strict `sourceId` validation and root matching.
+   - Files to edit:
+     - `server/src/ingest/reingestService.ts` (new file)
+   - Required validation:
+     - missing/non-string/empty/non-absolute/non-normalized/unknown -> failure
+     - only exact known ingested root match allowed
+3. [ ] Implement canonical contract mappers for success and error `data` payloads.
+   - Files to edit:
+     - `server/src/ingest/reingestService.ts`
+   - Required outputs:
+     - success: `{ status, operation, runId, sourceId }`
+     - errors: `INVALID_PARAMS`, `NOT_FOUND`, `BUSY` with required `error.data` retry payloads
+4. [ ] Add unit tests for all validation and busy-state branches.
+   - Files to add/edit:
+     - `server/src/test/unit/reingestService.test.ts` (new)
+5. [ ] Update docs for canonical error contract and retry fields.
+   - Files to edit:
+     - `design.md`
+     - `README.md`
+6. [ ] Update `projectStructure.md` if files were added/removed.
+7. [ ] Run lint/format checks for workspace.
+   - Commands:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run compose:build`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test --workspace server -- reingestService`
+6. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- to_do
+
+---
+
+### 6. Server: Wire `reingest_repository` into classic MCP (`POST /mcp`)
+
+- Task Status: **__to_do__**
+- Git Commits: to_do
+
+#### Overview
+
+Expose `reingest_repository` on the classic MCP surface and map service outputs into existing classic MCP response envelopes. This task only covers classic MCP wiring.
+
+#### Documentation Locations
+
+- MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools
+- JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification
+- OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html
+- npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script
+- Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+
+#### Subtasks
+
+1. [ ] Review classic MCP tool registration and call dispatch flow.
+   - Files to read:
+     - `server/src/mcp/server.ts`
+     - `server/src/mcp/types.ts` (if present)
+2. [ ] Add tool metadata in `tools/list` for `reingest_repository`.
+   - Files to edit:
+     - `server/src/mcp/server.ts`
+3. [ ] Add `tools/call` handler wiring to shared re-ingest service.
+   - Files to edit:
+     - `server/src/mcp/server.ts`
+   - Contract requirements:
+     - success and error maps exactly to plan `Message Contracts & Storage Shapes`.
+4. [ ] Add classic MCP tests for list + call success + each error code.
+   - Files to add/edit:
+     - `server/src/test/unit/mcp.reingest.classic.test.ts` (new)
+5. [ ] Update docs with classic MCP tool exposure.
+   - Files to edit:
+     - `README.md`
+     - `design.md`
+6. [ ] Update `projectStructure.md` if files were added/removed.
+7. [ ] Run lint/format checks for workspace.
+   - Commands:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run compose:build`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test --workspace server -- mcp.reingest.classic`
+6. [ ] Manual smoke: `initialize` -> `tools/list` -> `tools/call reingest_repository` on `POST /mcp`
+7. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- to_do
+
+---
+
+### 7. Server: Wire `reingest_repository` into MCP v2 tools surface
+
+- Task Status: **__to_do__**
+- Git Commits: to_do
+
+#### Overview
+
+Expose `reingest_repository` on MCP v2 and enforce the exact same name and contract as classic MCP. This task only covers MCP v2 wiring and parity verification.
+
+#### Documentation Locations
+
+- MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools
+- JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification
+- npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script
+- OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html
+- Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+
+#### Subtasks
+
+1. [ ] Review MCP v2 tool registry and dispatch path.
+   - Files to read:
+     - `server/src/mcp2/tools.ts`
+     - `server/src/mcp2/router.ts`
+     - `server/src/mcp2/tools/*` (related modules)
+2. [ ] Add MCP v2 tool definition for `reingest_repository`.
+   - Files to edit:
+     - `server/src/mcp2/tools.ts`
+     - `server/src/mcp2/tools/reingestRepository.ts` (new file)
+3. [ ] Wire tool execution to shared re-ingest service with canonical error mapping.
+   - Files to edit:
+     - `server/src/mcp2/tools/reingestRepository.ts`
+4. [ ] Add MCP v2 tests for list + call success + each error contract branch.
+   - Files to add/edit:
+     - `server/src/test/unit/mcp2.reingest.tool.test.ts` (new)
+5. [ ] Add parity tests comparing classic MCP and MCP v2 response shapes for same inputs.
+   - Files to add/edit:
+     - `server/src/test/unit/mcp.reingest.parity.test.ts` (new)
+6. [ ] Update docs for MCP v2 tool availability and parity.
+   - Files to edit:
+     - `README.md`
+     - `design.md`
+7. [ ] Update `projectStructure.md` if files were added/removed.
+8. [ ] Run lint/format checks for workspace.
+   - Commands:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run compose:build`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test --workspace server -- mcp2.reingest`
+6. [ ] Manual smoke: `initialize` -> `tools/list` -> `tools/call reingest_repository` on MCP v2 port
+7. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- to_do
+
+---
+
+### 8. Server: Codex stream merge fix for cropped/duplicate assistant output
+
+- Task Status: **__to_do__**
+- Git Commits: to_do
+
+#### Overview
+
+Fix server stream aggregation so tool-interleaved Codex runs do not produce cropped starts or duplicated final text. This task is limited to stream assembly correctness and keeps existing bubble UI/chrome behavior unchanged.
+
+#### Documentation Locations
+
+- OpenAI Codex app server events (authoritative item lifecycle): https://developers.openai.com/codex/app-server
+- OpenAI Codex repo app-server README: https://raw.githubusercontent.com/openai/codex/main/codex-rs/app-server/README.md
+- Node.js streams/events: https://nodejs.org/api/stream.html
+- npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script
+- Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+
+#### Subtasks
+
+1. [ ] Review current Codex event merge path and publication boundaries.
+   - Files to read:
+     - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
+     - `server/src/chat/chatStreamBridge.ts`
+     - `server/src/chat/inflightRegistry.ts`
+2. [ ] Implement item-keyed merge strategy and completed-item authoritative finalization.
+   - Files to edit:
+     - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
+   - Required behavior:
+     - no prefix-only assumption
+     - prevent duplicate final append
+     - ignore stale/late post-completion deltas per item
+3. [ ] Stabilize final publish path to avoid double finalization across bridge/inflight boundaries.
+   - Files to edit:
+     - `server/src/chat/chatStreamBridge.ts`
+     - `server/src/chat/inflightRegistry.ts` (if required)
+4. [ ] Add regression tests for non-monotonic, tool-interleaved event order.
+   - Files to add/edit:
+     - `server/src/test/unit/chat.codex.streamMerge.test.ts` (new)
+     - `server/src/test/unit/chat.streamBridge.finalization.test.ts` (new/update)
+   - Required scenarios:
+     - initial text -> tool call -> truncated/non-prefix update -> completed final
+     - completed event followed by late delta
+     - ensure final answer published once
+5. [ ] Update docs for Codex merge invariants and finalization rules.
+   - Files to edit:
+     - `design.md`
+6. [ ] Update `projectStructure.md` if files were added/removed.
+7. [ ] Run lint/format checks for workspace.
+   - Commands:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run compose:build`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test --workspace server -- codex.streamMerge`
+6. [ ] `npm run test --workspace server -- streamBridge`
+7. [ ] Manual smoke: run Codex chat with tool call and verify no cropped/duplicate final text
+8. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- to_do
+
+---
+
+### 9. Client: Chat page raw-input send behavior + user bubble markdown parity
+
+- Task Status: **__to_do__**
+- Git Commits: to_do
+
+#### Overview
+
+Update Chat page send behavior to preserve raw user text and render user bubbles with the same markdown/sanitization stack as assistant bubbles. This task depends on server validation/message contracts already implemented in Task 3.
+
+#### Documentation Locations
+
+- React docs (forms/events): https://react.dev/reference/react-dom/components/textarea
+- `react-markdown` docs: https://github.com/remarkjs/react-markdown
+- `remark-gfm` docs: https://github.com/remarkjs/remark-gfm
+- `rehype-sanitize` docs: https://github.com/rehypejs/rehype-sanitize
+- Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+
+#### Subtasks
+
+1. [ ] Review current chat send-path trimming and user bubble rendering.
+   - Files to read:
+     - `client/src/pages/ChatPage.tsx`
+     - `client/src/hooks/useChatStream.ts`
+     - `client/src/components/Markdown.tsx`
+2. [ ] Remove client-side trim mutation from chat send path while preserving empty-input guard UX.
+   - Files to edit:
+     - `client/src/pages/ChatPage.tsx`
+     - `client/src/hooks/useChatStream.ts`
+   - Constraints:
+     - do not mutate payload text before send when content is non-whitespace
+     - keep local "cannot send empty" behavior aligned with server rule
+3. [ ] Render chat user bubbles with shared markdown renderer used by assistant bubbles.
+   - Files to edit:
+     - `client/src/pages/ChatPage.tsx`
+   - Constraints:
+     - use `client/src/components/Markdown.tsx`
+     - preserve current bubble container layout/chrome
+4. [ ] Add chat UI tests for raw payload preservation and markdown parity.
+   - Files to add/edit:
+     - `client/src/test/chatPage.userMarkdown.test.tsx` (new)
+     - `client/src/test/useChatStream.rawInput.test.tsx` (new/update)
+   - Required cases:
+     - leading/trailing whitespace preserved in sent payload
+     - newline formatting preserved
+     - user bubble markdown features mirror assistant rendering
+5. [ ] Update docs for chat user markdown parity behavior.
+   - Files to edit:
+     - `README.md`
+     - `design.md`
+6. [ ] Update `projectStructure.md` if files were added/removed.
+7. [ ] Run lint/format checks for workspace.
+   - Commands:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run compose:build`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test --workspace client -- chatPage.userMarkdown`
+6. [ ] `npm run test --workspace client -- useChatStream.rawInput`
+7. [ ] Manual smoke: Chat UI send multiline markdown and verify user bubble formatting matches assistant markdown renderer
+8. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- to_do
+
+---
+
+### 10. Client: Agents page raw-input send behavior + user bubble markdown parity
+
+- Task Status: **__to_do__**
+- Git Commits: to_do
+
+#### Overview
+
+Update Agents page send behavior to preserve raw user text and render user bubbles with the same markdown/sanitization profile as assistant bubbles. This is scoped to Agents UI only and follows the server validation/messages established earlier.
+
+#### Documentation Locations
+
+- React docs (forms/events): https://react.dev/reference/react-dom/components/textarea
+- `react-markdown` docs: https://github.com/remarkjs/react-markdown
+- `remark-gfm` docs: https://github.com/remarkjs/remark-gfm
+- `rehype-sanitize` docs: https://github.com/rehypejs/rehype-sanitize
+- Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+
+#### Subtasks
+
+1. [ ] Review current agents send-path trimming and user bubble rendering.
+   - Files to read:
+     - `client/src/pages/AgentsPage.tsx`
+     - `client/src/components/Markdown.tsx`
+2. [ ] Remove client-side trim mutation from agents send payload while preserving empty-input guard UX.
+   - Files to edit:
+     - `client/src/pages/AgentsPage.tsx`
+3. [ ] Render agents user bubbles with shared markdown renderer used by assistant bubbles.
+   - Files to edit:
+     - `client/src/pages/AgentsPage.tsx`
+4. [ ] Add agents UI tests for raw payload preservation and markdown parity.
+   - Files to add/edit:
+     - `client/src/test/agentsPage.userMarkdown.test.tsx` (new)
+     - `client/src/test/agentsPage.run.instructionError.test.tsx` (update if needed)
+   - Required cases:
+     - leading/trailing whitespace preserved in outbound payload
+     - multiline formatting preserved
+     - user bubble markdown rendering matches assistant rendering
+5. [ ] Update docs for agents user markdown parity behavior.
+   - Files to edit:
+     - `README.md`
+     - `design.md`
+6. [ ] Update `projectStructure.md` if files were added/removed.
+7. [ ] Run lint/format checks for workspace.
+   - Commands:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run compose:build`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test --workspace client -- agentsPage.userMarkdown`
+6. [ ] Manual smoke: Agents UI send multiline markdown and verify user bubble formatting parity
+7. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- to_do
+
+---
+
+### 11. Final verification: acceptance check, full regressions, and documentation normalization
+
+- Task Status: **__to_do__**
+- Git Commits: to_do
+
+#### Overview
+
+Validate every acceptance criterion end-to-end after all feature tasks are complete, run full regression layers (Jest, Cucumber, e2e), and finish all documentation and PR summary output.
+
+#### Documentation Locations
+
+- Docker docs (Context7): `/docker/docs`
+- Playwright docs (Context7): `/microsoft/playwright`
+- Jest docs (Context7): `/jestjs/jest`
+- Cucumber guides: https://cucumber.io/docs/guides/
+- Mermaid docs (Context7): `/mermaid-js/mermaid`
+
+#### Subtasks
+
+1. [ ] Re-check all acceptance criteria against implemented behavior and mark any gap before final testing.
+   - Files to read:
+     - `planning/0000035-mcp-keepalive-defaults-reingest-and-chat-rendering.md`
+2. [ ] Ensure documentation is fully synchronized with final code behavior.
+   - Files to edit:
+     - `README.md`
+     - `design.md`
+     - `projectStructure.md`
+3. [ ] Prepare manual verification artifacts in `test-results/screenshots/` with naming `0000035-11-<label>.png`.
+4. [ ] Create a PR summary comment covering all task outcomes, contract changes, and verification evidence.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run compose:build`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test --workspace client`
+6. [ ] `npm run test --workspace server`
+7. [ ] `npm run e2e`
+8. [ ] Manual Playwright-MCP walkthrough of Chat, Agents, and MCP flows with screenshots saved to `test-results/screenshots/`
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- to_do
+
+---

@@ -510,6 +510,7 @@ This should only be started once all the above sections are clear and understood
 Create one authoritative provider/model default resolver and wire it into REST chat so request defaults follow the locked precedence rules. This task also updates committed server env defaults to `codex` + `gpt-5.3-codex`.
 
 #### Documentation Locations
+- External docs only: this section must never include repository file paths; keep codebase files under the relevant subtask `Files to read` / `Files to edit` bullets.
 
 - OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html
 - Node.js environment variables: https://nodejs.org/api/environment_variables.html
@@ -618,6 +619,7 @@ Create one authoritative provider/model default resolver and wire it into REST c
 Implement runtime provider availability fallback (`codex <-> lmstudio`) with single-hop behavior and fallback-model selection rules, and ensure the same selection logic drives REST execution, MCP `codebase_question`, and chat UI default model/provider selection endpoints.
 
 #### Documentation Locations
+- External docs only: this section must never include repository file paths; keep codebase files under the relevant subtask `Files to read` / `Files to edit` bullets.
 
 - JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification
 - MCP server tools guidance: https://modelcontextprotocol.io/specification/draft/server/tools
@@ -758,6 +760,7 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
 Implement server-side non-empty-content enforcement without trimming valid user payloads and lock exact rejection messages for chat and agents endpoints. This task is intentionally separate and must complete before frontend send-path changes.
 
 #### Documentation Locations
+- External docs only: this section must never include repository file paths; keep codebase files under the relevant subtask `Files to read` / `Files to edit` bullets.
 
 - OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html
 - Express 5 error handling: https://expressjs.com/en/guide/error-handling.html
@@ -859,6 +862,7 @@ Implement server-side non-empty-content enforcement without trimming valid user 
 Create one shared keepalive helper and use it for classic MCP, MCP v2, and agents MCP long-running tool calls. This task only covers keepalive lifecycle behavior and does not add tools or change business contracts.
 
 #### Documentation Locations
+- External docs only: this section must never include repository file paths; keep codebase files under the relevant subtask `Files to read` / `Files to edit` bullets.
 
 - MCP server concepts and tool lifecycle: https://modelcontextprotocol.io/specification/draft/server/tools
 - JSON text grammar and whitespace: https://www.rfc-editor.org/rfc/rfc8259
@@ -964,6 +968,7 @@ Create one shared keepalive helper and use it for classic MCP, MCP v2, and agent
 Build a shared re-ingest service that enforces strict existing-root-only safety and returns canonical success/error payloads for both MCP surfaces. This task does not wire endpoints yet; it produces the shared engine and contract mapping.
 
 #### Documentation Locations
+- External docs only: this section must never include repository file paths; keep codebase files under the relevant subtask `Files to read` / `Files to edit` bullets.
 
 - MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools
 - JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification
@@ -1060,6 +1065,7 @@ Build a shared re-ingest service that enforces strict existing-root-only safety 
 Expose `reingest_repository` on the classic MCP surface and map service outputs into existing classic MCP response envelopes. This task only covers classic MCP wiring.
 
 #### Documentation Locations
+- External docs only: this section must never include repository file paths; keep codebase files under the relevant subtask `Files to read` / `Files to edit` bullets.
 
 - MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools
 - JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification
@@ -1145,6 +1151,7 @@ Expose `reingest_repository` on the classic MCP surface and map service outputs 
 Expose `reingest_repository` on MCP v2 and enforce the exact same name and contract as classic MCP. This task only covers MCP v2 wiring and parity verification.
 
 #### Documentation Locations
+- External docs only: this section must never include repository file paths; keep codebase files under the relevant subtask `Files to read` / `Files to edit` bullets.
 
 - MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools
 - JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification
@@ -1240,6 +1247,7 @@ Expose `reingest_repository` on MCP v2 and enforce the exact same name and contr
 Fix server stream aggregation so tool-interleaved Codex runs do not produce cropped starts or duplicated final text. This task is limited to stream assembly correctness and keeps existing bubble UI/chrome behavior unchanged.
 
 #### Documentation Locations
+- External docs only: this section must never include repository file paths; keep codebase files under the relevant subtask `Files to read` / `Files to edit` bullets.
 
 - OpenAI Codex app server events (authoritative item lifecycle): https://developers.openai.com/codex/app-server
 - OpenAI Codex repo app-server README: https://raw.githubusercontent.com/openai/codex/main/codex-rs/app-server/README.md
@@ -1333,6 +1341,7 @@ Fix server stream aggregation so tool-interleaved Codex runs do not produce crop
 Update Chat page send behavior to preserve raw user text exactly as entered while still blocking whitespace-only submissions. This task is scoped to outbound payload behavior only and depends on server validation/message contracts implemented in Task 3.
 
 #### Documentation Locations
+- External docs only: this section must never include repository file paths; keep codebase files under the relevant subtask `Files to read` / `Files to edit` bullets.
 
 - React docs (forms/events): https://react.dev/reference/react-dom/components/textarea
 - MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md
@@ -1426,6 +1435,7 @@ Update Chat page send behavior to preserve raw user text exactly as entered whil
 Render Chat user bubbles with the same markdown/sanitization component used by assistant bubbles, preserving existing bubble chrome/layout. This task is scoped to rendering parity and depends on Task 9 for raw-input send behavior.
 
 #### Documentation Locations
+- External docs only: this section must never include repository file paths; keep codebase files under the relevant subtask `Files to read` / `Files to edit` bullets.
 
 - React docs (forms/events): https://react.dev/reference/react-dom/components/textarea
 - MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md
@@ -1518,6 +1528,7 @@ Render Chat user bubbles with the same markdown/sanitization component used by a
 Update Agents page send behavior to preserve raw user text exactly as entered while still blocking whitespace-only submissions. This task is scoped to outbound payload behavior only and depends on server validation/message contracts implemented in Task 3.
 
 #### Documentation Locations
+- External docs only: this section must never include repository file paths; keep codebase files under the relevant subtask `Files to read` / `Files to edit` bullets.
 
 - React docs (forms/events): https://react.dev/reference/react-dom/components/textarea
 - MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md
@@ -1599,6 +1610,7 @@ Update Agents page send behavior to preserve raw user text exactly as entered wh
 Render Agents user bubbles with the same markdown/sanitization component used by assistant bubbles, preserving existing bubble chrome/layout. This task is scoped to rendering parity and depends on Task 11 for raw-input send behavior.
 
 #### Documentation Locations
+- External docs only: this section must never include repository file paths; keep codebase files under the relevant subtask `Files to read` / `Files to edit` bullets.
 
 - React docs (forms/events): https://react.dev/reference/react-dom/components/textarea
 - MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md
@@ -1683,6 +1695,7 @@ Render Agents user bubbles with the same markdown/sanitization component used by
 Validate every acceptance criterion end-to-end after all feature tasks are complete, run full regression layers (Jest, Cucumber, e2e), and finish all documentation and PR summary output.
 
 #### Documentation Locations
+- External docs only: this section must never include repository file paths; keep codebase files under the relevant subtask `Files to read` / `Files to edit` bullets.
 
 - Docker docs (Context7): `/docker/docs`
 - Playwright docs (Context7): `/microsoft/playwright`

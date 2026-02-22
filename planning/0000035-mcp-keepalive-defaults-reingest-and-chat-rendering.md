@@ -709,14 +709,17 @@ Create one authoritative provider/model default resolver and wire it into REST c
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run build --workspace client`
-3. [ ] `npm run compose:build`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test --workspace server -- config.chatDefaults`
-6. [ ] `npm run test --workspace server -- chatValidators`
-7. [ ] `npm run compose:down`
-
-8. [ ] `npm run lint --workspaces`
-9. [ ] `npm run format:check --workspaces`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check to manually confirm story items and general regression checks for this task; include a check that there are no logged errors within the debug console; use `http://host.docker.internal:5001` via Playwright MCP tools.
+9. [ ] `npm run compose:down`
+10. [ ] `npm run test --workspace server -- config.chatDefaults`
+11. [ ] `npm run test --workspace server -- chatValidators`
+12. [ ] `npm run lint --workspaces`
+13. [ ] `npm run format:check --workspaces`
 #### Implementation notes
 
 - to_do
@@ -1053,20 +1056,23 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run build --workspace client`
-3. [ ] `npm run compose:build`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test --workspace server -- chat-codex`
-6. [ ] `npm run test --workspace server -- codebaseQuestion`
-7. [ ] `npm run test --workspace server -- chatModels.codex`
-8. [ ] `npm run test --workspace server -- chatProviders`
-9. [ ] `npm run test --workspace server -- chat-assistant-persistence`
-10. [ ] `npm run test --workspace server -- chat-codex-mcp`
-11. [ ] `npm run test --workspace server -- mcp2-router-list-unavailable`
-12. [ ] `npm run test --workspace server -- mcp2-router-tool-not-found`
-13. [ ] `npm run compose:down`
-
-14. [ ] `npm run lint --workspaces`
-15. [ ] `npm run format:check --workspaces`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check to manually confirm story items and general regression checks for this task; include a check that there are no logged errors within the debug console; use `http://host.docker.internal:5001` via Playwright MCP tools.
+9. [ ] `npm run compose:down`
+10. [ ] `npm run test --workspace server -- chat-codex`
+11. [ ] `npm run test --workspace server -- codebaseQuestion`
+12. [ ] `npm run test --workspace server -- chatModels.codex`
+13. [ ] `npm run test --workspace server -- chatProviders`
+14. [ ] `npm run test --workspace server -- chat-assistant-persistence`
+15. [ ] `npm run test --workspace server -- chat-codex-mcp`
+16. [ ] `npm run test --workspace server -- mcp2-router-list-unavailable`
+17. [ ] `npm run test --workspace server -- mcp2-router-tool-not-found`
+18. [ ] `npm run lint --workspaces`
+19. [ ] `npm run format:check --workspaces`
 #### Implementation notes
 
 - to_do
@@ -1296,15 +1302,17 @@ Implement server-side non-empty-content enforcement without trimming valid user 
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run build --workspace client`
-3. [ ] `npm run compose:build`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test --workspace server -- chatValidators`
-6. [ ] `npm run test --workspace server -- agents-router-run`
-7. [ ] `npm run test --workspace server`
-8. [ ] `npm run compose:down`
-
-9. [ ] `npm run lint --workspaces`
-10. [ ] `npm run format:check --workspaces`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check to manually confirm story items and general regression checks for this task; include a check that there are no logged errors within the debug console; use `http://host.docker.internal:5001` via Playwright MCP tools.
+9. [ ] `npm run compose:down`
+10. [ ] `npm run test --workspace server -- chatValidators`
+11. [ ] `npm run test --workspace server -- agents-router-run`
+12. [ ] `npm run lint --workspaces`
+13. [ ] `npm run format:check --workspaces`
 #### Implementation notes
 
 - to_do
@@ -1515,15 +1523,18 @@ Create one shared keepalive helper and use it for classic MCP, MCP v2, and agent
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run build --workspace client`
-3. [ ] `npm run compose:build`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test --workspace server -- mcp.keepalive.helper`
-6. [ ] `npm run test --workspace server -- mcp2-router && npm run test --workspace server -- mcp-agents-router-run && npm run test --workspace server -- mcp-server`
-7. [ ] Manual JSON parse smoke: invoke long-running MCP tool on each surface and confirm client parses final JSON-RPC payload.
-8. [ ] `npm run compose:down`
-
-9. [ ] `npm run lint --workspaces`
-10. [ ] `npm run format:check --workspaces`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check to manually confirm story items and general regression checks for this task; include a check that there are no logged errors within the debug console; use `http://host.docker.internal:5001` via Playwright MCP tools.
+9. [ ] `npm run compose:down`
+10. [ ] `npm run test --workspace server -- mcp.keepalive.helper`
+11. [ ] `npm run test --workspace server -- mcp2-router && npm run test --workspace server -- mcp-agents-router-run && npm run test --workspace server -- mcp-server`
+12. [ ] Manual JSON parse smoke: invoke long-running MCP tool on each surface and confirm client parses final JSON-RPC payload.
+13. [ ] `npm run lint --workspaces`
+14. [ ] `npm run format:check --workspaces`
 #### Implementation notes
 
 - to_do
@@ -1713,13 +1724,16 @@ Build a shared re-ingest service that enforces strict existing-root-only safety 
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run build --workspace client`
-3. [ ] `npm run compose:build`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test --workspace server -- reingestService`
-6. [ ] `npm run compose:down`
-
-7. [ ] `npm run lint --workspaces`
-8. [ ] `npm run format:check --workspaces`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check to manually confirm story items and general regression checks for this task; include a check that there are no logged errors within the debug console; use `http://host.docker.internal:5001` via Playwright MCP tools.
+9. [ ] `npm run compose:down`
+10. [ ] `npm run test --workspace server -- reingestService`
+11. [ ] `npm run lint --workspaces`
+12. [ ] `npm run format:check --workspaces`
 #### Implementation notes
 
 - to_do
@@ -1896,14 +1910,17 @@ Expose `reingest_repository` on the classic MCP surface and map service outputs 
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run build --workspace client`
-3. [ ] `npm run compose:build`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test --workspace server -- mcp.reingest.classic`
-6. [ ] Manual smoke: `initialize` -> `tools/list` -> `tools/call reingest_repository` on `POST /mcp`
-7. [ ] `npm run compose:down`
-
-8. [ ] `npm run lint --workspaces`
-9. [ ] `npm run format:check --workspaces`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check to manually confirm story items and general regression checks for this task; include a check that there are no logged errors within the debug console; use `http://host.docker.internal:5001` via Playwright MCP tools.
+9. [ ] `npm run compose:down`
+10. [ ] `npm run test --workspace server -- mcp.reingest.classic`
+11. [ ] Manual smoke: `initialize` -> `tools/list` -> `tools/call reingest_repository` on `POST /mcp`
+12. [ ] `npm run lint --workspaces`
+13. [ ] `npm run format:check --workspaces`
 #### Implementation notes
 
 - to_do
@@ -2119,14 +2136,17 @@ Expose `reingest_repository` on MCP v2 and enforce the exact same name and contr
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run build --workspace client`
-3. [ ] `npm run compose:build`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test --workspace server -- mcp2.reingest`
-6. [ ] Manual smoke: `initialize` -> `tools/list` -> `tools/call reingest_repository` on MCP v2 port
-7. [ ] `npm run compose:down`
-
-8. [ ] `npm run lint --workspaces`
-9. [ ] `npm run format:check --workspaces`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check to manually confirm story items and general regression checks for this task; include a check that there are no logged errors within the debug console; use `http://host.docker.internal:5001` via Playwright MCP tools.
+9. [ ] `npm run compose:down`
+10. [ ] `npm run test --workspace server -- mcp2.reingest`
+11. [ ] Manual smoke: `initialize` -> `tools/list` -> `tools/call reingest_repository` on MCP v2 port
+12. [ ] `npm run lint --workspaces`
+13. [ ] `npm run format:check --workspaces`
 #### Implementation notes
 
 - to_do
@@ -2299,16 +2319,19 @@ Fix server stream aggregation so tool-interleaved Codex runs do not produce crop
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run build --workspace client`
-3. [ ] `npm run compose:build`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test --workspace server -- chat-interface-codex`
-6. [ ] `npm run test --workspace server -- ws-chat-stream`
-7. [ ] `npm run test --workspace server -- chat-codex`
-8. [ ] Manual smoke: run Codex chat with tool call and verify no cropped/duplicate final text
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check to manually confirm story items and general regression checks for this task; include a check that there are no logged errors within the debug console; use `http://host.docker.internal:5001` via Playwright MCP tools.
 9. [ ] `npm run compose:down`
-
-10. [ ] `npm run lint --workspaces`
-11. [ ] `npm run format:check --workspaces`
+10. [ ] `npm run test --workspace server -- chat-interface-codex`
+11. [ ] `npm run test --workspace server -- ws-chat-stream`
+12. [ ] `npm run test --workspace server -- chat-codex`
+13. [ ] Manual smoke: run Codex chat with tool call and verify no cropped/duplicate final text
+14. [ ] `npm run lint --workspaces`
+15. [ ] `npm run format:check --workspaces`
 #### Implementation notes
 
 - to_do
@@ -2509,16 +2532,19 @@ Update Chat page send behavior to preserve raw user text exactly as entered whil
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run build --workspace client`
-3. [ ] `npm run compose:build`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test --workspace client -- useChatStream.toolPayloads`
-6. [ ] `npm run test --workspace client -- chatPage.stream`
-7. [ ] `npm run e2e:test -- e2e/chat.spec.ts`
-8. [ ] Manual smoke: Chat UI send multiline input with leading/trailing whitespace and verify outbound request preserves raw content while whitespace-only input is blocked
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check to manually confirm story items and general regression checks for this task; include a check that there are no logged errors within the debug console; use `http://host.docker.internal:5001` via Playwright MCP tools.
 9. [ ] `npm run compose:down`
-
-10. [ ] `npm run lint --workspaces`
-11. [ ] `npm run format:check --workspaces`
+10. [ ] `npm run test --workspace client -- useChatStream.toolPayloads`
+11. [ ] `npm run test --workspace client -- chatPage.stream`
+12. [ ] `npm run e2e:test -- e2e/chat.spec.ts`
+13. [ ] Manual smoke: Chat UI send multiline input with leading/trailing whitespace and verify outbound request preserves raw content while whitespace-only input is blocked
+14. [ ] `npm run lint --workspaces`
+15. [ ] `npm run format:check --workspaces`
 #### Implementation notes
 
 - to_do
@@ -2716,17 +2742,20 @@ Render Chat user bubbles with the same markdown/sanitization component used by a
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run build --workspace client`
-3. [ ] `npm run compose:build`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test --workspace client -- chatPage.markdown`
-6. [ ] `npm run test --workspace client -- chatPage.stream`
-7. [ ] `npm run test --workspace client -- chatPage.mermaid`
-8. [ ] `npm run e2e:test -- e2e/chat.spec.ts e2e/chat-mermaid.spec.ts`
-9. [ ] Manual smoke: Chat UI send multiline markdown and verify user bubble formatting parity
-10. [ ] `npm run compose:down`
-
-11. [ ] `npm run lint --workspaces`
-12. [ ] `npm run format:check --workspaces`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check to manually confirm story items and general regression checks for this task; include a check that there are no logged errors within the debug console; use `http://host.docker.internal:5001` via Playwright MCP tools.
+9. [ ] `npm run compose:down`
+10. [ ] `npm run test --workspace client -- chatPage.markdown`
+11. [ ] `npm run test --workspace client -- chatPage.stream`
+12. [ ] `npm run test --workspace client -- chatPage.mermaid`
+13. [ ] `npm run e2e:test -- e2e/chat.spec.ts e2e/chat-mermaid.spec.ts`
+14. [ ] Manual smoke: Chat UI send multiline markdown and verify user bubble formatting parity
+15. [ ] `npm run lint --workspaces`
+16. [ ] `npm run format:check --workspaces`
 #### Implementation notes
 
 - to_do
@@ -2929,16 +2958,19 @@ Update Agents page send behavior to preserve raw user text exactly as entered wh
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run build --workspace client`
-3. [ ] `npm run compose:build`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test --workspace client -- agentsPage.run`
-6. [ ] `npm run test --workspace client -- agentsPage.turnHydration`
-7. [ ] `npm run e2e:test -- e2e/agents.spec.ts`
-8. [ ] Manual smoke: Agents UI send multiline input with leading/trailing whitespace and verify outbound request preserves raw content while whitespace-only input is blocked
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check to manually confirm story items and general regression checks for this task; include a check that there are no logged errors within the debug console; use `http://host.docker.internal:5001` via Playwright MCP tools.
 9. [ ] `npm run compose:down`
-
-10. [ ] `npm run lint --workspaces`
-11. [ ] `npm run format:check --workspaces`
+10. [ ] `npm run test --workspace client -- agentsPage.run`
+11. [ ] `npm run test --workspace client -- agentsPage.turnHydration`
+12. [ ] `npm run e2e:test -- e2e/agents.spec.ts`
+13. [ ] Manual smoke: Agents UI send multiline input with leading/trailing whitespace and verify outbound request preserves raw content while whitespace-only input is blocked
+14. [ ] `npm run lint --workspaces`
+15. [ ] `npm run format:check --workspaces`
 #### Implementation notes
 
 - to_do
@@ -3129,17 +3161,20 @@ Render Agents user bubbles with the same markdown/sanitization component used by
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run build --workspace client`
-3. [ ] `npm run compose:build`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test --workspace client -- agentsPage.run`
-6. [ ] `npm run test --workspace client -- agentsPage.turnHydration`
-7. [ ] `npm run test --workspace client -- agentsPage.descriptionPopover`
-8. [ ] `npm run e2e:test -- e2e/agents.spec.ts`
-9. [ ] Manual smoke: Agents UI send multiline markdown and verify user bubble formatting parity
-10. [ ] `npm run compose:down`
-
-11. [ ] `npm run lint --workspaces`
-12. [ ] `npm run format:check --workspaces`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check to manually confirm story items and general regression checks for this task; include a check that there are no logged errors within the debug console; use `http://host.docker.internal:5001` via Playwright MCP tools.
+9. [ ] `npm run compose:down`
+10. [ ] `npm run test --workspace client -- agentsPage.run`
+11. [ ] `npm run test --workspace client -- agentsPage.turnHydration`
+12. [ ] `npm run test --workspace client -- agentsPage.descriptionPopover`
+13. [ ] `npm run e2e:test -- e2e/agents.spec.ts`
+14. [ ] Manual smoke: Agents UI send multiline markdown and verify user bubble formatting parity
+15. [ ] `npm run lint --workspaces`
+16. [ ] `npm run format:check --workspaces`
 #### Implementation notes
 
 - to_do
@@ -3262,14 +3297,14 @@ Validate every acceptance criterion end-to-end after all feature tasks are compl
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run build --workspace client`
-3. [ ] `npm run compose:build`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run test --workspace client`
-6. [ ] `npm run test --workspace server`
-7. [ ] `npm run e2e`
-8. [ ] Manual Playwright-MCP walkthrough of Chat, Agents, and MCP flows with screenshots saved to `test-results/screenshots/`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check to manually confirm story items and general regression checks for this task; include a check that there are no logged errors within the debug console; use `http://host.docker.internal:5001` via Playwright MCP tools.
 9. [ ] `npm run compose:down`
-
+10. [ ] Manual Playwright-MCP walkthrough of Chat, Agents, and MCP flows with screenshots saved to `test-results/screenshots/`
 #### Implementation notes
 
 - to_do

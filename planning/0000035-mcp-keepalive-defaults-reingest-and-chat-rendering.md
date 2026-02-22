@@ -1370,13 +1370,13 @@ Implement server-side non-empty-content enforcement without trimming valid user 
 2. [x] `npm run build --workspace client`
 3. [x] `npm run test --workspace server`
 4. [x] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check to manually confirm story items and general regression checks for this task; include a check that there are no logged errors within the debug console; use `http://host.docker.internal:5001` via Playwright MCP tools.
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check to manually confirm story items and general regression checks for this task; include a check that there are no logged errors within the debug console; use `http://host.docker.internal:5001` via Playwright MCP tools.
    - Required log tags to verify: `DEV-0000035:T3:raw_input_validation_evaluated`, `DEV-0000035:T3:raw_input_validation_result`.
    - Expected outcome: During whitespace-only and non-whitespace submissions, both tags appear and the result tag records accepted/rejected decisions with unchanged contract messaging. Also confirm no unexpected `[error]`/uncaught console errors in browser debug console during this check.
-9. [ ] `npm run compose:down`
+9. [x] `npm run compose:down`
 10. [x] `npm run test --workspace server -- chatValidators`
 11. [x] `npm run test --workspace server -- agents-router-run`
 12. [x] `npm run lint --workspaces`

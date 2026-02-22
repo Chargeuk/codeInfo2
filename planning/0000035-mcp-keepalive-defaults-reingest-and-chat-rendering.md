@@ -2000,7 +2000,7 @@ Build a shared re-ingest service that enforces strict existing-root-only safety 
 
 ### 6. Server: Wire `reingest_repository` into classic MCP (`POST /mcp`)
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: to_do
 
 #### Overview

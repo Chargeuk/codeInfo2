@@ -753,7 +753,7 @@ Create one authoritative provider/model default resolver and wire it into REST c
 
 ### 2. Server: Runtime provider availability auto-fallback across REST + MCP selection paths
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: to_do
 
 #### Overview

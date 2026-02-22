@@ -516,6 +516,7 @@ Create one authoritative provider/model default resolver and wire it into REST c
 - Node.js environment variables: https://nodejs.org/api/environment_variables.html (Reason: authoritative rules for reading and validating runtime env defaults in Node.)
 - npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.)
 - JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.)
+- Jest docs (Context7): `/jestjs/jest` (Reason: authoritative Jest test runner/matcher/reference guidance for the unit tests added in this task.)
 - Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
 
 #### Subtasks
@@ -648,7 +649,9 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
 - OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.)
 - Cucumber guide (continuous integration): https://cucumber.io/docs/guides/continuous-integration/ (Reason: execution/reporting behavior used for CI-style cucumber verification.)
 - Cucumber guide (10-minute tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/ (Reason: step-definition and feature-file authoring reference for implementing Cucumber scenarios.)
+- Cucumber guides index: https://cucumber.io/docs/guides/ (Reason: required top-level cucumber guides reference for all cucumber tasking in this story.)
 - npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.)
+- Jest docs (Context7): `/jestjs/jest` (Reason: authoritative Jest test runner/matcher/reference guidance for unit and integration tests in this task.)
 - Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
 
 #### Subtasks
@@ -836,7 +839,9 @@ Implement server-side non-empty-content enforcement without trimming valid user 
 - HTTP Semantics (status codes): https://www.rfc-editor.org/rfc/rfc9110 (Reason: authoritative HTTP status and response semantics for validation failures.)
 - Cucumber guide (continuous integration): https://cucumber.io/docs/guides/continuous-integration/ (Reason: execution/reporting behavior used for CI-style cucumber verification.)
 - Cucumber guide (10-minute tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/ (Reason: step-definition and feature-file authoring reference for implementing Cucumber scenarios.)
+- Cucumber guides index: https://cucumber.io/docs/guides/ (Reason: required top-level cucumber guides reference for all cucumber tasking in this story.)
 - npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.)
+- Jest docs (Context7): `/jestjs/jest` (Reason: authoritative Jest test runner/matcher/reference guidance for unit validation tests in this task.)
 - Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
 
 #### Subtasks
@@ -966,6 +971,7 @@ Create one shared keepalive helper and use it for classic MCP, MCP v2, and agent
 - JSON text grammar and whitespace: https://www.rfc-editor.org/rfc/rfc8259 (Reason: confirms whitespace heartbeats remain valid around final JSON payloads.)
 - Node.js timers API: https://nodejs.org/api/timers.html (Reason: authoritative timer lifecycle behavior for keepalive start/cleanup.)
 - Node.js HTTP response lifecycle: https://nodejs.org/api/http.html (Reason: confirms safe write/end/close handling for keepalive output.)
+- Jest docs (Context7): `/jestjs/jest` (Reason: authoritative Jest test runner/matcher/reference guidance for keepalive helper/unit/integration tests.)
 - Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
 
 #### Subtasks
@@ -1094,6 +1100,7 @@ Build a shared re-ingest service that enforces strict existing-root-only safety 
 - JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.)
 - Node.js path utilities: https://nodejs.org/api/path.html (Reason: authoritative normalization/join/isAbsolute behavior for sourceId path validation.)
 - OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.)
+- Jest docs (Context7): `/jestjs/jest` (Reason: authoritative Jest test runner/matcher/reference guidance for reingest service unit tests.)
 - Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
 
 #### Subtasks
@@ -1208,6 +1215,7 @@ Expose `reingest_repository` on the classic MCP surface and map service outputs 
 - JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.)
 - OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.)
 - npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.)
+- Jest docs (Context7): `/jestjs/jest` (Reason: authoritative Jest test runner/matcher/reference guidance for classic MCP test implementation.)
 - Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
 
 #### Subtasks
@@ -1311,6 +1319,7 @@ Expose `reingest_repository` on MCP v2 and enforce the exact same name and contr
 - JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.)
 - npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.)
 - OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.)
+- Jest docs (Context7): `/jestjs/jest` (Reason: authoritative Jest test runner/matcher/reference guidance for MCP v2 and parity tests.)
 - Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
 
 #### Subtasks
@@ -1433,6 +1442,7 @@ Fix server stream aggregation so tool-interleaved Codex runs do not produce crop
 - DeepWiki MCP docs (`openai/codex`, see `4.5.3 Event Translation and Streaming`): `openai/codex` (Reason: architecture cross-check for how Codex app-server events are translated into streamed turn updates.)
 - Node.js streams/events: https://nodejs.org/api/stream.html (Reason: stream/event ordering reference for robust assistant delta aggregation.)
 - npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.)
+- Jest docs (Context7): `/jestjs/jest` (Reason: authoritative Jest test runner/matcher/reference guidance for Codex stream regression suites.)
 - Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
 
 #### Subtasks
@@ -1553,6 +1563,7 @@ Update Chat page send behavior to preserve raw user text exactly as entered whil
 - MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.)
 - MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.)
 - Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.)
+- Jest docs (Context7): `/jestjs/jest` (Reason: authoritative Jest test runner/matcher/reference guidance for Chat page client tests in this task.)
 - Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
 
 #### Subtasks
@@ -1682,6 +1693,7 @@ Render Chat user bubbles with the same markdown/sanitization component used by a
 - `remark-gfm` docs: https://github.com/remarkjs/remark-gfm (Reason: GFM syntax support details for lists/tables/fences in user bubbles.)
 - `rehype-sanitize` docs: https://github.com/rehypejs/rehype-sanitize (Reason: sanitization schema rules to keep markdown rendering safe.)
 - Mermaid docs (Context7): `/mermaid-js/mermaid` (Reason: confirms fenced mermaid syntax/rendering behavior for markdown parity verification.)
+- Jest docs (Context7): `/jestjs/jest` (Reason: authoritative Jest test runner/matcher/reference guidance for Chat markdown parity test updates.)
 - Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
 
 #### Subtasks
@@ -1802,6 +1814,7 @@ Update Agents page send behavior to preserve raw user text exactly as entered wh
 - MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.)
 - MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.)
 - Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.)
+- Jest docs (Context7): `/jestjs/jest` (Reason: authoritative Jest test runner/matcher/reference guidance for Agents raw-input client tests.)
 - Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
 
 #### Subtasks
@@ -1928,6 +1941,7 @@ Render Agents user bubbles with the same markdown/sanitization component used by
 - `rehype-sanitize` docs: https://github.com/rehypejs/rehype-sanitize (Reason: sanitization schema rules to keep markdown rendering safe.)
 - Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.)
 - Mermaid docs (Context7): `/mermaid-js/mermaid` (Reason: confirms fenced mermaid syntax/rendering behavior for markdown parity verification.)
+- Jest docs (Context7): `/jestjs/jest` (Reason: authoritative Jest test runner/matcher/reference guidance for Agents markdown parity test updates.)
 - Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
 
 #### Subtasks
@@ -2041,6 +2055,7 @@ Validate every acceptance criterion end-to-end after all feature tasks are compl
 - Docker docs (Context7): `/docker/docs` (Reason: authoritative compose/build workflow reference for full-regression verification steps.)
 - Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.)
 - Jest docs (Context7): `/jestjs/jest` (Reason: test runner and CLI filtering behavior for workspace regression runs.)
+- Cucumber guides index: https://cucumber.io/docs/guides/ (Reason: required top-level cucumber guides reference for cucumber-related final verification.)
 - Cucumber guide (continuous integration): https://cucumber.io/docs/guides/continuous-integration/ (Reason: execution/reporting behavior used for CI-style cucumber verification.)
 - Cucumber guide (10-minute tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/ (Reason: step-definition and feature-file authoring reference for implementing Cucumber scenarios.)
 - Mermaid docs (Context7): `/mermaid-js/mermaid` (Reason: diagram fence syntax/rendering expectations used by markdown parity checks.)

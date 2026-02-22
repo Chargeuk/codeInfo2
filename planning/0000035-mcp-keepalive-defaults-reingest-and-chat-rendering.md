@@ -508,7 +508,7 @@ Server test command note (KISS, deterministic):
 ### 1. Server: Shared default resolver for REST chat + committed env defaults
 
 - Task Status: **__in_progress__**
-- Git Commits: to_do
+- Git Commits: 8218fa92ad2f692213a5b5f5822b1abfe47af4a6, 1e8b3984549242e9f2c5557be024400ca7e8560e
 
 #### Overview
 
@@ -746,6 +746,7 @@ Create one authoritative provider/model default resolver and wire it into REST c
 - Verification run: `npm run build --workspace server` passed; `npm run build --workspace client` passed; `npm run lint --workspaces` passed (warnings only).
 - Fixed new-default regression in tests by setting explicit `provider: 'lmstudio'` in `server/src/test/unit/chat-tools-wire.test.ts`.
 - Blocker: Docker socket access is denied in this environment (`permission denied while trying to connect to the docker API at unix:///var/run/docker.sock`), so compose/e2e checks and the Cucumber integration stage inside `npm run test --workspace server` cannot complete.
+- Blocker answer (decision): treat Docker-socket denial as an environment constraint, not an implementation defect. Keep Task 1 in `__in_progress__`, leave Docker/Cucumber/compose/e2e checks unchecked, and proceed to Task 2 implementation while carrying these pending checks to a Docker-capable run environment (or final verification task).
 - Secondary note: `npm run format:check --workspaces` intermittently fails while long-running server test sessions create/delete `server/tmp-flows-*` fixture directories; rerun after Docker-backed test processes are stopped.
 
 ---

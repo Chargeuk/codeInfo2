@@ -607,16 +607,29 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
    - Files to edit:
      - `server/src/routes/chatProviders.ts`
      - `server/src/routes/chatModels.ts`
-5. [ ] Remove global Codex-only router pre-blocking that prevents provider-aware fallback for `codebase_question`.
+5. [ ] Ensure resolved provider/model persistence is correct for existing conversations when fallback switches provider.
+   - Files to edit:
+     - `server/src/mongo/repo.ts`
+     - `server/src/routes/chat.ts`
+     - `server/src/mcp2/tools/codebaseQuestion.ts`
+   - Required behavior:
+     - metadata update helpers can persist `provider` as well as `model`
+     - REST `/chat` updates existing conversation provider/model to the resolved execution provider/model
+     - MCP `codebase_question` updates existing conversation provider/model to the resolved execution provider/model
+6. [ ] Remove global Codex-only router pre-blocking that prevents provider-aware fallback for `codebase_question`.
    - Files to edit:
      - `server/src/mcp2/router.ts`
    - Constraint:
      - Keep existing terminal unavailable envelopes/codes unchanged.
-6. [ ] Add tests for runtime fallback determinism, persistence, UI default selection, and terminal unavailable contracts.
+7. [ ] Add tests for runtime fallback determinism, persistence, UI default selection, and terminal unavailable contracts.
    - Files to add/edit:
      - `server/src/test/unit/chat.providerFallback.test.ts` (new)
      - `server/src/test/unit/mcp2.codebaseQuestion.fallback.test.ts` (new or existing file update)
      - `server/src/test/unit/chat.models.providers.defaultSelection.test.ts` (new or existing file update)
+     - `server/src/test/unit/mcp2-router-list-unavailable.test.ts` (update)
+     - `server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts` (update)
+     - `server/src/test/integration/chat.providerFallback.persistence.test.ts` (new)
+     - `server/src/test/integration/mcp.providerFallback.persistence.test.ts` (new)
    - Cases:
      - fallback switches at most once (`codex -> lmstudio` or `lmstudio -> codex`)
      - resolved fallback provider/model are what get persisted on the conversation record
@@ -624,16 +637,16 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
      - when neither provider is available, REST returns existing `503 PROVIDER_UNAVAILABLE` envelope
      - when neither provider is available, MCP returns existing `-32001 CODE_INFO_LLM_UNAVAILABLE` error
      - MCP v2 `tools/list` remains available when Codex is unavailable
-7. [ ] Add server Cucumber contract scenarios for provider fallback and terminal unavailable behavior.
+8. [ ] Add server Cucumber contract scenarios for provider fallback and terminal unavailable behavior.
    - Files to add/edit:
      - `server/src/test/features/chat-provider-fallback.feature` (new)
      - `server/src/test/steps/chatProviderFallback.steps.ts` (new)
-8. [ ] Update documentation for runtime auto-fallback and model selection rules.
+9. [ ] Update documentation for runtime auto-fallback and model selection rules.
    - Files to edit:
      - `design.md`
      - `README.md`
-9. [ ] Update `projectStructure.md` if files were added/removed.
-10. [ ] Run lint/format checks for workspace.
+10. [ ] Update `projectStructure.md` if files were added/removed.
+11. [ ] Run lint/format checks for workspace.
    - Commands:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
@@ -647,8 +660,9 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
 5. [ ] `npm run test --workspace server -- providerFallback`
 6. [ ] `npm run test --workspace server -- codebaseQuestion`
 7. [ ] `npm run test --workspace server -- chat.models`
-8. [ ] `npm run test --workspace server`
-9. [ ] `npm run compose:down`
+8. [ ] `npm run test --workspace server -- providerFallback.persistence`
+9. [ ] `npm run test --workspace server`
+10. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1117,6 +1131,7 @@ Update Chat page send behavior to preserve raw user text and render user bubbles
    - Constraints:
      - do not mutate payload text before send when content is non-whitespace
      - keep local "cannot send empty" behavior aligned with server rule
+     - remove user-turn dedupe comparisons that normalize/collapse whitespace so distinct raw inputs remain distinct in transcript hydration
 3. [ ] Render chat user bubbles with shared markdown renderer used by assistant bubbles.
    - Files to edit:
      - `client/src/pages/ChatPage.tsx`
@@ -1130,6 +1145,7 @@ Update Chat page send behavior to preserve raw user text and render user bubbles
    - Required cases:
      - leading/trailing whitespace preserved in sent payload
      - newline formatting preserved
+     - messages that differ only by whitespace are not merged/deduped into one user turn
      - user bubble markdown features (including mermaid fences) mirror assistant rendering
 5. [ ] Add Chat e2e coverage for user-visible raw-input + markdown rendering behavior.
    - Files to add/edit:
@@ -1202,6 +1218,7 @@ Update Agents page send behavior to preserve raw user text and render user bubbl
    - Required cases:
      - leading/trailing whitespace preserved in outbound payload
      - multiline formatting preserved
+     - agent user turns that differ only by whitespace are not merged in transcript hydration
      - user bubble markdown rendering (including mermaid fences) matches assistant rendering
 5. [ ] Add Agents e2e coverage for user-visible raw-input + markdown rendering behavior.
    - Files to add/edit:

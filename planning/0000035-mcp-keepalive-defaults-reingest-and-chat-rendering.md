@@ -704,6 +704,7 @@ Create one authoritative provider/model default resolver and wire it into REST c
        - `server/src/test/unit/config.chatDefaults.test.ts`
      - Removed files:
        - None planned in this task.
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -1047,6 +1048,7 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
        - `server/src/test/unit/chatProviders.test.ts`
      - Removed files:
        - None planned in this task.
+12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -1289,6 +1291,7 @@ Implement server-side non-empty-content enforcement without trimming valid user 
      - `path/to/added-file.ts` - one-line purpose
      - Removed: `path/to/removed-file.ts` - one-line reason (if any)
      ```
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -1507,6 +1510,7 @@ Create one shared keepalive helper and use it for classic MCP, MCP v2, and agent
        - `server/src/test/unit/mcp.keepalive.helper.test.ts`
      - Removed files:
        - None planned in this task.
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -1704,6 +1708,7 @@ Build a shared re-ingest service that enforces strict existing-root-only safety 
        - `server/src/test/unit/reingestService.test.ts`
      - Removed files:
        - None planned in this task.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -1886,6 +1891,7 @@ Expose `reingest_repository` on the classic MCP surface and map service outputs 
        - `server/src/test/unit/mcp.reingest.classic.test.ts`
      - Removed files:
        - None planned in this task.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -2108,6 +2114,7 @@ Expose `reingest_repository` on MCP v2 and enforce the exact same name and contr
        - `server/src/test/unit/mcp2.reingest.tool.test.ts`
      - Removed files:
        - None planned in this task.
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -2287,6 +2294,7 @@ Fix server stream aggregation so tool-interleaved Codex runs do not produce crop
      - `path/to/added-file.ts` - one-line purpose
      - Removed: `path/to/removed-file.ts` - one-line reason (if any)
      ```
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -2496,6 +2504,7 @@ Update Chat page send behavior to preserve raw user text exactly as entered whil
      - `path/to/added-file.ts` - one-line purpose
      - Removed: `path/to/removed-file.ts` - one-line reason (if any)
      ```
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -2702,6 +2711,7 @@ Render Chat user bubbles with the same markdown/sanitization component used by a
      - `path/to/added-file.ts` - one-line purpose
      - Removed: `path/to/removed-file.ts` - one-line reason (if any)
      ```
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -2914,6 +2924,7 @@ Update Agents page send behavior to preserve raw user text exactly as entered wh
        - `e2e/agents.spec.ts`
      - Removed files:
        - None planned in this task.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -3113,6 +3124,7 @@ Render Agents user bubbles with the same markdown/sanitization component used by
      - `path/to/added-file.ts` - one-line purpose
      - Removed: `path/to/removed-file.ts` - one-line reason (if any)
      ```
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -3244,6 +3256,7 @@ Validate every acceptance criterion end-to-end after all feature tasks are compl
      - File/endpoint impacted:
      - Verification command(s):
      ```
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 

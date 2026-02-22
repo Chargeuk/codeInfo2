@@ -79,7 +79,7 @@ At story completion, a junior developer should be able to verify these outcomes 
 - Re-ingest safety is strict: only existing ingested roots are allowed; no first-time ingest behavior is reachable from MCP `reingest_repository`.
 - Codex stream assembly no longer produces cropped starts or duplicate final text for tool-interleaved responses; final assistant bubble text equals the final completed assistant message exactly once.
 - Codex stream merge invariants are explicit and tested: aggregate assistant text by item identity, append deltas in sequence order, and on completed-item events treat completed text as authoritative final content for that item.
-- Existing bubble visual presentation remains unchanged (layout, colors, status chips, metadata placement); this story changes content correctness and user-markdown rendering only.
+- Bubble container/chrome presentation remains unchanged (layout, colors, status chips, metadata placement); this story changes text correctness and user-bubble markdown rendering behavior only.
 - User bubbles in both Chat and Agents render through the same markdown component (`client/src/components/Markdown.tsx`) and therefore use the same sanitization and feature support as assistant bubbles, including mermaid fenced blocks.
 - User input sent to providers is preserved as raw text with no trimming, including leading/trailing spaces and newlines, for both Chat and Agents flows.
 - Whitespace-only/newline-only user input is rejected server-side before provider execution with explicit HTTP 400 validation errors (`POST /chat` and `POST /agents/:agentName/run`) as defined in this document.
@@ -129,6 +129,7 @@ Contract decision summary:
 - New contract introduced in this story:
   - MCP tool `reingest_repository` on both MCP surfaces.
 - Existing contracts changed in this story:
+  - Provider/model default resolution for REST `POST /chat` and MCP `codebase_question` is unified to explicit request value -> env override -> hardcoded fallback, with runtime provider availability fallback.
   - Non-empty input validation message text for `POST /chat` and `POST /agents/:agentName/run` to enforce whitespace-only rejection while preserving raw input for valid requests.
 - Existing contracts explicitly reused unchanged:
   - REST `/chat` envelope style (`{ status, code, message }`), Agents REST envelope style (`{ error, ... }`), classic `/mcp` and MCP v2 JSON-RPC wrappers, `/ingest/reembed/:root` baseline `runId/BUSY/NOT_FOUND` semantics, ingest repo listing payloads.
@@ -252,6 +253,16 @@ Canonical `error.data` for unknown root (`NOT_FOUND`) and busy (`BUSY`):
 ```
 
 ### Existing Contracts Changed In This Story
+
+Provider/model defaulting contract (REST + MCP `codebase_question`):
+- Request-level `provider` and `model` remain accepted when explicitly supplied.
+- When either value is omitted, resolution order is:
+  - explicit request value
+  - env override (`CHAT_DEFAULT_PROVIDER`, `CHAT_DEFAULT_MODEL`)
+  - hardcoded fallback (`provider=codex`, `model=gpt-5.3-codex`)
+- Runtime provider unavailability applies single-hop fallback (`codex -> lmstudio` or `lmstudio -> codex`) when the other provider is available.
+- Fallback model selection uses the fallback provider's first available/runtime-default model.
+- If no fallback provider/model is available, keep the originally selected/default provider and surface existing unavailable behavior.
 
 Canonical non-empty input rejection contracts (raw input still preserved when valid):
 

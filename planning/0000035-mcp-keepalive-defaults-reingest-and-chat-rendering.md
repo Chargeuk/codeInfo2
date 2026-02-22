@@ -64,6 +64,9 @@ For markdown parity, user bubbles will use the exact same renderer and sanitizat
 
 ## Questions
 
+- If `codex` is selected by fallback default but Codex is unavailable at runtime, should the system automatically fall back to `lmstudio` (UI and server), or should it keep `codex` selected and require explicit user selection/change?
+- For raw-input preservation (no trimming), should whitespace-only/newline-only user messages be allowed to send, or should raw formatting be preserved only when at least one non-whitespace character is present?
+
 ## Message Contracts & Storage Shapes
 
 Canonical MCP tool name on both MCP surfaces:

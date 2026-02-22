@@ -1139,7 +1139,7 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
 
 ### 3. Server: Raw-input acceptance policy and whitespace-only rejection message contracts
 
-- Task Status: **__in_progress__**
+- Task Status: **__done__**
 - Git Commits: 4219f76
 
 #### Overview
@@ -1440,7 +1440,7 @@ Implement server-side non-empty-content enforcement without trimming valid user 
 
 ### 4. Server: MCP keepalive helper unification across all MCP surfaces
 
-- Task Status: **__in_progress__**
+- Task Status: **__done__**
 - Git Commits: 627b2cc, eac12cb
 
 #### Overview
@@ -1646,12 +1646,12 @@ Create one shared keepalive helper and use it for classic MCP, MCP v2, and agent
      - `DEV-0000035:T4:keepalive_lifecycle_started`
      - `DEV-0000035:T4:keepalive_lifecycle_stopped`
    - Expected outcome: During long-running tools/call execution, started appears before heartbeat output and stopped appears after completion/abort with no write-after-close errors.
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+10. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [x] `npm run build --workspace server`
 2. [x] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
 4. [x] `npm run test --workspace client`
 5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
 6. [x] `npm run compose:build`

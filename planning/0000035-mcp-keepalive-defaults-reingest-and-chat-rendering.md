@@ -731,10 +731,10 @@ Create one authoritative provider/model default resolver and wire it into REST c
    - Required log tags to verify: `DEV-0000035:T1:defaults_resolution_evaluated`, `DEV-0000035:T1:defaults_resolution_result`.
    - Expected outcome: During a chat request without explicit provider/model, both tags appear once and include resolved provider/model fields. Also confirm no unexpected `[error]`/uncaught console errors in browser debug console during this check.
 9. [x] `npm run compose:down`
-10. [ ] `npm run test --workspace server -- config.chatDefaults`
-11. [ ] `npm run test --workspace server -- chatValidators`
+10. [x] `npm run test --workspace server -- config.chatDefaults`
+11. [x] `npm run test --workspace server -- chatValidators`
 12. [x] `npm run lint --workspaces`
-13. [ ] `npm run format:check --workspaces`
+13. [x] `npm run format:check --workspaces`
 #### Implementation notes
 
 - Added `server/src/config/chatDefaults.ts` with deterministic shared resolution (`request -> CHAT_DEFAULT_* env -> codex/gpt-5.3-codex fallback`) and env-warning capture for empty/invalid defaults.
@@ -748,6 +748,7 @@ Create one authoritative provider/model default resolver and wire it into REST c
 - Blocker (historical): Docker socket access was denied in one run environment (`permission denied while trying to connect to the docker API at unix:///var/run/docker.sock`), which temporarily blocked compose/e2e checks.
 - Blocker answer (decision): treat Docker-socket denial as an environment constraint and re-run blocked checks in a Docker-capable environment. This blocker is now closed and does not require keeping Task 1 in `__in_progress__`.
 - Secondary note: `npm run format:check --workspaces` intermittently fails while long-running server test sessions create/delete `server/tmp-flows-*` fixture directories; rerun after Docker-backed test processes are stopped.
+- Task-state reconciliation note (2026-02-22): remaining Task 1 Testing items 10/11/13 were marked complete using later deterministic evidence already recorded in this story (`Task 5 Testing 3` full server suite pass, which includes `config.chatDefaults` and `chatValidators`, plus `Task 5 Testing 12` `format:check --workspaces` pass).
 
 ---
 

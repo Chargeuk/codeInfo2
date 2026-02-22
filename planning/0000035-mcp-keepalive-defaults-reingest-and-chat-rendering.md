@@ -30,33 +30,35 @@ For markdown parity, user bubbles will use the exact same renderer and sanitizat
 - Mermaid fenced code blocks (language `mermaid`) rendered as diagrams, with script tags stripped before render.
 - Standard markdown elements already styled in the component (`p`, `ul/ol/li`, `code/pre`, `blockquote`, `table`, `img`, `a`).
 
+### Verified Current Behavior (Baseline)
+
+- Keepalive timer logic is currently duplicated in `server/src/mcp2/router.ts` and `server/src/mcpAgents/router.ts`, while `server/src/mcp/server.ts` currently has no keepalive writes for long-running calls.
+- REST chat currently requires both `model` and non-empty `message` (`trim().length > 0`) and defaults provider to `lmstudio` when omitted (`server/src/routes/chatValidators.ts`).
+- MCP `codebase_question` currently defaults provider to `codex` and codex model to `gpt-5.1-codex-max` when omitted (`server/src/mcp2/tools/codebaseQuestion.ts`).
+- Chat/Agents client send paths currently trim user input before sending (`client/src/pages/ChatPage.tsx`, `client/src/pages/AgentsPage.tsx`, `client/src/hooks/useChatStream.ts`), so leading/trailing whitespace is dropped before request dispatch.
+- Chat/Agents user bubbles currently render text with `<Typography data-testid="user-text">` while assistant bubbles use `client/src/components/Markdown.tsx`, which causes formatting parity gaps for user text.
+
 ## Acceptance Criteria
 
-- MCP keepalive behavior is implemented via shared common logic and used consistently across all MCP servers that can run long-lived tool calls.
-- Only `CHAT_DEFAULT_PROVIDER` and `CHAT_DEFAULT_MODEL` are used for shared provider/model env overrides.
-- Shared defaults are applied consistently in both REST chat and MCP `codebase_question`.
-- When `CHAT_DEFAULT_PROVIDER` and/or `CHAT_DEFAULT_MODEL` are not set, the fallback defaults are provider `codex` and model `gpt-5.3-codex` (not the previous mixed REST/MCP behavior).
-- If the selected/default provider is unavailable at runtime, provider selection automatically falls back to the other provider when available; if both are unavailable, the selected/default provider remains and existing unavailable-state behavior is shown.
-- When provider auto-fallback occurs, model selection on the fallback provider uses that provider's first available/runtime-default model.
-- Committed `.env` files used by normal and e2e server runs include `CHAT_DEFAULT_PROVIDER=codex` and `CHAT_DEFAULT_MODEL=gpt-5.3-codex`.
-- Re-ingest is exposed as an MCP tool in both the MCP server that exposes chat/codebase-question and the MCP server that exposes vector/ingest tooling.
-- The canonical MCP tool name is `reingest_repository` on both MCP surfaces.
-- The `reingest_repository` request contract is `{"sourceId":"<containerPath>"}` and the response contract is `{"status":"started","runId":"...","sourceId":"...","operation":"reembed"}` (returned in each surface's existing MCP wrapper format).
-- `reingest_repository` uses one canonical cross-surface error contract:
-  - invalid params: JSON-RPC `error.code = -32602`, `error.message = "INVALID_PARAMS"`
-  - unknown root: JSON-RPC `error.code = 404`, `error.message = "NOT_FOUND"`
-  - ingest busy: JSON-RPC `error.code = 429`, `error.message = "BUSY"`
-- All `sourceId` validation failures return field-level details and retry guidance for AI callers, including a list of currently re-ingestable repository ids/sourceIds that can be retried immediately.
-- MCP re-ingest can only target repositories that are already present in ingested roots; it does not allow first-time ingest.
-- `reingest_repository` validates `sourceId` with strict exact match against the known ingested root set (after normalization), and rejects non-string, empty, non-absolute, unknown, or ambiguous values.
-- Codex streaming no longer produces cropped starts or duplicated final text in assistant bubbles for tool-interleaved responses.
-- Existing chat/agents bubble formatting and presentation style remain unchanged while implementing the Codex stream fix.
-- User message bubbles in both Chat and Agents render user content with the exact same markdown component and sanitization profile as assistant bubbles.
-- User message bubbles support the same markdown feature set as assistant bubbles, including mermaid fenced blocks and existing sanitization behavior.
-- User input sent to AI is preserved as full raw input with no trimming (including leading/trailing spaces and newlines) in both Chat and Agents flows.
-- Whitespace-only/newline-only input is rejected before model execution, with a clear validation error from the server.
-- Detailed regression matrix definition is deferred to later planning, but the final matrix for this story must include Cucumber, Jest, and e2e coverage consistent with prior story plans.
-- Existing public contracts remain backward-compatible unless a contract change is explicitly agreed in this story.
+- Keepalive logic is centralized in one shared helper under `server/src/mcpCommon/` and is used by all three MCP surfaces: `server/src/mcp/server.ts`, `server/src/mcp2/router.ts`, and `server/src/mcpAgents/router.ts`.
+- For long-running MCP `tools/call`, keepalive starts before tool dispatch and always stops on success, error, socket close, and response end; all three surfaces use the same heartbeat interval and initial-flush behavior.
+- Shared default env keys are exactly `CHAT_DEFAULT_PROVIDER` and `CHAT_DEFAULT_MODEL`; no provider-specific override keys are introduced in this story.
+- Provider/model resolution order is identical for REST chat (`POST /chat`) and MCP `codebase_question`: explicit request value -> env override value -> hardcoded fallback (`provider=codex`, `model=gpt-5.3-codex`).
+- Committed defaults are present in both `server/.env` and `server/.env.e2e` with `CHAT_DEFAULT_PROVIDER=codex` and `CHAT_DEFAULT_MODEL=gpt-5.3-codex`.
+- Runtime provider availability fallback is deterministic for chat UI defaults, REST chat execution, and MCP `codebase_question` execution: selected/default provider unavailable -> switch to the other provider only if that provider is available.
+- Provider auto-fallback model rule is deterministic: select the fallback provider's first available/runtime-default model; if no fallback model is available, treat fallback as unavailable and keep the originally selected/default provider.
+- Re-ingest is exposed on both MCP surfaces (`POST /mcp` and MCP v2 JSON-RPC on `MCP_PORT`) using one canonical tool name: `reingest_repository`.
+- `reingest_repository` request contract is `{"sourceId":"<containerPath>"}` and success payload is `{"status":"started","runId":"...","sourceId":"...","operation":"reembed"}` wrapped in each surface's existing MCP response envelope.
+- `reingest_repository` uses one cross-surface error contract: invalid params -> `error.code=-32602`, `error.message="INVALID_PARAMS"`; unknown root -> `error.code=404`, `error.message="NOT_FOUND"`; ingest busy -> `error.code=429`, `error.message="BUSY"`.
+- `sourceId` validation is strict and field-level: reject missing, non-string, empty, non-absolute, non-normalized, unknown, and ambiguous values; return AI-retry guidance with `reingestableRepositoryIds` and `reingestableSourceIds`.
+- Re-ingest safety is strict: only existing ingested roots are allowed; no first-time ingest behavior is reachable from MCP `reingest_repository`.
+- Codex stream assembly no longer produces cropped starts or duplicate final text for tool-interleaved responses; final assistant bubble text equals the final completed assistant message exactly once.
+- Existing bubble visual presentation remains unchanged (layout, colors, status chips, metadata placement); this story changes content correctness and user-markdown rendering only.
+- User bubbles in both Chat and Agents render through the same markdown component (`client/src/components/Markdown.tsx`) and therefore use the same sanitization and feature support as assistant bubbles, including mermaid fenced blocks.
+- User input sent to providers is preserved as raw text with no trimming, including leading/trailing spaces and newlines, for both Chat and Agents flows.
+- Whitespace-only/newline-only user input is rejected server-side before provider execution with explicit HTTP 400 validation errors (`POST /chat` and `POST /agents/:agentName/run`) as defined in this document.
+- Detailed regression matrix definition remains deferred for later planning, but final implementation must include Cucumber, Jest, and e2e coverage.
+- Unrelated public contracts stay unchanged; only contract changes explicitly documented in this story are allowed.
 
 ## Out Of Scope
 
@@ -80,6 +82,7 @@ For markdown parity, user bubbles will use the exact same renderer and sanitizat
   - if selected/default provider unavailable and the other provider is available, auto-switch to the other provider
   - if both unavailable, keep selected/default provider and show existing unavailable behavior
   - when auto-switching providers, select the fallback provider's first available/runtime-default model (deterministic across REST chat, MCP `codebase_question`, and chat UI defaults)
+  - if the fallback provider has no available model to select, treat fallback as unavailable and keep the original selected/default provider
 - Raw-input policy is end-to-end:
   - preserve user input exactly as entered (including leading/trailing spaces/newlines) when sending to provider
   - reject whitespace-only/newline-only messages before any provider call
@@ -160,7 +163,7 @@ Canonical `reingest_repository` error mapping:
 - Invalid params:
   - `error.code`: `-32602`
   - `error.message`: `"INVALID_PARAMS"`
-  - Used for malformed or invalid `sourceId` (missing, non-string, empty, non-absolute, ambiguous format).
+  - Used for malformed or invalid `sourceId` (missing, non-string, empty, non-absolute, non-normalized, ambiguous format).
 - Unknown root:
   - `error.code`: `404`
   - `error.message`: `"NOT_FOUND"`
@@ -250,6 +253,7 @@ Canonical non-empty input rejection contracts (raw input still preserved when va
 
 Note:
 - These contracts are for whitespace-only/newline-only inputs.
+- Both contracts return HTTP status `400`.
 - Conversation title trimming (`slice(0, 80)`) may continue for metadata/title generation and is not treated as message-content trimming.
 
 Repository/source listing shape used to build retry options (existing contract, no schema change):
@@ -297,6 +301,7 @@ Ingest-root metadata storage shape used by re-ingest selection (existing storage
 - Add runtime provider-availability fallback behavior to both UI and server selection paths:
   - selected/default provider auto-switches to the other provider when available
   - auto-switched provider uses its first available/runtime-default model
+  - if fallback provider has no selectable model, treat fallback as unavailable and keep original selected/default provider
   - if both providers are unavailable, keep selected/default provider and surface unavailable behavior.
 - Update committed env files to make intended defaults explicit:
   - `server/.env`

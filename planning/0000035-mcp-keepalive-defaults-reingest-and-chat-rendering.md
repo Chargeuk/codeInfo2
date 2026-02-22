@@ -37,6 +37,7 @@ For markdown parity, user bubbles will use the exact same renderer and sanitizat
 - Shared defaults are applied consistently in both REST chat and MCP `codebase_question`.
 - When `CHAT_DEFAULT_PROVIDER` and/or `CHAT_DEFAULT_MODEL` are not set, the fallback defaults are provider `codex` and model `gpt-5.3-codex` (not the previous mixed REST/MCP behavior).
 - If the selected/default provider is unavailable at runtime, provider selection automatically falls back to the other provider when available; if both are unavailable, the selected/default provider remains and existing unavailable-state behavior is shown.
+- When provider auto-fallback occurs, model selection on the fallback provider uses that provider's first available/runtime-default model.
 - Committed `.env` files used by normal and e2e server runs include `CHAT_DEFAULT_PROVIDER=codex` and `CHAT_DEFAULT_MODEL=gpt-5.3-codex`.
 - Re-ingest is exposed as an MCP tool in both the MCP server that exposes chat/codebase-question and the MCP server that exposes vector/ingest tooling.
 - The canonical MCP tool name is `reingest_repository` on both MCP surfaces.
@@ -68,12 +69,6 @@ For markdown parity, user bubbles will use the exact same renderer and sanitizat
 
 ## Questions
 
-- When runtime provider auto-fallback occurs (`codex -> lmstudio` or `lmstudio -> codex`), what is the canonical model-selection rule on the fallback provider?
-  - Keep originally requested model id if valid on fallback provider.
-  - Use `CHAT_DEFAULT_MODEL`.
-  - Use the fallback provider's first available/runtime-default model.
-  - This must be deterministic across REST chat, MCP `codebase_question`, and chat UI defaults.
-
 ## Scope Locks (Authoritative)
 
 - Only `CHAT_DEFAULT_PROVIDER` and `CHAT_DEFAULT_MODEL` are in-scope for shared chat defaults. No provider-specific default env vars are in scope for this story.
@@ -84,6 +79,7 @@ For markdown parity, user bubbles will use the exact same renderer and sanitizat
 - Runtime provider-availability fallback is required on both UI and server selection paths:
   - if selected/default provider unavailable and the other provider is available, auto-switch to the other provider
   - if both unavailable, keep selected/default provider and show existing unavailable behavior
+  - when auto-switching providers, select the fallback provider's first available/runtime-default model (deterministic across REST chat, MCP `codebase_question`, and chat UI defaults)
 - Raw-input policy is end-to-end:
   - preserve user input exactly as entered (including leading/trailing spaces/newlines) when sending to provider
   - reject whitespace-only/newline-only messages before any provider call
@@ -300,6 +296,7 @@ Ingest-root metadata storage shape used by re-ingest selection (existing storage
   ensuring the default provider/model shown in UI is `codex` / `gpt-5.3-codex` when env overrides are absent.
 - Add runtime provider-availability fallback behavior to both UI and server selection paths:
   - selected/default provider auto-switches to the other provider when available
+  - auto-switched provider uses its first available/runtime-default model
   - if both providers are unavailable, keep selected/default provider and surface unavailable behavior.
 - Update committed env files to make intended defaults explicit:
   - `server/.env`

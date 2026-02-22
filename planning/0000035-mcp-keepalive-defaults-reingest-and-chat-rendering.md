@@ -44,6 +44,7 @@ At story completion, a junior developer should be able to verify these outcomes 
 - Keepalive timer logic is currently duplicated in `server/src/mcp2/router.ts` and `server/src/mcpAgents/router.ts`, while `server/src/mcp/server.ts` currently has no keepalive writes for long-running calls.
 - REST chat currently requires both `model` and non-empty `message` (`trim().length > 0`) and defaults provider to `lmstudio` when omitted (`server/src/routes/chatValidators.ts`).
 - MCP `codebase_question` currently defaults provider to `codex` and codex model to `gpt-5.1-codex-max` when omitted (`server/src/mcp2/tools/codebaseQuestion.ts`).
+- MCP v2 router currently applies a Codex-availability gate at `tools/list` and `tools/call`, which can block `codebase_question` execution before provider-specific fallback logic is evaluated (`server/src/mcp2/router.ts`).
 - Chat/Agents client send paths currently trim user input before sending (`client/src/pages/ChatPage.tsx`, `client/src/pages/AgentsPage.tsx`, `client/src/hooks/useChatStream.ts`), so leading/trailing whitespace is dropped before request dispatch.
 - Chat/Agents user bubbles currently render text with `<Typography data-testid="user-text">` while assistant bubbles use `client/src/components/Markdown.tsx`, which causes formatting parity gaps for user text.
 
@@ -71,6 +72,10 @@ At story completion, a junior developer should be able to verify these outcomes 
 - Runtime provider availability fallback is deterministic for chat UI defaults, REST chat execution, and MCP `codebase_question` execution: selected/default provider unavailable -> switch to the other provider only if that provider is available.
 - Provider auto-fallback model rule is deterministic: select the fallback provider's first available/runtime-default model; if no fallback model is available, treat fallback as unavailable and keep the originally selected/default provider.
 - Auto-fallback is single-hop per request (no oscillation), and the resolved provider/model for that request are what get persisted on the created/updated conversation metadata.
+- MCP v2 `tools/list` and `tools/call` are not globally blocked by Codex availability; provider selection/fallback is evaluated in `codebase_question` execution flow so LM Studio fallback remains reachable.
+- Provider-unavailable terminal behavior is explicit and stable when neither provider can run:
+  - REST `POST /chat` -> HTTP `503` with existing `{ status: "error", code: "PROVIDER_UNAVAILABLE", message }` envelope.
+  - MCP `codebase_question` -> JSON-RPC `error` with existing `code=-32001` and `message="CODE_INFO_LLM_UNAVAILABLE"`.
 - Re-ingest is exposed on both MCP surfaces (`POST /mcp` and MCP v2 JSON-RPC on `MCP_PORT`) using one canonical tool name: `reingest_repository`.
 - `reingest_repository` request contract is `{"sourceId":"<containerPath>"}` and success payload is `{"status":"started","runId":"...","sourceId":"...","operation":"reembed"}` wrapped in each surface's existing MCP response envelope.
 - `reingest_repository` uses one cross-surface error contract: invalid params -> `error.code=-32602`, `error.message="INVALID_PARAMS"`; unknown root -> `error.code=404`, `error.message="NOT_FOUND"`; ingest busy -> `error.code=429`, `error.message="BUSY"`.
@@ -130,6 +135,7 @@ Contract decision summary:
   - MCP tool `reingest_repository` on both MCP surfaces.
 - Existing contracts changed in this story:
   - Provider/model default resolution for REST `POST /chat` and MCP `codebase_question` is unified to explicit request value -> env override -> hardcoded fallback, with runtime provider availability fallback.
+  - MCP v2 availability behavior for `codebase_question` is provider-aware (no global Codex gate on `tools/list`/`tools/call`).
   - Non-empty input validation message text for `POST /chat` and `POST /agents/:agentName/run` to enforce whitespace-only rejection while preserving raw input for valid requests.
 - Existing contracts explicitly reused unchanged:
   - REST `/chat` envelope style (`{ status, code, message }`), Agents REST envelope style (`{ error, ... }`), classic `/mcp` and MCP v2 JSON-RPC wrappers, `/ingest/reembed/:root` baseline `runId/BUSY/NOT_FOUND` semantics, ingest repo listing payloads.
@@ -263,6 +269,10 @@ Provider/model defaulting contract (REST + MCP `codebase_question`):
 - Runtime provider unavailability applies single-hop fallback (`codex -> lmstudio` or `lmstudio -> codex`) when the other provider is available.
 - Fallback model selection uses the fallback provider's first available/runtime-default model.
 - If no fallback provider/model is available, keep the originally selected/default provider and surface existing unavailable behavior.
+- MCP v2 availability gating is provider-aware for this story:
+  - `tools/list` remains available regardless of Codex presence.
+  - `tools/call` for `codebase_question` is not pre-blocked by router-level Codex checks.
+  - terminal unavailable behavior remains existing per-surface contract (`PROVIDER_UNAVAILABLE` for REST, `CODE_INFO_LLM_UNAVAILABLE` for MCP) when neither provider can run.
 
 Canonical non-empty input rejection contracts (raw input still preserved when valid):
 
@@ -327,6 +337,7 @@ This section is a rough implementation sequence only (non-tasked), validated aga
 - Apply resolver consistently across:
   - REST path: `server/src/routes/chatValidators.ts` and execution flow in `server/src/routes/chat.ts`.
   - MCP path: `server/src/mcp2/tools/codebaseQuestion.ts`.
+  - MCP v2 router gate path: `server/src/mcp2/router.ts` (remove global Codex-only gate for `tools/list`/`tools/call` so provider fallback can execute).
   - UI default sources: `server/src/routes/chatProviders.ts`, `server/src/routes/chatModels.ts`, and client selection behavior in `client/src/hooks/useChatModel.ts`.
 - Ensure resolved provider/model are persisted per request path where conversations are created/updated.
 - Update committed defaults in:

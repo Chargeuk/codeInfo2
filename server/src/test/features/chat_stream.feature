@@ -44,3 +44,23 @@ Feature: chat streaming endpoint
     When I POST to the chat endpoint with provider "codex" and model "gpt-5.3-codex"
     Then the chat stream status code is 202
     And the chat start response provider is "codex"
+
+  Scenario: Chat whitespace-only request contract
+    Given chat stream scenario "chat-fixture"
+    When I POST to the chat endpoint with a whitespace-only message
+    Then the chat stream status code is 400
+    And the chat error code is "VALIDATION_FAILED"
+    And the chat error message is "message must contain at least one non-whitespace character"
+
+  Scenario: Chat newline-only request contract
+    Given chat stream scenario "chat-fixture"
+    When I POST to the chat endpoint with a newline-only message
+    Then the chat stream status code is 400
+    And the chat error code is "VALIDATION_FAILED"
+    And the chat error message is "message must contain at least one non-whitespace character"
+
+  Scenario: Chat valid payload with surrounding whitespace remains accepted
+    Given chat stream scenario "chat-fixture"
+    When I POST to the chat endpoint with raw message "  provider fallback check  "
+    Then the chat stream status code is 202
+    And the user turn content is "  provider fallback check  "

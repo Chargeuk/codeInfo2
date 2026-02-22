@@ -205,3 +205,34 @@ test('non-Codex provider emits warnings for Codex-only flags', () => {
     ),
   );
 });
+
+test('whitespace-only message is rejected with exact contract message', () => {
+  assert.throws(
+    () =>
+      validateChatRequest({
+        message: '   \t  ',
+        conversationId: 'c-whitespace',
+      }),
+    /message must contain at least one non-whitespace character/,
+  );
+});
+
+test('newline-only message is rejected with exact contract message', () => {
+  assert.throws(
+    () =>
+      validateChatRequest({
+        message: '\n\n\r\n',
+        conversationId: 'c-newline',
+      }),
+    /message must contain at least one non-whitespace character/,
+  );
+});
+
+test('message with surrounding whitespace is accepted and preserved', () => {
+  const result = validateChatRequest({
+    message: '  hello with spaces  \n',
+    conversationId: 'c-surrounding',
+  });
+
+  assert.equal(result.message, '  hello with spaces  \n');
+});

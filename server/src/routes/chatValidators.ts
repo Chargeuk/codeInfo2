@@ -59,6 +59,47 @@ export class ChatValidationError extends Error {
   }
 }
 
+const validateRawTextInput = (params: {
+  field: 'message';
+  value: unknown;
+  requiredMessage: string;
+}) => {
+  const { field, value, requiredMessage } = params;
+  const isString = typeof value === 'string';
+  const hasNonWhitespace = isString && value.trim().length > 0;
+
+  baseLogger.info(
+    {
+      field,
+      isString,
+      hasNonWhitespace,
+      rawLength: isString ? value.length : undefined,
+    },
+    'DEV-0000035:T3:raw_input_validation_evaluated',
+  );
+
+  if (!hasNonWhitespace) {
+    baseLogger.info(
+      {
+        field,
+        accepted: false,
+        message: requiredMessage,
+      },
+      'DEV-0000035:T3:raw_input_validation_result',
+    );
+    throw new ChatValidationError(requiredMessage);
+  }
+
+  baseLogger.info(
+    {
+      field,
+      accepted: true,
+      rawLength: (value as string).length,
+    },
+    'DEV-0000035:T3:raw_input_validation_result',
+  );
+};
+
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
@@ -105,9 +146,13 @@ export function validateChatRequest(
   }
 
   const message = body.message;
-  if (typeof message !== 'string' || message.trim().length === 0) {
-    throw new ChatValidationError('message is required');
-  }
+  validateRawTextInput({
+    field: 'message',
+    value: message,
+    requiredMessage:
+      'message must contain at least one non-whitespace character',
+  });
+  const validatedMessage = message as string;
 
   const conversationId = body.conversationId;
   if (
@@ -279,7 +324,7 @@ export function validateChatRequest(
 
   return {
     model,
-    message,
+    message: validatedMessage,
     conversationId,
     provider,
     threadId,

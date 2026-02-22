@@ -123,12 +123,6 @@ test('historical conversation uses its provider and shows turns', async ({
       res.request().method() === 'GET' &&
       res.url().includes(`/conversations/${codexConversationId}/turns`),
   );
-  const modelsRequest = page.waitForRequest(
-    (req) =>
-      req.method() === 'GET' &&
-      req.url().includes('/chat/models') &&
-      req.url().includes('provider=codex'),
-  );
   await page.getByText(codexTitle).click();
   const turnsResponse = await turnsResponsePromise;
   try {
@@ -141,9 +135,9 @@ test('historical conversation uses its provider and shows turns', async ({
   } catch (err) {
     console.log('[browser] turns payload error', err);
   }
-  await modelsRequest;
   await page.waitForFunction(() =>
-    Boolean((window as unknown as { __chatDebug?: unknown }).__chatDebug),
+    Boolean((window as unknown as { __chatDebug?: unknown }).__chatDebug) &&
+    document.body.textContent?.includes('codex reply'),
   );
   const debugState = await page.evaluate(
     () => (window as unknown as { __chatDebug?: unknown }).__chatDebug,

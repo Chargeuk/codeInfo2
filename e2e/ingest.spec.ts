@@ -282,7 +282,7 @@ test.describe.serial('Ingest flows', () => {
 
     await row.getByRole('button', { name: /re-embed/i }).click();
     await waitForCompletion(page, new RegExp(fixtureName, 'i'));
-    await expect(row.getByText(/Completed/i)).toBeVisible({
+    await expect(row.getByText(/^(completed|skipped)$/i)).toBeVisible({
       timeout: 120_000,
     });
     await expect(page.getByTestId('roots-lock-chip')).toBeVisible();

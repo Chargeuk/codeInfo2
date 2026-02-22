@@ -570,12 +570,32 @@ Create one authoritative provider/model default resolver and wire it into REST c
    - Files to add/edit:
      - `server/src/test/unit/config.chatDefaults.test.ts` (new test file)
      - `server/src/test/unit/chatValidators.test.ts` (or nearest existing validator test file)
-   - Cases:
-     - explicit values win
-     - env values applied when explicit missing
-     - hardcoded fallback used when env missing/invalid
-     - partial env overrides still resolve missing fields via hardcoded fallback
-     - invalid/empty env values are ignored and never persist mixed invalid provider/model combinations
+   - Explicit test subtasks (complete each separately):
+     1. [ ] Explicit values win.
+        - Test type: Unit.
+        - Test location: `server/src/test/unit/config.chatDefaults.test.ts`.
+        - Description: Add/adjust a test that passes explicit request provider/model values and asserts resolver output uses those exact values.
+        - Purpose: Prove request-level inputs have highest precedence.
+     2. [ ] Env values apply when explicit values are missing.
+        - Test type: Unit.
+        - Test location: `server/src/test/unit/config.chatDefaults.test.ts`.
+        - Description: Add/adjust a test where request fields are omitted and valid env defaults are set; assert resolved provider/model come from env.
+        - Purpose: Prove env overrides are used correctly as second precedence tier.
+     3. [ ] Hardcoded fallback applies when env is missing/invalid.
+        - Test type: Unit.
+        - Test location: `server/src/test/unit/config.chatDefaults.test.ts`.
+        - Description: Add/adjust a test that clears/invalidates env values and asserts resolver returns `codex` + `gpt-5.3-codex`.
+        - Purpose: Prove deterministic fallback behavior.
+     4. [ ] Partial env override resolves missing fields via fallback.
+        - Test type: Unit.
+        - Test location: `server/src/test/unit/config.chatDefaults.test.ts`.
+        - Description: Add/adjust a test with only one env default set and assert the missing field uses hardcoded fallback.
+        - Purpose: Prevent mixed unresolved state when only one env key is configured.
+     5. [ ] Invalid/empty env values are ignored and never persisted as mixed invalid state.
+        - Test type: Unit + route validation.
+        - Test location: `server/src/test/unit/config.chatDefaults.test.ts`, `server/src/test/unit/chatValidators.test.ts`.
+        - Description: Add/adjust tests where env defaults are empty/invalid and assert resolver/validator drop them and resolve to valid values.
+        - Purpose: Prevent invalid env configuration from leaking into runtime behavior.
 6. [ ] Update documentation for shared defaults behavior.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Node.js environment variables: https://nodejs.org/api/environment_variables.html (Reason: authoritative rules for reading and validating runtime env defaults in Node.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
@@ -701,14 +721,42 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
      - `server/src/test/integration/chat-codex.test.ts` (update existing suite for REST fallback behavior)
      - `server/src/test/integration/chat-assistant-persistence.test.ts` (update existing suite for persistence assertions)
      - `server/src/test/integration/chat-codex-mcp.test.ts` (update existing suite for MCP persistence assertion)
-   - Cases:
-     - fallback switches at most once (`codex -> lmstudio` or `lmstudio -> codex`)
-     - resolved fallback provider/model are what get persisted on the conversation record
-     - chat UI defaults select an available provider/model when configured defaults are unavailable
-     - fallback provider with no selectable model keeps original provider and returns existing unavailable behavior
-     - when neither provider is available, REST returns existing `503 PROVIDER_UNAVAILABLE` envelope
-     - when neither provider is available, MCP returns existing `-32001 CODE_INFO_LLM_UNAVAILABLE` error
-     - MCP v2 `tools/list` remains available when Codex is unavailable
+   - Explicit test subtasks (complete each separately):
+     1. [ ] Single-hop provider switch.
+        - Test type: Integration + MCP tool happy path.
+        - Test location: `server/src/test/integration/chat-codex.test.ts`, `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`.
+        - Description: Add/adjust tests where initial provider is unavailable and alternate is available; assert exactly one switch occurs.
+        - Purpose: Prove fallback does not oscillate.
+     2. [ ] Fallback provider/model persistence on conversation metadata.
+        - Test type: Integration persistence.
+        - Test location: `server/src/test/integration/chat-assistant-persistence.test.ts`, `server/src/test/integration/chat-codex-mcp.test.ts`.
+        - Description: Add/adjust tests asserting stored conversation provider/model match resolved execution provider/model after fallback.
+        - Purpose: Ensure persistence aligns with actual execution path.
+     3. [ ] Chat UI defaults choose available provider/model when configured defaults are unavailable.
+        - Test type: Unit route test.
+        - Test location: `server/src/test/unit/chatModels.codex.test.ts`.
+        - Description: Add/adjust tests for default model/provider endpoints where configured defaults are unavailable and alternate is available.
+        - Purpose: Keep UI default selection deterministic and runnable.
+     4. [ ] Fallback dead-end when alternate provider has no selectable model.
+        - Test type: Integration + MCP unavailable-path.
+        - Test location: `server/src/test/integration/chat-codex.test.ts`, `server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts`.
+        - Description: Add/adjust tests where alternate provider exists but has no model; assert existing unavailable behavior for original provider.
+        - Purpose: Prevent silent invalid fallback execution.
+     5. [ ] REST unavailable contract when neither provider can run.
+        - Test type: Integration error contract.
+        - Test location: `server/src/test/integration/chat-codex.test.ts`.
+        - Description: Add/adjust tests asserting HTTP `503` with existing `PROVIDER_UNAVAILABLE` envelope.
+        - Purpose: Lock REST terminal error compatibility.
+     6. [ ] MCP unavailable contract when neither provider can run.
+        - Test type: MCP tool error contract.
+        - Test location: `server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts`.
+        - Description: Add/adjust tests asserting JSON-RPC error `-32001 CODE_INFO_LLM_UNAVAILABLE`.
+        - Purpose: Lock MCP terminal error compatibility.
+     7. [ ] MCP v2 `tools/list` remains available when Codex is unavailable.
+        - Test type: Unit router contract.
+        - Test location: `server/src/test/unit/mcp2-router-list-unavailable.test.ts`.
+        - Description: Add/adjust tests asserting `tools/list` succeeds without Codex availability.
+        - Purpose: Preserve provider-aware fallback reachability.
 8. [ ] Add server Cucumber contract scenarios for provider fallback and terminal unavailable behavior by extending existing chat feature coverage.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | MCP server tools guidance: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: defines tool registration/call semantics and expected error behavior.) | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Cucumber guide (continuous integration): https://cucumber.io/docs/guides/continuous-integration/ (Reason: execution/reporting behavior used for CI-style cucumber verification.) | Cucumber guide (10-minute tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/ (Reason: step-definition and feature-file authoring reference for implementing Cucumber scenarios.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
@@ -716,10 +764,22 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
    - Files to add/edit:
      - `server/src/test/features/chat_stream.feature` (update existing)
      - `server/src/test/steps/chat_stream.steps.ts` (update existing)
-   - Required scenarios:
-     - selected/default provider unavailable and alternate provider available executes via alternate provider
-     - selected/default provider unavailable and alternate provider has no selectable model returns existing unavailable contract
-     - selected/default provider available executes without provider switching
+   - Explicit test subtasks (complete each separately):
+     1. [ ] Alternate provider executes when selected/default provider is unavailable.
+        - Test type: Cucumber contract.
+        - Test location: `server/src/test/features/chat_stream.feature`, `server/src/test/steps/chat_stream.steps.ts`.
+        - Description: Add a scenario with unavailable selected provider and available alternate provider; assert request completes via alternate.
+        - Purpose: Prove runtime fallback at behavior-contract level.
+     2. [ ] No-model alternate provider returns existing unavailable contract.
+        - Test type: Cucumber contract.
+        - Test location: `server/src/test/features/chat_stream.feature`, `server/src/test/steps/chat_stream.steps.ts`.
+        - Description: Add a scenario where alternate provider has no selectable model; assert existing unavailable response contract.
+        - Purpose: Lock fallback dead-end behavior.
+     3. [ ] No provider switch when selected/default provider is available.
+        - Test type: Cucumber contract.
+        - Test location: `server/src/test/features/chat_stream.feature`, `server/src/test/steps/chat_stream.steps.ts`.
+        - Description: Add a scenario proving execution remains on selected/default provider when available.
+        - Purpose: Prevent unnecessary provider switching.
 9. [ ] Update documentation for runtime auto-fallback and model selection rules.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | MCP server tools guidance: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: defines tool registration/call semantics and expected error behavior.) | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Cucumber guide (continuous integration): https://cucumber.io/docs/guides/continuous-integration/ (Reason: execution/reporting behavior used for CI-style cucumber verification.) | Cucumber guide (10-minute tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/ (Reason: step-definition and feature-file authoring reference for implementing Cucumber scenarios.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
@@ -814,10 +874,22 @@ Implement server-side non-empty-content enforcement without trimming valid user 
    - Files to add/edit:
      - `server/src/test/unit/chatValidators.test.ts` (update existing suite)
      - `server/src/test/unit/agents-router-run.test.ts` (update existing suite)
-   - Cases:
-     - whitespace-only rejected with exact message
-     - newline-only rejected with exact message
-     - leading/trailing whitespace with real content accepted and preserved
+   - Explicit test subtasks (complete each separately):
+     1. [ ] Whitespace-only payload is rejected with exact contract message.
+        - Test type: Unit route validation.
+        - Test location: `server/src/test/unit/chatValidators.test.ts`, `server/src/test/unit/agents-router-run.test.ts`.
+        - Description: Add/adjust tests that send whitespace-only payloads and assert exact endpoint-specific 400 message envelopes.
+        - Purpose: Lock contract correctness for empty-content rejection.
+     2. [ ] Newline-only payload is rejected with exact contract message.
+        - Test type: Unit route validation.
+        - Test location: `server/src/test/unit/chatValidators.test.ts`, `server/src/test/unit/agents-router-run.test.ts`.
+        - Description: Add/adjust tests for newline-only payloads and assert exact endpoint-specific 400 message envelopes.
+        - Purpose: Cover newline-only corner case explicitly.
+     3. [ ] Leading/trailing whitespace with real content is accepted and preserved.
+        - Test type: Unit route validation.
+        - Test location: `server/src/test/unit/chatValidators.test.ts`, `server/src/test/unit/agents-router-run.test.ts`.
+        - Description: Add/adjust tests with non-whitespace content surrounded by whitespace and assert payload is accepted unchanged.
+        - Purpose: Prevent unintended trim mutation.
 5. [ ] Add server Cucumber contract scenarios for whitespace-only rejection message contracts by extending existing chat stream contract coverage.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Express 5 error handling: https://expressjs.com/en/guide/error-handling.html (Reason: confirms async error propagation and structured HTTP error handling rules.) | HTTP Semantics (status codes): https://www.rfc-editor.org/rfc/rfc9110 (Reason: authoritative HTTP status and response semantics for validation failures.) | Cucumber guide (continuous integration): https://cucumber.io/docs/guides/continuous-integration/ (Reason: execution/reporting behavior used for CI-style cucumber verification.) | Cucumber guide (10-minute tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/ (Reason: step-definition and feature-file authoring reference for implementing Cucumber scenarios.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
@@ -825,6 +897,22 @@ Implement server-side non-empty-content enforcement without trimming valid user 
    - Files to add/edit:
      - `server/src/test/features/chat_stream.feature` (update existing)
      - `server/src/test/steps/chat_stream.steps.ts` (update existing)
+   - Explicit test subtasks (complete each separately):
+     1. [ ] Chat whitespace-only request contract.
+        - Test type: Cucumber contract.
+        - Test location: `server/src/test/features/chat_stream.feature`, `server/src/test/steps/chat_stream.steps.ts`.
+        - Description: Add a scenario sending whitespace-only chat input and asserting exact `VALIDATION_FAILED` message contract.
+        - Purpose: Verify HTTP contract from a behavior-test perspective.
+     2. [ ] Chat newline-only request contract.
+        - Test type: Cucumber contract.
+        - Test location: `server/src/test/features/chat_stream.feature`, `server/src/test/steps/chat_stream.steps.ts`.
+        - Description: Add a scenario sending newline-only chat input and asserting exact 400 message contract.
+        - Purpose: Cover newline-only edge case in feature-level tests.
+     3. [ ] Chat valid payload with surrounding whitespace remains accepted.
+        - Test type: Cucumber contract.
+        - Test location: `server/src/test/features/chat_stream.feature`, `server/src/test/steps/chat_stream.steps.ts`.
+        - Description: Add a scenario where payload includes leading/trailing whitespace plus real content and assert successful acceptance.
+        - Purpose: Ensure valid raw input is not rejected.
 6. [ ] Update API docs/spec for exact validation messages.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Express 5 error handling: https://expressjs.com/en/guide/error-handling.html (Reason: confirms async error propagation and structured HTTP error handling rules.) | HTTP Semantics (status codes): https://www.rfc-editor.org/rfc/rfc9110 (Reason: authoritative HTTP status and response semantics for validation failures.) | Cucumber guide (continuous integration): https://cucumber.io/docs/guides/continuous-integration/ (Reason: execution/reporting behavior used for CI-style cucumber verification.) | Cucumber guide (10-minute tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/ (Reason: step-definition and feature-file authoring reference for implementing Cucumber scenarios.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
@@ -929,12 +1017,32 @@ Create one shared keepalive helper and use it for classic MCP, MCP v2, and agent
      - `server/src/test/unit/mcp2-router-list-happy.test.ts` (update existing suite)
      - `server/src/test/unit/mcp-agents-router-run.test.ts` (update existing suite)
      - `server/src/test/integration/mcp-server.test.ts` (update existing suite)
-   - Required cases:
-     - keepalive starts before tool dispatch on all three surfaces
-     - keepalive stops on success, thrown error, socket close, and response end
-     - no heartbeat writes occur after response end/close
-     - keepalive is not started for non-tool execution paths (parse/invalid-request/unknown-tool)
-     - heartbeat bytes are JSON whitespace only and do not change final JSON parse behavior
+   - Explicit test subtasks (complete each separately):
+     1. [ ] Keepalive starts before tool dispatch on all MCP surfaces.
+        - Test type: Unit + integration.
+        - Test location: `server/src/test/unit/mcp.keepalive.helper.test.ts`, `server/src/test/unit/mcp2-router-list-happy.test.ts`, `server/src/test/unit/mcp-agents-router-run.test.ts`.
+        - Description: Add/adjust tests asserting keepalive start is observed before tool execution begins for classic, v2, and agents surfaces.
+        - Purpose: Prevent delayed keepalive initialization regressions.
+     2. [ ] Keepalive stops on success/error/close/end.
+        - Test type: Unit + integration.
+        - Test location: `server/src/test/unit/mcp.keepalive.helper.test.ts`, `server/src/test/integration/mcp-server.test.ts`.
+        - Description: Add/adjust tests that exercise success, thrown error, socket close, and response end paths and assert timer cleanup.
+        - Purpose: Prevent timer leaks.
+     3. [ ] No heartbeat writes after close/end.
+        - Test type: Unit.
+        - Test location: `server/src/test/unit/mcp.keepalive.helper.test.ts`.
+        - Description: Add/adjust tests that close/end response before next tick and assert no additional writes occur.
+        - Purpose: Prevent write-after-close failures.
+     4. [ ] Keepalive not started for non-tool paths.
+        - Test type: Router unit.
+        - Test location: `server/src/test/unit/mcp2-router-list-happy.test.ts`, `server/src/test/unit/mcp-agents-router-run.test.ts`.
+        - Description: Add/adjust tests for parse/invalid-request/unknown-tool paths and assert helper is not started.
+        - Purpose: Keep non-tool traffic unaffected.
+     5. [ ] Heartbeat bytes remain JSON whitespace only.
+        - Test type: Integration contract.
+        - Test location: `server/src/test/integration/mcp-server.test.ts`.
+        - Description: Add/adjust tests asserting heartbeats are whitespace and final JSON payload parsing remains valid.
+        - Purpose: Preserve protocol compatibility with strict JSON parsers.
 7. [ ] Update docs for shared MCP keepalive behavior.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): MCP server concepts and tool lifecycle: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: lifecycle reference for when keepalive can start/stop around tool calls.) | JSON text grammar and whitespace: https://www.rfc-editor.org/rfc/rfc8259 (Reason: confirms whitespace heartbeats remain valid around final JSON payloads.) | Node.js timers API: https://nodejs.org/api/timers.html (Reason: authoritative timer lifecycle behavior for keepalive start/cleanup.) | Node.js HTTP response lifecycle: https://nodejs.org/api/http.html (Reason: confirms safe write/end/close handling for keepalive output.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
@@ -1029,11 +1137,27 @@ Build a shared re-ingest service that enforces strict existing-root-only safety 
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to add/edit:
      - `server/src/test/unit/reingestService.test.ts` (new)
-   - Required cases:
-     - success branch returns canonical payload `{ status, operation, runId, sourceId }`
-     - every invalid `sourceId` reason branch maps to the expected `error.code`/`error.message`
-     - unknown root response includes AI-retry guidance fields
-     - busy response maps to canonical `BUSY` contract
+   - Explicit test subtasks (complete each separately):
+     1. [ ] Success branch returns canonical payload.
+        - Test type: Unit service contract.
+        - Test location: `server/src/test/unit/reingestService.test.ts`.
+        - Description: Add/adjust a success-path test asserting `status`, `operation`, `runId`, and `sourceId` fields.
+        - Purpose: Lock canonical success shape.
+     2. [ ] Invalid `sourceId` reason branches map to expected error code/message.
+        - Test type: Unit validation contract.
+        - Test location: `server/src/test/unit/reingestService.test.ts`.
+        - Description: Add/adjust table-driven tests for missing, non-string, empty, non-absolute, non-normalized, and ambiguous `sourceId`.
+        - Purpose: Ensure deterministic validation mapping.
+     3. [ ] Unknown root response includes AI-retry guidance fields.
+        - Test type: Unit error-data contract.
+        - Test location: `server/src/test/unit/reingestService.test.ts`.
+        - Description: Add/adjust tests asserting `reingestableRepositoryIds` and `reingestableSourceIds` are present for unknown root.
+        - Purpose: Preserve AI-retry contract.
+     4. [ ] Busy response maps to canonical `BUSY` contract.
+        - Test type: Unit busy-state contract.
+        - Test location: `server/src/test/unit/reingestService.test.ts`.
+        - Description: Add/adjust tests for locked ingest state and assert `BUSY` mapping.
+        - Purpose: Lock busy-state behavior.
 5. [ ] Update docs for canonical error contract and retry fields.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: canonical contract for tool names, arguments, and execution semantics.) | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | Node.js path utilities: https://nodejs.org/api/path.html (Reason: authoritative normalization/join/isAbsolute behavior for sourceId path validation.) | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
@@ -1115,11 +1239,27 @@ Expose `reingest_repository` on the classic MCP surface and map service outputs 
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to add/edit:
      - `server/src/test/unit/mcp.reingest.classic.test.ts` (new)
-   - Required cases:
-     - success returns canonical wrapped content payload containing `status`, `operation`, `runId`, and `sourceId`
-     - failures are emitted as JSON-RPC `error` envelopes (not `result.isError`)
-     - `INVALID_PARAMS`/`NOT_FOUND` include canonical retry guidance fields in `error.data`
-     - `BUSY` maps to `error.code=429`, `error.message="BUSY"`
+   - Explicit test subtasks (complete each separately):
+     1. [ ] Classic MCP success payload contract.
+        - Test type: Unit JSON-RPC success contract.
+        - Test location: `server/src/test/unit/mcp.reingest.classic.test.ts`.
+        - Description: Add/adjust tests asserting wrapped text payload includes canonical `status`, `operation`, `runId`, `sourceId`.
+        - Purpose: Lock success payload shape for classic MCP.
+     2. [ ] Classic MCP failures use JSON-RPC `error` envelope.
+        - Test type: Unit JSON-RPC error contract.
+        - Test location: `server/src/test/unit/mcp.reingest.classic.test.ts`.
+        - Description: Add/adjust tests asserting failures are emitted through `error` (not `result.isError`).
+        - Purpose: Preserve surface compatibility.
+     3. [ ] Classic MCP `INVALID_PARAMS`/`NOT_FOUND` include retry guidance fields.
+        - Test type: Unit error-data contract.
+        - Test location: `server/src/test/unit/mcp.reingest.classic.test.ts`.
+        - Description: Add/adjust tests for invalid/unknown inputs asserting canonical `error.data` retry fields.
+        - Purpose: Preserve retry-guidance behavior.
+     4. [ ] Classic MCP `BUSY` mapping.
+        - Test type: Unit busy contract.
+        - Test location: `server/src/test/unit/mcp.reingest.classic.test.ts`.
+        - Description: Add/adjust tests asserting `error.code=429` and `error.message="BUSY"` when ingest lock is active.
+        - Purpose: Lock busy error semantics.
 5. [ ] Update docs with classic MCP tool exposure.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: canonical contract for tool names, arguments, and execution semantics.) | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
@@ -1202,11 +1342,27 @@ Expose `reingest_repository` on MCP v2 and enforce the exact same name and contr
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to add/edit:
      - `server/src/test/unit/mcp2.reingest.tool.test.ts` (new)
-   - Required cases:
-     - success returns canonical wrapped content payload containing `status`, `operation`, `runId`, and `sourceId`
-     - failures are emitted as JSON-RPC `error` envelopes (not `result.isError`)
-     - `INVALID_PARAMS`/`NOT_FOUND` include canonical retry guidance fields in `error.data`
-     - `BUSY` maps to `error.code=429`, `error.message="BUSY"`
+   - Explicit test subtasks (complete each separately):
+     1. [ ] MCP v2 success payload contract.
+        - Test type: Unit JSON-RPC success contract.
+        - Test location: `server/src/test/unit/mcp2.reingest.tool.test.ts`.
+        - Description: Add/adjust tests asserting wrapped payload includes canonical `status`, `operation`, `runId`, `sourceId`.
+        - Purpose: Lock success payload shape for MCP v2.
+     2. [ ] MCP v2 failures use JSON-RPC `error` envelope.
+        - Test type: Unit JSON-RPC error contract.
+        - Test location: `server/src/test/unit/mcp2.reingest.tool.test.ts`.
+        - Description: Add/adjust tests asserting failures use JSON-RPC `error` and not `result.isError`.
+        - Purpose: Preserve surface compatibility.
+     3. [ ] MCP v2 `INVALID_PARAMS`/`NOT_FOUND` include retry guidance fields.
+        - Test type: Unit error-data contract.
+        - Test location: `server/src/test/unit/mcp2.reingest.tool.test.ts`.
+        - Description: Add/adjust tests for invalid/unknown inputs asserting canonical retry guidance in `error.data`.
+        - Purpose: Lock AI-retry data contract.
+     4. [ ] MCP v2 `BUSY` mapping.
+        - Test type: Unit busy contract.
+        - Test location: `server/src/test/unit/mcp2.reingest.tool.test.ts`.
+        - Description: Add/adjust tests asserting `error.code=429` and `error.message="BUSY"` when ingest is locked.
+        - Purpose: Lock busy error semantics.
 5. [ ] Add parity assertions in existing classic/MCP-v2 suites for same inputs (avoid separate parity harness file).
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: canonical contract for tool names, arguments, and execution semantics.) | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
@@ -1214,9 +1370,17 @@ Expose `reingest_repository` on MCP v2 and enforce the exact same name and contr
    - Files to add/edit:
      - `server/src/test/unit/mcp.reingest.classic.test.ts` (update from Task 6)
      - `server/src/test/unit/mcp2.reingest.tool.test.ts` (update)
-   - Required cases:
-     - success payload parity
-     - error envelope parity (code/message/data) for `INVALID_PARAMS`, `NOT_FOUND`, and `BUSY`
+   - Explicit test subtasks (complete each separately):
+     1. [ ] Success payload parity between classic MCP and MCP v2.
+        - Test type: Unit parity.
+        - Test location: `server/src/test/unit/mcp.reingest.classic.test.ts`, `server/src/test/unit/mcp2.reingest.tool.test.ts`.
+        - Description: Add/adjust paired assertions using equivalent inputs and compare serialized success payload shapes.
+        - Purpose: Prevent cross-surface drift.
+     2. [ ] Error envelope parity for `INVALID_PARAMS`, `NOT_FOUND`, and `BUSY`.
+        - Test type: Unit parity.
+        - Test location: `server/src/test/unit/mcp.reingest.classic.test.ts`, `server/src/test/unit/mcp2.reingest.tool.test.ts`.
+        - Description: Add/adjust paired assertions comparing `code`, `message`, and `error.data` for identical failing inputs.
+        - Purpose: Guarantee contract parity across MCP surfaces.
 6. [ ] Update docs for MCP v2 tool availability and parity.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: canonical contract for tool names, arguments, and execution semantics.) | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
@@ -1306,13 +1470,37 @@ Fix server stream aggregation so tool-interleaved Codex runs do not produce crop
      - `server/src/test/unit/chat-interface-codex.test.ts` (update existing suite)
      - `server/src/test/unit/ws-chat-stream.test.ts` (update existing suite)
      - `server/src/test/integration/chat-codex.test.ts` (update existing suite)
-   - Required scenarios:
-     - initial text -> tool call -> truncated/non-prefix update -> completed final
-     - interleaved updates across multiple assistant item ids in one turn
-     - completed event followed by late delta
-     - ensure final answer published once
-     - cancelled/failed turn emits at most one terminal assistant bubble with no duplicate final append
-     - stale events from a previous inflight id do not mutate the current conversation transcript
+   - Explicit test subtasks (complete each separately):
+     1. [ ] Truncated/non-prefix update after tool call finalizes correctly.
+        - Test type: Unit merge regression.
+        - Test location: `server/src/test/unit/chat-interface-codex.test.ts`.
+        - Description: Add/adjust tests for initial text, tool event, non-prefix update, and completed final item content.
+        - Purpose: Prevent cropped/duplicated merge behavior.
+     2. [ ] Interleaved item-id updates in one turn are isolated by item id.
+        - Test type: Unit merge regression.
+        - Test location: `server/src/test/unit/chat-interface-codex.test.ts`.
+        - Description: Add/adjust tests with multiple assistant item ids and interleaved deltas to assert isolated assembly.
+        - Purpose: Prevent cross-item contamination.
+     3. [ ] Late delta after completed item is ignored.
+        - Test type: Unit stream regression.
+        - Test location: `server/src/test/unit/ws-chat-stream.test.ts`.
+        - Description: Add/adjust tests asserting late post-completion deltas do not mutate finalized content.
+        - Purpose: Lock completion-authoritative behavior.
+     4. [ ] Final answer publishes once per turn.
+        - Test type: Integration stream regression.
+        - Test location: `server/src/test/integration/chat-codex.test.ts`.
+        - Description: Add/adjust tests asserting one terminal assistant publish event per turn.
+        - Purpose: Prevent duplicate final bubble output.
+     5. [ ] Cancelled/failed turn does not duplicate terminal assistant bubble.
+        - Test type: Integration stream regression.
+        - Test location: `server/src/test/integration/chat-codex.test.ts`.
+        - Description: Add/adjust cancellation/failure tests asserting at most one terminal assistant bubble.
+        - Purpose: Prevent duplicate terminal states.
+     6. [ ] Stale inflight events do not mutate current transcript.
+        - Test type: Unit/stream regression.
+        - Test location: `server/src/test/unit/ws-chat-stream.test.ts`.
+        - Description: Add/adjust tests with stale inflight ids and assert current conversation content remains unchanged.
+        - Purpose: Prevent run-crossing corruption.
 5. [ ] Update docs for Codex merge invariants and finalization rules.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): OpenAI Codex app server events (authoritative item lifecycle): https://developers.openai.com/codex/app-server (Reason: defines item started/delta/completed event model used by stream merge logic.) | OpenAI Codex repo app-server README: https://raw.githubusercontent.com/openai/codex/main/codex-rs/app-server/README.md (Reason: implementation-level event and streaming details for Codex app-server integration.) | DeepWiki MCP docs (`openai/codex`, see `4.5.3 Event Translation and Streaming`): `openai/codex` (Reason: architecture cross-check for how Codex app-server events are translated into streamed turn updates.) | Node.js streams/events: https://nodejs.org/api/stream.html (Reason: stream/event ordering reference for robust assistant delta aggregation.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
@@ -1394,21 +1582,49 @@ Update Chat page send behavior to preserve raw user text exactly as entered whil
    - Files to add/edit:
      - `client/src/test/chatPage.stream.test.tsx` (update existing suite)
      - `client/src/test/useChatStream.toolPayloads.test.tsx` (update existing suite)
-   - Required cases:
-     - leading/trailing whitespace preserved in sent payload
-     - newline formatting preserved
-     - messages that differ only by whitespace are not merged/deduped into one user turn
-     - whitespace-only input is blocked client-side and does not dispatch a send request
+   - Explicit test subtasks (complete each separately):
+     1. [ ] Leading/trailing whitespace preserved in outbound payload.
+        - Test type: Client unit/integration (React).
+        - Test location: `client/src/test/useChatStream.toolPayloads.test.tsx`, `client/src/test/chatPage.stream.test.tsx`.
+        - Description: Add/adjust tests asserting non-empty payloads keep surrounding whitespace when dispatched.
+        - Purpose: Prevent trim mutation regressions.
+     2. [ ] Newline formatting preserved in outbound payload.
+        - Test type: Client unit/integration (React).
+        - Test location: `client/src/test/useChatStream.toolPayloads.test.tsx`, `client/src/test/chatPage.stream.test.tsx`.
+        - Description: Add/adjust tests asserting multiline payloads preserve newline structure exactly.
+        - Purpose: Preserve user-authored formatting.
+     3. [ ] Messages differing only by whitespace are not merged in user transcript hydration.
+        - Test type: Client unit/integration (React).
+        - Test location: `client/src/test/chatPage.stream.test.tsx`.
+        - Description: Add/adjust tests asserting whitespace-distinct inputs render as separate user turns.
+        - Purpose: Prevent dedupe normalization bugs.
+     4. [ ] Whitespace-only input is blocked client-side before dispatch.
+        - Test type: Client unit/integration (React).
+        - Test location: `client/src/test/chatPage.stream.test.tsx`.
+        - Description: Add/adjust tests asserting whitespace-only input never triggers send request.
+        - Purpose: Keep UX aligned with server validation policy.
 4. [ ] Extend existing Chat e2e coverage for raw-input outbound payload behavior.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to add/edit:
      - `e2e/chat.spec.ts` (update existing)
-   - Required checks:
-     - outbound payload preserves leading/trailing whitespace for non-empty content
-     - outbound payload preserves multiline newline structure exactly
-     - whitespace-only input does not dispatch a `POST /chat` request
+   - Explicit test subtasks (complete each separately):
+     1. [ ] E2E: leading/trailing whitespace preserved in chat outbound payload.
+        - Test type: End-to-end (Playwright).
+        - Test location: `e2e/chat.spec.ts`.
+        - Description: Add/adjust e2e assertions against captured request payload showing surrounding whitespace is preserved.
+        - Purpose: Verify browser-to-server behavior in real UI flow.
+     2. [ ] E2E: multiline newline structure preserved in chat outbound payload.
+        - Test type: End-to-end (Playwright).
+        - Test location: `e2e/chat.spec.ts`.
+        - Description: Add/adjust e2e assertions for multiline input payload equality including newline characters.
+        - Purpose: Prevent newline-loss regressions in real flow.
+     3. [ ] E2E: whitespace-only input does not dispatch `POST /chat`.
+        - Test type: End-to-end (Playwright).
+        - Test location: `e2e/chat.spec.ts`.
+        - Description: Add/adjust e2e assertions that submit attempt with whitespace-only input does not emit network request.
+        - Purpose: Ensure client guard enforcement in UI.
 5. [ ] Update docs for Chat raw-input send behavior.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
@@ -1493,11 +1709,27 @@ Render Chat user bubbles with the same markdown/sanitization component used by a
    - Files to add/edit:
      - `client/src/test/chatPage.markdown.test.tsx` (update existing)
      - `client/src/test/chatPage.mermaid.test.tsx` (update existing)
-   - Required cases:
-     - user markdown rendering matches assistant renderer behavior
-     - user bubble mermaid fenced blocks render with same sanitize behavior as assistant path
-     - unsafe inline HTML/scripts are sanitized identically to assistant rendering
-     - malformed mermaid fences follow the same safe fallback behavior as assistant rendering
+   - Explicit test subtasks (complete each separately):
+     1. [ ] User markdown rendering parity with assistant renderer.
+        - Test type: Client unit/integration (React).
+        - Test location: `client/src/test/chatPage.markdown.test.tsx`.
+        - Description: Add/adjust tests asserting equivalent markdown input renders with same structure/styling in user and assistant bubbles.
+        - Purpose: Guarantee renderer parity.
+     2. [ ] User mermaid fence rendering parity.
+        - Test type: Client unit/integration (React).
+        - Test location: `client/src/test/chatPage.mermaid.test.tsx`.
+        - Description: Add/adjust tests asserting mermaid fences in user bubbles render through same path as assistant bubbles.
+        - Purpose: Guarantee feature parity for diagrams.
+     3. [ ] Unsafe HTML/script sanitization parity.
+        - Test type: Client security regression.
+        - Test location: `client/src/test/chatPage.markdown.test.tsx`, `client/src/test/chatPage.mermaid.test.tsx`.
+        - Description: Add/adjust tests with unsafe inline HTML/scripts asserting sanitization matches assistant behavior.
+        - Purpose: Prevent XSS/sanitization drift.
+     4. [ ] Malformed mermaid fallback parity.
+        - Test type: Client resilience regression.
+        - Test location: `client/src/test/chatPage.mermaid.test.tsx`.
+        - Description: Add/adjust tests for invalid mermaid syntax asserting same safe fallback behavior as assistant path.
+        - Purpose: Prevent render crashes and behavior divergence.
 4. [ ] Extend Chat e2e markdown parity coverage.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | `react-markdown` docs: https://github.com/remarkjs/react-markdown (Reason: renderer API and component behavior used by shared Markdown pipeline.) | `remark-gfm` docs: https://github.com/remarkjs/remark-gfm (Reason: GFM syntax support details for lists/tables/fences in user bubbles.) | `rehype-sanitize` docs: https://github.com/rehypejs/rehype-sanitize (Reason: sanitization schema rules to keep markdown rendering safe.) | Mermaid docs (Context7): `/mermaid-js/mermaid` (Reason: confirms fenced mermaid syntax/rendering behavior for markdown parity verification.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
@@ -1505,9 +1737,17 @@ Render Chat user bubbles with the same markdown/sanitization component used by a
    - Files to add/edit:
      - `e2e/chat.spec.ts` (update existing)
      - `e2e/chat-mermaid.spec.ts` (update existing)
-   - Required checks:
-     - user bubble markdown/mermaid rendering matches assistant renderer behavior
-     - malformed mermaid input does not break rendering and follows assistant fallback behavior
+   - Explicit test subtasks (complete each separately):
+     1. [ ] E2E: user markdown/mermaid rendering parity with assistant path.
+        - Test type: End-to-end (Playwright).
+        - Test location: `e2e/chat.spec.ts`, `e2e/chat-mermaid.spec.ts`.
+        - Description: Add/adjust e2e assertions that user markdown and mermaid output visually/functionally matches assistant rendering behavior.
+        - Purpose: Validate parity at real UI runtime.
+     2. [ ] E2E: malformed mermaid input follows safe fallback behavior.
+        - Test type: End-to-end (Playwright).
+        - Test location: `e2e/chat-mermaid.spec.ts`.
+        - Description: Add/adjust e2e assertions that invalid mermaid input does not break page and shows expected fallback output.
+        - Purpose: Validate resilience in browser execution.
 5. [ ] Update docs for Chat user markdown parity behavior.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | `react-markdown` docs: https://github.com/remarkjs/react-markdown (Reason: renderer API and component behavior used by shared Markdown pipeline.) | `remark-gfm` docs: https://github.com/remarkjs/remark-gfm (Reason: GFM syntax support details for lists/tables/fences in user bubbles.) | `rehype-sanitize` docs: https://github.com/rehypejs/rehype-sanitize (Reason: sanitization schema rules to keep markdown rendering safe.) | Mermaid docs (Context7): `/mermaid-js/mermaid` (Reason: confirms fenced mermaid syntax/rendering behavior for markdown parity verification.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
@@ -1588,21 +1828,49 @@ Update Agents page send behavior to preserve raw user text exactly as entered wh
    - Files to add/edit:
      - `client/src/test/agentsPage.run.test.tsx` (update existing if needed)
      - `client/src/test/agentsPage.turnHydration.test.tsx` (update existing if needed)
-   - Required cases:
-     - leading/trailing whitespace preserved in outbound payload
-     - newline formatting preserved
-     - messages that differ only by whitespace are not merged in transcript hydration
-     - whitespace-only input is blocked client-side and does not dispatch a run request
+   - Explicit test subtasks (complete each separately):
+     1. [ ] Leading/trailing whitespace preserved in agents outbound payload.
+        - Test type: Client unit/integration (React).
+        - Test location: `client/src/test/agentsPage.run.test.tsx`.
+        - Description: Add/adjust tests asserting non-empty instruction payload keeps leading/trailing whitespace when dispatched.
+        - Purpose: Prevent trim mutation on agents path.
+     2. [ ] Newline formatting preserved in agents outbound payload.
+        - Test type: Client unit/integration (React).
+        - Test location: `client/src/test/agentsPage.run.test.tsx`.
+        - Description: Add/adjust tests asserting multiline instruction payload preserves newline characters.
+        - Purpose: Preserve authored formatting.
+     3. [ ] Whitespace-distinct messages are not merged in transcript hydration.
+        - Test type: Client unit/integration (React).
+        - Test location: `client/src/test/agentsPage.turnHydration.test.tsx`.
+        - Description: Add/adjust tests asserting messages that differ by whitespace remain distinct turns after hydration.
+        - Purpose: Prevent normalization-based dedupe regressions.
+     4. [ ] Whitespace-only input is blocked before run request dispatch.
+        - Test type: Client unit/integration (React).
+        - Test location: `client/src/test/agentsPage.run.test.tsx`.
+        - Description: Add/adjust tests asserting whitespace-only instruction does not trigger run request.
+        - Purpose: Keep client guard aligned with server validation.
 4. [ ] Extend existing Agents e2e coverage for raw-input outbound payload behavior.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to add/edit:
      - `e2e/agents.spec.ts` (new)
-   - Required checks:
-     - outbound payload preserves leading/trailing whitespace for non-empty content
-     - outbound payload preserves multiline newline structure exactly
-     - whitespace-only input is blocked before request dispatch
+   - Explicit test subtasks (complete each separately):
+     1. [ ] E2E: leading/trailing whitespace preserved in agents outbound payload.
+        - Test type: End-to-end (Playwright).
+        - Test location: `e2e/agents.spec.ts`.
+        - Description: Add/adjust e2e assertions over captured request payload showing preserved surrounding whitespace.
+        - Purpose: Validate real browser request behavior for agents.
+     2. [ ] E2E: multiline newline structure preserved in agents outbound payload.
+        - Test type: End-to-end (Playwright).
+        - Test location: `e2e/agents.spec.ts`.
+        - Description: Add/adjust e2e assertions for multiline payload byte-equivalence including newlines.
+        - Purpose: Prevent newline-loss regressions in full flow.
+     3. [ ] E2E: whitespace-only input does not dispatch agents run request.
+        - Test type: End-to-end (Playwright).
+        - Test location: `e2e/agents.spec.ts`.
+        - Description: Add/adjust e2e assertions that whitespace-only submit attempts do not issue network request.
+        - Purpose: Verify guard behavior in real UI execution.
 5. [ ] Update docs for Agents raw-input send behavior.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
@@ -1687,19 +1955,39 @@ Render Agents user bubbles with the same markdown/sanitization component used by
    - Files to add/edit:
      - `client/src/test/agentsPage.run.test.tsx` (update existing if needed)
      - `client/src/test/agentsPage.turnHydration.test.tsx` (update existing if needed)
-   - Required cases:
-     - user bubble markdown rendering (including mermaid fences) matches assistant rendering
-     - unsafe inline HTML/scripts are sanitized identically to assistant rendering
-     - malformed mermaid fences follow the same safe fallback behavior as assistant rendering
+   - Explicit test subtasks (complete each separately):
+     1. [ ] Agents user markdown rendering parity with assistant rendering.
+        - Test type: Client unit/integration (React).
+        - Test location: `client/src/test/agentsPage.run.test.tsx`, `client/src/test/agentsPage.turnHydration.test.tsx`.
+        - Description: Add/adjust tests asserting user markdown (including mermaid fences) renders identically to assistant output in realtime and hydrated flows.
+        - Purpose: Guarantee renderer parity in agents UI.
+     2. [ ] Agents sanitization parity for unsafe HTML/scripts.
+        - Test type: Client security regression.
+        - Test location: `client/src/test/agentsPage.run.test.tsx`, `client/src/test/agentsPage.turnHydration.test.tsx`.
+        - Description: Add/adjust tests with unsafe markup asserting sanitize behavior matches assistant renderer path.
+        - Purpose: Prevent sanitization drift/XSS regressions.
+     3. [ ] Agents malformed mermaid fallback parity.
+        - Test type: Client resilience regression.
+        - Test location: `client/src/test/agentsPage.run.test.tsx`, `client/src/test/agentsPage.turnHydration.test.tsx`.
+        - Description: Add/adjust tests asserting malformed mermaid fences follow same safe fallback behavior as assistant path.
+        - Purpose: Prevent render-break differences between roles.
 4. [ ] Extend Agents e2e markdown parity coverage.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | `react-markdown` docs: https://github.com/remarkjs/react-markdown (Reason: renderer API and component behavior used by shared Markdown pipeline.) | `remark-gfm` docs: https://github.com/remarkjs/remark-gfm (Reason: GFM syntax support details for lists/tables/fences in user bubbles.) | `rehype-sanitize` docs: https://github.com/rehypejs/rehype-sanitize (Reason: sanitization schema rules to keep markdown rendering safe.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | Mermaid docs (Context7): `/mermaid-js/mermaid` (Reason: confirms fenced mermaid syntax/rendering behavior for markdown parity verification.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to add/edit:
      - `e2e/agents.spec.ts` (update existing from Task 11)
-   - Required checks:
-     - user bubble markdown/mermaid rendering matches assistant renderer behavior
-     - malformed mermaid input does not break rendering and follows assistant fallback behavior
+   - Explicit test subtasks (complete each separately):
+     1. [ ] E2E: agents user markdown/mermaid rendering parity.
+        - Test type: End-to-end (Playwright).
+        - Test location: `e2e/agents.spec.ts`.
+        - Description: Add/adjust e2e assertions that user markdown and mermaid output in Agents view matches assistant rendering behavior.
+        - Purpose: Validate parity in browser runtime.
+     2. [ ] E2E: malformed mermaid input in Agents view follows safe fallback behavior.
+        - Test type: End-to-end (Playwright).
+        - Test location: `e2e/agents.spec.ts`.
+        - Description: Add/adjust e2e assertions that invalid mermaid content does not break rendering and uses expected fallback.
+        - Purpose: Validate resilience in full UI flow.
 5. [ ] Update docs for Agents user markdown parity behavior.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | `react-markdown` docs: https://github.com/remarkjs/react-markdown (Reason: renderer API and component behavior used by shared Markdown pipeline.) | `remark-gfm` docs: https://github.com/remarkjs/remark-gfm (Reason: GFM syntax support details for lists/tables/fences in user bubbles.) | `rehype-sanitize` docs: https://github.com/rehypejs/rehype-sanitize (Reason: sanitization schema rules to keep markdown rendering safe.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | Mermaid docs (Context7): `/mermaid-js/mermaid` (Reason: confirms fenced mermaid syntax/rendering behavior for markdown parity verification.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)

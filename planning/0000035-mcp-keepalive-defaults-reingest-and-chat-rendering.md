@@ -1440,7 +1440,7 @@ Implement server-side non-empty-content enforcement without trimming valid user 
 
 ### 4. Server: MCP keepalive helper unification across all MCP surfaces
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: to_do
 
 #### Overview
@@ -1460,7 +1460,7 @@ Create one shared keepalive helper and use it for classic MCP, MCP v2, and agent
 
 #### Subtasks
 
-1. [ ] Review existing keepalive implementations and lifecycle hooks.
+1. [x] Review existing keepalive implementations and lifecycle hooks.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): MCP server concepts and tool lifecycle: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: lifecycle reference for when keepalive can start/stop around tool calls.) | JSON text grammar and whitespace: https://www.rfc-editor.org/rfc/rfc8259 (Reason: confirms whitespace heartbeats remain valid around final JSON payloads.) | Node.js timers API: https://nodejs.org/api/timers.html (Reason: authoritative timer lifecycle behavior for keepalive start/cleanup.) | Node.js HTTP response lifecycle: https://nodejs.org/api/http.html (Reason: confirms safe write/end/close handling for keepalive output.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -1667,7 +1667,7 @@ Create one shared keepalive helper and use it for classic MCP, MCP v2, and agent
 14. [ ] `npm run format:check --workspaces`
 #### Implementation notes
 
-- to_do
+- Subtask 1 completed: reviewed keepalive handling in `server/src/mcp2/router.ts`, `server/src/mcpAgents/router.ts`, and `server/src/mcp/server.ts`; confirmed duplicated timer logic in mcp2/agents, no shared helper, and classic `/mcp` currently has no keepalive for long-running `tools/call`.
 
 ---
 

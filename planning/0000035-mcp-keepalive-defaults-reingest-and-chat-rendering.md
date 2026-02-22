@@ -1441,7 +1441,7 @@ Implement server-side non-empty-content enforcement without trimming valid user 
 ### 4. Server: MCP keepalive helper unification across all MCP surfaces
 
 - Task Status: **__in_progress__**
-- Git Commits: to_do
+- Git Commits: 627b2cc, eac12cb
 
 #### Overview
 
@@ -1730,6 +1730,8 @@ Create one shared keepalive helper and use it for classic MCP, MCP v2, and agent
   - `npm run lint --workspaces` (pass; existing import-order warnings remain non-blocking baseline warnings in unrelated files).
 - Testing 14 completed:
   - `npm run format:check --workspaces` (pass for client/server/common).
+- Task documentation completion:
+  - Task 4 git commits recorded in this story section: `627b2cc`, `eac12cb`.
 
 ---
 

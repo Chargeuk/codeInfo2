@@ -2627,6 +2627,10 @@ Update Chat page send behavior to preserve raw user text exactly as entered whil
 8. [ ] Manual Playwright-MCP check to manually confirm story items and general regression checks for this task; include a check that there are no logged errors within the debug console; use `http://host.docker.internal:5001` via Playwright MCP tools.
    - Required log tags to verify: `DEV-0000035:T9:chat_raw_send_evaluated`, `DEV-0000035:T9:chat_raw_send_result`.
    - Expected outcome: During chat send attempts, both tags appear and result records sent=true for non-whitespace input and sent=false for whitespace-only input. Also confirm no unexpected `[error]`/uncaught console errors in browser debug console during this check.
+   - Capture screenshots and save them to `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped in `docker-compose.local.yml`):
+     - `0000035-9-chat-raw-send-valid.png` after sending multiline non-whitespace input that contains leading/trailing spaces.
+     - `0000035-9-chat-raw-send-whitespace-blocked.png` after attempting whitespace-only input and confirming no outbound send occurs.
+   - Agent screenshot review expectation: verify the screenshots show raw user text preserved exactly for valid sends, whitespace-only send blocked, and no visual regression in Chat transcript/input controls.
 9. [ ] `npm run compose:down`
 10. [ ] `npm run test --workspace client -- useChatStream.toolPayloads`
 11. [ ] `npm run test --workspace client -- chatPage.stream`
@@ -2847,6 +2851,10 @@ Render Chat user bubbles with the same markdown/sanitization component used by a
 8. [ ] Manual Playwright-MCP check to manually confirm story items and general regression checks for this task; include a check that there are no logged errors within the debug console; use `http://host.docker.internal:5001` via Playwright MCP tools.
    - Required log tags to verify: `DEV-0000035:T10:chat_user_markdown_render_evaluated`, `DEV-0000035:T10:chat_user_markdown_render_result`.
    - Expected outcome: During chat user-bubble markdown/mermaid rendering, both tags appear and result confirms markdown renderer path is used. Also confirm no unexpected `[error]`/uncaught console errors in browser debug console during this check.
+   - Capture screenshots and save them to `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped in `docker-compose.local.yml`):
+     - `0000035-10-chat-user-markdown-list-code.png` showing a user bubble rendering markdown list/code formatting.
+     - `0000035-10-chat-user-markdown-mermaid.png` showing a user bubble rendering markdown mermaid content via the shared markdown path.
+   - Agent screenshot review expectation: verify user bubble rendering visually matches markdown parity expectations (lists/code/mermaid formatting, sanitization behavior, and preserved chat bubble chrome/layout).
 9. [ ] `npm run compose:down`
 10. [ ] `npm run test --workspace client -- chatPage.markdown`
 11. [ ] `npm run test --workspace client -- chatPage.stream`
@@ -3073,6 +3081,10 @@ Update Agents page send behavior to preserve raw user text exactly as entered wh
 8. [ ] Manual Playwright-MCP check to manually confirm story items and general regression checks for this task; include a check that there are no logged errors within the debug console; use `http://host.docker.internal:5001` via Playwright MCP tools.
    - Required log tags to verify: `DEV-0000035:T11:agents_raw_send_evaluated`, `DEV-0000035:T11:agents_raw_send_result`.
    - Expected outcome: During agents send attempts, both tags appear and result records sent=true for non-whitespace input and sent=false for whitespace-only input. Also confirm no unexpected `[error]`/uncaught console errors in browser debug console during this check.
+   - Capture screenshots and save them to `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped in `docker-compose.local.yml`):
+     - `0000035-11-agents-raw-send-valid.png` after sending multiline non-whitespace input that contains leading/trailing spaces.
+     - `0000035-11-agents-raw-send-whitespace-blocked.png` after attempting whitespace-only input and confirming no outbound send occurs.
+   - Agent screenshot review expectation: verify the screenshots show raw user text preserved exactly for valid sends, whitespace-only send blocked, and no visual regression in Agents transcript/input controls.
 9. [ ] `npm run compose:down`
 10. [ ] `npm run test --workspace client -- agentsPage.run`
 11. [ ] `npm run test --workspace client -- agentsPage.turnHydration`
@@ -3286,6 +3298,10 @@ Render Agents user bubbles with the same markdown/sanitization component used by
 8. [ ] Manual Playwright-MCP check to manually confirm story items and general regression checks for this task; include a check that there are no logged errors within the debug console; use `http://host.docker.internal:5001` via Playwright MCP tools.
    - Required log tags to verify: `DEV-0000035:T12:agents_user_markdown_render_evaluated`, `DEV-0000035:T12:agents_user_markdown_render_result`.
    - Expected outcome: During agents user-bubble markdown/mermaid rendering, both tags appear and result confirms markdown renderer path is used. Also confirm no unexpected `[error]`/uncaught console errors in browser debug console during this check.
+   - Capture screenshots and save them to `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped in `docker-compose.local.yml`):
+     - `0000035-12-agents-user-markdown-list-code.png` showing a user bubble rendering markdown list/code formatting.
+     - `0000035-12-agents-user-markdown-mermaid.png` showing a user bubble rendering markdown mermaid content via the shared markdown path.
+   - Agent screenshot review expectation: verify user bubble rendering visually matches markdown parity expectations (lists/code/mermaid formatting, sanitization behavior, and preserved agents bubble chrome/layout).
 9. [ ] `npm run compose:down`
 10. [ ] `npm run test --workspace client -- agentsPage.run`
 11. [ ] `npm run test --workspace client -- agentsPage.turnHydration`
@@ -3369,7 +3385,7 @@ Validate every acceptance criterion end-to-end after all feature tasks are compl
    - Document location: `design.md`
    - Description: Apply final architecture notes and Mermaid diagram updates that match implemented behavior.
    - Purpose: Keep design documentation authoritative at story completion.
-4. [ ] Prepare manual verification artifacts in `test-results/screenshots/` with naming `0000035-13-<label>.png`.
+4. [ ] Prepare manual verification artifacts in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` with naming `0000035-13-<label>.png`.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): Docker docs (Context7): `/docker/docs` (Reason: authoritative compose/build workflow reference for full-regression verification steps.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | Jest docs (Context7): `/jestjs/jest` (Reason: test runner and CLI filtering behavior for workspace regression runs.) | Cucumber guide (continuous integration): https://cucumber.io/docs/guides/continuous-integration/ (Reason: execution/reporting behavior used for CI-style cucumber verification.) | Cucumber guide (10-minute tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/ (Reason: step-definition and feature-file authoring reference for implementing Cucumber scenarios.) | Mermaid docs (Context7): `/mermaid-js/mermaid` (Reason: diagram fence syntax/rendering expectations used by markdown parity checks.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -3395,7 +3411,7 @@ Validate every acceptance criterion end-to-end after all feature tasks are compl
      - `projectStructure.md`
    - Required `projectStructure.md` entries for this task:
      - Added files:
-       - `test-results/screenshots/0000035-13-<label>.png` (all screenshot artifacts created by subtask 4)
+       - `playwright-output-local/0000035-13-<label>.png` (all screenshot artifacts created by subtask 4)
      - Removed files:
        - None planned in this task.
 6. [ ] Create a PR summary comment covering all task outcomes, contract changes, and verification evidence.
@@ -3432,8 +3448,16 @@ Validate every acceptance criterion end-to-end after all feature tasks are compl
 8. [ ] Manual Playwright-MCP check to manually confirm story items and general regression checks for this task; include a check that there are no logged errors within the debug console; use `http://host.docker.internal:5001` via Playwright MCP tools.
    - Required log tags to verify: `DEV-0000035:T13:manual_acceptance_check_started`, `DEV-0000035:T13:manual_acceptance_check_completed`.
    - Expected outcome: During final manual walkthrough, started appears before checks begin and completed appears after screenshots and acceptance verification are finished. Also confirm no unexpected `[error]`/uncaught console errors in browser debug console during this check.
+   - Capture screenshots for every GUI-verifiable acceptance item and save them to `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped in `docker-compose.local.yml`).
+   - Required screenshot set:
+     - `0000035-13-chat-raw-input-parity.png` (Chat preserves raw non-whitespace input and blocks whitespace-only input).
+     - `0000035-13-chat-user-markdown-parity.png` (Chat user bubble markdown/list/code/mermaid parity with expected sanitization).
+     - `0000035-13-agents-raw-input-parity.png` (Agents preserves raw non-whitespace input and blocks whitespace-only input).
+     - `0000035-13-agents-user-markdown-parity.png` (Agents user bubble markdown/list/code/mermaid parity with expected sanitization).
+     - `0000035-13-general-regression.png` (overall page state showing no UI regressions in task-touched areas).
+   - Agent screenshot review expectation: each screenshot must be reviewed by the agent and explicitly confirmed to match this task’s acceptance expectations before this checklist item is marked complete.
 9. [ ] `npm run compose:down`
-10. [ ] Manual Playwright-MCP walkthrough of Chat, Agents, and MCP flows with screenshots saved to `test-results/screenshots/`
+10. [ ] Manual Playwright-MCP walkthrough of Chat, Agents, and MCP flows with screenshots saved to `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` and linked in `Implementation notes`
 #### Implementation notes
 
 - to_do

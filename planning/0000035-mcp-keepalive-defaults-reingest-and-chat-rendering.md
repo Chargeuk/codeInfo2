@@ -704,7 +704,15 @@ Create one authoritative provider/model default resolver and wire it into REST c
        - `server/src/test/unit/config.chatDefaults.test.ts`
      - Removed files:
        - None planned in this task.
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+9. [ ] Add task-specific structured log lines for Manual Playwright-MCP verification.
+   - Files to edit:
+     - `server/src/config/chatDefaults.ts`
+     - `server/src/routes/chat.ts`
+   - Add exactly these stable log tags (do not rename):
+     - `DEV-0000035:T1:defaults_resolution_evaluated`
+     - `DEV-0000035:T1:defaults_resolution_result`
+   - Expected outcome: During a chat request without explicit provider/model, both tags appear once and include resolved provider/model fields.
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -715,6 +723,8 @@ Create one authoritative provider/model default resolver and wire it into REST c
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
 8. [ ] Manual Playwright-MCP check to manually confirm story items and general regression checks for this task; include a check that there are no logged errors within the debug console; use `http://host.docker.internal:5001` via Playwright MCP tools.
+   - Required log tags to verify: `DEV-0000035:T1:defaults_resolution_evaluated`, `DEV-0000035:T1:defaults_resolution_result`.
+   - Expected outcome: During a chat request without explicit provider/model, both tags appear once and include resolved provider/model fields. Also confirm no unexpected `[error]`/uncaught console errors in browser debug console during this check.
 9. [ ] `npm run compose:down`
 10. [ ] `npm run test --workspace server -- config.chatDefaults`
 11. [ ] `npm run test --workspace server -- chatValidators`
@@ -1051,7 +1061,15 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
        - `server/src/test/unit/chatProviders.test.ts`
      - Removed files:
        - None planned in this task.
-12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+12. [ ] Add task-specific structured log lines for Manual Playwright-MCP verification.
+   - Files to edit:
+     - `server/src/routes/chat.ts`
+     - `server/src/mcp2/tools/codebaseQuestion.ts`
+   - Add exactly these stable log tags (do not rename):
+     - `DEV-0000035:T2:provider_fallback_evaluated`
+     - `DEV-0000035:T2:provider_fallback_result`
+   - Expected outcome: During a fallback scenario, both tags appear once and the result tag records the selected execution provider/model.
+13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -1062,6 +1080,8 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
 8. [ ] Manual Playwright-MCP check to manually confirm story items and general regression checks for this task; include a check that there are no logged errors within the debug console; use `http://host.docker.internal:5001` via Playwright MCP tools.
+   - Required log tags to verify: `DEV-0000035:T2:provider_fallback_evaluated`, `DEV-0000035:T2:provider_fallback_result`.
+   - Expected outcome: During a fallback scenario, both tags appear once and the result tag records the selected execution provider/model. Also confirm no unexpected `[error]`/uncaught console errors in browser debug console during this check.
 9. [ ] `npm run compose:down`
 10. [ ] `npm run test --workspace server -- chat-codex`
 11. [ ] `npm run test --workspace server -- codebaseQuestion`
@@ -1297,7 +1317,15 @@ Implement server-side non-empty-content enforcement without trimming valid user 
      - `path/to/added-file.ts` - one-line purpose
      - Removed: `path/to/removed-file.ts` - one-line reason (if any)
      ```
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+10. [ ] Add task-specific structured log lines for Manual Playwright-MCP verification.
+   - Files to edit:
+     - `server/src/routes/chatValidators.ts`
+     - `server/src/routes/agentsRun.ts`
+   - Add exactly these stable log tags (do not rename):
+     - `DEV-0000035:T3:raw_input_validation_evaluated`
+     - `DEV-0000035:T3:raw_input_validation_result`
+   - Expected outcome: During whitespace-only and non-whitespace submissions, both tags appear and the result tag records accepted/rejected decisions with unchanged contract messaging.
+11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -1308,6 +1336,8 @@ Implement server-side non-empty-content enforcement without trimming valid user 
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
 8. [ ] Manual Playwright-MCP check to manually confirm story items and general regression checks for this task; include a check that there are no logged errors within the debug console; use `http://host.docker.internal:5001` via Playwright MCP tools.
+   - Required log tags to verify: `DEV-0000035:T3:raw_input_validation_evaluated`, `DEV-0000035:T3:raw_input_validation_result`.
+   - Expected outcome: During whitespace-only and non-whitespace submissions, both tags appear and the result tag records accepted/rejected decisions with unchanged contract messaging. Also confirm no unexpected `[error]`/uncaught console errors in browser debug console during this check.
 9. [ ] `npm run compose:down`
 10. [ ] `npm run test --workspace server -- chatValidators`
 11. [ ] `npm run test --workspace server -- agents-router-run`
@@ -1518,7 +1548,16 @@ Create one shared keepalive helper and use it for classic MCP, MCP v2, and agent
        - `server/src/test/unit/mcp.keepalive.helper.test.ts`
      - Removed files:
        - None planned in this task.
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+9. [ ] Add task-specific structured log lines for Manual Playwright-MCP verification.
+   - Files to edit:
+     - `server/src/mcpCommon/keepAlive.ts`
+     - `server/src/mcp2/router.ts`
+     - `server/src/mcp/server.ts`
+   - Add exactly these stable log tags (do not rename):
+     - `DEV-0000035:T4:keepalive_lifecycle_started`
+     - `DEV-0000035:T4:keepalive_lifecycle_stopped`
+   - Expected outcome: During long-running tools/call execution, started appears before heartbeat output and stopped appears after completion/abort with no write-after-close errors.
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -1529,6 +1568,8 @@ Create one shared keepalive helper and use it for classic MCP, MCP v2, and agent
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
 8. [ ] Manual Playwright-MCP check to manually confirm story items and general regression checks for this task; include a check that there are no logged errors within the debug console; use `http://host.docker.internal:5001` via Playwright MCP tools.
+   - Required log tags to verify: `DEV-0000035:T4:keepalive_lifecycle_started`, `DEV-0000035:T4:keepalive_lifecycle_stopped`.
+   - Expected outcome: During long-running tools/call execution, started appears before heartbeat output and stopped appears after completion/abort with no write-after-close errors. Also confirm no unexpected `[error]`/uncaught console errors in browser debug console during this check.
 9. [ ] `npm run compose:down`
 10. [ ] `npm run test --workspace server -- mcp.keepalive.helper`
 11. [ ] `npm run test --workspace server -- mcp2-router && npm run test --workspace server -- mcp-agents-router-run && npm run test --workspace server -- mcp-server`
@@ -1719,7 +1760,14 @@ Build a shared re-ingest service that enforces strict existing-root-only safety 
        - `server/src/test/unit/reingestService.test.ts`
      - Removed files:
        - None planned in this task.
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+8. [ ] Add task-specific structured log lines for Manual Playwright-MCP verification.
+   - Files to edit:
+     - `server/src/ingest/reingestService.ts`
+   - Add exactly these stable log tags (do not rename):
+     - `DEV-0000035:T5:reingest_validation_evaluated`
+     - `DEV-0000035:T5:reingest_validation_result`
+   - Expected outcome: During reingest invocation, both tags appear and the result tag records canonical success or mapped error code/data payload shape.
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -1730,6 +1778,8 @@ Build a shared re-ingest service that enforces strict existing-root-only safety 
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
 8. [ ] Manual Playwright-MCP check to manually confirm story items and general regression checks for this task; include a check that there are no logged errors within the debug console; use `http://host.docker.internal:5001` via Playwright MCP tools.
+   - Required log tags to verify: `DEV-0000035:T5:reingest_validation_evaluated`, `DEV-0000035:T5:reingest_validation_result`.
+   - Expected outcome: During reingest invocation, both tags appear and the result tag records canonical success or mapped error code/data payload shape. Also confirm no unexpected `[error]`/uncaught console errors in browser debug console during this check.
 9. [ ] `npm run compose:down`
 10. [ ] `npm run test --workspace server -- reingestService`
 11. [ ] `npm run lint --workspaces`
@@ -1905,7 +1955,14 @@ Expose `reingest_repository` on the classic MCP surface and map service outputs 
        - `server/src/test/unit/mcp.reingest.classic.test.ts`
      - Removed files:
        - None planned in this task.
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+8. [ ] Add task-specific structured log lines for Manual Playwright-MCP verification.
+   - Files to edit:
+     - `server/src/mcp/server.ts`
+   - Add exactly these stable log tags (do not rename):
+     - `DEV-0000035:T6:classic_reingest_tool_call_evaluated`
+     - `DEV-0000035:T6:classic_reingest_tool_call_result`
+   - Expected outcome: During classic MCP tools/call reingest_repository, both tags appear and the result tag records JSON-RPC success/error mapping.
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -1916,6 +1973,8 @@ Expose `reingest_repository` on the classic MCP surface and map service outputs 
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
 8. [ ] Manual Playwright-MCP check to manually confirm story items and general regression checks for this task; include a check that there are no logged errors within the debug console; use `http://host.docker.internal:5001` via Playwright MCP tools.
+   - Required log tags to verify: `DEV-0000035:T6:classic_reingest_tool_call_evaluated`, `DEV-0000035:T6:classic_reingest_tool_call_result`.
+   - Expected outcome: During classic MCP tools/call reingest_repository, both tags appear and the result tag records JSON-RPC success/error mapping. Also confirm no unexpected `[error]`/uncaught console errors in browser debug console during this check.
 9. [ ] `npm run compose:down`
 10. [ ] `npm run test --workspace server -- mcp.reingest.classic`
 11. [ ] Manual smoke: `initialize` -> `tools/list` -> `tools/call reingest_repository` on `POST /mcp`
@@ -2131,7 +2190,15 @@ Expose `reingest_repository` on MCP v2 and enforce the exact same name and contr
        - `server/src/test/unit/mcp2.reingest.tool.test.ts`
      - Removed files:
        - None planned in this task.
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+9. [ ] Add task-specific structured log lines for Manual Playwright-MCP verification.
+   - Files to edit:
+     - `server/src/mcp2/tools/reingestRepository.ts`
+     - `server/src/mcp2/router.ts`
+   - Add exactly these stable log tags (do not rename):
+     - `DEV-0000035:T7:mcp2_reingest_tool_call_evaluated`
+     - `DEV-0000035:T7:mcp2_reingest_tool_call_result`
+   - Expected outcome: During MCP v2 tools/call reingest_repository, both tags appear and the result tag records parity-aligned JSON-RPC success/error mapping.
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -2142,6 +2209,8 @@ Expose `reingest_repository` on MCP v2 and enforce the exact same name and contr
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
 8. [ ] Manual Playwright-MCP check to manually confirm story items and general regression checks for this task; include a check that there are no logged errors within the debug console; use `http://host.docker.internal:5001` via Playwright MCP tools.
+   - Required log tags to verify: `DEV-0000035:T7:mcp2_reingest_tool_call_evaluated`, `DEV-0000035:T7:mcp2_reingest_tool_call_result`.
+   - Expected outcome: During MCP v2 tools/call reingest_repository, both tags appear and the result tag records parity-aligned JSON-RPC success/error mapping. Also confirm no unexpected `[error]`/uncaught console errors in browser debug console during this check.
 9. [ ] `npm run compose:down`
 10. [ ] `npm run test --workspace server -- mcp2.reingest`
 11. [ ] Manual smoke: `initialize` -> `tools/list` -> `tools/call reingest_repository` on MCP v2 port
@@ -2314,7 +2383,15 @@ Fix server stream aggregation so tool-interleaved Codex runs do not produce crop
      - `path/to/added-file.ts` - one-line purpose
      - Removed: `path/to/removed-file.ts` - one-line reason (if any)
      ```
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+7. [ ] Add task-specific structured log lines for Manual Playwright-MCP verification.
+   - Files to edit:
+     - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
+     - `server/src/chat/chatStreamBridge.ts`
+   - Add exactly these stable log tags (do not rename):
+     - `DEV-0000035:T8:codex_merge_evaluated`
+     - `DEV-0000035:T8:codex_merge_finalized_once`
+   - Expected outcome: During tool-interleaved Codex output, both tags appear and finalized_once confirms exactly one terminal publish.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -2325,6 +2402,8 @@ Fix server stream aggregation so tool-interleaved Codex runs do not produce crop
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
 8. [ ] Manual Playwright-MCP check to manually confirm story items and general regression checks for this task; include a check that there are no logged errors within the debug console; use `http://host.docker.internal:5001` via Playwright MCP tools.
+   - Required log tags to verify: `DEV-0000035:T8:codex_merge_evaluated`, `DEV-0000035:T8:codex_merge_finalized_once`.
+   - Expected outcome: During tool-interleaved Codex output, both tags appear and finalized_once confirms exactly one terminal publish. Also confirm no unexpected `[error]`/uncaught console errors in browser debug console during this check.
 9. [ ] `npm run compose:down`
 10. [ ] `npm run test --workspace server -- chat-interface-codex`
 11. [ ] `npm run test --workspace server -- ws-chat-stream`
@@ -2527,7 +2606,15 @@ Update Chat page send behavior to preserve raw user text exactly as entered whil
      - `path/to/added-file.ts` - one-line purpose
      - Removed: `path/to/removed-file.ts` - one-line reason (if any)
      ```
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+8. [ ] Add task-specific structured log lines for Manual Playwright-MCP verification.
+   - Files to edit:
+     - `client/src/hooks/useChatStream.ts`
+     - `client/src/pages/ChatPage.tsx`
+   - Add exactly these stable log tags (do not rename):
+     - `DEV-0000035:T9:chat_raw_send_evaluated`
+     - `DEV-0000035:T9:chat_raw_send_result`
+   - Expected outcome: During chat send attempts, both tags appear and result records sent=true for non-whitespace input and sent=false for whitespace-only input.
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -2538,6 +2625,8 @@ Update Chat page send behavior to preserve raw user text exactly as entered whil
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
 8. [ ] Manual Playwright-MCP check to manually confirm story items and general regression checks for this task; include a check that there are no logged errors within the debug console; use `http://host.docker.internal:5001` via Playwright MCP tools.
+   - Required log tags to verify: `DEV-0000035:T9:chat_raw_send_evaluated`, `DEV-0000035:T9:chat_raw_send_result`.
+   - Expected outcome: During chat send attempts, both tags appear and result records sent=true for non-whitespace input and sent=false for whitespace-only input. Also confirm no unexpected `[error]`/uncaught console errors in browser debug console during this check.
 9. [ ] `npm run compose:down`
 10. [ ] `npm run test --workspace client -- useChatStream.toolPayloads`
 11. [ ] `npm run test --workspace client -- chatPage.stream`
@@ -2737,7 +2826,15 @@ Render Chat user bubbles with the same markdown/sanitization component used by a
      - `path/to/added-file.ts` - one-line purpose
      - Removed: `path/to/removed-file.ts` - one-line reason (if any)
      ```
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+8. [ ] Add task-specific structured log lines for Manual Playwright-MCP verification.
+   - Files to edit:
+     - `client/src/pages/ChatPage.tsx`
+     - `client/src/components/Markdown.tsx`
+   - Add exactly these stable log tags (do not rename):
+     - `DEV-0000035:T10:chat_user_markdown_render_evaluated`
+     - `DEV-0000035:T10:chat_user_markdown_render_result`
+   - Expected outcome: During chat user-bubble markdown/mermaid rendering, both tags appear and result confirms markdown renderer path is used.
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -2748,6 +2845,8 @@ Render Chat user bubbles with the same markdown/sanitization component used by a
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
 8. [ ] Manual Playwright-MCP check to manually confirm story items and general regression checks for this task; include a check that there are no logged errors within the debug console; use `http://host.docker.internal:5001` via Playwright MCP tools.
+   - Required log tags to verify: `DEV-0000035:T10:chat_user_markdown_render_evaluated`, `DEV-0000035:T10:chat_user_markdown_render_result`.
+   - Expected outcome: During chat user-bubble markdown/mermaid rendering, both tags appear and result confirms markdown renderer path is used. Also confirm no unexpected `[error]`/uncaught console errors in browser debug console during this check.
 9. [ ] `npm run compose:down`
 10. [ ] `npm run test --workspace client -- chatPage.markdown`
 11. [ ] `npm run test --workspace client -- chatPage.stream`
@@ -2953,7 +3052,15 @@ Update Agents page send behavior to preserve raw user text exactly as entered wh
        - `e2e/agents.spec.ts`
      - Removed files:
        - None planned in this task.
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+8. [ ] Add task-specific structured log lines for Manual Playwright-MCP verification.
+   - Files to edit:
+     - `client/src/pages/AgentsPage.tsx`
+     - `client/src/api/agents.ts`
+   - Add exactly these stable log tags (do not rename):
+     - `DEV-0000035:T11:agents_raw_send_evaluated`
+     - `DEV-0000035:T11:agents_raw_send_result`
+   - Expected outcome: During agents send attempts, both tags appear and result records sent=true for non-whitespace input and sent=false for whitespace-only input.
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -2964,6 +3071,8 @@ Update Agents page send behavior to preserve raw user text exactly as entered wh
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
 8. [ ] Manual Playwright-MCP check to manually confirm story items and general regression checks for this task; include a check that there are no logged errors within the debug console; use `http://host.docker.internal:5001` via Playwright MCP tools.
+   - Required log tags to verify: `DEV-0000035:T11:agents_raw_send_evaluated`, `DEV-0000035:T11:agents_raw_send_result`.
+   - Expected outcome: During agents send attempts, both tags appear and result records sent=true for non-whitespace input and sent=false for whitespace-only input. Also confirm no unexpected `[error]`/uncaught console errors in browser debug console during this check.
 9. [ ] `npm run compose:down`
 10. [ ] `npm run test --workspace client -- agentsPage.run`
 11. [ ] `npm run test --workspace client -- agentsPage.turnHydration`
@@ -3156,7 +3265,15 @@ Render Agents user bubbles with the same markdown/sanitization component used by
      - `path/to/added-file.ts` - one-line purpose
      - Removed: `path/to/removed-file.ts` - one-line reason (if any)
      ```
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+8. [ ] Add task-specific structured log lines for Manual Playwright-MCP verification.
+   - Files to edit:
+     - `client/src/pages/AgentsPage.tsx`
+     - `client/src/components/Markdown.tsx`
+   - Add exactly these stable log tags (do not rename):
+     - `DEV-0000035:T12:agents_user_markdown_render_evaluated`
+     - `DEV-0000035:T12:agents_user_markdown_render_result`
+   - Expected outcome: During agents user-bubble markdown/mermaid rendering, both tags appear and result confirms markdown renderer path is used.
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -3167,6 +3284,8 @@ Render Agents user bubbles with the same markdown/sanitization component used by
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
 8. [ ] Manual Playwright-MCP check to manually confirm story items and general regression checks for this task; include a check that there are no logged errors within the debug console; use `http://host.docker.internal:5001` via Playwright MCP tools.
+   - Required log tags to verify: `DEV-0000035:T12:agents_user_markdown_render_evaluated`, `DEV-0000035:T12:agents_user_markdown_render_result`.
+   - Expected outcome: During agents user-bubble markdown/mermaid rendering, both tags appear and result confirms markdown renderer path is used. Also confirm no unexpected `[error]`/uncaught console errors in browser debug console during this check.
 9. [ ] `npm run compose:down`
 10. [ ] `npm run test --workspace client -- agentsPage.run`
 11. [ ] `npm run test --workspace client -- agentsPage.turnHydration`
@@ -3291,7 +3410,15 @@ Validate every acceptance criterion end-to-end after all feature tasks are compl
      - File/endpoint impacted:
      - Verification command(s):
      ```
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+7. [ ] Add task-specific structured log lines for Manual Playwright-MCP verification.
+   - Files to edit:
+     - `client/src/logging/logger.ts`
+     - `server/src/logger.ts`
+   - Add exactly these stable log tags (do not rename):
+     - `DEV-0000035:T13:manual_acceptance_check_started`
+     - `DEV-0000035:T13:manual_acceptance_check_completed`
+   - Expected outcome: During final manual walkthrough, started appears before checks begin and completed appears after screenshots and acceptance verification are finished.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -3303,6 +3430,8 @@ Validate every acceptance criterion end-to-end after all feature tasks are compl
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
 8. [ ] Manual Playwright-MCP check to manually confirm story items and general regression checks for this task; include a check that there are no logged errors within the debug console; use `http://host.docker.internal:5001` via Playwright MCP tools.
+   - Required log tags to verify: `DEV-0000035:T13:manual_acceptance_check_started`, `DEV-0000035:T13:manual_acceptance_check_completed`.
+   - Expected outcome: During final manual walkthrough, started appears before checks begin and completed appears after screenshots and acceptance verification are finished. Also confirm no unexpected `[error]`/uncaught console errors in browser debug console during this check.
 9. [ ] `npm run compose:down`
 10. [ ] Manual Playwright-MCP walkthrough of Chat, Agents, and MCP flows with screenshots saved to `test-results/screenshots/`
 #### Implementation notes

@@ -112,6 +112,34 @@ For markdown parity, user bubbles will use the exact same renderer and sanitizat
 
 ## Message Contracts & Storage Shapes
 
+This section is authoritative for contracts/shapes in this story and is aligned with current code plus external MCP guidance verification.
+
+Contract decision summary:
+- New contract introduced in this story:
+  - MCP tool `reingest_repository` on both MCP surfaces.
+- Existing contracts changed in this story:
+  - Non-empty input validation message text for `POST /chat` and `POST /agents/:agentName/run` to enforce whitespace-only rejection while preserving raw input for valid requests.
+- Existing contracts explicitly reused unchanged:
+  - REST `/chat` envelope style (`{ status, code, message }`), Agents REST envelope style (`{ error, ... }`), classic `/mcp` and MCP v2 JSON-RPC wrappers, `/ingest/reembed/:root` baseline `runId/BUSY/NOT_FOUND` semantics, ingest repo listing payloads.
+- Storage schema migration requirement:
+  - None. No new Mongo collections/fields are required.
+
+### Reused Existing Contracts (No Envelope Unification In This Story)
+
+- REST `POST /chat` keeps existing error envelope shape:
+  - HTTP `400` with `{ "status": "error", "code": "VALIDATION_FAILED", "message": "..." }`.
+- REST `POST /agents/:agentName/run` keeps existing error envelope shape:
+  - HTTP `400` with `{ "error": "invalid_request", "message": "..." }`.
+- Classic MCP (`POST /mcp`) and MCP v2 (`tools/call` JSON-RPC) keep existing success wrapper shape:
+  - `{ "jsonrpc":"2.0","id":...,"result":{"content":[{"type":"text","text":"<json-string>"}]}}`
+- Existing mismatch between classic and MCP v2 unknown-tool behavior is intentionally untouched in this story.
+- Existing `/ingest/reembed/:root` REST semantics are reused as the source contract for `reingest_repository` outcomes:
+  - success -> `runId`
+  - busy -> `BUSY`
+  - unknown -> `NOT_FOUND`
+
+### New MCP Tool Contract In This Story
+
 Canonical MCP tool name on both MCP surfaces:
 - `reingest_repository`
 
@@ -132,51 +160,6 @@ Canonical success payload (inside each surface's existing MCP content wrapper):
 }
 ```
 
-Wrapper example for classic MCP surface (`POST /mcp`):
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "result": {
-    "content": [
-      {
-        "type": "text",
-        "text": "{\"status\":\"started\",\"operation\":\"reembed\",\"runId\":\"ingest-1730000000000\",\"sourceId\":\"/data/my-repo\"}"
-      }
-    ]
-  }
-}
-```
-
-Wrapper example for MCP v2 surface (`MCP_PORT` JSON-RPC):
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "result": {
-    "content": [
-      {
-        "type": "text",
-        "text": "{\"status\":\"started\",\"operation\":\"reembed\",\"runId\":\"ingest-1730000000000\",\"sourceId\":\"/data/my-repo\"}"
-      }
-    ]
-  }
-}
-```
-
-Canonical JSON-RPC error envelope used on both MCP surfaces:
-```json
-{
-  "jsonrpc": "2.0",
-  "id": "request-id",
-  "error": {
-    "code": 0,
-    "message": "ERROR_CODE",
-    "data": {}
-  }
-}
-```
-
 Canonical `reingest_repository` error mapping:
 - Invalid params:
   - `error.code`: `-32602`
@@ -191,8 +174,9 @@ Canonical `reingest_repository` error mapping:
   - `error.message`: `"BUSY"`
   - Used when ingest/reembed lock is currently held and the operation cannot start.
 
-Compatibility note:
-- MCP guidance commonly models tool execution failures as `result.isError=true`; this story intentionally keeps the JSON-RPC error envelope above for `reingest_repository` to preserve existing cross-surface behavior/contracts in this codebase.
+Compatibility lock:
+- MCP guidance recommends tool-execution failures as `result.isError=true`.
+- This story intentionally keeps JSON-RPC `error` envelopes for `reingest_repository` failures to match existing server behavior and avoid breaking current MCP clients in this repository.
 
 Canonical `error.data` for `sourceId` validation failures (AI-retry friendly, field-level):
 ```json
@@ -253,6 +237,8 @@ Canonical `error.data` for unknown root (`NOT_FOUND`) and busy (`BUSY`):
 }
 ```
 
+### Existing Contracts Changed In This Story
+
 Canonical non-empty input rejection contracts (raw input still preserved when valid):
 
 `POST /chat` (REST chat):
@@ -272,12 +258,14 @@ Canonical non-empty input rejection contracts (raw input still preserved when va
 }
 ```
 
-Note:
-- These contracts are for whitespace-only/newline-only inputs.
+Notes:
+- These contracts apply only to whitespace-only/newline-only inputs.
 - Both contracts return HTTP status `400`.
 - Conversation title trimming (`slice(0, 80)`) may continue for metadata/title generation and is not treated as message-content trimming.
 
-Repository/source listing shape used to build retry options (existing contract, no schema change):
+### Storage Shapes (No Schema Changes)
+
+Repository/source listing shape used to build retry options (existing contract, reused):
 ```json
 {
   "id": "repo-id",
@@ -292,10 +280,14 @@ Repository/source listing shape used to build retry options (existing contract, 
 }
 ```
 
-Ingest-root metadata storage shape used by re-ingest selection (existing storage, no schema change in this story):
-- Root metadata keys currently include `root`, `name`, `description`, `model`, `state`, `lastIngestAt`, `ingestedAtMs`, file/chunk/embed counts, and optional AST counters/timestamps.
-- Re-ingest selection remains strict root-based (`meta.root === sourceId` after normalization) and chooses the latest matching metadata snapshot by timestamp/run ordering.
-- This story does not introduce any new persistence schema or collection.
+Ingest-root metadata (existing storage, reused):
+- Keys include `root`, `name`, `description`, `model`, `state`, `lastIngestAt`, `ingestedAtMs`, counts, and optional AST counters/timestamps.
+- Re-ingest selection remains strict root-based (`meta.root === sourceId` after normalization) and uses latest matching snapshot by timestamp/run ordering.
+
+Conversation/Turn Mongo shapes (existing storage, reused):
+- Conversation keeps `_id`, `provider`, `model`, `title`, optional `agentName`/`flowName`, `source`, `flags`, `lastMessageAt`, `archivedAt`, timestamps.
+- Turn keeps `conversationId`, `role`, raw `content`, `model`, `provider`, `toolCalls`, `status`, `source`, optional `command`, optional `usage`, optional `timing`, `createdAt`.
+- Raw-input preservation and provider fallback behavior are behavioral changes only; no schema extension/migration is required.
 
 ## Implementation Ideas
 

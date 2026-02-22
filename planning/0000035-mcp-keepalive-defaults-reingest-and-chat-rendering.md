@@ -59,6 +59,8 @@ For markdown parity, user bubbles will use the exact same renderer and sanitizat
 
 ## Questions
 
+- What is the canonical error contract for `reingest_repository` across both MCP surfaces (exact codes/messages for invalid params, unknown root, and busy states)?
+- For `sourceId` validation failures, should responses return field-level detail (for example non-absolute vs unknown) or a single generic invalid request message?
 
 
 ## Implementation Ideas

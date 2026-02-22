@@ -704,20 +704,6 @@ Create one authoritative provider/model default resolver and wire it into REST c
        - `server/src/test/unit/config.chatDefaults.test.ts`
      - Removed files:
        - None planned in this task.
-9. [ ] Run lint/format checks for workspace.
-   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
-   - Documentation links (do not skip for this single subtask): OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Node.js environment variables: https://nodejs.org/api/environment_variables.html (Reason: authoritative rules for reading and validating runtime env defaults in Node.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
-   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
-   - Standalone context for this subtask: If you are assigned only this subtask, treat the documentation links above plus the file list below as complete requirements; do not rely on other subtasks for missing details.
-   - Starter snippet (run and capture exact output/exit status):
-     ```bash
-     npm run lint --workspaces
-     npm run format:check --workspaces
-     ```
-   - Commands:
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -728,6 +714,8 @@ Create one authoritative provider/model default resolver and wire it into REST c
 6. [ ] `npm run test --workspace server -- chatValidators`
 7. [ ] `npm run compose:down`
 
+8. [ ] `npm run lint --workspaces`
+9. [ ] `npm run format:check --workspaces`
 #### Implementation notes
 
 - to_do
@@ -1059,20 +1047,6 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
        - `server/src/test/unit/chatProviders.test.ts`
      - Removed files:
        - None planned in this task.
-12. [ ] Run lint/format checks for workspace.
-   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
-   - Documentation links (do not skip for this single subtask): JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | MCP server tools guidance: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: defines tool registration/call semantics and expected error behavior.) | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Cucumber guide (continuous integration): https://cucumber.io/docs/guides/continuous-integration/ (Reason: execution/reporting behavior used for CI-style cucumber verification.) | Cucumber guide (10-minute tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/ (Reason: step-definition and feature-file authoring reference for implementing Cucumber scenarios.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
-   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
-   - Standalone context for this subtask: If you are assigned only this subtask, treat the documentation links above plus the file list below as complete requirements; do not rely on other subtasks for missing details.
-   - Starter snippet (run and capture exact output/exit status):
-     ```bash
-     npm run lint --workspaces
-     npm run format:check --workspaces
-     ```
-   - Commands:
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -1089,6 +1063,8 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
 12. [ ] `npm run test --workspace server -- mcp2-router-tool-not-found`
 13. [ ] `npm run compose:down`
 
+14. [ ] `npm run lint --workspaces`
+15. [ ] `npm run format:check --workspaces`
 #### Implementation notes
 
 - to_do
@@ -1313,20 +1289,6 @@ Implement server-side non-empty-content enforcement without trimming valid user 
      - `path/to/added-file.ts` - one-line purpose
      - Removed: `path/to/removed-file.ts` - one-line reason (if any)
      ```
-10. [ ] Run lint/format checks for workspace.
-   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
-   - Documentation links (do not skip for this single subtask): OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Express 5 error handling: https://expressjs.com/en/guide/error-handling.html (Reason: confirms async error propagation and structured HTTP error handling rules.) | HTTP Semantics (status codes): https://www.rfc-editor.org/rfc/rfc9110 (Reason: authoritative HTTP status and response semantics for validation failures.) | Cucumber guide (continuous integration): https://cucumber.io/docs/guides/continuous-integration/ (Reason: execution/reporting behavior used for CI-style cucumber verification.) | Cucumber guide (10-minute tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/ (Reason: step-definition and feature-file authoring reference for implementing Cucumber scenarios.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
-   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
-   - Standalone context for this subtask: If you are assigned only this subtask, treat the documentation links above plus the file list below as complete requirements; do not rely on other subtasks for missing details.
-   - Starter snippet (run and capture exact output/exit status):
-     ```bash
-     npm run lint --workspaces
-     npm run format:check --workspaces
-     ```
-   - Commands:
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -1338,6 +1300,8 @@ Implement server-side non-empty-content enforcement without trimming valid user 
 7. [ ] `npm run test --workspace server`
 8. [ ] `npm run compose:down`
 
+9. [ ] `npm run lint --workspaces`
+10. [ ] `npm run format:check --workspaces`
 #### Implementation notes
 
 - to_do
@@ -1543,20 +1507,6 @@ Create one shared keepalive helper and use it for classic MCP, MCP v2, and agent
        - `server/src/test/unit/mcp.keepalive.helper.test.ts`
      - Removed files:
        - None planned in this task.
-9. [ ] Run lint/format checks for workspace.
-   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
-   - Documentation links (do not skip for this single subtask): MCP server concepts and tool lifecycle: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: lifecycle reference for when keepalive can start/stop around tool calls.) | JSON text grammar and whitespace: https://www.rfc-editor.org/rfc/rfc8259 (Reason: confirms whitespace heartbeats remain valid around final JSON payloads.) | Node.js timers API: https://nodejs.org/api/timers.html (Reason: authoritative timer lifecycle behavior for keepalive start/cleanup.) | Node.js HTTP response lifecycle: https://nodejs.org/api/http.html (Reason: confirms safe write/end/close handling for keepalive output.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
-   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
-   - Standalone context for this subtask: If you are assigned only this subtask, treat the documentation links above plus the file list below as complete requirements; do not rely on other subtasks for missing details.
-   - Starter snippet (run and capture exact output/exit status):
-     ```bash
-     npm run lint --workspaces
-     npm run format:check --workspaces
-     ```
-   - Commands:
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -1568,6 +1518,8 @@ Create one shared keepalive helper and use it for classic MCP, MCP v2, and agent
 7. [ ] Manual JSON parse smoke: invoke long-running MCP tool on each surface and confirm client parses final JSON-RPC payload.
 8. [ ] `npm run compose:down`
 
+9. [ ] `npm run lint --workspaces`
+10. [ ] `npm run format:check --workspaces`
 #### Implementation notes
 
 - to_do
@@ -1752,20 +1704,6 @@ Build a shared re-ingest service that enforces strict existing-root-only safety 
        - `server/src/test/unit/reingestService.test.ts`
      - Removed files:
        - None planned in this task.
-8. [ ] Run lint/format checks for workspace.
-   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
-   - Documentation links (do not skip for this single subtask): MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: canonical contract for tool names, arguments, and execution semantics.) | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | Node.js path utilities: https://nodejs.org/api/path.html (Reason: authoritative normalization/join/isAbsolute behavior for sourceId path validation.) | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
-   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
-   - Standalone context for this subtask: If you are assigned only this subtask, treat the documentation links above plus the file list below as complete requirements; do not rely on other subtasks for missing details.
-   - Starter snippet (run and capture exact output/exit status):
-     ```bash
-     npm run lint --workspaces
-     npm run format:check --workspaces
-     ```
-   - Commands:
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -1775,6 +1713,8 @@ Build a shared re-ingest service that enforces strict existing-root-only safety 
 5. [ ] `npm run test --workspace server -- reingestService`
 6. [ ] `npm run compose:down`
 
+7. [ ] `npm run lint --workspaces`
+8. [ ] `npm run format:check --workspaces`
 #### Implementation notes
 
 - to_do
@@ -1946,20 +1886,6 @@ Expose `reingest_repository` on the classic MCP surface and map service outputs 
        - `server/src/test/unit/mcp.reingest.classic.test.ts`
      - Removed files:
        - None planned in this task.
-8. [ ] Run lint/format checks for workspace.
-   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
-   - Documentation links (do not skip for this single subtask): MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: canonical contract for tool names, arguments, and execution semantics.) | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
-   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
-   - Standalone context for this subtask: If you are assigned only this subtask, treat the documentation links above plus the file list below as complete requirements; do not rely on other subtasks for missing details.
-   - Starter snippet (run and capture exact output/exit status):
-     ```bash
-     npm run lint --workspaces
-     npm run format:check --workspaces
-     ```
-   - Commands:
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -1970,6 +1896,8 @@ Expose `reingest_repository` on the classic MCP surface and map service outputs 
 6. [ ] Manual smoke: `initialize` -> `tools/list` -> `tools/call reingest_repository` on `POST /mcp`
 7. [ ] `npm run compose:down`
 
+8. [ ] `npm run lint --workspaces`
+9. [ ] `npm run format:check --workspaces`
 #### Implementation notes
 
 - to_do
@@ -2180,20 +2108,6 @@ Expose `reingest_repository` on MCP v2 and enforce the exact same name and contr
        - `server/src/test/unit/mcp2.reingest.tool.test.ts`
      - Removed files:
        - None planned in this task.
-9. [ ] Run lint/format checks for workspace.
-   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
-   - Documentation links (do not skip for this single subtask): MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: canonical contract for tool names, arguments, and execution semantics.) | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
-   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
-   - Standalone context for this subtask: If you are assigned only this subtask, treat the documentation links above plus the file list below as complete requirements; do not rely on other subtasks for missing details.
-   - Starter snippet (run and capture exact output/exit status):
-     ```bash
-     npm run lint --workspaces
-     npm run format:check --workspaces
-     ```
-   - Commands:
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -2204,6 +2118,8 @@ Expose `reingest_repository` on MCP v2 and enforce the exact same name and contr
 6. [ ] Manual smoke: `initialize` -> `tools/list` -> `tools/call reingest_repository` on MCP v2 port
 7. [ ] `npm run compose:down`
 
+8. [ ] `npm run lint --workspaces`
+9. [ ] `npm run format:check --workspaces`
 #### Implementation notes
 
 - to_do
@@ -2371,20 +2287,6 @@ Fix server stream aggregation so tool-interleaved Codex runs do not produce crop
      - `path/to/added-file.ts` - one-line purpose
      - Removed: `path/to/removed-file.ts` - one-line reason (if any)
      ```
-7. [ ] Run lint/format checks for workspace.
-   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
-   - Documentation links (do not skip for this single subtask): OpenAI Codex app server events (authoritative item lifecycle): https://developers.openai.com/codex/app-server (Reason: defines item started/delta/completed event model used by stream merge logic.) | OpenAI Codex repo app-server README: https://raw.githubusercontent.com/openai/codex/main/codex-rs/app-server/README.md (Reason: implementation-level event and streaming details for Codex app-server integration.) | DeepWiki MCP docs (`openai/codex`, see `4.5.3 Event Translation and Streaming`): `openai/codex` (Reason: architecture cross-check for how Codex app-server events are translated into streamed turn updates.) | Node.js streams/events: https://nodejs.org/api/stream.html (Reason: stream/event ordering reference for robust assistant delta aggregation.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
-   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
-   - Standalone context for this subtask: If you are assigned only this subtask, treat the documentation links above plus the file list below as complete requirements; do not rely on other subtasks for missing details.
-   - Starter snippet (run and capture exact output/exit status):
-     ```bash
-     npm run lint --workspaces
-     npm run format:check --workspaces
-     ```
-   - Commands:
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -2397,6 +2299,8 @@ Fix server stream aggregation so tool-interleaved Codex runs do not produce crop
 8. [ ] Manual smoke: run Codex chat with tool call and verify no cropped/duplicate final text
 9. [ ] `npm run compose:down`
 
+10. [ ] `npm run lint --workspaces`
+11. [ ] `npm run format:check --workspaces`
 #### Implementation notes
 
 - to_do
@@ -2592,20 +2496,6 @@ Update Chat page send behavior to preserve raw user text exactly as entered whil
      - `path/to/added-file.ts` - one-line purpose
      - Removed: `path/to/removed-file.ts` - one-line reason (if any)
      ```
-8. [ ] Run lint/format checks for workspace.
-   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
-   - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
-   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
-   - Standalone context for this subtask: If you are assigned only this subtask, treat the documentation links above plus the file list below as complete requirements; do not rely on other subtasks for missing details.
-   - Starter snippet (run and capture exact output/exit status):
-     ```bash
-     npm run lint --workspaces
-     npm run format:check --workspaces
-     ```
-   - Commands:
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -2618,6 +2508,8 @@ Update Chat page send behavior to preserve raw user text exactly as entered whil
 8. [ ] Manual smoke: Chat UI send multiline input with leading/trailing whitespace and verify outbound request preserves raw content while whitespace-only input is blocked
 9. [ ] `npm run compose:down`
 
+10. [ ] `npm run lint --workspaces`
+11. [ ] `npm run format:check --workspaces`
 #### Implementation notes
 
 - to_do
@@ -2810,20 +2702,6 @@ Render Chat user bubbles with the same markdown/sanitization component used by a
      - `path/to/added-file.ts` - one-line purpose
      - Removed: `path/to/removed-file.ts` - one-line reason (if any)
      ```
-8. [ ] Run lint/format checks for workspace.
-   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
-   - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | `react-markdown` docs: https://github.com/remarkjs/react-markdown (Reason: renderer API and component behavior used by shared Markdown pipeline.) | `remark-gfm` docs: https://github.com/remarkjs/remark-gfm (Reason: GFM syntax support details for lists/tables/fences in user bubbles.) | `rehype-sanitize` docs: https://github.com/rehypejs/rehype-sanitize (Reason: sanitization schema rules to keep markdown rendering safe.) | Mermaid docs (Context7): `/mermaid-js/mermaid` (Reason: confirms fenced mermaid syntax/rendering behavior for markdown parity verification.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
-   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
-   - Standalone context for this subtask: If you are assigned only this subtask, treat the documentation links above plus the file list below as complete requirements; do not rely on other subtasks for missing details.
-   - Starter snippet (run and capture exact output/exit status):
-     ```bash
-     npm run lint --workspaces
-     npm run format:check --workspaces
-     ```
-   - Commands:
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -2837,6 +2715,8 @@ Render Chat user bubbles with the same markdown/sanitization component used by a
 9. [ ] Manual smoke: Chat UI send multiline markdown and verify user bubble formatting parity
 10. [ ] `npm run compose:down`
 
+11. [ ] `npm run lint --workspaces`
+12. [ ] `npm run format:check --workspaces`
 #### Implementation notes
 
 - to_do
@@ -3034,20 +2914,6 @@ Update Agents page send behavior to preserve raw user text exactly as entered wh
        - `e2e/agents.spec.ts`
      - Removed files:
        - None planned in this task.
-8. [ ] Run lint/format checks for workspace.
-   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
-   - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
-   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
-   - Standalone context for this subtask: If you are assigned only this subtask, treat the documentation links above plus the file list below as complete requirements; do not rely on other subtasks for missing details.
-   - Starter snippet (run and capture exact output/exit status):
-     ```bash
-     npm run lint --workspaces
-     npm run format:check --workspaces
-     ```
-   - Commands:
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -3060,6 +2926,8 @@ Update Agents page send behavior to preserve raw user text exactly as entered wh
 8. [ ] Manual smoke: Agents UI send multiline input with leading/trailing whitespace and verify outbound request preserves raw content while whitespace-only input is blocked
 9. [ ] `npm run compose:down`
 
+10. [ ] `npm run lint --workspaces`
+11. [ ] `npm run format:check --workspaces`
 #### Implementation notes
 
 - to_do
@@ -3245,20 +3113,6 @@ Render Agents user bubbles with the same markdown/sanitization component used by
      - `path/to/added-file.ts` - one-line purpose
      - Removed: `path/to/removed-file.ts` - one-line reason (if any)
      ```
-8. [ ] Run lint/format checks for workspace.
-   - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
-   - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | `react-markdown` docs: https://github.com/remarkjs/react-markdown (Reason: renderer API and component behavior used by shared Markdown pipeline.) | `remark-gfm` docs: https://github.com/remarkjs/remark-gfm (Reason: GFM syntax support details for lists/tables/fences in user bubbles.) | `rehype-sanitize` docs: https://github.com/rehypejs/rehype-sanitize (Reason: sanitization schema rules to keep markdown rendering safe.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | Mermaid docs (Context7): `/mermaid-js/mermaid` (Reason: confirms fenced mermaid syntax/rendering behavior for markdown parity verification.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
-   - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
-   - Standalone context for this subtask: If you are assigned only this subtask, treat the documentation links above plus the file list below as complete requirements; do not rely on other subtasks for missing details.
-   - Starter snippet (run and capture exact output/exit status):
-     ```bash
-     npm run lint --workspaces
-     npm run format:check --workspaces
-     ```
-   - Commands:
-     - `npm run lint --workspaces`
-     - `npm run format:check --workspaces`
-
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -3272,6 +3126,8 @@ Render Agents user bubbles with the same markdown/sanitization component used by
 9. [ ] Manual smoke: Agents UI send multiline markdown and verify user bubble formatting parity
 10. [ ] `npm run compose:down`
 
+11. [ ] `npm run lint --workspaces`
+12. [ ] `npm run format:check --workspaces`
 #### Implementation notes
 
 - to_do

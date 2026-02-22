@@ -15,7 +15,7 @@ Story convention (important for this repo's planning style):
 
 CodeInfo2 currently has a few related reliability and consistency gaps across MCP, chat, and agents UX.
 
-On the MCP side, keepalive handling is duplicated across some servers and missing from others, so long-running tool calls are not handled consistently. Default chat provider/model behavior is also split across REST and MCP paths, which makes runtime behavior harder to predict unless model/provider are always explicitly supplied.
+On the MCP side, keepalive handling is implemented separately in each server, so long-running tool-call behavior is duplicated and can drift across surfaces. Default chat provider/model behavior is also split across REST and MCP paths, which makes runtime behavior harder to predict unless model/provider are always explicitly supplied.
 
 On tooling coverage, re-ingest is available via REST but not consistently exposed in the MCP surfaces where users already work, and we need a safe MCP-level re-ingest path that only allows re-ingesting repositories that are already known/ingested. The naming decision for this story is to use one canonical tool name on both MCP surfaces: `reingest_repository`.
 
@@ -46,7 +46,7 @@ At story completion, a junior developer should be able to verify these outcomes 
 
 ### Verified Current Behavior (Baseline)
 
-- Keepalive timer logic is currently duplicated in `server/src/mcp2/router.ts` and `server/src/mcpAgents/router.ts`, while `server/src/mcp/server.ts` currently has no keepalive writes for long-running calls.
+- Keepalive timer logic is currently duplicated in all three MCP surfaces (`server/src/mcp/server.ts`, `server/src/mcp2/router.ts`, and `server/src/mcpAgents/router.ts`) with separate local implementations.
 - REST chat currently requires both `model` and non-empty `message` (`trim().length > 0`) and defaults provider to `lmstudio` when omitted (`server/src/routes/chatValidators.ts`).
 - MCP `codebase_question` currently defaults provider to `codex` and codex model to `gpt-5.1-codex-max` when omitted (`server/src/mcp2/tools/codebaseQuestion.ts`).
 - MCP v2 router currently applies a Codex-availability gate at `tools/list` and `tools/call`, which can block `codebase_question` execution before provider-specific fallback logic is evaluated (`server/src/mcp2/router.ts`).
@@ -65,6 +65,24 @@ At story completion, a junior developer should be able to verify these outcomes 
   - Sources:
     - https://openai.com/index/unlocking-the-codex-harness/
     - https://raw.githubusercontent.com/openai/codex/main/codex-rs/app-server/README.md
+
+### Research Findings (2026-02-22, Library/Version Validation Pass)
+
+- Repository lockfile confirms currently resolved versions used by this story surface:
+  - React `19.2.0`, React Router `7.9.6`, `@mui/material` `6.5.0`, Express `5.1.0`, Mongoose `9.0.1`, TypeScript `5.9.3`, `@openai/codex-sdk` `0.101.0`.
+  - Source: `package-lock.json`
+- React form/textarea docs confirm controlled inputs read exact user-entered value (`onChange` with `e.target.value`), which supports raw-input preservation in client send paths; whitespace-only rejection remains an application policy decision.
+  - Source: https://react.dev/reference/react-dom/components/textarea
+- Express 5 behavior supports async/promise route error propagation to error middleware, so existing structured JSON error-envelope handling remains valid for this story's validation and fallback branches.
+  - Sources:
+    - https://expressjs.com/en/guide/error-handling.html
+    - https://github.com/expressjs/express/blob/v5.1.0/History.md
+- Mongoose 9 guidance confirms schema-level strictness remains explicit and stable; this supports this story's "no Mongo schema changes" scope while implementing logic-layer behavior only.
+  - Source: https://mongoosejs.com/docs/guide.html
+- MUI client surfaces in this story rely on stable v6 components (`Typography`, `TextField`, layout primitives). MUI MCP docs currently expose `6.4.12`, which is API-compatible for the interfaces touched here with resolved `6.5.0`.
+  - Sources:
+    - https://llms.mui.com/material-ui/6.4.12/components/typography.md
+    - https://llms.mui.com/material-ui/6.4.12/components/text-fields.md
 
 ## Acceptance Criteria
 
@@ -404,7 +422,7 @@ This section is a rough pre-tasking implementation sequence, validated against c
 - Replace duplicated/local implementations in:
   - `server/src/mcp2/router.ts`
   - `server/src/mcpAgents/router.ts`
-- Apply same helper to the classic MCP router in `server/src/mcp/server.ts` for long-running `/mcp` tool calls.
+- Replace the classic MCP router's local keepalive block in `server/src/mcp/server.ts` with the same shared helper for long-running `/mcp` tool calls.
 - Keep heartbeat writes JSON-whitespace-only and ensure clean stop on success, error, abort/close, and response end.
 
 ### Phase 3: Shared `reingest_repository` Service + Dual-Surface MCP Wiring
@@ -788,7 +806,7 @@ Create one shared keepalive helper and use it for classic MCP, MCP v2, and agent
 4. [ ] Replace agents MCP local keepalive logic with shared helper.
    - Files to edit:
      - `server/src/mcpAgents/router.ts`
-5. [ ] Add keepalive to classic MCP route for long-running `tools/call`.
+5. [ ] Replace classic MCP local keepalive logic with shared helper for long-running `tools/call`.
    - Files to edit:
      - `server/src/mcp/server.ts`
 6. [ ] Add server tests covering helper lifecycle and no write-after-close behavior.
@@ -1119,6 +1137,8 @@ Update Chat page send behavior to preserve raw user text and render user bubbles
 #### Documentation Locations
 
 - React docs (forms/events): https://react.dev/reference/react-dom/components/textarea
+- MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md
+- MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md
 - `react-markdown` docs: https://github.com/remarkjs/react-markdown
 - `remark-gfm` docs: https://github.com/remarkjs/remark-gfm
 - `rehype-sanitize` docs: https://github.com/rehypejs/rehype-sanitize
@@ -1202,6 +1222,8 @@ Update Agents page send behavior to preserve raw user text and render user bubbl
 #### Documentation Locations
 
 - React docs (forms/events): https://react.dev/reference/react-dom/components/textarea
+- MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md
+- MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md
 - `react-markdown` docs: https://github.com/remarkjs/react-markdown
 - `remark-gfm` docs: https://github.com/remarkjs/remark-gfm
 - `rehype-sanitize` docs: https://github.com/rehypejs/rehype-sanitize

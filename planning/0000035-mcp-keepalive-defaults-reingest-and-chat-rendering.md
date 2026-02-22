@@ -64,8 +64,28 @@ For markdown parity, user bubbles will use the exact same renderer and sanitizat
 - Reworking unrelated MCP tools or adding new MCP surfaces.
 - Changing conversation persistence architecture or Mongo/Chroma schemas unless required to satisfy this story.
 - General model-quality tuning unrelated to the concrete duplicate/cropped stream assembly bug.
+- Changing agent execution/provider-selection architecture (agents remain Codex-driven and continue using existing agent config/default model behavior outside this story's input/rendering fixes).
 
 ## Questions
+
+## Scope Locks (Authoritative)
+
+- Only `CHAT_DEFAULT_PROVIDER` and `CHAT_DEFAULT_MODEL` are in-scope for shared chat defaults. No provider-specific default env vars are in scope for this story.
+- Shared default resolution order for REST chat and MCP `codebase_question` is:
+  - explicit request `provider`/`model`
+  - env overrides (`CHAT_DEFAULT_PROVIDER`, `CHAT_DEFAULT_MODEL`) when present
+  - hardcoded fallback (`provider=codex`, `model=gpt-5.3-codex`)
+- Runtime provider-availability fallback is required on both UI and server selection paths:
+  - if selected/default provider unavailable and the other provider is available, auto-switch to the other provider
+  - if both unavailable, keep selected/default provider and show existing unavailable behavior
+- Raw-input policy is end-to-end:
+  - preserve user input exactly as entered (including leading/trailing spaces/newlines) when sending to provider
+  - reject whitespace-only/newline-only messages before any provider call
+- User bubble markdown policy is strict parity:
+  - same renderer component (`client/src/components/Markdown.tsx`)
+  - same sanitization profile
+  - same feature set (including mermaid handling)
+- Codex stream bug fix must preserve current visual layout/status behavior; this story only changes text correctness (no cropped starts, no duplicated final content).
 
 ## Message Contracts & Storage Shapes
 
@@ -86,6 +106,38 @@ Canonical success payload (inside each surface's existing MCP content wrapper):
   "operation": "reembed",
   "runId": "ingest-1730000000000",
   "sourceId": "/data/my-repo"
+}
+```
+
+Wrapper example for classic MCP surface (`POST /mcp`):
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"status\":\"started\",\"operation\":\"reembed\",\"runId\":\"ingest-1730000000000\",\"sourceId\":\"/data/my-repo\"}"
+      }
+    ]
+  }
+}
+```
+
+Wrapper example for MCP v2 surface (`MCP_PORT` JSON-RPC):
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "{\"status\":\"started\",\"operation\":\"reembed\",\"runId\":\"ingest-1730000000000\",\"sourceId\":\"/data/my-repo\"}"
+      }
+    ]
+  }
 }
 ```
 
@@ -175,6 +227,29 @@ Canonical `error.data` for unknown root (`NOT_FOUND`) and busy (`BUSY`):
 }
 ```
 
+Canonical non-empty input rejection contracts (raw input still preserved when valid):
+
+`POST /chat` (REST chat):
+```json
+{
+  "status": "error",
+  "code": "VALIDATION_FAILED",
+  "message": "message must contain at least one non-whitespace character"
+}
+```
+
+`POST /agents/:agentName/run` (Agents REST):
+```json
+{
+  "error": "invalid_request",
+  "message": "instruction must contain at least one non-whitespace character"
+}
+```
+
+Note:
+- These contracts are for whitespace-only/newline-only inputs.
+- Conversation title trimming (`slice(0, 80)`) may continue for metadata/title generation and is not treated as message-content trimming.
+
 Repository/source listing shape used to build retry options (existing contract, no schema change):
 ```json
 {
@@ -207,6 +282,9 @@ Ingest-root metadata storage shape used by re-ingest selection (existing storage
   - `CHAT_DEFAULT_MODEL`
   with precedence:
   - explicit request value -> env override -> hardcoded fallback (`codex` / `gpt-5.3-codex`).
+- Ensure this precedence is applied consistently in:
+  - runtime execution paths (`/chat`, `codebase_question`)
+  - provider/model discovery endpoints (`/chat/providers`, `/chat/models`) used by UI defaults.
 - Wire that resolver into server execution paths (not just request validation):
   - REST chat request resolution in `server/src/routes/chatValidators.ts`
   - MCP `codebase_question` execution in `server/src/mcp2/tools/codebaseQuestion.ts` (including Codex model resolution, not only LM Studio).
@@ -258,6 +336,11 @@ Ingest-root metadata storage shape used by re-ingest selection (existing storage
 - Enforce non-empty semantic content validation before model execution:
   - reject whitespace-only/newline-only input with explicit validation error response
   - keep this rejection server-authoritative even if client-side send guards exist.
+- Keep raw user content intact after validation:
+  - remove client-side `trim()`-based send transformations in chat/agents send paths
+  - remove server-side content trimming before provider calls (validation can still inspect whitespace-only semantics).
+- Preserve existing non-content trims that are not part of user payload semantics:
+  - path/id normalization and command metadata normalization remain unchanged.
 - Add focused tests for:
   - shared keepalive helper behavior + coverage on all MCP surfaces
   - shared provider/model default resolution and fallback (`codex` / `gpt-5.3-codex`) for REST, MCP, and UI selection paths

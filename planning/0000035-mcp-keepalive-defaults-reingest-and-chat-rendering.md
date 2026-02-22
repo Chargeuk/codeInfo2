@@ -733,7 +733,9 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
    - Files to add/edit:
      - `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` (update existing suite)
      - `server/src/test/unit/chatModels.codex.test.ts` (update existing suite)
+     - `server/src/test/unit/chatProviders.test.ts` (new)
      - `server/src/test/unit/mcp2-router-list-unavailable.test.ts` (update)
+     - `server/src/test/unit/mcp2-router-tool-not-found.test.ts` (update existing suite)
      - `server/src/test/mcp2/tools/codebaseQuestion.unavailable.test.ts` (update)
      - `server/src/test/integration/chat-codex.test.ts` (update existing suite for REST fallback behavior)
      - `server/src/test/integration/chat-assistant-persistence.test.ts` (update existing suite for persistence assertions)
@@ -779,6 +781,21 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
         - Test location: `server/src/test/integration/chat-codex-mcp.test.ts`, `server/src/test/integration/chat-assistant-persistence.test.ts`.
         - Description: Add/adjust tests asserting fallback from Codex to LM Studio does not carry stale `flags.threadId` into non-Codex execution and does not break subsequent resumed runs.
         - Purpose: Prevent provider/thread mismatch regressions after fallback.
+     9. [ ] Chat providers route reflects deterministic fallback-ready availability ordering.
+        - Test type: Unit route contract.
+        - Test location: `server/src/test/unit/chatProviders.test.ts`.
+        - Description: Add tests covering `/chat/providers` responses where configured/default provider is unavailable but alternate provider is available, asserting stable provider list shape, availability flags, and reason fields.
+        - Purpose: Prevent UI default-source regressions when fallback conditions are present.
+     10. [ ] MCP v2 unknown-tool contract remains unchanged after removing global Codex pre-block.
+        - Test type: Unit router regression.
+        - Test location: `server/src/test/unit/mcp2-router-tool-not-found.test.ts`.
+        - Description: Add/adjust tests asserting unknown tool calls still return existing method-not-found behavior even when Codex is unavailable.
+        - Purpose: Prevent unintended contract drift in non-codebase_question paths.
+     11. [ ] MCP v2 `tools/call(codebase_question)` is not globally pre-blocked by Codex availability.
+        - Test type: Unit router fallback reachability.
+        - Test location: `server/src/test/unit/mcp2-router-list-unavailable.test.ts`.
+        - Description: Add/adjust tests where Codex is unavailable but LM Studio is available and assert router execution reaches tool-call handling (no immediate global `CODE_INFO_LLM_UNAVAILABLE` pre-block).
+        - Purpose: Lock provider-aware fallback reachability on the `tools/call` path.
 8. [ ] Add server Cucumber contract scenarios for provider fallback and terminal unavailable behavior by extending existing chat feature coverage.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | MCP server tools guidance: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: defines tool registration/call semantics and expected error behavior.) | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Cucumber guide (continuous integration): https://cucumber.io/docs/guides/continuous-integration/ (Reason: execution/reporting behavior used for CI-style cucumber verification.) | Cucumber guide (10-minute tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/ (Reason: step-definition and feature-file authoring reference for implementing Cucumber scenarios.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
@@ -841,10 +858,12 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
 5. [ ] `npm run test --workspace server -- chat-codex`
 6. [ ] `npm run test --workspace server -- codebaseQuestion`
 7. [ ] `npm run test --workspace server -- chatModels.codex`
-8. [ ] `npm run test --workspace server -- chat-assistant-persistence`
-9. [ ] `npm run test --workspace server -- chat-codex-mcp`
-10. [ ] `npm run test --workspace server -- mcp2-router-list-unavailable`
-11. [ ] `npm run compose:down`
+8. [ ] `npm run test --workspace server -- chatProviders`
+9. [ ] `npm run test --workspace server -- chat-assistant-persistence`
+10. [ ] `npm run test --workspace server -- chat-codex-mcp`
+11. [ ] `npm run test --workspace server -- mcp2-router-list-unavailable`
+12. [ ] `npm run test --workspace server -- mcp2-router-tool-not-found`
+13. [ ] `npm run compose:down`
 
 #### Implementation notes
 

@@ -1125,33 +1125,29 @@ Fix server stream aggregation so tool-interleaved Codex runs do not produce crop
 
 ---
 
-### 9. Client: Chat page raw-input send behavior + user bubble markdown parity
+### 9. Client: Chat page raw-input send behavior
 
 - Task Status: **__to_do__**
 - Git Commits: to_do
 
 #### Overview
 
-Update Chat page send behavior to preserve raw user text and render user bubbles with the same markdown/sanitization stack as assistant bubbles. This task depends on server validation/message contracts already implemented in Task 3.
+Update Chat page send behavior to preserve raw user text exactly as entered while still blocking whitespace-only submissions. This task is scoped to outbound payload behavior only and depends on server validation/message contracts implemented in Task 3.
 
 #### Documentation Locations
 
 - React docs (forms/events): https://react.dev/reference/react-dom/components/textarea
 - MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md
 - MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md
-- `react-markdown` docs: https://github.com/remarkjs/react-markdown
-- `remark-gfm` docs: https://github.com/remarkjs/remark-gfm
-- `rehype-sanitize` docs: https://github.com/rehypejs/rehype-sanitize
 - Playwright docs (Context7): `/microsoft/playwright`
 - Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
 
 #### Subtasks
 
-1. [ ] Review current chat send-path trimming and user bubble rendering.
+1. [ ] Review current chat send-path trimming and outbound payload flow.
    - Files to read:
      - `client/src/pages/ChatPage.tsx`
      - `client/src/hooks/useChatStream.ts`
-     - `client/src/components/Markdown.tsx`
 2. [ ] Remove client-side trim mutation from chat send path while preserving empty-input guard UX.
    - Files to edit:
      - `client/src/pages/ChatPage.tsx`
@@ -1160,34 +1156,96 @@ Update Chat page send behavior to preserve raw user text and render user bubbles
      - do not mutate payload text before send when content is non-whitespace
      - keep local "cannot send empty" behavior aligned with server rule
      - remove user-turn dedupe comparisons that normalize/collapse whitespace so distinct raw inputs remain distinct in transcript hydration
-3. [ ] Render chat user bubbles with shared markdown renderer used by assistant bubbles.
-   - Files to edit:
-     - `client/src/pages/ChatPage.tsx`
-   - Constraints:
-     - use `client/src/components/Markdown.tsx`
-     - preserve current bubble container layout/chrome
-4. [ ] Add chat UI tests for raw payload preservation and markdown parity.
+3. [ ] Add chat UI tests for raw payload preservation behavior.
    - Files to add/edit:
-     - `client/src/test/chatPage.userMarkdown.test.tsx` (new)
+     - `client/src/test/chatPage.userMarkdown.test.tsx` (new/update for raw-input assertions)
      - `client/src/test/useChatStream.rawInput.test.tsx` (new/update)
    - Required cases:
      - leading/trailing whitespace preserved in sent payload
      - newline formatting preserved
      - messages that differ only by whitespace are not merged/deduped into one user turn
-     - user bubble markdown features (including mermaid fences) mirror assistant rendering
-5. [ ] Extend existing Chat e2e coverage for user-visible raw-input + markdown rendering behavior.
+4. [ ] Extend existing Chat e2e coverage for raw-input outbound payload behavior.
+   - Files to add/edit:
+     - `e2e/chat.spec.ts` (update existing)
+   - Required checks:
+     - outbound payload preserves leading/trailing whitespace for non-empty content
+5. [ ] Update docs for Chat raw-input send behavior.
+   - Files to edit:
+     - `README.md`
+     - `design.md`
+6. [ ] Update `projectStructure.md` if files were added/removed.
+7. [ ] Run lint/format checks for workspace.
+   - Commands:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run compose:build`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test --workspace client -- useChatStream.rawInput`
+6. [ ] `npm run test --workspace client -- chatPage.userMarkdown`
+7. [ ] `npm run e2e:test -- e2e/chat.spec.ts`
+8. [ ] Manual smoke: Chat UI send multiline input with leading/trailing whitespace and verify outbound request preserves raw content while whitespace-only input is blocked
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- to_do
+
+---
+
+### 10. Client: Chat page user bubble markdown parity
+
+- Task Status: **__to_do__**
+- Git Commits: to_do
+
+#### Overview
+
+Render Chat user bubbles with the same markdown/sanitization component used by assistant bubbles, preserving existing bubble chrome/layout. This task is scoped to rendering parity and depends on Task 9 for raw-input send behavior.
+
+#### Documentation Locations
+
+- React docs (forms/events): https://react.dev/reference/react-dom/components/textarea
+- MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md
+- MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md
+- Playwright docs (Context7): `/microsoft/playwright`
+- Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+
+#### Subtasks
+
+1. [ ] Review current Chat user bubble rendering path and markdown component behavior.
+   - Files to read:
+     - `client/src/pages/ChatPage.tsx`
+     - `client/src/components/Markdown.tsx`
+2. [ ] Replace Chat user bubble `Typography` rendering with shared markdown renderer.
+   - Files to edit:
+     - `client/src/pages/ChatPage.tsx`
+   - Constraints:
+     - use `client/src/components/Markdown.tsx`
+     - preserve current bubble container layout/chrome
+3. [ ] Add Chat UI tests for user markdown parity and mermaid rendering.
+   - Files to add/edit:
+     - `client/src/test/chatPage.userMarkdown.test.tsx` (new/update for markdown assertions)
+     - `client/src/test/chatPage.markdown.test.tsx` (update existing)
+     - `client/src/test/chatPage.mermaid.test.tsx` (update existing)
+   - Required cases:
+     - user markdown rendering matches assistant renderer behavior
+     - user bubble mermaid fenced blocks render with same sanitize behavior as assistant path
+4. [ ] Extend Chat e2e markdown parity coverage.
    - Files to add/edit:
      - `e2e/chat.spec.ts` (update existing)
      - `e2e/chat-mermaid.spec.ts` (update existing)
    - Required checks:
-     - outbound payload preserves leading/trailing whitespace for non-empty content
      - user bubble markdown/mermaid rendering matches assistant renderer behavior
-6. [ ] Update docs for chat user markdown parity behavior.
+5. [ ] Update docs for Chat user markdown parity behavior.
    - Files to edit:
      - `README.md`
      - `design.md`
-7. [ ] Update `projectStructure.md` if files were added/removed.
-8. [ ] Run lint/format checks for workspace.
+6. [ ] Update `projectStructure.md` if files were added/removed.
+7. [ ] Run lint/format checks for workspace.
    - Commands:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
@@ -1199,10 +1257,11 @@ Update Chat page send behavior to preserve raw user text and render user bubbles
 3. [ ] `npm run compose:build`
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test --workspace client -- chatPage.userMarkdown`
-6. [ ] `npm run test --workspace client -- useChatStream.rawInput`
-7. [ ] `npm run e2e:test -- e2e/chat.spec.ts e2e/chat-mermaid.spec.ts`
-8. [ ] Manual smoke: Chat UI send multiline markdown and verify user bubble formatting matches assistant markdown renderer
-9. [ ] `npm run compose:down`
+6. [ ] `npm run test --workspace client -- chatPage.markdown`
+7. [ ] `npm run test --workspace client -- chatPage.mermaid`
+8. [ ] `npm run e2e:test -- e2e/chat.spec.ts e2e/chat-mermaid.spec.ts`
+9. [ ] Manual smoke: Chat UI send multiline markdown and verify user bubble formatting parity
+10. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1210,14 +1269,77 @@ Update Chat page send behavior to preserve raw user text and render user bubbles
 
 ---
 
-### 10. Client: Agents page raw-input send behavior + user bubble markdown parity
+### 11. Client: Agents page raw-input send behavior
 
 - Task Status: **__to_do__**
 - Git Commits: to_do
 
 #### Overview
 
-Update Agents page send behavior to preserve raw user text and render user bubbles with the same markdown/sanitization profile as assistant bubbles. This is scoped to Agents UI only and follows the server validation/messages established earlier.
+Update Agents page send behavior to preserve raw user text exactly as entered while still blocking whitespace-only submissions. This task is scoped to outbound payload behavior only and depends on server validation/message contracts implemented in Task 3.
+
+#### Documentation Locations
+
+- React docs (forms/events): https://react.dev/reference/react-dom/components/textarea
+- MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md
+- MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md
+- Playwright docs (Context7): `/microsoft/playwright`
+- Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
+
+#### Subtasks
+
+1. [ ] Review current Agents send-path trimming and outbound payload flow.
+   - Files to read:
+     - `client/src/pages/AgentsPage.tsx`
+2. [ ] Remove client-side trim mutation from Agents send payload while preserving empty-input guard UX.
+   - Files to edit:
+     - `client/src/pages/AgentsPage.tsx`
+   - Constraints:
+     - do not mutate outbound payload text before send when content is non-whitespace
+     - keep local "cannot send empty" behavior aligned with server rule
+3. [ ] Add Agents UI tests for raw payload preservation behavior.
+   - Files to add/edit:
+     - `client/src/test/agentsPage.userMarkdown.test.tsx` (new/update for raw-input assertions)
+     - `client/src/test/agentsPage.run.test.tsx` (update existing if needed)
+   - Required cases:
+     - leading/trailing whitespace preserved in outbound payload
+     - newline formatting preserved
+     - messages that differ only by whitespace are not merged in transcript hydration
+4. [ ] Update docs for Agents raw-input send behavior.
+   - Files to edit:
+     - `README.md`
+     - `design.md`
+5. [ ] Update `projectStructure.md` if files were added/removed.
+6. [ ] Run lint/format checks for workspace.
+   - Commands:
+     - `npm run lint --workspaces`
+     - `npm run format:check --workspaces`
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run compose:build`
+4. [ ] `npm run compose:up`
+5. [ ] `npm run test --workspace client -- agentsPage.userMarkdown`
+6. [ ] `npm run test --workspace client -- agentsPage.run`
+7. [ ] Manual smoke: Agents UI send multiline input with leading/trailing whitespace and verify outbound request preserves raw content while whitespace-only input is blocked
+8. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- to_do
+
+---
+
+### 12. Client: Agents page user bubble markdown parity
+
+- Task Status: **__to_do__**
+- Git Commits: to_do
+
+#### Overview
+
+Render Agents user bubbles with the same markdown/sanitization component used by assistant bubbles, preserving existing bubble chrome/layout. This task is scoped to rendering parity and depends on Task 11 for raw-input send behavior.
 
 #### Documentation Locations
 
@@ -1232,38 +1354,29 @@ Update Agents page send behavior to preserve raw user text and render user bubbl
 
 #### Subtasks
 
-1. [ ] Review current agents send-path trimming and user bubble rendering.
+1. [ ] Review current Agents user bubble rendering path and markdown component behavior.
    - Files to read:
      - `client/src/pages/AgentsPage.tsx`
      - `client/src/components/Markdown.tsx`
-2. [ ] Remove client-side trim mutation from agents send payload while preserving empty-input guard UX.
+2. [ ] Replace Agents user bubble `Typography` rendering with shared markdown renderer.
    - Files to edit:
      - `client/src/pages/AgentsPage.tsx`
-3. [ ] Render agents user bubbles with shared markdown renderer used by assistant bubbles.
-   - Files to edit:
-     - `client/src/pages/AgentsPage.tsx`
-4. [ ] Add agents UI tests for raw payload preservation and markdown parity.
+   - Constraints:
+     - use `client/src/components/Markdown.tsx`
+     - preserve current bubble container layout/chrome
+3. [ ] Add Agents UI tests for markdown parity in both realtime and hydrated turns.
    - Files to add/edit:
-     - `client/src/test/agentsPage.userMarkdown.test.tsx` (new)
-     - `client/src/test/agentsPage.run.instructionError.test.tsx` (update if needed)
-   - Required cases:
-     - leading/trailing whitespace preserved in outbound payload
-     - multiline formatting preserved
-     - agent user turns that differ only by whitespace are not merged in transcript hydration
-     - user bubble markdown rendering (including mermaid fences) matches assistant rendering
-5. [ ] Extend existing Agents Jest suites for user-visible raw-input + markdown rendering behavior (reuse existing agents page test harness).
-   - Files to add/edit:
+     - `client/src/test/agentsPage.userMarkdown.test.tsx` (new/update for markdown assertions)
      - `client/src/test/agentsPage.run.test.tsx` (update existing if needed)
      - `client/src/test/agentsPage.turnHydration.test.tsx` (update existing if needed)
-   - Required checks:
-     - outbound payload preserves leading/trailing whitespace for non-empty content
-     - user bubble markdown/mermaid rendering matches assistant renderer behavior
-6. [ ] Update docs for agents user markdown parity behavior.
+   - Required cases:
+     - user bubble markdown rendering (including mermaid fences) matches assistant rendering
+4. [ ] Update docs for Agents user markdown parity behavior.
    - Files to edit:
      - `README.md`
      - `design.md`
-7. [ ] Update `projectStructure.md` if files were added/removed.
-8. [ ] Run lint/format checks for workspace.
+5. [ ] Update `projectStructure.md` if files were added/removed.
+6. [ ] Run lint/format checks for workspace.
    - Commands:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
@@ -1286,7 +1399,7 @@ Update Agents page send behavior to preserve raw user text and render user bubbl
 
 ---
 
-### 11. Final verification: acceptance check, full regressions, and documentation normalization
+### 13. Final verification: acceptance check, full regressions, and documentation normalization
 
 - Task Status: **__to_do__**
 - Git Commits: to_do
@@ -1313,7 +1426,7 @@ Validate every acceptance criterion end-to-end after all feature tasks are compl
      - `README.md`
      - `design.md`
      - `projectStructure.md`
-3. [ ] Prepare manual verification artifacts in `test-results/screenshots/` with naming `0000035-11-<label>.png`.
+3. [ ] Prepare manual verification artifacts in `test-results/screenshots/` with naming `0000035-13-<label>.png`.
 4. [ ] Create a PR summary comment covering all task outcomes, contract changes, and verification evidence.
 
 #### Testing

@@ -496,13 +496,18 @@ This should only be started once all the above sections are clear and understood
 10. Record detailed implementation notes and git hashes before setting Task Status to `Done`, then push.
 11. Repeat for the next task in sequence.
 
+Server test command note (KISS, deterministic):
+- Treat commands in the form `npm run test --workspace server -- <token>` as suite-focus hints, not deterministic filters.
+- For deterministic execution, run `npm run test:unit --workspace server` for unit/integration-node tests and `npm run test:integration --workspace server` for Cucumber contract tests.
+- When a task calls out a specific server suite name, confirm that suite/file appears in the test output from the deterministic command above.
+
 ---
 
 ## Tasks
 
 ### 1. Server: Shared default resolver for REST chat + committed env defaults
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: to_do
 
 #### Overview
@@ -2700,6 +2705,7 @@ Render Chat user bubbles with the same markdown/sanitization component used by a
    - Constraints:
      - use `client/src/components/Markdown.tsx`
      - preserve current bubble container layout/chrome
+     - if JSX test fixtures contain raw `&`, use `&amp;` or `{ '&' }` to avoid AST indexing failures during test runs
 3. [ ] Add Chat UI tests for user markdown parity and mermaid rendering.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | `react-markdown` docs: https://github.com/remarkjs/react-markdown (Reason: renderer API and component behavior used by shared Markdown pipeline.) | `remark-gfm` docs: https://github.com/remarkjs/remark-gfm (Reason: GFM syntax support details for lists/tables/fences in user bubbles.) | `rehype-sanitize` docs: https://github.com/rehypejs/rehype-sanitize (Reason: sanitization schema rules to keep markdown rendering safe.) | Mermaid docs (Context7): `/mermaid-js/mermaid` (Reason: confirms fenced mermaid syntax/rendering behavior for markdown parity verification.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
@@ -3154,6 +3160,7 @@ Render Agents user bubbles with the same markdown/sanitization component used by
    - Constraints:
      - use `client/src/components/Markdown.tsx`
      - preserve current bubble container layout/chrome
+     - if JSX test fixtures contain raw `&`, use `&amp;` or `{ '&' }` to avoid AST indexing failures during test runs
 3. [ ] Add Agents UI tests for markdown parity in both realtime and hydrated turns.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | `react-markdown` docs: https://github.com/remarkjs/react-markdown (Reason: renderer API and component behavior used by shared Markdown pipeline.) | `remark-gfm` docs: https://github.com/remarkjs/remark-gfm (Reason: GFM syntax support details for lists/tables/fences in user bubbles.) | `rehype-sanitize` docs: https://github.com/rehypejs/rehype-sanitize (Reason: sanitization schema rules to keep markdown rendering safe.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | Mermaid docs (Context7): `/mermaid-js/mermaid` (Reason: confirms fenced mermaid syntax/rendering behavior for markdown parity verification.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
@@ -3456,8 +3463,10 @@ Validate every acceptance criterion end-to-end after all feature tasks are compl
      - `0000035-13-agents-user-markdown-parity.png` (Agents user bubble markdown/list/code/mermaid parity with expected sanitization).
      - `0000035-13-general-regression.png` (overall page state showing no UI regressions in task-touched areas).
    - Agent screenshot review expectation: each screenshot must be reviewed by the agent and explicitly confirmed to match this task’s acceptance expectations before this checklist item is marked complete.
-9. [ ] `npm run compose:down`
-10. [ ] Manual Playwright-MCP walkthrough of Chat, Agents, and MCP flows with screenshots saved to `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` and linked in `Implementation notes`
+9. [ ] `npm run test:unit --workspace server`
+10. [ ] `npm run test:integration --workspace server`
+11. [ ] `npm run compose:down`
+12. [ ] Manual Playwright-MCP walkthrough of Chat, Agents, and MCP flows with screenshots saved to `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` and linked in `Implementation notes`
 #### Implementation notes
 
 - to_do

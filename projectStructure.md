@@ -329,7 +329,8 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚     â”œâ”€ mcpCommon/ — shared MCP/JSON-RPC infrastructure used by both MCP servers (helpers/dispatch only; must not change wire formats)
 â”‚     â”‚  â”œâ”€ guards.ts — tiny shared type guards for MCP request validation
 â”‚     â”‚  â”œâ”€ jsonRpc.ts — shared JSON-RPC response helpers (result/error envelopes)
-â”‚     â”‚  â””â”€ dispatch.ts — shared method dispatch skeleton (routes to handler callbacks, returns verbatim payloads)
+â”‚     â”‚  â”œâ”€ dispatch.ts — shared method dispatch skeleton (routes to handler callbacks, returns verbatim payloads)
+â”‚     â”‚  â””â”€ keepAlive.ts — shared MCP keepalive lifecycle helper (start/heartbeat/stop + safe response writes)
 â”‚     â”œâ”€ mcp2/ — Codex-gated MCP v2 server on port 5011
 â”‚     â”‚  â”œâ”€ server.ts — start/stop JSON-RPC server
 â”‚     â”‚  â”œâ”€ router.ts — JSON-RPC handlers (initialize/tools/resources); uses mcpCommon dispatch/guards while keeping body parsing, parse errors, response writing, and Codex gating local
@@ -462,6 +463,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚           â”œâ”€ mcp2-router-invalid-request.test.ts â€” MCP v2 invalid request (-32600) characterization (invalid JSON-RPC envelope)
 â”‚           â”œâ”€ mcp2-router-method-not-found.test.ts â€” MCP v2 method not found (-32601) characterization (unknown method)
 â”‚           â”œâ”€ mcp2-router-tool-not-found.test.ts â€” MCP v2 unknown tool mapping characterization (tools/call -> -32601)
+â”‚           â”œâ”€ mcp.keepalive.helper.test.ts â€” unit coverage for shared keepalive helper lifecycle and write-after-close protection
 â”‚           â”œâ”€ mcp-unsupported-provider.test.ts — MCP tools/call unsupported provider error path
 â”‚           â””â”€ tools-vector-search.test.ts â€” supertest coverage for /tools/vector-search
 â”‚        â”œâ”€ integration/

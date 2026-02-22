@@ -66,6 +66,35 @@ flowchart TD
   T -- no --> X[Drop stale flags.threadId before persistence]
 ```
 
+## MCP keepalive lifecycle (shared helper)
+
+- MCP keepalive lifecycle is centralized in `server/src/mcpCommon/keepAlive.ts` and reused by classic `POST /mcp`, MCP v2 (`server/src/mcp2/router.ts`), and Agents MCP (`server/src/mcpAgents/router.ts`).
+- Keepalive is scoped to long-running `tools/call` only. Non-tool requests (`initialize`, `tools/list`, parse/invalid request) return normal JSON-RPC payloads without keepalive preamble bytes.
+- Helper behavior is deterministic: `start` writes initial whitespace and heartbeat whitespace bytes, then `stop` clears timers on `sendJson`, response `finish`/`close`, or write failure to avoid write-after-close errors.
+
+```mermaid
+flowchart LR
+  Req[JSON-RPC request] --> Check{method == tools/call?}
+  Check -- no --> Json[Return JSON response]
+  Check -- yes --> Start[keepAlive.start]
+  Start --> Flush[Write initial whitespace]
+  Flush --> Beat[Heartbeat interval writes whitespace]
+  Beat --> Dispatch[Dispatch tool handler]
+  Dispatch --> Final[keepAlive.sendJson]
+  Final --> Stop[keepAlive.stop + clear timer]
+```
+
+```mermaid
+flowchart TD
+  A[tools/call route] --> B[createKeepAliveController]
+  B --> C[mcp2 router]
+  B --> D[mcpAgents router]
+  B --> E[classic /mcp router]
+  C --> F[shared lifecycle + logs]
+  D --> F
+  E --> F
+```
+
 ## Flows (schema)
 
 - Flow definitions live under `flows/<flowName>.json` and are validated with a strict Zod schema before use.

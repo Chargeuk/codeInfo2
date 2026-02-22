@@ -717,7 +717,7 @@ Create one authoritative provider/model default resolver and wire it into REST c
      - `DEV-0000035:T1:defaults_resolution_evaluated`
      - `DEV-0000035:T1:defaults_resolution_result`
    - Expected outcome: During a chat request without explicit provider/model, both tags appear once and include resolved provider/model fields.
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+10. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [x] `npm run build --workspace server`
@@ -753,7 +753,7 @@ Create one authoritative provider/model default resolver and wire it into REST c
 
 ### 2. Server: Runtime provider availability auto-fallback across REST + MCP selection paths
 
-- Task Status: **__in_progress__**
+- Task Status: **__done__**
 - Git Commits: 850d967fd34fa35d25fbf1cf8db09915838523ea
 
 #### Overview
@@ -1089,7 +1089,7 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
 
 1. [x] `npm run build --workspace server`
 2. [x] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
+3. [x] `npm run test --workspace server`
 4. [x] `npm run test --workspace client`
 5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
 6. [x] `npm run compose:build`
@@ -1474,7 +1474,7 @@ Create one shared keepalive helper and use it for classic MCP, MCP v2, and agent
      - `server/src/mcp2/router.ts`
      - `server/src/mcpAgents/router.ts`
      - `server/src/mcp/server.ts`
-2. [ ] Implement shared keepalive utility under `mcpCommon`.
+2. [x] Implement shared keepalive utility under `mcpCommon`.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): MCP server concepts and tool lifecycle: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: lifecycle reference for when keepalive can start/stop around tool calls.) | JSON text grammar and whitespace: https://www.rfc-editor.org/rfc/rfc8259 (Reason: confirms whitespace heartbeats remain valid around final JSON payloads.) | Node.js timers API: https://nodejs.org/api/timers.html (Reason: authoritative timer lifecycle behavior for keepalive start/cleanup.) | Node.js HTTP response lifecycle: https://nodejs.org/api/http.html (Reason: confirms safe write/end/close handling for keepalive output.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -1496,7 +1496,7 @@ Create one shared keepalive helper and use it for classic MCP, MCP v2, and agent
      - cleanup on success/error/end/close
      - whitespace-only heartbeat writes
      - only long-running `tools/call` paths start keepalive; initialize/list/parse-error/invalid-request paths must not emit heartbeat bytes
-3. [ ] Replace MCP v2 local keepalive logic with shared helper.
+3. [x] Replace MCP v2 local keepalive logic with shared helper.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): MCP server concepts and tool lifecycle: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: lifecycle reference for when keepalive can start/stop around tool calls.) | JSON text grammar and whitespace: https://www.rfc-editor.org/rfc/rfc8259 (Reason: confirms whitespace heartbeats remain valid around final JSON payloads.) | Node.js timers API: https://nodejs.org/api/timers.html (Reason: authoritative timer lifecycle behavior for keepalive start/cleanup.) | Node.js HTTP response lifecycle: https://nodejs.org/api/http.html (Reason: confirms safe write/end/close handling for keepalive output.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -1511,7 +1511,7 @@ Create one shared keepalive helper and use it for classic MCP, MCP v2, and agent
      ```
    - Files to edit:
      - `server/src/mcp2/router.ts`
-4. [ ] Replace agents MCP local keepalive logic with shared helper.
+4. [x] Replace agents MCP local keepalive logic with shared helper.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): MCP server concepts and tool lifecycle: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: lifecycle reference for when keepalive can start/stop around tool calls.) | JSON text grammar and whitespace: https://www.rfc-editor.org/rfc/rfc8259 (Reason: confirms whitespace heartbeats remain valid around final JSON payloads.) | Node.js timers API: https://nodejs.org/api/timers.html (Reason: authoritative timer lifecycle behavior for keepalive start/cleanup.) | Node.js HTTP response lifecycle: https://nodejs.org/api/http.html (Reason: confirms safe write/end/close handling for keepalive output.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -1526,7 +1526,7 @@ Create one shared keepalive helper and use it for classic MCP, MCP v2, and agent
      ```
    - Files to edit:
      - `server/src/mcpAgents/router.ts`
-5. [ ] Add shared-helper keepalive handling to classic MCP for long-running `tools/call` only.
+5. [x] Add shared-helper keepalive handling to classic MCP for long-running `tools/call` only.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): MCP server concepts and tool lifecycle: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: lifecycle reference for when keepalive can start/stop around tool calls.) | JSON text grammar and whitespace: https://www.rfc-editor.org/rfc/rfc8259 (Reason: confirms whitespace heartbeats remain valid around final JSON payloads.) | Node.js timers API: https://nodejs.org/api/timers.html (Reason: authoritative timer lifecycle behavior for keepalive start/cleanup.) | Node.js HTTP response lifecycle: https://nodejs.org/api/http.html (Reason: confirms safe write/end/close handling for keepalive output.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -1541,7 +1541,7 @@ Create one shared keepalive helper and use it for classic MCP, MCP v2, and agent
      ```
    - Files to edit:
      - `server/src/mcp/server.ts`
-6. [ ] Add server tests covering helper lifecycle and no write-after-close behavior.
+6. [x] Add server tests covering helper lifecycle and no write-after-close behavior.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): MCP server concepts and tool lifecycle: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: lifecycle reference for when keepalive can start/stop around tool calls.) | JSON text grammar and whitespace: https://www.rfc-editor.org/rfc/rfc8259 (Reason: confirms whitespace heartbeats remain valid around final JSON payloads.) | Node.js timers API: https://nodejs.org/api/timers.html (Reason: authoritative timer lifecycle behavior for keepalive start/cleanup.) | Node.js HTTP response lifecycle: https://nodejs.org/api/http.html (Reason: confirms safe write/end/close handling for keepalive output.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -1569,43 +1569,43 @@ Create one shared keepalive helper and use it for classic MCP, MCP v2, and agent
        // Assert
      });
      ```
-     1. [ ] Keepalive starts before tool dispatch on all MCP surfaces.
+     1. [x] Keepalive starts before tool dispatch on all MCP surfaces.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Unit + integration.
         - Test location: `server/src/test/unit/mcp.keepalive.helper.test.ts`, `server/src/test/unit/mcp2-router-list-happy.test.ts`, `server/src/test/unit/mcp-agents-router-run.test.ts`.
         - Description: Add/adjust tests asserting keepalive start is observed before tool execution begins for classic, v2, and agents surfaces.
         - Purpose: Prevent delayed keepalive initialization regressions.
-     2. [ ] Keepalive stops on success/error/close/end.
+     2. [x] Keepalive stops on success/error/close/end.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Unit + integration.
         - Test location: `server/src/test/unit/mcp.keepalive.helper.test.ts`, `server/src/test/integration/mcp-server.test.ts`.
         - Description: Add/adjust tests that exercise success, thrown error, socket close, and response end paths and assert timer cleanup.
         - Purpose: Prevent timer leaks.
-     3. [ ] No heartbeat writes after close/end.
+     3. [x] No heartbeat writes after close/end.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Unit.
         - Test location: `server/src/test/unit/mcp.keepalive.helper.test.ts`.
         - Description: Add/adjust tests that close/end response before next tick and assert no additional writes occur.
         - Purpose: Prevent write-after-close failures.
-     4. [ ] Keepalive not started for non-tool paths.
+     4. [x] Keepalive not started for non-tool paths.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Router unit.
         - Test location: `server/src/test/unit/mcp2-router-list-happy.test.ts`, `server/src/test/unit/mcp-agents-router-run.test.ts`.
         - Description: Add/adjust tests for parse/invalid-request/unknown-tool paths and assert helper is not started.
         - Purpose: Keep non-tool traffic unaffected.
-     5. [ ] Heartbeat bytes remain JSON whitespace only.
+     5. [x] Heartbeat bytes remain JSON whitespace only.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Integration contract.
         - Test location: `server/src/test/integration/mcp-server.test.ts`.
         - Description: Add/adjust tests asserting heartbeats are whitespace and final JSON payload parsing remains valid.
         - Purpose: Preserve protocol compatibility with strict JSON parsers.
-     6. [ ] Classic MCP non-tool responses do not emit keepalive preamble bytes.
+     6. [x] Classic MCP non-tool responses do not emit keepalive preamble bytes.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Integration router contract.
         - Test location: `server/src/test/integration/mcp-server.test.ts`.
         - Description: Add/adjust tests asserting classic MCP `initialize` and `tools/list` responses do not include keepalive whitespace before JSON payload.
         - Purpose: Ensure keepalive scope remains limited to long-running tool execution.
-7. [ ] Update docs for shared MCP keepalive behavior and architecture diagrams.
+7. [x] Update docs for shared MCP keepalive behavior and architecture diagrams.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): MCP server concepts and tool lifecycle: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: lifecycle reference for when keepalive can start/stop around tool calls.) | JSON text grammar and whitespace: https://www.rfc-editor.org/rfc/rfc8259 (Reason: confirms whitespace heartbeats remain valid around final JSON payloads.) | Node.js timers API: https://nodejs.org/api/timers.html (Reason: authoritative timer lifecycle behavior for keepalive start/cleanup.) | Node.js HTTP response lifecycle: https://nodejs.org/api/http.html (Reason: confirms safe write/end/close handling for keepalive output.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -1621,7 +1621,7 @@ Create one shared keepalive helper and use it for classic MCP, MCP v2, and agent
      - `design.md`
    - `design.md` requirements:
      - Add/update Mermaid diagram(s) that show shared keepalive helper lifecycle (`start -> heartbeat -> stop`) and integration points for classic MCP, MCP v2, and agents MCP routes.
-8. [ ] Update `projectStructure.md` with every file/folder added, removed, or renamed in this task (after file changes are complete).
+8. [x] Update `projectStructure.md` with every file/folder added, removed, or renamed in this task (after file changes are complete).
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): MCP server concepts and tool lifecycle: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: lifecycle reference for when keepalive can start/stop around tool calls.) | JSON text grammar and whitespace: https://www.rfc-editor.org/rfc/rfc8259 (Reason: confirms whitespace heartbeats remain valid around final JSON payloads.) | Node.js timers API: https://nodejs.org/api/timers.html (Reason: authoritative timer lifecycle behavior for keepalive start/cleanup.) | Node.js HTTP response lifecycle: https://nodejs.org/api/http.html (Reason: confirms safe write/end/close handling for keepalive output.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -1637,7 +1637,7 @@ Create one shared keepalive helper and use it for classic MCP, MCP v2, and agent
        - `server/src/test/unit/mcp.keepalive.helper.test.ts`
      - Removed files:
        - None planned in this task.
-9. [ ] Add task-specific structured log lines for Manual Playwright-MCP verification.
+9. [x] Add task-specific structured log lines for Manual Playwright-MCP verification.
    - Files to edit:
      - `server/src/mcpCommon/keepAlive.ts`
      - `server/src/mcp2/router.ts`
@@ -1649,25 +1649,87 @@ Create one shared keepalive helper and use it for classic MCP, MCP v2, and agent
 10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
 3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check to manually confirm story items and general regression checks for this task; include a check that there are no logged errors within the debug console; use `http://host.docker.internal:5001` via Playwright MCP tools.
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check to manually confirm story items and general regression checks for this task; include a check that there are no logged errors within the debug console; use `http://host.docker.internal:5001` via Playwright MCP tools.
    - Required log tags to verify: `DEV-0000035:T4:keepalive_lifecycle_started`, `DEV-0000035:T4:keepalive_lifecycle_stopped`.
    - Expected outcome: During long-running tools/call execution, started appears before heartbeat output and stopped appears after completion/abort with no write-after-close errors. Also confirm no unexpected `[error]`/uncaught console errors in browser debug console during this check.
-9. [ ] `npm run compose:down`
-10. [ ] `npm run test --workspace server -- mcp.keepalive.helper`
-11. [ ] `npm run test --workspace server -- mcp2-router && npm run test --workspace server -- mcp-agents-router-run && npm run test --workspace server -- mcp-server`
-12. [ ] Manual JSON parse smoke: invoke long-running MCP tool on each surface and confirm client parses final JSON-RPC payload.
-13. [ ] `npm run lint --workspaces`
-14. [ ] `npm run format:check --workspaces`
+9. [x] `npm run compose:down`
+10. [x] `npm run test --workspace server -- mcp.keepalive.helper`
+11. [x] `npm run test --workspace server -- mcp2-router && npm run test --workspace server -- mcp-agents-router-run && npm run test --workspace server -- mcp-server`
+12. [x] Manual JSON parse smoke: invoke long-running MCP tool on each surface and confirm client parses final JSON-RPC payload.
+13. [x] `npm run lint --workspaces`
+14. [x] `npm run format:check --workspaces`
 #### Implementation notes
 
 - Subtask 1 completed: reviewed keepalive handling in `server/src/mcp2/router.ts`, `server/src/mcpAgents/router.ts`, and `server/src/mcp/server.ts`; confirmed duplicated timer logic in mcp2/agents, no shared helper, and classic `/mcp` currently has no keepalive for long-running `tools/call`.
+- Subtask 2 completed:
+  - added `server/src/mcpCommon/keepAlive.ts` with shared constants (`MCP_KEEPALIVE_INTERVAL_MS`, `MCP_KEEPALIVE_INITIAL_FLUSH`, `MCP_KEEPALIVE_HEARTBEAT`), `createKeepAliveController`, safe write guard, lifecycle stop on send/finish/close/error, and whitespace-only keepalive bytes
+  - added required structured log tags in helper: `DEV-0000035:T4:keepalive_lifecycle_started` and `DEV-0000035:T4:keepalive_lifecycle_stopped`
+- Subtask 3 completed:
+  - replaced local MCP v2 keepalive behavior in `server/src/mcp2/router.ts` with shared helper usage
+  - keepalive start is now scoped to validated `tools/call` only; parse errors and non-tool methods send normal JSON with no keepalive preamble
+- Subtask 4 completed:
+  - replaced local Agents MCP keepalive behavior in `server/src/mcpAgents/router.ts` with shared helper usage
+  - keepalive start is scoped to validated `tools/call` only; parse errors and non-tool methods send normal JSON with no keepalive preamble
+- Subtask 5 completed:
+  - added shared-helper keepalive handling in classic MCP (`server/src/mcp/server.ts`) for long-running `tools/call` only
+  - non-tool classic MCP responses keep `res.json(...)` path with no keepalive preamble; `tools/call` uses helper `sendJson(...)`
+- Subtask 6 completed:
+  - added `server/src/test/unit/mcp.keepalive.helper.test.ts` covering lifecycle start/stop, whitespace-only writes, and no write-after-close/end behavior
+  - updated `server/src/test/unit/mcp2-router-list-happy.test.ts` and `server/src/test/unit/mcp-agents-router-run.test.ts` with raw-response assertions for no preamble on `tools/list` and whitespace preamble on `tools/call`
+  - updated `server/src/test/integration/mcp-server.test.ts` with raw-response assertions proving classic MCP non-tool responses have no preamble and `tools/call` preamble stays whitespace-only + parseable JSON
+- Subtask 7 completed:
+  - updated `design.md` with shared keepalive lifecycle architecture notes and Mermaid diagrams (`start -> heartbeat -> stop`) across classic MCP, MCP v2, and agents MCP integration points
+- Subtask 8 completed:
+  - updated `projectStructure.md` to include added files `server/src/mcpCommon/keepAlive.ts` and `server/src/test/unit/mcp.keepalive.helper.test.ts`
+- Subtask 9 completed:
+  - required structured log tags are emitted via the shared helper and exercised by all three routers (`mcp2`, `mcp_agents`, `mcp_classic`) through shared controller integration
+- Testing 1 completed:
+  - `npm run build --workspace server` (pass)
+- Testing 2 completed:
+  - `npm run build --workspace client` (pass)
+- Testing 3 completed:
+  - `npm run test --workspace server` (pass)
+  - unit/integration-node: `tests 603`, `pass 603`, `fail 0`
+  - cucumber integration: `62 scenarios (62 passed)`, `366 steps (366 passed)`
+- Testing 4 completed:
+  - `npm run test --workspace client` (pass; `Test Suites: 90 passed`, `Tests: 320 passed`)
+- Testing 5 completed:
+  - `npm run e2e` (pass; `33 passed`, `3 skipped`)
+- Testing 6 completed:
+  - `npm run compose:build` (pass)
+- Testing 7 completed:
+  - `npm run compose:up` (pass; server/client containers reported healthy)
+- Testing 8 completed (Manual Playwright-MCP):
+  - Playwright MCP navigated to `http://host.docker.internal:5001/chat`; browser console error check returned no entries.
+  - invoked MCP `tools/call` on classic (`/mcp`), MCP v2 (`:5011`), and Agents MCP (`:5012`) and verified JSON parse success after trimming keepalive preamble (`json_parse_smoke=ok`).
+  - verified required lifecycle logs in `logs/server.1.log`:
+    - `DEV-0000035:T4:keepalive_lifecycle_started`
+    - `DEV-0000035:T4:keepalive_lifecycle_stopped`
+  - observed tags across all three surfaces: `mcp_classic`, `mcp2`, and `mcp_agents`.
+- Testing 9 completed:
+  - `npm run compose:down` (pass)
+- Testing 10 completed:
+  - `npm run test --workspace server -- mcp.keepalive.helper` (pass)
+  - note: per task command note, workspace test script executes full deterministic unit+cucumber pipeline; targeted keepalive suite is included in that run and passed.
+- Testing 11 completed:
+  - ran chained command `npm run test --workspace server -- mcp2-router && npm run test --workspace server -- mcp-agents-router-run && npm run test --workspace server -- mcp-server` (pass)
+  - each chained invocation executed deterministic full unit+cucumber pipeline per server test script behavior; targeted suites were included in passing output.
+- Testing 12 completed:
+  - manual JSON parse smoke on all three MCP surfaces (`:5510`, `:5511`, `:5512`) returned parseable JSON-RPC payloads after keepalive whitespace trim (`manual_json_parse_smoke=ok`).
+- Subtask 10 completed:
+  - initial `npm run lint --workspaces` failed on new keepalive unit test unused params; fixed in `server/src/test/unit/mcp.keepalive.helper.test.ts` by consuming mock args with `void`.
+  - initial `npm run format:check --workspaces` reported formatting drift in two server tests; fixed via `npm run format --workspace server`.
+- Testing 13 completed:
+  - `npm run lint --workspaces` (pass; existing import-order warnings remain non-blocking baseline warnings in unrelated files).
+- Testing 14 completed:
+  - `npm run format:check --workspaces` (pass for client/server/common).
 
 ---
 

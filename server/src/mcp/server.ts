@@ -30,6 +30,7 @@ import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
 import { dispatchJsonRpc } from '../mcpCommon/dispatch.js';
 import { isObject } from '../mcpCommon/guards.js';
+import { createKeepAliveController } from '../mcpCommon/keepAlive.js';
 import { jsonRpcError, jsonRpcResult } from '../mcpCommon/jsonRpc.js';
 
 type JsonRpcRequest = {
@@ -42,6 +43,11 @@ type JsonRpcRequest = {
 type ToolCallParams = {
   name?: unknown;
   arguments?: unknown;
+};
+
+type BasicJsonRpcRequest = {
+  jsonrpc?: unknown;
+  method?: unknown;
 };
 
 type Deps = {
@@ -475,6 +481,23 @@ export function createMcpRouter(
     const body = req.body as JsonRpcRequest;
     const requestId =
       (res.locals?.requestId as string | undefined) ?? undefined;
+    const writeHeadersIfNeeded = () => {
+      if (res.headersSent) return;
+      res.writeHead(200, {
+        'content-type': 'application/json; charset=utf-8',
+      });
+      res.flushHeaders?.();
+    };
+    const keepAlive = createKeepAliveController({
+      res,
+      writeHeadersIfNeeded,
+      surface: 'mcp_classic',
+      requestId,
+    });
+    const shouldKeepAlive = isToolsCallRequest(body);
+    if (shouldKeepAlive) {
+      keepAlive.start();
+    }
 
     const response = await dispatchJsonRpc({
       message: body,
@@ -695,9 +718,18 @@ export function createMcpRouter(
         invalidRequest,
       },
     });
-
+    if (shouldKeepAlive) {
+      keepAlive.sendJson(response);
+      return;
+    }
     return res.json(response);
   });
 
   return router;
+}
+
+function isToolsCallRequest(message: unknown): boolean {
+  if (!isObject(message)) return false;
+  const request = message as BasicJsonRpcRequest;
+  return request.jsonrpc === '2.0' && request.method === 'tools/call';
 }

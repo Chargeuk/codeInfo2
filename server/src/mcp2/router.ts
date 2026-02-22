@@ -2,6 +2,7 @@ import { IncomingMessage, ServerResponse } from 'http';
 import serverPackage from '../../package.json' with { type: 'json' };
 import { dispatchJsonRpc } from '../mcpCommon/dispatch.js';
 import { isObject } from '../mcpCommon/guards.js';
+import { createKeepAliveController } from '../mcpCommon/keepAlive.js';
 import {
   ArchivedConversationError,
   InvalidParamsError,
@@ -36,50 +37,25 @@ export async function handleRpc(req: IncomingMessage, res: ServerResponse) {
     });
     res.flushHeaders?.();
   };
-
-  let keepAliveTimer: NodeJS.Timeout | undefined;
-  const stopKeepAlive = () => {
-    if (!keepAliveTimer) return;
-    clearInterval(keepAliveTimer);
-    keepAliveTimer = undefined;
-  };
-
-  const startKeepAlive = () => {
-    if (keepAliveTimer) return;
-    writeHeadersIfNeeded();
-    // Ensure headers + body start flowing so clients/proxies do not treat
-    // long-running MCP tools/call requests as idle.
-    res.write(' ');
-    keepAliveTimer = setInterval(() => {
-      if (res.writableEnded || res.destroyed) {
-        stopKeepAlive();
-        return;
-      }
-      res.write('\n');
-    }, 10_000);
-    keepAliveTimer.unref?.();
-  };
-
-  res.on('close', stopKeepAlive);
-  res.on('error', stopKeepAlive);
-
-  const send = (payload: unknown) => {
-    stopKeepAlive();
-    writeHeadersIfNeeded();
-    res.end(JSON.stringify(payload));
-  };
+  const keepAlive = createKeepAliveController({
+    res,
+    writeHeadersIfNeeded,
+    surface: 'mcp2',
+  });
 
   let message: JsonRpcRequest;
   try {
     message = JSON.parse(body || '{}');
   } catch {
-    send(jsonRpcError(null, PARSE_ERROR_CODE, 'Parse error'));
+    keepAlive.sendJson(jsonRpcError(null, PARSE_ERROR_CODE, 'Parse error'));
     return;
   }
 
   const id: JsonRpcId = (message as { id?: JsonRpcId } | null)?.id ?? null;
 
-  startKeepAlive();
+  if (isValidRequest(message) && message.method === 'tools/call') {
+    keepAlive.start();
+  }
   const response = await dispatchJsonRpc<JsonRpcId, unknown>({
     message,
     getId: () => id,
@@ -150,7 +126,7 @@ export async function handleRpc(req: IncomingMessage, res: ServerResponse) {
     },
   });
 
-  send(response);
+  keepAlive.sendJson(response);
 }
 
 async function readBody(req: IncomingMessage): Promise<string> {

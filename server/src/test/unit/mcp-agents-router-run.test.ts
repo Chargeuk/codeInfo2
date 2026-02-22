@@ -18,6 +18,56 @@ async function postJson(port: number, body: unknown) {
   return response.json();
 }
 
+async function postRaw(port: number, body: unknown) {
+  const response = await fetch(`http://127.0.0.1:${port}`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return response.text();
+}
+
+test('tools/list does not emit keepalive preamble bytes', async () => {
+  const server = http.createServer(handleAgentsRpc);
+  server.listen(0);
+  const { port } = server.address() as AddressInfo;
+
+  try {
+    const raw = await postRaw(port, {
+      jsonrpc: '2.0',
+      id: 9,
+      method: 'tools/list',
+    });
+    assert.equal(raw.startsWith(' '), false);
+    const body = JSON.parse(raw) as { result: { tools: unknown[] } };
+    assert.equal(Array.isArray(body.result.tools), true);
+  } finally {
+    server.close();
+  }
+});
+
+test('tools/call emits keepalive preamble before JSON payload', async () => {
+  const server = http.createServer(handleAgentsRpc);
+  server.listen(0);
+  const { port } = server.address() as AddressInfo;
+
+  try {
+    const raw = await postRaw(port, {
+      jsonrpc: '2.0',
+      id: 10,
+      method: 'tools/call',
+      params: { name: 'list_agents', arguments: {} },
+    });
+    assert.equal(raw.startsWith(' '), true);
+    const body = JSON.parse(raw.trimStart()) as {
+      result: { content: unknown };
+    };
+    assert.ok(body.result.content);
+  } finally {
+    server.close();
+  }
+});
+
 test('tools/call run_agent_instruction returns JSON text content with answer-only segments', async () => {
   const original = process.env.MCP_FORCE_CODEX_AVAILABLE;
   process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';

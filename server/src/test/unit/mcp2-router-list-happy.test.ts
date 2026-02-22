@@ -13,6 +13,15 @@ async function postJson(port: number, body: unknown) {
   return response.json();
 }
 
+async function postRaw(port: number, body: unknown) {
+  const response = await fetch(`http://127.0.0.1:${port}`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return response.text();
+}
+
 test('tools/list returns tool definitions when Codex is available', async () => {
   const original = process.env.MCP_FORCE_CODEX_AVAILABLE;
   process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
@@ -31,6 +40,48 @@ test('tools/list returns tool definitions when Codex is available', async () => 
     assert.ok(body.result.tools[0].inputSchema);
   } finally {
     process.env.MCP_FORCE_CODEX_AVAILABLE = original;
+    server.close();
+  }
+});
+
+test('tools/list does not emit keepalive preamble bytes', async () => {
+  const original = process.env.MCP_FORCE_CODEX_AVAILABLE;
+  process.env.MCP_FORCE_CODEX_AVAILABLE = 'true';
+
+  const server = http.createServer(handleRpc);
+  server.listen(0);
+  const { port } = server.address() as AddressInfo;
+
+  try {
+    const payload = { jsonrpc: '2.0', id: 20, method: 'tools/list' };
+    const raw = await postRaw(port, payload);
+    assert.equal(raw.startsWith(' '), false);
+    const body = JSON.parse(raw) as {
+      result: { tools: Array<{ name: string }> };
+    };
+    assert.equal(Array.isArray(body.result.tools), true);
+  } finally {
+    process.env.MCP_FORCE_CODEX_AVAILABLE = original;
+    server.close();
+  }
+});
+
+test('tools/call emits keepalive preamble before JSON payload', async () => {
+  const server = http.createServer(handleRpc);
+  server.listen(0);
+  const { port } = server.address() as AddressInfo;
+
+  try {
+    const raw = await postRaw(port, {
+      jsonrpc: '2.0',
+      id: 21,
+      method: 'tools/call',
+      params: { name: '__unknown_tool__', arguments: {} },
+    });
+    assert.equal(raw.startsWith(' '), true);
+    const body = JSON.parse(raw.trimStart()) as { error: { code: number } };
+    assert.equal(body.error.code, -32601);
+  } finally {
     server.close();
   }
 });

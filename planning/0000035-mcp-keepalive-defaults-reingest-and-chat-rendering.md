@@ -572,13 +572,14 @@ Create one authoritative provider/model default resolver and wire it into REST c
 
 #### Overview
 
-Implement runtime provider availability fallback (`codex <-> lmstudio`) with single-hop behavior and fallback-model selection rules. This task is only about runtime provider switching behavior, not message validation or UI rendering.
+Implement runtime provider availability fallback (`codex <-> lmstudio`) with single-hop behavior and fallback-model selection rules, and ensure the same selection logic drives REST execution, MCP `codebase_question`, and chat UI default model/provider selection endpoints.
 
 #### Documentation Locations
 
 - JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification
 - MCP server tools guidance: https://modelcontextprotocol.io/specification/draft/server/tools
 - OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html
+- Cucumber guides: https://cucumber.io/docs/guides/
 - npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script
 - Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
 
@@ -599,24 +600,40 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
      - If selected/default provider unavailable and other provider available, switch once.
      - Select fallback provider first available/runtime-default model.
      - If no fallback model/provider available, keep original provider and return existing unavailable behavior.
-3. [ ] Apply the same runtime fallback behavior to MCP `codebase_question`.
+3. [ ] Apply shared default resolution order and runtime fallback behavior to MCP `codebase_question`.
    - Files to edit:
      - `server/src/mcp2/tools/codebaseQuestion.ts`
-4. [ ] Remove global Codex-only router pre-blocking that prevents provider-aware fallback for `codebase_question`.
+4. [ ] Apply the same deterministic availability-fallback/default-selection behavior to chat UI default sources.
+   - Files to edit:
+     - `server/src/routes/chatProviders.ts`
+     - `server/src/routes/chatModels.ts`
+5. [ ] Remove global Codex-only router pre-blocking that prevents provider-aware fallback for `codebase_question`.
    - Files to edit:
      - `server/src/mcp2/router.ts`
    - Constraint:
      - Keep existing terminal unavailable envelopes/codes unchanged.
-5. [ ] Add tests for runtime fallback determinism and single-hop rules.
+6. [ ] Add tests for runtime fallback determinism, persistence, UI default selection, and terminal unavailable contracts.
    - Files to add/edit:
      - `server/src/test/unit/chat.providerFallback.test.ts` (new)
      - `server/src/test/unit/mcp2.codebaseQuestion.fallback.test.ts` (new or existing file update)
-6. [ ] Update documentation for runtime auto-fallback and model selection rules.
+     - `server/src/test/unit/chat.models.providers.defaultSelection.test.ts` (new or existing file update)
+   - Cases:
+     - fallback switches at most once (`codex -> lmstudio` or `lmstudio -> codex`)
+     - resolved fallback provider/model are what get persisted on the conversation record
+     - chat UI defaults select an available provider/model when configured defaults are unavailable
+     - when neither provider is available, REST returns existing `503 PROVIDER_UNAVAILABLE` envelope
+     - when neither provider is available, MCP returns existing `-32001 CODE_INFO_LLM_UNAVAILABLE` error
+     - MCP v2 `tools/list` remains available when Codex is unavailable
+7. [ ] Add server Cucumber contract scenarios for provider fallback and terminal unavailable behavior.
+   - Files to add/edit:
+     - `server/src/test/features/chat-provider-fallback.feature` (new)
+     - `server/src/test/steps/chatProviderFallback.steps.ts` (new)
+8. [ ] Update documentation for runtime auto-fallback and model selection rules.
    - Files to edit:
      - `design.md`
      - `README.md`
-7. [ ] Update `projectStructure.md` if files were added/removed.
-8. [ ] Run lint/format checks for workspace.
+9. [ ] Update `projectStructure.md` if files were added/removed.
+10. [ ] Run lint/format checks for workspace.
    - Commands:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
@@ -629,7 +646,9 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test --workspace server -- providerFallback`
 6. [ ] `npm run test --workspace server -- codebaseQuestion`
-7. [ ] `npm run compose:down`
+7. [ ] `npm run test --workspace server -- chat.models`
+8. [ ] `npm run test --workspace server`
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -651,6 +670,7 @@ Implement server-side non-empty-content enforcement without trimming valid user 
 - OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html
 - Express 5 error handling: https://expressjs.com/en/guide/error-handling.html
 - HTTP Semantics (status codes): https://www.rfc-editor.org/rfc/rfc9110
+- Cucumber guides: https://cucumber.io/docs/guides/
 - npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script
 - Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
 
@@ -681,13 +701,17 @@ Implement server-side non-empty-content enforcement without trimming valid user 
      - whitespace-only rejected with exact message
      - newline-only rejected with exact message
      - leading/trailing whitespace with real content accepted and preserved
-5. [ ] Update API docs/spec for exact validation messages.
+5. [ ] Add server Cucumber contract scenarios for whitespace-only rejection message contracts.
+   - Files to add/edit:
+     - `server/src/test/features/chat-agent-input-validation.feature` (new)
+     - `server/src/test/steps/chatAgentInputValidation.steps.ts` (new)
+6. [ ] Update API docs/spec for exact validation messages.
    - Files to edit:
      - `openapi.json`
      - `README.md`
      - `design.md`
-6. [ ] Update `projectStructure.md` if files were added/removed.
-7. [ ] Run lint/format checks for workspace.
+7. [ ] Update `projectStructure.md` if files were added/removed.
+8. [ ] Run lint/format checks for workspace.
    - Commands:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
@@ -700,7 +724,8 @@ Implement server-side non-empty-content enforcement without trimming valid user 
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test --workspace server -- chatValidators`
 6. [ ] `npm run test --workspace server -- agentsRun`
-7. [ ] `npm run compose:down`
+7. [ ] `npm run test --workspace server`
+8. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -736,6 +761,7 @@ Create one shared keepalive helper and use it for classic MCP, MCP v2, and agent
    - Files to edit:
      - `server/src/mcpCommon/keepAlive.ts` (new file)
    - Required behavior:
+     - one shared heartbeat interval constant and initial-flush behavior reused by all three MCP surfaces
      - start/stop API
      - safe write wrapper
      - cleanup on success/error/end/close
@@ -752,8 +778,13 @@ Create one shared keepalive helper and use it for classic MCP, MCP v2, and agent
 6. [ ] Add server tests covering helper lifecycle and no write-after-close behavior.
    - Files to add/edit:
      - `server/src/test/unit/mcp.keepalive.helper.test.ts` (new)
+     - `server/src/test/unit/mcp.server.keepalive.test.ts` (new/update)
      - `server/src/test/unit/mcp2.router.keepalive.test.ts` (new/update)
      - `server/src/test/unit/mcpAgents.router.keepalive.test.ts` (new/update)
+   - Required cases:
+     - keepalive starts before tool dispatch on all three surfaces
+     - keepalive stops on success, thrown error, socket close, and response end
+     - no heartbeat writes occur after response end/close
 7. [ ] Update docs for shared MCP keepalive behavior.
    - Files to edit:
      - `design.md`
@@ -770,8 +801,9 @@ Create one shared keepalive helper and use it for classic MCP, MCP v2, and agent
 3. [ ] `npm run compose:build`
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test --workspace server -- keepalive`
-6. [ ] Manual JSON parse smoke: invoke long-running MCP tool on each surface and confirm client parses final JSON-RPC payload.
-7. [ ] `npm run compose:down`
+6. [ ] `npm run test --workspace server -- mcp.server.keepalive`
+7. [ ] Manual JSON parse smoke: invoke long-running MCP tool on each surface and confirm client parses final JSON-RPC payload.
+8. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -808,6 +840,7 @@ Build a shared re-ingest service that enforces strict existing-root-only safety 
      - `server/src/ingest/reingestService.ts` (new file)
    - Required validation:
      - missing/non-string/empty/non-absolute/non-normalized/unknown -> failure
+     - ambiguous path forms (`..` segments, mixed slash styles, trailing-slash variants that cannot map uniquely) -> failure
      - only exact known ingested root match allowed
 3. [ ] Implement canonical contract mappers for success and error `data` payloads.
    - Files to edit:
@@ -815,9 +848,14 @@ Build a shared re-ingest service that enforces strict existing-root-only safety 
    - Required outputs:
      - success: `{ status, operation, runId, sourceId }`
      - errors: `INVALID_PARAMS`, `NOT_FOUND`, `BUSY` with required `error.data` retry payloads
+     - include deterministic `fieldErrors.reason` values and `reingestableRepositoryIds` + `reingestableSourceIds` where required by the story contract
 4. [ ] Add unit tests for all validation and busy-state branches.
    - Files to add/edit:
      - `server/src/test/unit/reingestService.test.ts` (new)
+   - Required cases:
+     - every invalid `sourceId` reason branch maps to the expected `error.code`/`error.message`
+     - unknown root response includes AI-retry guidance fields
+     - busy response maps to canonical `BUSY` contract
 5. [ ] Update docs for canonical error contract and retry fields.
    - Files to edit:
      - `design.md`
@@ -877,6 +915,10 @@ Expose `reingest_repository` on the classic MCP surface and map service outputs 
 4. [ ] Add classic MCP tests for list + call success + each error code.
    - Files to add/edit:
      - `server/src/test/unit/mcp.reingest.classic.test.ts` (new)
+   - Required cases:
+     - failures are emitted as JSON-RPC `error` envelopes (not `result.isError`)
+     - `INVALID_PARAMS`/`NOT_FOUND` include canonical retry guidance fields in `error.data`
+     - `BUSY` maps to `error.code=429`, `error.message="BUSY"`
 5. [ ] Update docs with classic MCP tool exposure.
    - Files to edit:
      - `README.md`
@@ -937,9 +979,16 @@ Expose `reingest_repository` on MCP v2 and enforce the exact same name and contr
 4. [ ] Add MCP v2 tests for list + call success + each error contract branch.
    - Files to add/edit:
      - `server/src/test/unit/mcp2.reingest.tool.test.ts` (new)
+   - Required cases:
+     - failures are emitted as JSON-RPC `error` envelopes (not `result.isError`)
+     - `INVALID_PARAMS`/`NOT_FOUND` include canonical retry guidance fields in `error.data`
+     - `BUSY` maps to `error.code=429`, `error.message="BUSY"`
 5. [ ] Add parity tests comparing classic MCP and MCP v2 response shapes for same inputs.
    - Files to add/edit:
      - `server/src/test/unit/mcp.reingest.parity.test.ts` (new)
+   - Required cases:
+     - success payload parity
+     - error envelope parity (code/message/data) for `INVALID_PARAMS`, `NOT_FOUND`, and `BUSY`
 6. [ ] Update docs for MCP v2 tool availability and parity.
    - Files to edit:
      - `README.md`
@@ -1007,6 +1056,7 @@ Fix server stream aggregation so tool-interleaved Codex runs do not produce crop
      - `server/src/test/unit/chat.streamBridge.finalization.test.ts` (new/update)
    - Required scenarios:
      - initial text -> tool call -> truncated/non-prefix update -> completed final
+     - interleaved updates across multiple assistant item ids in one turn
      - completed event followed by late delta
      - ensure final answer published once
 5. [ ] Update docs for Codex merge invariants and finalization rules.
@@ -1050,6 +1100,7 @@ Update Chat page send behavior to preserve raw user text and render user bubbles
 - `react-markdown` docs: https://github.com/remarkjs/react-markdown
 - `remark-gfm` docs: https://github.com/remarkjs/remark-gfm
 - `rehype-sanitize` docs: https://github.com/rehypejs/rehype-sanitize
+- Playwright docs (Context7): `/microsoft/playwright`
 - Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
 
 #### Subtasks
@@ -1079,13 +1130,19 @@ Update Chat page send behavior to preserve raw user text and render user bubbles
    - Required cases:
      - leading/trailing whitespace preserved in sent payload
      - newline formatting preserved
-     - user bubble markdown features mirror assistant rendering
-5. [ ] Update docs for chat user markdown parity behavior.
+     - user bubble markdown features (including mermaid fences) mirror assistant rendering
+5. [ ] Add Chat e2e coverage for user-visible raw-input + markdown rendering behavior.
+   - Files to add/edit:
+     - `e2e/chat-user-markdown.spec.ts` (new)
+   - Required checks:
+     - outbound payload preserves leading/trailing whitespace for non-empty content
+     - user bubble markdown/mermaid rendering matches assistant renderer behavior
+6. [ ] Update docs for chat user markdown parity behavior.
    - Files to edit:
      - `README.md`
      - `design.md`
-6. [ ] Update `projectStructure.md` if files were added/removed.
-7. [ ] Run lint/format checks for workspace.
+7. [ ] Update `projectStructure.md` if files were added/removed.
+8. [ ] Run lint/format checks for workspace.
    - Commands:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
@@ -1098,8 +1155,9 @@ Update Chat page send behavior to preserve raw user text and render user bubbles
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test --workspace client -- chatPage.userMarkdown`
 6. [ ] `npm run test --workspace client -- useChatStream.rawInput`
-7. [ ] Manual smoke: Chat UI send multiline markdown and verify user bubble formatting matches assistant markdown renderer
-8. [ ] `npm run compose:down`
+7. [ ] `npm run e2e:test -- e2e/chat-user-markdown.spec.ts`
+8. [ ] Manual smoke: Chat UI send multiline markdown and verify user bubble formatting matches assistant markdown renderer
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1122,6 +1180,7 @@ Update Agents page send behavior to preserve raw user text and render user bubbl
 - `react-markdown` docs: https://github.com/remarkjs/react-markdown
 - `remark-gfm` docs: https://github.com/remarkjs/remark-gfm
 - `rehype-sanitize` docs: https://github.com/rehypejs/rehype-sanitize
+- Playwright docs (Context7): `/microsoft/playwright`
 - Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/
 
 #### Subtasks
@@ -1143,13 +1202,19 @@ Update Agents page send behavior to preserve raw user text and render user bubbl
    - Required cases:
      - leading/trailing whitespace preserved in outbound payload
      - multiline formatting preserved
-     - user bubble markdown rendering matches assistant rendering
-5. [ ] Update docs for agents user markdown parity behavior.
+     - user bubble markdown rendering (including mermaid fences) matches assistant rendering
+5. [ ] Add Agents e2e coverage for user-visible raw-input + markdown rendering behavior.
+   - Files to add/edit:
+     - `e2e/agents-user-markdown.spec.ts` (new)
+   - Required checks:
+     - outbound payload preserves leading/trailing whitespace for non-empty content
+     - user bubble markdown/mermaid rendering matches assistant renderer behavior
+6. [ ] Update docs for agents user markdown parity behavior.
    - Files to edit:
      - `README.md`
      - `design.md`
-6. [ ] Update `projectStructure.md` if files were added/removed.
-7. [ ] Run lint/format checks for workspace.
+7. [ ] Update `projectStructure.md` if files were added/removed.
+8. [ ] Run lint/format checks for workspace.
    - Commands:
      - `npm run lint --workspaces`
      - `npm run format:check --workspaces`
@@ -1161,8 +1226,9 @@ Update Agents page send behavior to preserve raw user text and render user bubbl
 3. [ ] `npm run compose:build`
 4. [ ] `npm run compose:up`
 5. [ ] `npm run test --workspace client -- agentsPage.userMarkdown`
-6. [ ] Manual smoke: Agents UI send multiline markdown and verify user bubble formatting parity
-7. [ ] `npm run compose:down`
+6. [ ] `npm run e2e:test -- e2e/agents-user-markdown.spec.ts`
+7. [ ] Manual smoke: Agents UI send multiline markdown and verify user bubble formatting parity
+8. [ ] `npm run compose:down`
 
 #### Implementation notes
 

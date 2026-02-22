@@ -299,84 +299,80 @@ Ingest-root metadata storage shape used by re-ingest selection (existing storage
 
 ## Implementation Ideas
 
-- Extract the already-duplicated keepalive implementation in:
-  - `server/src/mcp2/router.ts`
-  - `server/src/mcpAgents/router.ts`
-  into one shared helper under `server/src/mcpCommon/` (start, stop, send wrapper, close/error cleanup), then apply that helper to:
-  - `server/src/mcp/server.ts` (currently no keepalive on long `/mcp` tool calls).
-- Introduce one shared provider/model defaults resolver under `server/src/config/` using only:
-  - `CHAT_DEFAULT_PROVIDER`
-  - `CHAT_DEFAULT_MODEL`
-  with precedence:
-  - explicit request value -> env override -> hardcoded fallback (`codex` / `gpt-5.3-codex`).
-- Ensure this precedence is applied consistently in:
-  - runtime execution paths (`/chat`, `codebase_question`)
-  - provider/model discovery endpoints (`/chat/providers`, `/chat/models`) used by UI defaults.
-- Wire that resolver into server execution paths (not just request validation):
-  - REST chat request resolution in `server/src/routes/chatValidators.ts`
-  - MCP `codebase_question` execution in `server/src/mcp2/tools/codebaseQuestion.ts` (including Codex model resolution, not only LM Studio).
-- Align chat page defaults with the same resolver so UI defaults match runtime defaults:
-  - provider selection path (`server/src/routes/chatProviders.ts` + `client/src/hooks/useChatModel.ts`)
-  - initial model selection path (`server/src/routes/chatModels.ts` + `client/src/hooks/useChatModel.ts`)
-  ensuring the default provider/model shown in UI is `codex` / `gpt-5.3-codex` when env overrides are absent.
-- Add runtime provider-availability fallback behavior to both UI and server selection paths:
-  - selected/default provider auto-switches to the other provider when available
-  - auto-switched provider uses its first available/runtime-default model
-  - if fallback provider has no selectable model, treat fallback as unavailable and keep original selected/default provider
-  - fallback executes once per request and persists the resolved provider/model for that request path
-  - if both providers are unavailable, keep selected/default provider and surface unavailable behavior.
-- Update committed env files to make intended defaults explicit:
+This section is a rough implementation sequence only (non-tasked), validated against current code and external docs (`code_info`, `deepwiki`, `context7`).
+
+### Phase 1: Shared Chat Defaults + Runtime Fallback Core
+
+- Create one shared resolver in `server/src/config/chatDefaults.ts` for provider/model resolution:
+  - explicit request values -> env (`CHAT_DEFAULT_PROVIDER`, `CHAT_DEFAULT_MODEL`) -> hardcoded fallback (`codex`, `gpt-5.3-codex`).
+  - single-hop runtime provider fallback when selected/default provider unavailable.
+  - fallback model selection uses fallback provider's first available/runtime-default model.
+- Apply resolver consistently across:
+  - REST path: `server/src/routes/chatValidators.ts` and execution flow in `server/src/routes/chat.ts`.
+  - MCP path: `server/src/mcp2/tools/codebaseQuestion.ts`.
+  - UI default sources: `server/src/routes/chatProviders.ts`, `server/src/routes/chatModels.ts`, and client selection behavior in `client/src/hooks/useChatModel.ts`.
+- Ensure resolved provider/model are persisted per request path where conversations are created/updated.
+- Update committed defaults in:
   - `server/.env`
   - `server/.env.e2e`
-  with:
-  - `CHAT_DEFAULT_PROVIDER=codex`
-  - `CHAT_DEFAULT_MODEL=gpt-5.3-codex`.
-- Add a shared MCP re-ingest service wrapper around existing ingest primitives (`listIngestedRepositories` + `reembed`) with strict root authorization and normalized exact-match validation.
-- Expose canonical tool `reingest_repository` on both MCP surfaces:
-  - classic MCP router in `server/src/mcp/server.ts`
-  - MCP v2 tool registry in `server/src/mcp2/tools.ts` and corresponding tool module/definition.
-- Use one shared MCP response and error contract across both surfaces:
-  - success payload fields: `status`, `runId`, `sourceId`, `operation: "reembed"`
-  - error mapping: `-32602/INVALID_PARAMS`, `404/NOT_FOUND`, `429/BUSY`
-  - AI-retry payload in `error.data` including `fieldErrors`, `reingestableRepositoryIds`, `reingestableSourceIds`.
-  - include an inline comment/docstring stating this is a deliberate compatibility contract even though MCP tools docs commonly prefer `result.isError` for execution failures.
-- Enforce strict source safety rules for `reingest_repository`:
-  - accept only normalized absolute `sourceId` values that exactly match known ingested roots
-  - reject non-string, empty, non-absolute, unknown, and ambiguous inputs with field-level detail
-  - re-check root existence at execution time (not only at list/discovery time).
-- Fix Codex stream assembly in `server/src/chat/interfaces/ChatInterfaceCodex.ts` using per-item tracking and authoritative completion semantics:
-  - do not assume prefix-only growth for all `agent_message` updates
-  - compute overlap-safe deltas per item id
-  - treat completed item state as authoritative final content (per Codex event model guidance).
-- Update bridge/inflight merge behavior to prevent duplicate final text on non-prefix updates:
-  - `server/src/chat/chatStreamBridge.ts`
-  - `server/src/chat/inflightRegistry.ts`
-  (current non-prefix fallback can append full final text again).
-- Keep existing chat/agents bubble styling and layout unchanged while fixing only text correctness and rendering parity.
-- Render user message text via the same markdown renderer as assistant text in:
-  - `client/src/pages/ChatPage.tsx`
-  - `client/src/pages/AgentsPage.tsx`
-  using `client/src/components/Markdown.tsx` with identical sanitization/feature profile.
-- Implement true raw-input preservation end-to-end (no trimming before send) across both client and server gates:
-  - `client/src/pages/ChatPage.tsx`
-  - `client/src/hooks/useChatStream.ts`
-  - `client/src/pages/AgentsPage.tsx`
-  - `server/src/routes/chatValidators.ts`
-  - `server/src/routes/agentsRun.ts`
-  so leading/trailing whitespace and newlines are preserved into provider calls when content exists.
-- Enforce non-empty semantic content validation before model execution:
-  - reject whitespace-only/newline-only input with explicit validation error response
-  - keep this rejection server-authoritative even if client-side send guards exist.
-- Keep raw user content intact after validation:
-  - remove client-side `trim()`-based send transformations in chat/agents send paths
-  - remove server-side content trimming before provider calls (validation can still inspect whitespace-only semantics).
-- Preserve existing non-content trims that are not part of user payload semantics:
-  - path/id normalization and command metadata normalization remain unchanged.
-- Add focused tests for:
-  - shared keepalive helper behavior + coverage on all MCP surfaces
-  - shared provider/model default resolution and fallback (`codex` / `gpt-5.3-codex`) for REST, MCP, and UI selection paths
-  - MCP `reingest_repository` validation and contract conformance on both MCP surfaces
-  - Codex stream tool-interleaved/non-prefix/completed-item scenarios that previously produced cropped/duplicate output
-  - chat/agents user markdown parity with assistant markdown (including mermaid handling)
-  - raw-input preservation with leading/trailing whitespace and newline-heavy inputs
-  - final regression mix remains Cucumber + Jest + e2e (detailed matrix still deferred to later planning).
+
+### Phase 2: MCP Keepalive Unification
+
+- Introduce one shared keepalive helper in `server/src/mcpCommon/` (timer lifecycle + safe send wrapper + teardown hooks).
+- Replace duplicated/local implementations in:
+  - `server/src/mcp2/router.ts`
+  - `server/src/mcpAgents/router.ts`
+- Apply same helper to the classic MCP router in `server/src/mcp/server.ts` for long-running `/mcp` tool calls.
+- Keep heartbeat writes JSON-whitespace-only and ensure clean stop on success, error, abort/close, and response end.
+
+### Phase 3: Shared `reingest_repository` Service + Dual-Surface MCP Wiring
+
+- Create a shared server-side service (under `server/src/ingest/` or `server/src/mcpCommon/`) that:
+  - validates `sourceId` via strict normalized absolute path checks.
+  - verifies exact match against current ingested roots list (`listIngestedRepositories` + roots metadata).
+  - triggers existing re-embed pipeline (`reembed`) only.
+- Wire canonical MCP tool `reingest_repository` into both MCP surfaces:
+  - classic MCP in `server/src/mcp/server.ts`
+  - MCP v2 registry/handler in `server/src/mcp2/tools.ts` (and dedicated module under `server/src/mcp2/tools/`).
+- Preserve the documented compatibility contract:
+  - success payload fields: `status`, `operation`, `runId`, `sourceId`
+  - errors: `-32602/INVALID_PARAMS`, `404/NOT_FOUND`, `429/BUSY`
+  - `error.data` includes field-level failures and retryable repo/source lists for AI retry.
+
+### Phase 4: Codex Stream Merge Correctness (Duplicate/Cropped Fix)
+
+- Update Codex aggregation to item-keyed merge behavior in:
+  - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
+  - plus bridge/inflight merge boundaries in `server/src/chat/chatStreamBridge.ts` and `server/src/chat/inflightRegistry.ts` as needed.
+- Merge rules:
+  - append ordered deltas by item identity.
+  - do not treat non-prefix snapshots as append text.
+  - treat completed-item state as authoritative final content for that item.
+  - prevent any second append of final text after completion.
+- Keep current bubble UI presentation unchanged; this phase is content correctness only.
+
+### Phase 5: User Markdown Parity + Raw Input Preservation
+
+- Chat/Agents send paths:
+  - remove `trim()`-based payload mutation before send in `client/src/pages/ChatPage.tsx`, `client/src/pages/AgentsPage.tsx`, and `client/src/hooks/useChatStream.ts`.
+  - preserve raw user text (including leading/trailing whitespace and newlines) end-to-end.
+- Server validation:
+  - keep server-authoritative rejection for whitespace-only/newline-only messages in `server/src/routes/chatValidators.ts` and `server/src/routes/agentsRun.ts`.
+  - preserve non-whitespace raw content exactly when forwarding to providers.
+- Rendering:
+  - replace user `<Typography data-testid="user-text">` rendering path with shared `client/src/components/Markdown.tsx` in both Chat and Agents pages.
+  - keep same sanitization and feature profile as assistant messages (including mermaid handling).
+
+### Phase 6: Regression Surfaces (Still Non-Tasked)
+
+- Server tests:
+  - keepalive helper lifecycle behavior across all MCP surfaces.
+  - shared defaults/fallback determinism for REST + MCP.
+  - `reingest_repository` contracts and strict `sourceId` validation branches.
+  - Codex stream interleaving scenario reproducing prior duplicate/cropped symptom.
+- Client tests:
+  - raw-input preservation payload assertions for Chat and Agents.
+  - user markdown parity rendering and sanitization behavior.
+- End-to-end:
+  - one representative chat flow validating no duplicate/cropped final output.
+  - one representative agents/chat markdown user bubble parity validation.

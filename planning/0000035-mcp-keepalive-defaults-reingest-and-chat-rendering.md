@@ -1139,7 +1139,7 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
 
 ### 3. Server: Raw-input acceptance policy and whitespace-only rejection message contracts
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: to_do
 
 #### Overview

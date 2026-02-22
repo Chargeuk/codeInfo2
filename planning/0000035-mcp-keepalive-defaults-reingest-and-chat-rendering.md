@@ -674,7 +674,7 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
    - Documentation links (do not skip for this single subtask): JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | MCP server tools guidance: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: defines tool registration/call semantics and expected error behavior.) | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Cucumber guide (continuous integration): https://cucumber.io/docs/guides/continuous-integration/ (Reason: execution/reporting behavior used for CI-style cucumber verification.) | Cucumber guide (10-minute tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/ (Reason: step-definition and feature-file authoring reference for implementing Cucumber scenarios.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to read:
-     - `server/src/config/chatDefaults.ts` (if already created in Task 1)
+     - `server/src/config/chatDefaults.ts` (created in Task 1)
      - `server/src/routes/chatProviders.ts`
      - `server/src/routes/chatModels.ts`
      - `server/src/routes/chat.ts`
@@ -717,6 +717,7 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
      - extend the existing `updateConversationMeta` path rather than introducing a parallel conversation-metadata updater
      - REST `/chat` updates existing conversation provider/model to the resolved execution provider/model
      - MCP `codebase_question` updates existing conversation provider/model to the resolved execution provider/model
+     - when resolved provider is not `codex`, do not reuse stale Codex `flags.threadId`; preserve Codex thread resume behavior only when resolved provider is `codex`
 6. [ ] Remove global Codex-only router pre-blocking that prevents provider-aware fallback for `codebase_question`.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | MCP server tools guidance: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: defines tool registration/call semantics and expected error behavior.) | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Cucumber guide (continuous integration): https://cucumber.io/docs/guides/continuous-integration/ (Reason: execution/reporting behavior used for CI-style cucumber verification.) | Cucumber guide (10-minute tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/ (Reason: step-definition and feature-file authoring reference for implementing Cucumber scenarios.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
@@ -773,6 +774,11 @@ Implement runtime provider availability fallback (`codex <-> lmstudio`) with sin
         - Test location: `server/src/test/unit/mcp2-router-list-unavailable.test.ts`.
         - Description: Add/adjust tests asserting `tools/list` succeeds without Codex availability.
         - Purpose: Preserve provider-aware fallback reachability.
+     8. [ ] Provider-switch thread-id safety contract.
+        - Test type: Integration persistence/compatibility.
+        - Test location: `server/src/test/integration/chat-codex-mcp.test.ts`, `server/src/test/integration/chat-assistant-persistence.test.ts`.
+        - Description: Add/adjust tests asserting fallback from Codex to LM Studio does not carry stale `flags.threadId` into non-Codex execution and does not break subsequent resumed runs.
+        - Purpose: Prevent provider/thread mismatch regressions after fallback.
 8. [ ] Add server Cucumber contract scenarios for provider fallback and terminal unavailable behavior by extending existing chat feature coverage.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | MCP server tools guidance: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: defines tool registration/call semantics and expected error behavior.) | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Cucumber guide (continuous integration): https://cucumber.io/docs/guides/continuous-integration/ (Reason: execution/reporting behavior used for CI-style cucumber verification.) | Cucumber guide (10-minute tutorial): https://cucumber.io/docs/guides/10-minute-tutorial/ (Reason: step-definition and feature-file authoring reference for implementing Cucumber scenarios.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
@@ -1035,6 +1041,7 @@ Create one shared keepalive helper and use it for classic MCP, MCP v2, and agent
      - safe write wrapper
      - cleanup on success/error/end/close
      - whitespace-only heartbeat writes
+     - only long-running `tools/call` paths start keepalive; initialize/list/parse-error/invalid-request paths must not emit heartbeat bytes
 3. [ ] Replace MCP v2 local keepalive logic with shared helper.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): MCP server concepts and tool lifecycle: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: lifecycle reference for when keepalive can start/stop around tool calls.) | JSON text grammar and whitespace: https://www.rfc-editor.org/rfc/rfc8259 (Reason: confirms whitespace heartbeats remain valid around final JSON payloads.) | Node.js timers API: https://nodejs.org/api/timers.html (Reason: authoritative timer lifecycle behavior for keepalive start/cleanup.) | Node.js HTTP response lifecycle: https://nodejs.org/api/http.html (Reason: confirms safe write/end/close handling for keepalive output.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
@@ -1047,7 +1054,7 @@ Create one shared keepalive helper and use it for classic MCP, MCP v2, and agent
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to edit:
      - `server/src/mcpAgents/router.ts`
-5. [ ] Replace classic MCP local keepalive logic with shared helper for long-running `tools/call`.
+5. [ ] Add shared-helper keepalive handling to classic MCP for long-running `tools/call` only.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): MCP server concepts and tool lifecycle: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: lifecycle reference for when keepalive can start/stop around tool calls.) | JSON text grammar and whitespace: https://www.rfc-editor.org/rfc/rfc8259 (Reason: confirms whitespace heartbeats remain valid around final JSON payloads.) | Node.js timers API: https://nodejs.org/api/timers.html (Reason: authoritative timer lifecycle behavior for keepalive start/cleanup.) | Node.js HTTP response lifecycle: https://nodejs.org/api/http.html (Reason: confirms safe write/end/close handling for keepalive output.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -1088,6 +1095,11 @@ Create one shared keepalive helper and use it for classic MCP, MCP v2, and agent
         - Test location: `server/src/test/integration/mcp-server.test.ts`.
         - Description: Add/adjust tests asserting heartbeats are whitespace and final JSON payload parsing remains valid.
         - Purpose: Preserve protocol compatibility with strict JSON parsers.
+     6. [ ] Classic MCP non-tool responses do not emit keepalive preamble bytes.
+        - Test type: Integration router contract.
+        - Test location: `server/src/test/integration/mcp-server.test.ts`.
+        - Description: Add/adjust tests asserting classic MCP `initialize` and `tools/list` responses do not include keepalive whitespace before JSON payload.
+        - Purpose: Ensure keepalive scope remains limited to long-running tool execution.
 7. [ ] Update docs for shared MCP keepalive behavior and architecture diagrams.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): MCP server concepts and tool lifecycle: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: lifecycle reference for when keepalive can start/stop around tool calls.) | JSON text grammar and whitespace: https://www.rfc-editor.org/rfc/rfc8259 (Reason: confirms whitespace heartbeats remain valid around final JSON payloads.) | Node.js timers API: https://nodejs.org/api/timers.html (Reason: authoritative timer lifecycle behavior for keepalive start/cleanup.) | Node.js HTTP response lifecycle: https://nodejs.org/api/http.html (Reason: confirms safe write/end/close handling for keepalive output.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
@@ -1280,7 +1292,7 @@ Expose `reingest_repository` on the classic MCP surface and map service outputs 
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to read:
      - `server/src/mcp/server.ts`
-     - `server/src/mcp/types.ts` (if present)
+     - `server/src/mcpCommon/jsonRpc.ts`
 2. [ ] Add tool metadata in `tools/list` for `reingest_repository`.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: canonical contract for tool names, arguments, and execution semantics.) | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
@@ -1549,7 +1561,7 @@ Fix server stream aggregation so tool-interleaved Codex runs do not produce crop
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to edit:
      - `server/src/chat/chatStreamBridge.ts`
-     - `server/src/chat/inflightRegistry.ts` (if required)
+     - `server/src/chat/inflightRegistry.ts` (update existing)
 4. [ ] Add regression tests for non-monotonic, tool-interleaved event order.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): OpenAI Codex app server events (authoritative item lifecycle): https://developers.openai.com/codex/app-server (Reason: defines item started/delta/completed event model used by stream merge logic.) | OpenAI Codex repo app-server README: https://raw.githubusercontent.com/openai/codex/main/codex-rs/app-server/README.md (Reason: implementation-level event and streaming details for Codex app-server integration.) | DeepWiki MCP docs (`openai/codex`, see `4.5.3 Event Translation and Streaming`): `openai/codex` (Reason: architecture cross-check for how Codex app-server events are translated into streamed turn updates.) | Node.js streams/events: https://nodejs.org/api/stream.html (Reason: stream/event ordering reference for robust assistant delta aggregation.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
@@ -1937,8 +1949,8 @@ Update Agents page send behavior to preserve raw user text exactly as entered wh
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to add/edit:
-     - `client/src/test/agentsPage.run.test.tsx` (update existing if needed)
-     - `client/src/test/agentsPage.turnHydration.test.tsx` (update existing if needed)
+     - `client/src/test/agentsPage.run.test.tsx` (update existing suite)
+     - `client/src/test/agentsPage.turnHydration.test.tsx` (update existing suite)
    - Explicit test subtasks (complete each separately):
      1. [ ] Leading/trailing whitespace preserved in agents outbound payload.
         - Test type: Client unit/integration (React).
@@ -1960,7 +1972,7 @@ Update Agents page send behavior to preserve raw user text exactly as entered wh
         - Test location: `client/src/test/agentsPage.run.test.tsx`.
         - Description: Add/adjust tests asserting whitespace-only instruction does not trigger run request.
         - Purpose: Keep client guard aligned with server validation.
-4. [ ] Extend existing Agents e2e coverage for raw-input outbound payload behavior.
+4. [ ] Add Agents e2e coverage for raw-input outbound payload behavior.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -2074,8 +2086,8 @@ Render Agents user bubbles with the same markdown/sanitization component used by
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | `react-markdown` docs: https://github.com/remarkjs/react-markdown (Reason: renderer API and component behavior used by shared Markdown pipeline.) | `remark-gfm` docs: https://github.com/remarkjs/remark-gfm (Reason: GFM syntax support details for lists/tables/fences in user bubbles.) | `rehype-sanitize` docs: https://github.com/rehypejs/rehype-sanitize (Reason: sanitization schema rules to keep markdown rendering safe.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | Mermaid docs (Context7): `/mermaid-js/mermaid` (Reason: confirms fenced mermaid syntax/rendering behavior for markdown parity verification.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to add/edit:
-     - `client/src/test/agentsPage.run.test.tsx` (update existing if needed)
-     - `client/src/test/agentsPage.turnHydration.test.tsx` (update existing if needed)
+     - `client/src/test/agentsPage.run.test.tsx` (update existing suite)
+     - `client/src/test/agentsPage.turnHydration.test.tsx` (update existing suite)
    - Explicit test subtasks (complete each separately):
      1. [ ] Agents user markdown rendering parity with assistant rendering.
         - Test type: Client unit/integration (React).
@@ -2097,7 +2109,7 @@ Render Agents user bubbles with the same markdown/sanitization component used by
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | `react-markdown` docs: https://github.com/remarkjs/react-markdown (Reason: renderer API and component behavior used by shared Markdown pipeline.) | `remark-gfm` docs: https://github.com/remarkjs/remark-gfm (Reason: GFM syntax support details for lists/tables/fences in user bubbles.) | `rehype-sanitize` docs: https://github.com/rehypejs/rehype-sanitize (Reason: sanitization schema rules to keep markdown rendering safe.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | Mermaid docs (Context7): `/mermaid-js/mermaid` (Reason: confirms fenced mermaid syntax/rendering behavior for markdown parity verification.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
    - Files to add/edit:
-     - `e2e/agents.spec.ts` (update existing from Task 11)
+     - `e2e/agents.spec.ts` (update file created in Task 11)
    - Explicit test subtasks (complete each separately):
      1. [ ] E2E: agents user markdown/mermaid rendering parity.
         - Test type: End-to-end (Playwright).

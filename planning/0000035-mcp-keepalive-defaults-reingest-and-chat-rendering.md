@@ -324,6 +324,55 @@ Conversation/Turn Mongo shapes (existing storage, reused):
 - Turn keeps `conversationId`, `role`, raw `content`, `model`, `provider`, `toolCalls`, `status`, `source`, optional `command`, optional `usage`, optional `timing`, `createdAt`.
 - Raw-input preservation and provider fallback behavior are behavioral changes only; no schema extension/migration is required.
 
+## Edge Cases and Failure Modes
+
+This section is implementation-authoritative for failure handling in this story. It is intentionally explicit so implementation and testing can assert deterministic behavior.
+
+### MCP Keepalive Unification
+
+- Timer lifecycle leak: keepalive interval must always be cleared on success, error, response end, and socket close for all three MCP surfaces.
+- Write-after-close risk: keepalive writes after `res.end()` or closed socket must be no-op and must not throw uncaught exceptions.
+- Mixed response corruption risk: keepalive must emit JSON-whitespace-only heartbeat bytes so final JSON-RPC payloads remain parseable.
+- Incorrect scope risk: keepalive must only wrap long-running `tools/call` execution and must not alter parse-error/invalid-request/unknown-tool response paths.
+- Contract drift risk: unknown-tool and parse-error mappings that already differ across MCP surfaces must remain unchanged unless explicitly re-scoped by a later story.
+
+### Shared Defaults and Runtime Provider Fallback
+
+- Split resolver risk: REST and MCP must call one shared provider/model resolver so defaults cannot diverge again.
+- Partial env override risk: if either `CHAT_DEFAULT_PROVIDER` or `CHAT_DEFAULT_MODEL` is missing, unresolved fields must continue to hardcoded fallback (`codex`, `gpt-5.3-codex`) with no mixed invalid state.
+- Invalid env value risk: unrecognized provider or empty model from env must be treated as unresolved and flow to hardcoded fallback.
+- Runtime drift risk: provider availability can change between model-list fetch and request execution; selection must re-check availability at execution time.
+- Fallback dead-end risk: if fallback provider is available but has no selectable model, treat fallback as unavailable and keep original provider/unavailable behavior.
+- Oscillation risk: fallback must be single-hop per request and must not flip providers multiple times inside one request lifecycle.
+- Router pre-block risk: MCP v2 `tools/list` and `tools/call` must not be globally blocked by Codex-only availability checks, or LM Studio fallback becomes unreachable.
+
+### `reingest_repository` on Both MCP Surfaces
+
+- Path-identity mismatch risk: `sourceId` must be normalized to POSIX absolute form before exact-match comparison to known ingested roots.
+- Ambiguous input risk: reject non-string, empty, relative, host-path, non-normalized, or ambiguous `sourceId` with `-32602/INVALID_PARAMS` and field-level `error.data`.
+- Unknown-root retryability risk: `NOT_FOUND` responses must include retry guidance plus `reingestableRepositoryIds` and `reingestableSourceIds` so AI callers can retry safely.
+- Busy-state race risk: if ingest lock is acquired after validation but before execution, return canonical `429/BUSY` contract instead of generic failure.
+- First-time-ingest safety risk: MCP `reingest_repository` must never call new-ingest flow even if candidate path exists on disk.
+- Cross-surface parity risk: classic MCP and MCP v2 must expose the same tool name, argument shape, success shape, and error code/message mapping.
+
+### Codex Stream Merge Correctness
+
+- Non-monotonic update risk: intermediate snapshots/deltas may not be strict prefix extensions; merge logic must not assume prefix-only append.
+- Item-boundary risk: tool interleaving can produce multiple item streams; aggregation must key by item identity to avoid cross-item text contamination.
+- Late-delta risk: deltas received after `item/completed` for an item must not mutate finalized text for that item.
+- Double-finalization risk: `turn_final`/completed publication must happen once per turn so final assistant text is not appended twice.
+- Stale-event risk: events from prior inflight runs must be ignored and must not alter the current run's visible transcript.
+- Interrupt/error completion risk: cancelled/failed turns must not emit a duplicated assistant final bubble; terminal error signaling must remain explicit.
+
+### User Markdown Parity and Raw Input Preservation
+
+- Client trim mutation risk: chat/agents client send paths must not trim or normalize valid user payload text before send.
+- Empty-content guard risk: whitespace-only/newline-only input must be rejected server-side with existing HTTP 400 envelope styles before provider execution.
+- Renderer parity drift risk: user bubbles must use exactly the same markdown component and sanitization profile as assistant bubbles.
+- Markdown safety regression risk: enabling user markdown must not bypass current sanitize behavior (including script stripping around mermaid rendering).
+- Mermaid failure UX risk: mermaid parse/render failures in user bubbles must keep the same fallback behavior used for assistant bubbles.
+- Large-input stability risk: very large raw user markdown must follow existing payload/transport limits and must fail with existing request-size/validation behavior rather than partial send.
+
 ## Implementation Ideas
 
 This section is a rough implementation sequence only (non-tasked), validated against current code and external docs (`code_info`, `deepwiki`, `context7`).

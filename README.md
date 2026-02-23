@@ -523,6 +523,7 @@ Ingest collection names (`INGEST_COLLECTION`, `INGEST_ROOTS_COLLECTION`) come fr
 - Provider/model are optional; when omitted, the server applies shared default resolution (`request -> CHAT_DEFAULT_* env -> codex/gpt-5.3-codex fallback`).
 - Response (202): `{ "status": "started", "conversationId": "<uuid>", "inflightId": "<uuid>", "provider": "...", "model": "..." }`.
 - Transcript streaming is **WebSocket-only** at `ws://localhost:5010/ws` (or `wss://.../ws`). Clients subscribe with `subscribe_conversation` and receive: `inflight_snapshot` (catch-up), then `assistant_delta`/`analysis_delta`/`tool_event`, finishing with `turn_final`.
+- Chat UI send-path preserves raw non-whitespace user input exactly as entered (including leading/trailing spaces and multiline newlines) in outbound `POST /chat` payloads; whitespace-only/newline-only submissions are blocked client-side and rejected server-side.
 - Example: `curl -s -X POST http://localhost:5010/chat -H 'content-type: application/json' -d '{"provider":"lmstudio","model":"llama-3","conversationId":"00000000-0000-0000-0000-000000000000","message":"hello"}'`.
 - Logging: server records `chat.run.started` plus WS publish milestones (`chat.stream.*`) and tool lifecycle metadata (name/callId only, no args/results); payloads respect `LOG_MAX_CLIENT_BYTES`.
 - Tooling: chat registers LM Studio tools `ListIngestedRepositories` and `VectorSearch` (see `server/src/lmstudio/tools.ts`) that reuse the `/tools/ingested-repos` and `/tools/vector-search` logic. Tool responses include repo id, relPath, containerPath, hostPath, chunk text/score, and model id for citations; repo-not-found/validation errors surface as tool errors. VectorSearch now derives its embedding function from the collection’s locked model; if no lock exists it surfaces `INGEST_REQUIRED`, and if the locked model is missing in LM Studio it surfaces `EMBED_MODEL_MISSING`. Usage is logged without persisting payload bodies.
@@ -553,7 +554,7 @@ Ingest collection names (`INGEST_COLLECTION`, `INGEST_ROOTS_COLLECTION`) come fr
 - Start stack: `npm run e2e:up`
 - Run test: `npm run e2e:test` (runs all specs; uses `E2E_BASE_URL` or defaults to http://localhost:5001 and `E2E_API_URL` default http://localhost:5010 for the proxy)
 - LM Studio spec hits live data via the server proxy; start LM Studio on `LMSTUDIO_BASE_URL` (default `http://host.docker.internal:1234`) before running. The test will `test.skip` if the proxy or LM Studio is unreachable, but the client still needs to be up.
-- Chat spec (`e2e/chat.spec.ts`) covers model selection plus a two-turn streaming conversation; it skips automatically if `/chat/models` is unreachable or empty.
+- Chat spec (`e2e/chat.spec.ts`) covers model selection, a two-turn streaming conversation, raw outbound payload preservation (surrounding whitespace + newlines), and whitespace-only submit blocking; it skips automatically if `/chat/models` is unreachable or empty.
 - Full flow: `npm run e2e`
 - Shut down after tests: `npm run e2e:down`
 

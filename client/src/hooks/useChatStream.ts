@@ -106,9 +106,6 @@ const API_BASE = getApiBaseUrl();
 
 const HYDRATION_DEDUPE_WINDOW_MS = 30 * 60 * 1000;
 
-const normalizeMessageContent = (value: string) =>
-  value.trim().replace(/\s+/g, ' ');
-
 const parseTimestamp = (value?: string) => {
   if (!value) return null;
   const parsed = Date.parse(value);
@@ -756,10 +753,8 @@ export function useChatStream(
           filteredHistory = history.filter((entry) => {
             const match = candidates.find((existing) => {
               if (existing.role !== entry.role) return false;
-              const entryContent = normalizeMessageContent(entry.content ?? '');
-              const existingContent = normalizeMessageContent(
-                existing.content ?? '',
-              );
+              const entryContent = entry.content ?? '';
+              const existingContent = existing.content ?? '';
               const existingHasContent = existingContent.length > 0;
               if (!entryContent && !existingContent) return false;
               const entryTime = parseTimestamp(entry.createdAt);
@@ -904,8 +899,36 @@ export function useChatStream(
 
   const send = useCallback(
     async (text: string) => {
-      const trimmed = text.trim();
-      if (!trimmed || status === 'sending' || !model || !provider) {
+      const hasNonWhitespaceContent = text.trim().length > 0;
+      logWithChannel('info', 'DEV-0000035:T9:chat_raw_send_evaluated', {
+        source: 'useChatStream',
+        rawLength: text.length,
+        trimmedLength: text.trim().length,
+        hasNonWhitespaceContent,
+        blockedByStatus: status === 'sending',
+        blockedByModel: !model,
+        blockedByProvider: !provider,
+      });
+
+      if (
+        !hasNonWhitespaceContent ||
+        status === 'sending' ||
+        !model ||
+        !provider
+      ) {
+        logWithChannel('info', 'DEV-0000035:T9:chat_raw_send_result', {
+          source: 'useChatStream',
+          sent: false,
+          reason: !hasNonWhitespaceContent
+            ? 'whitespace_only'
+            : status === 'sending'
+              ? 'status_sending'
+              : !model
+                ? 'missing_model'
+                : 'missing_provider',
+          rawLength: text.length,
+          trimmedLength: text.trim().length,
+        });
         return;
       }
 
@@ -935,11 +958,18 @@ export function useChatStream(
       const userMessage: ChatMessage = {
         id: makeId(),
         role: 'user',
-        content: trimmed,
+        content: text,
         createdAt: new Date().toISOString(),
       };
 
       updateMessages((prev) => [...prev, userMessage]);
+      logWithChannel('info', 'DEV-0000035:T9:chat_raw_send_result', {
+        source: 'useChatStream',
+        sent: true,
+        reason: 'dispatching',
+        rawLength: text.length,
+        trimmedLength: text.trim().length,
+      });
 
       const currentConversationId = conversationIdRef.current || makeId();
       conversationIdRef.current = currentConversationId;
@@ -1061,7 +1091,7 @@ export function useChatStream(
             model,
             conversationId: currentConversationId,
             inflightId: nextInflightId,
-            message: trimmed,
+            message: text,
             ...codexPayload,
           }),
         });
@@ -1206,13 +1236,13 @@ export function useChatStream(
           resetAssistantPointer: shouldResetAssistantPointer,
         });
 
-        const normalizedIncoming = normalizeMessageContent(event.content ?? '');
+        const incomingContent = event.content ?? '';
         const nowTimestamp = new Date().getTime();
         const incomingTimestamp = parseTimestamp(event.createdAt);
         const assistantId = activeAssistantMessageIdRef.current;
 
         updateMessages((prev) => {
-          if (!normalizedIncoming) return prev;
+          if (!incomingContent) return prev;
 
           for (
             let i = prev.length - 1;
@@ -1221,10 +1251,7 @@ export function useChatStream(
           ) {
             const existing = prev[i];
             if (existing?.role !== 'user') continue;
-            if (
-              normalizeMessageContent(existing.content ?? '') !==
-              normalizedIncoming
-            ) {
+            if ((existing.content ?? '') !== incomingContent) {
               continue;
             }
 

@@ -2820,7 +2820,7 @@ Fix server stream aggregation so tool-interleaved Codex runs do not produce crop
 
 ### 9. Client: Chat page raw-input send behavior
 
-- Task Status: **__in_progress__**
+- Task Status: **__done__**
 - Git Commits: to_do
 
 #### Overview
@@ -2839,7 +2839,7 @@ Update Chat page send behavior to preserve raw user text exactly as entered whil
 
 #### Subtasks
 
-1. [ ] Review current chat send-path trimming and outbound payload flow.
+1. [x] Review current chat send-path trimming and outbound payload flow.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -2852,7 +2852,7 @@ Update Chat page send behavior to preserve raw user text exactly as entered whil
    - Files to read:
      - `client/src/pages/ChatPage.tsx`
      - `client/src/hooks/useChatStream.ts`
-2. [ ] Remove client-side trim mutation from chat send path while preserving empty-input guard UX.
+2. [x] Remove client-side trim mutation from chat send path while preserving empty-input guard UX.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -2872,7 +2872,7 @@ Update Chat page send behavior to preserve raw user text exactly as entered whil
      - do not mutate payload text before send when content is non-whitespace
      - keep local "cannot send empty" behavior aligned with server rule
      - remove user-turn dedupe comparisons that normalize/collapse whitespace so distinct raw inputs remain distinct in transcript hydration
-3. [ ] Add chat UI tests for raw payload preservation behavior.
+3. [x] Add chat UI tests for raw payload preservation behavior.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -2898,31 +2898,31 @@ Update Chat page send behavior to preserve raw user text exactly as entered whil
        // Assert
      });
      ```
-     1. [ ] Leading/trailing whitespace preserved in outbound payload.
+     1. [x] Leading/trailing whitespace preserved in outbound payload.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Client unit/integration (React).
         - Test location: `client/src/test/useChatStream.toolPayloads.test.tsx`, `client/src/test/chatPage.stream.test.tsx`.
         - Description: Add/adjust tests asserting non-empty payloads keep surrounding whitespace when dispatched.
         - Purpose: Prevent trim mutation regressions.
-     2. [ ] Newline formatting preserved in outbound payload.
+     2. [x] Newline formatting preserved in outbound payload.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Client unit/integration (React).
         - Test location: `client/src/test/useChatStream.toolPayloads.test.tsx`, `client/src/test/chatPage.stream.test.tsx`.
         - Description: Add/adjust tests asserting multiline payloads preserve newline structure exactly.
         - Purpose: Preserve user-authored formatting.
-     3. [ ] Messages differing only by whitespace are not merged in user transcript hydration.
+     3. [x] Messages differing only by whitespace are not merged in user transcript hydration.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Client unit/integration (React).
         - Test location: `client/src/test/chatPage.stream.test.tsx`.
         - Description: Add/adjust tests asserting whitespace-distinct inputs render as separate user turns.
         - Purpose: Prevent dedupe normalization bugs.
-     4. [ ] Whitespace-only input is blocked client-side before dispatch.
+     4. [x] Whitespace-only input is blocked client-side before dispatch.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Client unit/integration (React).
         - Test location: `client/src/test/chatPage.stream.test.tsx`.
         - Description: Add/adjust tests asserting whitespace-only input never triggers send request.
         - Purpose: Keep UX aligned with server validation policy.
-4. [ ] Extend existing Chat e2e coverage for raw-input outbound payload behavior.
+4. [x] Extend existing Chat e2e coverage for raw-input outbound payload behavior.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -2947,25 +2947,25 @@ Update Chat page send behavior to preserve raw user text exactly as entered whil
        // Assert
      });
      ```
-     1. [ ] E2E: leading/trailing whitespace preserved in chat outbound payload.
+     1. [x] E2E: leading/trailing whitespace preserved in chat outbound payload.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: End-to-end (Playwright).
         - Test location: `e2e/chat.spec.ts`.
         - Description: Add/adjust e2e assertions against captured request payload showing surrounding whitespace is preserved.
         - Purpose: Verify browser-to-server behavior in real UI flow.
-     2. [ ] E2E: multiline newline structure preserved in chat outbound payload.
+     2. [x] E2E: multiline newline structure preserved in chat outbound payload.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: End-to-end (Playwright).
         - Test location: `e2e/chat.spec.ts`.
         - Description: Add/adjust e2e assertions for multiline input payload equality including newline characters.
         - Purpose: Prevent newline-loss regressions in real flow.
-     3. [ ] E2E: whitespace-only input does not dispatch `POST /chat`.
+     3. [x] E2E: whitespace-only input does not dispatch `POST /chat`.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: End-to-end (Playwright).
         - Test location: `e2e/chat.spec.ts`.
         - Description: Add/adjust e2e assertions that submit attempt with whitespace-only input does not emit network request.
         - Purpose: Ensure client guard enforcement in UI.
-5. [ ] Update `README.md` for Chat raw-input send behavior.
+5. [x] Update `README.md` for Chat raw-input send behavior.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -2981,7 +2981,7 @@ Update Chat page send behavior to preserve raw user text exactly as entered whil
    - Document location: `README.md`
    - Description: Document raw input preservation rules and whitespace-only guard behavior for Chat.
    - Purpose: Keep user-facing behavior docs aligned with UI send-path logic.
-6. [ ] Update `design.md` for Chat raw-input send flow.
+6. [x] Update `design.md` for Chat raw-input send flow.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -2997,7 +2997,7 @@ Update Chat page send behavior to preserve raw user text exactly as entered whil
    - Document location: `design.md`
    - Description: Document Chat send-flow behavior for raw payload preservation and validation boundaries.
    - Purpose: Keep implementation design notes consistent with frontend behavior and tests.
-7. [ ] Update `projectStructure.md` with every file/folder added, removed, or renamed in this task (after file changes are complete).
+7. [x] Update `projectStructure.md` with every file/folder added, removed, or renamed in this task (after file changes are complete).
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -3007,7 +3007,7 @@ Update Chat page send behavior to preserve raw user text exactly as entered whil
      - `path/to/added-file.ts` - one-line purpose
      - Removed: `path/to/removed-file.ts` - one-line reason (if any)
      ```
-8. [ ] Add task-specific structured log lines for Manual Playwright-MCP verification.
+8. [x] Add task-specific structured log lines for Manual Playwright-MCP verification.
    - Files to edit:
      - `client/src/hooks/useChatStream.ts`
      - `client/src/pages/ChatPage.tsx`
@@ -3015,33 +3015,118 @@ Update Chat page send behavior to preserve raw user text exactly as entered whil
      - `DEV-0000035:T9:chat_raw_send_evaluated`
      - `DEV-0000035:T9:chat_raw_send_result`
    - Expected outcome: During chat send attempts, both tags appear and result records sent=true for non-whitespace input and sent=false for whitespace-only input.
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+9. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check to manually confirm story items and general regression checks for this task; include a check that there are no logged errors within the debug console; use `http://host.docker.internal:5001` via Playwright MCP tools.
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check to manually confirm story items and general regression checks for this task; include a check that there are no logged errors within the debug console; use `http://host.docker.internal:5001` via Playwright MCP tools.
    - Required log tags to verify: `DEV-0000035:T9:chat_raw_send_evaluated`, `DEV-0000035:T9:chat_raw_send_result`.
    - Expected outcome: During chat send attempts, both tags appear and result records sent=true for non-whitespace input and sent=false for whitespace-only input. Also confirm no unexpected `[error]`/uncaught console errors in browser debug console during this check.
    - Capture screenshots and save them to `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped in `docker-compose.local.yml`):
      - `0000035-9-chat-raw-send-valid.png` after sending multiline non-whitespace input that contains leading/trailing spaces.
      - `0000035-9-chat-raw-send-whitespace-blocked.png` after attempting whitespace-only input and confirming no outbound send occurs.
    - Agent screenshot review expectation: verify the screenshots show raw user text preserved exactly for valid sends, whitespace-only send blocked, and no visual regression in Chat transcript/input controls.
-9. [ ] `npm run compose:down`
-10. [ ] `npm run test --workspace client -- useChatStream.toolPayloads`
-11. [ ] `npm run test --workspace client -- chatPage.stream`
-12. [ ] `npm run e2e:test -- e2e/chat.spec.ts`
-13. [ ] Manual smoke: Chat UI send multiline input with leading/trailing whitespace and verify outbound request preserves raw content while whitespace-only input is blocked
-14. [ ] `npm run lint --workspaces`
-15. [ ] `npm run format:check --workspaces`
+9. [x] `npm run compose:down`
+10. [x] `npm run test --workspace client -- useChatStream.toolPayloads`
+11. [x] `npm run test --workspace client -- chatPage.stream`
+12. [x] `npm run e2e:test -- e2e/chat.spec.ts`
+13. [x] Manual smoke: Chat UI send multiline input with leading/trailing whitespace and verify outbound request preserves raw content while whitespace-only input is blocked
+14. [x] `npm run lint --workspaces`
+15. [x] `npm run format:check --workspaces`
 #### Implementation notes
 
-- to_do
+- Subtask 1 completed:
+  - Reviewed chat send-path and hydration flow in `client/src/pages/ChatPage.tsx` and `client/src/hooks/useChatStream.ts`.
+  - Confirmed current trim mutation points: `ChatPage.handleSubmit` trims before `send`, `useChatStream.send` trims before user-message creation and request payload.
+  - Confirmed whitespace-normalizing dedupe currently uses `normalizeMessageContent(value.trim().replace(/\s+/g, ' '))` in both `hydrateHistory` and WS `user_turn` handling, which can collapse whitespace-distinct turns.
+  - Verification commands:
+    - `rg -n "trim\\(|normalizeMessageContent|send\\(|message: trimmed|chat-input|chat-send" client/src/pages/ChatPage.tsx client/src/hooks/useChatStream.ts`
+    - `sed -n '640,760p' client/src/pages/ChatPage.tsx`
+    - `sed -n '1660,1735p' client/src/pages/ChatPage.tsx`
+    - `sed -n '720,790p' client/src/hooks/useChatStream.ts`
+    - `sed -n '860,1165p' client/src/hooks/useChatStream.ts`
+    - `sed -n '1165,1365p' client/src/hooks/useChatStream.ts`
+- Subtask 2 completed:
+  - Updated raw-send behavior in `client/src/hooks/useChatStream.ts` and `client/src/pages/ChatPage.tsx`.
+  - Removed trim mutation from outbound chat payload/user message content (`message: text`, `content: text`) while keeping whitespace-only rejection via guard checks (`text.trim().length`).
+  - Replaced whitespace-normalized hydration dedupe comparisons with exact-content comparisons so whitespace-distinct turns remain distinct.
+  - Verification commands/results:
+    - `npm run test --workspace client -- useChatStream.toolPayloads` (pass)
+    - `npm run test --workspace client -- chatPage.stream` (pass)
+- Subtask 3 completed:
+  - Added raw-payload preservation tests in `client/src/test/useChatStream.toolPayloads.test.tsx` for leading/trailing whitespace and multiline newlines.
+  - Added Chat page stream tests in `client/src/test/chatPage.stream.test.tsx` for raw payload preservation, whitespace-distinct turn separation, and whitespace-only client-side block.
+  - Verification commands/results:
+    - `npm run test --workspace client -- useChatStream.toolPayloads` (pass: 9 tests)
+    - `npm run test --workspace client -- chatPage.stream` (pass: 27 tests)
+- Subtask 4 completed:
+  - Extended `e2e/chat.spec.ts` with a new raw-input coverage scenario asserting outbound payload preserves leading/trailing whitespace and multiline newlines, and whitespace-only submit does not dispatch `POST /chat`.
+  - Verification command/result:
+    - `npm run e2e:test -- e2e/chat.spec.ts` (pass; recorded under Testing step 12)
+- Subtask 5 completed:
+  - Updated `README.md` chat streaming and e2e sections to document raw-input preservation and whitespace-only blocking behavior.
+  - Verification command/result:
+    - `rg -n "raw|whitespace-only|Chat spec" README.md` (expected entries present)
+- Subtask 6 completed:
+  - Updated `design.md` to reflect Chat client raw-send behavior and e2e coverage expectations for raw payload preservation/whitespace-only blocking.
+  - Verification command/result:
+    - `rg -n "raw-input|Chat client send-flow|whitespace-only|e2e/chat.spec.ts" design.md` (expected entries present)
+- Subtask 7 completed:
+  - Updated `projectStructure.md` descriptions for `useChatStream.ts`, `ChatPage.tsx`, `chatPage.stream.test.tsx`, `useChatStream.toolPayloads.test.tsx`, and `e2e/chat.spec.ts` to match Task 9 behavior/coverage.
+  - No files/folders were added, removed, or renamed in Task 9.
+  - Verification command/result:
+    - `rg -n "useChatStream.ts|ChatPage.tsx|chatPage.stream.test.tsx|useChatStream.toolPayloads.test.tsx|chat.spec.ts" projectStructure.md` (expected entries present)
+- Subtask 8 completed:
+  - Added required Task 9 structured log tags in both `client/src/pages/ChatPage.tsx` and `client/src/hooks/useChatStream.ts`:
+    - `DEV-0000035:T9:chat_raw_send_evaluated`
+    - `DEV-0000035:T9:chat_raw_send_result`
+  - Verification command/result:
+    - `rg -n "DEV-0000035:T9:chat_raw_send_evaluated|DEV-0000035:T9:chat_raw_send_result" client/src/pages/ChatPage.tsx client/src/hooks/useChatStream.ts` (tags present in both files)
+- Subtask 9 completed:
+  - Ran workspace lint and format checks.
+  - Verification commands/results:
+    - `npm run lint --workspaces` (pass with existing baseline server import-order warnings only; no errors)
+    - `npm run format:check --workspaces` (pass)
+- Testing 4 completed:
+  - `npm run test --workspace client` (pass; 90 suites, 325 tests).
+- Testing 5 completed:
+  - `npm run e2e` (pass; 37 Playwright specs passed, with e2e compose stack built/up/test/down completed successfully).
+- Testing 6 completed:
+  - `npm run compose:build` (pass; local compose images `codeinfo2-server` and `codeinfo2-client` built successfully).
+- Testing 7 completed:
+  - `npm run compose:up` (pass; local stack started and reported healthy `server`/`client` containers).
+- Testing 8 completed (Manual Playwright-MCP):
+  - Opened `http://host.docker.internal:5001/chat` via Playwright MCP, sent multiline input with leading/trailing spaces (`"  line one\nline two  "`), and observed required tags:
+    - `DEV-0000035:T9:chat_raw_send_evaluated`
+    - `DEV-0000035:T9:chat_raw_send_result`
+  - Attempted whitespace-only input (`"   \n   "`) and confirmed no additional `POST /chat` request dispatch occurred (network log retained single `POST /chat` entry for the valid send).
+  - Browser debug console error scan returned no entries (`browser_console_messages level=error` empty).
+  - Saved required screenshots:
+    - `playwright-output-local/0000035-9-chat-raw-send-valid.png`
+    - `playwright-output-local/0000035-9-chat-raw-send-whitespace-blocked.png`
+- Testing 9 completed:
+  - `npm run compose:down` (pass; local compose stack and internal network removed cleanly).
+- Testing 10 completed:
+  - `npm run test --workspace client -- useChatStream.toolPayloads` (pass; 1 suite, 9 tests).
+- Testing 11 completed:
+  - `npm run test --workspace client -- chatPage.stream` (pass; 1 suite, 27 tests).
+  - Note: existing jsdom/MUI `act(...)` warnings still print in this suite, but run exits successfully and assertions pass (baseline behavior).
+- Testing 12 completed:
+  - Initial run failed with `ERR_CONNECTION_REFUSED` because `e2e:test` targets e2e ports `6001/6010` and requires the e2e compose stack.
+  - Started e2e stack via `npm run e2e:up`, then reran `npm run e2e:test -- e2e/chat.spec.ts` (pass; 37 Playwright specs).
+- Testing 13 completed (manual smoke):
+  - On `http://host.docker.internal:5001/chat`, sent multiline input with leading/trailing whitespace (`"  smoke one\nsmoke two  "`) and confirmed send tags/log flow.
+  - Attempted whitespace-only input (`" \n  "`), observed `DEV-0000035:T9:chat_raw_send_result` with blocked behavior, and confirmed no additional `POST /chat` dispatch (network log kept single `POST /chat` for this session).
+- Testing 14 completed:
+  - `npm run lint --workspaces` (pass; existing baseline warnings only, including known server `import/order` warnings, no errors).
+- Testing 15 completed:
+  - `npm run format:check --workspaces` (pass; client/server/common all matched Prettier formatting).
 
 ---
 

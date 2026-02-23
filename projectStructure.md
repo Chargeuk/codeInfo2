@@ -74,7 +74,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 |     |- hooks/
 |     |  |- useChatModel.ts ? fetches /chat/models, tracks selected model state
 |     |  |- useChatWs.ts — WebSocket client hook (connect/reconnect, subscribe/unsubscribe, JSON codec, client log forwarding)
-|     |  |- useChatStream.ts — chat run hook (POST /chat start-run 202 + merges WS transcript events into ChatMessage state)
+|     |  |- useChatStream.ts — chat run hook (POST /chat start-run 202 + merges WS transcript events into ChatMessage state, preserving raw non-whitespace outbound input and blocking whitespace-only sends)
 |     |  |- useLmStudioStatus.ts ? LM Studio status/models data hook
 |     |  |- useConversations.ts ? conversation list infinite scroll + archive/restore helpers
 |     |  |- useConversationTurns.ts ? lazy turn loading with load-older cursor handling
@@ -93,7 +93,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 |     |- index.css ? minimal global styles (font smoothing, margin reset)
 |     |- main.tsx ? app entry with RouterProvider
 |     |- pages/
-|     |  |- ChatPage.tsx ? chat shell with model select, streaming transcript, rounded 14px bubbles, tool blocks, citations accordion (closed by default), and stream status/thinking UI (1s idle guard, ignores tool-only waits)
+|     |  |- ChatPage.tsx ? chat shell with model select, streaming transcript, rounded 14px bubbles, tool blocks, citations accordion (closed by default), stream status/thinking UI (1s idle guard, ignores tool-only waits), and raw-input send guards/logging
 |     |  |- AgentsPage.tsx ? agents UI with selector/stop/new-conversation controls, description markdown, and persisted conversation continuation
 |     |  |- FlowsPage.tsx ? flows UI with selector/run/resume/stop controls, flow-filtered sidebar, and step metadata transcript
 |     |  |- IngestPage.tsx ? ingest UI shell (lock banner, form, run/status placeholders)
@@ -107,7 +107,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 |     |     |  - transport.test.ts ? client log transport queue/backoff tests
 |     |     |- chatPage.models.test.tsx ? chat page models list states
 |     |     |- chatPage.newConversation.test.tsx ? chat page new conversation reset behaviour
-|     |     |- chatPage.stream.test.tsx ? chat streaming hook + UI coverage (status chip/thinking gating incl. pre-token + mid-turn idle waits)
+|     |     |- chatPage.stream.test.tsx ? chat streaming hook + UI coverage (status chip/thinking gating incl. pre-token + mid-turn idle waits, raw payload preservation, whitespace-only blocking, whitespace-distinct turns)
 |     |     |- chatPage.citations.test.tsx ? chat citations accordion default-closed with host paths shown when expanded
 |     |     |- chatPage.noPaths.test.tsx ? chat citations render when host path missing
 |     |     |- chatPage.stop.test.tsx ? chat stop control aborts streams and shows status bubble
@@ -160,6 +160,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 |     |     |- router.test.tsx ? nav/router tests
 |     |     |- setupTests.ts ? Jest/test setup
 |     |     |- useChatStream.reasoning.test.tsx ? chat hook reasoning parser coverage
+|     |     |- useChatStream.toolPayloads.test.tsx ? chat hook WS tool payload handling plus raw outbound payload preservation assertions
 |     |     |- useLmStudioStatus.test.ts ? hook tests
 |     |     |- useLogs.test.ts ? log fetch + SSE hook tests
 |     |     - version.test.tsx ? version card test
@@ -181,7 +182,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚  â”œâ”€ fixtures/
 â”‚  â”‚  â”œâ”€ repo/README.md — ingest e2e sample repo description
 â”‚  â”‚  â””â”€ repo/main.txt — ingest e2e sample source file with deterministic Q&A text
-â”‚  â”œâ”€ chat.spec.ts - chat page end-to-end (model select + two-turn stream; skips if models unavailable)
+â”‚  â”œâ”€ chat.spec.ts - chat page end-to-end (model select + two-turn stream + raw payload/whitespace guard checks; skips if models unavailable)
 â”‚  â”œâ”€ chat-tools.spec.ts — chat citations e2e: ingest fixture, vector search, mock `POST /chat` (202) + chat WS, assert repo/host path citations
 â”‚  â”œâ”€ chat-tools-visibility.spec.ts — chat tool detail UX e2e (closed state, params, repo expansion, vector aggregation, errors, thinking spinner idle/tool-wait behaviour)
 â”‚  â”œâ”€ chat-reasoning.spec.ts — Harmony/think reasoning collapse e2e (mock WS)

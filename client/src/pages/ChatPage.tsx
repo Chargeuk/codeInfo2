@@ -687,10 +687,38 @@ export default function ChatPage() {
 
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
-    const trimmed = input.trim();
-    if (!trimmed || controlsDisabled) return;
-    lastSentRef.current = trimmed;
-    void send(trimmed).then(() => refreshConversations());
+    const hasNonWhitespaceContent = input.trim().length > 0;
+    log('info', 'DEV-0000035:T9:chat_raw_send_evaluated', {
+      source: 'ChatPage',
+      rawLength: input.length,
+      trimmedLength: input.trim().length,
+      hasNonWhitespaceContent,
+      controlsDisabled,
+      isSending,
+    });
+
+    if (!hasNonWhitespaceContent || controlsDisabled) {
+      log('info', 'DEV-0000035:T9:chat_raw_send_result', {
+        source: 'ChatPage',
+        sent: false,
+        reason: !hasNonWhitespaceContent
+          ? 'whitespace_only'
+          : 'controls_disabled',
+        rawLength: input.length,
+        trimmedLength: input.trim().length,
+      });
+      return;
+    }
+
+    lastSentRef.current = input;
+    log('info', 'DEV-0000035:T9:chat_raw_send_result', {
+      source: 'ChatPage',
+      sent: true,
+      reason: 'submitted',
+      rawLength: input.length,
+      trimmedLength: input.trim().length,
+    });
+    void send(input).then(() => refreshConversations());
     setInput('');
   };
 
@@ -1701,9 +1729,7 @@ export default function ChatPage() {
                             variant="contained"
                             size="small"
                             data-testid="chat-send"
-                            disabled={
-                              controlsDisabled || isSending || !input.trim()
-                            }
+                            disabled={controlsDisabled || isSending}
                           >
                             Send
                           </Button>

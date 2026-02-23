@@ -1585,4 +1585,115 @@ describe('Chat WS streaming UI', () => {
     const errorBubble = await findBubbleByRole('assistant', 'error');
     expect(within(errorBubble).queryByTestId('bubble-timestamp')).toBeNull();
   });
+
+  it('preserves leading/trailing whitespace and newline structure in outbound chat payload', async () => {
+    const harness = setupChatWsHarness({ mockFetch });
+    const user = userEvent.setup();
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const input = await screen.findByTestId('chat-input');
+    const sendButton = await screen.findByTestId('chat-send');
+
+    const firstRaw = '  keep leading and trailing  ';
+    fireEvent.change(input, { target: { value: firstRaw } });
+    await waitFor(() => expect(sendButton).toBeEnabled());
+    await act(async () => {
+      await user.click(sendButton);
+    });
+    await waitFor(() => expect(harness.chatBodies.length).toBe(1));
+    expect(harness.chatBodies[0]?.message).toBe(firstRaw);
+
+    const conversationId = harness.getConversationId() ?? 'c1';
+    const firstInflightId = harness.getInflightId() ?? 'i1';
+    harness.emitInflightSnapshot({
+      conversationId,
+      inflightId: firstInflightId,
+      assistantText: '',
+    });
+    harness.emitFinal({
+      conversationId,
+      inflightId: firstInflightId,
+      status: 'ok',
+    });
+    const statusChip = await screen.findByTestId('status-chip');
+    await waitFor(() => expect(statusChip).toHaveTextContent('Complete'));
+
+    const secondRaw = 'line one\n  line two\nline three';
+    fireEvent.change(input, { target: { value: secondRaw } });
+    await waitFor(() => expect(sendButton).toBeEnabled());
+    await act(async () => {
+      await user.click(sendButton);
+    });
+    await waitFor(() => expect(harness.chatBodies.length).toBe(2));
+    expect(harness.chatBodies[1]?.message).toBe(secondRaw);
+  });
+
+  it('keeps whitespace-distinct user messages as separate turns', async () => {
+    const harness = setupChatWsHarness({ mockFetch });
+    const user = userEvent.setup();
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const input = await screen.findByTestId('chat-input');
+    const sendButton = await screen.findByTestId('chat-send');
+
+    fireEvent.change(input, { target: { value: 'same message' } });
+    await waitFor(() => expect(sendButton).toBeEnabled());
+    await act(async () => {
+      await user.click(sendButton);
+    });
+    await waitFor(() => expect(harness.chatBodies.length).toBe(1));
+
+    const conversationId = harness.getConversationId() ?? 'c1';
+    const firstInflightId = harness.getInflightId() ?? 'i1';
+    harness.emitInflightSnapshot({
+      conversationId,
+      inflightId: firstInflightId,
+      assistantText: '',
+    });
+    harness.emitFinal({
+      conversationId,
+      inflightId: firstInflightId,
+      status: 'ok',
+    });
+    const statusChip = await screen.findByTestId('status-chip');
+    await waitFor(() => expect(statusChip).toHaveTextContent('Complete'));
+
+    fireEvent.change(input, { target: { value: 'same message ' } });
+    await waitFor(() => expect(sendButton).toBeEnabled());
+    await act(async () => {
+      await user.click(sendButton);
+    });
+    await waitFor(() => expect(harness.chatBodies.length).toBe(2));
+    expect(harness.chatBodies[0]?.message).toBe('same message');
+    expect(harness.chatBodies[1]?.message).toBe('same message ');
+
+    const userBubbles = screen
+      .getAllByTestId('chat-bubble')
+      .filter(
+        (node) =>
+          node.getAttribute('data-role') === 'user' &&
+          node.getAttribute('data-kind') === 'normal',
+      );
+    expect(userBubbles).toHaveLength(2);
+  });
+
+  it('blocks whitespace-only input before dispatching POST /chat', async () => {
+    const harness = setupChatWsHarness({ mockFetch });
+    const user = userEvent.setup();
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const input = await screen.findByTestId('chat-input');
+    const sendButton = await screen.findByTestId('chat-send');
+
+    fireEvent.change(input, { target: { value: '   \n  ' } });
+    await waitFor(() => expect(sendButton).toBeEnabled());
+    await act(async () => {
+      await user.click(sendButton);
+    });
+
+    await waitFor(() => expect(harness.chatBodies.length).toBe(0));
+  });
 });

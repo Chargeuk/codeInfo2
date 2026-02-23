@@ -3462,7 +3462,7 @@ Render Chat user bubbles with the same markdown/sanitization component used by a
 
 ### 11. Client: Agents page raw-input send behavior
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: to_do
 
 #### Overview

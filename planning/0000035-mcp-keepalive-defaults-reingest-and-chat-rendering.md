@@ -3133,7 +3133,7 @@ Update Chat page send behavior to preserve raw user text exactly as entered whil
 ### 10. Client: Chat page user bubble markdown parity
 
 - Task Status: **__done__**
-- Git Commits: to_do
+- Git Commits: e7a300c
 
 #### Overview
 

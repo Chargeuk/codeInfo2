@@ -503,6 +503,27 @@ Server test command note (KISS, deterministic):
 
 ---
 
+### Post-implementation code review (2026-02-23)
+
+- Review scope:
+  - Compared this branch against `main` using `git merge-base main HEAD`, `git diff --stat main...HEAD`, and `git diff --name-only main...HEAD`.
+  - Re-checked latest branch activity with `git log --oneline -3` before closing this review pass.
+- Areas reviewed in detail (high-risk and acceptance-critical):
+  - Shared keepalive lifecycle and MCP router integration (`server/src/mcpCommon/keepAlive.ts`, `server/src/mcp/server.ts`, `server/src/mcp2/router.ts`, `server/src/mcpAgents/router.ts`).
+  - Shared defaults and runtime provider fallback contract (`server/src/config/chatDefaults.ts`, `server/src/routes/chatValidators.ts`, `server/src/routes/chat.ts`, `server/src/routes/chatModels.ts`, `server/src/routes/chatProviders.ts`, `server/src/mcp2/tools/codebaseQuestion.ts`).
+  - MCP re-ingest safety/contract consistency (`server/src/ingest/reingestService.ts`, `server/src/mcp2/tools/reingestRepository.ts`, `server/src/mcp2/errors.ts`, `server/src/mcp2/tools.ts`).
+  - Codex stream merge correctness (`server/src/chat/interfaces/ChatInterfaceCodex.ts`, `server/src/chat/chatStreamBridge.ts`, `server/src/chat/inflightRegistry.ts`).
+  - Client raw-input and markdown parity paths (`client/src/hooks/useChatStream.ts`, `client/src/pages/ChatPage.tsx`, `client/src/pages/AgentsPage.tsx`, `client/src/components/Markdown.tsx`, `client/src/api/agents.ts`).
+- Verification commands and outcomes used in this pass:
+  - `npm run test --workspace client -- chatPage.stream.test.tsx chatPage.markdown.test.tsx chatPage.mermaid.test.tsx agentsPage.run.test.tsx agentsPage.turnHydration.test.tsx` (pass: 5 suites, 39 tests).
+  - `npm run test --workspace server -- reingestService mcp.keepalive.helper mcp.reingest.classic mcp2.reingest.tool chatProviders chatValidators` (workspace script executes full server unit+integration path; pass: unit tests and cucumber integration all green).
+- Review conclusion:
+  - No additional code-quality, maintainability, performance, security, or acceptance-criteria gaps were found that require new implementation tasks.
+  - No blocker questions were present in implementation notes.
+  - Story task list remains unchanged; Task 15 remains the final task and stays `__done__`.
+
+---
+
 ## Tasks
 
 ### 1. Server: Shared default resolver for REST chat + committed env defaults

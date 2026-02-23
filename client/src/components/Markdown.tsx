@@ -113,8 +113,18 @@ export default function Markdown({
   'data-testid': dataTestId,
 }: MarkdownProps) {
   useEffect(() => {
-    if (dataTestId !== 'user-markdown') return;
-    log('info', 'DEV-0000035:T10:chat_user_markdown_render_result', {
+    if (dataTestId === 'user-markdown') {
+      log('info', 'DEV-0000035:T10:chat_user_markdown_render_result', {
+        source: 'Markdown',
+        rendererPath: 'shared_markdown_component',
+        dataTestId,
+        contentLength: content.length,
+        hasMermaidFence: /```mermaid/i.test(content),
+      });
+      return;
+    }
+    if (dataTestId !== 'agents-user-markdown') return;
+    log('info', 'DEV-0000035:T12:agents_user_markdown_render_result', {
       source: 'Markdown',
       rendererPath: 'shared_markdown_component',
       dataTestId,

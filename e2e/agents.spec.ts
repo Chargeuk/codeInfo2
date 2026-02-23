@@ -18,6 +18,10 @@ const skipIfUnreachable = async (page: Page) => {
 const routeAgentsApis = async (
   page: Page,
   runBodies: Array<Record<string, unknown>>,
+  options?: {
+    conversations?: Array<Record<string, unknown>>;
+    turnsByConversationId?: Record<string, Array<Record<string, unknown>>>;
+  },
 ) => {
   await page.route('**/*', async (route: Route) => {
     const req = route.request();
@@ -57,10 +61,22 @@ const routeAgentsApis = async (
     }
 
     if (path === '/conversations' && method === 'GET') {
+      const items = options?.conversations ?? [];
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
-        body: JSON.stringify({ items: [] }),
+        body: JSON.stringify({ items }),
+      });
+      return;
+    }
+
+    if (path.startsWith('/conversations/') && path.endsWith('/turns')) {
+      const conversationId = path.split('/')[2] ?? '';
+      const items = options?.turnsByConversationId?.[conversationId] ?? [];
+      await route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({ items }),
       });
       return;
     }
@@ -129,4 +145,125 @@ test('agents preserves raw outbound payload and blocks whitespace-only submit', 
   await expect(send).toBeDisabled();
   await page.waitForTimeout(300);
   expect(runBodies).toHaveLength(1);
+});
+
+test('agents hydrated user markdown matches assistant list/code/mermaid rendering', async ({
+  page,
+}) => {
+  await skipIfUnreachable(page);
+
+  const runBodies: Array<Record<string, unknown>> = [];
+  const markdown = [
+    'List:',
+    '- item one',
+    '- item two',
+    '',
+    '`inline`',
+    '',
+    '```mermaid',
+    'graph TD',
+    '  A[Start] --> B[Done]',
+    "  %% <script>alert('x')</script> should be stripped",
+    '```',
+  ].join('\n');
+  await routeAgentsApis(page, runBodies, {
+    conversations: [
+      {
+        conversationId: 'c1',
+        title: 'Markdown parity',
+        provider: 'codex',
+        model: 'gpt-5.3-codex',
+        lastMessageAt: '2025-01-01T00:00:00.000Z',
+      },
+    ],
+    turnsByConversationId: {
+      c1: [
+        {
+          conversationId: 'c1',
+          role: 'assistant',
+          content: markdown,
+          createdAt: '2025-01-01T00:00:02.000Z',
+          status: 'ok',
+        },
+        {
+          conversationId: 'c1',
+          role: 'user',
+          content: markdown,
+          createdAt: '2025-01-01T00:00:01.000Z',
+          status: 'ok',
+        },
+      ],
+    },
+  });
+
+  await page.goto(`${baseUrl}/agents`);
+  await page.getByTestId('conversation-row').first().click();
+
+  const userMarkdown = page
+    .locator('[data-role="user"] [data-testid="agents-user-markdown"]')
+    .first();
+  const assistantMarkdown = page
+    .locator('[data-role="assistant"] [data-testid="assistant-markdown"]')
+    .first();
+
+  await expect(userMarkdown.locator('li')).toHaveCount(2);
+  await expect(assistantMarkdown.locator('li')).toHaveCount(2);
+  await expect(userMarkdown.locator('code')).toHaveCount(1);
+  await expect(assistantMarkdown.locator('code')).toHaveCount(1);
+  await expect(userMarkdown.locator('svg')).toBeVisible();
+  await expect(assistantMarkdown.locator('svg')).toBeVisible();
+  await expect(userMarkdown.locator('script')).toHaveCount(0);
+  await expect(assistantMarkdown.locator('script')).toHaveCount(0);
+});
+
+test('agents malformed mermaid input uses safe fallback for user and assistant bubbles', async ({
+  page,
+}) => {
+  await skipIfUnreachable(page);
+
+  const runBodies: Array<Record<string, unknown>> = [];
+  const malformed = ['```mermaid', 'this is not valid mermaid syntax', '```'].join(
+    '\n',
+  );
+  await routeAgentsApis(page, runBodies, {
+    conversations: [
+      {
+        conversationId: 'c1',
+        title: 'Malformed mermaid',
+        provider: 'codex',
+        model: 'gpt-5.3-codex',
+        lastMessageAt: '2025-01-01T00:00:00.000Z',
+      },
+    ],
+    turnsByConversationId: {
+      c1: [
+        {
+          conversationId: 'c1',
+          role: 'assistant',
+          content: malformed,
+          createdAt: '2025-01-01T00:00:02.000Z',
+          status: 'ok',
+        },
+        {
+          conversationId: 'c1',
+          role: 'user',
+          content: malformed,
+          createdAt: '2025-01-01T00:00:01.000Z',
+          status: 'ok',
+        },
+      ],
+    },
+  });
+
+  await page.goto(`${baseUrl}/agents`);
+  await page.getByTestId('conversation-row').first().click();
+
+  const userMarkdown = page
+    .locator('[data-role="user"] [data-testid="agents-user-markdown"]')
+    .first();
+  const assistantMarkdown = page
+    .locator('[data-role="assistant"] [data-testid="assistant-markdown"]')
+    .first();
+  await expect(userMarkdown).toContainText('Diagram failed to render');
+  await expect(assistantMarkdown).toContainText('Diagram failed to render');
 });

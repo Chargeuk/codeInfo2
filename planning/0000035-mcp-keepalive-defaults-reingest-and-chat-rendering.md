@@ -3797,7 +3797,7 @@ Update Agents page send behavior to preserve raw user text exactly as entered wh
 
 ### 12. Client: Agents page user bubble markdown parity
 
-- Task Status: **__in_progress__**
+- Task Status: **__done__**
 - Git Commits: to_do
 
 #### Overview
@@ -3820,7 +3820,7 @@ Render Agents user bubbles with the same markdown/sanitization component used by
 
 #### Subtasks
 
-1. [ ] Review current Agents user bubble rendering path and markdown component behavior.
+1. [x] Review current Agents user bubble rendering path and markdown component behavior.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | `react-markdown` docs: https://github.com/remarkjs/react-markdown (Reason: renderer API and component behavior used by shared Markdown pipeline.) | `remark-gfm` docs: https://github.com/remarkjs/remark-gfm (Reason: GFM syntax support details for lists/tables/fences in user bubbles.) | `rehype-sanitize` docs: https://github.com/rehypejs/rehype-sanitize (Reason: sanitization schema rules to keep markdown rendering safe.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | Mermaid docs (Context7): `/mermaid-js/mermaid` (Reason: confirms fenced mermaid syntax/rendering behavior for markdown parity verification.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -3833,7 +3833,7 @@ Render Agents user bubbles with the same markdown/sanitization component used by
    - Files to read:
      - `client/src/pages/AgentsPage.tsx`
      - `client/src/components/Markdown.tsx`
-2. [ ] Replace Agents user bubble `Typography` rendering with shared markdown renderer.
+2. [x] Replace Agents user bubble `Typography` rendering with shared markdown renderer.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | `react-markdown` docs: https://github.com/remarkjs/react-markdown (Reason: renderer API and component behavior used by shared Markdown pipeline.) | `remark-gfm` docs: https://github.com/remarkjs/remark-gfm (Reason: GFM syntax support details for lists/tables/fences in user bubbles.) | `rehype-sanitize` docs: https://github.com/rehypejs/rehype-sanitize (Reason: sanitization schema rules to keep markdown rendering safe.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | Mermaid docs (Context7): `/mermaid-js/mermaid` (Reason: confirms fenced mermaid syntax/rendering behavior for markdown parity verification.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -3852,7 +3852,7 @@ Render Agents user bubbles with the same markdown/sanitization component used by
      - use `client/src/components/Markdown.tsx`
      - preserve current bubble container layout/chrome
      - if JSX test fixtures contain raw `&`, use `&amp;` or `{ '&' }` to avoid AST indexing failures during test runs
-3. [ ] Add Agents UI tests for markdown parity in both realtime and hydrated turns.
+3. [x] Add Agents UI tests for markdown parity in both realtime and hydrated turns.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | `react-markdown` docs: https://github.com/remarkjs/react-markdown (Reason: renderer API and component behavior used by shared Markdown pipeline.) | `remark-gfm` docs: https://github.com/remarkjs/remark-gfm (Reason: GFM syntax support details for lists/tables/fences in user bubbles.) | `rehype-sanitize` docs: https://github.com/rehypejs/rehype-sanitize (Reason: sanitization schema rules to keep markdown rendering safe.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | Mermaid docs (Context7): `/mermaid-js/mermaid` (Reason: confirms fenced mermaid syntax/rendering behavior for markdown parity verification.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -3878,25 +3878,25 @@ Render Agents user bubbles with the same markdown/sanitization component used by
        // Assert
      });
      ```
-     1. [ ] Agents user markdown rendering parity with assistant rendering.
+     1. [x] Agents user markdown rendering parity with assistant rendering.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Client unit/integration (React).
         - Test location: `client/src/test/agentsPage.run.test.tsx`, `client/src/test/agentsPage.turnHydration.test.tsx`.
         - Description: Add/adjust tests asserting user markdown (including mermaid fences) renders identically to assistant output in realtime and hydrated flows.
         - Purpose: Guarantee renderer parity in agents UI.
-     2. [ ] Agents sanitization parity for unsafe HTML/scripts.
+     2. [x] Agents sanitization parity for unsafe HTML/scripts.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Client security regression.
         - Test location: `client/src/test/agentsPage.run.test.tsx`, `client/src/test/agentsPage.turnHydration.test.tsx`.
         - Description: Add/adjust tests with unsafe markup asserting sanitize behavior matches assistant renderer path.
         - Purpose: Prevent sanitization drift/XSS regressions.
-     3. [ ] Agents malformed mermaid fallback parity.
+     3. [x] Agents malformed mermaid fallback parity.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Client resilience regression.
         - Test location: `client/src/test/agentsPage.run.test.tsx`, `client/src/test/agentsPage.turnHydration.test.tsx`.
         - Description: Add/adjust tests asserting malformed mermaid fences follow same safe fallback behavior as assistant path.
         - Purpose: Prevent render-break differences between roles.
-4. [ ] Extend Agents e2e markdown parity coverage.
+4. [x] Extend Agents e2e markdown parity coverage.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | `react-markdown` docs: https://github.com/remarkjs/react-markdown (Reason: renderer API and component behavior used by shared Markdown pipeline.) | `remark-gfm` docs: https://github.com/remarkjs/remark-gfm (Reason: GFM syntax support details for lists/tables/fences in user bubbles.) | `rehype-sanitize` docs: https://github.com/rehypejs/rehype-sanitize (Reason: sanitization schema rules to keep markdown rendering safe.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | Mermaid docs (Context7): `/mermaid-js/mermaid` (Reason: confirms fenced mermaid syntax/rendering behavior for markdown parity verification.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -3921,19 +3921,19 @@ Render Agents user bubbles with the same markdown/sanitization component used by
        // Assert
      });
      ```
-     1. [ ] E2E: agents user markdown/mermaid rendering parity.
+     1. [x] E2E: agents user markdown/mermaid rendering parity.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: End-to-end (Playwright).
         - Test location: `e2e/agents.spec.ts`.
         - Description: Add/adjust e2e assertions that user markdown and mermaid output in Agents view matches assistant rendering behavior.
         - Purpose: Validate parity in browser runtime.
-     2. [ ] E2E: malformed mermaid input in Agents view follows safe fallback behavior.
+     2. [x] E2E: malformed mermaid input in Agents view follows safe fallback behavior.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: End-to-end (Playwright).
         - Test location: `e2e/agents.spec.ts`.
         - Description: Add/adjust e2e assertions that invalid mermaid content does not break rendering and uses expected fallback.
         - Purpose: Validate resilience in full UI flow.
-5. [ ] Update `README.md` for Agents user markdown parity behavior.
+5. [x] Update `README.md` for Agents user markdown parity behavior.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | `react-markdown` docs: https://github.com/remarkjs/react-markdown (Reason: renderer API and component behavior used by shared Markdown pipeline.) | `remark-gfm` docs: https://github.com/remarkjs/remark-gfm (Reason: GFM syntax support details for lists/tables/fences in user bubbles.) | `rehype-sanitize` docs: https://github.com/rehypejs/rehype-sanitize (Reason: sanitization schema rules to keep markdown rendering safe.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | Mermaid docs (Context7): `/mermaid-js/mermaid` (Reason: confirms fenced mermaid syntax/rendering behavior for markdown parity verification.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -3949,7 +3949,7 @@ Render Agents user bubbles with the same markdown/sanitization component used by
    - Document location: `README.md`
    - Description: Document Agents user-bubble markdown parity behavior and rendering expectations.
    - Purpose: Keep developer/operator docs aligned with user-visible markdown behavior.
-6. [ ] Update `design.md` for Agents user markdown parity flow.
+6. [x] Update `design.md` for Agents user markdown parity flow.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | `react-markdown` docs: https://github.com/remarkjs/react-markdown (Reason: renderer API and component behavior used by shared Markdown pipeline.) | `remark-gfm` docs: https://github.com/remarkjs/remark-gfm (Reason: GFM syntax support details for lists/tables/fences in user bubbles.) | `rehype-sanitize` docs: https://github.com/rehypejs/rehype-sanitize (Reason: sanitization schema rules to keep markdown rendering safe.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | Mermaid docs (Context7): `/mermaid-js/mermaid` (Reason: confirms fenced mermaid syntax/rendering behavior for markdown parity verification.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -3965,7 +3965,7 @@ Render Agents user bubbles with the same markdown/sanitization component used by
    - Document location: `design.md`
    - Description: Document markdown-rendering component reuse and parity behavior for Agents user bubbles.
    - Purpose: Keep architecture notes and UI behavior contracts synchronized.
-7. [ ] Update `projectStructure.md` with every file/folder added, removed, or renamed in this task (after file changes are complete).
+7. [x] Update `projectStructure.md` with every file/folder added, removed, or renamed in this task (after file changes are complete).
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | `react-markdown` docs: https://github.com/remarkjs/react-markdown (Reason: renderer API and component behavior used by shared Markdown pipeline.) | `remark-gfm` docs: https://github.com/remarkjs/remark-gfm (Reason: GFM syntax support details for lists/tables/fences in user bubbles.) | `rehype-sanitize` docs: https://github.com/rehypejs/rehype-sanitize (Reason: sanitization schema rules to keep markdown rendering safe.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | Mermaid docs (Context7): `/mermaid-js/mermaid` (Reason: confirms fenced mermaid syntax/rendering behavior for markdown parity verification.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -3975,7 +3975,7 @@ Render Agents user bubbles with the same markdown/sanitization component used by
      - `path/to/added-file.ts` - one-line purpose
      - Removed: `path/to/removed-file.ts` - one-line reason (if any)
      ```
-8. [ ] Add task-specific structured log lines for Manual Playwright-MCP verification.
+8. [x] Add task-specific structured log lines for Manual Playwright-MCP verification.
    - Files to edit:
      - `client/src/pages/AgentsPage.tsx`
      - `client/src/components/Markdown.tsx`
@@ -3983,34 +3983,137 @@ Render Agents user bubbles with the same markdown/sanitization component used by
      - `DEV-0000035:T12:agents_user_markdown_render_evaluated`
      - `DEV-0000035:T12:agents_user_markdown_render_result`
    - Expected outcome: During agents user-bubble markdown/mermaid rendering, both tags appear and result confirms markdown renderer path is used.
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+9. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check to manually confirm story items and general regression checks for this task; include a check that there are no logged errors within the debug console; use `http://host.docker.internal:5001` via Playwright MCP tools.
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check to manually confirm story items and general regression checks for this task; include a check that there are no logged errors within the debug console; use `http://host.docker.internal:5001` via Playwright MCP tools.
    - Required log tags to verify: `DEV-0000035:T12:agents_user_markdown_render_evaluated`, `DEV-0000035:T12:agents_user_markdown_render_result`.
    - Expected outcome: During agents user-bubble markdown/mermaid rendering, both tags appear and result confirms markdown renderer path is used. Also confirm no unexpected `[error]`/uncaught console errors in browser debug console during this check.
    - Capture screenshots and save them to `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped in `docker-compose.local.yml`):
      - `0000035-12-agents-user-markdown-list-code.png` showing a user bubble rendering markdown list/code formatting.
      - `0000035-12-agents-user-markdown-mermaid.png` showing a user bubble rendering markdown mermaid content via the shared markdown path.
    - Agent screenshot review expectation: verify user bubble rendering visually matches markdown parity expectations (lists/code/mermaid formatting, sanitization behavior, and preserved agents bubble chrome/layout).
-9. [ ] `npm run compose:down`
-10. [ ] `npm run test --workspace client -- agentsPage.run`
-11. [ ] `npm run test --workspace client -- agentsPage.turnHydration`
-12. [ ] `npm run test --workspace client -- agentsPage.descriptionPopover`
-13. [ ] `npm run e2e:test -- e2e/agents.spec.ts`
-14. [ ] Manual smoke: Agents UI send multiline markdown and verify user bubble formatting parity
-15. [ ] `npm run lint --workspaces`
-16. [ ] `npm run format:check --workspaces`
+9. [x] `npm run compose:down`
+10. [x] `npm run test --workspace client -- agentsPage.run`
+11. [x] `npm run test --workspace client -- agentsPage.turnHydration`
+12. [x] `npm run test --workspace client -- agentsPage.descriptionPopover`
+13. [x] `npm run e2e:test -- e2e/agents.spec.ts`
+14. [x] Manual smoke: Agents UI send multiline markdown and verify user bubble formatting parity
+15. [x] `npm run lint --workspaces`
+16. [x] `npm run format:check --workspaces`
 #### Implementation notes
 
-- to_do
+- Subtask 1 completed:
+  - Reviewed current user-text render branch in `client/src/pages/AgentsPage.tsx` and confirmed user segments were rendered with `Typography` while assistant segments already used shared `Markdown`.
+  - Reviewed `client/src/components/Markdown.tsx` to confirm current shared `react-markdown` + `remark-gfm` + `rehype-sanitize` + mermaid behavior that Task 12 must reuse.
+  - Verification commands:
+    - `rg -n "user-text|Typography|Markdown|segments\\.map|mermaid" client/src/pages/AgentsPage.tsx client/src/components/Markdown.tsx`
+    - `sed -n '2280,2445p' client/src/pages/AgentsPage.tsx`
+    - `sed -n '1,260p' client/src/components/Markdown.tsx`
+- Subtask 2 completed:
+  - Replaced Agents user text segment rendering in `client/src/pages/AgentsPage.tsx` from `Typography` to shared `Markdown` (`data-testid="agents-user-markdown"`), preserving the existing bubble container/chrome.
+  - Added required Task 12 evaluated render log tag in user-segment path:
+    - `DEV-0000035:T12:agents_user_markdown_render_evaluated`
+  - Verification command:
+    - `rg -n "agents-user-markdown|DEV-0000035:T12:agents_user_markdown_render_evaluated" client/src/pages/AgentsPage.tsx`
+- Subtask 3 completed:
+  - Extended `client/src/test/agentsPage.run.test.tsx` with realtime parity/security/resilience coverage:
+    - user/assistant markdown parity for list/code/mermaid rendering
+    - user/assistant sanitization parity (no script element rendering)
+    - malformed mermaid fallback parity (`Diagram failed to render`)
+  - Extended `client/src/test/agentsPage.turnHydration.test.tsx` with hydrated parity/security/resilience coverage for the same behaviors.
+  - Verification command/result:
+    - `npm run test --workspace client -- agentsPage.run agentsPage.turnHydration` (pass; 4 suites, 12 tests)
+- Subtask 4 completed:
+  - Extended `e2e/agents.spec.ts` with hydrated markdown parity coverage:
+    - user/assistant list/code/mermaid parity assertions
+    - malformed mermaid fallback parity assertions
+  - Kept API route interception scoped to `E2E_API_URL` origin to avoid intercepting document requests.
+  - Verification command:
+    - `sed -n '1,280p' e2e/agents.spec.ts`
+- Subtask 5 completed:
+  - Updated `README.md` with Agents user-bubble markdown parity behavior and expanded `e2e/agents.spec.ts` coverage description.
+  - Verification command:
+    - `rg -n "Agents user markdown parity|Agents spec \\(`e2e/agents.spec.ts`\\)" README.md`
+- Subtask 6 completed:
+  - Updated `design.md` core API/client notes with explicit Agents shared markdown renderer parity behavior statement.
+  - Verification command:
+    - `rg -n "Agents user-bubble rendering now uses the same shared markdown pipeline" design.md`
+- Subtask 7 completed:
+  - Updated `projectStructure.md` descriptions for task-touched files (`Markdown.tsx`, `AgentsPage.tsx`, agents tests, `e2e/agents.spec.ts`) to reflect Task 12 markdown parity scope.
+  - Verification command:
+    - `rg -n "Markdown.tsx|AgentsPage.tsx|agentsPage.run.test.tsx|agentsPage.turnHydration.test.tsx|e2e/agents.spec.ts" projectStructure.md`
+- Subtask 8 completed:
+  - Added required Task 12 result log tag in `client/src/components/Markdown.tsx` for Agents user markdown path:
+    - `DEV-0000035:T12:agents_user_markdown_render_result`
+  - Combined with page-level evaluated tag, both required tags are now present for manual verification.
+  - Verification command:
+    - `rg -n "DEV-0000035:T12:agents_user_markdown_render_evaluated|DEV-0000035:T12:agents_user_markdown_render_result" client/src/pages/AgentsPage.tsx client/src/components/Markdown.tsx`
+- Subtask 9 completed:
+  - Ran workspace lint and formatting checks after Task 12 edits.
+  - `npm run lint --workspaces` passed with existing baseline warnings only (no errors).
+  - Initial `npm run format:check --workspaces` failed on `client/src/test/agentsPage.run.test.tsx`; ran `npm run format --workspaces` and reran checks successfully.
+  - Verification commands/results:
+    - `npm run lint --workspaces` (pass; 0 errors, baseline warnings only)
+    - `npm run format:check --workspaces` (initial fail on `client/src/test/agentsPage.run.test.tsx`)
+    - `npm run format --workspaces` (pass; formatting applied)
+    - `npm run format:check --workspaces` (pass)
+- Testing 1 completed:
+  - `npm run build --workspace server` (pass)
+- Testing 2 completed:
+  - `npm run build --workspace client` (pass; Vite production build completed)
+- Testing 3 completed:
+  - `npm run test --workspace server` (pass; `623` node tests and `62` cucumber scenarios passed)
+- Testing 4 completed:
+  - `npm run test --workspace client` (pass; `90` suites, `333` tests)
+- Testing 5 completed:
+  - `npm run e2e` (pass; `42` Playwright tests passed and e2e stack was brought up/down by the script)
+- Testing 6 completed:
+  - `npm run compose:build` (pass; server/client images built successfully)
+- Testing 7 completed:
+  - `npm run compose:up` (pass; local stack started and health checks passed for server/client)
+- Testing 8 completed:
+  - Manual Playwright-MCP verification executed at `http://host.docker.internal:5001/agents`.
+  - Verified required Task 12 log tags in browser console while rendering user markdown bubbles:
+    - `DEV-0000035:T12:agents_user_markdown_render_evaluated`
+    - `DEV-0000035:T12:agents_user_markdown_render_result`
+  - Verified no browser console `[error]` messages during the manual check (`browser_console_messages` at `error` level returned no entries).
+  - Required screenshots captured and saved in repo at:
+    - `playwright-output-local/0000035-12-agents-user-markdown-list-code.png`
+    - `playwright-output-local/0000035-12-agents-user-markdown-mermaid.png`
+- Testing 9 completed:
+  - `npm run compose:down` (pass; local compose stack shut down cleanly).
+- Testing 10 completed:
+  - `npm run test --workspace client -- agentsPage.run` (pass; `3` suites, `10` tests).
+- Testing 11 completed:
+  - `npm run test --workspace client -- agentsPage.turnHydration` (pass; `1` suite, `2` tests).
+- Testing 12 completed:
+  - `npm run test --workspace client -- agentsPage.descriptionPopover` (pass; `1` suite, `5` tests).
+- Testing 13 completed:
+  - First run of `npm run e2e:test -- e2e/agents.spec.ts` failed with `ERR_CONNECTION_REFUSED` because step 9 had already stopped compose and the e2e stack (`6001/6010`) was down.
+  - Brought the e2e stack up with `npm run e2e:up` and reran `npm run e2e:test -- e2e/agents.spec.ts`.
+  - Rerun passed (`42` Playwright tests passed).
+- Testing 14 completed:
+  - Manual smoke verified on `http://host.docker.internal:6001/agents`.
+  - Environment constraint observed: command dropdown contained only `Select a command`, so UI `Send` remained disabled without a selectable command.
+  - Used the standard agents run endpoint to create a multiline markdown user turn, then verified in Agents UI user bubble rendering parity:
+    - rendered list items count `2`
+    - rendered code block count `1`
+    - expected content visible (`Manual smoke markdown`, `item one`, `item two`, code block text)
+  - Required Task 12 user-render log tags appeared during render:
+    - `DEV-0000035:T12:agents_user_markdown_render_evaluated`
+    - `DEV-0000035:T12:agents_user_markdown_render_result`
+- Testing 15 completed:
+  - `npm run lint --workspaces` (pass; no errors, baseline warnings only).
+- Testing 16 completed:
+  - `npm run format:check --workspaces` (pass; prettier check clean for client/server/common).
 
 ---
 

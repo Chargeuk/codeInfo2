@@ -57,7 +57,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 |     |  |  |- chat/
 |     |  |  |  â”œâ”€ CodexFlagsPanel.tsx â€” Codex-only flags accordion with sandbox select
 |     |  |  |  â””â”€ ConversationList.tsx â€” conversation sidebar with infinite scroll + archive/restore
-|     |  |- Markdown.tsx ? sanitized GFM renderer shared by assistant/user bubbles (and expanded think text) with code block + mermaid handling
+|     |  |- Markdown.tsx ? sanitized GFM renderer shared by chat+agents assistant/user bubbles (and expanded think text) with code block + mermaid handling
 â”‚     â”‚  â””â”€ ingest/
 â”‚     â”‚     â”œâ”€ ActiveRunCard.tsx — shows active ingest status, counts, cancel + logs link
 â”‚     â”‚     â””â”€ IngestForm.tsx — ingest form with validation, lock banner, submit handler
@@ -94,7 +94,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 |     |- main.tsx ? app entry with RouterProvider
 |     |- pages/
 |     |  |- ChatPage.tsx ? chat shell with model select, streaming transcript, rounded 14px bubbles, tool blocks, citations accordion (closed by default), stream status/thinking UI (1s idle guard, ignores tool-only waits), and raw-input send guards/logging
-|     |  |- AgentsPage.tsx ? agents UI with selector/stop/new-conversation controls, description markdown, persisted conversation continuation, and raw-instruction send guards/logging
+|     |  |- AgentsPage.tsx ? agents UI with selector/stop/new-conversation controls, description markdown, persisted conversation continuation, raw-instruction send guards, and shared user-markdown rendering/logging
 |     |  |- FlowsPage.tsx ? flows UI with selector/run/resume/stop controls, flow-filtered sidebar, and step metadata transcript
 |     |  |- IngestPage.tsx ? ingest UI shell (lock banner, form, run/status placeholders)
 |     |  |- HomePage.tsx ? version card page
@@ -134,8 +134,8 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 |     |     |- agentsPage.descriptionPopover.test.tsx ? Agents page renders selected agent description markdown
 |     |     |- agentsPage.agentChange.test.tsx ? switching agent aborts run and resets conversation state
 |     |     |- agentsPage.conversationSelection.test.tsx ? selecting a conversation continues via conversationId
-|     |     |- agentsPage.turnHydration.test.tsx ? selecting a conversation hydrates and preserves whitespace-distinct turns as separate user bubbles
-|     |     |- agentsPage.run.test.tsx ? agent run (realtime) renders transcript from WS and verifies raw instruction payload preservation + whitespace-only block
+|     |     |- agentsPage.turnHydration.test.tsx ? selecting a conversation hydrates whitespace-distinct turns and asserts user/assistant markdown+safety parity
+|     |     |- agentsPage.run.test.tsx ? agent run (realtime) renders transcript from WS and verifies raw payload + whitespace guard + user/assistant markdown parity
 |     |     |- agentsPage.run.instructionError.test.tsx ? Agents page shows error banner when instruction start fails
 |     |     |- agentsPage.workingFolderPicker.test.tsx ? Agents working-folder picker dialog open/pick/cancel/error coverage
 |     |     |- flowsPage.test.tsx ? Flows page renders flow list and step metadata
@@ -640,5 +640,5 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 - client/src/test/useConversationTurns.commandMetadata.test.ts — unit coverage that turns preserve optional `command` metadata for UI rendering
 - client/src/test/chatPage.inflightNavigate.test.tsx — RTL coverage that navigating away/back during inflight keeps full history + inflight text
 - e2e/support/mockChatWs.ts — Playwright `routeWebSocket` helper for mocking chat WS protocol in end-to-end tests
-- e2e/agents.spec.ts — e2e coverage for Agents raw outbound instruction payload preservation and whitespace-only submit blocking
+- e2e/agents.spec.ts — e2e coverage for Agents raw outbound payload preservation, whitespace-only submit blocking, and hydrated markdown parity/fallback behavior
 - e2e/chat-ws-logs.spec.ts — e2e asserting Logs UI shows client-forwarded chat WS log lines after mocked transcript events

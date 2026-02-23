@@ -317,38 +317,59 @@ Retryability guidance for this taxonomy:
 
 ## Implementation Ideas
 
-- Introduce a provider abstraction under server ingest tooling, e.g. an `EmbeddingProvider` interface used by ingest, re-embed, and query embeddings.
-  - `listModels()`
-  - `embed(modelId, text)` / `embedMany(...)`
-  - `countTokens(...)` and max-token capability access (or equivalent strategy)
-  - provider id metadata
-- Implement two concrete adapters:
-  - LM Studio embedding provider (wrapping current `@lmstudio/sdk` usage).
-  - OpenAI embedding provider (using official OpenAI SDK and `OPENAI_EMBEDDING_KEY`).
-- Add a small provider registry/factory that resolves enabled providers at runtime based on environment.
-- Add an OpenAI embedding allowlist config on the server (defaulting to `text-embedding-3-small,text-embedding-3-large`) and apply it consistently in list + ingest validation paths.
-- Add explicit env loading parity in server bootstrap (`.env.local` then `.env`) so local startup resolves `OPENAI_EMBEDDING_KEY` the same way docker-compose does.
-- Update `/ingest/models` contract to expose explicit OpenAI availability/warning fields and keep LM Studio model output available when OpenAI model listing fails transiently.
-- Set and document a strict dimensions policy for this story: no UI control and no request-level override; always use the selected model default vector length.
-- Persist resolved `embeddingDimensions` in lock metadata and validate query embedding dimensionality before Chroma query execution.
-- Treat missing historical provider metadata as `lmstudio` at read/lock-evaluation time, and write explicit provider metadata on all new ingest and re-embed updates.
-- Add canonical request parsing helper for ingest start (`embeddingProvider` + `embeddingModel`) with legacy `model` compatibility mapping.
-- Refactor current LM Studio-specific embedding calls:
-  - `server/src/ingest/ingestJob.ts` (`embedText`, chunker model acquisition)
-  - `server/src/ingest/chromaClient.ts` (`LmStudioEmbeddingFunction`, `resolveLockedEmbeddingFunction`)
-  - `server/src/routes/ingestModels.ts` (model listing)
-  - `server/src/lmstudio/toolService.ts` vector-search query embedding path
-- Unify lock metadata in Chroma collection metadata and root metadata:
-  - Option A selected: canonical lock shape uses explicit `embeddingProvider` + `embeddingModel` fields in Chroma metadata, root metadata, and API responses.
-  - Preserve backward compatibility by reading legacy metadata (`lockedModelId`, legacy root `model`, missing provider) and translating it to canonical in-memory lock state (`embeddingProvider=\"lmstudio\"` inference when absent).
-  - On new ingest/re-embed writes, persist canonical fields explicitly so legacy records are progressively replaced.
-  - Ensure lock checks in ingest start and lock display in `/ingest/models` and `/ingest/roots` use the same canonical source.
-- Remove or repurpose `server/src/ingest/modelLock.ts` placeholder so lock reporting cannot diverge from enforcement.
-- Ensure vector search path loads and uses the locked provider/model for query embeddings so retrieval space matches indexed vectors.
-- Add OpenAI error mapping utility to normalize quota/auth/rate-limit/upstream failures into stable API responses and logs.
-- Implement bounded exponential backoff retry utility for retryable OpenAI categories and apply it consistently in ingest-time and query-time embedding calls.
-- Disable SDK-level retries for OpenAI embeddings calls (`maxRetries=0`) so only the shared retry utility controls behavior.
-- Include OpenAI `error.code` + HTTP-status mapping rules for `insufficient_quota`, `rate_limit_exceeded`, `invalid_api_key`, `model_not_found`, and input-limit failures, and carry retryability metadata through ingest/vector-search error payloads.
-- Add OpenAI request guard utility to enforce `<=2048` inputs and `<=300000` total tokens per embeddings request before API dispatch.
-- Update Ingest UI model handling to support provider-tagged model labels and missing-key info banner copy.
-- Keep backward compatibility for LM Studio-only setups and existing lock reset behavior when collections are emptied/removed.
+This is a rough implementation sequence only (not tasking). It reflects current repository architecture checks plus external SDK/DB behavior research.
+
+1. Establish one canonical embedding lock/service abstraction.
+- Create a shared embedding provider layer under `server/src/ingest/` with explicit provider identity and methods for model list, embed, and token counting.
+- Implement provider adapters for LM Studio and OpenAI.
+- Introduce one canonical lock object shape (`embeddingProvider`, `embeddingModel`, `embeddingDimensions`) and central lock read/write helpers.
+- Primary files: `server/src/ingest/chromaClient.ts`, `server/src/ingest/ingestJob.ts`, `server/src/ingest/modelLock.ts` (remove/repurpose), new provider files under `server/src/ingest/`.
+
+2. Unify lock-source behavior before any UI/API contract expansion.
+- Ensure all lock consumers call the same canonical lock resolver.
+- Remove split behavior where `/ingest/models` reads placeholder lock logic while ingest/vector paths read Chroma lock metadata.
+- Primary files: `server/src/routes/ingestModels.ts`, `server/src/routes/ingestStart.ts`, `server/src/routes/ingestRoots.ts`, `server/src/routes/toolsIngestedRepos.ts`, `server/src/lmstudio/toolService.ts`.
+
+3. Add provider-aware request parsing with backward compatibility.
+- Support canonical ingest start input fields (`embeddingProvider`, `embeddingModel`) while retaining legacy `model` input mapping to LM Studio.
+- Apply the same canonical interpretation in re-embed paths.
+- Primary files: `server/src/routes/ingestStart.ts`, `server/src/routes/ingestReembed.ts`, `server/src/ingest/reingestService.ts`, shared validation/parser helper under `server/src/ingest/`.
+
+4. Make metadata writes canonical while keeping legacy reads.
+- Persist canonical provider/model/dimension lock metadata on new ingest/re-embed writes.
+- Continue reading legacy model-only metadata and infer `provider=lmstudio` when provider metadata is absent.
+- Keep compatibility alias fields (`lockedModelId`) in current response surfaces.
+- Primary files: `server/src/ingest/chromaClient.ts`, `server/src/ingest/ingestJob.ts`, `server/src/routes/ingestModels.ts`, `server/src/routes/ingestRoots.ts`, `server/src/routes/toolsIngestedRepos.ts`, `server/src/mcp/server.ts`, `server/src/lmstudio/tools.ts`.
+
+5. Integrate OpenAI embedding execution with explicit retry ownership.
+- Implement OpenAI embedding calls via official SDK using `OPENAI_EMBEDDING_KEY`.
+- Disable SDK-level retries for these calls (`maxRetries=0`) and use one shared server retry utility with existing bounded backoff contract.
+- Keep deterministic mapping for OpenAI taxonomy codes across ingest and vector-search flows.
+- Primary files: new OpenAI provider adapter under `server/src/ingest/`, `server/src/ingest/ingestJob.ts`, `server/src/lmstudio/toolService.ts`, `server/src/routes/toolsVectorSearch.ts`.
+
+6. Enforce request guardrails and dimension safety.
+- Add OpenAI request guards (`<=2048` inputs per request, `<=300000` total tokens per request, per-input token limits).
+- Persist and validate `embeddingDimensions`; fail deterministically before issuing a Chroma query when dimensions do not match lock metadata.
+- Primary files: OpenAI provider adapter/utilities under `server/src/ingest/`, `server/src/ingest/chromaClient.ts`, `server/src/lmstudio/toolService.ts`.
+
+7. Add environment loading parity for local and docker startup.
+- Update server bootstrap to load `.env.local` and `.env` deterministically (same practical behavior as docker compose env files) so `OPENAI_EMBEDDING_KEY` is predictable in local non-docker runs.
+- Primary files: `server/src/index.ts` and related startup/env notes in docs.
+
+8. Expand model-listing contracts and ingest UI behavior.
+- Update `/ingest/models` contract to include provider-tagged model options and explicit OpenAI availability/warning state.
+- Keep stable lock compatibility alias while surfacing canonical lock object.
+- Update Ingest UI hooks/components to render provider-tagged options and the required info/warning bars.
+- Primary files: `server/src/routes/ingestModels.ts`, `client/src/hooks/useIngestModels.ts`, `client/src/components/ingest/IngestForm.tsx`, `client/src/pages/IngestPage.tsx`, `client/src/hooks/useIngestRoots.ts`, `client/src/components/ingest/RootsTable.tsx`, `client/src/components/ingest/RootDetailsDrawer.tsx`.
+
+9. Align REST, MCP, and schema/docs surfaces.
+- Update lock-related payloads for existing surfaces while keeping compatibility fields.
+- Keep classic MCP `ListIngestedRepositories` and related outputs consistent with canonical+alias contract.
+- Update API documentation/schema artifacts accordingly.
+- Primary files: `server/src/mcp/server.ts`, `server/src/lmstudio/tools.ts`, `server/src/openapi.json`.
+
+10. Update validation-focused tests before implementation completion.
+- Server lock/contract tests: ingest start/reembed/models/roots and lock-state unit tests.
+- Vector-search parity tests: provider-aware lock usage, missing-lock behavior, dimension mismatch behavior.
+- Client ingest UI tests: provider-tagged model dropdown, info/warning states, lock-display compatibility behavior.
+- Primary suites: `server/src/test/unit/*ingest*.test.ts`, `server/src/test/unit/tools-vector-search.test.ts`, `server/src/test/unit/chroma-embedding-selection.test.ts`, `server/src/test/integration/chat-vectorsearch-locked-model.test.ts`, `client/src/test/ingest*.test.tsx`, `client/src/test/ingestForm.test.tsx`, `e2e/ingest.spec.ts`, `e2e/chat-tools.spec.ts`.

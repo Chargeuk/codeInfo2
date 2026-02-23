@@ -90,44 +90,30 @@ Retryability guidance for this taxonomy:
 
 ### Acceptance Criteria
 
-- Server recognizes `OPENAI_EMBEDDING_KEY` and conditionally enables OpenAI embedding provider support without breaking LM Studio support.
-- Backward compatibility is a hard requirement for this story: existing embedded repositories created before provider-aware naming must continue working without manual migration.
-- `GET /ingest/models` returns OpenAI embedding models when `OPENAI_EMBEDDING_KEY` is present and valid enough to list models.
-- If OpenAI model listing fails transiently, `GET /ingest/models` still succeeds with LM Studio model results and includes explicit OpenAI warning state in the response.
-- When `OPENAI_EMBEDDING_KEY` is missing, the Ingest page displays an information bar that clearly states `OPENAI_EMBEDDING_KEY` is required for OpenAI embedding models.
-- `/ingest/models` exposes explicit OpenAI availability contract fields (including enabled/status/warning state) so UI info bars and empty/error states are deterministic.
-- Ingest UI model selection supports OpenAI models and LM Studio models in one coherent dropdown without ambiguity.
-- OpenAI options in the Ingest dropdown are restricted to a curated allowlist (`text-embedding-3-small`, `text-embedding-3-large`) intersected with models available to the configured key.
-- Dropdown ordering for OpenAI options is stable and deterministic (small before large).
-- If `OPENAI_EMBEDDING_KEY` is present but no curated model is available, the UI surfaces a clear informational state and does not show fallback non-allowlisted OpenAI models.
-- Ingest UI does not expose user-selectable embedding dimensions for OpenAI models.
-- Server uses model-default embedding vector lengths for all providers in this story (no custom dimensions override path).
-- Embedding lock metadata is provider-aware, not model-only. At minimum, lock state includes provider + model id.
-- Existing lock behavior is preserved: if vectors/roots are non-empty and lock exists, starting ingest with a different embedding provider/model is rejected with a stable conflict contract.
-- Re-embed path uses the stored provider+model lock contract from prior ingest metadata and does not silently switch providers.
-- Query-time embedding for vector search (REST `/tools/vector-search`, classic MCP `VectorSearch`, and paths relying on `getVectorsCollection({ requireEmbedding: true })`) uses the same locked provider+model contract used at ingest time.
-- Query-time embedding uses the same default vector length contract as ingest-time embeddings for the locked provider/model.
-- OpenAI embedding API failures are mapped to stable, actionable server responses; quota/credit exhaustion is handled explicitly and surfaced as a meaningful error.
-- Existing model-only roots/locks continue to work without DB migration by inferring `provider=lmstudio` when provider metadata is absent.
-- New ingest and re-embed writes persist explicit provider metadata so inferred state is gradually replaced by canonical provider+model data.
-- Canonical lock metadata naming is standardized to Option A: `embeddingProvider` + `embeddingModel` across Chroma metadata, root metadata, and API responses, with compatibility reads for legacy fields.
-- Consequence of Option A is explicitly required: legacy metadata must remain readable while canonical naming is the only required write shape for new operations.
-- Lock-source divergence is removed: `/ingest/models` lock reporting and ingest start lock enforcement read from one canonical lock implementation.
-- Existing LM Studio-only workflows continue to work unchanged when OpenAI key is absent.
-- Server-side validation rejects OpenAI embedding model ids that are not in the curated allowlist, even if they appear in upstream model listings.
-- OpenAI ingest/vector-search failures use a stable internal taxonomy that distinguishes auth, quota, rate limit, input-size, model availability, timeout/network, and upstream availability errors.
-- Retryable OpenAI failures (`OPENAI_RATE_LIMITED`, `OPENAI_TIMEOUT`, `OPENAI_CONNECTION_FAILED`, `OPENAI_UNAVAILABLE`) are retried server-side with bounded exponential backoff before surfacing failure.
-- Retry defaults are explicit and deterministic: `maxRetries=3`, `baseDelayMs=500`, `maxDelayMs=8000`, jitter up to 25 percent, and header-based wait hints are honored before fallback delay calculation.
-- Tests are expanded to cover:
-  - OpenAI models shown/hidden based on `OPENAI_EMBEDDING_KEY`.
-  - Allowlist filtering and deterministic ordering for OpenAI models.
-  - Info-bar behavior when key missing.
-  - Key-present but no-curated-model-available informational behavior.
-  - Key-present plus transient OpenAI model-list failure returns LM Studio models and explicit OpenAI warning state.
-  - Rejection of non-allowlisted OpenAI model ids at ingest start/reembed.
-  - Provider/model lock enforcement across ingest and vector search.
-  - Legacy embedded repositories (model-only metadata) remain fully functional under new canonical metadata naming.
-  - OpenAI error mapping, including quota/credit failures and bounded retry behavior on retryable categories.
+- Backward compatibility is a hard requirement: repositories embedded before provider-aware metadata continue working with no manual migration and no data rewrite step.
+- Server reads `OPENAI_EMBEDDING_KEY` at runtime and only enables OpenAI embedding model discovery when the key is configured.
+- `GET /ingest/models` returns `200` with a deterministic contract containing `models`, `lock`, and `openai` objects (defined below), even when OpenAI model-listing has a transient failure.
+- `GET /ingest/models` includes LM Studio models whenever LM Studio listing succeeds; transient OpenAI listing failures do not fail the whole endpoint.
+- If `OPENAI_EMBEDDING_KEY` is missing, `openai.status` is `disabled` and the UI shows an info bar that explicitly names `OPENAI_EMBEDDING_KEY` as required.
+- If `OPENAI_EMBEDDING_KEY` is set and OpenAI model listing succeeds, `openai.status` is `ok` and only allowlisted OpenAI embedding models are included.
+- If `OPENAI_EMBEDDING_KEY` is set and OpenAI model listing fails transiently, `openai.status` is `warning`, `openai.warning.code=OPENAI_MODELS_LIST_TEMPORARY_FAILURE`, and LM Studio options still render.
+- OpenAI model options are strictly `allowlist ∩ models.list()`; no non-allowlisted OpenAI model can appear in `/ingest/models` or be accepted by ingest/reembed APIs.
+- Allowlist ordering is deterministic and fixed to `text-embedding-3-small` then `text-embedding-3-large`.
+- Ingest dropdown options remain unambiguous by showing provider + model identity for every option (for example `lmstudio / <model>` and `openai / <model>`).
+- Ingest UI does not expose dimensions controls; server always uses model-default embedding dimensions for both providers.
+- Canonical lock identity is provider-aware and model-aware everywhere: `embeddingProvider` + `embeddingModel`.
+- Starting ingest against a non-empty locked index with a different provider/model is rejected with stable `409` conflict payload including canonical lock fields.
+- Re-embed always uses the stored lock provider/model and cannot silently switch provider or model.
+- Query embeddings for REST `/tools/vector-search`, classic MCP `VectorSearch`, and any `getVectorsCollection({ requireEmbedding: true })` path use the same locked provider/model as ingest.
+- Legacy lock metadata is still readable: if only `lockedModelId`/legacy root `model` exists, runtime infers `embeddingProvider=lmstudio`.
+- New ingest/re-embed writes persist canonical lock fields and keep legacy-read compatibility.
+- Option A naming is mandatory for canonical writes and API contracts: `embeddingProvider` + `embeddingModel`.
+- `/ingest/models` lock reporting and ingest-start lock enforcement share one canonical lock resolver (no separate placeholder logic).
+- LM Studio-only workflows remain operational when OpenAI is not configured.
+- OpenAI embedding failures map to stable error taxonomy codes and include retryability metadata, with explicit handling for quota/credit exhaustion.
+- Retryable OpenAI failures (`OPENAI_RATE_LIMITED`, `OPENAI_TIMEOUT`, `OPENAI_CONNECTION_FAILED`, `OPENAI_UNAVAILABLE`) use bounded exponential backoff before terminal failure.
+- Retry defaults are fixed for this story: `maxRetries=3`, `baseDelayMs=500`, `maxDelayMs=8000`, jitter up to 25 percent, and wait-hint header precedence before fallback delay.
+- Tests cover all acceptance behaviors above, including: missing-key UI info state, transient model-list warning state, allowlist enforcement, canonical+legacy lock handling, provider/model lock conflicts, vector-search provider parity, OpenAI failure mapping, and retry behavior.
 
 ### Out Of Scope
 
@@ -157,15 +143,26 @@ Retryability guidance for this taxonomy:
 
 ### `/ingest/models` Warning-State Message Contract
 
-- Response shape includes explicit OpenAI status envelope so UI state is deterministic:
+- Response shape includes explicit lock and OpenAI status envelopes so UI state is deterministic:
 
 ```json
 {
-  "models": [],
-  "lock": null,
+  "models": [
+    {
+      "id": "text-embedding-3-small",
+      "displayName": "text-embedding-3-small",
+      "provider": "openai"
+    }
+  ],
+  "lock": {
+    "embeddingProvider": "openai",
+    "embeddingModel": "text-embedding-3-small"
+  },
+  "lockedModelId": "text-embedding-3-small",
   "openai": {
     "enabled": true,
     "status": "warning",
+    "statusCode": "OPENAI_MODELS_LIST_TEMPORARY_FAILURE",
     "warning": {
       "code": "OPENAI_MODELS_LIST_TEMPORARY_FAILURE",
       "message": "OpenAI model listing is temporarily unavailable. LM Studio models are still available.",
@@ -176,10 +173,24 @@ Retryability guidance for this taxonomy:
 }
 ```
 
+- `models[*]` minimum required fields for this story:
+  - `id: string`
+  - `displayName: string`
+  - `provider: "lmstudio" | "openai"`
+- `lock` values:
+  - `null` when no vectors lock exists.
+  - object with canonical fields when lock exists.
+- `lockedModelId` stays as a compatibility alias in this story and maps to `lock.embeddingModel` when lock is present.
 - `openai.status` values:
   - `disabled`: no `OPENAI_EMBEDDING_KEY` configured.
   - `ok`: key configured and model listing succeeded.
   - `warning`: key configured but OpenAI model listing did not fully succeed.
+- `openai.statusCode` values for deterministic UI handling:
+  - `OPENAI_DISABLED`
+  - `OPENAI_OK`
+  - `OPENAI_MODELS_LIST_TEMPORARY_FAILURE`
+  - `OPENAI_MODELS_LIST_AUTH_FAILED`
+  - `OPENAI_MODELS_LIST_UNAVAILABLE`
 - `openai.warning.code` values for this story:
   - `OPENAI_EMBEDDING_KEY_MISSING`
   - `OPENAI_MODELS_LIST_TEMPORARY_FAILURE`
@@ -189,12 +200,46 @@ Retryability guidance for this taxonomy:
   - `code=OPENAI_MODELS_LIST_TEMPORARY_FAILURE`
   - `retryable=true`
   - include LM Studio models as normal; do not fail the whole endpoint.
+- Ingest-page info-bar message contract:
+  - Missing key: `OpenAI embedding models are unavailable. Set OPENAI_EMBEDDING_KEY on the server to enable them.`
+  - Temporary listing failure: `OpenAI models are temporarily unavailable. LM Studio models are still available.`
+
+### Ingest Start Conflict Contract (Provider-Aware Lock)
+
+- When ingest starts with provider/model not matching the existing non-empty lock, response is:
+
+```json
+{
+  "status": "error",
+  "code": "MODEL_LOCKED",
+  "lock": {
+    "embeddingProvider": "lmstudio",
+    "embeddingModel": "text-embedding-qwen3-embedding-4b"
+  },
+  "lockedModelId": "text-embedding-qwen3-embedding-4b"
+}
+```
+
+- `lockedModelId` is compatibility-only; canonical clients should use `lock.embeddingProvider` + `lock.embeddingModel`.
+- Same logical lock contract applies to re-embed entry points.
+
+### OpenAI Embedding Failure Response Contract
+
+- For ingest and vector-search OpenAI embedding failures, normalized payload must include:
+  - `error: string` (taxonomy code listed in this plan, e.g. `OPENAI_QUOTA_EXCEEDED`)
+  - `message: string` (user-readable)
+  - `retryable: boolean`
+  - `provider: "openai"`
+  - `upstreamStatus?: number`
+  - `retryAfterMs?: number`
+- Quota/credits exhaustion must map to `OPENAI_QUOTA_EXCEEDED` with `retryable=false`.
 
 ### Canonical Storage Shapes (Option A + Backward Compatibility)
 
 - Chroma/root canonical lock fields:
   - `embeddingProvider: "lmstudio" | "openai"`
   - `embeddingModel: string`
+- Canonical write shape is required in both vectors metadata and root metadata after new ingest/re-embed.
 - Legacy read compatibility remains mandatory:
   - If canonical fields are missing, read legacy `lockedModelId` and legacy root `model`.
   - Infer `embeddingProvider="lmstudio"` when provider is missing.

@@ -150,6 +150,17 @@ Retryability guidance for this taxonomy:
 
 ## Message Contracts & Storage Shapes
 
+### Contract Delta Inventory (Current -> Story 0000036)
+
+- Current runtime contracts (verified from repository code) are model-only on lock-bearing surfaces:
+  - `GET /ingest/models` -> `{ models, lockedModelId }`
+  - `GET /ingest/roots` -> `{ roots[], lockedModelId }` with per-root legacy `model`
+  - `GET /tools/ingested-repos` -> `{ repos[], lockedModelId }` with per-repo legacy `modelId`
+  - `POST /ingest/start` lock conflict -> `{ status, code: "MODEL_LOCKED", lockedModelId }`
+  - classic MCP `ListIngestedRepositories` output schema -> `{ repos, lockedModelId }` wrapped in text content
+- Story 0000036 requires provider-aware lock metadata and therefore changes to existing contracts, not only net-new contracts.
+- Required rule for this story: each lock-bearing response above must include canonical lock object fields and keep compatibility aliases during transition.
+
 ### Retry Defaults (OpenAI Embedding Calls)
 
 - `maxRetries`: `3` (three retries after initial attempt).
@@ -283,6 +294,81 @@ Retryability guidance for this taxonomy:
   - classic MCP tool `ListIngestedRepositories`
 - New canonical fields are required in these same surfaces (`lock.embeddingProvider`, `lock.embeddingModel`, and where relevant `lock.embeddingDimensions`).
 
+### `/ingest/roots` Contract Update
+
+- Existing response stays backward compatible but adds canonical lock and canonical per-root embedding fields:
+
+```json
+{
+  "roots": [
+    {
+      "runId": "run-1",
+      "name": "Repo",
+      "description": null,
+      "path": "/data/repo",
+      "embeddingProvider": "openai",
+      "embeddingModel": "text-embedding-3-small",
+      "embeddingDimensions": 1536,
+      "model": "text-embedding-3-small",
+      "status": "completed",
+      "lastIngestAt": "2026-02-23T10:00:00.000Z",
+      "counts": { "files": 10, "chunks": 100, "embedded": 100 },
+      "lastError": null
+    }
+  ],
+  "lock": {
+    "embeddingProvider": "openai",
+    "embeddingModel": "text-embedding-3-small",
+    "embeddingDimensions": 1536
+  },
+  "lockedModelId": "text-embedding-3-small"
+}
+```
+
+- `model` remains compatibility-only and maps to `embeddingModel`.
+- If canonical per-root fields are missing for historical roots, response infers `embeddingProvider="lmstudio"` and fills canonical fields from legacy metadata.
+
+### `/tools/ingested-repos` + Classic MCP `ListIngestedRepositories` Contract Update
+
+- Existing repo list response keeps compatibility aliases but adds canonical embedding fields:
+
+```json
+{
+  "repos": [
+    {
+      "id": "Repo",
+      "containerPath": "/data/repo",
+      "hostPath": "/host/repo",
+      "embeddingProvider": "openai",
+      "embeddingModel": "text-embedding-3-small",
+      "embeddingDimensions": 1536,
+      "modelId": "text-embedding-3-small",
+      "counts": { "files": 10, "chunks": 100, "embedded": 100 },
+      "lastError": null
+    }
+  ],
+  "lock": {
+    "embeddingProvider": "openai",
+    "embeddingModel": "text-embedding-3-small",
+    "embeddingDimensions": 1536
+  },
+  "lockedModelId": "text-embedding-3-small"
+}
+```
+
+- Classic MCP `ListIngestedRepositories` tool output schema must be updated to the same inner JSON shape above (still wrapped as `result.content[0].text`).
+- `modelId` remains compatibility-only and maps to `embeddingModel`.
+
+### `/tools/vector-search` Contract Extension
+
+- Success payload shape remains unchanged for retrieval results unless/until follow-up story requires provider fields on every match.
+- Error contract extends to include OpenAI embedding failures when locked provider is `openai`, while preserving existing current errors:
+  - Existing preserved errors: `VALIDATION_FAILED`, `REPO_NOT_FOUND`, `INGEST_REQUIRED`, `EMBED_MODEL_MISSING`, `CHROMA_UNAVAILABLE`.
+  - Added OpenAI failures from this story taxonomy (`OPENAI_*`) with `retryable` and optional `retryAfterMs`.
+- New deterministic dimension mismatch error is required before Chroma query dispatch:
+  - `error=EMBEDDING_DIMENSION_MISMATCH`
+  - includes expected and actual dimensions.
+
 ### OpenAI Embedding Failure Response Contract
 
 - For ingest and vector-search OpenAI embedding failures, normalized payload must include:
@@ -310,6 +396,9 @@ Retryability guidance for this taxonomy:
   - `embeddingModel: string`
   - `embeddingDimensions: number`
 - Canonical write shape is required in both vectors metadata and root metadata after new ingest/re-embed.
+- Storage keys for this story:
+  - vectors collection metadata: `embeddingProvider`, `embeddingModel`, `embeddingDimensions`
+  - root metadata (per root row): `embeddingProvider`, `embeddingModel`, `embeddingDimensions`
 - Legacy read compatibility remains mandatory:
   - If canonical fields are missing, read legacy `lockedModelId` and legacy root `model`.
   - Infer `embeddingProvider="lmstudio"` when provider is missing.

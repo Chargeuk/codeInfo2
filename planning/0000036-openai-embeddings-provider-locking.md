@@ -624,3 +624,408 @@ This is a rough implementation sequence only (not tasking). It reflects current 
 - Vector-search parity tests: provider-aware lock usage, missing-lock behavior, dimension mismatch behavior.
 - Client ingest UI tests: provider-tagged model dropdown, info/warning states, lock-display compatibility behavior.
 - Primary suites: `server/src/test/unit/*ingest*.test.ts`, `server/src/test/unit/tools-vector-search.test.ts`, `server/src/test/unit/chroma-embedding-selection.test.ts`, `server/src/test/integration/chat-vectorsearch-locked-model.test.ts`, `client/src/test/ingest*.test.tsx`, `client/src/test/ingestForm.test.tsx`, `e2e/ingest.spec.ts`, `e2e/chat-tools.spec.ts`.
+
+# Implementation Plan
+
+## Instructions
+
+This section defines how implementation tasks must be executed once development starts.
+
+1. Read and fully understand the story sections above before changing code.
+2. Work through tasks in strict order; do not skip ahead.
+3. Before touching code for a task, set that task status to `__in_progress__`, commit, and push.
+4. Complete each subtask in order and run the listed tests before moving to the next subtask group.
+5. Keep contract changes server-first. Frontend work that depends on message/shape changes must start only after the related server contract task is complete.
+6. Keep legacy compatibility behavior in place while introducing canonical provider-aware fields.
+7. After finishing a task, update Implementation notes and Git Commits, set status to `__done__`, and push.
+8. Do not start final verification until all implementation tasks are complete.
+
+## Tasks
+
+### 1. Server: Refactor LM Studio embedding flow behind a shared provider interface (parity only)
+
+- Task Status: **__to_do__**
+- Git Commits:
+
+#### Overview
+
+Refactor existing LM Studio embedding calls into a common provider interface without changing runtime behavior. This task proves LM Studio ingest/vector-search behavior is unchanged before any OpenAI-specific functionality is introduced.
+
+#### Documentation Locations
+
+- OpenAI Node SDK (interface patterns, request options): Context7 `/openai/openai-node`
+- Chroma collection/query behavior: Context7 `/chroma-core/chroma`
+- TypeScript handbook (interfaces/types): https://www.typescriptlang.org/docs/
+
+#### Subtasks
+
+1. [ ] Read existing LM Studio embedding call paths and document current behavior in Implementation notes.
+2. [ ] Add shared provider contracts under `server/src/ingest/providers/` (for model discovery, embed generation, and provider id).
+3. [ ] Implement LM Studio provider adapter using current behavior as-is (no contract changes, no provider switching yet).
+4. [ ] Replace direct LM Studio embedding calls in ingest/vector core with the LM Studio adapter through the new interface.
+5. [ ] Keep all current REST/MCP response shapes and codes unchanged in this task.
+6. [ ] Add/update unit tests proving no behavior regression for LM Studio lock + vector search paths.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run test:unit --workspace server`
+3. [ ] Confirm `server/src/test/unit/chroma-embedding-selection.test.ts` still passes.
+4. [ ] Confirm `server/src/test/unit/tools-vector-search.test.ts` still passes.
+
+#### Implementation notes
+
+- Notes added during implementation.
+
+---
+
+### 2. Server: Unify lock resolution source and remove placeholder lock path
+
+- Task Status: **__to_do__**
+- Git Commits:
+
+#### Overview
+
+Make one canonical lock resolver for all lock consumers so `/ingest/models` no longer diverges from ingest/vector paths. This task is internal consistency work and should not yet change public contracts.
+
+#### Documentation Locations
+
+- Chroma metadata update/get semantics: Context7 `/chroma-core/chroma`
+- Express route consistency/error handling: https://expressjs.com/en/guide/error-handling.html
+
+#### Subtasks
+
+1. [ ] Replace `server/src/ingest/modelLock.ts` placeholder usage with a canonical lock resolver shared by all ingest/tool routes.
+2. [ ] Update `/ingest/models`, `/ingest/roots`, `/tools/ingested-repos`, ingest start, and vector-search dependency wiring to use the same lock source.
+3. [ ] Keep existing response payloads unchanged in this task (`lockedModelId` behavior remains as currently implemented).
+4. [ ] Add/update tests verifying lock values match across all lock-reporting endpoints.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run test:unit --workspace server`
+3. [ ] Confirm `server/src/test/unit/tools-ingested-repos.test.ts` passes.
+4. [ ] Confirm `server/src/test/unit/ingest-roots-dedupe.test.ts` passes.
+
+#### Implementation notes
+
+- Notes added during implementation.
+
+---
+
+### 3. Server: Environment loading parity for `.env` and `.env.local`
+
+- Task Status: **__to_do__**
+- Git Commits:
+
+#### Overview
+
+Implement deterministic local env loading (`server/.env` then `server/.env.local` override) to match expected docker behavior and ensure `OPENAI_EMBEDDING_KEY` startup behavior is predictable.
+
+#### Documentation Locations
+
+- dotenv usage/reference: https://github.com/motdotla/dotenv
+- Node environment variables: https://nodejs.org/api/environment_variables.html
+
+#### Subtasks
+
+1. [ ] Update server bootstrap env loading to apply `.env` then `.env.local` override order explicitly.
+2. [ ] Ensure startup behavior remains safe when `.env.local` is absent.
+3. [ ] Add startup logging that reports capability state without leaking key values.
+4. [ ] Add/update tests for env precedence behavior.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run test:unit --workspace server`
+3. [ ] Manual check: local startup loads with `.env.local` override and no key leakage in logs.
+
+#### Implementation notes
+
+- Notes added during implementation.
+
+---
+
+### 4. Server: Add OpenAI embedding provider adapter with retries, limits, and taxonomy mapping
+
+- Task Status: **__to_do__**
+- Git Commits:
+
+#### Overview
+
+Implement OpenAI embedding execution behind the shared provider interface, including bounded retry policy, request guardrails, and normalized error taxonomy. No route contract changes in this task.
+
+#### Documentation Locations
+
+- OpenAI embeddings guide: https://developers.openai.com/api/docs/guides/embeddings/
+- OpenAI Node SDK behavior (timeouts/retries/errors): Context7 `/openai/openai-node`
+- DeepWiki OpenAI Node references: `openai/openai-node`
+
+#### Subtasks
+
+1. [ ] Implement OpenAI provider adapter using `OPENAI_EMBEDDING_KEY`.
+2. [ ] Enforce request guardrails (`<=2048` inputs, per-input token limit, `<=300000` total tokens/request).
+3. [ ] Implement retry utility contract defaults (`maxRetries=3`, `baseDelayMs=500`, `maxDelayMs=8000`, jitter factor `[0.75,1.0]`) and wait-hint precedence.
+4. [ ] Disable SDK auto-retries for embedding calls (`maxRetries=0` at SDK request/client layer for this path).
+5. [ ] Map upstream/OpenAI SDK failures to story taxonomy codes.
+6. [ ] Add/update focused unit tests for retry + mapping + guardrails.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run test:unit --workspace server`
+3. [ ] Confirm taxonomy/guardrail tests pass in provider adapter test suite.
+
+#### Implementation notes
+
+- Notes added during implementation.
+
+---
+
+### 5. Server: Provider-aware lock identity and embedding execution in ingest/reembed/vector-search internals
+
+- Task Status: **__to_do__**
+- Git Commits:
+
+#### Overview
+
+Extend lock identity from model-only to provider+model+dimensions internally, with backward compatibility inference for legacy metadata. This task updates core behavior, not external message contracts yet.
+
+#### Documentation Locations
+
+- Chroma dimension constraints: Context7 `/chroma-core/chroma`
+- DeepWiki Chroma references: `chroma-core/chroma`
+
+#### Subtasks
+
+1. [ ] Add canonical internal lock type (`embeddingProvider`, `embeddingModel`, `embeddingDimensions`) and helper functions.
+2. [ ] Implement dual-read compatibility (`legacy lockedModelId/model -> provider=lmstudio`) with canonical-write behavior on new ingest/re-embed.
+3. [ ] Ensure reembed and query embeddings always use the locked provider/model combination.
+4. [ ] Add deterministic pre-query dimension mismatch check before Chroma query and map to `EMBEDDING_DIMENSION_MISMATCH`.
+5. [ ] Add/update tests for legacy inference, canonical writes, provider lock enforcement, and dimension mismatch.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run test:unit --workspace server`
+3. [ ] `npm run test:integration --workspace server`
+4. [ ] Confirm `server/src/test/integration/chat-vectorsearch-locked-model.test.ts` passes.
+
+#### Implementation notes
+
+- Notes added during implementation.
+
+---
+
+### 6. Server Messages: `/ingest/models` provider-aware response contract and warning states
+
+- Task Status: **__to_do__**
+- Git Commits:
+
+#### Overview
+
+Implement the agreed `/ingest/models` contract (`models`, `lock`, `openai`, compatibility alias `lockedModelId`) including deterministic warning states. This task is intentionally server-message focused.
+
+#### Documentation Locations
+
+- OpenAPI schema authoring: https://spec.openapis.org/oas/v3.0.3.html
+- OpenAI models API behavior: https://platform.openai.com/docs/api-reference/models/list
+
+#### Subtasks
+
+1. [ ] Update `/ingest/models` response shape to include provider-tagged model entries and canonical lock object.
+2. [ ] Implement OpenAI status states (`disabled`, `ok`, `warning`) and status codes including `OPENAI_ALLOWLIST_NO_MATCH`.
+3. [ ] Preserve LM Studio options when OpenAI listing fails or when allowlist has no matches.
+4. [ ] Keep `lockedModelId` alias mapped from canonical lock model.
+5. [ ] Add/update unit tests for each status and warning state.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run test:unit --workspace server`
+3. [ ] Confirm `/ingest/models` route tests cover missing key, success, transient failure, and allowlist no-match cases.
+
+#### Implementation notes
+
+- Notes added during implementation.
+
+---
+
+### 7. Server Messages: ingest start/reembed/vector-search request and error contracts
+
+- Task Status: **__to_do__**
+- Git Commits:
+
+#### Overview
+
+Implement provider-aware request/response contracts for ingest start and vector search error surfaces while preserving backward compatibility for legacy clients.
+
+#### Documentation Locations
+
+- JSON-RPC 2.0 (error consistency considerations): https://www.jsonrpc.org/specification
+- OpenAPI 3.0.3: https://spec.openapis.org/oas/v3.0.3.html
+
+#### Subtasks
+
+1. [ ] Update `POST /ingest/start` to accept canonical `embeddingProvider` + `embeddingModel`, with legacy `model` mapping to LM Studio.
+2. [ ] Update lock-conflict payload to include canonical `lock` object plus compatibility `lockedModelId`.
+3. [ ] Ensure re-embed paths follow canonical lock and cannot silently switch provider/model.
+4. [ ] Update vector-search error payloads to include normalized OpenAI failures and retry metadata.
+5. [ ] Add/update tests for canonical request parsing, legacy compatibility mapping, and conflict/error payloads.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run test:unit --workspace server`
+3. [ ] `npm run test:integration --workspace server`
+4. [ ] Confirm `server/src/test/unit/tools-vector-search.test.ts` and ingest-start route tests pass.
+
+#### Implementation notes
+
+- Notes added during implementation.
+
+---
+
+### 8. Server Messages: `/ingest/roots`, `/tools/ingested-repos`, classic MCP `ListIngestedRepositories`, and schema docs
+
+- Task Status: **__to_do__**
+- Git Commits:
+
+#### Overview
+
+Finalize the remaining message-contract surfaces so canonical lock/provider fields and compatibility aliases are consistent everywhere, including classic MCP wrapped JSON outputs and OpenAPI docs.
+
+#### Documentation Locations
+
+- JSON-RPC 2.0: https://www.jsonrpc.org/specification
+- OpenAPI 3.0.3: https://spec.openapis.org/oas/v3.0.3.html
+
+#### Subtasks
+
+1. [ ] Update `/ingest/roots` response to include canonical per-root and lock fields while preserving legacy aliases.
+2. [ ] Update `/tools/ingested-repos` response similarly (canonical + alias fields).
+3. [ ] Update classic MCP `ListIngestedRepositories` output schema and emitted JSON text payload shape to match server contract.
+4. [ ] Update `server/src/openapi.json` and any server schema docs to match implemented contracts.
+5. [ ] Add/update tests for these surfaces and schema contract snapshots/validators where present.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run test:unit --workspace server`
+3. [ ] `npm run test:integration --workspace server`
+4. [ ] Confirm MCP server integration tests pass.
+
+#### Implementation notes
+
+- Notes added during implementation.
+
+---
+
+### 9. Client: Update ingest data hooks and API types to new server contracts
+
+- Task Status: **__to_do__**
+- Git Commits:
+
+#### Overview
+
+Update the client data layer (`useIngestModels`, `useIngestRoots`, related types) to consume canonical server contracts and warning-state envelopes. No major visual/UI behavior changes in this task.
+
+#### Documentation Locations
+
+- MUI docs index for component props used by ingest views: https://llms.mui.com/material-ui/6.4.12/llms.txt
+- React docs for state/effect patterns: https://react.dev/reference/react
+
+#### Subtasks
+
+1. [ ] Update TypeScript types/interfaces for `/ingest/models`, `/ingest/roots`, and lock metadata.
+2. [ ] Update ingest hooks to parse canonical contract fields and compatibility aliases safely.
+3. [ ] Preserve backward-safe handling if older server payloads are returned during rollout.
+4. [ ] Add/update hook/component tests for loading/error/parsing states.
+
+#### Testing
+
+1. [ ] `npm run build --workspace client`
+2. [ ] `npm run test --workspace client`
+3. [ ] Confirm `client/src/test/ingestStatus.test.tsx` and `client/src/test/ingestRoots.test.tsx` pass.
+
+#### Implementation notes
+
+- Notes added during implementation.
+
+---
+
+### 10. Client: Ingest UI provider-model selection and info/warning state behavior
+
+- Task Status: **__to_do__**
+- Git Commits:
+
+#### Overview
+
+Implement the user-visible ingest UI behavior for provider-tagged model selection, OpenAI info/warning states, and canonical provider/model payload submission.
+
+#### Documentation Locations
+
+- MUI TextField/select docs: https://llms.mui.com/material-ui/6.4.12/components/text-fields.md
+- MUI Alert docs: https://llms.mui.com/material-ui/6.4.12/components/alert.md
+- React controlled form inputs: https://react.dev/reference/react-dom/components/input
+
+#### Subtasks
+
+1. [ ] Update ingest form dropdown rendering to show provider-qualified model options.
+2. [ ] Add info bar for missing `OPENAI_EMBEDDING_KEY` and warning bar states from `openai.status/statusCode`.
+3. [ ] Submit canonical ingest-start payload fields (`embeddingProvider`, `embeddingModel`) while keeping legacy-safe behavior where required.
+4. [ ] Update lock display in ingest UI components to prefer canonical lock fields and fallback to aliases.
+5. [ ] Add/update client tests for dropdown options, warnings/info bars, and payload behavior.
+
+#### Testing
+
+1. [ ] `npm run build --workspace client`
+2. [ ] `npm run test --workspace client`
+3. [ ] Confirm `client/src/test/ingestForm.test.tsx` and `client/src/test/ingestPage.layout.test.tsx` pass.
+
+#### Implementation notes
+
+- Notes added during implementation.
+
+---
+
+### 11. Final verification: full acceptance validation, regressions, and documentation sync
+
+- Task Status: **__to_do__**
+- Git Commits:
+
+#### Overview
+
+Run the complete verification gate for Story 0000036, confirm acceptance criteria end-to-end, and sync project documentation with the implemented result.
+
+#### Documentation Locations
+
+- Docker/Compose docs: Context7 `/docker/docs`
+- Playwright docs: Context7 `/microsoft/playwright`
+- Jest docs: Context7 `/jestjs/jest`
+- Cucumber guides: https://cucumber.io/docs/guides/
+
+#### Subtasks
+
+1. [ ] Confirm every acceptance criterion in this story has a corresponding passing automated test or recorded manual verification step.
+2. [ ] Ensure documentation files are updated for implemented behavior:
+   - `README.md`
+   - `design.md`
+   - `projectStructure.md`
+3. [ ] Produce final story summary and PR comment covering all tasks and contract changes.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test:unit --workspace server`
+4. [ ] `npm run test:integration --workspace server`
+5. [ ] `npm run test --workspace client`
+6. [ ] `npm run compose:build:clean`
+7. [ ] `npm run compose:up`
+8. [ ] `npm run e2e`
+9. [ ] Capture manual verification screenshots in `test-results/screenshots/` using naming `0000036-11-<description>.png`.
+
+#### Implementation notes
+
+- Notes added during implementation.

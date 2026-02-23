@@ -204,7 +204,7 @@ codex_agents/<agentName>/
 
 - Endpoint: POST JSON-RPC 2.0 to `http://localhost:5010/mcp` (host) or `http://server:5010/mcp` (docker). CORS matches `/chat`.
 - Note: the server intentionally exposes **two** MCP surfaces:
-  - Express `POST /mcp` (ingest tooling: `ListIngestedRepositories`, `VectorSearch`).
+  - Express `POST /mcp` (ingest tooling: `ListIngestedRepositories`, `VectorSearch`, `reingest_repository`).
   - MCP v2 JSON-RPC server on `MCP_PORT` (tooling: `codebase_question`, documented under **MCP (codebase_question)** below).
     Their response conventions differ and must remain stable; shared MCP infrastructure lives under `server/src/mcpCommon/`.
 - Config: `config.toml.example` seeds `[mcp_servers]` entries `codeinfo_host` and `codeinfo_docker` pointing at the URLs above when the server first runs.
@@ -213,7 +213,8 @@ codex_agents/<agentName>/
   - `curl -X POST http://localhost:5010/mcp -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}'`
   - `curl -X POST http://localhost:5010/mcp -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":2,"method":"tools/list"}'`
   - `curl -X POST http://localhost:5010/mcp -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"VectorSearch","arguments":{"query":"hello"}}}'`
-- Tools exposed: `ListIngestedRepositories` (no params) and `VectorSearch` (`query` required, optional `repository`, `limit` capped at 20). Results are returned as `content: [{ type: "text", text: "<json>" }]` (JSON string).
+- Tools exposed: `ListIngestedRepositories` (no params), `VectorSearch` (`query` required, optional `repository`, `limit` capped at 20), and `reingest_repository` (`sourceId` required). Results are returned as `content: [{ type: "text", text: "<json>" }]` (JSON string).
+- Classic MCP `reingest_repository` compatibility lock: failures return JSON-RPC `error` envelopes (not `result.isError`) with canonical mappings (`INVALID_PARAMS`, `NOT_FOUND`, `BUSY`).
 - Reingest canonical contract (shared service behavior used by MCP wiring tasks):
   - request args: `{ "sourceId": "<absolute-normalized-container-path>" }`
   - success payload: `{ "status": "started", "operation": "reembed", "runId": "...", "sourceId": "..." }`

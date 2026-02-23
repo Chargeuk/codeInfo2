@@ -120,6 +120,35 @@ flowchart TD
   F --> G[success payload\\nstatus started, operation reembed, runId, sourceId]
 ```
 
+## Classic MCP reingest wiring
+
+- Classic MCP (`POST /mcp`) now exposes `reingest_repository` in `tools/list` and routes `tools/call` to the shared `runReingestRepository(...)` service.
+- Success path stays in the classic wrapper (`result.content[0].text` JSON string), while failures remain JSON-RPC `error` envelopes for compatibility.
+- Classic-MCP-specific manual-verification logs use:
+  - `DEV-0000035:T6:classic_reingest_tool_call_evaluated`
+  - `DEV-0000035:T6:classic_reingest_tool_call_result`
+
+```mermaid
+sequenceDiagram
+  participant Client as MCP client
+  participant Classic as POST /mcp (classic)
+  participant Service as runReingestRepository
+
+  Client->>Classic: initialize
+  Classic-->>Client: jsonrpc result (capabilities)
+  Client->>Classic: tools/list
+  Classic-->>Client: includes reingest_repository
+  Client->>Classic: tools/call(reingest_repository, {sourceId})
+  Classic->>Service: runReingestRepository(args)
+  alt success
+    Service-->>Classic: {status, operation, runId, sourceId}
+    Classic-->>Client: jsonrpc result.content[0].text(JSON)
+  else validation/not_found/busy
+    Service-->>Classic: {code,message,data}
+    Classic-->>Client: jsonrpc error(code,message,data)
+  end
+```
+
 ## Flows (schema)
 
 - Flow definitions live under `flows/<flowName>.json` and are validated with a strict Zod schema before use.

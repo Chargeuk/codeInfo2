@@ -2557,7 +2557,7 @@ Expose `reingest_repository` on MCP v2 and enforce the exact same name and contr
 ### 8. Server: Codex stream merge fix for cropped/duplicate assistant output
 
 - Task Status: **__done__**
-- Git Commits: 598ebde
+- Git Commits: 598ebde, 4614193
 
 #### Overview
 

@@ -4,8 +4,11 @@ import { fileURLToPath } from 'url';
 import type { CodexOptions } from '@openai/codex-sdk';
 import { baseLogger } from '../logger.js';
 
-const defaultCodexConfig = `model = "gpt-5.1-codex-max"
-model_reasoning_effort = "high"
+const defaultCodexConfig = `model = "gpt-5.3-codex-spark"
+model_reasoning_effort = "xhigh"
+approval_policy = "never"
+sandbox_mode    = "danger-full-access"
+personality = "pragmatic"
 
 [features]
 web_search_request = true

@@ -4356,3 +4356,125 @@ Validate every acceptance criterion end-to-end after all feature tasks are compl
   - MCP-flow acceptance verification recorded through manual acceptance logger hooks (`window.__codeinfoManualAcceptanceCheck.start/complete`) with required tags observed in browser console and no console errors.
 
 ---
+
+### 14. Post-review fixes: provider fallback correctness, render-side effects, and MCP tool contract text
+
+- Task Status: **__to_do__**
+- Git Commits: to_do
+
+#### Overview
+
+Address code-review findings discovered after Task 13 completion. This task restores strict runtime provider fallback behavior on REST chat, removes render-time logging side effects in Agents UI, and aligns MCP `codebase_question` model-default text with the implemented `gpt-5.3-codex` default contract.
+
+#### Documentation Locations
+
+- React docs (components and hooks purity): https://react.dev/reference/rules/components-and-hooks-must-be-pure
+- React docs (`useEffect`): https://react.dev/reference/react/useEffect
+- MCP tools spec: https://modelcontextprotocol.io/specification/draft/server/tools
+- JSON-RPC 2.0 spec: https://www.jsonrpc.org/specification
+- Jest docs (Context7): `/jestjs/jest`
+- Playwright docs (Context7): `/microsoft/playwright`
+
+#### Subtasks
+
+1. [ ] Fix REST runtime fallback selection so LM Studio is considered available only when runtime-verified with at least one selectable model.
+   - Files to edit:
+     - `server/src/routes/chat.ts`
+   - Required behavior:
+     - Remove/replace the `requestedProvider === 'lmstudio'` availability override that marks LM Studio available without a successful runtime availability check.
+     - Preserve single-hop fallback behavior (`lmstudio -> codex`, `codex -> lmstudio`) and existing unavailable envelopes.
+2. [ ] Add regression coverage for explicit `provider=lmstudio` when LM Studio is unavailable.
+   - Files to edit:
+     - `server/src/test/integration/chat-codex.test.ts`
+   - Required assertions:
+     - when LM Studio is unavailable and Codex is available, REST chat falls back to Codex (202 started with `provider=codex`).
+     - when both providers are unavailable, REST chat returns existing `503 PROVIDER_UNAVAILABLE` contract.
+3. [ ] Remove render-time logging side effects from Agents user-message render loop.
+   - Files to edit:
+     - `client/src/pages/AgentsPage.tsx`
+   - Required behavior:
+     - no logger calls inside render/map branches that produce JSX.
+     - if instrumentation is still required, move it into effect-driven or event-driven code paths.
+4. [ ] Add/update client tests to ensure the Agents user markdown path still renders correctly after render-path cleanup.
+   - Files to edit:
+     - `client/src/test/agentsPage.run.test.tsx`
+     - `client/src/test/agentsPage.turnHydration.test.tsx`
+5. [ ] Align MCP `codebase_question` input schema description text to implemented defaults.
+   - Files to edit:
+     - `server/src/mcp2/tools/codebaseQuestion.ts`
+   - Required behavior:
+     - replace stale model-default text (`gpt-5.1-codex-max`) with current default contract (`gpt-5.3-codex`).
+6. [ ] Update documentation artifacts that changed due this task.
+   - Files to edit:
+     - `README.md`
+     - `design.md`
+     - `projectStructure.md` (if file map changes)
+7. [ ] Run workspace lint and format checks.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test:unit --workspace server`
+4. [ ] `npm run test:integration --workspace server`
+5. [ ] `npm run test --workspace client`
+6. [ ] `npm run e2e`
+7. [ ] `npm run lint --workspaces`
+8. [ ] `npm run format:check --workspaces`
+
+#### Implementation notes
+
+- Code review finding A (functional): `server/src/routes/chat.ts` currently marks LM Studio available for explicit `provider=lmstudio` with any non-empty requested model, even when runtime model listing failed; this can bypass required provider fallback/unavailable behavior.
+- Code review finding B (quality/perf): `client/src/pages/AgentsPage.tsx` performs logging calls during render while mapping message segments; this introduces avoidable render side effects and duplicate logs under React rerenders/StrictMode.
+- Code review finding C (contract clarity): `server/src/mcp2/tools/codebaseQuestion.ts` still describes old Codex default model text in tool schema description.
+
+---
+
+### 15. Re-test gate: full story regression and acceptance re-validation after Task 14
+
+- Task Status: **__to_do__**
+- Git Commits: to_do
+
+#### Overview
+
+Re-run full story verification after Task 14 to prove all Story 0000035 acceptance criteria remain satisfied and that review fixes did not introduce regressions. This is a mandatory final gate before story closure.
+
+#### Documentation Locations
+
+- Docker docs (Context7): `/docker/docs`
+- Playwright docs (Context7): `/microsoft/playwright`
+- Jest docs (Context7): `/jestjs/jest`
+- Cucumber guides: https://cucumber.io/docs/guides/
+- Mermaid docs (Context7): `/mermaid-js/mermaid`
+
+#### Subtasks
+
+1. [ ] Re-read Story 0000035 acceptance criteria and map each to concrete verification evidence from this retest pass.
+2. [ ] Update `README.md` with any final deltas introduced by Task 14 fixes.
+3. [ ] Update `design.md` with any final architecture/behavior deltas introduced by Task 14 fixes.
+4. [ ] Update `projectStructure.md` with any file additions/removals from Task 14 and this retest task.
+5. [ ] Capture/refresh manual verification screenshots in `playwright-output-local/` using `0000035-15-<label>.png` naming.
+6. [ ] Produce a refreshed PR summary comment covering all story changes (Tasks 1-15), including review-fix deltas and retest evidence.
+7. [ ] Run full workspace lint/format checks and confirm no new warnings/errors introduced by Task 14 fixes.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e`
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP verification at `http://host.docker.internal:5001` with refreshed screenshots for raw-input parity, markdown parity, and general regression checks.
+9. [ ] `npm run test:unit --workspace server`
+10. [ ] `npm run test:integration --workspace server`
+11. [ ] `npm run compose:down`
+12. [ ] `npm run lint --workspaces`
+13. [ ] `npm run format:check --workspaces`
+
+#### Implementation notes
+
+- Reserved for implementation details, verification output, and final acceptance traceability after Task 14 fixes.
+
+---

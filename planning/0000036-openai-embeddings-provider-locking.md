@@ -25,6 +25,7 @@ Critical consistency rule that must remain true:
 
 - Once a repository/index is embedded with a provider+model combination, that same embedding provider+model must continue to be used for future embeddings and query embeddings (vector search / MCP tooling), unless the vector store is reset according to existing lock-reset behavior.
 - This is the same fundamental lock rule currently applied for LM Studio model locking, expanded to include provider + model, with dimensions implicitly fixed to the selected model default (no user override in this story).
+- No DB migration is required for historical model-only lock/root metadata. If provider is absent, runtime behavior must infer `provider=lmstudio` and continue to work. Whenever a root is newly embedded or re-embedded, provider metadata must be written explicitly.
 
 Current architecture facts that this story must account for:
 
@@ -36,8 +37,8 @@ OpenAI research points (validated during discovery):
 
 - OpenAI embeddings are created via `POST /embeddings` (`client.embeddings.create(...)` in `openai-node`).
 - Available models for the API key are listed via `GET /models` (`client.models.list()`), but model capability filtering is application-side.
-- Embedding input constraints in current SDK/docs include: per-input max token constraint by model (commonly documented as 8192 for embedding models), total 300,000 tokens across all inputs per request, and request array-length limits.
-- `dimensions` is supported for `text-embedding-3*` models.
+- Embedding input constraints in OpenAI API reference include: max input tokens by model (8192 tokens for `text-embedding-ada-002`, and docs currently state 8192 for all embedding models), max 2048 inputs per request array, and max 300,000 total input tokens across a single request.
+- `dimensions` is supported for `text-embedding-3-small` (1..1536) and `text-embedding-3-large` (1..3072). This story keeps default dimensions only (no UI control, no request override).
 
 OpenAI dropdown filtering decision for this story:
 
@@ -58,6 +59,25 @@ Operational failures to handle explicitly:
 
 Error handling must remain deterministic and user-readable in ingest and vector-search surfaces, including clear messages for OpenAI credit/quota failures.
 
+OpenAI embedding failure taxonomy for this story (documented from OpenAI API + SDK behavior):
+
+- `OPENAI_AUTH_FAILED`: map `401` authentication failures (`invalid_api_key`, `invalid_api_key_type`).
+- `OPENAI_PERMISSION_DENIED`: map `403` permission failures (`organization_deactivated`, access-denied conditions).
+- `OPENAI_MODEL_UNAVAILABLE`: map model-selection failures (`404 model_not_found`) when a requested embedding model is unavailable to the key/org.
+- `OPENAI_BAD_REQUEST`: map `400` invalid request errors (`invalid_request_error`) for malformed arguments.
+- `OPENAI_INPUT_TOO_LARGE`: map `400` token/size limit failures (for example `context_length_exceeded`) when embedding inputs violate model/request limits.
+- `OPENAI_UNPROCESSABLE`: map `422` semantically invalid requests.
+- `OPENAI_RATE_LIMITED`: map `429 rate_limit_exceeded`.
+- `OPENAI_QUOTA_EXCEEDED`: map `429 insufficient_quota` and credit/billing exhaustion states.
+- `OPENAI_TIMEOUT`: map request timeout/network-timeout failures (`408` retry paths and SDK `APIConnectionTimeoutError`).
+- `OPENAI_CONNECTION_FAILED`: map SDK connectivity failures (`APIConnectionError`) where no HTTP response is returned.
+- `OPENAI_UNAVAILABLE`: map upstream transient failures (`>=500`) and other retryable availability problems.
+
+Retryability guidance for this taxonomy:
+
+- Retryable by default: `OPENAI_RATE_LIMITED`, `OPENAI_TIMEOUT`, `OPENAI_CONNECTION_FAILED`, `OPENAI_UNAVAILABLE`.
+- Non-retryable by default: `OPENAI_AUTH_FAILED`, `OPENAI_PERMISSION_DENIED`, `OPENAI_MODEL_UNAVAILABLE`, `OPENAI_BAD_REQUEST`, `OPENAI_INPUT_TOO_LARGE`, `OPENAI_UNPROCESSABLE`, `OPENAI_QUOTA_EXCEEDED`.
+
 ### Acceptance Criteria
 
 - Server recognizes `OPENAI_EMBEDDING_KEY` and conditionally enables OpenAI embedding provider support without breaking LM Studio support.
@@ -75,9 +95,12 @@ Error handling must remain deterministic and user-readable in ingest and vector-
 - Query-time embedding for vector search (REST `/tools/vector-search`, classic MCP `VectorSearch`, and paths relying on `getVectorsCollection({ requireEmbedding: true })`) uses the same locked provider+model contract used at ingest time.
 - Query-time embedding uses the same default vector length contract as ingest-time embeddings for the locked provider/model.
 - OpenAI embedding API failures are mapped to stable, actionable server responses; quota/credit exhaustion is handled explicitly and surfaced as a meaningful error.
+- Existing model-only roots/locks continue to work without DB migration by inferring `provider=lmstudio` when provider metadata is absent.
+- New ingest and re-embed writes persist explicit provider metadata so inferred state is gradually replaced by canonical provider+model data.
 - Lock-source divergence is removed: `/ingest/models` lock reporting and ingest start lock enforcement read from one canonical lock implementation.
 - Existing LM Studio-only workflows continue to work unchanged when OpenAI key is absent.
 - Server-side validation rejects OpenAI embedding model ids that are not in the curated allowlist, even if they appear in upstream model listings.
+- OpenAI ingest/vector-search failures use a stable internal taxonomy that distinguishes auth, quota, rate limit, input-size, model availability, timeout/network, and upstream availability errors.
 - Tests are expanded to cover:
   - OpenAI models shown/hidden based on `OPENAI_EMBEDDING_KEY`.
   - Allowlist filtering and deterministic ordering for OpenAI models.
@@ -97,9 +120,6 @@ Error handling must remain deterministic and user-readable in ingest and vector-
 
 ### Questions
 
-- For existing roots created before provider-aware locks (model-only metadata), should migration infer `provider=lmstudio` by default, or should we require explicit migration logic and fail closed until migrated?
-- What exact error code taxonomy should we use for OpenAI embedding failures in ingest/vector search responses (for example separate codes for `OPENAI_QUOTA_EXCEEDED`, `OPENAI_RATE_LIMITED`, `OPENAI_AUTH_FAILED`, `OPENAI_UNAVAILABLE`)?
-
 ## Implementation Ideas
 
 - Introduce a provider abstraction under server ingest tooling, e.g. an `EmbeddingProvider` interface used by ingest, re-embed, and query embeddings.
@@ -113,6 +133,7 @@ Error handling must remain deterministic and user-readable in ingest and vector-
 - Add a small provider registry/factory that resolves enabled providers at runtime based on environment.
 - Add an OpenAI embedding allowlist config on the server (defaulting to `text-embedding-3-small,text-embedding-3-large`) and apply it consistently in list + ingest validation paths.
 - Set and document a strict dimensions policy for this story: no UI control and no request-level override; always use the selected model default vector length.
+- Treat missing historical provider metadata as `lmstudio` at read/lock-evaluation time, and write explicit provider metadata on all new ingest and re-embed updates.
 - Refactor current LM Studio-specific embedding calls:
   - `server/src/ingest/ingestJob.ts` (`embedText`, chunker model acquisition)
   - `server/src/ingest/chromaClient.ts` (`LmStudioEmbeddingFunction`, `resolveLockedEmbeddingFunction`)
@@ -124,5 +145,6 @@ Error handling must remain deterministic and user-readable in ingest and vector-
 - Remove or repurpose `server/src/ingest/modelLock.ts` placeholder so lock reporting cannot diverge from enforcement.
 - Ensure vector search path loads and uses the locked provider/model for query embeddings so retrieval space matches indexed vectors.
 - Add OpenAI error mapping utility to normalize quota/auth/rate-limit/upstream failures into stable API responses and logs.
+- Include OpenAI `error.code` + HTTP-status mapping rules for `insufficient_quota`, `rate_limit_exceeded`, `invalid_api_key`, `model_not_found`, and input-limit failures, and carry retryability metadata through ingest/vector-search error payloads.
 - Update Ingest UI model handling to support provider-tagged model labels and missing-key info banner copy.
 - Keep backward compatibility for LM Studio-only setups and existing lock reset behavior when collections are emptied/removed.

@@ -3798,7 +3798,7 @@ Update Agents page send behavior to preserve raw user text exactly as entered wh
 ### 12. Client: Agents page user bubble markdown parity
 
 - Task Status: **__done__**
-- Git Commits: to_do
+- Git Commits: 2c46871
 
 #### Overview
 

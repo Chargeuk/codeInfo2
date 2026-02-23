@@ -4,6 +4,7 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
 import remarkGfm from 'remark-gfm';
+import { createLogger } from '../logging/logger';
 
 type MarkdownProps = {
   content: string;
@@ -24,6 +25,8 @@ const stripDisallowedTags = (code: string) =>
   code
     .replace(/<\s*script[^>]*>[\s\S]*?<\s*\/\s*script\s*>/gi, '')
     .replace(/<\s*\/?\s*script[^>]*>/gi, '');
+
+const log = createLogger('client');
 
 type MermaidProps = {
   code: string;
@@ -109,6 +112,17 @@ export default function Markdown({
   content,
   'data-testid': dataTestId,
 }: MarkdownProps) {
+  useEffect(() => {
+    if (dataTestId !== 'user-markdown') return;
+    log('info', 'DEV-0000035:T10:chat_user_markdown_render_result', {
+      source: 'Markdown',
+      rendererPath: 'shared_markdown_component',
+      dataTestId,
+      contentLength: content.length,
+      hasMermaidFence: /```mermaid/i.test(content),
+    });
+  }, [content, dataTestId]);
+
   return (
     <Box
       data-testid={dataTestId}

@@ -2038,14 +2038,28 @@ export default function ChatPage() {
                                           />
                                         );
                                       }
+                                      const userContent =
+                                        segment.content ?? ' ';
+                                      log(
+                                        'info',
+                                        'DEV-0000035:T10:chat_user_markdown_render_evaluated',
+                                        {
+                                          messageId: message.id,
+                                          segmentId: segment.id,
+                                          role: message.role,
+                                          source: 'ChatPage',
+                                          contentLength: userContent.length,
+                                          hasMermaidFence: /```mermaid/i.test(
+                                            userContent,
+                                          ),
+                                        },
+                                      );
                                       return (
-                                        <Typography
+                                        <Markdown
                                           key={segment.id}
-                                          variant="body2"
-                                          data-testid="user-text"
-                                        >
-                                          {segment.content || ' '}
-                                        </Typography>
+                                          content={userContent}
+                                          data-testid="user-markdown"
+                                        />
                                       );
                                     }
 

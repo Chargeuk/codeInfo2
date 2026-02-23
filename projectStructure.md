@@ -57,7 +57,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 |     |  |  |- chat/
 |     |  |  |  â”œâ”€ CodexFlagsPanel.tsx â€” Codex-only flags accordion with sandbox select
 |     |  |  |  â””â”€ ConversationList.tsx â€” conversation sidebar with infinite scroll + archive/restore
-|     |  |- Markdown.tsx ? sanitized GFM renderer for assistant/think text with code block styling
+|     |  |- Markdown.tsx ? sanitized GFM renderer shared by assistant/user bubbles (and expanded think text) with code block + mermaid handling
 â”‚     â”‚  â””â”€ ingest/
 â”‚     â”‚     â”œâ”€ ActiveRunCard.tsx — shows active ingest status, counts, cancel + logs link
 â”‚     â”‚     â””â”€ IngestForm.tsx — ingest form with validation, lock banner, submit handler
@@ -126,8 +126,8 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 |     |     |- chatPage.flags.reasoning.payload.test.tsx ? reasoning effort omitted for LM Studio and forwarded/reset for Codex
 |     |     |- chatPage.codexDefaults.test.tsx ? Codex defaults sourced from server, reset on provider/new conversation, panel disabled without defaults
 |     |     |- chatPage.provider.test.tsx ? provider dropdown, Codex disabled guidance, provider lock after first send
-|     |     |- chatPage.markdown.test.tsx ? assistant markdown rendering for lists and code fences
-|     |     |- chatPage.mermaid.test.tsx ? mermaid code fence rendering and script stripping
+|     |     |- chatPage.markdown.test.tsx ? assistant/user markdown parity for lists/code plus sanitization coverage
+|     |     |- chatPage.mermaid.test.tsx ? assistant/user mermaid parity and malformed-fallback coverage
 |     |     |- codexDeviceAuthApi.test.ts ? codex device-auth API helper parsing + errors
 |     |     |- codexDeviceAuthDialog.test.tsx ? codex device-auth dialog states + copy actions
 |     |     |- agentsPage.list.test.tsx ? Agents page loads agent list and populates dropdown

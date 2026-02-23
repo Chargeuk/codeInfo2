@@ -18,7 +18,18 @@ const mermaidMessage = [
   '```',
 ].join('\n');
 
-test('renders mermaid diagrams safely', async ({ page }) => {
+const userMermaidMessage = [
+  'User mermaid:',
+  '```mermaid',
+  'graph TD',
+  '  U[User] --> V[Bubble]',
+  '  V --> W[Rendered]',
+  '```',
+].join('\n');
+
+test('renders mermaid diagrams safely for assistant and user bubbles', async ({
+  page,
+}) => {
   const mockWs = await installMockChatWs(page);
 
   await page.route('**/chat/providers', (route) =>
@@ -107,16 +118,103 @@ test('renders mermaid diagrams safely', async ({ page }) => {
   const input = page.getByTestId('chat-input');
   const send = page.getByTestId('chat-send');
 
-  await input.fill('Show me a mermaid diagram');
+  await input.fill(userMermaidMessage);
   await send.click();
 
-  const bubble = page.getByTestId('assistant-markdown').first();
-  await expect(bubble.locator('svg')).toBeVisible({ timeout: 20000 });
-  await expect(bubble.locator('script')).toHaveCount(0);
+  const assistantBubble = page.getByTestId('assistant-markdown').first();
+  const userBubble = page.getByTestId('user-markdown').first();
+  await expect(userBubble.locator('svg')).toBeVisible({ timeout: 20000 });
+  await expect(assistantBubble.locator('svg')).toBeVisible({ timeout: 20000 });
+  await expect(userBubble.locator('script')).toHaveCount(0);
+  await expect(assistantBubble.locator('script')).toHaveCount(0);
 
   mkdirSync('test-results/screenshots', { recursive: true });
   await page.screenshot({
     path: 'test-results/screenshots/0000007-5-chat-mermaid.png',
     fullPage: true,
+  });
+});
+
+test('shows safe fallback for malformed user mermaid input', async ({ page }) => {
+  const mockWs = await installMockChatWs(page);
+
+  await page.route('**/chat/providers', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        providers: [
+          {
+            id: 'lmstudio',
+            label: 'LM Studio',
+            available: true,
+            toolsAvailable: true,
+          },
+          {
+            id: 'codex',
+            label: 'OpenAI Codex',
+            available: false,
+            toolsAvailable: false,
+            reason: codexReason,
+          },
+        ],
+      }),
+    }),
+  );
+
+  await page.route('**/chat/models', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        provider: 'lmstudio',
+        available: true,
+        toolsAvailable: true,
+        models: mockChatModels,
+      }),
+    }),
+  );
+
+  await page.route('**/chat', async (route) => {
+    if (route.request().method() !== 'POST') return route.continue();
+    const payload = (route.request().postDataJSON?.() ?? {}) as Record<
+      string,
+      unknown
+    >;
+    const conversationId = String(payload.conversationId ?? 'c1');
+    const inflightId = String(payload.inflightId ?? 'i1');
+
+    await route.fulfill({
+      status: 202,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'started',
+        conversationId,
+        inflightId,
+        provider: payload.provider,
+        model: payload.model,
+      }),
+    });
+
+    await mockWs.waitForConversationSubscription(conversationId);
+    mockWs.sendInflightSnapshot({ conversationId, inflightId });
+    mockWs.sendAssistantDelta({
+      conversationId,
+      inflightId,
+      delta: 'Received malformed mermaid.',
+    });
+    mockWs.sendFinal({ conversationId, inflightId, status: 'ok' });
+  });
+
+  await page.goto(`${baseUrl}/chat`);
+  const input = page.getByTestId('chat-input');
+  const send = page.getByTestId('chat-send');
+
+  await input.fill(['```mermaid', 'not a graph syntax', '```'].join('\n'));
+  await send.click();
+
+  const userBubble = page.getByTestId('user-markdown').first();
+  await expect(userBubble).toContainText('Diagram failed to render', {
+    timeout: 20000,
   });
 });

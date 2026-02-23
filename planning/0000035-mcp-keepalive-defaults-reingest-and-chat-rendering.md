@@ -3132,7 +3132,7 @@ Update Chat page send behavior to preserve raw user text exactly as entered whil
 
 ### 10. Client: Chat page user bubble markdown parity
 
-- Task Status: **__in_progress__**
+- Task Status: **__done__**
 - Git Commits: to_do
 
 #### Overview
@@ -3155,7 +3155,7 @@ Render Chat user bubbles with the same markdown/sanitization component used by a
 
 #### Subtasks
 
-1. [ ] Review current Chat user bubble rendering path and markdown component behavior.
+1. [x] Review current Chat user bubble rendering path and markdown component behavior.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | `react-markdown` docs: https://github.com/remarkjs/react-markdown (Reason: renderer API and component behavior used by shared Markdown pipeline.) | `remark-gfm` docs: https://github.com/remarkjs/remark-gfm (Reason: GFM syntax support details for lists/tables/fences in user bubbles.) | `rehype-sanitize` docs: https://github.com/rehypejs/rehype-sanitize (Reason: sanitization schema rules to keep markdown rendering safe.) | Mermaid docs (Context7): `/mermaid-js/mermaid` (Reason: confirms fenced mermaid syntax/rendering behavior for markdown parity verification.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -3168,7 +3168,7 @@ Render Chat user bubbles with the same markdown/sanitization component used by a
    - Files to read:
      - `client/src/pages/ChatPage.tsx`
      - `client/src/components/Markdown.tsx`
-2. [ ] Replace Chat user bubble `Typography` rendering with shared markdown renderer.
+2. [x] Replace Chat user bubble `Typography` rendering with shared markdown renderer.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | `react-markdown` docs: https://github.com/remarkjs/react-markdown (Reason: renderer API and component behavior used by shared Markdown pipeline.) | `remark-gfm` docs: https://github.com/remarkjs/remark-gfm (Reason: GFM syntax support details for lists/tables/fences in user bubbles.) | `rehype-sanitize` docs: https://github.com/rehypejs/rehype-sanitize (Reason: sanitization schema rules to keep markdown rendering safe.) | Mermaid docs (Context7): `/mermaid-js/mermaid` (Reason: confirms fenced mermaid syntax/rendering behavior for markdown parity verification.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -3187,7 +3187,7 @@ Render Chat user bubbles with the same markdown/sanitization component used by a
      - use `client/src/components/Markdown.tsx`
      - preserve current bubble container layout/chrome
      - if JSX test fixtures contain raw `&`, use `&amp;` or `{ '&' }` to avoid AST indexing failures during test runs
-3. [ ] Add Chat UI tests for user markdown parity and mermaid rendering.
+3. [x] Add Chat UI tests for user markdown parity and mermaid rendering.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | `react-markdown` docs: https://github.com/remarkjs/react-markdown (Reason: renderer API and component behavior used by shared Markdown pipeline.) | `remark-gfm` docs: https://github.com/remarkjs/remark-gfm (Reason: GFM syntax support details for lists/tables/fences in user bubbles.) | `rehype-sanitize` docs: https://github.com/rehypejs/rehype-sanitize (Reason: sanitization schema rules to keep markdown rendering safe.) | Mermaid docs (Context7): `/mermaid-js/mermaid` (Reason: confirms fenced mermaid syntax/rendering behavior for markdown parity verification.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -3213,31 +3213,31 @@ Render Chat user bubbles with the same markdown/sanitization component used by a
        // Assert
      });
      ```
-     1. [ ] User markdown rendering parity with assistant renderer.
+     1. [x] User markdown rendering parity with assistant renderer.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Client unit/integration (React).
         - Test location: `client/src/test/chatPage.markdown.test.tsx`.
         - Description: Add/adjust tests asserting equivalent markdown input renders with same structure/styling in user and assistant bubbles.
         - Purpose: Guarantee renderer parity.
-     2. [ ] User mermaid fence rendering parity.
+     2. [x] User mermaid fence rendering parity.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Client unit/integration (React).
         - Test location: `client/src/test/chatPage.mermaid.test.tsx`.
         - Description: Add/adjust tests asserting mermaid fences in user bubbles render through same path as assistant bubbles.
         - Purpose: Guarantee feature parity for diagrams.
-     3. [ ] Unsafe HTML/script sanitization parity.
+     3. [x] Unsafe HTML/script sanitization parity.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Client security regression.
         - Test location: `client/src/test/chatPage.markdown.test.tsx`, `client/src/test/chatPage.mermaid.test.tsx`.
         - Description: Add/adjust tests with unsafe inline HTML/scripts asserting sanitization matches assistant behavior.
         - Purpose: Prevent XSS/sanitization drift.
-     4. [ ] Malformed mermaid fallback parity.
+     4. [x] Malformed mermaid fallback parity.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Client resilience regression.
         - Test location: `client/src/test/chatPage.mermaid.test.tsx`.
         - Description: Add/adjust tests for invalid mermaid syntax asserting same safe fallback behavior as assistant path.
         - Purpose: Prevent render crashes and behavior divergence.
-4. [ ] Extend Chat e2e markdown parity coverage.
+4. [x] Extend Chat e2e markdown parity coverage.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | `react-markdown` docs: https://github.com/remarkjs/react-markdown (Reason: renderer API and component behavior used by shared Markdown pipeline.) | `remark-gfm` docs: https://github.com/remarkjs/remark-gfm (Reason: GFM syntax support details for lists/tables/fences in user bubbles.) | `rehype-sanitize` docs: https://github.com/rehypejs/rehype-sanitize (Reason: sanitization schema rules to keep markdown rendering safe.) | Mermaid docs (Context7): `/mermaid-js/mermaid` (Reason: confirms fenced mermaid syntax/rendering behavior for markdown parity verification.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -3263,19 +3263,19 @@ Render Chat user bubbles with the same markdown/sanitization component used by a
        // Assert
      });
      ```
-     1. [ ] E2E: user markdown/mermaid rendering parity with assistant path.
+     1. [x] E2E: user markdown/mermaid rendering parity with assistant path.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: End-to-end (Playwright).
         - Test location: `e2e/chat.spec.ts`, `e2e/chat-mermaid.spec.ts`.
         - Description: Add/adjust e2e assertions that user markdown and mermaid output visually/functionally matches assistant rendering behavior.
         - Purpose: Validate parity at real UI runtime.
-     2. [ ] E2E: malformed mermaid input follows safe fallback behavior.
+     2. [x] E2E: malformed mermaid input follows safe fallback behavior.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: End-to-end (Playwright).
         - Test location: `e2e/chat-mermaid.spec.ts`.
         - Description: Add/adjust e2e assertions that invalid mermaid input does not break page and shows expected fallback output.
         - Purpose: Validate resilience in browser execution.
-5. [ ] Update `README.md` for Chat user markdown parity behavior.
+5. [x] Update `README.md` for Chat user markdown parity behavior.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | `react-markdown` docs: https://github.com/remarkjs/react-markdown (Reason: renderer API and component behavior used by shared Markdown pipeline.) | `remark-gfm` docs: https://github.com/remarkjs/remark-gfm (Reason: GFM syntax support details for lists/tables/fences in user bubbles.) | `rehype-sanitize` docs: https://github.com/rehypejs/rehype-sanitize (Reason: sanitization schema rules to keep markdown rendering safe.) | Mermaid docs (Context7): `/mermaid-js/mermaid` (Reason: confirms fenced mermaid syntax/rendering behavior for markdown parity verification.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -3291,7 +3291,7 @@ Render Chat user bubbles with the same markdown/sanitization component used by a
    - Document location: `README.md`
    - Description: Document Chat user-bubble markdown parity behavior and mermaid rendering expectations.
    - Purpose: Keep behavior documentation aligned with rendered markdown capabilities.
-6. [ ] Update `design.md` for Chat user markdown parity flow.
+6. [x] Update `design.md` for Chat user markdown parity flow.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | `react-markdown` docs: https://github.com/remarkjs/react-markdown (Reason: renderer API and component behavior used by shared Markdown pipeline.) | `remark-gfm` docs: https://github.com/remarkjs/remark-gfm (Reason: GFM syntax support details for lists/tables/fences in user bubbles.) | `rehype-sanitize` docs: https://github.com/rehypejs/rehype-sanitize (Reason: sanitization schema rules to keep markdown rendering safe.) | Mermaid docs (Context7): `/mermaid-js/mermaid` (Reason: confirms fenced mermaid syntax/rendering behavior for markdown parity verification.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -3307,7 +3307,7 @@ Render Chat user bubbles with the same markdown/sanitization component used by a
    - Document location: `design.md`
    - Description: Document markdown rendering pipeline reuse for user bubbles, including mermaid and sanitization behavior.
    - Purpose: Keep architecture/implementation docs consistent with parity behavior.
-7. [ ] Update `projectStructure.md` with every file/folder added, removed, or renamed in this task (after file changes are complete).
+7. [x] Update `projectStructure.md` with every file/folder added, removed, or renamed in this task (after file changes are complete).
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | `react-markdown` docs: https://github.com/remarkjs/react-markdown (Reason: renderer API and component behavior used by shared Markdown pipeline.) | `remark-gfm` docs: https://github.com/remarkjs/remark-gfm (Reason: GFM syntax support details for lists/tables/fences in user bubbles.) | `rehype-sanitize` docs: https://github.com/rehypejs/rehype-sanitize (Reason: sanitization schema rules to keep markdown rendering safe.) | Mermaid docs (Context7): `/mermaid-js/mermaid` (Reason: confirms fenced mermaid syntax/rendering behavior for markdown parity verification.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -3317,7 +3317,7 @@ Render Chat user bubbles with the same markdown/sanitization component used by a
      - `path/to/added-file.ts` - one-line purpose
      - Removed: `path/to/removed-file.ts` - one-line reason (if any)
      ```
-8. [ ] Add task-specific structured log lines for Manual Playwright-MCP verification.
+8. [x] Add task-specific structured log lines for Manual Playwright-MCP verification.
    - Files to edit:
      - `client/src/pages/ChatPage.tsx`
      - `client/src/components/Markdown.tsx`
@@ -3325,34 +3325,138 @@ Render Chat user bubbles with the same markdown/sanitization component used by a
      - `DEV-0000035:T10:chat_user_markdown_render_evaluated`
      - `DEV-0000035:T10:chat_user_markdown_render_result`
    - Expected outcome: During chat user-bubble markdown/mermaid rendering, both tags appear and result confirms markdown renderer path is used.
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+9. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check to manually confirm story items and general regression checks for this task; include a check that there are no logged errors within the debug console; use `http://host.docker.internal:5001` via Playwright MCP tools.
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check to manually confirm story items and general regression checks for this task; include a check that there are no logged errors within the debug console; use `http://host.docker.internal:5001` via Playwright MCP tools.
    - Required log tags to verify: `DEV-0000035:T10:chat_user_markdown_render_evaluated`, `DEV-0000035:T10:chat_user_markdown_render_result`.
    - Expected outcome: During chat user-bubble markdown/mermaid rendering, both tags appear and result confirms markdown renderer path is used. Also confirm no unexpected `[error]`/uncaught console errors in browser debug console during this check.
    - Capture screenshots and save them to `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped in `docker-compose.local.yml`):
      - `0000035-10-chat-user-markdown-list-code.png` showing a user bubble rendering markdown list/code formatting.
      - `0000035-10-chat-user-markdown-mermaid.png` showing a user bubble rendering markdown mermaid content via the shared markdown path.
    - Agent screenshot review expectation: verify user bubble rendering visually matches markdown parity expectations (lists/code/mermaid formatting, sanitization behavior, and preserved chat bubble chrome/layout).
-9. [ ] `npm run compose:down`
-10. [ ] `npm run test --workspace client -- chatPage.markdown`
-11. [ ] `npm run test --workspace client -- chatPage.stream`
-12. [ ] `npm run test --workspace client -- chatPage.mermaid`
-13. [ ] `npm run e2e:test -- e2e/chat.spec.ts e2e/chat-mermaid.spec.ts`
-14. [ ] Manual smoke: Chat UI send multiline markdown and verify user bubble formatting parity
-15. [ ] `npm run lint --workspaces`
-16. [ ] `npm run format:check --workspaces`
+9. [x] `npm run compose:down`
+10. [x] `npm run test --workspace client -- chatPage.markdown`
+11. [x] `npm run test --workspace client -- chatPage.stream`
+12. [x] `npm run test --workspace client -- chatPage.mermaid`
+13. [x] `npm run e2e:test -- e2e/chat.spec.ts e2e/chat-mermaid.spec.ts`
+14. [x] Manual smoke: Chat UI send multiline markdown and verify user bubble formatting parity
+15. [x] `npm run lint --workspaces`
+16. [x] `npm run format:check --workspaces`
 #### Implementation notes
 
-- to_do
+- Subtask 1 completed:
+  - Reviewed `client/src/pages/ChatPage.tsx` and `client/src/components/Markdown.tsx` for current user/assistant render paths.
+  - Confirmed assistant text segments render with shared `Markdown` (`data-testid="assistant-markdown"`), while user text segments still render through `Typography` (`data-testid="user-text"`).
+  - Confirmed `Markdown.tsx` already provides required parity behavior surface (GFM, `rehype-sanitize` schema, mermaid fenced block rendering, and fallback on mermaid errors).
+  - Verified bubble chrome/layout concerns are isolated in `ChatPage` `Paper`/`Stack` container styles, so rendering can be switched without changing bubble container behavior.
+  - Verification commands:
+    - `rg -n "data-testid=\\\"user-text\\\"|Typography|Markdown|message\\.role|mermaid" client/src/pages/ChatPage.tsx client/src/components/Markdown.tsx`
+    - `sed -n '1828,2088p' client/src/pages/ChatPage.tsx`
+    - `sed -n '1,260p' client/src/components/Markdown.tsx`
+- Subtask 2 completed:
+  - Replaced Chat user text-segment rendering in `client/src/pages/ChatPage.tsx` from `Typography` to shared `Markdown` (`data-testid="user-markdown"`), preserving existing bubble container/chrome styles (`Paper`/`Stack`, colors, border radius, metadata rows).
+  - Added Task 10 structured render-path logs:
+    - `DEV-0000035:T10:chat_user_markdown_render_evaluated` in `ChatPage` when user text segment is routed to markdown renderer.
+    - `DEV-0000035:T10:chat_user_markdown_render_result` in `client/src/components/Markdown.tsx` when user-bubble markdown rendering executes.
+  - Kept scope constraints intact: no changes to send-path policy, provider/model contracts, or non-render bubble behavior.
+  - Verification commands:
+    - `rg -n "user-markdown|DEV-0000035:T10:chat_user_markdown_render_evaluated|DEV-0000035:T10:chat_user_markdown_render_result" client/src/pages/ChatPage.tsx client/src/components/Markdown.tsx`
+    - `sed -n '1828,2088p' client/src/pages/ChatPage.tsx`
+    - `sed -n '1,260p' client/src/components/Markdown.tsx`
+- Subtask 3 completed:
+  - Updated `client/src/test/chatPage.markdown.test.tsx` with parity assertions that compare assistant/user markdown rendering for lists and code blocks, plus sanitization parity checks for unsafe script content.
+  - Updated `client/src/test/chatPage.mermaid.test.tsx` with parity assertions for assistant/user mermaid rendering and malformed-mermaid fallback behavior (`Diagram failed to render`) in both paths.
+  - Verification commands/results:
+    - `npm run test --workspace client -- chatPage.markdown` (pass; 1 suite, 2 tests)
+    - `npm run test --workspace client -- chatPage.mermaid` (pass; 1 suite, 2 tests)
+  - Notes:
+    - Existing console warnings from markdown DOM nesting and expected mermaid error logging for malformed syntax still appear in test output, but assertions pass and behavior matches parity expectations.
+- Subtask 4 completed:
+  - Updated e2e parity coverage in `e2e/chat.spec.ts` and `e2e/chat-mermaid.spec.ts`:
+    - Added user markdown list/code parity assertion against assistant rendering structure.
+    - Added assistant+user mermaid parity assertion and malformed user-mermaid safe fallback assertion.
+  - Initial targeted e2e run failed against stale e2e containers; rebuilt e2e images and reran with fresh stack, then all targeted specs passed.
+  - Verification commands/results:
+    - `npm run compose:e2e:build` (pass)
+    - `npm run e2e:up` (pass)
+    - `npm run e2e:test -- e2e/chat.spec.ts e2e/chat-mermaid.spec.ts` (pass; 39 passed)
+- Subtask 5 completed:
+  - Updated `README.md` Chat streaming rendering contract to state user and assistant bubbles both use the same sanitized markdown pipeline (GFM + mermaid parity expectations).
+  - Verification commands/results:
+    - `rg -n "Rendering: assistant and user bubbles use the same sanitized React Markdown pipeline|mermaid fences render with parity" README.md` (pass)
+- Subtask 6 completed:
+  - Updated `design.md` markdown/mermaid architecture notes to reflect shared assistant+user bubble renderer usage, with sanitization and mermaid parity explicitly documented.
+  - Verification commands/results:
+    - `rg -n "Markdown rendering \\(assistant \\+ user bubbles\\)|Assistant-visible and user-visible text segments|for both assistant and user bubble markdown paths" design.md` (pass)
+- Subtask 7 completed:
+  - Updated `projectStructure.md` descriptions for task-touched files to reflect user/assistant markdown parity and mermaid fallback coverage.
+  - No files/folders were added, removed, or renamed in Task 10.
+  - Verification commands/results:
+    - `rg -n "Markdown.tsx \\?|chatPage.markdown.test.tsx|chatPage.mermaid.test.tsx" projectStructure.md` (pass)
+- Subtask 8 completed:
+  - Verified Task 10 structured log tags are present on the user markdown render path:
+    - `DEV-0000035:T10:chat_user_markdown_render_evaluated` in `client/src/pages/ChatPage.tsx`.
+    - `DEV-0000035:T10:chat_user_markdown_render_result` in `client/src/components/Markdown.tsx`.
+  - Verification commands/results:
+    - `rg -n "DEV-0000035:T10:chat_user_markdown_render_evaluated|DEV-0000035:T10:chat_user_markdown_render_result|user-markdown" client/src/pages/ChatPage.tsx client/src/components/Markdown.tsx` (pass)
+- Subtask 9 completed:
+  - Ran workspace lint and formatting checks per task requirements.
+  - `lint` passed with existing baseline warnings only (no errors).
+  - Initial `format:check` failed on `client/src/pages/ChatPage.tsx` and `client/src/test/chatPage.markdown.test.tsx`; ran workspace formatter and reran check successfully.
+  - Verification commands/results:
+    - `npm run lint --workspaces` (pass; 0 errors, baseline warnings only)
+    - `npm run format:check --workspaces` (initial fail on 2 files)
+    - `npm run format --workspaces` (pass; applied Prettier formatting)
+    - `npm run format:check --workspaces` (pass)
+- Testing 1 completed:
+  - `npm run build --workspace server` (pass)
+- Testing 2 completed:
+  - `npm run build --workspace client` (pass)
+- Testing 3 completed:
+  - `npm run test --workspace server` (pass; unit `623 passed, 0 failed`; integration `62 scenarios / 366 steps passed`)
+- Testing 4 completed:
+  - `npm run test --workspace client` (pass; `90` suites, `327` tests)
+- Testing 5 completed:
+  - `npm run e2e` (pass; includes compose:e2e build/up/test/down, `39 passed`)
+- Testing 6 completed:
+  - `npm run compose:build` (pass)
+- Testing 7 completed:
+  - `npm run compose:up` (pass)
+- Testing 8 completed (Manual Playwright-MCP):
+  - Used `http://host.docker.internal:5001/chat` via Playwright MCP tools.
+  - Verified required log tags in browser console during user markdown/mermaid rendering:
+    - `DEV-0000035:T10:chat_user_markdown_render_evaluated`
+    - `DEV-0000035:T10:chat_user_markdown_render_result`
+  - Verified browser console had no unexpected error-level entries (`browser_console_messages(level=error)` returned empty).
+  - Captured required screenshots in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local`:
+    - `0000035-10-chat-user-markdown-list-code.png`
+    - `0000035-10-chat-user-markdown-mermaid.png`
+- Testing 9 completed:
+  - `npm run compose:down` (pass)
+- Testing 10 completed:
+  - `npm run test --workspace client -- chatPage.markdown` (pass; 1 suite, 2 tests)
+- Testing 11 completed:
+  - `npm run test --workspace client -- chatPage.stream` (pass; 1 suite, 27 tests)
+- Testing 12 completed:
+  - `npm run test --workspace client -- chatPage.mermaid` (pass; 1 suite, 2 tests)
+- Testing 13 completed:
+  - Initial run failed with `ERR_CONNECTION_REFUSED` because e2e stack had been brought down in Testing 9.
+  - Remediation: started e2e stack (`npm run e2e:up`) and reran the command.
+  - Final result: `npm run e2e:test -- e2e/chat.spec.ts e2e/chat-mermaid.spec.ts` (pass; `39 passed`).
+- Testing 14 completed:
+  - Manual smoke run against `http://host.docker.internal:6001/chat` sent multiline markdown list+code and verified user bubble parity render (`listCount: 2`, code contains `hello parity`).
+- Testing 15 completed:
+  - `npm run lint --workspaces` (pass; existing baseline warnings only, no errors)
+- Testing 16 completed:
+  - `npm run format:check --workspaces` (pass)
 
 ---
 

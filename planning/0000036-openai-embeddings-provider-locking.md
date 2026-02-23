@@ -148,6 +148,95 @@ Retryability guidance for this taxonomy:
 - Confirmed from Chroma docs that collection/query embedding dimensions must match; mismatches fail. This plan now requires dimension-aware lock metadata and deterministic mismatch errors.
 - Confirmed from OpenAI Node SDK docs that SDK-level retries/timeouts exist by default; this plan now requires explicit retry ownership (SDK retries disabled for embeddings calls, server retry utility authoritative).
 
+## Junior-Readable Definition of Done
+
+This section defines concrete "done" behavior so a junior developer can verify outputs without inferring intent.
+
+### Scenario 1: OpenAI key missing
+
+- Setup: `OPENAI_EMBEDDING_KEY` is not set in server runtime.
+- Required output:
+  - `GET /ingest/models` returns `200`.
+  - Response includes `openai.enabled=false`, `openai.status="disabled"`, `openai.statusCode="OPENAI_DISABLED"`.
+  - Response still includes LM Studio models when LM Studio is reachable.
+  - Ingest page shows info bar: `OpenAI embedding models are unavailable. Set OPENAI_EMBEDDING_KEY on the server to enable them.`
+- Not allowed:
+  - OpenAI models appearing in dropdown.
+  - Entire endpoint failing only because OpenAI key is missing.
+
+### Scenario 2: OpenAI key set and listing succeeds
+
+- Setup: `OPENAI_EMBEDDING_KEY` is valid and `client.models.list()` succeeds.
+- Required output:
+  - `GET /ingest/models` returns `200`.
+  - `openai.enabled=true`, `openai.status="ok"`, `openai.statusCode="OPENAI_OK"`.
+  - OpenAI models in dropdown are exactly allowlisted intersection with available models.
+  - Ordering is deterministic: `text-embedding-3-small`, then `text-embedding-3-large`.
+- Not allowed:
+  - Any non-allowlisted OpenAI model in dropdown.
+  - UI needing manual refresh logic beyond normal polling/refresh behavior already used by ingest page.
+
+### Scenario 3: OpenAI key set but model listing fails transiently
+
+- Setup: `OPENAI_EMBEDDING_KEY` is set, OpenAI listing call fails transiently.
+- Required output:
+  - `GET /ingest/models` returns `200` (not 5xx).
+  - LM Studio models are still returned when LM Studio listing works.
+  - `openai.status="warning"`, `openai.statusCode="OPENAI_MODELS_LIST_TEMPORARY_FAILURE"`.
+  - `openai.warning` contains `code`, `message`, `retryable`, optional `retryAfterMs`.
+  - UI shows warning state and still allows LM Studio ingest.
+- Not allowed:
+  - Full endpoint failure caused only by transient OpenAI listing issue.
+
+### Scenario 4: Backward compatibility with pre-story roots
+
+- Setup: existing root/index metadata only has legacy fields (`lockedModelId`, root `model`) and no provider field.
+- Required output:
+  - Runtime infers `embeddingProvider="lmstudio"` for lock checks and vector search.
+  - Existing repositories continue ingest/re-embed/vector-search without manual migration.
+  - Response contracts include canonical fields plus compatibility aliases.
+- Not allowed:
+  - Forced migration step.
+  - Rejection of old roots solely because provider field is absent.
+
+### Scenario 5: Lock conflict behavior
+
+- Setup: index already locked to provider/model A, user attempts ingest with provider/model B.
+- Required output:
+  - `POST /ingest/start` returns `409` with `code="MODEL_LOCKED"`.
+  - Response includes canonical `lock.embeddingProvider`, `lock.embeddingModel`, `lock.embeddingDimensions`.
+  - Compatibility alias `lockedModelId` remains present for legacy clients.
+- Not allowed:
+  - Silent provider/model switch on non-empty index.
+  - Ambiguous conflict payloads missing lock identity.
+
+### Scenario 6: OpenAI ingest + OpenAI query parity
+
+- Setup: repository ingested using OpenAI model.
+- Required output:
+  - Future ingest/re-embed uses same locked provider+model unless index reset by existing lock-reset behavior.
+  - `/tools/vector-search` and MCP vector-search paths generate query embedding with same locked provider+model.
+  - Dimension mismatch is detected before Chroma query and returned as deterministic error.
+- Not allowed:
+  - Query embedding provider/model differing from ingest lock.
+  - Raw Chroma mismatch errors leaking to client without normalized error mapping.
+
+### Scenario 7: OpenAI failure handling and retries
+
+- Setup: OpenAI embeddings call fails with retryable and non-retryable categories.
+- Required output:
+  - Retryable errors use bounded backoff with configured defaults.
+  - Non-retryable errors fail immediately with normalized error code and user-readable message.
+  - Quota/credit exhaustion maps to `OPENAI_QUOTA_EXCEEDED` and `retryable=false`.
+- Not allowed:
+  - Unclassified/raw SDK errors returned directly.
+  - Multiple retry layers competing (SDK retries + server retries) for the same embedding request.
+
+### Story completion gate
+
+- Story is only complete when all scenarios above pass in automated tests and manual verification.
+- Story is not complete if behavior works only in one surface; REST, MCP, ingest jobs, and UI lock display must all match the same canonical lock rules.
+
 ## Message Contracts & Storage Shapes
 
 ### Contract Delta Inventory (Current -> Story 0000036)

@@ -2,7 +2,10 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import express from 'express';
 import request from 'supertest';
-import type { ReingestResult } from '../../ingest/reingestService.js';
+import type {
+  ReingestError,
+  ReingestResult,
+} from '../../ingest/reingestService.js';
 import { createMcpRouter } from '../../mcp/server.js';
 
 const baseSuccess = {
@@ -11,6 +14,55 @@ const baseSuccess = {
   runId: 'run-123',
   sourceId: '/data/repo-a',
 } as const;
+
+const parityInvalidParamsError: Extract<ReingestError, { code: -32602 }> = {
+  code: -32602,
+  message: 'INVALID_PARAMS',
+  data: {
+    tool: 'reingest_repository',
+    code: 'INVALID_SOURCE_ID',
+    retryable: true,
+    retryMessage:
+      'The AI can retry using one of the provided re-ingestable repository ids/sourceIds.',
+    fieldErrors: [
+      { field: 'sourceId', reason: 'missing', message: 'required' },
+    ],
+    reingestableRepositoryIds: ['repo-a'],
+    reingestableSourceIds: ['/data/repo-a'],
+  },
+};
+
+const parityNotFoundError: Extract<ReingestError, { code: 404 }> = {
+  code: 404,
+  message: 'NOT_FOUND',
+  data: {
+    tool: 'reingest_repository',
+    code: 'NOT_FOUND',
+    retryable: true,
+    retryMessage:
+      'The AI can retry using one of the provided re-ingestable repository ids/sourceIds.',
+    fieldErrors: [
+      { field: 'sourceId', reason: 'unknown_root', message: 'unknown' },
+    ],
+    reingestableRepositoryIds: ['repo-a'],
+    reingestableSourceIds: ['/data/repo-a'],
+  },
+};
+
+const parityBusyError: Extract<ReingestError, { code: 429 }> = {
+  code: 429,
+  message: 'BUSY',
+  data: {
+    tool: 'reingest_repository',
+    code: 'BUSY',
+    retryable: true,
+    retryMessage:
+      'The AI can retry using one of the provided re-ingestable repository ids/sourceIds.',
+    fieldErrors: [{ field: 'sourceId', reason: 'busy', message: 'busy' }],
+    reingestableRepositoryIds: ['repo-a'],
+    reingestableSourceIds: ['/data/repo-a'],
+  },
+};
 
 function createApp(result: ReingestResult) {
   const app = express();
@@ -53,26 +105,16 @@ test('classic MCP success payload for reingest_repository is wrapped as text JSO
   const content = res.body.result.content[0] as { type: string; text: string };
   assert.equal(content.type, 'text');
   assert.deepEqual(JSON.parse(content.text), baseSuccess);
+  assert.equal(
+    JSON.stringify(JSON.parse(content.text)),
+    JSON.stringify(baseSuccess),
+  );
 });
 
 test('classic MCP failures use JSON-RPC error envelope (not result.isError)', async () => {
   const app = createApp({
     ok: false,
-    error: {
-      code: -32602,
-      message: 'INVALID_PARAMS',
-      data: {
-        tool: 'reingest_repository',
-        code: 'INVALID_SOURCE_ID',
-        retryable: true,
-        retryMessage: 'retry',
-        fieldErrors: [
-          { field: 'sourceId', reason: 'missing', message: 'required' },
-        ],
-        reingestableRepositoryIds: ['repo-a'],
-        reingestableSourceIds: ['/data/repo-a'],
-      },
-    },
+    error: parityInvalidParamsError,
   });
   const res = await request(app)
     .post('/mcp')
@@ -85,26 +127,19 @@ test('classic MCP failures use JSON-RPC error envelope (not result.isError)', as
 
   assert.equal(res.status, 200);
   assert.equal(res.body.result, undefined);
-  assert.equal(res.body.error.code, -32602);
-  assert.equal(res.body.error.message, 'INVALID_PARAMS');
+  assert.deepEqual(res.body.error, parityInvalidParamsError);
 });
 
 test('classic MCP INVALID_PARAMS and NOT_FOUND include retry guidance fields', async () => {
   const invalidApp = createApp({
     ok: false,
     error: {
-      code: -32602,
-      message: 'INVALID_PARAMS',
+      ...parityInvalidParamsError,
       data: {
-        tool: 'reingest_repository',
-        code: 'INVALID_SOURCE_ID',
-        retryable: true,
-        retryMessage: 'retry',
+        ...parityInvalidParamsError.data,
         fieldErrors: [
           { field: 'sourceId', reason: 'non_absolute', message: 'invalid' },
         ],
-        reingestableRepositoryIds: ['repo-a'],
-        reingestableSourceIds: ['/data/repo-a'],
       },
     },
   });
@@ -130,21 +165,7 @@ test('classic MCP INVALID_PARAMS and NOT_FOUND include retry guidance fields', a
 
   const notFoundApp = createApp({
     ok: false,
-    error: {
-      code: 404,
-      message: 'NOT_FOUND',
-      data: {
-        tool: 'reingest_repository',
-        code: 'NOT_FOUND',
-        retryable: true,
-        retryMessage: 'retry',
-        fieldErrors: [
-          { field: 'sourceId', reason: 'unknown_root', message: 'unknown' },
-        ],
-        reingestableRepositoryIds: ['repo-a'],
-        reingestableSourceIds: ['/data/repo-a'],
-      },
-    },
+    error: parityNotFoundError,
   });
 
   const notFoundRes = await request(notFoundApp)
@@ -159,8 +180,7 @@ test('classic MCP INVALID_PARAMS and NOT_FOUND include retry guidance fields', a
       },
     });
 
-  assert.equal(notFoundRes.body.error.code, 404);
-  assert.equal(notFoundRes.body.error.message, 'NOT_FOUND');
+  assert.deepEqual(notFoundRes.body.error, parityNotFoundError);
   assert.deepEqual(notFoundRes.body.error.data.reingestableRepositoryIds, [
     'repo-a',
   ]);
@@ -172,19 +192,7 @@ test('classic MCP INVALID_PARAMS and NOT_FOUND include retry guidance fields', a
 test('classic MCP maps BUSY to code 429 and message BUSY', async () => {
   const app = createApp({
     ok: false,
-    error: {
-      code: 429,
-      message: 'BUSY',
-      data: {
-        tool: 'reingest_repository',
-        code: 'BUSY',
-        retryable: true,
-        retryMessage: 'retry',
-        fieldErrors: [{ field: 'sourceId', reason: 'busy', message: 'busy' }],
-        reingestableRepositoryIds: ['repo-a'],
-        reingestableSourceIds: ['/data/repo-a'],
-      },
-    },
+    error: parityBusyError,
   });
 
   const res = await request(app)
@@ -200,6 +208,5 @@ test('classic MCP maps BUSY to code 429 and message BUSY', async () => {
     });
 
   assert.equal(res.status, 200);
-  assert.equal(res.body.error.code, 429);
-  assert.equal(res.body.error.message, 'BUSY');
+  assert.deepEqual(res.body.error, parityBusyError);
 });

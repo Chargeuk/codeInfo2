@@ -205,7 +205,7 @@ codex_agents/<agentName>/
 - Endpoint: POST JSON-RPC 2.0 to `http://localhost:5010/mcp` (host) or `http://server:5010/mcp` (docker). CORS matches `/chat`.
 - Note: the server intentionally exposes **two** MCP surfaces:
   - Express `POST /mcp` (ingest tooling: `ListIngestedRepositories`, `VectorSearch`, `reingest_repository`).
-  - MCP v2 JSON-RPC server on `MCP_PORT` (tooling: `codebase_question`, documented under **MCP (codebase_question)** below).
+  - MCP v2 JSON-RPC server on `MCP_PORT` (tooling: `codebase_question`, `reingest_repository`, documented under **MCP v2 tools** below).
     Their response conventions differ and must remain stable; shared MCP infrastructure lives under `server/src/mcpCommon/`.
 - Config: `config.toml.example` seeds `[mcp_servers]` entries `codeinfo_host` and `codeinfo_docker` pointing at the URLs above when the server first runs.
 - Required methods: `initialize` → `tools/list` → `tools/call`.
@@ -333,11 +333,15 @@ Ingest collection names (`INGEST_COLLECTION`, `INGEST_ROOTS_COLLECTION`) come fr
 - Docker: `docker build -f server/Dockerfile -t codeinfo2-server .` then `docker run --rm -p 5010:5010 codeinfo2-server`
 - **LM Studio tooling + Zod version pin:** the LM Studio SDK bundles Zod 3.25.76. A Zod 4.x copy pulled in by lint dependencies caused Docker-only tool-call failures (`keyValidator._parse is not a function`) because schemas were built with Zod v4 while the SDK validated with v3. We now pin Zod to `3.25.76` via an npm `overrides` entry in the root `package.json`; the regenerated `package-lock.json` ensures both host and container installs use a single Zod version, eliminating the error.
 
-## MCP (codebase_question)
+## MCP v2 tools
 
-- Endpoint: JSON-RPC 2.0 on `http://localhost:${MCP_PORT:-5011}` (Codex-gated; returns `CODE_INFO_LLM_UNAVAILABLE` -32001 if Codex is not available).
+- Endpoint: JSON-RPC 2.0 on `http://localhost:${MCP_PORT:-5011}`.
+- `tools/list` is always available for MCP v2 surface discovery; provider availability is resolved inside each tool execution path.
 - Tool: `codebase_question` with params `{ question: string; conversationId?: string; provider?: 'codex' | 'lmstudio'; model?: string }`. Responses are a single `content` item of type `text` containing JSON with `segments` that include only the `answer` type (no reasoning or vector summary), plus `conversationId` and `modelId`.
-- MCP v2 is provider-aware for this tool: router-level Codex pre-blocking is removed, so `tools/list` stays available without Codex and `tools/call(codebase_question)` can still execute through LM Studio fallback when Codex is unavailable.
+- MCP v2 is provider-aware for `codebase_question`: router-level Codex pre-blocking is removed, so `tools/call(codebase_question)` can execute through LM Studio fallback when Codex is unavailable; terminal unavailable remains JSON-RPC `-32001 CODE_INFO_LLM_UNAVAILABLE` when neither provider can run.
+- Tool: `reingest_repository` with args `{ sourceId: string }` (absolute normalized ingested container path only).
+  - Success payload: `{ status: "started", operation: "reembed", runId, sourceId }` in `result.content[0].text` JSON.
+  - Compatibility lock: failures remain JSON-RPC `error` envelopes (not `result.isError`) with canonical mappings shared with classic MCP: `-32602 INVALID_PARAMS`, `404 NOT_FOUND`, `429 BUSY`, including AI-retry guidance fields in `error.data`.
 - Example call:
   ```sh
   curl -s -X POST http://localhost:5011 \

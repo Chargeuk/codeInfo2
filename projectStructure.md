@@ -331,14 +331,15 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚     â”‚  â”œâ”€ jsonRpc.ts — shared JSON-RPC response helpers (result/error envelopes)
 â”‚     â”‚  â”œâ”€ dispatch.ts — shared method dispatch skeleton (routes to handler callbacks, returns verbatim payloads)
 â”‚     â”‚  â””â”€ keepAlive.ts — shared MCP keepalive lifecycle helper (start/heartbeat/stop + safe response writes)
-â”‚     â”œâ”€ mcp2/ — Codex-gated MCP v2 server on port 5011
+â”‚     â”œâ”€ mcp2/ — MCP v2 JSON-RPC server on port 5011
 â”‚     â”‚  â”œâ”€ server.ts — start/stop JSON-RPC server
-â”‚     â”‚  â”œâ”€ router.ts — JSON-RPC handlers (initialize/tools/resources); uses mcpCommon dispatch/guards while keeping body parsing, parse errors, response writing, and Codex gating local
+â”‚     â”‚  â”œâ”€ router.ts — JSON-RPC handlers (initialize/tools/resources); uses mcpCommon dispatch/guards while keeping body parsing, parse errors, response writing, and MCP v2 error contracts local
 â”‚     â”‚  â”œâ”€ types.ts — JSON-RPC envelope helpers
 â”‚     â”‚  â”œâ”€ errors.ts — shared MCP error helpers
-â”‚     â”‚  â”œâ”€ codexAvailability.ts — detects Codex readiness for tools/list/call gating
-â”‚     â”‚  â”œâ”€ tools.ts — MCP tool registry wiring
-â”‚     â”‚  â””â”€ tools/codebaseQuestion.ts — `codebase_question` tool bridging chat (Codex default, LM Studio optional) + vector search
+â”‚     â”‚  â”œâ”€ codexAvailability.ts — detects Codex readiness for provider-aware execution fallback
+â”‚     â”‚  â”œâ”€ tools.ts — MCP tool registry wiring (`codebase_question`, `reingest_repository`)
+â”‚     â”‚  â”œâ”€ tools/codebaseQuestion.ts — `codebase_question` tool bridging chat (Codex default, LM Studio optional) + vector search
+â”‚     â”‚  â””â”€ tools/reingestRepository.ts — MCP v2 `reingest_repository` tool wrapper over shared reingest validation/service
 â”‚     â”œâ”€ mcpAgents/ — Agents MCP v2 server on port 5012
 â”‚     â”‚  â”œâ”€ server.ts — start/stop Agents JSON-RPC server
 â”‚     â”‚  â”œâ”€ router.ts — JSON-RPC handlers (initialize/tools/resources); tools/list ungated; tools/call gated for run_agent_instruction
@@ -464,6 +465,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚           â”œâ”€ mcp2-router-invalid-request.test.ts â€” MCP v2 invalid request (-32600) characterization (invalid JSON-RPC envelope)
 â”‚           â”œâ”€ mcp2-router-method-not-found.test.ts â€” MCP v2 method not found (-32601) characterization (unknown method)
 â”‚           â”œâ”€ mcp2-router-tool-not-found.test.ts â€” MCP v2 unknown tool mapping characterization (tools/call -> -32601)
+â”‚           â”œâ”€ mcp2.reingest.tool.test.ts â€” MCP v2 `reingest_repository` tools/list + tools/call success/error + parity contract coverage
 â”‚           â”œâ”€ mcp.keepalive.helper.test.ts â€” unit coverage for shared keepalive helper lifecycle and write-after-close protection
 â”‚           â”œâ”€ mcp.reingest.classic.test.ts â€” unit coverage for classic MCP `reingest_repository` tools/list + tools/call success/error contracts
 â”‚           â”œâ”€ reingestService.test.ts â€” unit coverage for `reingest_repository` validation, success mapping, unknown root retry guidance, and busy contracts

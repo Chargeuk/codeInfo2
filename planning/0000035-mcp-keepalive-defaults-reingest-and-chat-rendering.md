@@ -2252,7 +2252,7 @@ Expose `reingest_repository` on the classic MCP surface and map service outputs 
 
 ### 7. Server: Wire `reingest_repository` into MCP v2 tools surface
 
-- Task Status: **__to_do__**
+- Task Status: **__done__**
 - Git Commits: to_do
 
 #### Overview
@@ -2272,7 +2272,7 @@ Expose `reingest_repository` on MCP v2 and enforce the exact same name and contr
 
 #### Subtasks
 
-1. [ ] Review MCP v2 tool registry and dispatch path.
+1. [x] Review MCP v2 tool registry and dispatch path.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: canonical contract for tool names, arguments, and execution semantics.) | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -2286,7 +2286,7 @@ Expose `reingest_repository` on MCP v2 and enforce the exact same name and contr
      - `server/src/mcp2/tools.ts`
      - `server/src/mcp2/router.ts`
      - `server/src/mcp2/tools/*` (related modules)
-2. [ ] Add MCP v2 tool definition for `reingest_repository`.
+2. [x] Add MCP v2 tool definition for `reingest_repository`.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: canonical contract for tool names, arguments, and execution semantics.) | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -2302,7 +2302,7 @@ Expose `reingest_repository` on MCP v2 and enforce the exact same name and contr
    - Files to edit:
      - `server/src/mcp2/tools.ts`
      - `server/src/mcp2/tools/reingestRepository.ts` (new file)
-3. [ ] Wire tool execution to shared re-ingest service with canonical error mapping.
+3. [x] Wire tool execution to shared re-ingest service with canonical error mapping.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: canonical contract for tool names, arguments, and execution semantics.) | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -2317,7 +2317,7 @@ Expose `reingest_repository` on MCP v2 and enforce the exact same name and contr
      ```
    - Files to edit:
      - `server/src/mcp2/tools/reingestRepository.ts`
-4. [ ] Add MCP v2 tests for list + call success + each error contract branch.
+4. [x] Add MCP v2 tests for list + call success + each error contract branch.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: canonical contract for tool names, arguments, and execution semantics.) | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -2342,31 +2342,31 @@ Expose `reingest_repository` on MCP v2 and enforce the exact same name and contr
        // Assert
      });
      ```
-     1. [ ] MCP v2 success payload contract.
+     1. [x] MCP v2 success payload contract.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Unit JSON-RPC success contract.
         - Test location: `server/src/test/unit/mcp2.reingest.tool.test.ts`.
         - Description: Add/adjust tests asserting wrapped payload includes canonical `status`, `operation`, `runId`, `sourceId`.
         - Purpose: Lock success payload shape for MCP v2.
-     2. [ ] MCP v2 failures use JSON-RPC `error` envelope.
+     2. [x] MCP v2 failures use JSON-RPC `error` envelope.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Unit JSON-RPC error contract.
         - Test location: `server/src/test/unit/mcp2.reingest.tool.test.ts`.
         - Description: Add/adjust tests asserting failures use JSON-RPC `error` and not `result.isError`.
         - Purpose: Preserve surface compatibility.
-     3. [ ] MCP v2 `INVALID_PARAMS`/`NOT_FOUND` include retry guidance fields.
+     3. [x] MCP v2 `INVALID_PARAMS`/`NOT_FOUND` include retry guidance fields.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Unit error-data contract.
         - Test location: `server/src/test/unit/mcp2.reingest.tool.test.ts`.
         - Description: Add/adjust tests for invalid/unknown inputs asserting canonical retry guidance in `error.data`.
         - Purpose: Lock AI-retry data contract.
-     4. [ ] MCP v2 `BUSY` mapping.
+     4. [x] MCP v2 `BUSY` mapping.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Unit busy contract.
         - Test location: `server/src/test/unit/mcp2.reingest.tool.test.ts`.
         - Description: Add/adjust tests asserting `error.code=429` and `error.message="BUSY"` when ingest is locked.
         - Purpose: Lock busy error semantics.
-5. [ ] Add parity assertions in existing classic/MCP-v2 suites for same inputs (avoid separate parity harness file).
+5. [x] Add parity assertions in existing classic/MCP-v2 suites for same inputs (avoid separate parity harness file).
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: canonical contract for tool names, arguments, and execution semantics.) | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -2392,19 +2392,19 @@ Expose `reingest_repository` on MCP v2 and enforce the exact same name and contr
        // Assert
      });
      ```
-     1. [ ] Success payload parity between classic MCP and MCP v2.
+     1. [x] Success payload parity between classic MCP and MCP v2.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Unit parity.
         - Test location: `server/src/test/unit/mcp.reingest.classic.test.ts`, `server/src/test/unit/mcp2.reingest.tool.test.ts`.
         - Description: Add/adjust paired assertions using equivalent inputs and compare serialized success payload shapes.
         - Purpose: Prevent cross-surface drift.
-     2. [ ] Error envelope parity for `INVALID_PARAMS`, `NOT_FOUND`, and `BUSY`.
+     2. [x] Error envelope parity for `INVALID_PARAMS`, `NOT_FOUND`, and `BUSY`.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Unit parity.
         - Test location: `server/src/test/unit/mcp.reingest.classic.test.ts`, `server/src/test/unit/mcp2.reingest.tool.test.ts`.
         - Description: Add/adjust paired assertions comparing `code`, `message`, and `error.data` for identical failing inputs.
         - Purpose: Guarantee contract parity across MCP surfaces.
-6. [ ] Update `README.md` for MCP v2 tool availability and parity expectations.
+6. [x] Update `README.md` for MCP v2 tool availability and parity expectations.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: canonical contract for tool names, arguments, and execution semantics.) | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -2420,7 +2420,7 @@ Expose `reingest_repository` on MCP v2 and enforce the exact same name and contr
    - Document location: `README.md`
    - Description: Document MCP v2 tool exposure and parity guarantees relative to classic MCP.
    - Purpose: Keep integrator-facing expectations explicit and current.
-7. [ ] Update `design.md` for MCP v2 architecture flow and parity diagrams.
+7. [x] Update `design.md` for MCP v2 architecture flow and parity diagrams.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: canonical contract for tool names, arguments, and execution semantics.) | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -2438,7 +2438,7 @@ Expose `reingest_repository` on MCP v2 and enforce the exact same name and contr
    - Purpose: Preserve architecture-level clarity and reduce cross-surface contract drift risk.
    - `design.md` requirements:
      - Add/update Mermaid diagram(s) that show MCP v2 `tools/list` and `tools/call(reingest_repository)` flow and explicit parity relationship with classic MCP contracts.
-8. [ ] Update `projectStructure.md` with every file/folder added, removed, or renamed in this task (after file changes are complete).
+8. [x] Update `projectStructure.md` with every file/folder added, removed, or renamed in this task (after file changes are complete).
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): MCP tools specification: https://modelcontextprotocol.io/specification/draft/server/tools (Reason: canonical contract for tool names, arguments, and execution semantics.) | JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (Reason: canonical transport/error envelope rules for MCP JSON-RPC handlers.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (Reason: defines request/response schema and validation contract language used by API documentation updates.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -2454,7 +2454,7 @@ Expose `reingest_repository` on MCP v2 and enforce the exact same name and contr
        - `server/src/test/unit/mcp2.reingest.tool.test.ts`
      - Removed files:
        - None planned in this task.
-9. [ ] Add task-specific structured log lines for Manual Playwright-MCP verification.
+9. [x] Add task-specific structured log lines for Manual Playwright-MCP verification.
    - Files to edit:
      - `server/src/mcp2/tools/reingestRepository.ts`
      - `server/src/mcp2/router.ts`
@@ -2462,27 +2462,95 @@ Expose `reingest_repository` on MCP v2 and enforce the exact same name and contr
      - `DEV-0000035:T7:mcp2_reingest_tool_call_evaluated`
      - `DEV-0000035:T7:mcp2_reingest_tool_call_result`
    - Expected outcome: During MCP v2 tools/call reingest_repository, both tags appear and the result tag records parity-aligned JSON-RPC success/error mapping.
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+10. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check to manually confirm story items and general regression checks for this task; include a check that there are no logged errors within the debug console; use `http://host.docker.internal:5001` via Playwright MCP tools.
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check to manually confirm story items and general regression checks for this task; include a check that there are no logged errors within the debug console; use `http://host.docker.internal:5001` via Playwright MCP tools.
    - Required log tags to verify: `DEV-0000035:T7:mcp2_reingest_tool_call_evaluated`, `DEV-0000035:T7:mcp2_reingest_tool_call_result`.
    - Expected outcome: During MCP v2 tools/call reingest_repository, both tags appear and the result tag records parity-aligned JSON-RPC success/error mapping. Also confirm no unexpected `[error]`/uncaught console errors in browser debug console during this check.
-9. [ ] `npm run compose:down`
-10. [ ] `npm run test --workspace server -- mcp2.reingest`
-11. [ ] Manual smoke: `initialize` -> `tools/list` -> `tools/call reingest_repository` on MCP v2 port
-12. [ ] `npm run lint --workspaces`
-13. [ ] `npm run format:check --workspaces`
+9. [x] `npm run compose:down`
+10. [x] `npm run test --workspace server -- mcp2.reingest`
+11. [x] Manual smoke: `initialize` -> `tools/list` -> `tools/call reingest_repository` on MCP v2 port
+12. [x] `npm run lint --workspaces`
+13. [x] `npm run format:check --workspaces`
 #### Implementation notes
 
-- to_do
+- Subtask 1 completed:
+  - Reviewed `server/src/mcp2/tools.ts`, `server/src/mcp2/router.ts`, and related tool modules; confirmed MCP v2 currently lists/calls only `codebase_question`, maps `InvalidParamsError -> -32602`, and maps unknown tool names via `ToolNotFoundError -> -32601`.
+  - Reviewed existing classic parity baseline in `server/src/test/unit/mcp.reingest.classic.test.ts` to mirror canonical `reingest_repository` payload/error envelope behavior in MCP v2 tests.
+  - Verification commands:
+    - `rg -n "reingest_repository|reingest" server/src`
+    - `sed -n '1,260p' server/src/mcp2/tools.ts`
+    - `sed -n '1,320p' server/src/mcp2/router.ts`
+    - `sed -n '1,280p' server/src/test/unit/mcp.reingest.classic.test.ts`
+- Subtasks 2-3 completed:
+  - Added `server/src/mcp2/tools/reingestRepository.ts` with MCP v2 `reingest_repository` definition and shared-service execution wiring through `runReingestRepository`.
+  - Updated `server/src/mcp2/tools.ts` to register/list/call `reingest_repository` alongside `codebase_question`, including typed dependency injection for tests.
+  - Updated `server/src/mcp2/router.ts` to map custom reingest tool errors to JSON-RPC envelopes and keep compatibility-lock behavior (`error` envelope, no `result.isError`).
+  - Added required T7 logs:
+    - `DEV-0000035:T7:mcp2_reingest_tool_call_evaluated` (tool module)
+    - `DEV-0000035:T7:mcp2_reingest_tool_call_result` (router success/error mapping output)
+- Subtasks 4-5 completed:
+  - Added `server/src/test/unit/mcp2.reingest.tool.test.ts` covering MCP v2 tools/list inclusion, success payload wrapping, and each error branch (`INVALID_PARAMS`, `NOT_FOUND`, `BUSY`) in JSON-RPC `error`.
+  - Updated `server/src/test/unit/mcp.reingest.classic.test.ts` to use canonical parity fixtures and explicit payload/error-shape parity assertions that match MCP v2 expectations.
+  - Verification command:
+    - `npm run build --workspace server` (pass)
+- Subtasks 6-8 completed:
+  - Updated `README.md` MCP v2 section to document `reingest_repository` exposure and parity/compatibility-lock expectations.
+  - Updated `design.md` MCP architecture sections and added an MCP v2 `reingest_repository` parity sequence diagram.
+  - Updated `projectStructure.md` entries for new Task 7 files and MCP v2 registry description.
+- Subtask 10 completed:
+  - `npm run lint --workspaces` (pass; baseline import-order warnings unchanged and pre-existing).
+  - `npm run format:check --workspaces` initially failed on 3 edited server files, then fixed with:
+    - `npx prettier --write server/src/mcp2/tools.ts server/src/test/unit/mcp.reingest.classic.test.ts server/src/test/unit/mcp2.reingest.tool.test.ts`
+  - Re-ran `npm run format:check --workspaces` (pass).
+- Testing 1 completed:
+  - `npm run build --workspace server` (pass).
+- Testing 2 completed:
+  - `npm run build --workspace client` (pass; Vite production build completed).
+- Testing 3 completed:
+  - `npm run test --workspace server` (pass).
+  - unit/integration-node summary: `tests 617`, `pass 617`, `fail 0`.
+  - cucumber summary: `62 scenarios (62 passed)`, `366 steps (366 passed)`.
+- Testing 4 completed:
+  - `npm run test --workspace client` (pass; `Test Suites: 90 passed`, `Tests: 320 passed`).
+- Testing 5 completed:
+  - `npm run e2e` (pass; Playwright summary: `33 passed`, `3 skipped` in ~3.7m; e2e compose stack auto-torn down at the end).
+- Testing 6 completed:
+  - `npm run compose:build` (pass; docker images `codeinfo2-server` and `codeinfo2-client` built).
+- Testing 7 completed:
+  - `npm run compose:up` (pass; compose services started and reached healthy state).
+- Testing 8 completed (Manual Playwright-MCP):
+  - Playwright MCP browser check against `http://host.docker.internal:5001` completed; browser console error-level messages list was empty.
+  - Executed MCP v2 smoke chain on compose server:
+    - `initialize` (`protocolVersion: "2024-11-05"`)
+    - `tools/list` (includes `reingest_repository`)
+    - `tools/call(reingest_repository, { sourceId: "relative/path" })` -> JSON-RPC `error` `-32602 INVALID_PARAMS` with canonical `INVALID_SOURCE_ID` data.
+  - Verified required task logs via `GET /logs` on the same compose server:
+    - `DEV-0000035:T7:mcp2_reingest_tool_call_evaluated`
+    - `DEV-0000035:T7:mcp2_reingest_tool_call_result`
+- Testing 9 completed:
+  - `npm run compose:down` (pass; compose stack stopped and removed cleanly).
+- Testing 10 completed:
+  - `npm run test --workspace server -- mcp2.reingest` (pass).
+  - unit/integration-node summary: `tests 617`, `pass 617`, `fail 0`.
+  - cucumber summary: `62 scenarios (62 passed)`, `366 steps (366 passed)`.
+- Testing 11 completed:
+  - Manual MCP v2 smoke executed against isolated local ports to avoid existing local MCP listeners (`PORT=6510 MCP_PORT=6511 AGENTS_MCP_PORT=6512 npm run start --workspace server`).
+  - `initialize` returned MCP protocol/capabilities.
+  - `tools/list` included `reingest_repository`.
+  - `tools/call(reingest_repository, { sourceId: "relative/path" })` returned canonical JSON-RPC error `-32602 INVALID_PARAMS` with `INVALID_SOURCE_ID` guidance data.
+- Testing 12 completed:
+  - `npm run lint --workspaces` (pass; baseline import-order warnings unchanged and pre-existing).
+- Testing 13 completed:
+  - `npm run format:check --workspaces` (pass).
 
 ---
 

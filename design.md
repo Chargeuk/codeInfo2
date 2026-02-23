@@ -1838,17 +1838,18 @@ flowchart TD
   Base --> Mcp[McpResponder -> segments JSON]
 ```
 
-### MCP server (Codex tools)
+### MCP server (classic tools)
 
 - Express `POST /mcp` implements MCP over JSON-RPC 2.0 with methods `initialize`, `tools/list`, and `tools/call` (protocol version `2024-11-05`).
-- Tools exposed: `ListIngestedRepositories` (no params) and `VectorSearch` (`query` required, optional `repository`, `limit` <= 20). Results are returned as a single `text` content item containing JSON (`content: [{ type: "text", text: "<json>" }]`) for Codex compatibility.
+- Tools exposed: `ListIngestedRepositories` (no params), `VectorSearch` (`query` required, optional `repository`, `limit` <= 20), and `reingest_repository` (`sourceId` required). Results are returned as a single `text` content item containing JSON (`content: [{ type: "text", text: "<json>" }]`) for Codex compatibility.
 - Errors follow JSON-RPC envelopes: validation maps to -32602, method-not-found to -32601, and domain errors map to 404/409/503 codes in the `error` object.
 - `config.toml.example` seeds `[mcp_servers]` entries for host (`http://localhost:5010/mcp`) and docker (`http://server:5010/mcp`) so Codex can call the MCP server directly.
 - Shared MCP infrastructure (guards, JSON-RPC helpers, dispatch skeleton) lives under `server/src/mcpCommon/` and is reused by both `/mcp` and MCP v2 while preserving their intentionally different wire formats, tool sets, and gating/error conventions.
 
-### Codex-gated MCP v2 (port 5011)
+### MCP v2 JSON-RPC (port 5011)
 
-- A second JSON-RPC server listens on `MCP_PORT` (default 5011) alongside Express, exposing `initialize`, `tools/list`, `tools/call`, `resources/list`, and `resources/listTemplates` with Codex availability gating. When Codex is unavailable it returns `CODE_INFO_LLM_UNAVAILABLE` (-32001) instead of tools. Resource listings return empty arrays for compatibility.
+- A second JSON-RPC server listens on `MCP_PORT` (default 5011) alongside Express, exposing `initialize`, `tools/list`, `tools/call`, `resources/list`, and `resources/listTemplates`. `tools/list` is discovery-only and remains available even when Codex is unavailable; provider availability is resolved per-tool execution path.
+- MCP v2 tools now include `codebase_question` and `reingest_repository`.
 - `initialize` now mirrors MCP v1: it returns `protocolVersion: "2024-11-05"`, `capabilities: { tools: { listChanged: false } }`, and `serverInfo { name: "codeinfo2-mcp", version: <server package version> }` so Codex/mcp-remote clients accept the handshake.
 - Startup/shutdown: `startMcp2Server()` is called from `server/src/index.ts`; `stopMcp2Server()` is invoked during SIGINT/SIGTERM alongside LM Studio client cleanup.
 
@@ -1856,10 +1857,11 @@ flowchart TD
 flowchart LR
   Browser/Agent -- HTTP 5010 --> Express
   Express -->|/mcp| MCP1
-  Browser/Agent -- JSON-RPC 5011 --> MCP2[Codex-gated MCP]
-  MCP2 -->|tools/list| Codex
-  MCP2 -->|tools/call| Codex
-  MCP1 -->|ListIngestedRepositories / VectorSearch| LMStudio
+  Browser/Agent -- JSON-RPC 5011 --> MCP2[MCP v2]
+  MCP2 -->|tools/list| Clients
+  MCP2 -->|tools/call codebase_question| ChatProvider
+  MCP2 -->|tools/call reingest_repository| ReingestService
+  MCP1 -->|ListIngestedRepositories / VectorSearch / reingest_repository| LMStudio
 ```
 
 ### MCP v2 `codebase_question` flow (Codex + optional LM Studio)
@@ -1888,6 +1890,37 @@ sequenceDiagram
   Chat-->>MCP2: normalized events
   MCP2-->>Agent: JSON-RPC result with text content {conversationId, modelId, segments:[{type:'answer', text}]}
   Note over MCP2: if Codex unavailable → error -32001 CODE_INFO_LLM_UNAVAILABLE
+```
+
+### MCP v2 `reingest_repository` parity with classic MCP
+
+- Tool name is identical on both surfaces: `reingest_repository`.
+- Contract parity is explicit for shared success/error mapping:
+  - success: `{ status: "started", operation: "reembed", runId, sourceId }`
+  - errors (compatibility lock): JSON-RPC `error` envelope, not `result.isError`
+    - `-32602 INVALID_PARAMS`
+    - `404 NOT_FOUND`
+    - `429 BUSY`
+
+```mermaid
+sequenceDiagram
+  participant Client
+  participant MCP2 as MCP v2 (5011)
+  participant Service as runReingestRepository
+  participant Classic as Classic /mcp
+
+  Client->>MCP2: tools/list
+  MCP2-->>Client: includes reingest_repository
+  Client->>MCP2: tools/call reingest_repository {sourceId}
+  MCP2->>Service: runReingestRepository(args)
+  alt success
+    Service-->>MCP2: {status, operation, runId, sourceId}
+    MCP2-->>Client: result.content[0].text(JSON)
+  else invalid/not-found/busy
+    Service-->>MCP2: {code, message, data}
+    MCP2-->>Client: JSON-RPC error(code, message, data)
+  end
+  Note over MCP2,Classic: Success and error envelopes intentionally match classic /mcp contracts
 ```
 
 ## End-to-end validation

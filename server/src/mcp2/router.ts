@@ -3,10 +3,12 @@ import serverPackage from '../../package.json' with { type: 'json' };
 import { dispatchJsonRpc } from '../mcpCommon/dispatch.js';
 import { isObject } from '../mcpCommon/guards.js';
 import { createKeepAliveController } from '../mcpCommon/keepAlive.js';
+import { append } from '../logStore.js';
 import {
   ArchivedConversationError,
   InvalidParamsError,
   ProviderUnavailableError,
+  ReingestRepositoryToolError,
   ToolNotFoundError,
   callTool,
   listTools,
@@ -23,6 +25,7 @@ const METHOD_NOT_FOUND_CODE = -32601;
 const INVALID_PARAMS_CODE = -32602;
 const PARSE_ERROR_CODE = -32700;
 const PROTOCOL_VERSION = '2024-11-05';
+const REINGEST_REPOSITORY_TOOL_NAME = 'reingest_repository';
 const SERVER_INFO = {
   name: 'codeinfo2-mcp',
   version: serverPackage.version ?? '0.0.0',
@@ -82,6 +85,10 @@ export async function handleRpc(req: IncomingMessage, res: ServerResponse) {
         const params = isObject(paramsUnknown) ? paramsUnknown : {};
         const name = params.name;
         const args = params.arguments;
+        const requestIdText =
+          requestId === null || requestId === undefined
+            ? undefined
+            : String(requestId);
 
         if (typeof name !== 'string') {
           return jsonRpcError(
@@ -93,15 +100,63 @@ export async function handleRpc(req: IncomingMessage, res: ServerResponse) {
 
         try {
           const result = await callTool(name, args);
+          if (name === REINGEST_REPOSITORY_TOOL_NAME) {
+            append({
+              level: 'info',
+              source: 'server',
+              timestamp: new Date().toISOString(),
+              message: 'DEV-0000035:T7:mcp2_reingest_tool_call_result',
+              requestId: requestIdText,
+              context: {
+                tool: name,
+                outcome: 'success',
+                payload: result,
+              },
+            });
+          }
           return jsonRpcResult(requestId, result);
         } catch (err) {
           if (err instanceof InvalidParamsError) {
+            if (name === REINGEST_REPOSITORY_TOOL_NAME) {
+              append({
+                level: 'info',
+                source: 'server',
+                timestamp: new Date().toISOString(),
+                message: 'DEV-0000035:T7:mcp2_reingest_tool_call_result',
+                requestId: requestIdText,
+                context: {
+                  tool: name,
+                  outcome: 'error',
+                  code: INVALID_PARAMS_CODE,
+                  message: err.message,
+                  data: err.data,
+                },
+              });
+            }
             return jsonRpcError(
               requestId,
               INVALID_PARAMS_CODE,
               err.message,
               err.data,
             );
+          }
+
+          if (err instanceof ReingestRepositoryToolError) {
+            append({
+              level: 'info',
+              source: 'server',
+              timestamp: new Date().toISOString(),
+              message: 'DEV-0000035:T7:mcp2_reingest_tool_call_result',
+              requestId: requestIdText,
+              context: {
+                tool: name,
+                outcome: 'error',
+                code: err.code,
+                message: err.message,
+                data: err.data,
+              },
+            });
+            return jsonRpcError(requestId, err.code, err.message, err.data);
           }
 
           if (err instanceof ArchivedConversationError) {

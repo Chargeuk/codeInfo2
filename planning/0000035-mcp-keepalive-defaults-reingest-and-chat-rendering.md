@@ -2253,7 +2253,7 @@ Expose `reingest_repository` on the classic MCP surface and map service outputs 
 ### 7. Server: Wire `reingest_repository` into MCP v2 tools surface
 
 - Task Status: **__done__**
-- Git Commits: to_do
+- Git Commits: c14d73a
 
 #### Overview
 

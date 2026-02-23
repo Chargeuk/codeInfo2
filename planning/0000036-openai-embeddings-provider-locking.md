@@ -58,7 +58,7 @@ OpenAI dropdown filtering decision for this story:
 - Final dropdown options are the intersection of:
   - the curated allowlist, and
   - models actually available to the configured `OPENAI_EMBEDDING_KEY` from `client.models.list()`.
-- If the key is present but none of the curated models are available, show no OpenAI options and return a clear informational message state.
+- If the key is present but none of the curated models are available, show no OpenAI options and return deterministic warning state: `openai.status="warning"` and `openai.statusCode="OPENAI_ALLOWLIST_NO_MATCH"`.
 - Server enforces the same allowlist on ingest-start/reembed validation; clients cannot bypass the allowlist by posting arbitrary model ids.
 - `/ingest/models` includes explicit OpenAI availability fields so UI behavior does not depend on inference (for example `openai.enabled`, `openai.statusCode`, warning metadata).
 
@@ -95,12 +95,14 @@ Retryability guidance for this taxonomy:
 
 - Backward compatibility is a hard requirement: repositories embedded before provider-aware metadata continue working with no manual migration and no data rewrite step.
 - Server startup parity is required: local non-docker server startup loads `server/.env.local` and `server/.env` with deterministic precedence so `OPENAI_EMBEDDING_KEY` works the same way as docker-compose startup.
+- Deterministic env precedence is required: local startup loads `server/.env` first, then `server/.env.local` as override (matching docker compose env-file override semantics used in this repository).
 - Server reads `OPENAI_EMBEDDING_KEY` at runtime and only enables OpenAI embedding model discovery when the key is configured.
 - `GET /ingest/models` returns `200` with a deterministic contract containing `models`, `lock`, and `openai` objects (defined below), even when OpenAI model-listing has a transient failure.
 - `GET /ingest/models` includes LM Studio models whenever LM Studio listing succeeds; transient OpenAI listing failures do not fail the whole endpoint.
 - If `OPENAI_EMBEDDING_KEY` is missing, `openai.status` is `disabled` and the UI shows an info bar that explicitly names `OPENAI_EMBEDDING_KEY` as required.
-- If `OPENAI_EMBEDDING_KEY` is set and OpenAI model listing succeeds, `openai.status` is `ok` and only allowlisted OpenAI embedding models are included.
+- If `OPENAI_EMBEDDING_KEY` is set, OpenAI model listing succeeds, and at least one allowlisted model is available, `openai.status` is `ok` and only allowlisted OpenAI embedding models are included.
 - If `OPENAI_EMBEDDING_KEY` is set and OpenAI model listing fails transiently, `openai.status` is `warning`, `openai.warning.code=OPENAI_MODELS_LIST_TEMPORARY_FAILURE`, and LM Studio options still render.
+- If `OPENAI_EMBEDDING_KEY` is set, model listing succeeds, but allowlist intersection is empty, `openai.status` is `warning`, `openai.statusCode=OPENAI_ALLOWLIST_NO_MATCH`, and LM Studio options still render.
 - OpenAI model options are strictly `allowlist ∩ models.list()`; no non-allowlisted OpenAI model can appear in `/ingest/models` or be accepted by ingest/reembed APIs.
 - Allowlist ordering is deterministic and fixed to `text-embedding-3-small` then `text-embedding-3-large`.
 - Ingest dropdown options remain unambiguous by showing provider + model identity for every option (for example `lmstudio / <model>` and `openai / <model>`).
@@ -164,9 +166,9 @@ This section defines concrete "done" behavior so a junior developer can verify o
   - OpenAI models appearing in dropdown.
   - Entire endpoint failing only because OpenAI key is missing.
 
-### Scenario 2: OpenAI key set and listing succeeds
+### Scenario 2: OpenAI key set, listing succeeds, and allowlist has matches
 
-- Setup: `OPENAI_EMBEDDING_KEY` is valid and `client.models.list()` succeeds.
+- Setup: `OPENAI_EMBEDDING_KEY` is valid, `client.models.list()` succeeds, and at least one allowlisted model exists in the returned model set.
 - Required output:
   - `GET /ingest/models` returns `200`.
   - `openai.enabled=true`, `openai.status="ok"`, `openai.statusCode="OPENAI_OK"`.
@@ -175,6 +177,19 @@ This section defines concrete "done" behavior so a junior developer can verify o
 - Not allowed:
   - Any non-allowlisted OpenAI model in dropdown.
   - UI needing manual refresh logic beyond normal polling/refresh behavior already used by ingest page.
+
+### Scenario 2b: OpenAI listing succeeds but allowlist has no matches
+
+- Setup: `OPENAI_EMBEDDING_KEY` is valid, `client.models.list()` succeeds, and none of the allowlisted models are present in the returned model set.
+- Required output:
+  - `GET /ingest/models` returns `200`.
+  - LM Studio models are still returned when LM Studio listing works.
+  - No OpenAI models appear in dropdown options.
+  - `openai.status="warning"` and `openai.statusCode="OPENAI_ALLOWLIST_NO_MATCH"`.
+  - `openai.warning.code="OPENAI_ALLOWLIST_NO_MATCH"` and `openai.warning.retryable=false`.
+- Not allowed:
+  - Treating this case as transient retryable listing failure.
+  - Returning non-allowlisted OpenAI model IDs to fill the dropdown.
 
 ### Scenario 3: OpenAI key set but model listing fails transiently
 
@@ -320,10 +335,12 @@ This section defines concrete "done" behavior so a junior developer can verify o
 - `openai.statusCode` values for deterministic UI handling:
   - `OPENAI_DISABLED`
   - `OPENAI_OK`
+  - `OPENAI_ALLOWLIST_NO_MATCH`
   - `OPENAI_MODELS_LIST_TEMPORARY_FAILURE`
   - `OPENAI_MODELS_LIST_AUTH_FAILED`
   - `OPENAI_MODELS_LIST_UNAVAILABLE`
 - `openai.warning.code` values for this story:
+  - `OPENAI_ALLOWLIST_NO_MATCH`
   - `OPENAI_MODELS_LIST_TEMPORARY_FAILURE`
   - `OPENAI_MODELS_LIST_AUTH_FAILED`
   - `OPENAI_MODELS_LIST_UNAVAILABLE`
@@ -334,6 +351,7 @@ This section defines concrete "done" behavior so a junior developer can verify o
   - include LM Studio models as normal; do not fail the whole endpoint.
 - Ingest-page info-bar message contract:
   - Missing key: `OpenAI embedding models are unavailable. Set OPENAI_EMBEDDING_KEY on the server to enable them.`
+  - Allowlist no-match: `OpenAI is configured, but no supported embedding models are available for this key.`
   - Temporary listing failure: `OpenAI models are temporarily unavailable. LM Studio models are still available.`
 
 ### Ingest Start Conflict Contract (Provider-Aware Lock)

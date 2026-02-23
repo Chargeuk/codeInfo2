@@ -4491,7 +4491,7 @@ Address code-review findings discovered after Task 13 completion. This task rest
 ### 15. Re-test gate: full story regression and acceptance re-validation after Task 14
 
 - Task Status: **__done__**
-- Git Commits: to_do
+- Git Commits: 3a0d1e9
 
 #### Overview
 

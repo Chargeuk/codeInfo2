@@ -60,7 +60,7 @@ OpenAI dropdown filtering decision for this story:
   - models actually available to the configured `OPENAI_EMBEDDING_KEY` from `client.models.list()`.
 - If the key is present but none of the curated models are available, show no OpenAI options and return a clear informational message state.
 - Server enforces the same allowlist on ingest-start/reembed validation; clients cannot bypass the allowlist by posting arbitrary model ids.
-- `/ingest/models` includes explicit OpenAI availability fields so UI behavior does not depend on inference (for example `openaiEnabled`, `openaiStatusCode`, warning metadata).
+- `/ingest/models` includes explicit OpenAI availability fields so UI behavior does not depend on inference (for example `openai.enabled`, `openai.statusCode`, warning metadata).
 
 Operational failures to handle explicitly:
 
@@ -120,7 +120,7 @@ Retryability guidance for this taxonomy:
 - LM Studio-only workflows remain operational when OpenAI is not configured.
 - OpenAI embedding failures map to stable error taxonomy codes and include retryability metadata, with explicit handling for quota/credit exhaustion.
 - Retryable OpenAI failures (`OPENAI_RATE_LIMITED`, `OPENAI_TIMEOUT`, `OPENAI_CONNECTION_FAILED`, `OPENAI_UNAVAILABLE`) use bounded exponential backoff before terminal failure.
-- Retry defaults are fixed for this story: `maxRetries=3`, `baseDelayMs=500`, `maxDelayMs=8000`, jitter up to 25 percent, and wait-hint header precedence before fallback delay.
+- Retry defaults are fixed for this story: `maxRetries=3`, `baseDelayMs=500`, `maxDelayMs=8000`, jitter factor `[0.75, 1.0]` (up to 25 percent reduction), and wait-hint header precedence before fallback delay.
 - OpenAI embedding request batching enforces upstream limits: each request array has at most 2048 inputs, each input obeys per-model token limits, and total tokens per request do not exceed 300000.
 - OpenAI SDK auto-retries are disabled for embedding calls (`maxRetries=0`) so only one retry layer (the server retry utility in this story) controls backoff and observability.
 - Tests cover all acceptance behaviors above, including: missing-key UI info state, transient model-list warning state, allowlist enforcement, canonical+legacy lock handling, provider/model lock conflicts, vector-search provider parity, OpenAI failure mapping, and retry behavior.

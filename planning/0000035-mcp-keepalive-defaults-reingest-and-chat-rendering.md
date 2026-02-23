@@ -4490,7 +4490,7 @@ Address code-review findings discovered after Task 13 completion. This task rest
 
 ### 15. Re-test gate: full story regression and acceptance re-validation after Task 14
 
-- Task Status: **__in_progress__**
+- Task Status: **__done__**
 - Git Commits: to_do
 
 #### Overview
@@ -4507,32 +4507,89 @@ Re-run full story verification after Task 14 to prove all Story 0000035 acceptan
 
 #### Subtasks
 
-1. [ ] Re-read Story 0000035 acceptance criteria and map each to concrete verification evidence from this retest pass.
-2. [ ] Update `README.md` with any final deltas introduced by Task 14 fixes.
-3. [ ] Update `design.md` with any final architecture/behavior deltas introduced by Task 14 fixes.
-4. [ ] Update `projectStructure.md` with any file additions/removals from Task 14 and this retest task.
-5. [ ] Capture/refresh manual verification screenshots in `playwright-output-local/` using `0000035-15-<label>.png` naming.
-6. [ ] Produce a refreshed PR summary comment covering all story changes (Tasks 1-15), including review-fix deltas and retest evidence.
-7. [ ] Run full workspace lint/format checks and confirm no new warnings/errors introduced by Task 14 fixes.
+1. [x] Re-read Story 0000035 acceptance criteria and map each to concrete verification evidence from this retest pass.
+2. [x] Update `README.md` with any final deltas introduced by Task 14 fixes.
+3. [x] Update `design.md` with any final architecture/behavior deltas introduced by Task 14 fixes.
+4. [x] Update `projectStructure.md` with any file additions/removals from Task 14 and this retest task.
+5. [x] Capture/refresh manual verification screenshots in `playwright-output-local/` using `0000035-15-<label>.png` naming.
+6. [x] Produce a refreshed PR summary comment covering all story changes (Tasks 1-15), including review-fix deltas and retest evidence.
+7. [x] Run full workspace lint/format checks and confirm no new warnings/errors introduced by Task 14 fixes.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e`
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP verification at `http://host.docker.internal:5001` with refreshed screenshots for raw-input parity, markdown parity, and general regression checks.
-9. [ ] `npm run test:unit --workspace server`
-10. [ ] `npm run test:integration --workspace server`
-11. [ ] `npm run compose:down`
-12. [ ] `npm run lint --workspaces`
-13. [ ] `npm run format:check --workspaces`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e`
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP verification at `http://host.docker.internal:5001` with refreshed screenshots for raw-input parity, markdown parity, and general regression checks.
+9. [x] `npm run test:unit --workspace server`
+10. [x] `npm run test:integration --workspace server`
+11. [x] `npm run compose:down`
+12. [x] `npm run lint --workspaces`
+13. [x] `npm run format:check --workspaces`
 
 #### Implementation notes
 
-- Reserved for implementation details, verification output, and final acceptance traceability after Task 14 fixes.
+- Subtask 1 completed: re-read full story Description/AC/Out-of-scope/scope locks and mapped AC families to this Task 15 retest evidence plan:
+  - Keepalive + MCP contract families (`codebase_question`, `reingest_repository`, JSON-RPC envelopes, provider fallback semantics): validated by `npm run test --workspace server`, `npm run test:unit --workspace server`, and `npm run test:integration --workspace server`.
+  - REST/WS chat contract families (202 start, provider fallback/unavailable behavior, stream assembly, raw-input validation): validated by `npm run test --workspace server`, `npm run test:integration --workspace server`, and manual Playwright-MCP checks at `http://host.docker.internal:5001`.
+  - Client rendering parity families (Chat/Agents markdown parity, malformed mermaid fallback, whitespace-only guard, render-purity regressions): validated by `npm run test --workspace client`, `npm run e2e`, and refreshed manual screenshots under `playwright-output-local/0000035-15-*.png`.
+  - Story-wide no-regression gate (lint/format/build/compose): validated by Task 15 Testing steps 1-13 in order.
+- Subtask 2 completed (`README.md`): refreshed MCP `codebase_question` documentation to explicitly state omitted provider/model defaults resolve to `codex` + `gpt-5.3-codex` (with runtime fallback), and updated the example `modelId` from stale `gpt-5.1-codex-max` to `gpt-5.3-codex`.
+- Subtask 3 completed (`design.md`): aligned MCP v2 `codebase_question` architecture note with implemented shared default-resolution contract (`request -> CHAT_DEFAULT_* -> codex/gpt-5.3-codex`) before runtime provider fallback.
+- Subtask 4 completed (`projectStructure.md`): added Task 15 manual verification artifact entries under `playwright-output-local/` (`0000035-15-chat/agents raw-input parity`, `0000035-15-chat/agents markdown parity`, `0000035-15-general-regression`).
+- Subtask 5 completed: refreshed/manual-verified Task 15 screenshot set now present at top-level `playwright-output-local/`:
+  - `playwright-output-local/0000035-15-chat-raw-input-parity.png`
+  - `playwright-output-local/0000035-15-chat-user-markdown-parity.png`
+  - `playwright-output-local/0000035-15-agents-raw-input-parity.png`
+  - `playwright-output-local/0000035-15-agents-user-markdown-parity.png`
+  - `playwright-output-local/0000035-15-general-regression.png`
+  - Verification:
+    - `ls -la playwright-output-local | rg "0000035-15-"`
+- Subtask 6 completed: refreshed PR summary comment for Tasks 1-15 prepared with review-fix deltas and retest evidence:
+  - Story scope delivered: MCP keepalive defaults + explicit provider/model default chain alignment, reingest/tooling contract consistency, and chat/agents rendering parity hardening.
+  - Review-fix deltas captured: REST runtime fallback now only triggers for defaulted LM Studio selections (explicit `provider=lmstudio` unavailable now returns `503 PROVIDER_UNAVAILABLE`), duplicate render-evaluation side effects removed from Chat/Agents markdown loops, and codex default docs/schema aligned to `gpt-5.3-codex`.
+  - Retest evidence: Task 15 reran full build/test/lint/format/compose/manual checks with refreshed screenshots under `playwright-output-local/0000035-15-*.png`.
+- Subtask 7 completed: workspace lint/format revalidated after Task 15 deltas.
+  - Verification:
+    - `npm run lint --workspaces` (pass; warnings only, no errors)
+    - `npm run format:check --workspaces` (pass; all workspaces formatted)
+- Testing 1 completed:
+  - `npm run build --workspace server` (pass; `tsc -b` completed)
+- Testing 2 completed:
+  - `npm run build --workspace client` (pass; `vite build` completed)
+- Testing 3 completed:
+  - `npm run test --workspace server` (pass; unit `tests 625`, `pass 625`, `fail 0`; integration `62 scenarios`, `367 steps`, all passed)
+- Testing 4 completed:
+  - `npm run test --workspace client` (pass; `90` suites, `333` tests)
+- Testing 5 completed:
+  - `npm run e2e` (pass; Playwright `42 passed`; e2e compose stack up/test/down completed)
+- Testing 6 completed:
+  - `npm run compose:build` (pass; `codeinfo2-server` and `codeinfo2-client` images built)
+- Testing 7 completed:
+  - `npm run compose:up` (pass; compose services started and health checks passed)
+- Testing 8 completed:
+  - Manual Playwright-MCP verification executed at `http://host.docker.internal:5001/chat` and `http://host.docker.internal:5001/agents`.
+  - Refreshed screenshot artifacts confirmed:
+    - `playwright-output-local/0000035-15-chat-raw-input-parity.png`
+    - `playwright-output-local/0000035-15-chat-user-markdown-parity.png`
+    - `playwright-output-local/0000035-15-agents-raw-input-parity.png`
+    - `playwright-output-local/0000035-15-agents-user-markdown-parity.png`
+    - `playwright-output-local/0000035-15-general-regression.png`
+  - Verification:
+    - `ls -la playwright-output-local | rg "0000035-15-"`
+- Testing 9 completed:
+  - `npm run test:unit --workspace server` (pass; `tests 625`, `pass 625`, `fail 0`)
+- Testing 10 completed:
+  - `npm run test:integration --workspace server` (pass; `62 scenarios`, `367 steps`)
+- Testing 11 completed:
+  - `npm run compose:down` (pass; compose services and network removed cleanly)
+- Testing 12 completed:
+  - `npm run lint --workspaces` (pass; no errors, baseline import-order warnings only)
+- Testing 13 completed:
+  - `npm run format:check --workspaces` (pass; all workspaces formatted)
 
 ---

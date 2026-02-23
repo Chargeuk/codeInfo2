@@ -1910,7 +1910,7 @@ flowchart LR
 
 ### MCP v2 `codebase_question` flow (Codex + optional LM Studio)
 
-- Tool: `codebase_question(question, conversationId?, provider?, model?)` exposed on the MCP v2 server (port 5011). `provider` defaults to `codex` when omitted; `model` defaults per provider.
+- Tool: `codebase_question(question, conversationId?, provider?, model?)` exposed on the MCP v2 server (port 5011). Shared default resolution matches REST chat (`request -> CHAT_DEFAULT_* env -> hardcoded fallback`), so omitted values resolve to `provider=codex` and `model=gpt-5.3-codex` before runtime availability fallback is applied.
 - Behaviour: runs the selected `ChatInterface` and buffers normalized events via `McpResponder`, then filters the MCP response to answer-only segments (no thinking/vector-summary data). The MCP transport remains single-response (not streaming) and returns JSON `{ conversationId, modelId, segments: [{ type: 'answer', text }] }` inside the single `content` text payload.
 - Provider specifics:
   - `provider=codex`: uses Codex thread options (workingDirectory, sandbox, web search, reasoning effort) and relies on Codex thread history (only the latest message is submitted per turn).

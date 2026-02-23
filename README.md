@@ -365,7 +365,7 @@ Ingest collection names (`INGEST_COLLECTION`, `INGEST_ROOTS_COLLECTION`) come fr
 
 - Endpoint: JSON-RPC 2.0 on `http://localhost:${MCP_PORT:-5011}`.
 - `tools/list` is always available for MCP v2 surface discovery; provider availability is resolved inside each tool execution path.
-- Tool: `codebase_question` with params `{ question: string; conversationId?: string; provider?: 'codex' | 'lmstudio'; model?: string }`. Responses are a single `content` item of type `text` containing JSON with `segments` that include only the `answer` type (no reasoning or vector summary), plus `conversationId` and `modelId`.
+- Tool: `codebase_question` with params `{ question: string; conversationId?: string; provider?: 'codex' | 'lmstudio'; model?: string }`. Responses are a single `content` item of type `text` containing JSON with `segments` that include only the `answer` type (no reasoning or vector summary), plus `conversationId` and `modelId`. When `provider/model` are omitted, shared defaults resolve to `codex` + `gpt-5.3-codex` (with runtime provider fallback when needed).
 - MCP v2 is provider-aware for `codebase_question`: router-level Codex pre-blocking is removed, so `tools/call(codebase_question)` can execute through LM Studio fallback when Codex is unavailable; terminal unavailable remains JSON-RPC `-32001 CODE_INFO_LLM_UNAVAILABLE` when neither provider can run.
 - Tool: `reingest_repository` with args `{ sourceId: string }` (absolute normalized ingested container path only).
   - Success payload: `{ status: "started", operation: "reembed", runId, sourceId }` in `result.content[0].text` JSON.
@@ -385,7 +385,7 @@ Ingest collection names (`INGEST_COLLECTION`, `INGEST_ROOTS_COLLECTION`) come fr
       "content": [
         {
           "type": "text",
-          "text": "{\"conversationId\":\"...\",\"modelId\":\"gpt-5.1-codex-max\",\"segments\":[{\"type\":\"answer\",\"text\":\"...\"}]}"
+          "text": "{\"conversationId\":\"...\",\"modelId\":\"gpt-5.3-codex\",\"segments\":[{\"type\":\"answer\",\"text\":\"...\"}]}"
         }
       ]
     }

@@ -260,7 +260,12 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚  â”œâ”€ 0000035-13-chat-user-markdown-parity.png â€” Task 13 chat user markdown parity verification capture
 â”‚  â”œâ”€ 0000035-13-agents-raw-input-parity.png â€” Task 13 agents raw-input parity verification capture
 â”‚  â”œâ”€ 0000035-13-agents-user-markdown-parity.png â€” Task 13 agents user markdown parity verification capture
-â”‚  â””â”€ 0000035-13-general-regression.png â€” Task 13 overall UI regression verification capture
+â”‚  â”œâ”€ 0000035-13-general-regression.png â€” Task 13 overall UI regression verification capture
+â”‚  â”œâ”€ 0000035-15-chat-raw-input-parity.png â€” Task 15 chat raw-input parity revalidation capture
+â”‚  â”œâ”€ 0000035-15-chat-user-markdown-parity.png â€” Task 15 chat user markdown parity revalidation capture
+â”‚  â”œâ”€ 0000035-15-agents-raw-input-parity.png â€” Task 15 agents raw-input parity revalidation capture
+â”‚  â”œâ”€ 0000035-15-agents-user-markdown-parity.png â€” Task 15 agents user markdown parity revalidation capture
+â”‚  â””â”€ 0000035-15-general-regression.png â€” Task 15 overall regression revalidation capture
 â”œâ”€ server/ â€” Express API
 â”‚  â”œâ”€ .dockerignore â€” server docker build ignores
 â”‚  â”œâ”€ .env â€” server default env (PORT, LMSTUDIO_BASE_URL)

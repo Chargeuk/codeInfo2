@@ -84,6 +84,7 @@ Retryability guidance for this taxonomy:
 ### Acceptance Criteria
 
 - Server recognizes `OPENAI_EMBEDDING_KEY` and conditionally enables OpenAI embedding provider support without breaking LM Studio support.
+- Backward compatibility is a hard requirement for this story: existing embedded repositories created before provider-aware naming must continue working without manual migration.
 - `GET /ingest/models` returns OpenAI embedding models when `OPENAI_EMBEDDING_KEY` is present and valid enough to list models.
 - If OpenAI model listing fails transiently, `GET /ingest/models` still succeeds with LM Studio model results and includes explicit OpenAI warning state in the response.
 - When `OPENAI_EMBEDDING_KEY` is missing, the Ingest page displays an information bar that clearly states `OPENAI_EMBEDDING_KEY` is required for OpenAI embedding models.
@@ -102,6 +103,7 @@ Retryability guidance for this taxonomy:
 - OpenAI embedding API failures are mapped to stable, actionable server responses; quota/credit exhaustion is handled explicitly and surfaced as a meaningful error.
 - Existing model-only roots/locks continue to work without DB migration by inferring `provider=lmstudio` when provider metadata is absent.
 - New ingest and re-embed writes persist explicit provider metadata so inferred state is gradually replaced by canonical provider+model data.
+- Canonical lock metadata naming is standardized to Option A: `embeddingProvider` + `embeddingModel` across Chroma metadata, root metadata, and API responses, with compatibility reads for legacy fields.
 - Lock-source divergence is removed: `/ingest/models` lock reporting and ingest start lock enforcement read from one canonical lock implementation.
 - Existing LM Studio-only workflows continue to work unchanged when OpenAI key is absent.
 - Server-side validation rejects OpenAI embedding model ids that are not in the curated allowlist, even if they appear in upstream model listings.
@@ -115,6 +117,7 @@ Retryability guidance for this taxonomy:
   - Key-present plus transient OpenAI model-list failure returns LM Studio models and explicit OpenAI warning state.
   - Rejection of non-allowlisted OpenAI model ids at ingest start/reembed.
   - Provider/model lock enforcement across ingest and vector search.
+  - Legacy embedded repositories (model-only metadata) remain fully functional under new canonical metadata naming.
   - OpenAI error mapping, including quota/credit failures and bounded retry behavior on retryable categories.
 
 ### Out Of Scope
@@ -126,13 +129,6 @@ Retryability guidance for this taxonomy:
 - Any changes to Codex provider flows unrelated to embedding architecture.
 
 ### Questions
-
-- Lock metadata naming decision still required. Clarifying examples:
-  - Option A (explicit new naming everywhere): Chroma metadata `{ embeddingProvider: \"lmstudio\" | \"openai\", embeddingModel: \"text-embedding-3-small\" }`, root metadata same names, API payloads same names.
-  - Option B (legacy+new mixed naming): keep existing `lockedModelId` in some persistence/contracts, add provider separately (for example `provider`), and map to UI/API response aliases.
-  - Impact of Option A: cleaner long-term semantics and fewer translation layers, but may require touching more files/tests now.
-  - Impact of Option B: smaller immediate code churn but higher risk of future confusion and mapping bugs due to mixed field names.
-  - Please confirm preferred option so implementation can finalize the canonical schema.
 
 ## Implementation Ideas
 
@@ -155,7 +151,9 @@ Retryability guidance for this taxonomy:
   - `server/src/routes/ingestModels.ts` (model listing)
   - `server/src/lmstudio/toolService.ts` vector-search query embedding path
 - Unify lock metadata in Chroma collection metadata and root metadata:
-  - Replace/extend `lockedModelId` to store provider-aware lock shape.
+  - Option A selected: canonical lock shape uses explicit `embeddingProvider` + `embeddingModel` fields in Chroma metadata, root metadata, and API responses.
+  - Preserve backward compatibility by reading legacy metadata (`lockedModelId`, legacy root `model`, missing provider) and translating it to canonical in-memory lock state (`embeddingProvider=\"lmstudio\"` inference when absent).
+  - On new ingest/re-embed writes, persist canonical fields explicitly so legacy records are progressively replaced.
   - Ensure lock checks in ingest start and lock display in `/ingest/models` and `/ingest/roots` use the same canonical source.
 - Remove or repurpose `server/src/ingest/modelLock.ts` placeholder so lock reporting cannot diverge from enforcement.
 - Ensure vector search path loads and uses the locked provider/model for query embeddings so retrieval space matches indexed vectors.

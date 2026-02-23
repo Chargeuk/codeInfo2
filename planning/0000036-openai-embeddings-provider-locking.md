@@ -783,9 +783,9 @@ Implement OpenAI embedding execution behind the shared provider interface, inclu
 
 #### Subtasks
 
-1. [ ] Implement OpenAI provider adapter using `OPENAI_EMBEDDING_KEY`.
+1. [ ] Implement OpenAI provider adapter using `OPENAI_EMBEDDING_KEY` by extending existing embedding execution paths in `server/src/ingest/ingestJob.ts` and `server/src/ingest/chromaClient.ts` (no parallel ingest/query embedding pipeline).
 2. [ ] Enforce request guardrails (`<=2048` inputs, per-input token limit, `<=300000` total tokens/request) for both ingest-time and query-time embedding calls.
-3. [ ] Implement retry utility contract defaults (`maxRetries=3`, `baseDelayMs=500`, `maxDelayMs=8000`, jitter factor `[0.75,1.0]`) and wait-hint precedence.
+3. [ ] Reuse the existing retry primitive in `server/src/agents/retry.ts` (`runWithRetry`) for embedding retries by extracting/relocating it to a shared location if needed, then implement story retry defaults (`maxRetries=3`, `baseDelayMs=500`, `maxDelayMs=8000`, jitter factor `[0.75,1.0]`) and wait-hint precedence without introducing a second retry framework.
 4. [ ] Enforce wait-hint edge handling: ignore invalid/negative hints, treat hints `>60000ms` as non-immediate, and fall back to bounded exponential delay.
 5. [ ] Set OpenAI embedding call timeout to `30000ms` per attempt and disable SDK auto-retries for embedding calls (`maxRetries=0`) so server retry logic is the only retry layer.
 6. [ ] Map upstream/OpenAI SDK failures to story taxonomy codes, including explicit quota/credits exhaustion mapping to `OPENAI_QUOTA_EXCEEDED`.
@@ -823,14 +823,14 @@ Extend lock identity from model-only to provider+model+dimensions internally, wi
 
 #### Subtasks
 
-1. [ ] Add canonical internal lock type (`embeddingProvider`, `embeddingModel`, `embeddingDimensions`) and helper functions.
+1. [ ] Add canonical internal lock type (`embeddingProvider`, `embeddingModel`, `embeddingDimensions`) by extending the existing lock helpers in `server/src/ingest/chromaClient.ts` (`getLockedModel`, `setLockedModel`, `clearLockedModel`) rather than creating a second lock storage path.
 2. [ ] Implement dual-read compatibility (`legacy lockedModelId/model -> provider=lmstudio`) with canonical-write behavior on new ingest/re-embed.
 3. [ ] Update re-embed metadata selection in `ingestJob.reembed(...)` to resolve canonical fields first (`embeddingProvider`, `embeddingModel`, `embeddingDimensions`) and fall back to legacy root `model` only when canonical fields are absent.
 4. [ ] Capture `embeddingDimensions` from the first successful embedding write for a lock and persist it as canonical lock metadata for reuse in validation/diagnostics.
 5. [ ] Treat partially populated canonical lock metadata (for example provider without model/dimensions) as deterministic invalid lock state; return a stable server validation error and never silently infer missing canonical fields.
 6. [ ] Ensure reembed and all query embedding paths (including classic MCP `VectorSearch`) always use the locked provider/model combination.
 7. [ ] Add deterministic pre-query dimension mismatch checks before Chroma query and map to `EMBEDDING_DIMENSION_MISMATCH` without leaking raw Chroma errors.
-8. [ ] Harden lock lifecycle/concurrency behavior: keep `startIngest` as authoritative atomic gate, release stale lock ownership after terminal/cancel paths, and keep deterministic `BUSY` behavior for concurrent start/reembed/remove mutations.
+8. [ ] Harden lock lifecycle/concurrency behavior by reusing existing lock ownership gates in `server/src/ingest/lock.ts` and `server/src/ingest/ingestJob.ts` (`isBusy`, `startIngest`, `reembed`, `removeRoot`) so `startIngest` remains authoritative, stale ownership is released after terminal/cancel paths, and `BUSY` remains deterministic for concurrent start/reembed/remove mutations.
 9. [ ] Ensure vectors-empty cleanup clears lock metadata idempotently and does not clear a newly established lock from a newer run.
 10. [ ] Add deterministic re-embed eligibility validation for invalid root states (`cancelled`/`error` with stale metadata) before job start.
 11. [ ] Add/update tests for legacy inference, canonical writes, canonical-first reembed metadata selection, partial-canonical invalid-state handling, provider lock enforcement, classic-MCP parity, dimension mismatch, idempotent lock clearing, and lock lifecycle/concurrency edge cases.
@@ -866,7 +866,7 @@ Implement the agreed `/ingest/models` contract (`models`, `lock`, `openai`, `lms
 
 #### Subtasks
 
-1. [ ] Update `/ingest/models` response shape to include provider-tagged model entries and canonical lock object.
+1. [ ] Update `/ingest/models` response shape to include provider-tagged model entries and canonical lock object by extending `server/src/routes/ingestModels.ts` and replacing the placeholder `server/src/ingest/modelLock.ts` read path with the same canonical lock resolver used by ingest runtime (no duplicate lock-read implementation).
 2. [ ] Implement OpenAI status states (`disabled`, `ok`, `warning`) and status codes: `OPENAI_DISABLED`, `OPENAI_OK`, `OPENAI_ALLOWLIST_NO_MATCH`, `OPENAI_MODELS_LIST_TEMPORARY_FAILURE`, `OPENAI_MODELS_LIST_AUTH_FAILED`, and `OPENAI_MODELS_LIST_UNAVAILABLE`.
 3. [ ] Treat missing, blank, or whitespace-only `OPENAI_EMBEDDING_KEY` as disabled (`OPENAI_DISABLED`) without attempting OpenAI model calls.
 4. [ ] Preserve LM Studio options when OpenAI listing fails or when allowlist has no matches.
@@ -905,14 +905,14 @@ Implement provider-aware request/response contracts for ingest start and vector 
 
 #### Subtasks
 
-1. [ ] Update `POST /ingest/start` to accept canonical `embeddingProvider` + `embeddingModel`, with legacy `model` mapping to LM Studio; when both canonical and legacy fields are present, canonical fields must be authoritative for validation and lock decisions.
+1. [ ] Update `POST /ingest/start` in `server/src/routes/ingestStart.ts` and the underlying `startIngest` flow in `server/src/ingest/ingestJob.ts` to accept canonical `embeddingProvider` + `embeddingModel`, with legacy `model` mapping to LM Studio; when both canonical and legacy fields are present, canonical fields must be authoritative for validation and lock decisions.
 2. [ ] Update lock-conflict payload to include canonical `lock` object plus compatibility `lockedModelId`.
 3. [ ] Enforce OpenAI allowlist validation on ingest start/re-embed request handling so non-allowlisted OpenAI model ids are deterministically rejected.
 4. [ ] Define and enforce `/ingest/reembed/:root` contract so provider/model are always resolved from stored lock/root metadata (canonical-first with legacy fallback) and request overrides cannot silently switch provider/model.
-5. [ ] Update vector-search error payloads to include normalized OpenAI failures and retry metadata.
+5. [ ] Update vector-search error payloads to include normalized OpenAI failures and retry metadata by extending existing error classes/mapping flow in `server/src/lmstudio/toolService.ts` and `server/src/routes/toolsVectorSearch.ts` (no separate vector-search error formatter).
 6. [ ] Ensure ingest-run error surfaces (`/ingest/status/:runId`, `/ingest/roots`, and related tooling payloads) expose normalized OpenAI failure information while remaining backward compatible for existing string-based `lastError` consumers.
 7. [ ] Ensure lock-model-unavailable paths fail deterministically as `OPENAI_MODEL_UNAVAILABLE` (no silent fallback model/provider switching).
-8. [ ] Use one shared mapping for REST `/tools/vector-search`, classic MCP `VectorSearch`, and ingest-path OpenAI embedding failures so error semantics remain aligned.
+8. [ ] Use one shared mapping for REST `/tools/vector-search`, classic MCP `VectorSearch`, and ingest-path OpenAI embedding failures by extending existing classic MCP wiring in `server/src/mcp/server.ts` and runtime vector-search mapping in `server/src/lmstudio/toolService.ts`, keeping one canonical error translation path.
 9. [ ] Update ingest-start/reembed BDD coverage (`server/src/test/features/ingest-start-body.feature`, `server/src/test/features/ingest-reembed.feature`, and step definitions) so canonical+legacy parsing and reembed lock-derived behavior are explicitly validated.
 10. [ ] Add/update tests for canonical-vs-legacy precedence, canonical request parsing, legacy compatibility mapping, allowlist rejection, lock-model-unavailable handling, and conflict/error payloads across ingest/vector-search surfaces.
 
@@ -947,9 +947,9 @@ Finalize the remaining message-contract surfaces so canonical lock/provider fiel
 
 #### Subtasks
 
-1. [ ] Update `/ingest/roots` response to include canonical per-root and lock fields while preserving legacy aliases.
-2. [ ] Update `/tools/ingested-repos` response similarly (canonical + alias fields).
-3. [ ] Update classic MCP `ListIngestedRepositories` output schema and emitted JSON text payload shape to match server contract.
+1. [ ] Update `/ingest/roots` response to include canonical per-root and lock fields while preserving legacy aliases by extending existing mapping/dedupe flow in `server/src/routes/ingestRoots.ts`.
+2. [ ] Update `/tools/ingested-repos` response similarly (canonical + alias fields) by extending `server/src/lmstudio/toolService.ts:listIngestedRepositories(...)` and keeping `server/src/routes/toolsIngestedRepos.ts` as a thin transport wrapper.
+3. [ ] Update classic MCP `ListIngestedRepositories` output schema and emitted JSON text payload shape to match server contract by reusing the existing MCP tool dispatch path in `server/src/mcp/server.ts` that already serializes `listIngestedRepositories(...)` output.
 4. [ ] Ensure compatibility alias matrix remains synchronized across all lock-bearing surfaces (`lock.embeddingModel` equals alias fields such as `lockedModelId`/`modelId`/legacy root `model`).
 5. [ ] Update root `openapi.json` and any server schema docs to match implemented contracts, including provider status/warning envelopes added by Task 6.
 6. [ ] Update ingest-roots/ingest-manage BDD coverage and steps to assert canonical+alias field parity without dropping legacy fields consumed by existing tests and tools.
@@ -1019,9 +1019,9 @@ Update the client data layer (`useIngestModels`, `useIngestRoots`, related types
 
 #### Subtasks
 
-1. [ ] Update TypeScript types/interfaces for `/ingest/models`, `/ingest/roots`, and lock metadata.
-2. [ ] Update ingest hooks to parse canonical contract fields and compatibility aliases safely, including provider warning envelopes from Task 6.
-3. [ ] Parse ingest error payloads in a backward-compatible way (existing string `lastError` and any normalized OpenAI error objects/codes introduced by Task 7) without breaking current UI rendering.
+1. [ ] Update TypeScript types/interfaces for `/ingest/models`, `/ingest/roots`, and lock metadata by extending existing ingest hook contracts in `client/src/hooks/useIngestModels.ts` and `client/src/hooks/useIngestRoots.ts` (do not add parallel ingest data hooks).
+2. [ ] Update ingest hooks to parse canonical contract fields and compatibility aliases safely, including provider warning envelopes from Task 6, reusing existing normalization patterns already used in `client/src/hooks/useConversations.ts` and `client/src/hooks/useConversationTurns.ts`.
+3. [ ] Parse ingest error payloads in a backward-compatible way (existing string `lastError` and any normalized OpenAI error objects/codes introduced by Task 7) in the same hook layer without breaking current UI rendering.
 4. [ ] Preserve backward-safe handling if older server payloads are returned during rollout.
 5. [ ] Add/update hook/component tests for loading/error/parsing states, including provider warning envelope parsing and backward-compatible `lastError` parsing.
 
@@ -1055,14 +1055,14 @@ Implement the user-visible ingest UI behavior for provider-tagged model selectio
 
 #### Subtasks
 
-1. [ ] Update ingest form dropdown rendering to show provider-qualified model options.
+1. [ ] Update ingest form dropdown rendering to show provider-qualified model options by extending `client/src/components/ingest/IngestForm.tsx` and its existing option/selection state logic.
 2. [ ] Add info bar for missing `OPENAI_EMBEDDING_KEY` and warning bar states from `openai.status/statusCode`.
-3. [ ] Submit canonical ingest-start payload fields (`embeddingProvider`, `embeddingModel`) while keeping legacy-safe behavior where required.
+3. [ ] Submit canonical ingest-start payload fields (`embeddingProvider`, `embeddingModel`) while keeping legacy-safe behavior where required by extending the existing submit flow in `client/src/components/ingest/IngestForm.tsx` (no new ingest submit client).
 4. [ ] Clear stale model selections deterministically when refreshed model lists no longer contain the selected provider/model option.
 5. [ ] Ensure UI selection identity is provider-qualified (`provider + model`) so same model-id strings across providers remain unambiguous in selection and submission.
 6. [ ] Keep ingest UI dimension-free for this story (no dimensions input/control introduced anywhere in the form).
-7. [ ] Update ingest status/error rendering (`ActiveRunCard`, roots table, and root details drawer surfaces) so normalized OpenAI errors remain user-readable while legacy string errors still render correctly.
-8. [ ] Update lock display in ingest UI components to prefer canonical lock fields and fallback to aliases.
+7. [ ] Update ingest status/error rendering in existing components (`client/src/components/ingest/ActiveRunCard.tsx`, `client/src/components/ingest/RootsTable.tsx`, and `client/src/components/ingest/RootDetailsDrawer.tsx`) so normalized OpenAI errors remain user-readable while legacy string errors still render correctly.
+8. [ ] Update lock display in existing ingest UI components/pages (`IngestPage`, `IngestForm`, `RootsTable`, `RootDetailsDrawer`) to prefer canonical lock fields and fallback to aliases.
 9. [ ] Add/update client tests for dropdown options, provider-qualified selection identity, stale-selection clearing, warnings/info bars, no-dimensions-control behavior, ingest error rendering compatibility, and payload behavior.
 
 #### Testing

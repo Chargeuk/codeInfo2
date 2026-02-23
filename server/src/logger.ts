@@ -14,6 +14,11 @@ type LogConfig = {
   rotate: boolean;
 };
 
+export const MANUAL_ACCEPTANCE_CHECK_STARTED_TAG =
+  'DEV-0000035:T13:manual_acceptance_check_started';
+export const MANUAL_ACCEPTANCE_CHECK_COMPLETED_TAG =
+  'DEV-0000035:T13:manual_acceptance_check_completed';
+
 export function parseNumber(value: string | undefined, fallback: number) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
@@ -54,6 +59,26 @@ export const baseLogger = pino(
   },
   destination,
 );
+
+type ManualAcceptanceContext = Record<string, unknown>;
+
+export function logManualAcceptanceCheckStarted(
+  context: ManualAcceptanceContext = {},
+) {
+  baseLogger.info(
+    { tag: MANUAL_ACCEPTANCE_CHECK_STARTED_TAG, ...context },
+    MANUAL_ACCEPTANCE_CHECK_STARTED_TAG,
+  );
+}
+
+export function logManualAcceptanceCheckCompleted(
+  context: ManualAcceptanceContext = {},
+) {
+  baseLogger.info(
+    { tag: MANUAL_ACCEPTANCE_CHECK_COMPLETED_TAG, ...context },
+    MANUAL_ACCEPTANCE_CHECK_COMPLETED_TAG,
+  );
+}
 
 export function createRequestLogger() {
   return pinoHttp({

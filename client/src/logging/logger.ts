@@ -5,6 +5,10 @@ import { sendLogs } from './transport';
 const levels: LogLevel[] = ['error', 'warn', 'info', 'debug'];
 const CLIENT_ID_STORAGE_KEY = 'codeinfo2.clientId';
 let inMemoryClientId: string | null = null;
+export const MANUAL_ACCEPTANCE_CHECK_STARTED_TAG =
+  'DEV-0000035:T13:manual_acceptance_check_started';
+export const MANUAL_ACCEPTANCE_CHECK_COMPLETED_TAG =
+  'DEV-0000035:T13:manual_acceptance_check_completed';
 
 function generateClientId() {
   return (
@@ -96,4 +100,50 @@ export function installGlobalErrorHooks(log = createLogger('client-global')) {
 
 export function _resetClientIdForTests() {
   inMemoryClientId = null;
+}
+
+type ManualAcceptanceContext = Record<string, unknown>;
+
+function logManualAcceptanceTag(
+  tag: string,
+  context: ManualAcceptanceContext = {},
+) {
+  const log = createLogger('client');
+  log('info', tag, { tag, ...context });
+}
+
+export function logManualAcceptanceCheckStarted(
+  context: ManualAcceptanceContext = {},
+) {
+  logManualAcceptanceTag(MANUAL_ACCEPTANCE_CHECK_STARTED_TAG, context);
+}
+
+export function logManualAcceptanceCheckCompleted(
+  context: ManualAcceptanceContext = {},
+) {
+  logManualAcceptanceTag(MANUAL_ACCEPTANCE_CHECK_COMPLETED_TAG, context);
+}
+
+export function installManualAcceptanceCheckHooks() {
+  if (typeof window === 'undefined') return;
+
+  window.__codeinfoManualAcceptanceCheck = {
+    start: (context?: ManualAcceptanceContext) =>
+      logManualAcceptanceCheckStarted(context ?? {}),
+    complete: (context?: ManualAcceptanceContext) =>
+      logManualAcceptanceCheckCompleted(context ?? {}),
+  };
+}
+
+declare global {
+  interface Window {
+    __codeinfoManualAcceptanceCheck?: {
+      start: (context?: ManualAcceptanceContext) => void;
+      complete: (context?: ManualAcceptanceContext) => void;
+    };
+  }
+}
+
+if (typeof window !== 'undefined') {
+  installManualAcceptanceCheckHooks();
 }

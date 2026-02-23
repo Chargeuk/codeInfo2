@@ -255,6 +255,12 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚     â”œâ”€ 0000033-5-chat.png â€” Chat page acceptance check for story 0000033
 â”‚     â”œâ”€ 0000033-5-ingest.png â€” Ingest page acceptance check for story 0000033
 â”‚     â””â”€ 0000033-5-logs.png â€” Logs page acceptance check for story 0000033
+â”œâ”€ playwright-output-local/ â€” local Playwright MCP screenshot artifacts captured during story/task manual verification
+â”‚  â”œâ”€ 0000035-13-chat-raw-input-parity.png â€” Task 13 chat raw-input parity verification capture
+â”‚  â”œâ”€ 0000035-13-chat-user-markdown-parity.png â€” Task 13 chat user markdown parity verification capture
+â”‚  â”œâ”€ 0000035-13-agents-raw-input-parity.png â€” Task 13 agents raw-input parity verification capture
+â”‚  â”œâ”€ 0000035-13-agents-user-markdown-parity.png â€” Task 13 agents user markdown parity verification capture
+â”‚  â””â”€ 0000035-13-general-regression.png â€” Task 13 overall UI regression verification capture
 â”œâ”€ server/ â€” Express API
 â”‚  â”œâ”€ .dockerignore â€” server docker build ignores
 â”‚  â”œâ”€ .env â€” server default env (PORT, LMSTUDIO_BASE_URL)

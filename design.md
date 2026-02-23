@@ -2325,3 +2325,22 @@ sequenceDiagram
     Logs-->>UI: events (id = sequence)
   end
 ```
+
+### Story 0000035 final acceptance workflow
+
+- Final verification runs full server/client/e2e regressions before manual UI walkthrough.
+- Manual walkthrough is executed against the local compose client endpoint `http://host.docker.internal:5001`.
+- Task 13 acceptance markers are emitted through shared logger modules:
+  - `DEV-0000035:T13:manual_acceptance_check_started`
+  - `DEV-0000035:T13:manual_acceptance_check_completed`
+- Required visual artifacts are captured in `playwright-output-local/0000035-13-*.png` for chat raw-input parity, chat markdown parity, agents raw-input parity, agents markdown parity, and general regression state.
+
+```mermaid
+flowchart TD
+  A[Run full regression commands] --> B[Start compose stack]
+  B --> C[Emit manual_acceptance_check_started]
+  C --> D[Manual Playwright checks on /chat and /agents]
+  D --> E[Capture 0000035-13 screenshots]
+  E --> F[Emit manual_acceptance_check_completed]
+  F --> G[Record evidence in task implementation notes]
+```

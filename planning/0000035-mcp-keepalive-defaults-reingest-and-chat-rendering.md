@@ -4490,7 +4490,7 @@ Address code-review findings discovered after Task 13 completion. This task rest
 
 ### 15. Re-test gate: full story regression and acceptance re-validation after Task 14
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: to_do
 
 #### Overview

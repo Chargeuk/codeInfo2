@@ -2556,7 +2556,7 @@ Expose `reingest_repository` on MCP v2 and enforce the exact same name and contr
 
 ### 8. Server: Codex stream merge fix for cropped/duplicate assistant output
 
-- Task Status: **__in_progress__**
+- Task Status: **__done__**
 - Git Commits: to_do
 
 #### Overview
@@ -2577,7 +2577,7 @@ Fix server stream aggregation so tool-interleaved Codex runs do not produce crop
 
 #### Subtasks
 
-1. [ ] Review current Codex event merge path and publication boundaries.
+1. [x] Review current Codex event merge path and publication boundaries.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): OpenAI Codex app server events (authoritative item lifecycle): https://developers.openai.com/codex/app-server (Reason: defines item started/delta/completed event model used by stream merge logic.) | OpenAI Codex repo app-server README: https://raw.githubusercontent.com/openai/codex/main/codex-rs/app-server/README.md (Reason: implementation-level event and streaming details for Codex app-server integration.) | DeepWiki MCP docs (`openai/codex`, see `4.5.3 Event Translation and Streaming`): `openai/codex` (Reason: architecture cross-check for how Codex app-server events are translated into streamed turn updates.) | Node.js streams/events: https://nodejs.org/api/stream.html (Reason: stream/event ordering reference for robust assistant delta aggregation.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -2591,7 +2591,7 @@ Fix server stream aggregation so tool-interleaved Codex runs do not produce crop
      - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
      - `server/src/chat/chatStreamBridge.ts`
      - `server/src/chat/inflightRegistry.ts`
-2. [ ] Implement item-keyed merge strategy and completed-item authoritative finalization.
+2. [x] Implement item-keyed merge strategy and completed-item authoritative finalization.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): OpenAI Codex app server events (authoritative item lifecycle): https://developers.openai.com/codex/app-server (Reason: defines item started/delta/completed event model used by stream merge logic.) | OpenAI Codex repo app-server README: https://raw.githubusercontent.com/openai/codex/main/codex-rs/app-server/README.md (Reason: implementation-level event and streaming details for Codex app-server integration.) | DeepWiki MCP docs (`openai/codex`, see `4.5.3 Event Translation and Streaming`): `openai/codex` (Reason: architecture cross-check for how Codex app-server events are translated into streamed turn updates.) | Node.js streams/events: https://nodejs.org/api/stream.html (Reason: stream/event ordering reference for robust assistant delta aggregation.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -2610,7 +2610,7 @@ Fix server stream aggregation so tool-interleaved Codex runs do not produce crop
      - no prefix-only assumption
      - prevent duplicate final append
      - ignore stale/late post-completion deltas per item
-3. [ ] Stabilize final publish path to avoid double finalization across bridge/inflight boundaries.
+3. [x] Stabilize final publish path to avoid double finalization across bridge/inflight boundaries.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): OpenAI Codex app server events (authoritative item lifecycle): https://developers.openai.com/codex/app-server (Reason: defines item started/delta/completed event model used by stream merge logic.) | OpenAI Codex repo app-server README: https://raw.githubusercontent.com/openai/codex/main/codex-rs/app-server/README.md (Reason: implementation-level event and streaming details for Codex app-server integration.) | DeepWiki MCP docs (`openai/codex`, see `4.5.3 Event Translation and Streaming`): `openai/codex` (Reason: architecture cross-check for how Codex app-server events are translated into streamed turn updates.) | Node.js streams/events: https://nodejs.org/api/stream.html (Reason: stream/event ordering reference for robust assistant delta aggregation.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -2626,7 +2626,7 @@ Fix server stream aggregation so tool-interleaved Codex runs do not produce crop
    - Files to edit:
      - `server/src/chat/chatStreamBridge.ts`
      - `server/src/chat/inflightRegistry.ts` (update existing)
-4. [ ] Add regression tests for non-monotonic, tool-interleaved event order.
+4. [x] Add regression tests for non-monotonic, tool-interleaved event order.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): OpenAI Codex app server events (authoritative item lifecycle): https://developers.openai.com/codex/app-server (Reason: defines item started/delta/completed event model used by stream merge logic.) | OpenAI Codex repo app-server README: https://raw.githubusercontent.com/openai/codex/main/codex-rs/app-server/README.md (Reason: implementation-level event and streaming details for Codex app-server integration.) | DeepWiki MCP docs (`openai/codex`, see `4.5.3 Event Translation and Streaming`): `openai/codex` (Reason: architecture cross-check for how Codex app-server events are translated into streamed turn updates.) | Node.js streams/events: https://nodejs.org/api/stream.html (Reason: stream/event ordering reference for robust assistant delta aggregation.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -2653,43 +2653,43 @@ Fix server stream aggregation so tool-interleaved Codex runs do not produce crop
        // Assert
      });
      ```
-     1. [ ] Truncated/non-prefix update after tool call finalizes correctly.
+     1. [x] Truncated/non-prefix update after tool call finalizes correctly.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Unit merge regression.
         - Test location: `server/src/test/unit/chat-interface-codex.test.ts`.
         - Description: Add/adjust tests for initial text, tool event, non-prefix update, and completed final item content.
         - Purpose: Prevent cropped/duplicated merge behavior.
-     2. [ ] Interleaved item-id updates in one turn are isolated by item id.
+     2. [x] Interleaved item-id updates in one turn are isolated by item id.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Unit merge regression.
         - Test location: `server/src/test/unit/chat-interface-codex.test.ts`.
         - Description: Add/adjust tests with multiple assistant item ids and interleaved deltas to assert isolated assembly.
         - Purpose: Prevent cross-item contamination.
-     3. [ ] Late delta after completed item is ignored.
+     3. [x] Late delta after completed item is ignored.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Unit stream regression.
         - Test location: `server/src/test/unit/ws-chat-stream.test.ts`.
         - Description: Add/adjust tests asserting late post-completion deltas do not mutate finalized content.
         - Purpose: Lock completion-authoritative behavior.
-     4. [ ] Final answer publishes once per turn.
+     4. [x] Final answer publishes once per turn.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Integration stream regression.
         - Test location: `server/src/test/integration/chat-codex.test.ts`.
         - Description: Add/adjust tests asserting one terminal assistant publish event per turn.
         - Purpose: Prevent duplicate final bubble output.
-     5. [ ] Cancelled/failed turn does not duplicate terminal assistant bubble.
+     5. [x] Cancelled/failed turn does not duplicate terminal assistant bubble.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Integration stream regression.
         - Test location: `server/src/test/integration/chat-codex.test.ts`.
         - Description: Add/adjust cancellation/failure tests asserting at most one terminal assistant bubble.
         - Purpose: Prevent duplicate terminal states.
-     6. [ ] Stale inflight events do not mutate current transcript.
+     6. [x] Stale inflight events do not mutate current transcript.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Unit/stream regression.
         - Test location: `server/src/test/unit/ws-chat-stream.test.ts`.
         - Description: Add/adjust tests with stale inflight ids and assert current conversation content remains unchanged.
         - Purpose: Prevent run-crossing corruption.
-5. [ ] Update docs for Codex merge invariants/finalization rules and architecture diagrams.
+5. [x] Update docs for Codex merge invariants/finalization rules and architecture diagrams.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): OpenAI Codex app server events (authoritative item lifecycle): https://developers.openai.com/codex/app-server (Reason: defines item started/delta/completed event model used by stream merge logic.) | OpenAI Codex repo app-server README: https://raw.githubusercontent.com/openai/codex/main/codex-rs/app-server/README.md (Reason: implementation-level event and streaming details for Codex app-server integration.) | DeepWiki MCP docs (`openai/codex`, see `4.5.3 Event Translation and Streaming`): `openai/codex` (Reason: architecture cross-check for how Codex app-server events are translated into streamed turn updates.) | Node.js streams/events: https://nodejs.org/api/stream.html (Reason: stream/event ordering reference for robust assistant delta aggregation.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -2705,7 +2705,7 @@ Fix server stream aggregation so tool-interleaved Codex runs do not produce crop
      - `design.md`
    - `design.md` requirements:
      - Add/update Mermaid sequence diagram(s) that show item-keyed delta merge, completed-item authoritative finalization, and bridge/inflight publish boundaries that prevent duplicate final bubbles.
-6. [ ] Update `projectStructure.md` with every file/folder added, removed, or renamed in this task (after file changes are complete).
+6. [x] Update `projectStructure.md` with every file/folder added, removed, or renamed in this task (after file changes are complete).
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): OpenAI Codex app server events (authoritative item lifecycle): https://developers.openai.com/codex/app-server (Reason: defines item started/delta/completed event model used by stream merge logic.) | OpenAI Codex repo app-server README: https://raw.githubusercontent.com/openai/codex/main/codex-rs/app-server/README.md (Reason: implementation-level event and streaming details for Codex app-server integration.) | DeepWiki MCP docs (`openai/codex`, see `4.5.3 Event Translation and Streaming`): `openai/codex` (Reason: architecture cross-check for how Codex app-server events are translated into streamed turn updates.) | Node.js streams/events: https://nodejs.org/api/stream.html (Reason: stream/event ordering reference for robust assistant delta aggregation.) | npm workspaces run scripts: https://docs.npmjs.com/cli/v10/commands/npm-run-script (Reason: ensures task test/lint commands use correct workspace CLI syntax.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -2715,7 +2715,7 @@ Fix server stream aggregation so tool-interleaved Codex runs do not produce crop
      - `path/to/added-file.ts` - one-line purpose
      - Removed: `path/to/removed-file.ts` - one-line reason (if any)
      ```
-7. [ ] Add task-specific structured log lines for Manual Playwright-MCP verification.
+7. [x] Add task-specific structured log lines for Manual Playwright-MCP verification.
    - Files to edit:
      - `server/src/chat/interfaces/ChatInterfaceCodex.ts`
      - `server/src/chat/chatStreamBridge.ts`
@@ -2723,29 +2723,98 @@ Fix server stream aggregation so tool-interleaved Codex runs do not produce crop
      - `DEV-0000035:T8:codex_merge_evaluated`
      - `DEV-0000035:T8:codex_merge_finalized_once`
    - Expected outcome: During tool-interleaved Codex output, both tags appear and finalized_once confirms exactly one terminal publish.
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+8. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check to manually confirm story items and general regression checks for this task; include a check that there are no logged errors within the debug console; use `http://host.docker.internal:5001` via Playwright MCP tools.
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check to manually confirm story items and general regression checks for this task; include a check that there are no logged errors within the debug console; use `http://host.docker.internal:5001` via Playwright MCP tools.
    - Required log tags to verify: `DEV-0000035:T8:codex_merge_evaluated`, `DEV-0000035:T8:codex_merge_finalized_once`.
    - Expected outcome: During tool-interleaved Codex output, both tags appear and finalized_once confirms exactly one terminal publish. Also confirm no unexpected `[error]`/uncaught console errors in browser debug console during this check.
-9. [ ] `npm run compose:down`
-10. [ ] `npm run test --workspace server -- chat-interface-codex`
-11. [ ] `npm run test --workspace server -- ws-chat-stream`
-12. [ ] `npm run test --workspace server -- chat-codex`
-13. [ ] Manual smoke: run Codex chat with tool call and verify no cropped/duplicate final text
-14. [ ] `npm run lint --workspaces`
-15. [ ] `npm run format:check --workspaces`
+9. [x] `npm run compose:down`
+10. [x] `npm run test --workspace server -- chat-interface-codex`
+11. [x] `npm run test --workspace server -- ws-chat-stream`
+12. [x] `npm run test --workspace server -- chat-codex`
+13. [x] Manual smoke: run Codex chat with tool call and verify no cropped/duplicate final text
+14. [x] `npm run lint --workspaces`
+15. [x] `npm run format:check --workspaces`
 #### Implementation notes
 
-- to_do
+- Subtask 1 completed:
+  - Reviewed current merge/publish path in `server/src/chat/interfaces/ChatInterfaceCodex.ts`, `server/src/chat/chatStreamBridge.ts`, and `server/src/chat/inflightRegistry.ts`.
+  - Confirmed current drift points that cause Task 8 failures: agent message merging still uses prefix slicing against global `finalText`, `setAssistantText(...)` returns full replacement delta on non-prefix updates, and final publish dedupe relies only on bridge-local `finalPublished`.
+  - Reviewed referenced stream/event docs for item lifecycle and event ordering constraints.
+  - Verification commands:
+    - `rg -n "item|delta|complete|final|tool|analysis|inflight|publish|assistantText|emit|conversation" server/src/chat/interfaces/ChatInterfaceCodex.ts server/src/chat/chatStreamBridge.ts server/src/chat/inflightRegistry.ts`
+    - `sed -n '1,360p' server/src/chat/interfaces/ChatInterfaceCodex.ts`
+    - `sed -n '360,620p' server/src/chat/interfaces/ChatInterfaceCodex.ts`
+    - `sed -n '1,360p' server/src/chat/chatStreamBridge.ts`
+    - `sed -n '320,520p' server/src/chat/chatStreamBridge.ts`
+    - `sed -n '1,420p' server/src/chat/inflightRegistry.ts`
+    - `curl -sSL https://raw.githubusercontent.com/openai/codex/main/codex-rs/app-server/README.md | sed -n '1,80p'`
+    - `curl -sSL https://nodejs.org/api/stream.html | rg -n "events|EventEmitter|stream" -m 5`
+- Subtask 2 completed:
+  - Implemented item-keyed assistant assembly in `server/src/chat/interfaces/ChatInterfaceCodex.ts` and removed global-prefix-only assumptions.
+  - Added non-prefix replacement handling, post-completion stale-update ignore behavior, and authoritative final emission at `turn.completed`.
+  - Added structured merge-evaluation logs with tag `DEV-0000035:T8:codex_merge_evaluated`.
+- Subtask 3 completed:
+  - Updated `server/src/chat/inflightRegistry.ts` so `setAssistantText(...)` returns replacement metadata and `markInflightFinal(...)` is idempotent.
+  - Updated `server/src/chat/chatStreamBridge.ts` to snapshot-publish replacement updates and guard terminal publication via inflight-finalized checks.
+  - Added structured one-shot-finalization logs with tag `DEV-0000035:T8:codex_merge_finalized_once`.
+- Subtask 4 completed:
+  - Added/updated regressions in `server/src/test/unit/chat-interface-codex.test.ts`, `server/src/test/unit/ws-chat-stream.test.ts`, and `server/src/test/integration/chat-codex.test.ts`.
+  - Added coverage for non-prefix tool-interleaved updates, interleaved item-id isolation, late delta ignore, one terminal publish per turn, failed-turn terminal dedupe, and stale inflight isolation.
+  - Verification command: `cd server && npm run build && npx cross-env LOG_FILE_PATH=../logs/server-test.log CHROMA_URL='' MONGO_URI='' TS_NODE_DEBUG=false TS_NODE_LOG_ERROR=true TS_NODE_FILES=true TS_NODE_PROJECT=./tsconfig.json NODE_OPTIONS="--import ./scripts/register-ts-node-esm-loader.mjs --trace-uncaught --disable-warning=DEP0180" node --test --test-concurrency=1 src/test/unit/chat-interface-codex.test.ts src/test/unit/ws-chat-stream.test.ts src/test/integration/chat-codex.test.ts` (pass).
+- Subtask 5 completed:
+  - Updated `design.md` with a Task 8 Codex merge invariants section and Mermaid sequence showing item-keyed merge, replacement snapshots, and single terminal publish boundaries.
+- Subtask 6 completed:
+  - Updated `projectStructure.md` descriptions for `ChatInterfaceCodex`, `inflightRegistry`, `chatStreamBridge`, `chat-codex.test.ts`, and `ws-chat-stream.test.ts` to match Task 8 behavior and regressions.
+- Subtask 7 completed:
+  - Confirmed and retained required stable log tags:
+    - `DEV-0000035:T8:codex_merge_evaluated`
+    - `DEV-0000035:T8:codex_merge_finalized_once`
+- Subtask 8 completed:
+  - `npm run lint --workspaces` (pass with existing baseline warnings only; no lint errors).
+  - `npm run format:check --workspaces` initially failed on two Task 8 test files; ran `npm run format --workspace server`, then reran `npm run format:check --workspaces` (pass).
+- Testing 1 completed:
+  - `npm run build --workspace server` (pass).
+- Testing 2 completed:
+  - `npm run build --workspace client` (pass; existing Vite large-chunk warning unchanged).
+- Testing 3 completed:
+  - `npm run test --workspace server` (pass; node:test: 623 tests passed, cucumber: 62 scenarios/366 steps passed).
+- Testing 4 completed:
+  - `npm run test --workspace client` (pass; 90 suites, 320 tests).
+- Testing 5 completed:
+  - `npm run e2e` (pass; 36/36 Playwright e2e tests passed, and e2e stack brought up/down successfully by the script).
+- Testing 6 completed:
+  - `npm run compose:build` (pass; rebuilt `codeinfo2-server` and `codeinfo2-client` images with Task 8 stream merge changes).
+- Testing 7 completed:
+  - `npm run compose:up` (pass on retry after transient Docker recreate race for `codeinfo2-client`; second invocation started healthy stack).
+- Testing 8 completed (Manual Playwright-MCP):
+  - Manual run executed at `http://host.docker.internal:5001/chat` with Codex provider and tool-interleaved turn; assistant final output rendered once with no cropped prefix/duplicate final text.
+  - Browser console error check returned no error-level messages.
+  - Verified required server log tags on `http://host.docker.internal:5010/logs`:
+    - `DEV-0000035:T8:codex_merge_evaluated`
+    - `DEV-0000035:T8:codex_merge_finalized_once`
+- Testing 9 completed:
+  - `npm run compose:down` (pass; compose stack removed cleanly).
+- Testing 10 completed:
+  - `npm run test --workspace server -- chat-interface-codex` (pass; unit + integration pipeline completed with cucumber `62/62` scenarios passing).
+- Testing 11 completed:
+  - `npm run test --workspace server -- ws-chat-stream` (pass; unit + integration pipeline completed with cucumber `62/62` scenarios passing).
+- Testing 12 completed:
+  - `npm run test --workspace server -- chat-codex` (pass; unit + integration pipeline completed with cucumber `62/62` scenarios passing).
+- Testing 13 completed (Manual smoke):
+  - Verified Codex tool-call turn completes with single coherent final assistant message and no cropped/duplicate final text during the Task 8 Playwright smoke flow.
+- Testing 14 completed:
+  - `npm run lint --workspaces` (pass; existing baseline import-order warnings only, no errors).
+- Testing 15 completed:
+  - `npm run format:check --workspaces` (pass).
 
 ---
 

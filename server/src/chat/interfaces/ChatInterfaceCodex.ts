@@ -39,9 +39,16 @@ type CodexToolCallItem = {
   type?: string;
   id?: string;
   name?: string;
+  text?: string;
   arguments?: unknown;
   status?: string;
   result?: { content?: unknown; error?: unknown };
+};
+
+type CodexAssistantMessageItem = {
+  type?: string;
+  id?: string;
+  text?: string;
 };
 
 type CodexUsagePayload = {
@@ -351,9 +358,38 @@ export class ChatInterfaceCodex extends ChatInterface {
       this.emitEvent(resultEvent);
     };
 
-    let finalText = '';
+    const assistantByItemKey = new Map<
+      string,
+      { text: string; order: number; completed: boolean }
+    >();
+    let assistantOrderSeq = 0;
+    let emittedAssistantText = '';
     const reasoningByItemKey = new Map<string, string>();
     let hasEmittedReasoning = false;
+    let finalEmitted = false;
+
+    const getAssistantItemKey = (item: CodexAssistantMessageItem): string =>
+      typeof item.id === 'string' && item.id.length > 0
+        ? item.id
+        : '__anonymous_assistant__';
+
+    const buildAssistantText = (): string =>
+      [...assistantByItemKey.values()]
+        .sort((a, b) => a.order - b.order)
+        .map((entry) => entry.text)
+        .join('');
+
+    const emitAssistantDeltaFromComposed = () => {
+      const composed = buildAssistantText();
+      if (!composed.startsWith(emittedAssistantText)) {
+        return;
+      }
+      const delta = composed.slice(emittedAssistantText.length);
+      if (delta) {
+        this.emitEvent({ type: 'token', content: delta });
+      }
+      emittedAssistantText = composed;
+    };
 
     try {
       for await (const rawEvent of events as AsyncGenerator<unknown>) {
@@ -377,7 +413,7 @@ export class ChatInterfaceCodex extends ChatInterface {
           case 'item.completed': {
             const item = (event as { item?: unknown })?.item as
               | CodexToolCallItem
-              | { type?: string; text?: string }
+              | CodexAssistantMessageItem
               | undefined;
 
             if (item?.type === 'reasoning') {
@@ -442,14 +478,61 @@ export class ChatInterfaceCodex extends ChatInterface {
             }
 
             if (!item || item.type !== 'agent_message') break;
-            const text = (item as { text?: string }).text ?? '';
-            const delta = text.slice(finalText.length);
-            if (delta) {
-              this.emitEvent({ type: 'token', content: delta });
+            const itemKey = getAssistantItemKey(item);
+            const existing = assistantByItemKey.get(itemKey);
+
+            if (existing?.completed && event.type === 'item.updated') {
+              append({
+                level: 'info',
+                message: 'DEV-0000035:T8:codex_merge_evaluated',
+                timestamp: new Date().toISOString(),
+                source: 'server',
+                requestId,
+                context: {
+                  conversationId,
+                  eventType: event.type,
+                  itemKey,
+                  ignored: 'post_completion_update',
+                  previousLength: existing.text.length,
+                },
+              });
+              // Ignore stale post-completion updates for finalized items.
+              break;
             }
-            finalText = text;
+
+            const nextText = item.text ?? '';
+            const previousLength = existing?.text.length ?? 0;
+            const isNonPrefixUpdate =
+              previousLength > 0 && !nextText.startsWith(existing?.text ?? '');
+            assistantByItemKey.set(itemKey, {
+              text: nextText,
+              order: existing?.order ?? assistantOrderSeq++,
+              completed: existing?.completed ?? false,
+            });
+
+            append({
+              level: 'info',
+              message: 'DEV-0000035:T8:codex_merge_evaluated',
+              timestamp: new Date().toISOString(),
+              source: 'server',
+              requestId,
+              context: {
+                conversationId,
+                eventType: event.type,
+                itemKey,
+                previousLength,
+                nextLength: nextText.length,
+                nonPrefixUpdate: isNonPrefixUpdate,
+              },
+            });
+
+            emitAssistantDeltaFromComposed();
+
             if (event.type === 'item.completed') {
-              this.emitEvent({ type: 'final', content: finalText });
+              const afterComplete = assistantByItemKey.get(itemKey);
+              if (afterComplete) {
+                afterComplete.completed = true;
+              }
             }
             break;
           }
@@ -471,6 +554,14 @@ export class ChatInterfaceCodex extends ChatInterface {
             break;
           }
           case 'turn.completed':
+            if (!finalEmitted) {
+              const authoritativeFinal = buildAssistantText();
+              if (authoritativeFinal.length > 0) {
+                this.emitEvent({ type: 'final', content: authoritativeFinal });
+                finalEmitted = true;
+                emittedAssistantText = authoritativeFinal;
+              }
+            }
             await emitThreadId(activeThreadId);
             const usage = mapCodexUsage(
               (event as { usage?: unknown } | undefined)?.usage,

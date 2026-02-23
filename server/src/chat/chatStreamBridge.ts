@@ -18,6 +18,7 @@ import {
   appendAssistantDelta,
   appendToolEvent,
   getInflight,
+  isInflightFinalized,
   markInflightFinal,
   setAssistantText,
   type ToolEvent,
@@ -161,6 +162,13 @@ export function attachChatStreamBridge(params: {
 
   const publishFinalOnce = (params: FinalPayload) => {
     if (finalPublished) return;
+    if (isInflightFinalized(conversationId)) {
+      finalPublished = true;
+      log('warn', 'chat.stream.final_skipped_already_finalized', {
+        status: params.status,
+      });
+      return;
+    }
     finalPublished = true;
 
     publishTurnFinal({
@@ -183,10 +191,22 @@ export function attachChatStreamBridge(params: {
       ...(params.error ? { error: params.error } : {}),
     });
 
-    markInflightFinal({
+    const marked = markInflightFinal({
       conversationId,
       inflightId,
       status: params.status,
+    });
+    if (marked.ok && marked.alreadyFinalized) {
+      log('warn', 'chat.stream.final_mark_duplicate', {
+        status: params.status,
+      });
+    }
+
+    log('info', 'DEV-0000035:T8:codex_merge_finalized_once', {
+      status: params.status,
+      threadId: params.threadId ?? null,
+      deltaCount,
+      toolEventCount,
     });
   };
 
@@ -316,6 +336,18 @@ export function attachChatStreamBridge(params: {
         });
       }
     }
+
+    if (updated.replaced) {
+      publishInflightSnapshot(conversationId);
+      log('info', 'chat.stream.final_snapshot_replace', {
+        nextLength: updated.assistantText.length,
+      });
+    }
+    log('info', 'DEV-0000035:T8:codex_merge_evaluated', {
+      replaced: updated.replaced,
+      nextLength: updated.assistantText.length,
+      deltaLength: updated.delta.length,
+    });
   };
 
   const onThread = (ev: ChatThreadEvent) => {

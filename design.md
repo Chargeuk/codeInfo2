@@ -913,6 +913,45 @@ sequenceDiagram
   UI->>WS: cancel_inflight(conversationId, inflightId) (Stop)
 ```
 
+### Codex stream merge invariants (Task 8)
+
+- Codex assistant text is merged by assistant item id, not by a single global prefix stream.
+- Non-prefix `item.updated` snapshots are treated as full replacements for that item segment and are not appended as token deltas.
+- `item.completed` marks an assistant item as finalized, and later `item.updated` events for that same item are ignored as stale.
+- Final publication is single-shot across interface and bridge boundaries: one terminal `turn_final` publish per inflight turn.
+
+```mermaid
+sequenceDiagram
+  participant Codex as Codex app-server events
+  participant CI as ChatInterfaceCodex
+  participant IR as inflightRegistry
+  participant Bridge as chatStreamBridge
+  participant WS as WS server
+
+  Codex->>CI: item.updated(agent_message id=m1 text="Hel")
+  CI->>Bridge: token("Hel")
+  Bridge->>IR: appendAssistantDelta
+  Bridge->>WS: assistant_delta
+
+  Codex->>CI: item.started/item.completed(mcp_tool_call)
+  CI->>Bridge: tool_event(started/result)
+  Bridge->>IR: appendToolEvent
+  Bridge->>WS: tool_event
+
+  Codex->>CI: item.updated(agent_message id=m1 text="I can help")
+  Note over CI: non-prefix for item m1 => replace item segment
+  CI->>Bridge: final("I can help")
+  Bridge->>IR: setAssistantText(replaced=true)
+  Bridge->>WS: inflight_snapshot
+
+  Codex->>CI: item.completed(agent_message id=m1 text="I can help with that.")
+  Codex->>CI: turn.completed
+  CI->>Bridge: complete(threadId, usage)
+  Bridge->>IR: markInflightFinal(alreadyFinalized=false)
+  Bridge->>WS: turn_final (exactly once)
+  Note over Bridge,IR: repeat finalization attempts are ignored
+```
+
 ### POST /agents/:agentName/run (REST)
 
 - Request body:

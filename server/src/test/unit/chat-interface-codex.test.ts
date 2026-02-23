@@ -138,6 +138,130 @@ describe('ChatInterfaceCodex', () => {
     assert.deepEqual(toolResult.result, { ok: true });
   });
 
+  it('finalizes correctly when a tool-interleaved agent update is non-prefix', async () => {
+    resetMemory();
+    setCodexDetection({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+    });
+    const emitted: ChatEvent[] = [];
+    const events = async function* () {
+      yield { type: 'thread.started', thread_id: 'tid-nonprefix' };
+      yield {
+        type: 'item.updated',
+        item: { type: 'agent_message', id: 'm1', text: 'Hel' },
+      };
+      yield {
+        type: 'item.started',
+        item: {
+          type: 'mcp_tool_call',
+          id: 'call-nonprefix',
+          name: 'VectorSearch',
+          arguments: '{"q":"hi"}',
+        },
+      };
+      yield {
+        type: 'item.completed',
+        item: {
+          type: 'mcp_tool_call',
+          id: 'call-nonprefix',
+          result: {
+            content: [{ type: 'application/json', json: { ok: true } }],
+          },
+        },
+      };
+      yield {
+        type: 'item.updated',
+        item: { type: 'agent_message', id: 'm1', text: 'Hello' },
+      };
+      yield {
+        type: 'item.updated',
+        item: { type: 'agent_message', id: 'm1', text: 'I can help' },
+      };
+      yield {
+        type: 'item.completed',
+        item: {
+          type: 'agent_message',
+          id: 'm1',
+          text: 'I can help with that.',
+        },
+      };
+      yield { type: 'turn.completed' };
+    };
+    const thread = {
+      id: 'tid-nonprefix',
+      runStreamed: async () => ({ events: events() }),
+    };
+    const codexFactory = () => ({
+      startThread: () => thread,
+      resumeThread: () => thread,
+    });
+    const chat = new TestChatInterfaceCodex(codexFactory);
+
+    chat.on('token', (e) => emitted.push(e));
+    chat.on('final', (e) => emitted.push(e));
+    chat.on('complete', (e) => emitted.push(e));
+
+    await chat.run('Hello', { threadId: null }, 'conv-nonprefix', 'gpt-5');
+
+    const finals = emitted.filter((e) => e.type === 'final');
+    assert.equal(finals.length, 1);
+    assert.equal(finals[0]?.content, 'I can help with that.');
+  });
+
+  it('keeps interleaved assistant item updates isolated by item id', async () => {
+    resetMemory();
+    setCodexDetection({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+    });
+    const emitted: ChatEvent[] = [];
+    const events = async function* () {
+      yield { type: 'thread.started', thread_id: 'tid-interleaved' };
+      yield {
+        type: 'item.updated',
+        item: { type: 'agent_message', id: 'm1', text: 'Hello ' },
+      };
+      yield {
+        type: 'item.updated',
+        item: { type: 'agent_message', id: 'm2', text: 'world' },
+      };
+      yield {
+        type: 'item.updated',
+        item: { type: 'agent_message', id: 'm1', text: 'Hello there ' },
+      };
+      yield {
+        type: 'item.completed',
+        item: { type: 'agent_message', id: 'm2', text: 'world!' },
+      };
+      yield {
+        type: 'item.completed',
+        item: { type: 'agent_message', id: 'm1', text: 'Hello there ' },
+      };
+      yield { type: 'turn.completed' };
+    };
+    const thread = {
+      id: 'tid-interleaved',
+      runStreamed: async () => ({ events: events() }),
+    };
+    const codexFactory = () => ({
+      startThread: () => thread,
+      resumeThread: () => thread,
+    });
+    const chat = new TestChatInterfaceCodex(codexFactory);
+
+    chat.on('token', (e) => emitted.push(e));
+    chat.on('final', (e) => emitted.push(e));
+
+    await chat.run('Hello', { threadId: null }, 'conv-interleaved', 'gpt-5');
+
+    const finals = emitted.filter((e) => e.type === 'final');
+    assert.equal(finals.length, 1);
+    assert.equal(finals[0]?.content, 'Hello there world!');
+  });
+
   it('persists usage metadata from turn.completed', async () => {
     resetMemory();
     setCodexDetection({

@@ -5,6 +5,7 @@ import type { LMStudioClient } from '@lmstudio/sdk';
 import type {
   ThreadEvent,
   ThreadOptions as CodexThreadOptions,
+  TurnOptions as CodexTurnOptions,
 } from '@openai/codex-sdk';
 import express from 'express';
 import request from 'supertest';
@@ -153,6 +154,43 @@ async function waitForAssistantTurn(conversationId: string, timeoutMs = 4000) {
   throw new Error(`Timed out waiting for assistant turn: ${conversationId}`);
 }
 
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+async function waitForNoSecondFinal(params: {
+  ws: Awaited<ReturnType<typeof connectWs>>;
+  conversationId: string;
+  inflightId: string;
+  timeoutMs?: number;
+}): Promise<boolean> {
+  try {
+    await waitForEvent({
+      ws: params.ws,
+      predicate: (event: unknown): event is unknown => {
+        const e = event as {
+          type?: string;
+          conversationId?: string;
+          inflightId?: string;
+        };
+        return (
+          e.type === 'turn_final' &&
+          e.conversationId === params.conversationId &&
+          e.inflightId === params.inflightId
+        );
+      },
+      timeoutMs: params.timeoutMs ?? 300,
+    });
+    return false;
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message.includes('Timed out waiting for WebSocket event')
+    ) {
+      return true;
+    }
+    throw error;
+  }
+}
+
 test('codex chat streams token/final/complete with thread id', async () => {
   setCodexDetection({
     available: true,
@@ -283,6 +321,238 @@ test('codex chat streams token/final/complete with thread id', async () => {
       cachedInputTokens: 0,
       totalTokens: 3,
     });
+  } finally {
+    await closeWs(ws);
+    await wsHandle.close();
+    await new Promise<void>((resolve) => httpServer.close(() => resolve()));
+  }
+});
+
+test('codex stream publishes one terminal event per turn for tool-interleaved non-prefix updates', async () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+
+  class NonPrefixThread extends MockThread {
+    override async runStreamed(): Promise<{
+      events: AsyncGenerator<ThreadEvent>;
+    }> {
+      const threadId = this.id;
+      async function* generator(): AsyncGenerator<ThreadEvent> {
+        yield { type: 'thread.started', thread_id: threadId } as ThreadEvent;
+        yield {
+          type: 'item.updated',
+          item: { type: 'agent_message', id: 'm1', text: 'Hel' },
+        } as ThreadEvent;
+        yield {
+          type: 'item.started',
+          item: {
+            type: 'mcp_tool_call',
+            id: 'call-1',
+            name: 'VectorSearch',
+            arguments: '{"query":"hi"}',
+          },
+        } as unknown as ThreadEvent;
+        yield {
+          type: 'item.completed',
+          item: {
+            type: 'mcp_tool_call',
+            id: 'call-1',
+            result: {
+              content: [{ type: 'application/json', json: { ok: true } }],
+            },
+          },
+        } as ThreadEvent;
+        yield {
+          type: 'item.updated',
+          item: { type: 'agent_message', id: 'm1', text: 'I can help' },
+        } as ThreadEvent;
+        yield {
+          type: 'item.completed',
+          item: {
+            type: 'agent_message',
+            id: 'm1',
+            text: 'I can help with that.',
+          },
+        } as ThreadEvent;
+        yield { type: 'turn.completed' } as ThreadEvent;
+      }
+
+      return { events: generator() };
+    }
+  }
+
+  class NonPrefixCodex extends MockCodex {
+    override startThread(opts?: CodexThreadOptions) {
+      this.lastStartOptions = opts;
+      return new NonPrefixThread(this.id);
+    }
+  }
+
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({
+      clientFactory: dummyClientFactory,
+      codexFactory: () => new NonPrefixCodex('thread-nonprefix'),
+    }),
+  );
+
+  const httpServer = http.createServer(app);
+  const wsHandle = attachWs({ httpServer });
+  await new Promise<void>((resolve) => httpServer.listen(0, resolve));
+
+  const address = httpServer.address();
+  assert(address && typeof address === 'object');
+  const baseUrl = `http://127.0.0.1:${address.port}`;
+
+  const ws = await connectWs({ baseUrl });
+  const conversationId = 'thread-nonprefix';
+  try {
+    sendJson(ws, { type: 'subscribe_conversation', conversationId });
+
+    const response = await request(httpServer)
+      .post('/chat')
+      .send(buildCodexBody({ conversationId }))
+      .expect(202);
+    const inflightId = response.body.inflightId as string;
+
+    const final = await waitForEvent({
+      ws,
+      predicate: (event: unknown): event is { status?: string } => {
+        const e = event as {
+          type?: string;
+          conversationId?: string;
+          inflightId?: string;
+          status?: string;
+        };
+        return (
+          e.type === 'turn_final' &&
+          e.conversationId === conversationId &&
+          e.inflightId === inflightId
+        );
+      },
+      timeoutMs: 5000,
+    });
+    assert.equal(final.status, 'ok');
+
+    const noSecondFinal = await waitForNoSecondFinal({
+      ws,
+      conversationId,
+      inflightId,
+      timeoutMs: 350,
+    });
+    assert.equal(noSecondFinal, true);
+  } finally {
+    await closeWs(ws);
+    await wsHandle.close();
+    await new Promise<void>((resolve) => httpServer.close(() => resolve()));
+  }
+});
+
+test('failed codex turns publish one terminal assistant state', async () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+
+  class FailingThread extends MockThread {
+    override async runStreamed(
+      input?: string,
+      opts?: CodexTurnOptions,
+    ): Promise<{
+      events: AsyncGenerator<ThreadEvent>;
+    }> {
+      void input;
+      void opts;
+      async function* generator(): AsyncGenerator<ThreadEvent> {
+        yield {
+          type: 'thread.started',
+          thread_id: 'thread-failed',
+        } as ThreadEvent;
+        yield {
+          type: 'item.updated',
+          item: { type: 'agent_message', id: 'm1', text: 'Hello' },
+        } as ThreadEvent;
+        await sleep(250);
+        yield {
+          type: 'item.updated',
+          item: { type: 'agent_message', id: 'm1', text: 'Hello world' },
+        } as ThreadEvent;
+        yield { type: 'error', message: 'provider failure' } as ThreadEvent;
+      }
+
+      return { events: generator() };
+    }
+  }
+
+  class FailingCodex extends MockCodex {
+    override startThread(opts?: CodexThreadOptions) {
+      this.lastStartOptions = opts;
+      return new FailingThread(this.id);
+    }
+  }
+
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({
+      clientFactory: dummyClientFactory,
+      codexFactory: () => new FailingCodex('thread-failed'),
+    }),
+  );
+
+  const httpServer = http.createServer(app);
+  const wsHandle = attachWs({ httpServer });
+  await new Promise<void>((resolve) => httpServer.listen(0, resolve));
+
+  const address = httpServer.address();
+  assert(address && typeof address === 'object');
+  const baseUrl = `http://127.0.0.1:${address.port}`;
+
+  const ws = await connectWs({ baseUrl });
+  const conversationId = 'thread-failed';
+  try {
+    sendJson(ws, { type: 'subscribe_conversation', conversationId });
+    const response = await request(httpServer)
+      .post('/chat')
+      .send(buildCodexBody({ conversationId }))
+      .expect(202);
+    const inflightId = response.body.inflightId as string;
+
+    const final = await waitForEvent({
+      ws,
+      predicate: (event: unknown): event is { status?: string } => {
+        const e = event as {
+          type?: string;
+          conversationId?: string;
+          inflightId?: string;
+          status?: string;
+        };
+        return (
+          e.type === 'turn_final' &&
+          e.conversationId === conversationId &&
+          e.inflightId === inflightId
+        );
+      },
+      timeoutMs: 5000,
+    });
+    assert.equal(final.status, 'failed');
+
+    const noSecondFinal = await waitForNoSecondFinal({
+      ws,
+      conversationId,
+      inflightId,
+      timeoutMs: 350,
+    });
+    assert.equal(noSecondFinal, true);
   } finally {
     await closeWs(ws);
     await wsHandle.close();

@@ -119,14 +119,17 @@ export function setAssistantText(params: {
   conversationId: string;
   inflightId: string;
   text: string;
-}): { ok: true; delta: string } | { ok: false } {
+}):
+  | { ok: true; delta: string; replaced: boolean; assistantText: string }
+  | { ok: false } {
   const state = inflightByConversationId.get(params.conversationId);
   if (!state || state.inflightId !== params.inflightId) return { ok: false };
   const current = state.assistantText;
   const next = params.text;
-  const delta = next.startsWith(current) ? next.slice(current.length) : next;
+  const replaced = !next.startsWith(current);
+  const delta = replaced ? '' : next.slice(current.length);
   state.assistantText = next;
-  return { ok: true, delta };
+  return { ok: true, delta, replaced, assistantText: next };
 }
 
 export function appendAnalysisDelta(params: {
@@ -228,12 +231,15 @@ export function markInflightFinal(params: {
   inflightId: string;
   status: 'ok' | 'stopped' | 'failed';
   finalizedAt?: string;
-}): { ok: true } | { ok: false } {
+}): { ok: true; alreadyFinalized: boolean } | { ok: false } {
   const state = inflightByConversationId.get(params.conversationId);
   if (!state || state.inflightId !== params.inflightId) return { ok: false };
+  if (state.finalStatus) {
+    return { ok: true, alreadyFinalized: true };
+  }
   state.finalStatus = params.status;
   state.assistantCreatedAt = params.finalizedAt ?? new Date().toISOString();
-  return { ok: true };
+  return { ok: true, alreadyFinalized: false };
 }
 
 export function markInflightPersisted(params: {

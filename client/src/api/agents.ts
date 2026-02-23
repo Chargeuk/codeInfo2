@@ -178,6 +178,15 @@ export async function runAgentInstruction(params: {
   inflightId: string;
   modelId: string;
 }> {
+  const instructionRaw = params.instruction;
+  console.info('DEV-0000035:T11:agents_raw_send_result', {
+    source: 'agents_api',
+    sent: true,
+    reason: 'dispatching',
+    rawLength: instructionRaw.length,
+    trimmedLength: instructionRaw.trim().length,
+  });
+
   const res = await fetch(
     new URL(
       `/agents/${encodeURIComponent(params.agentName)}/run`,

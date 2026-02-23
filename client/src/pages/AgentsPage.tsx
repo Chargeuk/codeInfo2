@@ -947,8 +947,32 @@ export default function AgentsPage() {
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setRunError(null);
-    const trimmed = input.trim();
-    if (!trimmed || !selectedAgentName || startPending) return;
+    const rawInstruction = input;
+    const hasNonWhitespaceContent = rawInstruction.trim().length > 0;
+    const blockedBySelection = !selectedAgentName;
+    const blockedByPending = startPending;
+    log('info', 'DEV-0000035:T11:agents_raw_send_evaluated', {
+      source: 'agents_page',
+      rawLength: rawInstruction.length,
+      trimmedLength: rawInstruction.trim().length,
+      hasNonWhitespaceContent,
+      blockedBySelection,
+      blockedByPending,
+    });
+    if (!hasNonWhitespaceContent || blockedBySelection || blockedByPending) {
+      log('info', 'DEV-0000035:T11:agents_raw_send_result', {
+        source: 'agents_page',
+        sent: false,
+        reason: !hasNonWhitespaceContent
+          ? 'whitespace_only'
+          : blockedBySelection
+            ? 'missing_agent'
+            : 'start_pending',
+        rawLength: rawInstruction.length,
+        trimmedLength: rawInstruction.trim().length,
+      });
+      return;
+    }
 
     if (persistenceUnavailable || !wsTranscriptReady) {
       setRunError(
@@ -959,7 +983,7 @@ export default function AgentsPage() {
 
     stop();
     setStartPending(true);
-    lastSentRef.current = trimmed;
+    lastSentRef.current = rawInstruction;
     setInput('');
 
     const nextConversationId =
@@ -988,7 +1012,7 @@ export default function AgentsPage() {
     try {
       const result = await runAgentInstruction({
         agentName: selectedAgentName,
-        instruction: trimmed,
+        instruction: rawInstruction,
         working_folder: workingFolder.trim() || undefined,
         conversationId: nextConversationId,
       });

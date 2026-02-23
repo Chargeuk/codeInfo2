@@ -3462,7 +3462,7 @@ Render Chat user bubbles with the same markdown/sanitization component used by a
 
 ### 11. Client: Agents page raw-input send behavior
 
-- Task Status: **__in_progress__**
+- Task Status: **__completed__**
 - Git Commits: to_do
 
 #### Overview
@@ -3481,7 +3481,7 @@ Update Agents page send behavior to preserve raw user text exactly as entered wh
 
 #### Subtasks
 
-1. [ ] Review current Agents send-path trimming and outbound payload flow.
+1. [x] Review current Agents send-path trimming and outbound payload flow.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -3493,7 +3493,7 @@ Update Agents page send behavior to preserve raw user text exactly as entered wh
      ```
    - Files to read:
      - `client/src/pages/AgentsPage.tsx`
-2. [ ] Remove client-side trim mutation from Agents send payload while preserving empty-input guard UX.
+2. [x] Remove client-side trim mutation from Agents send payload while preserving empty-input guard UX.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -3511,7 +3511,7 @@ Update Agents page send behavior to preserve raw user text exactly as entered wh
    - Constraints:
      - do not mutate outbound payload text before send when content is non-whitespace
      - keep local "cannot send empty" behavior aligned with server rule
-3. [ ] Add Agents UI tests for raw payload preservation behavior.
+3. [x] Add Agents UI tests for raw payload preservation behavior.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -3537,31 +3537,31 @@ Update Agents page send behavior to preserve raw user text exactly as entered wh
        // Assert
      });
      ```
-     1. [ ] Leading/trailing whitespace preserved in agents outbound payload.
+     1. [x] Leading/trailing whitespace preserved in agents outbound payload.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Client unit/integration (React).
         - Test location: `client/src/test/agentsPage.run.test.tsx`.
         - Description: Add/adjust tests asserting non-empty instruction payload keeps leading/trailing whitespace when dispatched.
         - Purpose: Prevent trim mutation on agents path.
-     2. [ ] Newline formatting preserved in agents outbound payload.
+     2. [x] Newline formatting preserved in agents outbound payload.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Client unit/integration (React).
         - Test location: `client/src/test/agentsPage.run.test.tsx`.
         - Description: Add/adjust tests asserting multiline instruction payload preserves newline characters.
         - Purpose: Preserve authored formatting.
-     3. [ ] Whitespace-distinct messages are not merged in transcript hydration.
+     3. [x] Whitespace-distinct messages are not merged in transcript hydration.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Client unit/integration (React).
         - Test location: `client/src/test/agentsPage.turnHydration.test.tsx`.
         - Description: Add/adjust tests asserting messages that differ by whitespace remain distinct turns after hydration.
         - Purpose: Prevent normalization-based dedupe regressions.
-     4. [ ] Whitespace-only input is blocked before run request dispatch.
+     4. [x] Whitespace-only input is blocked before run request dispatch.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: Client unit/integration (React).
         - Test location: `client/src/test/agentsPage.run.test.tsx`.
         - Description: Add/adjust tests asserting whitespace-only instruction does not trigger run request.
         - Purpose: Keep client guard aligned with server validation.
-4. [ ] Add Agents e2e coverage for raw-input outbound payload behavior.
+4. [x] Add Agents e2e coverage for raw-input outbound payload behavior.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -3586,25 +3586,25 @@ Update Agents page send behavior to preserve raw user text exactly as entered wh
        // Assert
      });
      ```
-     1. [ ] E2E: leading/trailing whitespace preserved in agents outbound payload.
+     1. [x] E2E: leading/trailing whitespace preserved in agents outbound payload.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: End-to-end (Playwright).
         - Test location: `e2e/agents.spec.ts`.
         - Description: Add/adjust e2e assertions over captured request payload showing preserved surrounding whitespace.
         - Purpose: Validate real browser request behavior for agents.
-     2. [ ] E2E: multiline newline structure preserved in agents outbound payload.
+     2. [x] E2E: multiline newline structure preserved in agents outbound payload.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: End-to-end (Playwright).
         - Test location: `e2e/agents.spec.ts`.
         - Description: Add/adjust e2e assertions for multiline payload byte-equivalence including newlines.
         - Purpose: Prevent newline-loss regressions in full flow.
-     3. [ ] E2E: whitespace-only input does not dispatch agents run request.
+     3. [x] E2E: whitespace-only input does not dispatch agents run request.
         - Documentation links (standalone test item): Jest docs (Context7) `/jestjs/jest` | Cucumber guides https://cucumber.io/docs/guides/ | Playwright docs (Context7) `/microsoft/playwright` (use the subset that matches this item's test type).
         - Test type: End-to-end (Playwright).
         - Test location: `e2e/agents.spec.ts`.
         - Description: Add/adjust e2e assertions that whitespace-only submit attempts do not issue network request.
         - Purpose: Verify guard behavior in real UI execution.
-5. [ ] Update `README.md` for Agents raw-input send behavior.
+5. [x] Update `README.md` for Agents raw-input send behavior.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -3620,7 +3620,7 @@ Update Agents page send behavior to preserve raw user text exactly as entered wh
    - Document location: `README.md`
    - Description: Document raw input preservation and whitespace-only guard behavior for Agents send path.
    - Purpose: Keep usage docs aligned with actual Agents input behavior.
-6. [ ] Update `design.md` for Agents raw-input send flow.
+6. [x] Update `design.md` for Agents raw-input send flow.
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -3636,7 +3636,7 @@ Update Agents page send behavior to preserve raw user text exactly as entered wh
    - Document location: `design.md`
    - Description: Document Agents send-flow behavior for raw payload preservation and validation boundaries.
    - Purpose: Keep design documentation accurate for future maintenance.
-7. [ ] Update `projectStructure.md` with every file/folder added, removed, or renamed in this task (after file changes are complete).
+7. [x] Update `projectStructure.md` with every file/folder added, removed, or renamed in this task (after file changes are complete).
    - Scope lock reminder (duplicate from story scope locks): do not change unrelated public contracts or envelope shapes unless this subtask explicitly says to do so.
    - Documentation links (do not skip for this single subtask): React docs (forms/events): https://react.dev/reference/react-dom/components/textarea (Reason: confirms controlled textarea behavior preserves raw input exactly.) | MUI Typography docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/typography.md (Reason: verifies text rendering semantics when replacing Typography user-bubble output.) | MUI TextField docs (v6.4.12 via MUI MCP): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (Reason: verifies TextField input/value behavior for raw-send and empty-input guards.) | Playwright docs (Context7): `/microsoft/playwright` (Reason: authoritative e2e locator/assertion/reference for UI behavior verification tasks.) | Markdown guide (docs updates): https://www.markdownguide.org/basic-syntax/ (Reason: keeps story documentation updates consistently formatted and readable.)
    - Completion evidence required before checking this box: list changed files and exact verification commands/results for this subtask in `Implementation notes`.
@@ -3651,7 +3651,7 @@ Update Agents page send behavior to preserve raw user text exactly as entered wh
        - `e2e/agents.spec.ts`
      - Removed files:
        - None planned in this task.
-8. [ ] Add task-specific structured log lines for Manual Playwright-MCP verification.
+8. [x] Add task-specific structured log lines for Manual Playwright-MCP verification.
    - Files to edit:
      - `client/src/pages/AgentsPage.tsx`
      - `client/src/api/agents.ts`
@@ -3659,33 +3659,139 @@ Update Agents page send behavior to preserve raw user text exactly as entered wh
      - `DEV-0000035:T11:agents_raw_send_evaluated`
      - `DEV-0000035:T11:agents_raw_send_result`
    - Expected outcome: During agents send attempts, both tags appear and result records sent=true for non-whitespace input and sent=false for whitespace-only input.
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+9. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check to manually confirm story items and general regression checks for this task; include a check that there are no logged errors within the debug console; use `http://host.docker.internal:5001` via Playwright MCP tools.
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check to manually confirm story items and general regression checks for this task; include a check that there are no logged errors within the debug console; use `http://host.docker.internal:5001` via Playwright MCP tools.
    - Required log tags to verify: `DEV-0000035:T11:agents_raw_send_evaluated`, `DEV-0000035:T11:agents_raw_send_result`.
    - Expected outcome: During agents send attempts, both tags appear and result records sent=true for non-whitespace input and sent=false for whitespace-only input. Also confirm no unexpected `[error]`/uncaught console errors in browser debug console during this check.
    - Capture screenshots and save them to `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped in `docker-compose.local.yml`):
      - `0000035-11-agents-raw-send-valid.png` after sending multiline non-whitespace input that contains leading/trailing spaces.
      - `0000035-11-agents-raw-send-whitespace-blocked.png` after attempting whitespace-only input and confirming no outbound send occurs.
    - Agent screenshot review expectation: verify the screenshots show raw user text preserved exactly for valid sends, whitespace-only send blocked, and no visual regression in Agents transcript/input controls.
-9. [ ] `npm run compose:down`
-10. [ ] `npm run test --workspace client -- agentsPage.run`
-11. [ ] `npm run test --workspace client -- agentsPage.turnHydration`
-12. [ ] `npm run e2e:test -- e2e/agents.spec.ts`
-13. [ ] Manual smoke: Agents UI send multiline input with leading/trailing whitespace and verify outbound request preserves raw content while whitespace-only input is blocked
-14. [ ] `npm run lint --workspaces`
-15. [ ] `npm run format:check --workspaces`
+9. [x] `npm run compose:down`
+10. [x] `npm run test --workspace client -- agentsPage.run`
+11. [x] `npm run test --workspace client -- agentsPage.turnHydration`
+12. [x] `npm run e2e:test -- e2e/agents.spec.ts`
+13. [x] Manual smoke: Agents UI send multiline input with leading/trailing whitespace and verify outbound request preserves raw content while whitespace-only input is blocked
+14. [x] `npm run lint --workspaces`
+15. [x] `npm run format:check --workspaces`
 #### Implementation notes
 
-- to_do
+- Subtask 1 completed:
+  - Reviewed current Agents send-path behavior in `client/src/pages/AgentsPage.tsx`.
+  - Confirmed trim-mutation point: `handleSubmit` computes `trimmed = input.trim()` and sends `instruction: trimmed`, which drops leading/trailing whitespace before dispatch.
+  - Confirmed local whitespace-only guard currently relies on `!input.trim()` in both `handleSubmit` and Send button `disabled` state.
+  - Confirmed command-run path uses `working_folder: workingFolder.trim() || undefined` and is outside this task's instruction-payload scope.
+  - Verification commands:
+    - `rg -n "handleSubmit|trim\\(|instruction:|agent-send|working_folder" client/src/pages/AgentsPage.tsx client/src/api/agents.ts`
+    - `sed -n '860,1165p' client/src/pages/AgentsPage.tsx`
+    - `sed -n '1960,2115p' client/src/pages/AgentsPage.tsx`
+- Subtask 2 completed:
+  - Updated `client/src/pages/AgentsPage.tsx` send path to keep raw instruction text (`instruction: rawInstruction`) for non-whitespace sends; removed trim-based payload mutation.
+  - Preserved local whitespace-only guard behavior using `rawInstruction.trim().length > 0` without mutating the outbound instruction text.
+  - Added task log tags in send path:
+    - `DEV-0000035:T11:agents_raw_send_evaluated`
+    - `DEV-0000035:T11:agents_raw_send_result` (`sent=false` branch in page guard path)
+  - Verification commands:
+    - `rg -n "const rawInstruction|instruction: rawInstruction|DEV-0000035:T11:agents_raw_send_evaluated|DEV-0000035:T11:agents_raw_send_result" client/src/pages/AgentsPage.tsx`
+- Subtask 3 completed:
+  - Updated `client/src/test/agentsPage.run.test.tsx` with explicit coverage for:
+    - leading/trailing whitespace preservation in outbound instruction payload
+    - multiline newline preservation in outbound instruction payload
+    - whitespace-only input blocked before dispatch
+  - Updated `client/src/test/agentsPage.turnHydration.test.tsx` to verify whitespace-distinct user turns remain distinct after hydration (no normalization merge).
+  - Verification commands/results:
+    - `npm run test --workspace client -- agentsPage.run` (pass; 3 suites, 8 tests)
+    - `npm run test --workspace client -- agentsPage.turnHydration` (pass; 1 suite, 1 test)
+- Subtask 4 completed:
+  - Added `e2e/agents.spec.ts` with e2e assertions for:
+    - preserved leading/trailing whitespace in outbound `POST /agents/:agentName/run` payload
+    - preserved multiline newline structure in outbound payload
+    - whitespace-only input does not dispatch a second run request
+  - Verification command:
+    - `sed -n '1,240p' e2e/agents.spec.ts`
+- Subtask 5 completed:
+  - Updated `README.md` with Agents raw-send behavior documentation (raw payload preservation + whitespace-only client block) and e2e reference to `e2e/agents.spec.ts`.
+  - Verification command:
+    - `rg -n "Agents raw send behavior|e2e/agents.spec.ts" README.md`
+- Subtask 6 completed:
+  - Updated `design.md` raw-input behavior notes to include Agents client send-flow parity with server-side contract.
+  - Verification command:
+    - `rg -n "Agents client send-flow" design.md`
+- Subtask 7 completed:
+  - Updated `projectStructure.md` entries for task-touched files and added required new file entry `e2e/agents.spec.ts`.
+  - Verification command:
+    - `rg -n "agents.ts \\?|AgentsPage.tsx \\?|agentsPage.run.test.tsx|agentsPage.turnHydration.test.tsx|e2e/agents.spec.ts" projectStructure.md`
+- Subtask 8 completed:
+  - Added required Task 11 structured send-result log tag in `client/src/api/agents.ts` for dispatched run requests:
+    - `DEV-0000035:T11:agents_raw_send_result` (`sent=true`, `reason=dispatching`)
+  - Combined with page-level tags in `AgentsPage.tsx`, both required tags are now present for manual verification:
+    - `DEV-0000035:T11:agents_raw_send_evaluated`
+    - `DEV-0000035:T11:agents_raw_send_result`
+  - Verification command:
+    - `rg -n "DEV-0000035:T11:agents_raw_send_evaluated|DEV-0000035:T11:agents_raw_send_result" client/src/pages/AgentsPage.tsx client/src/api/agents.ts`
+- Subtask 9 completed:
+  - Ran workspace lint and formatting checks.
+  - `npm run lint --workspaces` passed with baseline warnings only (no errors).
+  - Initial `npm run format:check --workspaces` failed on `client/src/test/agentsPage.run.test.tsx`; ran formatter and rechecked successfully.
+  - Verification commands/results:
+    - `npm run lint --workspaces` (pass; 0 errors, baseline warnings only)
+    - `npm run format:check --workspaces` (initial fail on `client/src/test/agentsPage.run.test.tsx`)
+    - `npm run format --workspaces` (pass; applied formatting)
+    - `npm run format:check --workspaces` (pass)
+- Testing 1 completed:
+  - `npm run build --workspace server` (pass)
+- Testing 2 completed:
+  - `npm run build --workspace client` (pass)
+- Testing 3 completed:
+  - `npm run test --workspace server` (pass; node:test `623 passed, 0 failed`; cucumber `62 scenarios / 366 steps passed`)
+- Testing 4 completed:
+  - `npm run test --workspace client` (pass; Jest `90 passed`, `330 passed`, `0 failed`)
+- Testing 5 completed:
+  - Initial `npm run e2e` run failed in `e2e/agents.spec.ts` because route mocking intercepted the `/agents` document request.
+  - Fixed `e2e/agents.spec.ts` by scoping route interception to `E2E_API_URL` origin only.
+  - Verification reruns:
+    - `npm run e2e:test -- e2e/agents.spec.ts` (pass; agents spec + full suite pass in script context)
+    - `npm run e2e` (pass; `40 passed`, followed by `e2e:down`)
+- Testing 6 completed:
+  - `npm run compose:build` (pass; `codeinfo2-client` and `codeinfo2-server` images built)
+- Testing 7 completed:
+  - `npm run compose:up` (pass; compose services started, `codeinfo2-server-1` healthy and `codeinfo2-client-1` started)
+- Testing 8 completed (Manual Playwright-MCP):
+  - Opened `http://host.docker.internal:5001/agents` and verified agents run flow + whitespace-blocked flow.
+  - Verified required log tags in console output:
+    - `DEV-0000035:T11:agents_raw_send_evaluated`
+    - `DEV-0000035:T11:agents_raw_send_result` (`sent:true` observed on dispatch, `sent:false` observed on whitespace submit guard)
+  - Verified no unexpected browser `[error]` console entries (`browser_console_messages` at `level=error` returned none).
+  - Captured required screenshots and saved under repository path:
+    - `playwright-output-local/0000035-11-agents-raw-send-valid.png`
+    - `playwright-output-local/0000035-11-agents-raw-send-whitespace-blocked.png`
+- Testing 9 completed:
+  - `npm run compose:down` (pass; local compose stack and network stopped/removed)
+- Testing 10 completed:
+  - `npm run test --workspace client -- agentsPage.run` (pass; `3` suites, `8` tests)
+- Testing 11 completed:
+  - `npm run test --workspace client -- agentsPage.turnHydration` (pass; `1` suite, `1` test)
+- Testing 12 completed:
+  - Initial run failed with `ERR_CONNECTION_REFUSED` because `e2e:test` script executes the full suite against `host.docker.internal:6001/6010` while the e2e stack was down after Testing 9.
+  - Brought up e2e stack via `npm run e2e:up`, then reran exact step command successfully:
+    - `npm run e2e:test -- e2e/agents.spec.ts` (pass; script ran full suite, `40 passed`)
+- Testing 13 completed (manual smoke):
+  - Manual smoke behavior verified during Playwright-MCP walkthrough (Testing 8) and reconfirmed by the green agents e2e flow (`e2e/agents.spec.ts`) in Testing 12:
+    - multiline input with leading/trailing whitespace dispatched with raw payload preserved
+    - whitespace-only input stayed blocked and emitted guard-path send-result logging
+- Testing 14 completed:
+  - `npm run lint --workspaces` (pass with existing baseline warnings only; no lint errors)
+- Testing 15 completed:
+  - `npm run format:check --workspaces` (pass in client/server/common)
 
 ---
 

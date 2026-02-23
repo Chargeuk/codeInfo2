@@ -164,4 +164,255 @@ describe('Agents page - run', () => {
     await screen.findByText('Final answer');
     expect(screen.queryByText('SEGMENT_SHOULD_NOT_RENDER')).toBeNull();
   });
+
+  it('preserves leading and trailing whitespace in outbound instruction payload', async () => {
+    const user = userEvent.setup();
+    const runBodies: Record<string, unknown>[] = [];
+
+    mockFetch.mockImplementation(
+      (url: RequestInfo | URL, init?: RequestInit) => {
+        const target = typeof url === 'string' ? url : url.toString();
+
+        if (target.includes('/health')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ mongoConnected: true }),
+          } as Response);
+        }
+
+        if (target.includes('/agents') && !target.includes('/run')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ agents: [{ name: 'coding_agent' }] }),
+          } as Response);
+        }
+
+        if (target.includes('/conversations')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ items: [] }),
+          } as Response);
+        }
+
+        if (target.includes('/agents/coding_agent/run')) {
+          expect(init?.method).toBe('POST');
+          if (init?.body) {
+            runBodies.push(JSON.parse(init.body.toString()));
+          }
+          return Promise.resolve({
+            ok: true,
+            status: 202,
+            json: async () => ({
+              status: 'started',
+              agentName: 'coding_agent',
+              conversationId:
+                typeof runBodies.at(-1)?.conversationId === 'string'
+                  ? runBodies.at(-1)?.conversationId
+                  : 'c1',
+              inflightId: 'start-i1',
+              modelId: 'gpt-5.1-codex-max',
+            }),
+          } as Response);
+        }
+
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({}),
+        } as Response);
+      },
+    );
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    await waitFor(() => {
+      const registry = (
+        globalThis as unknown as {
+          __wsMock?: { last: () => { readyState: number } | null };
+        }
+      ).__wsMock;
+      expect(registry?.last()?.readyState).toBe(1);
+    });
+
+    const input = await screen.findByTestId('agent-input');
+    const rawInstruction = '  padded instruction  ';
+    await user.type(input, rawInstruction);
+    await waitFor(() => expect(screen.getByTestId('agent-send')).toBeEnabled());
+    await act(async () => {
+      await user.click(screen.getByTestId('agent-send'));
+    });
+
+    await waitFor(() => expect(runBodies.length).toBe(1));
+    expect(runBodies[0]).toHaveProperty('instruction', rawInstruction);
+  });
+
+  it('preserves multiline newline formatting in outbound instruction payload', async () => {
+    const user = userEvent.setup();
+    const runBodies: Record<string, unknown>[] = [];
+
+    mockFetch.mockImplementation(
+      (url: RequestInfo | URL, init?: RequestInit) => {
+        const target = typeof url === 'string' ? url : url.toString();
+
+        if (target.includes('/health')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ mongoConnected: true }),
+          } as Response);
+        }
+
+        if (target.includes('/agents') && !target.includes('/run')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ agents: [{ name: 'coding_agent' }] }),
+          } as Response);
+        }
+
+        if (target.includes('/conversations')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ items: [] }),
+          } as Response);
+        }
+
+        if (target.includes('/agents/coding_agent/run')) {
+          expect(init?.method).toBe('POST');
+          if (init?.body) {
+            runBodies.push(JSON.parse(init.body.toString()));
+          }
+          return Promise.resolve({
+            ok: true,
+            status: 202,
+            json: async () => ({
+              status: 'started',
+              agentName: 'coding_agent',
+              conversationId:
+                typeof runBodies.at(-1)?.conversationId === 'string'
+                  ? runBodies.at(-1)?.conversationId
+                  : 'c1',
+              inflightId: 'start-i1',
+              modelId: 'gpt-5.1-codex-max',
+            }),
+          } as Response);
+        }
+
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({}),
+        } as Response);
+      },
+    );
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    await waitFor(() => {
+      const registry = (
+        globalThis as unknown as {
+          __wsMock?: { last: () => { readyState: number } | null };
+        }
+      ).__wsMock;
+      expect(registry?.last()?.readyState).toBe(1);
+    });
+
+    const input = await screen.findByTestId('agent-input');
+    const rawInstruction = 'line one\nline two\nline three';
+    await user.type(input, rawInstruction);
+    await waitFor(() => expect(screen.getByTestId('agent-send')).toBeEnabled());
+    await act(async () => {
+      await user.click(screen.getByTestId('agent-send'));
+    });
+
+    await waitFor(() => expect(runBodies.length).toBe(1));
+    expect(runBodies[0]).toHaveProperty('instruction', rawInstruction);
+  });
+
+  it('blocks whitespace-only input before dispatching a run request', async () => {
+    const user = userEvent.setup();
+    const runBodies: Record<string, unknown>[] = [];
+
+    mockFetch.mockImplementation(
+      (url: RequestInfo | URL, init?: RequestInit) => {
+        const target = typeof url === 'string' ? url : url.toString();
+
+        if (target.includes('/health')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ mongoConnected: true }),
+          } as Response);
+        }
+
+        if (target.includes('/agents') && !target.includes('/run')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ agents: [{ name: 'coding_agent' }] }),
+          } as Response);
+        }
+
+        if (target.includes('/conversations')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ items: [] }),
+          } as Response);
+        }
+
+        if (target.includes('/agents/coding_agent/run')) {
+          expect(init?.method).toBe('POST');
+          if (init?.body) {
+            runBodies.push(JSON.parse(init.body.toString()));
+          }
+          return Promise.resolve({
+            ok: true,
+            status: 202,
+            json: async () => ({
+              status: 'started',
+              agentName: 'coding_agent',
+              conversationId:
+                typeof runBodies.at(-1)?.conversationId === 'string'
+                  ? runBodies.at(-1)?.conversationId
+                  : 'c1',
+              inflightId: 'start-i1',
+              modelId: 'gpt-5.1-codex-max',
+            }),
+          } as Response);
+        }
+
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({}),
+        } as Response);
+      },
+    );
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    await waitFor(() => {
+      const registry = (
+        globalThis as unknown as {
+          __wsMock?: { last: () => { readyState: number } | null };
+        }
+      ).__wsMock;
+      expect(registry?.last()?.readyState).toBe(1);
+    });
+
+    const input = await screen.findByTestId('agent-input');
+    await user.type(input, '   \n   ');
+    await waitFor(() =>
+      expect(screen.getByTestId('agent-send')).toBeDisabled(),
+    );
+    expect(runBodies).toHaveLength(0);
+  });
 });

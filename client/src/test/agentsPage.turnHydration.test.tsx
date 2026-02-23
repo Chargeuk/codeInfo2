@@ -83,12 +83,21 @@ describe('Agents page - turn hydration', () => {
                 model: 'gpt-5.1-codex-max',
                 provider: 'codex',
                 status: 'ok',
-                createdAt: '2025-01-01T00:00:02.000Z',
+                createdAt: '2025-01-01T00:00:03.000Z',
               },
               {
                 conversationId: 'c1',
                 role: 'user',
                 content: 'Saved question',
+                model: 'gpt-5.1-codex-max',
+                provider: 'codex',
+                status: 'ok',
+                createdAt: '2025-01-01T00:00:02.000Z',
+              },
+              {
+                conversationId: 'c1',
+                role: 'user',
+                content: 'Saved question ',
                 model: 'gpt-5.1-codex-max',
                 provider: 'codex',
                 status: 'ok',
@@ -115,10 +124,14 @@ describe('Agents page - turn hydration', () => {
     });
 
     await waitFor(() =>
-      expect(screen.getByText('Saved question')).toBeInTheDocument(),
-    );
-    await waitFor(() =>
       expect(screen.getByText('Saved answer')).toBeInTheDocument(),
     );
+    await waitFor(() => {
+      const bubbles = screen.getAllByTestId('chat-bubble');
+      const userBubbleCount = bubbles.filter(
+        (bubble) => bubble.getAttribute('data-role') === 'user',
+      ).length;
+      expect(userBubbleCount).toBe(2);
+    });
   });
 });

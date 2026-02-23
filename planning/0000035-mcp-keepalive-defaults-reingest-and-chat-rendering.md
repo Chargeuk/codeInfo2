@@ -4360,7 +4360,7 @@ Validate every acceptance criterion end-to-end after all feature tasks are compl
 ### 14. Post-review fixes: provider fallback correctness, render-side effects, and MCP tool contract text
 
 - Task Status: **__done__**
-- Git Commits: to_do
+- Git Commits: 6cf263a
 
 #### Overview
 

@@ -766,15 +766,18 @@ Implement OpenAI embedding execution behind the shared provider interface, inclu
 1. [ ] Implement OpenAI provider adapter using `OPENAI_EMBEDDING_KEY`.
 2. [ ] Enforce request guardrails (`<=2048` inputs, per-input token limit, `<=300000` total tokens/request).
 3. [ ] Implement retry utility contract defaults (`maxRetries=3`, `baseDelayMs=500`, `maxDelayMs=8000`, jitter factor `[0.75,1.0]`) and wait-hint precedence.
-4. [ ] Disable SDK auto-retries for embedding calls (`maxRetries=0` at SDK request/client layer for this path).
-5. [ ] Map upstream/OpenAI SDK failures to story taxonomy codes.
-6. [ ] Add/update focused unit tests for retry + mapping + guardrails.
+4. [ ] Enforce wait-hint edge handling: ignore invalid/negative hints, treat hints `>60000ms` as non-immediate, and fall back to bounded exponential delay.
+5. [ ] Set OpenAI embedding call timeout to `30000ms` per attempt and disable SDK auto-retries for embedding calls (`maxRetries=0`) so server retry logic is the only retry layer.
+6. [ ] Map upstream/OpenAI SDK failures to story taxonomy codes, including explicit quota/credits exhaustion mapping to `OPENAI_QUOTA_EXCEEDED`.
+7. [ ] Validate embedding response payload integrity (non-empty numeric vectors only) before writing any vectors.
+8. [ ] Add/update focused unit tests for retry/backoff, wait-hint parsing, timeout ownership, taxonomy mapping, response validation, and guardrails.
 
 #### Testing
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run test:unit --workspace server`
 3. [ ] Confirm taxonomy/guardrail tests pass in provider adapter test suite.
+4. [ ] Confirm wait-hint edge-case tests (invalid/negative/date/over-60s) pass in provider retry test suite.
 
 #### Implementation notes
 
@@ -800,9 +803,12 @@ Extend lock identity from model-only to provider+model+dimensions internally, wi
 
 1. [ ] Add canonical internal lock type (`embeddingProvider`, `embeddingModel`, `embeddingDimensions`) and helper functions.
 2. [ ] Implement dual-read compatibility (`legacy lockedModelId/model -> provider=lmstudio`) with canonical-write behavior on new ingest/re-embed.
-3. [ ] Ensure reembed and query embeddings always use the locked provider/model combination.
-4. [ ] Add deterministic pre-query dimension mismatch check before Chroma query and map to `EMBEDDING_DIMENSION_MISMATCH`.
-5. [ ] Add/update tests for legacy inference, canonical writes, provider lock enforcement, and dimension mismatch.
+3. [ ] Capture `embeddingDimensions` from the first successful embedding write for a lock and persist it as canonical lock metadata for reuse in validation/diagnostics.
+4. [ ] Ensure reembed and all query embedding paths (including classic MCP `VectorSearch`) always use the locked provider/model combination.
+5. [ ] Add deterministic pre-query dimension mismatch checks before Chroma query and map to `EMBEDDING_DIMENSION_MISMATCH` without leaking raw Chroma errors.
+6. [ ] Harden lock lifecycle/concurrency behavior: keep `startIngest` as authoritative atomic gate, release stale lock ownership after terminal/cancel paths, and keep deterministic `BUSY` behavior for concurrent start/reembed/remove mutations.
+7. [ ] Add deterministic re-embed eligibility validation for invalid root states (`cancelled`/`error` with stale metadata) before job start.
+8. [ ] Add/update tests for legacy inference, canonical writes, provider lock enforcement, classic-MCP parity, dimension mismatch, and lock lifecycle/concurrency edge cases.
 
 #### Testing
 
@@ -810,6 +816,7 @@ Extend lock identity from model-only to provider+model+dimensions internally, wi
 2. [ ] `npm run test:unit --workspace server`
 3. [ ] `npm run test:integration --workspace server`
 4. [ ] Confirm `server/src/test/integration/chat-vectorsearch-locked-model.test.ts` passes.
+5. [ ] Confirm classic MCP vector-search parity and ingest lock-lifecycle tests pass.
 
 #### Implementation notes
 
@@ -834,16 +841,18 @@ Implement the agreed `/ingest/models` contract (`models`, `lock`, `openai`, comp
 #### Subtasks
 
 1. [ ] Update `/ingest/models` response shape to include provider-tagged model entries and canonical lock object.
-2. [ ] Implement OpenAI status states (`disabled`, `ok`, `warning`) and status codes including `OPENAI_ALLOWLIST_NO_MATCH`.
-3. [ ] Preserve LM Studio options when OpenAI listing fails or when allowlist has no matches.
-4. [ ] Keep `lockedModelId` alias mapped from canonical lock model.
-5. [ ] Add/update unit tests for each status and warning state.
+2. [ ] Implement OpenAI status states (`disabled`, `ok`, `warning`) and status codes: `OPENAI_DISABLED`, `OPENAI_OK`, `OPENAI_ALLOWLIST_NO_MATCH`, `OPENAI_MODELS_LIST_TEMPORARY_FAILURE`, `OPENAI_MODELS_LIST_AUTH_FAILED`, and `OPENAI_MODELS_LIST_UNAVAILABLE`.
+3. [ ] Treat missing, blank, or whitespace-only `OPENAI_EMBEDDING_KEY` as disabled (`OPENAI_DISABLED`) without attempting OpenAI model calls.
+4. [ ] Preserve LM Studio options when OpenAI listing fails or when allowlist has no matches.
+5. [ ] Implement deterministic LM Studio listing-failure state in `/ingest/models` so `200` responses remain actionable when LM Studio fails (including the both-providers-fail case).
+6. [ ] Keep `lockedModelId` alias mapped from canonical lock model.
+7. [ ] Add/update unit tests for each status/warning state, including blank-key, LM Studio failure, and both-providers-fail scenarios.
 
 #### Testing
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run test:unit --workspace server`
-3. [ ] Confirm `/ingest/models` route tests cover missing key, success, transient failure, and allowlist no-match cases.
+3. [ ] Confirm `/ingest/models` route tests cover missing/blank key, success, transient failure, allowlist no-match, LM Studio failure-only, and both-providers-fail cases.
 
 #### Implementation notes
 
@@ -869,16 +878,18 @@ Implement provider-aware request/response contracts for ingest start and vector 
 
 1. [ ] Update `POST /ingest/start` to accept canonical `embeddingProvider` + `embeddingModel`, with legacy `model` mapping to LM Studio.
 2. [ ] Update lock-conflict payload to include canonical `lock` object plus compatibility `lockedModelId`.
-3. [ ] Ensure re-embed paths follow canonical lock and cannot silently switch provider/model.
-4. [ ] Update vector-search error payloads to include normalized OpenAI failures and retry metadata.
-5. [ ] Add/update tests for canonical request parsing, legacy compatibility mapping, and conflict/error payloads.
+3. [ ] Enforce OpenAI allowlist validation on ingest start/re-embed request handling so non-allowlisted OpenAI model ids are deterministically rejected.
+4. [ ] Ensure re-embed paths follow canonical lock and cannot silently switch provider/model.
+5. [ ] Update vector-search error payloads to include normalized OpenAI failures and retry metadata.
+6. [ ] Use one shared mapping for REST `/tools/vector-search` and classic MCP `VectorSearch` equivalent failures so error semantics remain aligned.
+7. [ ] Add/update tests for canonical request parsing, legacy compatibility mapping, allowlist rejection, and conflict/error payloads.
 
 #### Testing
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run test:unit --workspace server`
 3. [ ] `npm run test:integration --workspace server`
-4. [ ] Confirm `server/src/test/unit/tools-vector-search.test.ts` and ingest-start route tests pass.
+4. [ ] Confirm `server/src/test/unit/tools-vector-search.test.ts`, classic MCP vector-search error tests, and ingest-start route tests pass.
 
 #### Implementation notes
 
@@ -905,8 +916,9 @@ Finalize the remaining message-contract surfaces so canonical lock/provider fiel
 1. [ ] Update `/ingest/roots` response to include canonical per-root and lock fields while preserving legacy aliases.
 2. [ ] Update `/tools/ingested-repos` response similarly (canonical + alias fields).
 3. [ ] Update classic MCP `ListIngestedRepositories` output schema and emitted JSON text payload shape to match server contract.
-4. [ ] Update `server/src/openapi.json` and any server schema docs to match implemented contracts.
-5. [ ] Add/update tests for these surfaces and schema contract snapshots/validators where present.
+4. [ ] Ensure compatibility alias matrix remains synchronized across all lock-bearing surfaces (`lock.embeddingModel` equals alias fields such as `lockedModelId`/`modelId`/legacy root `model`).
+5. [ ] Update `server/src/openapi.json` and any server schema docs to match implemented contracts, including provider status/warning envelopes added by Task 6.
+6. [ ] Add/update tests for these surfaces and schema contract snapshots/validators where present.
 
 #### Testing
 
@@ -938,9 +950,9 @@ Update the client data layer (`useIngestModels`, `useIngestRoots`, related types
 #### Subtasks
 
 1. [ ] Update TypeScript types/interfaces for `/ingest/models`, `/ingest/roots`, and lock metadata.
-2. [ ] Update ingest hooks to parse canonical contract fields and compatibility aliases safely.
+2. [ ] Update ingest hooks to parse canonical contract fields and compatibility aliases safely, including provider warning envelopes from Task 6.
 3. [ ] Preserve backward-safe handling if older server payloads are returned during rollout.
-4. [ ] Add/update hook/component tests for loading/error/parsing states.
+4. [ ] Add/update hook/component tests for loading/error/parsing states, including provider warning envelope parsing.
 
 #### Testing
 
@@ -974,8 +986,9 @@ Implement the user-visible ingest UI behavior for provider-tagged model selectio
 1. [ ] Update ingest form dropdown rendering to show provider-qualified model options.
 2. [ ] Add info bar for missing `OPENAI_EMBEDDING_KEY` and warning bar states from `openai.status/statusCode`.
 3. [ ] Submit canonical ingest-start payload fields (`embeddingProvider`, `embeddingModel`) while keeping legacy-safe behavior where required.
-4. [ ] Update lock display in ingest UI components to prefer canonical lock fields and fallback to aliases.
-5. [ ] Add/update client tests for dropdown options, warnings/info bars, and payload behavior.
+4. [ ] Clear stale model selections deterministically when refreshed model lists no longer contain the selected provider/model option.
+5. [ ] Update lock display in ingest UI components to prefer canonical lock fields and fallback to aliases.
+6. [ ] Add/update client tests for dropdown options, stale-selection clearing, warnings/info bars, and payload behavior.
 
 #### Testing
 

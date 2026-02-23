@@ -3462,7 +3462,7 @@ Render Chat user bubbles with the same markdown/sanitization component used by a
 
 ### 11. Client: Agents page raw-input send behavior
 
-- Task Status: **__completed__**
+- Task Status: **__done__**
 - Git Commits: de6b087, 360e3ee
 
 #### Overview

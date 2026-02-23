@@ -120,6 +120,11 @@ Retryability guidance for this taxonomy:
 
 ### Questions
 
+- For `GET /ingest/models`, if `OPENAI_EMBEDDING_KEY` is set but `client.models.list()` fails transiently, should the server return LM Studio models plus an OpenAI warning state, or fail the full request?
+- For retryable OpenAI failures (`OPENAI_RATE_LIMITED`, `OPENAI_TIMEOUT`, `OPENAI_CONNECTION_FAILED`, `OPENAI_UNAVAILABLE`), should server-side retry be applied (for example with bounded exponential backoff), or should errors be surfaced immediately without retry?
+- Should `/ingest/models` include an explicit OpenAI availability contract (for example `openaiEnabled` and `openaiStatusCode`) so the Ingest UI info-bar and states are deterministic without inference?
+- Confirm canonical lock metadata naming across Chroma/root/API responses: should implementation standardize on explicit fields such as `embeddingProvider` and `embeddingModel` everywhere?
+
 ## Implementation Ideas
 
 - Introduce a provider abstraction under server ingest tooling, e.g. an `EmbeddingProvider` interface used by ingest, re-embed, and query embeddings.

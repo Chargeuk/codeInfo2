@@ -2820,7 +2820,7 @@ Fix server stream aggregation so tool-interleaved Codex runs do not produce crop
 
 ### 9. Client: Chat page raw-input send behavior
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: to_do
 
 #### Overview

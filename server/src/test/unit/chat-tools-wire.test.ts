@@ -27,6 +27,11 @@ test('chat router injects LM Studio tools into act call', async () => {
     createChatRouter({
       clientFactory: () =>
         ({
+          system: {
+            listDownloadedModels: async () => [
+              { modelKey: 'demo', type: 'llm' },
+            ],
+          },
           llm: {
             model: async () => ({ act }),
           },

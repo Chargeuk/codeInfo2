@@ -134,6 +134,11 @@ async function startServer(
     createChatRouter({
       clientFactory: () =>
         ({
+          system: {
+            listDownloadedModels: async () => [
+              { modelKey: 'model-1', displayName: 'model-1', type: 'llm' },
+            ],
+          },
           llm: {
             model: async () => ({ act }),
           },

@@ -494,7 +494,7 @@ export function codebaseQuestionDefinition() {
         model: {
           type: 'string',
           description:
-            'Optional model id for the selected provider. For codex, defaults to gpt-5.1-codex-max. For LM Studio, defaults to MCP_LMSTUDIO_MODEL or LMSTUDIO_DEFAULT_MODEL.',
+            'Optional model id for the selected provider. For codex, defaults to gpt-5.3-codex. For LM Studio, defaults to MCP_LMSTUDIO_MODEL or LMSTUDIO_DEFAULT_MODEL.',
         },
       },
     },

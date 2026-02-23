@@ -125,7 +125,23 @@ function buildChatApp(clientFactory: () => LMStudioClient) {
   app.use(
     '/chat',
     createChatRouter({
-      clientFactory,
+      clientFactory: () => {
+        const client = clientFactory() as LMStudioClient & {
+          system?: {
+            listDownloadedModels?: () => Promise<unknown[]>;
+          };
+        };
+        const listDownloadedModels =
+          client.system?.listDownloadedModels ??
+          (async () => [{ modelKey: 'm', displayName: 'm', type: 'llm' }]);
+        return {
+          ...client,
+          system: {
+            ...client.system,
+            listDownloadedModels,
+          },
+        } as LMStudioClient;
+      },
     }),
   );
   return app;

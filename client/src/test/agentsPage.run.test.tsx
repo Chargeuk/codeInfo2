@@ -389,6 +389,8 @@ describe('Agents page - run', () => {
 
     const userMarkdown = await screen.findByTestId('agents-user-markdown');
     const assistantMarkdown = await screen.findByTestId('assistant-markdown');
+    expect(screen.getAllByTestId('agents-user-markdown')).toHaveLength(1);
+    expect(screen.getAllByTestId('assistant-markdown')).toHaveLength(1);
 
     await waitFor(() => {
       expect(userMarkdown.querySelector('svg')).toBeTruthy();
@@ -524,6 +526,8 @@ describe('Agents page - run', () => {
 
     const userMarkdown = await screen.findByTestId('agents-user-markdown');
     const assistantMarkdown = await screen.findByTestId('assistant-markdown');
+    expect(screen.getAllByTestId('agents-user-markdown')).toHaveLength(1);
+    expect(screen.getAllByTestId('assistant-markdown')).toHaveLength(1);
 
     await waitFor(() => {
       expect(userMarkdown).toHaveTextContent('Diagram failed to render');

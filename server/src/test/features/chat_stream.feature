@@ -6,11 +6,12 @@ Feature: chat streaming endpoint
     Then the chat stream status code is 202
     And I can subscribe via WebSocket and receive an inflight snapshot and a final event
 
-  Scenario: Provider failure emits a failed final event over WebSocket
+  Scenario: Provider unavailable returns existing 503 error envelope
     Given chat stream scenario "chat-error"
     When I POST to the chat endpoint with the chat request fixture
-    Then the chat stream status code is 202
-    And the WebSocket stream includes a failed final event "lmstudio unavailable"
+    Then the chat stream status code is 503
+    And the chat error code is "PROVIDER_UNAVAILABLE"
+    And the chat error message is "lmstudio unavailable"
 
   Scenario: tool events are streamed over WebSocket and logged
     Given chat stream scenario "chat-tools"

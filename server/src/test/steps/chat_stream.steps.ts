@@ -151,7 +151,17 @@ When('I POST to the chat endpoint with the chat request fixture', async () => {
     }),
   });
   statusCode = res.status;
-  startResponse = (await res.json()) as ChatStartResponse;
+  const body = (await res.json()) as Record<string, unknown>;
+  if (statusCode === 202) {
+    startResponse = body as unknown as ChatStartResponse;
+    errorResponse = null;
+  } else {
+    startResponse = null;
+    errorResponse = {
+      code: body.code as string | undefined,
+      message: body.message as string | undefined,
+    };
+  }
 });
 
 Then('the chat stream status code is {int}', (status: number) => {

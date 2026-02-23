@@ -244,6 +244,8 @@ describe('Agents page - turn hydration', () => {
 
     const userMarkdown = await screen.findByTestId('agents-user-markdown');
     const assistantMarkdown = await screen.findByTestId('assistant-markdown');
+    expect(screen.getAllByTestId('agents-user-markdown')).toHaveLength(1);
+    expect(screen.getAllByTestId('assistant-markdown')).toHaveLength(1);
 
     expect(userMarkdown.querySelectorAll('li')).toHaveLength(
       assistantMarkdown.querySelectorAll('li').length,

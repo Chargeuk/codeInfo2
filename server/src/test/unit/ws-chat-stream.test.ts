@@ -159,7 +159,12 @@ async function startServer(params: { chatFactory: () => ChatInterface }) {
   app.use(
     '/chat',
     createChatRouter({
-      clientFactory: () => ({}) as unknown as LMStudioClient,
+      clientFactory: () =>
+        ({
+          system: {
+            listDownloadedModels: async () => [{ modelKey: 'm', type: 'llm' }],
+          },
+        }) as unknown as LMStudioClient,
       chatFactory: () => params.chatFactory(),
       toolFactory: () => ({ tools: [] }),
     }),

@@ -643,6 +643,41 @@ test('codex request falls back once to lmstudio when codex is unavailable', asyn
   assert.ok(turns.some((turn) => turn.role === 'assistant'));
 });
 
+test('lmstudio request falls back once to codex when lmstudio is unavailable', async () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+
+  const codexFactory = () => new MockCodex('thread-lmstudio-fallback');
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({ clientFactory: dummyClientFactory, codexFactory }),
+  );
+
+  const response = await request(app)
+    .post('/chat')
+    .send(buildCodexBody({ provider: 'lmstudio', model: 'model-1' }));
+  assert.equal(response.status, 202);
+  assert.equal(response.body.provider, 'codex');
+});
+
+test('lmstudio request returns PROVIDER_UNAVAILABLE when both providers are unavailable', async () => {
+  const app = express();
+  app.use(express.json());
+  app.use('/chat', createChatRouter({ clientFactory: dummyClientFactory }));
+
+  const response = await request(app)
+    .post('/chat')
+    .send(buildCodexBody({ provider: 'lmstudio', model: 'model-1' }));
+  assert.equal(response.status, 503);
+  assert.equal(response.body.code, 'PROVIDER_UNAVAILABLE');
+});
+
 test('codex request returns PROVIDER_UNAVAILABLE when fallback provider has no selectable model', async () => {
   const app = express();
   app.use(express.json());

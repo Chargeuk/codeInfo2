@@ -2389,19 +2389,6 @@ export default function AgentsPage() {
                                         />
                                       );
                                     }
-                                    log(
-                                      'info',
-                                      'DEV-0000035:T12:agents_user_markdown_render_evaluated',
-                                      {
-                                        messageId: message.id,
-                                        segmentId: segment.id,
-                                        contentLength:
-                                          segment.content?.length ?? 0,
-                                        hasMermaidFence: /```mermaid/i.test(
-                                          segment.content ?? '',
-                                        ),
-                                      },
-                                    );
                                     return (
                                       <Markdown
                                         key={segment.id}

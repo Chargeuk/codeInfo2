@@ -4359,7 +4359,7 @@ Validate every acceptance criterion end-to-end after all feature tasks are compl
 
 ### 14. Post-review fixes: provider fallback correctness, render-side effects, and MCP tool contract text
 
-- Task Status: **__in_progress__**
+- Task Status: **__done__**
 - Git Commits: to_do
 
 #### Overview
@@ -4377,56 +4377,114 @@ Address code-review findings discovered after Task 13 completion. This task rest
 
 #### Subtasks
 
-1. [ ] Fix REST runtime fallback selection so LM Studio is considered available only when runtime-verified with at least one selectable model.
+1. [x] Fix REST runtime fallback selection so LM Studio is considered available only when runtime-verified with at least one selectable model.
    - Files to edit:
      - `server/src/routes/chat.ts`
    - Required behavior:
      - Remove/replace the `requestedProvider === 'lmstudio'` availability override that marks LM Studio available without a successful runtime availability check.
      - Preserve single-hop fallback behavior (`lmstudio -> codex`, `codex -> lmstudio`) and existing unavailable envelopes.
-2. [ ] Add regression coverage for explicit `provider=lmstudio` when LM Studio is unavailable.
+2. [x] Add regression coverage for explicit `provider=lmstudio` when LM Studio is unavailable.
    - Files to edit:
      - `server/src/test/integration/chat-codex.test.ts`
    - Required assertions:
      - when LM Studio is unavailable and Codex is available, REST chat falls back to Codex (202 started with `provider=codex`).
      - when both providers are unavailable, REST chat returns existing `503 PROVIDER_UNAVAILABLE` contract.
-3. [ ] Remove render-time logging side effects from Agents user-message render loop.
+3. [x] Remove render-time logging side effects from Agents user-message render loop.
    - Files to edit:
      - `client/src/pages/AgentsPage.tsx`
    - Required behavior:
      - no logger calls inside render/map branches that produce JSX.
      - if instrumentation is still required, move it into effect-driven or event-driven code paths.
-4. [ ] Add/update client tests to ensure the Agents user markdown path still renders correctly after render-path cleanup.
+4. [x] Add/update client tests to ensure the Agents user markdown path still renders correctly after render-path cleanup.
    - Files to edit:
      - `client/src/test/agentsPage.run.test.tsx`
      - `client/src/test/agentsPage.turnHydration.test.tsx`
-5. [ ] Align MCP `codebase_question` input schema description text to implemented defaults.
+5. [x] Align MCP `codebase_question` input schema description text to implemented defaults.
    - Files to edit:
      - `server/src/mcp2/tools/codebaseQuestion.ts`
    - Required behavior:
      - replace stale model-default text (`gpt-5.1-codex-max`) with current default contract (`gpt-5.3-codex`).
-6. [ ] Update documentation artifacts that changed due this task.
+6. [x] Update documentation artifacts that changed due this task.
    - Files to edit:
      - `README.md`
      - `design.md`
      - `projectStructure.md` (if file map changes)
-7. [ ] Run workspace lint and format checks.
+7. [x] Run workspace lint and format checks.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test:unit --workspace server`
-4. [ ] `npm run test:integration --workspace server`
-5. [ ] `npm run test --workspace client`
-6. [ ] `npm run e2e`
-7. [ ] `npm run lint --workspaces`
-8. [ ] `npm run format:check --workspaces`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test:unit --workspace server`
+4. [x] `npm run test:integration --workspace server`
+5. [x] `npm run test --workspace client`
+6. [x] `npm run e2e`
+7. [x] `npm run lint --workspaces`
+8. [x] `npm run format:check --workspaces`
 
 #### Implementation notes
 
 - Code review finding A (functional): `server/src/routes/chat.ts` currently marks LM Studio available for explicit `provider=lmstudio` with any non-empty requested model, even when runtime model listing failed; this can bypass required provider fallback/unavailable behavior.
 - Code review finding B (quality/perf): `client/src/pages/AgentsPage.tsx` performs logging calls during render while mapping message segments; this introduces avoidable render side effects and duplicate logs under React rerenders/StrictMode.
 - Code review finding C (contract clarity): `server/src/mcp2/tools/codebaseQuestion.ts` still describes old Codex default model text in tool schema description.
+- Subtask 1 completed:
+  - Removed the REST runtime LM Studio availability override for explicit `provider=lmstudio`; runtime fallback now depends on runtime-verified selectable models only.
+  - Verification:
+    - `rg -n "requestedProvider === 'lmstudio'" server/src/routes/chat.ts` (no matches)
+    - `rg -n "resolveRuntimeProviderSelection|lmstudioAvailable" server/src/routes/chat.ts` (fallback wiring remains)
+- Subtask 2 completed:
+  - Added regression tests for explicit `provider=lmstudio` when LM Studio is unavailable.
+  - Added scenarios:
+    - fallback to Codex when Codex is available (`202` started, `provider=codex`)
+    - existing `503 PROVIDER_UNAVAILABLE` contract when both providers are unavailable
+  - Verification:
+    - `rg -n "lmstudio request falls back once to codex|lmstudio request returns PROVIDER_UNAVAILABLE" server/src/test/integration/chat-codex.test.ts`
+- Subtask 3 completed:
+  - Removed render-time logger side effect from the Agents user-markdown render loop in `client/src/pages/AgentsPage.tsx`.
+  - Verification:
+    - `rg -n "DEV-0000035:T12:agents_user_markdown_render_evaluated" client/src/pages/AgentsPage.tsx` (no matches)
+- Subtask 4 completed:
+  - Updated Agents markdown-path tests to assert single rendered user/assistant markdown nodes in both realtime and hydration paths.
+  - Verification:
+    - `rg -n "getAllByTestId\\('agents-user-markdown'\\)\\)\\.toHaveLength\\(1\\)|getAllByTestId\\('assistant-markdown'\\)\\)\\.toHaveLength\\(1\\)" client/src/test/agentsPage.run.test.tsx client/src/test/agentsPage.turnHydration.test.tsx`
+- Subtask 5 completed:
+  - Updated MCP `codebase_question` schema description text to current Codex default `gpt-5.3-codex`.
+  - Verification:
+    - `rg -n "gpt-5.3-codex" server/src/mcp2/tools/codebaseQuestion.ts`
+- Subtask 6 completed:
+  - Updated `README.md` and `design.md` to record Task 14 fallback guardrail and Agents render-purity updates.
+  - `projectStructure.md` unchanged (no file/folder additions/removals in this task).
+  - Verification:
+    - `rg -n "Task 14 fallback guardrail|Agents render purity" README.md`
+    - `rg -n "REST runtime fallback no longer treats explicit \`provider=lmstudio\`|render-pure" design.md`
+- Subtask 7 completed:
+  - Ran workspace lint/format checks after Task 14 edits.
+  - Verification:
+    - `npm run lint --workspaces` (pass; no errors, baseline import-order warnings only)
+    - `npm run format:check --workspaces` (pass; all workspaces formatted)
+- Testing 1 completed:
+  - `npm run build --workspace server` (pass; TypeScript server build completed)
+- Testing 2 completed:
+  - `npm run build --workspace client` (pass; Vite production build completed)
+- Testing 3 completed:
+  - `npm run test:unit --workspace server` (pass; `tests 625`, `pass 625`, `fail 0`)
+  - Additional fixture-only test harness updates were required to satisfy stricter runtime LM Studio availability checks:
+    - `server/src/test/unit/chat-tools-wire.test.ts` now stubs `system.listDownloadedModels` with a chat-capable model.
+    - `server/src/test/unit/chat-unsupported-provider.test.ts` now stubs `system.listDownloadedModels` so unsupported-provider branch remains reachable.
+    - `server/src/test/unit/ws-chat-stream.test.ts` server harness now stubs `system.listDownloadedModels` so WS stream route tests run against runtime-available LM Studio fixtures.
+- Testing 4 completed:
+  - `npm run test:integration --workspace server` (pass; `62 scenarios`, `367 steps`)
+  - One Cucumber contract needed alignment with Task 14 runtime behavior:
+    - `server/src/test/features/chat_stream.feature` scenario `chat-error` now asserts REST `503` envelope (`PROVIDER_UNAVAILABLE`, message `lmstudio unavailable`) instead of expecting a `202` run start + WS failed final event.
+    - `server/src/test/steps/chat_stream.steps.ts` fixture-post step now populates `errorResponse` for non-202 responses, matching existing provider-specific step handling.
+- Testing 5 completed:
+  - `npm run test --workspace client` (pass; `90` suites, `333` tests)
+- Testing 6 completed:
+  - `npm run e2e` (pass; `42` Playwright tests, e2e compose stack brought up and torn down by script)
+- Testing 7 completed:
+  - `npm run lint --workspaces` (pass; warnings only, no errors)
+- Testing 8 completed:
+  - `npm run format:check --workspaces` (pass; all workspaces formatted)
 
 ---
 

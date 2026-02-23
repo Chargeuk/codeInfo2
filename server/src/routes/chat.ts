@@ -229,17 +229,6 @@ export function createChatRouter({
         lmstudioReason = 'lmstudio unavailable';
       }
     }
-    if (
-      !lmstudioAvailable &&
-      requestedProvider === 'lmstudio' &&
-      typeof requestedModel === 'string' &&
-      requestedModel.trim().length > 0
-    ) {
-      lmstudioAvailable = true;
-      lmstudioReason = undefined;
-      lmstudioModels = [requestedModel];
-    }
-
     const runtimeSelection = resolveRuntimeProviderSelection({
       requestedProvider,
       requestedModel,

@@ -28,6 +28,13 @@ Critical consistency rule that must remain true:
 - This is the same fundamental lock rule currently applied for LM Studio model locking, expanded to include provider + model, with dimensions implicitly fixed to the selected model default (no user override in this story).
 - No DB migration is required for historical model-only lock/root metadata. If provider is absent, runtime behavior must infer `provider=lmstudio` and continue to work. Whenever a root is newly embedded or re-embedded, provider metadata must be written explicitly.
 
+Lock metadata naming decision and consequences:
+
+- Best option selected for this story is Option A: canonical naming uses `embeddingProvider` + `embeddingModel` across Chroma metadata, root metadata, and API contracts.
+- Consequence: backward compatibility must be implemented as dual-read compatibility (`embeddingProvider`/`embeddingModel` first, then legacy fields such as `lockedModelId` and legacy root `model`, with provider defaulting to `lmstudio` when missing).
+- Consequence: write path is single canonical format; new ingest/re-embed operations persist only canonical naming so legacy state is progressively replaced without migration.
+- Consequence: short-term implementation scope increases (translation logic + tests), but long-term risk is reduced by avoiding mixed legacy/new naming contracts.
+
 Current architecture facts that this story must account for:
 
 - Embeddings are generated in ingest jobs (`server/src/ingest/ingestJob.ts`) and also during vector-search query execution (`server/src/lmstudio/toolService.ts` through `getVectorsCollection({ requireEmbedding: true })` in `server/src/ingest/chromaClient.ts`).
@@ -104,6 +111,7 @@ Retryability guidance for this taxonomy:
 - Existing model-only roots/locks continue to work without DB migration by inferring `provider=lmstudio` when provider metadata is absent.
 - New ingest and re-embed writes persist explicit provider metadata so inferred state is gradually replaced by canonical provider+model data.
 - Canonical lock metadata naming is standardized to Option A: `embeddingProvider` + `embeddingModel` across Chroma metadata, root metadata, and API responses, with compatibility reads for legacy fields.
+- Consequence of Option A is explicitly required: legacy metadata must remain readable while canonical naming is the only required write shape for new operations.
 - Lock-source divergence is removed: `/ingest/models` lock reporting and ingest start lock enforcement read from one canonical lock implementation.
 - Existing LM Studio-only workflows continue to work unchanged when OpenAI key is absent.
 - Server-side validation rejects OpenAI embedding model ids that are not in the curated allowlist, even if they appear in upstream model listings.

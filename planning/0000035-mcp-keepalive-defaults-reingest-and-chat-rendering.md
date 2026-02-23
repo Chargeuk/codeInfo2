@@ -4119,7 +4119,7 @@ Render Agents user bubbles with the same markdown/sanitization component used by
 
 ### 13. Final verification: acceptance check, full regressions, and documentation normalization
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: to_do
 
 #### Overview

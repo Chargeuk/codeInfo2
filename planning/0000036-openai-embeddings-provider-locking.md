@@ -784,20 +784,22 @@ Implement OpenAI embedding execution behind the shared provider interface, inclu
 #### Subtasks
 
 1. [ ] Implement OpenAI provider adapter using `OPENAI_EMBEDDING_KEY`.
-2. [ ] Enforce request guardrails (`<=2048` inputs, per-input token limit, `<=300000` total tokens/request).
+2. [ ] Enforce request guardrails (`<=2048` inputs, per-input token limit, `<=300000` total tokens/request) for both ingest-time and query-time embedding calls.
 3. [ ] Implement retry utility contract defaults (`maxRetries=3`, `baseDelayMs=500`, `maxDelayMs=8000`, jitter factor `[0.75,1.0]`) and wait-hint precedence.
 4. [ ] Enforce wait-hint edge handling: ignore invalid/negative hints, treat hints `>60000ms` as non-immediate, and fall back to bounded exponential delay.
 5. [ ] Set OpenAI embedding call timeout to `30000ms` per attempt and disable SDK auto-retries for embedding calls (`maxRetries=0`) so server retry logic is the only retry layer.
 6. [ ] Map upstream/OpenAI SDK failures to story taxonomy codes, including explicit quota/credits exhaustion mapping to `OPENAI_QUOTA_EXCEEDED`.
 7. [ ] Validate embedding response payload integrity (non-empty numeric vectors only) before writing any vectors.
-8. [ ] Add/update focused unit tests for retry/backoff, wait-hint parsing, timeout ownership, taxonomy mapping, response validation, and guardrails.
+8. [ ] Ensure retry-budget exhaustion returns a normalized terminal `OPENAI_*` error with deterministic metadata (`retryable`, `upstreamStatus`, optional `retryAfterMs`) rather than raw SDK errors.
+9. [ ] Add/update focused unit tests for retry/backoff, wait-hint parsing, timeout ownership, taxonomy mapping, response validation, and guardrails.
 
 #### Testing
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run test:unit --workspace server`
 3. [ ] Confirm taxonomy/guardrail tests pass in provider adapter test suite.
-4. [ ] Confirm wait-hint edge-case tests (invalid/negative/date/over-60s) pass in provider retry test suite.
+4. [ ] Confirm retry-exhaustion normalization tests pass (terminal error metadata, no raw SDK leak-through).
+5. [ ] Confirm wait-hint edge-case tests (invalid/negative/date/over-60s) pass in provider retry test suite.
 
 #### Implementation notes
 
@@ -824,11 +826,13 @@ Extend lock identity from model-only to provider+model+dimensions internally, wi
 1. [ ] Add canonical internal lock type (`embeddingProvider`, `embeddingModel`, `embeddingDimensions`) and helper functions.
 2. [ ] Implement dual-read compatibility (`legacy lockedModelId/model -> provider=lmstudio`) with canonical-write behavior on new ingest/re-embed.
 3. [ ] Capture `embeddingDimensions` from the first successful embedding write for a lock and persist it as canonical lock metadata for reuse in validation/diagnostics.
-4. [ ] Ensure reembed and all query embedding paths (including classic MCP `VectorSearch`) always use the locked provider/model combination.
-5. [ ] Add deterministic pre-query dimension mismatch checks before Chroma query and map to `EMBEDDING_DIMENSION_MISMATCH` without leaking raw Chroma errors.
-6. [ ] Harden lock lifecycle/concurrency behavior: keep `startIngest` as authoritative atomic gate, release stale lock ownership after terminal/cancel paths, and keep deterministic `BUSY` behavior for concurrent start/reembed/remove mutations.
-7. [ ] Add deterministic re-embed eligibility validation for invalid root states (`cancelled`/`error` with stale metadata) before job start.
-8. [ ] Add/update tests for legacy inference, canonical writes, provider lock enforcement, classic-MCP parity, dimension mismatch, and lock lifecycle/concurrency edge cases.
+4. [ ] Treat partially populated canonical lock metadata (for example provider without model/dimensions) as deterministic invalid lock state; return a stable server validation error and never silently infer missing canonical fields.
+5. [ ] Ensure reembed and all query embedding paths (including classic MCP `VectorSearch`) always use the locked provider/model combination.
+6. [ ] Add deterministic pre-query dimension mismatch checks before Chroma query and map to `EMBEDDING_DIMENSION_MISMATCH` without leaking raw Chroma errors.
+7. [ ] Harden lock lifecycle/concurrency behavior: keep `startIngest` as authoritative atomic gate, release stale lock ownership after terminal/cancel paths, and keep deterministic `BUSY` behavior for concurrent start/reembed/remove mutations.
+8. [ ] Ensure vectors-empty cleanup clears lock metadata idempotently and does not clear a newly established lock from a newer run.
+9. [ ] Add deterministic re-embed eligibility validation for invalid root states (`cancelled`/`error` with stale metadata) before job start.
+10. [ ] Add/update tests for legacy inference, canonical writes, partial-canonical invalid-state handling, provider lock enforcement, classic-MCP parity, dimension mismatch, idempotent lock clearing, and lock lifecycle/concurrency edge cases.
 
 #### Testing
 
@@ -837,6 +841,7 @@ Extend lock identity from model-only to provider+model+dimensions internally, wi
 3. [ ] `npm run test:integration --workspace server`
 4. [ ] Confirm `server/src/test/integration/chat-vectorsearch-locked-model.test.ts` passes.
 5. [ ] Confirm classic MCP vector-search parity and ingest lock-lifecycle tests pass.
+6. [ ] Confirm invalid partial-canonical lock metadata and lock-clear idempotency tests pass.
 
 #### Implementation notes
 
@@ -864,15 +869,16 @@ Implement the agreed `/ingest/models` contract (`models`, `lock`, `openai`, `lms
 2. [ ] Implement OpenAI status states (`disabled`, `ok`, `warning`) and status codes: `OPENAI_DISABLED`, `OPENAI_OK`, `OPENAI_ALLOWLIST_NO_MATCH`, `OPENAI_MODELS_LIST_TEMPORARY_FAILURE`, `OPENAI_MODELS_LIST_AUTH_FAILED`, and `OPENAI_MODELS_LIST_UNAVAILABLE`.
 3. [ ] Treat missing, blank, or whitespace-only `OPENAI_EMBEDDING_KEY` as disabled (`OPENAI_DISABLED`) without attempting OpenAI model calls.
 4. [ ] Preserve LM Studio options when OpenAI listing fails or when allowlist has no matches.
-5. [ ] Implement deterministic LM Studio status envelope (`lmstudio.status`, `lmstudio.statusCode`, optional `lmstudio.warning`) so `200` responses remain actionable when LM Studio fails (including the both-providers-fail case).
-6. [ ] Keep `lockedModelId` alias mapped from canonical lock model.
-7. [ ] Add/update unit tests for each status/warning state, including blank-key, LM Studio failure, and both-providers-fail scenarios.
+5. [ ] Enforce deterministic allowlist ordering for OpenAI options (`text-embedding-3-small`, then `text-embedding-3-large`) when both are available.
+6. [ ] Implement deterministic LM Studio status envelope (`lmstudio.status`, `lmstudio.statusCode`, optional `lmstudio.warning`) so `200` responses remain actionable when LM Studio fails (including the both-providers-fail case).
+7. [ ] Keep `lockedModelId` alias mapped from canonical lock model.
+8. [ ] Add/update unit tests for each status/warning state, ordering behavior, blank-key, LM Studio failure, and both-providers-fail scenarios.
 
 #### Testing
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run test:unit --workspace server`
-3. [ ] Confirm `/ingest/models` route tests cover missing/blank key, success, transient failure, allowlist no-match, LM Studio failure-only, and both-providers-fail cases.
+3. [ ] Confirm `/ingest/models` route tests cover missing/blank key, success, transient failure, allowlist no-match, deterministic allowlist ordering, LM Studio failure-only, and both-providers-fail cases.
 
 #### Implementation notes
 
@@ -896,13 +902,15 @@ Implement provider-aware request/response contracts for ingest start and vector 
 
 #### Subtasks
 
-1. [ ] Update `POST /ingest/start` to accept canonical `embeddingProvider` + `embeddingModel`, with legacy `model` mapping to LM Studio.
+1. [ ] Update `POST /ingest/start` to accept canonical `embeddingProvider` + `embeddingModel`, with legacy `model` mapping to LM Studio; when both canonical and legacy fields are present, canonical fields must be authoritative for validation and lock decisions.
 2. [ ] Update lock-conflict payload to include canonical `lock` object plus compatibility `lockedModelId`.
 3. [ ] Enforce OpenAI allowlist validation on ingest start/re-embed request handling so non-allowlisted OpenAI model ids are deterministically rejected.
 4. [ ] Ensure re-embed paths follow canonical lock and cannot silently switch provider/model.
 5. [ ] Update vector-search error payloads to include normalized OpenAI failures and retry metadata.
-6. [ ] Use one shared mapping for REST `/tools/vector-search` and classic MCP `VectorSearch` equivalent failures so error semantics remain aligned.
-7. [ ] Add/update tests for canonical request parsing, legacy compatibility mapping, allowlist rejection, and conflict/error payloads.
+6. [ ] Ensure ingest-run error surfaces (status snapshots and persisted `lastError` fields used by roots/tooling) expose normalized OpenAI failure payloads with `error`, `message`, `retryable`, `provider`, optional `upstreamStatus`, and optional `retryAfterMs`.
+7. [ ] Ensure lock-model-unavailable paths fail deterministically as `OPENAI_MODEL_UNAVAILABLE` (no silent fallback model/provider switching).
+8. [ ] Use one shared mapping for REST `/tools/vector-search`, classic MCP `VectorSearch`, and ingest-path OpenAI embedding failures so error semantics remain aligned.
+9. [ ] Add/update tests for canonical-vs-legacy precedence, canonical request parsing, legacy compatibility mapping, allowlist rejection, lock-model-unavailable handling, and conflict/error payloads across ingest/vector-search surfaces.
 
 #### Testing
 
@@ -910,6 +918,7 @@ Implement provider-aware request/response contracts for ingest start and vector 
 2. [ ] `npm run test:unit --workspace server`
 3. [ ] `npm run test:integration --workspace server`
 4. [ ] Confirm `server/src/test/unit/tools-vector-search.test.ts`, classic MCP vector-search error tests, and ingest-start route tests pass.
+5. [ ] Confirm ingest status/roots error-shape tests pass for normalized OpenAI failure payloads.
 
 #### Implementation notes
 
@@ -1041,8 +1050,10 @@ Implement the user-visible ingest UI behavior for provider-tagged model selectio
 2. [ ] Add info bar for missing `OPENAI_EMBEDDING_KEY` and warning bar states from `openai.status/statusCode`.
 3. [ ] Submit canonical ingest-start payload fields (`embeddingProvider`, `embeddingModel`) while keeping legacy-safe behavior where required.
 4. [ ] Clear stale model selections deterministically when refreshed model lists no longer contain the selected provider/model option.
-5. [ ] Update lock display in ingest UI components to prefer canonical lock fields and fallback to aliases.
-6. [ ] Add/update client tests for dropdown options, stale-selection clearing, warnings/info bars, and payload behavior.
+5. [ ] Ensure UI selection identity is provider-qualified (`provider + model`) so same model-id strings across providers remain unambiguous in selection and submission.
+6. [ ] Keep ingest UI dimension-free for this story (no dimensions input/control introduced anywhere in the form).
+7. [ ] Update lock display in ingest UI components to prefer canonical lock fields and fallback to aliases.
+8. [ ] Add/update client tests for dropdown options, provider-qualified selection identity, stale-selection clearing, warnings/info bars, no-dimensions-control behavior, and payload behavior.
 
 #### Testing
 

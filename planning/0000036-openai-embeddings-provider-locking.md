@@ -138,6 +138,9 @@ Retryability guidance for this taxonomy:
 
 ### Questions
 
+- What are the exact bounded exponential backoff defaults for retryable OpenAI failures (for example `maxRetries`, `baseDelayMs`, `maxDelayMs`, and jitter strategy)?
+- What is the exact `/ingest/models` warning-state response shape for transient OpenAI model-list failures (for example `openaiWarningCode` value set and message contract)?
+
 ## Implementation Ideas
 
 - Introduce a provider abstraction under server ingest tooling, e.g. an `EmbeddingProvider` interface used by ingest, re-embed, and query embeddings.

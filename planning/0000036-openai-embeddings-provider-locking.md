@@ -102,8 +102,10 @@ Retryability guidance for this taxonomy:
 - Server startup parity is required: local non-docker server startup loads `server/.env.local` and `server/.env` with deterministic precedence so `OPENAI_EMBEDDING_KEY` works the same way as docker-compose startup.
 - Deterministic env precedence is required: local startup loads `server/.env` first, then `server/.env.local` as override (matching docker compose env-file override semantics used in this repository).
 - Server reads `OPENAI_EMBEDDING_KEY` at runtime and only enables OpenAI embedding model discovery when the key is configured.
-- `GET /ingest/models` returns `200` with a deterministic contract containing `models`, `lock`, and `openai` objects (defined below), even when OpenAI model-listing has a transient failure.
+- `GET /ingest/models` returns `200` with a deterministic contract containing `models`, `lock`, `openai`, and `lmstudio` objects (defined below), even when one provider model-list call fails.
 - `GET /ingest/models` includes LM Studio models whenever LM Studio listing succeeds; transient OpenAI listing failures do not fail the whole endpoint.
+- If LM Studio listing fails while OpenAI listing succeeds, `lmstudio.status` is `warning`, OpenAI options still render, and the endpoint remains `200`.
+- If both LM Studio and OpenAI listing fail, `/ingest/models` still returns `200` with deterministic warning envelopes and an empty `models` array.
 - If `OPENAI_EMBEDDING_KEY` is missing, `openai.status` is `disabled` and the UI shows an info bar that explicitly names `OPENAI_EMBEDDING_KEY` as required.
 - If `OPENAI_EMBEDDING_KEY` is set, OpenAI model listing succeeds, and at least one allowlisted model is available, `openai.status` is `ok` and only allowlisted OpenAI embedding models are included.
 - If `OPENAI_EMBEDDING_KEY` is set and OpenAI model listing fails transiently, `openai.status` is `warning`, `openai.warning.code=OPENAI_MODELS_LIST_TEMPORARY_FAILURE`, and LM Studio options still render.
@@ -290,7 +292,7 @@ This section defines concrete "done" behavior so a junior developer can verify o
 
 ### `/ingest/models` Warning-State Message Contract
 
-- Response shape includes explicit lock and OpenAI status envelopes so UI state is deterministic:
+- Response shape includes explicit lock and provider status envelopes so UI state is deterministic:
 
 ```json
 {
@@ -307,6 +309,10 @@ This section defines concrete "done" behavior so a junior developer can verify o
     "embeddingDimensions": 1536
   },
   "lockedModelId": "text-embedding-3-small",
+  "lmstudio": {
+    "status": "ok",
+    "statusCode": "LMSTUDIO_OK"
+  },
   "openai": {
     "enabled": true,
     "status": "warning",
@@ -333,6 +339,18 @@ This section defines concrete "done" behavior so a junior developer can verify o
   - `embeddingProvider: "lmstudio" | "openai"`
   - `embeddingModel: string`
   - `embeddingDimensions: number`
+- `lmstudio.status` values:
+  - `ok`: LM Studio listing succeeded.
+  - `warning`: LM Studio listing failed or returned unusable data for model selection.
+- `lmstudio.statusCode` values for deterministic UI handling:
+  - `LMSTUDIO_OK`
+  - `LMSTUDIO_MODELS_LIST_TEMPORARY_FAILURE`
+  - `LMSTUDIO_MODELS_LIST_UNAVAILABLE`
+- `lmstudio.warning` is present only when `lmstudio.status=warning`, with:
+  - `code: string`
+  - `message: string`
+  - `retryable: boolean`
+  - `retryAfterMs?: number`
 - `openai.status` values:
   - `disabled`: no `OPENAI_EMBEDDING_KEY` configured.
   - `ok`: key configured and model listing succeeded.
@@ -358,6 +376,8 @@ This section defines concrete "done" behavior so a junior developer can verify o
   - Missing key: `OpenAI embedding models are unavailable. Set OPENAI_EMBEDDING_KEY on the server to enable them.`
   - Allowlist no-match: `OpenAI is configured, but no supported embedding models are available for this key.`
   - Temporary listing failure: `OpenAI models are temporarily unavailable. LM Studio models are still available.`
+  - LM Studio listing failure (OpenAI available): `LM Studio embedding models are temporarily unavailable. OpenAI models are still available.`
+  - Both provider listings failed: `Embedding model discovery is temporarily unavailable for LM Studio and OpenAI.`
 
 ### Ingest Start Conflict Contract (Provider-Aware Lock)
 
@@ -617,7 +637,7 @@ This is a rough implementation sequence only (not tasking). It reflects current 
 - Update lock-related payloads for existing surfaces while keeping compatibility fields.
 - Keep classic MCP `ListIngestedRepositories` and related outputs consistent with canonical+alias contract.
 - Update API documentation/schema artifacts accordingly.
-- Primary files: `server/src/mcp/server.ts`, `server/src/lmstudio/tools.ts`, `server/src/openapi.json`.
+- Primary files: `server/src/mcp/server.ts`, `server/src/lmstudio/tools.ts`, `openapi.json`.
 
 10. Update validation-focused tests before implementation completion.
 - Server lock/contract tests: ingest start/reembed/models/roots and lock-state unit tests.
@@ -831,7 +851,7 @@ Extend lock identity from model-only to provider+model+dimensions internally, wi
 
 #### Overview
 
-Implement the agreed `/ingest/models` contract (`models`, `lock`, `openai`, compatibility alias `lockedModelId`) including deterministic warning states. This task is intentionally server-message focused.
+Implement the agreed `/ingest/models` contract (`models`, `lock`, `openai`, `lmstudio`, compatibility alias `lockedModelId`) including deterministic warning states. This task is intentionally server-message focused.
 
 #### Documentation Locations
 
@@ -844,7 +864,7 @@ Implement the agreed `/ingest/models` contract (`models`, `lock`, `openai`, comp
 2. [ ] Implement OpenAI status states (`disabled`, `ok`, `warning`) and status codes: `OPENAI_DISABLED`, `OPENAI_OK`, `OPENAI_ALLOWLIST_NO_MATCH`, `OPENAI_MODELS_LIST_TEMPORARY_FAILURE`, `OPENAI_MODELS_LIST_AUTH_FAILED`, and `OPENAI_MODELS_LIST_UNAVAILABLE`.
 3. [ ] Treat missing, blank, or whitespace-only `OPENAI_EMBEDDING_KEY` as disabled (`OPENAI_DISABLED`) without attempting OpenAI model calls.
 4. [ ] Preserve LM Studio options when OpenAI listing fails or when allowlist has no matches.
-5. [ ] Implement deterministic LM Studio listing-failure state in `/ingest/models` so `200` responses remain actionable when LM Studio fails (including the both-providers-fail case).
+5. [ ] Implement deterministic LM Studio status envelope (`lmstudio.status`, `lmstudio.statusCode`, optional `lmstudio.warning`) so `200` responses remain actionable when LM Studio fails (including the both-providers-fail case).
 6. [ ] Keep `lockedModelId` alias mapped from canonical lock model.
 7. [ ] Add/update unit tests for each status/warning state, including blank-key, LM Studio failure, and both-providers-fail scenarios.
 
@@ -917,7 +937,7 @@ Finalize the remaining message-contract surfaces so canonical lock/provider fiel
 2. [ ] Update `/tools/ingested-repos` response similarly (canonical + alias fields).
 3. [ ] Update classic MCP `ListIngestedRepositories` output schema and emitted JSON text payload shape to match server contract.
 4. [ ] Ensure compatibility alias matrix remains synchronized across all lock-bearing surfaces (`lock.embeddingModel` equals alias fields such as `lockedModelId`/`modelId`/legacy root `model`).
-5. [ ] Update `server/src/openapi.json` and any server schema docs to match implemented contracts, including provider status/warning envelopes added by Task 6.
+5. [ ] Update root `openapi.json` and any server schema docs to match implemented contracts, including provider status/warning envelopes added by Task 6.
 6. [ ] Add/update tests for these surfaces and schema contract snapshots/validators where present.
 
 #### Testing
@@ -933,7 +953,41 @@ Finalize the remaining message-contract surfaces so canonical lock/provider fiel
 
 ---
 
-### 9. Client: Update ingest data hooks and API types to new server contracts
+### 9. Server: Update transitive runtime consumers to canonical+compat ingest repo contracts
+
+- Task Status: **__to_do__**
+- Git Commits:
+
+#### Overview
+
+Align server-side transitive consumers that depend on ingest repository shapes so contract migrations do not break flows, agents, AST tools, or shared runtime types.
+
+#### Documentation Locations
+
+- TypeScript handbook (type evolution and compatibility): https://www.typescriptlang.org/docs/
+- JSON-RPC 2.0 (payload compatibility): https://www.jsonrpc.org/specification
+
+#### Subtasks
+
+1. [ ] Update shared runtime result types in `server/src/lmstudio/toolService.ts` so canonical embedding fields are first-class while preserving compatibility aliases required by current consumers.
+2. [ ] Update transitive consumers to read canonical-first with compatibility fallback where needed: `server/src/ast/toolService.ts`, `server/src/flows/types.ts`, `server/src/flows/discovery.ts`, and `server/src/agents/service.ts`.
+3. [ ] Ensure classic and REST list/search pathways continue to provide fields required by flows/agents/AST selection logic (`id`, `containerPath`, and compatibility aliases).
+4. [ ] Add/update unit/integration tests proving no regressions in transitive consumers after contract migration (flows discovery/listing, agent ingested-command discovery, and AST repo selection).
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run test:unit --workspace server`
+3. [ ] `npm run test:integration --workspace server`
+4. [ ] Confirm `server/src/test/integration/flows.list.test.ts`, `server/src/test/unit/agent-commands-list.test.ts`, and `server/src/test/integration/tools-ast.test.ts` pass.
+
+#### Implementation notes
+
+- Notes added during implementation.
+
+---
+
+### 10. Client: Update ingest data hooks and API types to new server contracts
 
 - Task Status: **__to_do__**
 - Git Commits:
@@ -966,7 +1020,7 @@ Update the client data layer (`useIngestModels`, `useIngestRoots`, related types
 
 ---
 
-### 10. Client: Ingest UI provider-model selection and info/warning state behavior
+### 11. Client: Ingest UI provider-model selection and info/warning state behavior
 
 - Task Status: **__to_do__**
 - Git Commits:
@@ -1002,7 +1056,7 @@ Implement the user-visible ingest UI behavior for provider-tagged model selectio
 
 ---
 
-### 11. Final verification: full acceptance validation, regressions, and documentation sync
+### 12. Final verification: full acceptance validation, regressions, and documentation sync
 
 - Task Status: **__to_do__**
 - Git Commits:
@@ -1037,7 +1091,7 @@ Run the complete verification gate for Story 0000036, confirm acceptance criteri
 6. [ ] `npm run compose:build:clean`
 7. [ ] `npm run compose:up`
 8. [ ] `npm run e2e`
-9. [ ] Capture manual verification screenshots in `test-results/screenshots/` using naming `0000036-11-<description>.png`.
+9. [ ] Capture manual verification screenshots in `test-results/screenshots/` using naming `0000036-12-<description>.png`.
 
 #### Implementation notes
 

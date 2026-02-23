@@ -34,6 +34,58 @@ test('POST /agents/:agentName/run validates request body (missing instruction ->
 
   assert.equal(res.status, 400);
   assert.equal(res.body.error, 'invalid_request');
+  assert.equal(
+    res.body.message,
+    'instruction must contain at least one non-whitespace character',
+  );
+});
+
+test('POST /agents/:agentName/run rejects whitespace-only instruction with exact contract message', async () => {
+  const res = await request(buildApp())
+    .post('/agents/coding_agent/run')
+    .send({ instruction: '   \t ' });
+
+  assert.equal(res.status, 400);
+  assert.deepEqual(res.body, {
+    error: 'invalid_request',
+    message: 'instruction must contain at least one non-whitespace character',
+  });
+});
+
+test('POST /agents/:agentName/run rejects newline-only instruction with exact contract message', async () => {
+  const res = await request(buildApp())
+    .post('/agents/coding_agent/run')
+    .send({ instruction: '\n\n\r\n' });
+
+  assert.equal(res.status, 400);
+  assert.deepEqual(res.body, {
+    error: 'invalid_request',
+    message: 'instruction must contain at least one non-whitespace character',
+  });
+});
+
+test('POST /agents/:agentName/run accepts instruction with surrounding whitespace and preserves payload', async () => {
+  let received: unknown;
+  const res = await request(
+    buildApp({
+      startAgentInstruction: async (params: unknown) => {
+        received = params;
+        return {
+          conversationId: 'conv-1',
+          inflightId: 'inflight-1',
+          modelId: 'model-from-config',
+        };
+      },
+    }),
+  )
+    .post('/agents/coding_agent/run')
+    .send({ instruction: '  hello agent  ' });
+
+  assert.equal(res.status, 202);
+  assert.equal(
+    (received as { instruction?: string }).instruction,
+    '  hello agent  ',
+  );
 });
 
 test('POST /agents/:agentName/run maps unknown agent to 404', async () => {

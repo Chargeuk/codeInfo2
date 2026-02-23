@@ -27,6 +27,11 @@ test('chat router injects LM Studio tools into act call', async () => {
     createChatRouter({
       clientFactory: () =>
         ({
+          system: {
+            listDownloadedModels: async () => [
+              { modelKey: 'demo', type: 'llm' },
+            ],
+          },
           llm: {
             model: async () => ({ act }),
           },
@@ -38,6 +43,7 @@ test('chat router injects LM Studio tools into act call', async () => {
   process.env.LMSTUDIO_BASE_URL = 'http://localhost:1234';
 
   const res = await request(app).post('/chat').send({
+    provider: 'lmstudio',
     model: 'demo',
     conversationId: 'conv-unit-1',
     message: 'hi',

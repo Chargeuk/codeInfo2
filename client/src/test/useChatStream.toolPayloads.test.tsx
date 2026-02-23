@@ -33,6 +33,26 @@ function Wrapper({
   return null;
 }
 
+function SendWrapper({
+  text,
+  onUpdate,
+}: {
+  text: string;
+  onUpdate: (messages: ChatMessage[]) => void;
+}) {
+  const { messages, send } = useChatStream('m1', 'lmstudio');
+
+  useEffect(() => {
+    void send(text);
+  }, [send, text]);
+
+  useEffect(() => {
+    onUpdate(messages);
+  }, [messages, onUpdate]);
+
+  return null;
+}
+
 describe('useChatStream tool payload handling (WS transcript events)', () => {
   it('stores parameters and payload for tool results', async () => {
     const onUpdate = jest.fn();
@@ -445,5 +465,107 @@ describe('useChatStream tool payload handling (WS transcript events)', () => {
       );
       expect(assistant?.command).toBeUndefined();
     });
+  });
+
+  it('preserves leading/trailing whitespace in outbound payload and user message', async () => {
+    const originalFetch = global.fetch;
+    const fetchMock = jest.fn().mockResolvedValue({
+      status: 202,
+      json: async () => ({
+        status: 'started',
+        conversationId: 'c-send-1',
+        inflightId: 'i-send-1',
+        provider: 'lmstudio',
+        model: 'm1',
+      }),
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const onUpdate = jest.fn();
+    const rawMessage = '  keep surrounding spaces  ';
+
+    try {
+      render(<SendWrapper text={rawMessage} onUpdate={onUpdate} />);
+
+      await waitFor(() => {
+        const chatPostCalls = fetchMock.mock.calls.filter(([url, init]) => {
+          const href = typeof url === 'string' ? url : url.toString();
+          return href.endsWith('/chat') && init?.method === 'POST';
+        });
+        expect(chatPostCalls).toHaveLength(1);
+      });
+      const chatPostCall = fetchMock.mock.calls.find(([url, init]) => {
+        const href = typeof url === 'string' ? url : url.toString();
+        return href.endsWith('/chat') && init?.method === 'POST';
+      });
+      const requestInit = chatPostCall?.[1] as RequestInit | undefined;
+      const requestBody =
+        typeof requestInit?.body === 'string'
+          ? (JSON.parse(requestInit.body) as Record<string, unknown>)
+          : {};
+
+      expect(requestBody.message).toBe(rawMessage);
+
+      await waitFor(() => {
+        const latest = onUpdate.mock.calls.at(-1)?.[0] ?? [];
+        const user = (latest as ChatMessage[]).find(
+          (msg) => msg.role === 'user',
+        );
+        expect(user?.content).toBe(rawMessage);
+      });
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+
+  it('preserves newline structure in outbound payload and user message', async () => {
+    const originalFetch = global.fetch;
+    const fetchMock = jest.fn().mockResolvedValue({
+      status: 202,
+      json: async () => ({
+        status: 'started',
+        conversationId: 'c-send-2',
+        inflightId: 'i-send-2',
+        provider: 'lmstudio',
+        model: 'm1',
+      }),
+    });
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    const onUpdate = jest.fn();
+    const rawMessage = 'line one\n  line two\nline three';
+
+    try {
+      render(<SendWrapper text={rawMessage} onUpdate={onUpdate} />);
+
+      await waitFor(() => {
+        const chatPostCalls = fetchMock.mock.calls.filter(([url, init]) => {
+          const href = typeof url === 'string' ? url : url.toString();
+          return href.endsWith('/chat') && init?.method === 'POST';
+        });
+        expect(chatPostCalls).toHaveLength(1);
+      });
+      const chatPostCall = fetchMock.mock.calls.find(([url, init]) => {
+        const href = typeof url === 'string' ? url : url.toString();
+        return href.endsWith('/chat') && init?.method === 'POST';
+      });
+      const requestInit = chatPostCall?.[1] as RequestInit | undefined;
+      const requestBody =
+        typeof requestInit?.body === 'string'
+          ? (JSON.parse(requestInit.body) as Record<string, unknown>)
+          : {};
+
+      expect(requestBody.message).toBe(rawMessage);
+
+      await waitFor(() => {
+        const latest = onUpdate.mock.calls.at(-1)?.[0] ?? [];
+        const user = (latest as ChatMessage[]).find(
+          (msg) => msg.role === 'user',
+        );
+        expect(user?.content).toBe(rawMessage);
+      });
+    } finally {
+      global.fetch = originalFetch;
+    }
   });
 });

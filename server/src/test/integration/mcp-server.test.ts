@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { AddressInfo } from 'node:net';
 import test from 'node:test';
 import express from 'express';
 import request from 'supertest';
@@ -124,6 +125,22 @@ const baseApp = (
   return app;
 };
 
+async function postRaw(app: express.Express, body: unknown): Promise<string> {
+  const server = app.listen(0);
+  const { port } = server.address() as AddressInfo;
+
+  try {
+    const response = await fetch(`http://127.0.0.1:${port}/mcp`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    return response.text();
+  } finally {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  }
+}
+
 test('initialize returns protocol and capabilities', async () => {
   const res = await request(baseApp())
     .post('/mcp')
@@ -136,6 +153,19 @@ test('initialize returns protocol and capabilities', async () => {
   assert.deepEqual(res.body.result.capabilities, {
     tools: { listChanged: false },
   });
+});
+
+test('initialize does not emit keepalive preamble bytes', async () => {
+  const raw = await postRaw(baseApp(), {
+    jsonrpc: '2.0',
+    id: 101,
+    method: 'initialize',
+    params: {},
+  });
+
+  assert.equal(raw.startsWith(' '), false);
+  const parsed = JSON.parse(raw) as { result: { protocolVersion: string } };
+  assert.equal(parsed.result.protocolVersion, '2024-11-05');
 });
 
 test('tools/list returns MCP tool definitions', async () => {
@@ -155,6 +185,18 @@ test('tools/list returns MCP tool definitions', async () => {
   assert.ok(names.includes('AstModuleImports'));
 });
 
+test('tools/list does not emit keepalive preamble bytes', async () => {
+  const raw = await postRaw(baseApp(), {
+    jsonrpc: '2.0',
+    id: 102,
+    method: 'tools/list',
+  });
+
+  assert.equal(raw.startsWith(' '), false);
+  const parsed = JSON.parse(raw) as { result: { tools: unknown[] } };
+  assert.equal(Array.isArray(parsed.result.tools), true);
+});
+
 test('tools/call executes ListIngestedRepositories', async () => {
   const res = await request(baseApp())
     .post('/mcp')
@@ -171,6 +213,23 @@ test('tools/call executes ListIngestedRepositories', async () => {
   assert.equal(content.type, 'text');
   const parsed = JSON.parse(content.text as string);
   assert.equal(parsed.repos[0].id, 'repo-1');
+});
+
+test('tools/call emits whitespace preamble and remains parseable JSON', async () => {
+  const raw = await postRaw(baseApp(), {
+    jsonrpc: '2.0',
+    id: 103,
+    method: 'tools/call',
+    params: { name: 'ListIngestedRepositories', arguments: {} },
+  });
+
+  assert.equal(raw.startsWith(' '), true);
+  const prefix = raw.slice(0, raw.indexOf('{'));
+  assert.equal(/^\s*$/.test(prefix), true);
+  const parsed = JSON.parse(raw.trimStart()) as {
+    result: { content: unknown[] };
+  };
+  assert.equal(Array.isArray(parsed.result.content), true);
 });
 
 test('tools/call validates VectorSearch arguments', async () => {

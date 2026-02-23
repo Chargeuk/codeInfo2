@@ -19,6 +19,7 @@ import {
   getRootsCollection,
   getVectorsCollection,
 } from '../ingest/chromaClient.js';
+import { runReingestRepository } from '../ingest/reingestService.js';
 import {
   RepoNotFoundError,
   ValidationError,
@@ -30,6 +31,7 @@ import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
 import { dispatchJsonRpc } from '../mcpCommon/dispatch.js';
 import { isObject } from '../mcpCommon/guards.js';
+import { createKeepAliveController } from '../mcpCommon/keepAlive.js';
 import { jsonRpcError, jsonRpcResult } from '../mcpCommon/jsonRpc.js';
 
 type JsonRpcRequest = {
@@ -42,6 +44,11 @@ type JsonRpcRequest = {
 type ToolCallParams = {
   name?: unknown;
   arguments?: unknown;
+};
+
+type BasicJsonRpcRequest = {
+  jsonrpc?: unknown;
+  method?: unknown;
 };
 
 type Deps = {
@@ -61,6 +68,7 @@ type Deps = {
   getRootsCollection: typeof getRootsCollection;
   getVectorsCollection: typeof getVectorsCollection;
   getLockedModel: typeof getLockedModel;
+  runReingestRepository: typeof runReingestRepository;
 };
 
 const PROTOCOL_VERSION = '2024-11-05';
@@ -218,6 +226,34 @@ const baseToolDefinitions = [
           },
         },
         lockedModelId: { type: ['string', 'null'] },
+      },
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'reingest_repository',
+    description:
+      'Start a re-embed run for an already ingested repository root by sourceId.',
+    inputSchema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['sourceId'],
+      properties: {
+        sourceId: {
+          type: 'string',
+          description:
+            'Absolute normalized containerPath of an already ingested repository root',
+        },
+      },
+    },
+    outputSchema: {
+      type: 'object',
+      required: ['status', 'operation', 'runId', 'sourceId'],
+      properties: {
+        status: { type: 'string', enum: ['started'] },
+        operation: { type: 'string', enum: ['reembed'] },
+        runId: { type: 'string' },
+        sourceId: { type: 'string' },
       },
       additionalProperties: false,
     },
@@ -453,6 +489,7 @@ export function createMcpRouter(
     getRootsCollection,
     getVectorsCollection,
     getLockedModel,
+    runReingestRepository,
     ...deps,
   };
 
@@ -475,6 +512,23 @@ export function createMcpRouter(
     const body = req.body as JsonRpcRequest;
     const requestId =
       (res.locals?.requestId as string | undefined) ?? undefined;
+    const writeHeadersIfNeeded = () => {
+      if (res.headersSent) return;
+      res.writeHead(200, {
+        'content-type': 'application/json; charset=utf-8',
+      });
+      res.flushHeaders?.();
+    };
+    const keepAlive = createKeepAliveController({
+      res,
+      writeHeadersIfNeeded,
+      surface: 'mcp_classic',
+      requestId,
+    });
+    const shouldKeepAlive = isToolsCallRequest(body);
+    if (shouldKeepAlive) {
+      keepAlive.start();
+    }
 
     const response = await dispatchJsonRpc({
       message: body,
@@ -547,6 +601,60 @@ export function createMcpRouter(
               );
               return jsonRpcResult(id as never, {
                 content: [{ type: 'text', text: JSON.stringify(payload) }],
+              }) as JsonRpcLikeResponse;
+            }
+
+            if (toolCall.name === 'reingest_repository') {
+              append({
+                level: 'info',
+                source: 'server',
+                timestamp: new Date().toISOString(),
+                message: 'DEV-0000035:T6:classic_reingest_tool_call_evaluated',
+                requestId,
+                context: {
+                  tool: toolCall.name,
+                  args,
+                },
+              });
+
+              const result = await resolved.runReingestRepository(args);
+              if (!result.ok) {
+                append({
+                  level: 'info',
+                  source: 'server',
+                  timestamp: new Date().toISOString(),
+                  message: 'DEV-0000035:T6:classic_reingest_tool_call_result',
+                  requestId,
+                  context: {
+                    tool: toolCall.name,
+                    outcome: 'error',
+                    code: result.error.code,
+                    message: result.error.message,
+                    data: result.error.data,
+                  },
+                });
+                return jsonRpcError(
+                  id as never,
+                  result.error.code,
+                  result.error.message,
+                  result.error.data,
+                ) as JsonRpcLikeResponse;
+              }
+
+              append({
+                level: 'info',
+                source: 'server',
+                timestamp: new Date().toISOString(),
+                message: 'DEV-0000035:T6:classic_reingest_tool_call_result',
+                requestId,
+                context: {
+                  tool: toolCall.name,
+                  outcome: 'success',
+                  payload: result.value,
+                },
+              });
+              return jsonRpcResult(id as never, {
+                content: [{ type: 'text', text: JSON.stringify(result.value) }],
               }) as JsonRpcLikeResponse;
             }
 
@@ -695,9 +803,18 @@ export function createMcpRouter(
         invalidRequest,
       },
     });
-
+    if (shouldKeepAlive) {
+      keepAlive.sendJson(response);
+      return;
+    }
     return res.json(response);
   });
 
   return router;
+}
+
+function isToolsCallRequest(message: unknown): boolean {
+  if (!isObject(message)) return false;
+  const request = message as BasicJsonRpcRequest;
+  return request.jsonrpc === '2.0' && request.method === 'tools/call';
 }

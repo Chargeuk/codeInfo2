@@ -16,13 +16,18 @@
                 "properties": {
                   "target": {
                     "type": "string",
-                    "enum": ["chat", "agent"]
+                    "enum": [
+                      "chat",
+                      "agent"
+                    ]
                   },
                   "agentName": {
                     "type": "string"
                   }
                 },
-                "required": ["target"]
+                "required": [
+                  "target"
+                ]
               }
             }
           }
@@ -80,13 +85,27 @@
                       "items": {
                         "type": "object",
                         "properties": {
-                          "name": { "type": "string" },
-                          "description": { "type": "string" },
-                          "disabled": { "type": "boolean" },
-                          "sourceId": { "type": "string" },
-                          "sourceLabel": { "type": "string" }
+                          "name": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": "string"
+                          },
+                          "disabled": {
+                            "type": "boolean"
+                          },
+                          "sourceId": {
+                            "type": "string"
+                          },
+                          "sourceLabel": {
+                            "type": "string"
+                          }
                         },
-                        "required": ["name", "description", "disabled"]
+                        "required": [
+                          "name",
+                          "description",
+                          "disabled"
+                        ]
                       }
                     }
                   }
@@ -101,7 +120,9 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "error": { "type": "string" }
+                    "error": {
+                      "type": "string"
+                    }
                   }
                 }
               }
@@ -117,7 +138,9 @@
             "name": "agentName",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
@@ -127,12 +150,22 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "commandName": { "type": "string" },
-                  "conversationId": { "type": "string" },
-                  "working_folder": { "type": "string" },
-                  "sourceId": { "type": "string" }
+                  "commandName": {
+                    "type": "string"
+                  },
+                  "conversationId": {
+                    "type": "string"
+                  },
+                  "working_folder": {
+                    "type": "string"
+                  },
+                  "sourceId": {
+                    "type": "string"
+                  }
                 },
-                "required": ["commandName"]
+                "required": [
+                  "commandName"
+                ]
               }
             }
           }
@@ -148,7 +181,9 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "error": { "type": "string" }
+                    "error": {
+                      "type": "string"
+                    }
                   }
                 }
               }
@@ -172,35 +207,72 @@
                       "items": {
                         "type": "object",
                         "properties": {
-                          "runId": { "type": "string" },
-                          "name": { "type": "string" },
-                          "description": { "type": "string", "nullable": true },
-                          "path": { "type": "string" },
-                          "model": { "type": "string" },
-                          "status": { "type": "string" },
-                          "lastIngestAt": { "type": "string", "nullable": true },
+                          "runId": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "path": {
+                            "type": "string"
+                          },
+                          "model": {
+                            "type": "string"
+                          },
+                          "status": {
+                            "type": "string"
+                          },
+                          "lastIngestAt": {
+                            "type": "string",
+                            "nullable": true
+                          },
                           "counts": {
                             "type": "object",
                             "properties": {
-                              "files": { "type": "number" },
-                              "chunks": { "type": "number" },
-                              "embedded": { "type": "number" }
+                              "files": {
+                                "type": "number"
+                              },
+                              "chunks": {
+                                "type": "number"
+                              },
+                              "embedded": {
+                                "type": "number"
+                              }
                             }
                           },
-                          "lastError": { "type": "string", "nullable": true },
+                          "lastError": {
+                            "type": "string",
+                            "nullable": true
+                          },
                           "ast": {
                             "type": "object",
                             "properties": {
-                              "supportedFileCount": { "type": "number" },
-                              "skippedFileCount": { "type": "number" },
-                              "failedFileCount": { "type": "number" },
-                              "lastIndexedAt": { "type": "string", "nullable": true }
+                              "supportedFileCount": {
+                                "type": "number"
+                              },
+                              "skippedFileCount": {
+                                "type": "number"
+                              },
+                              "failedFileCount": {
+                                "type": "number"
+                              },
+                              "lastIndexedAt": {
+                                "type": "string",
+                                "nullable": true
+                              }
                             }
                           }
                         }
                       }
                     },
-                    "lockedModelId": { "type": "string", "nullable": true }
+                    "lockedModelId": {
+                      "type": "string",
+                      "nullable": true
+                    }
                   }
                 }
               }
@@ -224,13 +296,27 @@
                       "items": {
                         "type": "object",
                         "properties": {
-                          "name": { "type": "string" },
-                          "description": { "type": "string" },
-                          "disabled": { "type": "boolean" },
-                          "sourceId": { "type": "string" },
-                          "sourceLabel": { "type": "string" }
+                          "name": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": "string"
+                          },
+                          "disabled": {
+                            "type": "boolean"
+                          },
+                          "sourceId": {
+                            "type": "string"
+                          },
+                          "sourceLabel": {
+                            "type": "string"
+                          }
                         },
-                        "required": ["name", "description", "disabled"]
+                        "required": [
+                          "name",
+                          "description",
+                          "disabled"
+                        ]
                       }
                     }
                   }
@@ -315,7 +401,9 @@
                     "maximum": 200
                   }
                 },
-                "required": ["repository"]
+                "required": [
+                  "repository"
+                ]
               }
             }
           }
@@ -333,35 +421,68 @@
                       "items": {
                         "type": "object",
                         "properties": {
-                          "symbolId": { "type": "string" },
-                          "root": { "type": "string" },
-                          "relPath": { "type": "string" },
-                          "fileHash": { "type": "string" },
-                          "language": { "type": "string" },
-                          "kind": { "type": "string" },
-                          "name": { "type": "string" },
-                          "container": { "type": "string" },
+                          "symbolId": {
+                            "type": "string"
+                          },
+                          "root": {
+                            "type": "string"
+                          },
+                          "relPath": {
+                            "type": "string"
+                          },
+                          "fileHash": {
+                            "type": "string"
+                          },
+                          "language": {
+                            "type": "string"
+                          },
+                          "kind": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "container": {
+                            "type": "string"
+                          },
                           "range": {
                             "type": "object",
                             "properties": {
                               "start": {
                                 "type": "object",
                                 "properties": {
-                                  "line": { "type": "integer" },
-                                  "column": { "type": "integer" }
+                                  "line": {
+                                    "type": "integer"
+                                  },
+                                  "column": {
+                                    "type": "integer"
+                                  }
                                 },
-                                "required": ["line", "column"]
+                                "required": [
+                                  "line",
+                                  "column"
+                                ]
                               },
                               "end": {
                                 "type": "object",
                                 "properties": {
-                                  "line": { "type": "integer" },
-                                  "column": { "type": "integer" }
+                                  "line": {
+                                    "type": "integer"
+                                  },
+                                  "column": {
+                                    "type": "integer"
+                                  }
                                 },
-                                "required": ["line", "column"]
+                                "required": [
+                                  "line",
+                                  "column"
+                                ]
                               }
                             },
-                            "required": ["start", "end"]
+                            "required": [
+                              "start",
+                              "end"
+                            ]
                           }
                         },
                         "required": [
@@ -377,7 +498,9 @@
                       }
                     }
                   },
-                  "required": ["symbols"]
+                  "required": [
+                    "symbols"
+                  ]
                 }
               }
             }
@@ -389,10 +512,14 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "error": { "type": "string" },
+                    "error": {
+                      "type": "string"
+                    },
                     "details": {
                       "type": "array",
-                      "items": { "type": "string" }
+                      "items": {
+                        "type": "string"
+                      }
                     }
                   }
                 }
@@ -406,7 +533,9 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "error": { "type": "string" }
+                    "error": {
+                      "type": "string"
+                    }
                   }
                 }
               }
@@ -419,9 +548,15 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "error": { "type": "string" },
-                    "message": { "type": "string" },
-                    "repository": { "type": "string" }
+                    "error": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "repository": {
+                      "type": "string"
+                    }
                   }
                 }
               }
@@ -439,12 +574,22 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "repository": { "type": "string" },
-                  "symbolId": { "type": "string" },
-                  "name": { "type": "string" },
-                  "kind": { "type": "string" }
+                  "repository": {
+                    "type": "string"
+                  },
+                  "symbolId": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "kind": {
+                    "type": "string"
+                  }
                 },
-                "required": ["repository"]
+                "required": [
+                  "repository"
+                ]
               }
             }
           }
@@ -459,39 +604,74 @@
                   "properties": {
                     "symbol": {
                       "anyOf": [
-                        { "type": "null" },
+                        {
+                          "type": "null"
+                        },
                         {
                           "type": "object",
                           "properties": {
-                            "symbolId": { "type": "string" },
-                            "root": { "type": "string" },
-                            "relPath": { "type": "string" },
-                            "fileHash": { "type": "string" },
-                            "language": { "type": "string" },
-                            "kind": { "type": "string" },
-                            "name": { "type": "string" },
-                            "container": { "type": "string" },
+                            "symbolId": {
+                              "type": "string"
+                            },
+                            "root": {
+                              "type": "string"
+                            },
+                            "relPath": {
+                              "type": "string"
+                            },
+                            "fileHash": {
+                              "type": "string"
+                            },
+                            "language": {
+                              "type": "string"
+                            },
+                            "kind": {
+                              "type": "string"
+                            },
+                            "name": {
+                              "type": "string"
+                            },
+                            "container": {
+                              "type": "string"
+                            },
                             "range": {
                               "type": "object",
                               "properties": {
                                 "start": {
                                   "type": "object",
                                   "properties": {
-                                    "line": { "type": "integer" },
-                                    "column": { "type": "integer" }
+                                    "line": {
+                                      "type": "integer"
+                                    },
+                                    "column": {
+                                      "type": "integer"
+                                    }
                                   },
-                                  "required": ["line", "column"]
+                                  "required": [
+                                    "line",
+                                    "column"
+                                  ]
                                 },
                                 "end": {
                                   "type": "object",
                                   "properties": {
-                                    "line": { "type": "integer" },
-                                    "column": { "type": "integer" }
+                                    "line": {
+                                      "type": "integer"
+                                    },
+                                    "column": {
+                                      "type": "integer"
+                                    }
                                   },
-                                  "required": ["line", "column"]
+                                  "required": [
+                                    "line",
+                                    "column"
+                                  ]
                                 }
                               },
-                              "required": ["start", "end"]
+                              "required": [
+                                "start",
+                                "end"
+                              ]
                             }
                           },
                           "required": [
@@ -508,7 +688,9 @@
                       ]
                     }
                   },
-                  "required": ["symbol"]
+                  "required": [
+                    "symbol"
+                  ]
                 }
               }
             }
@@ -520,10 +702,14 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "error": { "type": "string" },
+                    "error": {
+                      "type": "string"
+                    },
                     "details": {
                       "type": "array",
-                      "items": { "type": "string" }
+                      "items": {
+                        "type": "string"
+                      }
                     }
                   }
                 }
@@ -537,7 +723,9 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "error": { "type": "string" }
+                    "error": {
+                      "type": "string"
+                    }
                   }
                 }
               }
@@ -550,9 +738,15 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "error": { "type": "string" },
-                    "message": { "type": "string" },
-                    "repository": { "type": "string" }
+                    "error": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "repository": {
+                      "type": "string"
+                    }
                   }
                 }
               }
@@ -570,12 +764,22 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "repository": { "type": "string" },
-                  "symbolId": { "type": "string" },
-                  "name": { "type": "string" },
-                  "kind": { "type": "string" }
+                  "repository": {
+                    "type": "string"
+                  },
+                  "symbolId": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "kind": {
+                    "type": "string"
+                  }
                 },
-                "required": ["repository"]
+                "required": [
+                  "repository"
+                ]
               }
             }
           }
@@ -593,36 +797,62 @@
                       "items": {
                         "type": "object",
                         "properties": {
-                          "relPath": { "type": "string" },
+                          "relPath": {
+                            "type": "string"
+                          },
                           "range": {
                             "type": "object",
                             "properties": {
                               "start": {
                                 "type": "object",
                                 "properties": {
-                                  "line": { "type": "integer" },
-                                  "column": { "type": "integer" }
+                                  "line": {
+                                    "type": "integer"
+                                  },
+                                  "column": {
+                                    "type": "integer"
+                                  }
                                 },
-                                "required": ["line", "column"]
+                                "required": [
+                                  "line",
+                                  "column"
+                                ]
                               },
                               "end": {
                                 "type": "object",
                                 "properties": {
-                                  "line": { "type": "integer" },
-                                  "column": { "type": "integer" }
+                                  "line": {
+                                    "type": "integer"
+                                  },
+                                  "column": {
+                                    "type": "integer"
+                                  }
                                 },
-                                "required": ["line", "column"]
+                                "required": [
+                                  "line",
+                                  "column"
+                                ]
                               }
                             },
-                            "required": ["start", "end"]
+                            "required": [
+                              "start",
+                              "end"
+                            ]
                           },
-                          "symbolId": { "type": "string" }
+                          "symbolId": {
+                            "type": "string"
+                          }
                         },
-                        "required": ["relPath", "range"]
+                        "required": [
+                          "relPath",
+                          "range"
+                        ]
                       }
                     }
                   },
-                  "required": ["references"]
+                  "required": [
+                    "references"
+                  ]
                 }
               }
             }
@@ -634,10 +864,14 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "error": { "type": "string" },
+                    "error": {
+                      "type": "string"
+                    },
                     "details": {
                       "type": "array",
-                      "items": { "type": "string" }
+                      "items": {
+                        "type": "string"
+                      }
                     }
                   }
                 }
@@ -651,7 +885,9 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "error": { "type": "string" }
+                    "error": {
+                      "type": "string"
+                    }
                   }
                 }
               }
@@ -664,9 +900,15 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "error": { "type": "string" },
-                    "message": { "type": "string" },
-                    "repository": { "type": "string" }
+                    "error": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "repository": {
+                      "type": "string"
+                    }
                   }
                 }
               }
@@ -684,11 +926,21 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "repository": { "type": "string" },
-                  "symbolId": { "type": "string" },
-                  "depth": { "type": "integer", "minimum": 1 }
+                  "repository": {
+                    "type": "string"
+                  },
+                  "symbolId": {
+                    "type": "string"
+                  },
+                  "depth": {
+                    "type": "integer",
+                    "minimum": 1
+                  }
                 },
-                "required": ["repository", "symbolId"]
+                "required": [
+                  "repository",
+                  "symbolId"
+                ]
               }
             }
           }
@@ -703,19 +955,33 @@
                   "properties": {
                     "nodes": {
                       "type": "array",
-                      "items": { "type": "object" }
+                      "items": {
+                        "type": "object"
+                      }
                     },
                     "edges": {
                       "type": "array",
                       "items": {
                         "type": "object",
                         "properties": {
-                          "root": { "type": "string" },
-                          "relPath": { "type": "string" },
-                          "fileHash": { "type": "string" },
-                          "fromSymbolId": { "type": "string" },
-                          "toSymbolId": { "type": "string" },
-                          "type": { "type": "string" }
+                          "root": {
+                            "type": "string"
+                          },
+                          "relPath": {
+                            "type": "string"
+                          },
+                          "fileHash": {
+                            "type": "string"
+                          },
+                          "fromSymbolId": {
+                            "type": "string"
+                          },
+                          "toSymbolId": {
+                            "type": "string"
+                          },
+                          "type": {
+                            "type": "string"
+                          }
                         },
                         "required": [
                           "root",
@@ -728,7 +994,10 @@
                       }
                     }
                   },
-                  "required": ["nodes", "edges"]
+                  "required": [
+                    "nodes",
+                    "edges"
+                  ]
                 }
               }
             }
@@ -740,10 +1009,14 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "error": { "type": "string" },
+                    "error": {
+                      "type": "string"
+                    },
                     "details": {
                       "type": "array",
-                      "items": { "type": "string" }
+                      "items": {
+                        "type": "string"
+                      }
                     }
                   }
                 }
@@ -757,7 +1030,9 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "error": { "type": "string" }
+                    "error": {
+                      "type": "string"
+                    }
                   }
                 }
               }
@@ -770,9 +1045,15 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "error": { "type": "string" },
-                    "message": { "type": "string" },
-                    "repository": { "type": "string" }
+                    "error": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "repository": {
+                      "type": "string"
+                    }
                   }
                 }
               }
@@ -790,10 +1071,16 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "repository": { "type": "string" },
-                  "relPath": { "type": "string" }
+                  "repository": {
+                    "type": "string"
+                  },
+                  "relPath": {
+                    "type": "string"
+                  }
                 },
-                "required": ["repository"]
+                "required": [
+                  "repository"
+                ]
               }
             }
           }
@@ -811,27 +1098,41 @@
                       "items": {
                         "type": "object",
                         "properties": {
-                          "relPath": { "type": "string" },
+                          "relPath": {
+                            "type": "string"
+                          },
                           "imports": {
                             "type": "array",
                             "items": {
                               "type": "object",
                               "properties": {
-                                "source": { "type": "string" },
+                                "source": {
+                                  "type": "string"
+                                },
                                 "names": {
                                   "type": "array",
-                                  "items": { "type": "string" }
+                                  "items": {
+                                    "type": "string"
+                                  }
                                 }
                               },
-                              "required": ["source", "names"]
+                              "required": [
+                                "source",
+                                "names"
+                              ]
                             }
                           }
                         },
-                        "required": ["relPath", "imports"]
+                        "required": [
+                          "relPath",
+                          "imports"
+                        ]
                       }
                     }
                   },
-                  "required": ["modules"]
+                  "required": [
+                    "modules"
+                  ]
                 }
               }
             }
@@ -843,10 +1144,14 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "error": { "type": "string" },
+                    "error": {
+                      "type": "string"
+                    },
                     "details": {
                       "type": "array",
-                      "items": { "type": "string" }
+                      "items": {
+                        "type": "string"
+                      }
                     }
                   }
                 }
@@ -860,7 +1165,9 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "error": { "type": "string" }
+                    "error": {
+                      "type": "string"
+                    }
                   }
                 }
               }
@@ -873,10 +1180,227 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "error": { "type": "string" },
-                    "message": { "type": "string" },
-                    "repository": { "type": "string" }
+                    "error": {
+                      "type": "string"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "repository": {
+                      "type": "string"
+                    }
                   }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/chat": {
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "conversationId": {
+                    "type": "string"
+                  },
+                  "message": {
+                    "type": "string"
+                  },
+                  "provider": {
+                    "type": "string",
+                    "enum": [
+                      "lmstudio",
+                      "codex"
+                    ]
+                  },
+                  "model": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "conversationId",
+                  "message"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Chat run started",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "started"
+                      ]
+                    },
+                    "conversationId": {
+                      "type": "string"
+                    },
+                    "inflightId": {
+                      "type": "string"
+                    },
+                    "provider": {
+                      "type": "string"
+                    },
+                    "model": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "conversationId",
+                    "inflightId",
+                    "provider",
+                    "model"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "error"
+                      ]
+                    },
+                    "code": {
+                      "type": "string",
+                      "enum": [
+                        "VALIDATION_FAILED"
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "message must contain at least one non-whitespace character"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "code",
+                    "message"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/agents/{agentName}/run": {
+      "post": {
+        "parameters": [
+          {
+            "name": "agentName",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "instruction": {
+                    "type": "string"
+                  },
+                  "conversationId": {
+                    "type": "string"
+                  },
+                  "working_folder": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "instruction"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Agent run started",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "string",
+                      "enum": [
+                        "started"
+                      ]
+                    },
+                    "agentName": {
+                      "type": "string"
+                    },
+                    "conversationId": {
+                      "type": "string"
+                    },
+                    "inflightId": {
+                      "type": "string"
+                    },
+                    "modelId": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "agentName",
+                    "conversationId",
+                    "inflightId",
+                    "modelId"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "enum": [
+                        "invalid_request"
+                      ]
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "instruction must contain at least one non-whitespace character"
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "message"
+                  ]
                 }
               }
             }

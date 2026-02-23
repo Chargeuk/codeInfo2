@@ -69,6 +69,7 @@ export interface CreateConversationInput {
 export interface UpdateConversationMetaInput {
   conversationId: string;
   title?: string;
+  provider?: ConversationProvider;
   model?: string;
   flags?: Record<string, unknown>;
   lastMessageAt?: Date;
@@ -130,6 +131,7 @@ export async function updateConversationMeta(
   const update: Partial<Conversation> = {} as Partial<Conversation>;
 
   if (input.title !== undefined) update.title = input.title;
+  if (input.provider !== undefined) update.provider = input.provider;
   if (input.model !== undefined) update.model = input.model;
   if (input.flags !== undefined) update.flags = input.flags;
   if (input.lastMessageAt !== undefined)

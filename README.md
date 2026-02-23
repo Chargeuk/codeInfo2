@@ -204,8 +204,8 @@ codex_agents/<agentName>/
 
 - Endpoint: POST JSON-RPC 2.0 to `http://localhost:5010/mcp` (host) or `http://server:5010/mcp` (docker). CORS matches `/chat`.
 - Note: the server intentionally exposes **two** MCP surfaces:
-  - Express `POST /mcp` (ingest tooling: `ListIngestedRepositories`, `VectorSearch`).
-  - MCP v2 JSON-RPC server on `MCP_PORT` (tooling: `codebase_question`, documented under **MCP (codebase_question)** below).
+  - Express `POST /mcp` (ingest tooling: `ListIngestedRepositories`, `VectorSearch`, `reingest_repository`).
+  - MCP v2 JSON-RPC server on `MCP_PORT` (tooling: `codebase_question`, `reingest_repository`, documented under **MCP v2 tools** below).
     Their response conventions differ and must remain stable; shared MCP infrastructure lives under `server/src/mcpCommon/`.
 - Config: `config.toml.example` seeds `[mcp_servers]` entries `codeinfo_host` and `codeinfo_docker` pointing at the URLs above when the server first runs.
 - Required methods: `initialize` → `tools/list` → `tools/call`.
@@ -213,7 +213,13 @@ codex_agents/<agentName>/
   - `curl -X POST http://localhost:5010/mcp -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}'`
   - `curl -X POST http://localhost:5010/mcp -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":2,"method":"tools/list"}'`
   - `curl -X POST http://localhost:5010/mcp -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"VectorSearch","arguments":{"query":"hello"}}}'`
-- Tools exposed: `ListIngestedRepositories` (no params) and `VectorSearch` (`query` required, optional `repository`, `limit` capped at 20). Results are returned as `content: [{ type: "text", text: "<json>" }]` (JSON string).
+- Tools exposed: `ListIngestedRepositories` (no params), `VectorSearch` (`query` required, optional `repository`, `limit` capped at 20), and `reingest_repository` (`sourceId` required). Results are returned as `content: [{ type: "text", text: "<json>" }]` (JSON string).
+- Classic MCP `reingest_repository` compatibility lock: failures return JSON-RPC `error` envelopes (not `result.isError`) with canonical mappings (`INVALID_PARAMS`, `NOT_FOUND`, `BUSY`).
+- Reingest canonical contract (shared service behavior used by MCP wiring tasks):
+  - request args: `{ "sourceId": "<absolute-normalized-container-path>" }`
+  - success payload: `{ "status": "started", "operation": "reembed", "runId": "...", "sourceId": "..." }`
+  - failure mappings: invalid params -> `error.code=-32602`, `error.message="INVALID_PARAMS"`; unknown root -> `error.code=404`, `error.message="NOT_FOUND"`; busy -> `error.code=429`, `error.message="BUSY"`
+  - error retry guidance includes deterministic `fieldErrors.reason` plus `reingestableRepositoryIds` and `reingestableSourceIds`.
 
 ## Workspace layout
 
@@ -238,7 +244,15 @@ codex_agents/<agentName>/
 - Styling/layout: MUI `CssBaseline` handles global reset; the `NavBar` AppBar spans the full width and content is constrained to a single `Container` (lg) with top padding so pages start at the top-left (Vite starter centering/dark background removed).
 - **Logs page:** open `/logs` to view combined server/client logs with level/source chips, free-text filter, live SSE toggle (auto-reconnect), manual refresh, and a “Send sample log” button that emits an example entry end-to-end. Opening the page emits `DEV-0000034:T7:logs_page_viewed` for verification.
 - **Chat page:** open `/chat` to chat with LM Studio or Codex via `POST /chat` (HTTP 202) plus WebSocket streaming at `/ws`. Models come from `/chat/models` (first auto-selects) and are filtered to chat-capable LLMs (embedding/vector models are hidden); the dropdown, input, and Send stay disabled during load/error/empty states or while a response is running. Messages render newest-first near the controls with distinct user/assistant bubbles, and transcript updates arrive via `/ws` events (late subscribers receive an `inflight_snapshot` catch-up). Switching conversations or navigating away unsubscribes from streaming but does not cancel the run server-side; Stop cancels the current in-flight run. Chat history is persisted in Mongo: the left sidebar lists conversations newest-first, supports active/archived/all filtering plus multi-select bulk archive/restore/delete, and turn snapshots come from `GET /conversations/:id/turns` which returns full history plus any in-flight snapshot (no pagination). Conversation listing supports agent scoping via `/conversations?agentName=__none__` (only conversations with no `agentName`) and `/conversations?agentName=<agent>` (exact match). When the provider is OpenAI Codex and available, a **Re-authenticate (device auth)** button opens a dialog that calls `POST /codex/device-auth` and shows the verification URL + user code for re-login.
+- **Chat request defaults:** `POST /chat` now resolves provider/model with one shared order: explicit request value -> `CHAT_DEFAULT_PROVIDER` / `CHAT_DEFAULT_MODEL` -> hardcoded fallback (`codex`, `gpt-5.3-codex`). Committed defaults in `server/.env` and `server/.env.e2e` set those env keys to `codex` and `gpt-5.3-codex`.
+- **Raw input validation contracts:** request payload text is preserved as entered for valid requests, but whitespace-only/newline-only inputs are rejected server-side before provider execution. `POST /chat` returns `400 { status: "error", code: "VALIDATION_FAILED", message: "message must contain at least one non-whitespace character" }`; `POST /agents/:agentName/run` returns `400 { error: "invalid_request", message: "instruction must contain at least one non-whitespace character" }`.
+- **Runtime provider auto-fallback:** chat and MCP `codebase_question` apply the same single-hop runtime fallback. If the selected/default provider is unavailable and the other provider has a selectable model, execution switches once to that other provider. If no selectable fallback model exists, the request keeps the original provider and returns the existing unavailable contract (`POST /chat`: `503 PROVIDER_UNAVAILABLE`; MCP `codebase_question`: JSON-RPC `-32001 CODE_INFO_LLM_UNAVAILABLE`).
+- **Task 14 fallback guardrail:** explicit `provider=lmstudio` requests no longer bypass runtime availability checks; LM Studio is only considered available when runtime model discovery returns at least one selectable chat model.
+- **Conversation metadata persistence:** REST `/chat` and MCP `codebase_question` persist the resolved execution provider/model on the conversation. When execution is not Codex, stale `flags.threadId` is cleared to avoid cross-provider resume mismatches.
 - **Agents page:** open `/agents` to run Codex agents with the same layout + transcript UI as Chat (Drawer sidebar, controls above transcript, WebSocket-driven transcript events). The conversations sidebar matches Chat with filter tabs, per-row archive/restore, and bulk archive/restore (bulk delete only when viewing Archived). History is scoped to the selected agent (`agentName=<agent>`) and updates live via `conversation_upsert` / `conversation_delete` over `/ws`. Controls include agent selection, optional command execution (macros), a working folder override with a **Choose folder** dialog, and Send/Stop/New conversation; agent descriptions + warnings live behind the info popover next to the selector. When an agent is selected and Codex is available, a **Re-authenticate (device auth)** button opens the same device-auth dialog for refreshing that agent’s credentials.
+- **Agents raw send behavior:** the Agents send path preserves valid non-whitespace instruction text exactly as entered (including leading/trailing spaces and multiline newlines) in outbound `POST /agents/:agentName/run` payloads; whitespace-only/newline-only submissions are blocked client-side before dispatch.
+- **Agents user markdown parity:** user bubbles render through the same shared markdown component as assistant bubbles, so lists/code fences/mermaid and sanitization behavior match assistant rendering while preserving the existing Agents bubble layout/chrome.
+- **Agents render purity:** user-markdown rendering in Agents avoids render-time logger side effects so React rerenders/StrictMode do not duplicate instrumentation.
 - **Flows page:** open `/flows` to list available flow definitions and run them end-to-end. The selector shows ingested flows as `<name> - [Repo]` labels (locals remain unlabeled) and keeps duplicates selectable; when an ingested flow is selected the Run action includes its `sourceId`. Optionally set a working folder and custom title, then Run to start (or Resume when a saved `resumeStepPath` exists). The info popover beside the selector shows warnings/Markdown descriptions, and the New Flow button resets the transcript + form fields while keeping the same flow selected. The sidebar lists conversations for the selected flow, while the transcript shows per-step metadata (label + agent type/identifier) plus status chips; Stop sends `cancel_inflight` over `/ws`.
 - **Flows API:** flow definitions live under `flows/<flowName>.json` (resolved as a sibling to `codex_agents` when `CODEINFO_CODEX_AGENT_HOME` is set, or overridden via `FLOWS_DIR`) and are listed via `GET /flows` (ingested entries include optional `sourceId`/`sourceLabel`; local entries omit both); run a flow with `POST /flows/:flowName/run`. Conversation history can be filtered by flow using `GET /conversations?flowName=<name>` or `flowName=__none__` to exclude flow runs. Docker Compose mounts `flows-sandbox` and sets `FLOWS_DIR=/app/flows-sandbox` so the compose stack uses the sandbox flow definitions.
 - **Chat providers:** a Provider dropdown (LM Studio by default) sits to the left of the Model selector. Codex appears as `OpenAI Codex` when the CLI/config/auth are present; when unavailable it stays disabled with inline guidance, and when tools are unavailable the Codex send input remains disabled with an MCP warning. Provider is locked once a conversation starts, while the model can still change. The message input is now multiline beneath the selectors; send/stop live beside it. Tool blocks/citations render only when the active provider advertises `toolsAvailable`.
@@ -276,6 +290,30 @@ codex_agents/<agentName>/
 
 - Primary stack: `npm run e2e` uses the dedicated `docker-compose.e2e.yml` (isolated Chroma volume, fixture mount at `/fixtures`) with ports client 6001 / server 6010 / chroma 8800. Individual steps: `npm run compose:e2e:build`, `npm run e2e:up`, `npm run e2e:test`, `npm run e2e:down`.
 - Reset the e2e Chroma volume if metadata becomes corrupted (e.g., after schema tweaks): `docker compose --env-file .env.e2e -f docker-compose.e2e.yml down -v`.
+
+### Story 0000035 final verification
+
+- Full regression command order:
+  - `npm run build --workspace server`
+  - `npm run build --workspace client`
+  - `npm run test --workspace server`
+  - `npm run test --workspace client`
+  - `npm run e2e`
+  - `npm run compose:build`
+  - `npm run compose:up`
+  - `npm run test:unit --workspace server`
+  - `npm run test:integration --workspace server`
+  - `npm run compose:down`
+- Manual verification endpoint for Playwright MCP: `http://host.docker.internal:5001`
+- Manual acceptance log tags (Task 13):
+  - `DEV-0000035:T13:manual_acceptance_check_started`
+  - `DEV-0000035:T13:manual_acceptance_check_completed`
+- Required manual screenshot artifacts (`playwright-output-local/`):
+  - `0000035-13-chat-raw-input-parity.png`
+  - `0000035-13-chat-user-markdown-parity.png`
+  - `0000035-13-agents-raw-input-parity.png`
+  - `0000035-13-agents-user-markdown-parity.png`
+  - `0000035-13-general-regression.png`
 - Tests live in `e2e/` (chat, lmstudio, logs, version, ingest). Ingest specs auto-skip when LM Studio/models are unavailable. E2E env defaults: `E2E_BASE_URL=http://localhost:6001`, `E2E_API_URL=http://localhost:6010`. `e2e/chat-tools.spec.ts` ingests the mounted fixture repo (`/fixtures/repo`), runs a vector search, mocks `POST /chat` (202) + `/ws` transcript events, and asserts inline citations show `repo/relPath` plus the host path. It asks “What does main.txt say about the project?” and expects the fixture text “This is the ingest test fixture for CodeInfo2.”
 
 ## Root commands
@@ -323,10 +361,15 @@ Ingest collection names (`INGEST_COLLECTION`, `INGEST_ROOTS_COLLECTION`) come fr
 - Docker: `docker build -f server/Dockerfile -t codeinfo2-server .` then `docker run --rm -p 5010:5010 codeinfo2-server`
 - **LM Studio tooling + Zod version pin:** the LM Studio SDK bundles Zod 3.25.76. A Zod 4.x copy pulled in by lint dependencies caused Docker-only tool-call failures (`keyValidator._parse is not a function`) because schemas were built with Zod v4 while the SDK validated with v3. We now pin Zod to `3.25.76` via an npm `overrides` entry in the root `package.json`; the regenerated `package-lock.json` ensures both host and container installs use a single Zod version, eliminating the error.
 
-## MCP (codebase_question)
+## MCP v2 tools
 
-- Endpoint: JSON-RPC 2.0 on `http://localhost:${MCP_PORT:-5011}` (Codex-gated; returns `CODE_INFO_LLM_UNAVAILABLE` -32001 if Codex is not available).
-- Tool: `codebase_question` with params `{ question: string; conversationId?: string; provider?: 'codex' | 'lmstudio'; model?: string }`. Responses are a single `content` item of type `text` containing JSON with `segments` that include only the `answer` type (no reasoning or vector summary), plus `conversationId` and `modelId`.
+- Endpoint: JSON-RPC 2.0 on `http://localhost:${MCP_PORT:-5011}`.
+- `tools/list` is always available for MCP v2 surface discovery; provider availability is resolved inside each tool execution path.
+- Tool: `codebase_question` with params `{ question: string; conversationId?: string; provider?: 'codex' | 'lmstudio'; model?: string }`. Responses are a single `content` item of type `text` containing JSON with `segments` that include only the `answer` type (no reasoning or vector summary), plus `conversationId` and `modelId`. When `provider/model` are omitted, shared defaults resolve to `codex` + `gpt-5.3-codex` (with runtime provider fallback when needed).
+- MCP v2 is provider-aware for `codebase_question`: router-level Codex pre-blocking is removed, so `tools/call(codebase_question)` can execute through LM Studio fallback when Codex is unavailable; terminal unavailable remains JSON-RPC `-32001 CODE_INFO_LLM_UNAVAILABLE` when neither provider can run.
+- Tool: `reingest_repository` with args `{ sourceId: string }` (absolute normalized ingested container path only).
+  - Success payload: `{ status: "started", operation: "reembed", runId, sourceId }` in `result.content[0].text` JSON.
+  - Compatibility lock: failures remain JSON-RPC `error` envelopes (not `result.isError`) with canonical mappings shared with classic MCP: `-32602 INVALID_PARAMS`, `404 NOT_FOUND`, `429 BUSY`, including AI-retry guidance fields in `error.data`.
 - Example call:
   ```sh
   curl -s -X POST http://localhost:5011 \
@@ -342,7 +385,7 @@ Ingest collection names (`INGEST_COLLECTION`, `INGEST_ROOTS_COLLECTION`) come fr
       "content": [
         {
           "type": "text",
-          "text": "{\"conversationId\":\"...\",\"modelId\":\"gpt-5.1-codex-max\",\"segments\":[{\"type\":\"answer\",\"text\":\"...\"}]}"
+          "text": "{\"conversationId\":\"...\",\"modelId\":\"gpt-5.3-codex\",\"segments\":[{\"type\":\"answer\",\"text\":\"...\"}]}"
         }
       ]
     }
@@ -504,14 +547,16 @@ Ingest collection names (`INGEST_COLLECTION`, `INGEST_ROOTS_COLLECTION`) come fr
 
 ### Chat streaming
 
-- Endpoint: `POST /chat` starts a run and returns immediately (HTTP 202). Body: `{ "provider": "lmstudio|codex", "model": "<key>", "conversationId": "<uuid>", "message": "hello" }`.
+- Endpoint: `POST /chat` starts a run and returns immediately (HTTP 202). Body: `{ "conversationId": "<uuid>", "message": "hello", "provider"?: "lmstudio|codex", "model"?: "<key>" }`.
+- Provider/model are optional; when omitted, the server applies shared default resolution (`request -> CHAT_DEFAULT_* env -> codex/gpt-5.3-codex fallback`).
 - Response (202): `{ "status": "started", "conversationId": "<uuid>", "inflightId": "<uuid>", "provider": "...", "model": "..." }`.
 - Transcript streaming is **WebSocket-only** at `ws://localhost:5010/ws` (or `wss://.../ws`). Clients subscribe with `subscribe_conversation` and receive: `inflight_snapshot` (catch-up), then `assistant_delta`/`analysis_delta`/`tool_event`, finishing with `turn_final`.
+- Chat UI send-path preserves raw non-whitespace user input exactly as entered (including leading/trailing spaces and multiline newlines) in outbound `POST /chat` payloads; whitespace-only/newline-only submissions are blocked client-side and rejected server-side.
 - Example: `curl -s -X POST http://localhost:5010/chat -H 'content-type: application/json' -d '{"provider":"lmstudio","model":"llama-3","conversationId":"00000000-0000-0000-0000-000000000000","message":"hello"}'`.
 - Logging: server records `chat.run.started` plus WS publish milestones (`chat.stream.*`) and tool lifecycle metadata (name/callId only, no args/results); payloads respect `LOG_MAX_CLIENT_BYTES`.
 - Tooling: chat registers LM Studio tools `ListIngestedRepositories` and `VectorSearch` (see `server/src/lmstudio/tools.ts`) that reuse the `/tools/ingested-repos` and `/tools/vector-search` logic. Tool responses include repo id, relPath, containerPath, hostPath, chunk text/score, and model id for citations; repo-not-found/validation errors surface as tool errors. VectorSearch now derives its embedding function from the collection’s locked model; if no lock exists it surfaces `INGEST_REQUIRED`, and if the locked model is missing in LM Studio it surfaces `EMBED_MODEL_MISSING`. Usage is logged without persisting payload bodies.
 - Tool lifecycle entries are pushed into the server log buffer (visible on `/logs`/Logs page) but are not rendered in the chat transcript; the client still logs the metadata for observability.
-- Rendering: assistant replies use a sanitized React Markdown pipeline (`react-markdown` + `remark-gfm` + `rehype-sanitize`) so GFM lists/links/code fences display while tool blocks and citations stay plain JSX; code fences render in styled `<pre><code>` blocks and links open in a new tab.
+- Rendering: assistant and user bubbles use the same sanitized React Markdown pipeline (`react-markdown` + `remark-gfm` + `rehype-sanitize`) so GFM lists/links/code fences and mermaid fences render with parity while tool blocks and citations stay plain JSX; code fences render in styled `<pre><code>` blocks and links open in a new tab.
 - Cancellation: Stop sends a `cancel_inflight` message over `/ws` to abort the current run (responses may truncate). Switching conversations/unmounting unsubscribes from streaming but does not cancel the run server-side.
 - Persistence: chat history is stored in MongoDB. If Mongo is unreachable, the UI falls back to stateless mode and bulk/archive controls are disabled.
 
@@ -537,7 +582,8 @@ Ingest collection names (`INGEST_COLLECTION`, `INGEST_ROOTS_COLLECTION`) come fr
 - Start stack: `npm run e2e:up`
 - Run test: `npm run e2e:test` (runs all specs; uses `E2E_BASE_URL` or defaults to http://localhost:5001 and `E2E_API_URL` default http://localhost:5010 for the proxy)
 - LM Studio spec hits live data via the server proxy; start LM Studio on `LMSTUDIO_BASE_URL` (default `http://host.docker.internal:1234`) before running. The test will `test.skip` if the proxy or LM Studio is unreachable, but the client still needs to be up.
-- Chat spec (`e2e/chat.spec.ts`) covers model selection plus a two-turn streaming conversation; it skips automatically if `/chat/models` is unreachable or empty.
+- Chat spec (`e2e/chat.spec.ts`) covers model selection, a two-turn streaming conversation, raw outbound payload preservation (surrounding whitespace + newlines), and whitespace-only submit blocking; it skips automatically if `/chat/models` is unreachable or empty.
+- Agents spec (`e2e/agents.spec.ts`) validates raw outbound instruction payload preservation, whitespace-only submit blocking, and hydrated user/assistant markdown parity (lists/code/mermaid + malformed-mermaid fallback) on `/agents`.
 - Full flow: `npm run e2e`
 - Shut down after tests: `npm run e2e:down`
 

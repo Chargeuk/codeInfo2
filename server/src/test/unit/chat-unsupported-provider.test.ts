@@ -16,7 +16,12 @@ test('REST /chat responds 400 for unsupported provider from factory', async () =
   app.use(
     '/chat',
     createChatRouter({
-      clientFactory: () => ({}) as unknown as LMStudioClient,
+      clientFactory: () =>
+        ({
+          system: {
+            listDownloadedModels: async () => [{ modelKey: 'm', type: 'llm' }],
+          },
+        }) as unknown as LMStudioClient,
       toolFactory: () => ({ tools: [] }),
       codexFactory: undefined,
       chatFactory: () => {

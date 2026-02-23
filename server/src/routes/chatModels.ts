@@ -1,6 +1,7 @@
-import type { ChatModelInfo, ChatModelsResponse } from '@codeinfo2/common';
+import type { ChatModelsResponse } from '@codeinfo2/common';
 import type { LMStudioClient } from '@lmstudio/sdk';
 import { Router } from 'express';
+import { resolveChatDefaults } from '../config/chatDefaults.js';
 import {
   getCodexEnvDefaults,
   getCodexModelList,
@@ -25,6 +26,19 @@ const toWebSocketUrl = (value: string) => {
   if (value.startsWith('http://')) return value.replace(/^http:/i, 'ws:');
   if (value.startsWith('https://')) return value.replace(/^https:/i, 'wss:');
   return value;
+};
+
+const prioritizeModel = <T extends { key: string }>(
+  models: T[],
+  preferredModel: string | undefined,
+): T[] => {
+  if (!preferredModel) return models;
+  const index = models.findIndex((model) => model.key === preferredModel);
+  if (index <= 0) return models;
+  const clone = [...models];
+  const [preferred] = clone.splice(index, 1);
+  clone.unshift(preferred);
+  return clone;
 };
 
 export function createChatModelsRouter({
@@ -61,11 +75,17 @@ export function createChatModelsRouter({
         ...codexEnv.warnings,
         ...runtimeWarnings,
       ];
-      const codexModels: ChatModelInfo[] = modelList.models.map((model) => ({
-        key: model,
-        displayName: model,
-        type: 'codex',
-      }));
+      const preferredDefaults = resolveChatDefaults({});
+      const codexModels = prioritizeModel(
+        modelList.models.map((model) => ({
+          key: model,
+          displayName: model,
+          type: 'codex',
+        })),
+        preferredDefaults.provider === 'codex'
+          ? preferredDefaults.model
+          : undefined,
+      );
 
       baseLogger.info(
         {
@@ -133,19 +153,27 @@ export function createChatModelsRouter({
     try {
       const client = clientFactory(toWebSocketUrl(baseUrl));
       const models = await client.system.listDownloadedModels();
-      const mapped: ChatModelInfo[] = models
-        .filter(isChatModel)
-        .map((model) => ({
-          key: model.modelKey,
-          displayName: model.displayName,
-          type: model.type,
-        }));
+      const mapped = models.filter(isChatModel).map((model) => ({
+        key: model.modelKey,
+        displayName: model.displayName,
+        type: model.type,
+      }));
+      const preferredDefaults = resolveChatDefaults({});
+      const prioritized = prioritizeModel(
+        mapped,
+        preferredDefaults.provider === 'lmstudio'
+          ? preferredDefaults.model
+          : undefined,
+      );
+      const available = prioritized.length > 0;
+      const reason = available ? undefined : 'lmstudio unavailable';
 
       const response: ChatModelsResponse = {
         provider: 'lmstudio',
-        available: true,
-        toolsAvailable: true,
-        models: mapped,
+        available,
+        toolsAvailable: available,
+        reason,
+        models: prioritized,
       };
 
       append({
@@ -154,10 +182,10 @@ export function createChatModelsRouter({
         timestamp: new Date().toISOString(),
         source: 'server',
         requestId,
-        context: { baseUrl: safeBase, models: mapped.length },
+        context: { baseUrl: safeBase, models: prioritized.length },
       });
       baseLogger.info(
-        { requestId, baseUrl: safeBase, models: mapped.length },
+        { requestId, baseUrl: safeBase, models: prioritized.length },
         'chat models fetch success',
       );
       res.json(response);

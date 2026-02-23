@@ -6,7 +6,14 @@ import type { LMStudioClient } from '@lmstudio/sdk';
 import express from 'express';
 import request from 'supertest';
 
-import { getInflight } from '../../chat/inflightRegistry.js';
+import {
+  appendAssistantDelta,
+  cleanupInflight,
+  createInflight,
+  getInflight,
+  setAssistantText,
+  snapshotInflight,
+} from '../../chat/inflightRegistry.js';
 import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
 import {
   getMemoryTurns,
@@ -152,7 +159,12 @@ async function startServer(params: { chatFactory: () => ChatInterface }) {
   app.use(
     '/chat',
     createChatRouter({
-      clientFactory: () => ({}) as unknown as LMStudioClient,
+      clientFactory: () =>
+        ({
+          system: {
+            listDownloadedModels: async () => [{ modelKey: 'm', type: 'llm' }],
+          },
+        }) as unknown as LMStudioClient,
       chatFactory: () => params.chatFactory(),
       toolFactory: () => ({ tools: [] }),
     }),
@@ -796,4 +808,89 @@ test('inflight registry entry removed after turn_final', async () => {
     await closeWs(ws);
     await stopServer(server);
   }
+});
+
+test('late assistant update after finalization does not emit duplicate assistant_delta', async () => {
+  const server = await startServer({
+    chatFactory: () =>
+      new ScriptedChat(async (chat) => {
+        chat.emit('token', { type: 'token', content: 'Hello' });
+        chat.emit('final', { type: 'final', content: 'Hello world' });
+        chat.emit('complete', { type: 'complete', threadId: 'thread' });
+        // Simulate a stale/late provider event after completion.
+        chat.emit('token', { type: 'token', content: ' (late)' });
+      }),
+  });
+  const conversationId = 'ws-late-delta-ignored-1';
+
+  const ws = await connectWs({ baseUrl: server.baseUrl });
+  try {
+    sendJson(ws, { type: 'subscribe_conversation', conversationId });
+    const res = await request(server.httpServer)
+      .post('/chat')
+      .send({ provider: 'lmstudio', model: 'm', conversationId, message: 'hi' })
+      .expect(202);
+
+    const inflightId = res.body.inflightId as string;
+
+    await waitForEvent({
+      ws,
+      predicate: (candidate: unknown): candidate is WsTranscriptEvent => {
+        const e = candidate as WsTranscriptEvent;
+        return (
+          e.protocolVersion === 'v1' &&
+          e.type === 'turn_final' &&
+          e.conversationId === conversationId &&
+          e.inflightId === inflightId
+        );
+      },
+      timeoutMs: 5000,
+    });
+
+    const assistantDeltaEvents = query({
+      source: ['server'],
+      text: 'chat.ws.server_publish_assistant_delta',
+    }).filter((entry) => {
+      const context = entry.context as Record<string, unknown> | undefined;
+      return (
+        context?.conversationId === conversationId &&
+        context?.inflightId === inflightId
+      );
+    });
+    assert.equal(assistantDeltaEvents.length, 2);
+  } finally {
+    await closeWs(ws);
+    await stopServer(server);
+  }
+});
+
+test('stale inflight updates are ignored and do not mutate active transcript state', () => {
+  const conversationId = 'ws-stale-inflight-1';
+  createInflight({
+    conversationId,
+    inflightId: 'active',
+    provider: 'codex',
+    model: 'gpt-5.3-codex',
+    source: 'REST',
+  });
+
+  const appendResult = appendAssistantDelta({
+    conversationId,
+    inflightId: 'stale',
+    delta: 'stale-delta',
+  });
+  assert.deepEqual(appendResult, { ok: false });
+
+  const replaceResult = setAssistantText({
+    conversationId,
+    inflightId: 'stale',
+    text: 'stale-final',
+  });
+  assert.deepEqual(replaceResult, { ok: false });
+
+  const snapshot = snapshotInflight(conversationId);
+  assert(snapshot);
+  assert.equal(snapshot.assistantText, '');
+
+  cleanupInflight({ conversationId, inflightId: 'active' });
 });

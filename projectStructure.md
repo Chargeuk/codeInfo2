@@ -57,7 +57,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 |     |  |  |- chat/
 |     |  |  |  â”œâ”€ CodexFlagsPanel.tsx â€” Codex-only flags accordion with sandbox select
 |     |  |  |  â””â”€ ConversationList.tsx â€” conversation sidebar with infinite scroll + archive/restore
-|     |  |- Markdown.tsx ? sanitized GFM renderer for assistant/think text with code block styling
+|     |  |- Markdown.tsx ? sanitized GFM renderer shared by chat+agents assistant/user bubbles (and expanded think text) with code block + mermaid handling
 â”‚     â”‚  â””â”€ ingest/
 â”‚     â”‚     â”œâ”€ ActiveRunCard.tsx — shows active ingest status, counts, cancel + logs link
 â”‚     â”‚     â””â”€ IngestForm.tsx — ingest form with validation, lock banner, submit handler
@@ -74,7 +74,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 |     |- hooks/
 |     |  |- useChatModel.ts ? fetches /chat/models, tracks selected model state
 |     |  |- useChatWs.ts — WebSocket client hook (connect/reconnect, subscribe/unsubscribe, JSON codec, client log forwarding)
-|     |  |- useChatStream.ts — chat run hook (POST /chat start-run 202 + merges WS transcript events into ChatMessage state)
+|     |  |- useChatStream.ts — chat run hook (POST /chat start-run 202 + merges WS transcript events into ChatMessage state, preserving raw non-whitespace outbound input and blocking whitespace-only sends)
 |     |  |- useLmStudioStatus.ts ? LM Studio status/models data hook
 |     |  |- useConversations.ts ? conversation list infinite scroll + archive/restore helpers
 |     |  |- useConversationTurns.ts ? lazy turn loading with load-older cursor handling
@@ -86,15 +86,15 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 |     |- utils/
 |     |  - isDevEnv.ts ? shared dev/test environment detection helper
 |     |- api/
-|     |  - agents.ts ? client wrapper for GET /agents and POST /agents/:agentName/run (AbortSignal supported)
+|     |  - agents.ts ? client wrapper for GET /agents and POST /agents/:agentName/run (AbortSignal supported) with Task 11 raw-send logging tags
 |     |  - baseUrl.ts ? runtime API base resolver (config/env/location)
 |     |  - codex.ts ? client wrapper for POST /codex/device-auth with structured errors + logging
 |     |  - flows.ts ? client wrapper for GET /flows and POST /flows/:flowName/run with structured errors + logging
 |     |- index.css ? minimal global styles (font smoothing, margin reset)
 |     |- main.tsx ? app entry with RouterProvider
 |     |- pages/
-|     |  |- ChatPage.tsx ? chat shell with model select, streaming transcript, rounded 14px bubbles, tool blocks, citations accordion (closed by default), and stream status/thinking UI (1s idle guard, ignores tool-only waits)
-|     |  |- AgentsPage.tsx ? agents UI with selector/stop/new-conversation controls, description markdown, and persisted conversation continuation
+|     |  |- ChatPage.tsx ? chat shell with model select, streaming transcript, rounded 14px bubbles, tool blocks, citations accordion (closed by default), stream status/thinking UI (1s idle guard, ignores tool-only waits), and raw-input send guards/logging
+|     |  |- AgentsPage.tsx ? agents UI with selector/stop/new-conversation controls, description markdown, persisted conversation continuation, raw-instruction send guards, and shared user-markdown rendering/logging
 |     |  |- FlowsPage.tsx ? flows UI with selector/run/resume/stop controls, flow-filtered sidebar, and step metadata transcript
 |     |  |- IngestPage.tsx ? ingest UI shell (lock banner, form, run/status placeholders)
 |     |  |- HomePage.tsx ? version card page
@@ -107,7 +107,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 |     |     |  - transport.test.ts ? client log transport queue/backoff tests
 |     |     |- chatPage.models.test.tsx ? chat page models list states
 |     |     |- chatPage.newConversation.test.tsx ? chat page new conversation reset behaviour
-|     |     |- chatPage.stream.test.tsx ? chat streaming hook + UI coverage (status chip/thinking gating incl. pre-token + mid-turn idle waits)
+|     |     |- chatPage.stream.test.tsx ? chat streaming hook + UI coverage (status chip/thinking gating incl. pre-token + mid-turn idle waits, raw payload preservation, whitespace-only blocking, whitespace-distinct turns)
 |     |     |- chatPage.citations.test.tsx ? chat citations accordion default-closed with host paths shown when expanded
 |     |     |- chatPage.noPaths.test.tsx ? chat citations render when host path missing
 |     |     |- chatPage.stop.test.tsx ? chat stop control aborts streams and shows status bubble
@@ -126,16 +126,16 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 |     |     |- chatPage.flags.reasoning.payload.test.tsx ? reasoning effort omitted for LM Studio and forwarded/reset for Codex
 |     |     |- chatPage.codexDefaults.test.tsx ? Codex defaults sourced from server, reset on provider/new conversation, panel disabled without defaults
 |     |     |- chatPage.provider.test.tsx ? provider dropdown, Codex disabled guidance, provider lock after first send
-|     |     |- chatPage.markdown.test.tsx ? assistant markdown rendering for lists and code fences
-|     |     |- chatPage.mermaid.test.tsx ? mermaid code fence rendering and script stripping
+|     |     |- chatPage.markdown.test.tsx ? assistant/user markdown parity for lists/code plus sanitization coverage
+|     |     |- chatPage.mermaid.test.tsx ? assistant/user mermaid parity and malformed-fallback coverage
 |     |     |- codexDeviceAuthApi.test.ts ? codex device-auth API helper parsing + errors
 |     |     |- codexDeviceAuthDialog.test.tsx ? codex device-auth dialog states + copy actions
 |     |     |- agentsPage.list.test.tsx ? Agents page loads agent list and populates dropdown
 |     |     |- agentsPage.descriptionPopover.test.tsx ? Agents page renders selected agent description markdown
 |     |     |- agentsPage.agentChange.test.tsx ? switching agent aborts run and resets conversation state
 |     |     |- agentsPage.conversationSelection.test.tsx ? selecting a conversation continues via conversationId
-|     |     |- agentsPage.turnHydration.test.tsx ? selecting a conversation hydrates and renders stored turns
-|     |     |- agentsPage.run.test.tsx ? agent run (realtime) renders transcript from WS and ignores REST segments
+|     |     |- agentsPage.turnHydration.test.tsx ? selecting a conversation hydrates whitespace-distinct turns and asserts user/assistant markdown+safety parity
+|     |     |- agentsPage.run.test.tsx ? agent run (realtime) renders transcript from WS and verifies raw payload + whitespace guard + user/assistant markdown parity
 |     |     |- agentsPage.run.instructionError.test.tsx ? Agents page shows error banner when instruction start fails
 |     |     |- agentsPage.workingFolderPicker.test.tsx ? Agents working-folder picker dialog open/pick/cancel/error coverage
 |     |     |- flowsPage.test.tsx ? Flows page renders flow list and step metadata
@@ -160,6 +160,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 |     |     |- router.test.tsx ? nav/router tests
 |     |     |- setupTests.ts ? Jest/test setup
 |     |     |- useChatStream.reasoning.test.tsx ? chat hook reasoning parser coverage
+|     |     |- useChatStream.toolPayloads.test.tsx ? chat hook WS tool payload handling plus raw outbound payload preservation assertions
 |     |     |- useLmStudioStatus.test.ts ? hook tests
 |     |     |- useLogs.test.ts ? log fetch + SSE hook tests
 |     |     - version.test.tsx ? version card test
@@ -181,7 +182,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚  â”œâ”€ fixtures/
 â”‚  â”‚  â”œâ”€ repo/README.md — ingest e2e sample repo description
 â”‚  â”‚  â””â”€ repo/main.txt — ingest e2e sample source file with deterministic Q&A text
-â”‚  â”œâ”€ chat.spec.ts - chat page end-to-end (model select + two-turn stream; skips if models unavailable)
+â”‚  â”œâ”€ chat.spec.ts - chat page end-to-end (model select + two-turn stream + raw payload/whitespace guard checks; skips if models unavailable)
 â”‚  â”œâ”€ chat-tools.spec.ts — chat citations e2e: ingest fixture, vector search, mock `POST /chat` (202) + chat WS, assert repo/host path citations
 â”‚  â”œâ”€ chat-tools-visibility.spec.ts — chat tool detail UX e2e (closed state, params, repo expansion, vector aggregation, errors, thinking spinner idle/tool-wait behaviour)
 â”‚  â”œâ”€ chat-reasoning.spec.ts — Harmony/think reasoning collapse e2e (mock WS)
@@ -254,6 +255,17 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚     â”œâ”€ 0000033-5-chat.png â€” Chat page acceptance check for story 0000033
 â”‚     â”œâ”€ 0000033-5-ingest.png â€” Ingest page acceptance check for story 0000033
 â”‚     â””â”€ 0000033-5-logs.png â€” Logs page acceptance check for story 0000033
+â”œâ”€ playwright-output-local/ â€” local Playwright MCP screenshot artifacts captured during story/task manual verification
+â”‚  â”œâ”€ 0000035-13-chat-raw-input-parity.png â€” Task 13 chat raw-input parity verification capture
+â”‚  â”œâ”€ 0000035-13-chat-user-markdown-parity.png â€” Task 13 chat user markdown parity verification capture
+â”‚  â”œâ”€ 0000035-13-agents-raw-input-parity.png â€” Task 13 agents raw-input parity verification capture
+â”‚  â”œâ”€ 0000035-13-agents-user-markdown-parity.png â€” Task 13 agents user markdown parity verification capture
+â”‚  â”œâ”€ 0000035-13-general-regression.png â€” Task 13 overall UI regression verification capture
+â”‚  â”œâ”€ 0000035-15-chat-raw-input-parity.png â€” Task 15 chat raw-input parity revalidation capture
+â”‚  â”œâ”€ 0000035-15-chat-user-markdown-parity.png â€” Task 15 chat user markdown parity revalidation capture
+â”‚  â”œâ”€ 0000035-15-agents-raw-input-parity.png â€” Task 15 agents raw-input parity revalidation capture
+â”‚  â”œâ”€ 0000035-15-agents-user-markdown-parity.png â€” Task 15 agents user markdown parity revalidation capture
+â”‚  â””â”€ 0000035-15-general-regression.png â€” Task 15 overall regression revalidation capture
 â”œâ”€ server/ â€” Express API
 â”‚  â”œâ”€ .dockerignore â€” server docker build ignores
 â”‚  â”œâ”€ .env â€” server default env (PORT, LMSTUDIO_BASE_URL)
@@ -288,7 +300,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚     â”‚  â”œâ”€ factory.ts — provider map returning ChatInterface instances or throws UnsupportedProviderError
 â”‚     â”‚  â”œâ”€ memoryPersistence.ts — shared in-memory conversation/turn store for Mongo-down/test fallback
 â”‚     â”‚  â”œâ”€ interfaces/ChatInterface.ts — base chat abstraction with normalized events and persistence helpers
-â”‚     â”‚  â”œâ”€ interfaces/ChatInterfaceCodex.ts — Codex provider implementation emitting normalized chat events
+â”‚     â”‚  â”œâ”€ interfaces/ChatInterfaceCodex.ts — Codex provider implementation with item-keyed assistant merge + single authoritative finalization
 â”‚     â”‚  â”œâ”€ interfaces/ChatInterfaceLMStudio.ts — LM Studio provider implementation emitting normalized chat events
 â”‚     â”‚  â””â”€ responders/McpResponder.ts — buffers normalized chat events into MCP segments payload
 â”‚     â”œâ”€ routes/
@@ -329,15 +341,17 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚     â”œâ”€ mcpCommon/ — shared MCP/JSON-RPC infrastructure used by both MCP servers (helpers/dispatch only; must not change wire formats)
 â”‚     â”‚  â”œâ”€ guards.ts — tiny shared type guards for MCP request validation
 â”‚     â”‚  â”œâ”€ jsonRpc.ts — shared JSON-RPC response helpers (result/error envelopes)
-â”‚     â”‚  â””â”€ dispatch.ts — shared method dispatch skeleton (routes to handler callbacks, returns verbatim payloads)
-â”‚     â”œâ”€ mcp2/ — Codex-gated MCP v2 server on port 5011
+â”‚     â”‚  â”œâ”€ dispatch.ts — shared method dispatch skeleton (routes to handler callbacks, returns verbatim payloads)
+â”‚     â”‚  â””â”€ keepAlive.ts — shared MCP keepalive lifecycle helper (start/heartbeat/stop + safe response writes)
+â”‚     â”œâ”€ mcp2/ — MCP v2 JSON-RPC server on port 5011
 â”‚     â”‚  â”œâ”€ server.ts — start/stop JSON-RPC server
-â”‚     â”‚  â”œâ”€ router.ts — JSON-RPC handlers (initialize/tools/resources); uses mcpCommon dispatch/guards while keeping body parsing, parse errors, response writing, and Codex gating local
+â”‚     â”‚  â”œâ”€ router.ts — JSON-RPC handlers (initialize/tools/resources); uses mcpCommon dispatch/guards while keeping body parsing, parse errors, response writing, and MCP v2 error contracts local
 â”‚     â”‚  â”œâ”€ types.ts — JSON-RPC envelope helpers
 â”‚     â”‚  â”œâ”€ errors.ts — shared MCP error helpers
-â”‚     â”‚  â”œâ”€ codexAvailability.ts — detects Codex readiness for tools/list/call gating
-â”‚     â”‚  â”œâ”€ tools.ts — MCP tool registry wiring
-â”‚     â”‚  â””â”€ tools/codebaseQuestion.ts — `codebase_question` tool bridging chat (Codex default, LM Studio optional) + vector search
+â”‚     â”‚  â”œâ”€ codexAvailability.ts — detects Codex readiness for provider-aware execution fallback
+â”‚     â”‚  â”œâ”€ tools.ts — MCP tool registry wiring (`codebase_question`, `reingest_repository`)
+â”‚     â”‚  â”œâ”€ tools/codebaseQuestion.ts — `codebase_question` tool bridging chat (Codex default, LM Studio optional) + vector search
+â”‚     â”‚  â””â”€ tools/reingestRepository.ts — MCP v2 `reingest_repository` tool wrapper over shared reingest validation/service
 â”‚     â”œâ”€ mcpAgents/ — Agents MCP v2 server on port 5012
 â”‚     â”‚  â”œâ”€ server.ts — start/stop Agents JSON-RPC server
 â”‚     â”‚  â”œâ”€ router.ts — JSON-RPC handlers (initialize/tools/resources); tools/list ungated; tools/call gated for run_agent_instruction
@@ -362,6 +376,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚     â”‚  â”œâ”€ hashing.ts â€” sha256 hashing for files/chunks
 â”‚     â”‚  â”œâ”€ deltaPlan.ts â€” pure delta planner for added/changed/deleted files (no IO)
 â”‚     â”‚  â”œâ”€ pathMap.ts — maps container ingest paths to host paths for tooling responses
+â”‚     â”‚  â”œâ”€ reingestService.ts — shared `reingest_repository` validation + canonical success/error mapping service
 â”‚     â”‚  â”œâ”€ index.ts â€” barrel export for ingest helpers
 â”‚     â”‚  â””â”€ types.ts â€” ingest types (DiscoveredFile, Chunk, IngestConfig)
 â”‚     â”œâ”€ lmstudio/
@@ -462,6 +477,10 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚           â”œâ”€ mcp2-router-invalid-request.test.ts â€” MCP v2 invalid request (-32600) characterization (invalid JSON-RPC envelope)
 â”‚           â”œâ”€ mcp2-router-method-not-found.test.ts â€” MCP v2 method not found (-32601) characterization (unknown method)
 â”‚           â”œâ”€ mcp2-router-tool-not-found.test.ts â€” MCP v2 unknown tool mapping characterization (tools/call -> -32601)
+â”‚           â”œâ”€ mcp2.reingest.tool.test.ts â€” MCP v2 `reingest_repository` tools/list + tools/call success/error + parity contract coverage
+â”‚           â”œâ”€ mcp.keepalive.helper.test.ts â€” unit coverage for shared keepalive helper lifecycle and write-after-close protection
+â”‚           â”œâ”€ mcp.reingest.classic.test.ts â€” unit coverage for classic MCP `reingest_repository` tools/list + tools/call success/error contracts
+â”‚           â”œâ”€ reingestService.test.ts â€” unit coverage for `reingest_repository` validation, success mapping, unknown root retry guidance, and busy contracts
 â”‚           â”œâ”€ mcp-unsupported-provider.test.ts — MCP tools/call unsupported provider error path
 â”‚           â””â”€ tools-vector-search.test.ts â€” supertest coverage for /tools/vector-search
 â”‚        â”œâ”€ integration/
@@ -477,7 +496,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚        |  â””â”€ tools-ast.test.ts â€” integration coverage for AST REST tool routes
 â”‚        |  â”œâ”€ chat-tools-wire.test.ts â€” chat route wiring (POST /chat 202 + WS bridge) with mocked LM Studio tools
 â”‚        |  â”œâ”€ chat-vectorsearch-locked-model.test.ts â€” chat run error/success flows when vector search lock/embedding availability changes
-â”‚        |  â”œâ”€ chat-codex.test.ts — Codex chat run flow, thread reuse, and availability gating
+â”‚        |  â”œâ”€ chat-codex.test.ts — Codex chat run flow, thread reuse, availability gating, and terminal dedupe regressions
 â”‚        |  â”œâ”€ chat-codex-mcp.test.ts — Codex MCP tool-call mapping to WS `tool_event` and SYSTEM_CONTEXT injection
 â”‚        |  â”œâ”€ chat-assistant-persistence.test.ts — assistant turn + toolCalls persisted once for Codex and LM Studio (memory mode)
 â”‚        |  â”œâ”€ mcp-lmstudio-wrapper.test.ts — LM Studio MCP segments snapshot/order coverage
@@ -564,6 +583,9 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 - server/src/test/unit/mcp-responder-transient-error.test.ts — unit coverage that McpResponder ignores transient reconnect error events
 - server/src/test/unit/chat-command-metadata.test.ts — unit coverage that chat persistence attaches `command` metadata to turns created by command runs
 - server/src/test/unit/chatModels.codex.test.ts — unit coverage for `/chat/models` Codex defaults, warnings, and env model lists
+- server/src/test/unit/chatProviders.test.ts — unit coverage for `/chat/providers` runtime availability ordering and fallback-ready provider selection
+- server/src/config/chatDefaults.ts — shared resolver for chat provider/model defaults (`request -> env -> fallback`)
+- server/src/test/unit/config.chatDefaults.test.ts — unit coverage for shared chat default resolution precedence
 - server/src/test/unit/chatValidators.test.ts — unit coverage for Codex env defaults + warnings in chat validation
 - server/src/test/unit/chat-codex-workingDirectoryOverride.test.ts — ensures ChatInterfaceCodex honors per-call workingDirectory overrides
 - server/src/test/unit/conversations-router-agent-filter.test.ts — Supertest coverage for `/conversations?agentName=...` request forwarding
@@ -574,11 +596,11 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 - server/src/ws/registry.ts — in-memory subscription registry (sidebar + per-conversation)
 - server/src/ws/sidebar.ts — sidebar broadcaster (repo events → WS `conversation_upsert`/`conversation_delete`)
 - server/src/ws/server.ts — `/ws` upgrade handler + ping/pong heartbeat + message dispatch
-- server/src/chat/inflightRegistry.ts — in-memory active-run registry (assistantText/think/toolEvents/seq + AbortController) for WS transcript catch-up/cancellation
-- server/src/chat/chatStreamBridge.ts — shared bridge wiring ChatInterface events to inflight updates + WS transcript publishing
+- server/src/chat/inflightRegistry.ts — in-memory active-run registry (assistantText/think/toolEvents/seq + AbortController) with replacement-aware final text and idempotent finalization guards
+- server/src/chat/chatStreamBridge.ts — shared bridge wiring ChatInterface events to inflight updates + WS transcript publishing with single-shot terminal publish semantics
 - server/src/test/unit/ws-server.test.ts — unit coverage for `/ws` connection and protocol gating
 - server/src/test/support/wsClient.ts — shared WebSocket test helper (connect/sendJson/waitForEvent/close) used by Cucumber + node:test
-- server/src/test/unit/ws-chat-stream.test.ts — unit coverage for WS transcript sequencing, catch-up snapshots, cancellation errors, unsubscribe behavior, and inflight cleanup
+- server/src/test/unit/ws-chat-stream.test.ts — unit coverage for WS transcript sequencing, catch-up snapshots, cancellation errors, stale/late delta guards, unsubscribe behavior, and inflight cleanup
 - server/src/test/integration/mcp-codebase-question-ws-stream.test.ts — integration coverage proving MCP `codebase_question` runs publish WS transcript updates
 - server/src/test/integration/mcp-server.test.ts — integration coverage for MCP v1 tools/list + tools/call (vector search + AST tools) and error mappings
 - server/src/test/integration/agents-run-ws-stream.test.ts — integration coverage proving agent runs publish WS transcript updates
@@ -629,4 +651,5 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 - client/src/test/useConversationTurns.commandMetadata.test.ts — unit coverage that turns preserve optional `command` metadata for UI rendering
 - client/src/test/chatPage.inflightNavigate.test.tsx — RTL coverage that navigating away/back during inflight keeps full history + inflight text
 - e2e/support/mockChatWs.ts — Playwright `routeWebSocket` helper for mocking chat WS protocol in end-to-end tests
+- e2e/agents.spec.ts — e2e coverage for Agents raw outbound payload preservation, whitespace-only submit blocking, and hydrated markdown parity/fallback behavior
 - e2e/chat-ws-logs.spec.ts — e2e asserting Logs UI shows client-forwarded chat WS log lines after mocked transcript events

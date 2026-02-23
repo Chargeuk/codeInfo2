@@ -2,10 +2,13 @@ import { IncomingMessage, ServerResponse } from 'http';
 import serverPackage from '../../package.json' with { type: 'json' };
 import { dispatchJsonRpc } from '../mcpCommon/dispatch.js';
 import { isObject } from '../mcpCommon/guards.js';
-import { isCodexAvailable } from './codexAvailability.js';
+import { createKeepAliveController } from '../mcpCommon/keepAlive.js';
+import { append } from '../logStore.js';
 import {
   ArchivedConversationError,
   InvalidParamsError,
+  ProviderUnavailableError,
+  ReingestRepositoryToolError,
   ToolNotFoundError,
   callTool,
   listTools,
@@ -21,8 +24,8 @@ const INVALID_REQUEST_CODE = -32600;
 const METHOD_NOT_FOUND_CODE = -32601;
 const INVALID_PARAMS_CODE = -32602;
 const PARSE_ERROR_CODE = -32700;
-const CODE_INFO_LLM_UNAVAILABLE = -32001;
 const PROTOCOL_VERSION = '2024-11-05';
+const REINGEST_REPOSITORY_TOOL_NAME = 'reingest_repository';
 const SERVER_INFO = {
   name: 'codeinfo2-mcp',
   version: serverPackage.version ?? '0.0.0',
@@ -37,50 +40,25 @@ export async function handleRpc(req: IncomingMessage, res: ServerResponse) {
     });
     res.flushHeaders?.();
   };
-
-  let keepAliveTimer: NodeJS.Timeout | undefined;
-  const stopKeepAlive = () => {
-    if (!keepAliveTimer) return;
-    clearInterval(keepAliveTimer);
-    keepAliveTimer = undefined;
-  };
-
-  const startKeepAlive = () => {
-    if (keepAliveTimer) return;
-    writeHeadersIfNeeded();
-    // Ensure headers + body start flowing so clients/proxies do not treat
-    // long-running MCP tools/call requests as idle.
-    res.write(' ');
-    keepAliveTimer = setInterval(() => {
-      if (res.writableEnded || res.destroyed) {
-        stopKeepAlive();
-        return;
-      }
-      res.write('\n');
-    }, 10_000);
-    keepAliveTimer.unref?.();
-  };
-
-  res.on('close', stopKeepAlive);
-  res.on('error', stopKeepAlive);
-
-  const send = (payload: unknown) => {
-    stopKeepAlive();
-    writeHeadersIfNeeded();
-    res.end(JSON.stringify(payload));
-  };
+  const keepAlive = createKeepAliveController({
+    res,
+    writeHeadersIfNeeded,
+    surface: 'mcp2',
+  });
 
   let message: JsonRpcRequest;
   try {
     message = JSON.parse(body || '{}');
   } catch {
-    send(jsonRpcError(null, PARSE_ERROR_CODE, 'Parse error'));
+    keepAlive.sendJson(jsonRpcError(null, PARSE_ERROR_CODE, 'Parse error'));
     return;
   }
 
   const id: JsonRpcId = (message as { id?: JsonRpcId } | null)?.id ?? null;
 
-  startKeepAlive();
+  if (isValidRequest(message) && message.method === 'tools/call') {
+    keepAlive.start();
+  }
   const response = await dispatchJsonRpc<JsonRpcId, unknown>({
     message,
     getId: () => id,
@@ -100,29 +78,17 @@ export async function handleRpc(req: IncomingMessage, res: ServerResponse) {
       resourcesListTemplates: (requestId) =>
         jsonRpcResult(requestId, { resource_templates: [] }),
       toolsList: async (requestId) => {
-        if (!(await isCodexAvailable())) {
-          return jsonRpcError(
-            requestId,
-            CODE_INFO_LLM_UNAVAILABLE,
-            'CODE_INFO_LLM_UNAVAILABLE',
-          );
-        }
-
         const tools = await listTools();
         return jsonRpcResult(requestId, tools);
       },
       toolsCall: async (requestId, paramsUnknown) => {
-        if (!(await isCodexAvailable())) {
-          return jsonRpcError(
-            requestId,
-            CODE_INFO_LLM_UNAVAILABLE,
-            'CODE_INFO_LLM_UNAVAILABLE',
-          );
-        }
-
         const params = isObject(paramsUnknown) ? paramsUnknown : {};
         const name = params.name;
         const args = params.arguments;
+        const requestIdText =
+          requestId === null || requestId === undefined
+            ? undefined
+            : String(requestId);
 
         if (typeof name !== 'string') {
           return jsonRpcError(
@@ -134,9 +100,39 @@ export async function handleRpc(req: IncomingMessage, res: ServerResponse) {
 
         try {
           const result = await callTool(name, args);
+          if (name === REINGEST_REPOSITORY_TOOL_NAME) {
+            append({
+              level: 'info',
+              source: 'server',
+              timestamp: new Date().toISOString(),
+              message: 'DEV-0000035:T7:mcp2_reingest_tool_call_result',
+              requestId: requestIdText,
+              context: {
+                tool: name,
+                outcome: 'success',
+                payload: result,
+              },
+            });
+          }
           return jsonRpcResult(requestId, result);
         } catch (err) {
           if (err instanceof InvalidParamsError) {
+            if (name === REINGEST_REPOSITORY_TOOL_NAME) {
+              append({
+                level: 'info',
+                source: 'server',
+                timestamp: new Date().toISOString(),
+                message: 'DEV-0000035:T7:mcp2_reingest_tool_call_result',
+                requestId: requestIdText,
+                context: {
+                  tool: name,
+                  outcome: 'error',
+                  code: INVALID_PARAMS_CODE,
+                  message: err.message,
+                  data: err.data,
+                },
+              });
+            }
             return jsonRpcError(
               requestId,
               INVALID_PARAMS_CODE,
@@ -145,7 +141,29 @@ export async function handleRpc(req: IncomingMessage, res: ServerResponse) {
             );
           }
 
+          if (err instanceof ReingestRepositoryToolError) {
+            append({
+              level: 'info',
+              source: 'server',
+              timestamp: new Date().toISOString(),
+              message: 'DEV-0000035:T7:mcp2_reingest_tool_call_result',
+              requestId: requestIdText,
+              context: {
+                tool: name,
+                outcome: 'error',
+                code: err.code,
+                message: err.message,
+                data: err.data,
+              },
+            });
+            return jsonRpcError(requestId, err.code, err.message, err.data);
+          }
+
           if (err instanceof ArchivedConversationError) {
+            return jsonRpcError(requestId, err.code, err.message);
+          }
+
+          if (err instanceof ProviderUnavailableError) {
             return jsonRpcError(requestId, err.code, err.message);
           }
 
@@ -163,7 +181,7 @@ export async function handleRpc(req: IncomingMessage, res: ServerResponse) {
     },
   });
 
-  send(response);
+  keepAlive.sendJson(response);
 }
 
 async function readBody(req: IncomingMessage): Promise<string> {

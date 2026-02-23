@@ -9,6 +9,10 @@ import type {
 } from '@openai/codex-sdk';
 import express from 'express';
 import request from 'supertest';
+import {
+  memoryConversations,
+  memoryTurns,
+} from '../../chat/memoryPersistence.js';
 import { getCodexEnvDefaults } from '../../config/codexEnvDefaults.js';
 import { query, resetStore } from '../../logStore.js';
 import { setCodexDetection } from '../../providers/codexRegistry.js';
@@ -159,6 +163,8 @@ const ORIGINAL_CODEINFO_CODEX_WORKDIR = process.env.CODEINFO_CODEX_WORKDIR;
 beforeEach(() => {
   delete process.env.CODEX_WORKDIR;
   delete process.env.CODEINFO_CODEX_WORKDIR;
+  memoryConversations.clear();
+  memoryTurns.clear();
   setCodexDetection({
     available: false,
     authPresent: false,
@@ -181,6 +187,8 @@ afterEach(() => {
   } else {
     process.env.CODEINFO_CODEX_WORKDIR = ORIGINAL_CODEINFO_CODEX_WORKDIR;
   }
+  memoryConversations.clear();
+  memoryTurns.clear();
 });
 
 let conversationCounter = 0;
@@ -903,6 +911,11 @@ test('lmstudio requests ignore codex-only sandbox flag but log a warning', async
     const app = express();
     app.use(express.json());
     const lmClient = {
+      system: {
+        listDownloadedModels: async () => [
+          { modelKey: 'llama-3', displayName: 'llama-3', type: 'gguf' },
+        ],
+      },
       llm: {
         model: async () => ({
           act: async () => undefined,
@@ -958,6 +971,75 @@ test('lmstudio requests ignore codex-only sandbox flag but log a warning', async
     assert.ok(
       warningText.includes('modelReasoningEffort'),
       'should log a warning when modelReasoningEffort is ignored for lmstudio',
+    );
+  } finally {
+    process.env.LMSTUDIO_BASE_URL = originalBaseUrl;
+  }
+});
+
+test('fallback from codex to lmstudio updates stored provider/model and clears stale threadId', async () => {
+  const originalBaseUrl = process.env.LMSTUDIO_BASE_URL;
+  process.env.LMSTUDIO_BASE_URL = 'http://localhost:1234';
+  const conversationId = 'conv-fallback-thread-safety';
+
+  memoryConversations.set(conversationId, {
+    _id: conversationId,
+    provider: 'codex',
+    model: 'gpt-5.3-codex',
+    title: 'existing',
+    source: 'REST',
+    flags: { threadId: 'thread-stale' },
+    lastMessageAt: new Date(),
+    archivedAt: null,
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  } as never);
+
+  try {
+    const app = express();
+    app.use(express.json());
+    const lmClient = {
+      system: {
+        listDownloadedModels: async () => [
+          { modelKey: 'llama-3', displayName: 'llama-3', type: 'gguf' },
+        ],
+      },
+      llm: {
+        model: async () => ({
+          act: async (_chat: unknown, _tools: unknown, opts?: unknown) => {
+            const callbacks = opts as {
+              onMessage?: (message: unknown) => void;
+            };
+            callbacks.onMessage?.({
+              role: 'assistant',
+              content: [{ type: 'text', text: 'fallback answer' }],
+            });
+          },
+        }),
+      },
+    } as unknown as LMStudioClient;
+    app.use('/chat', createChatRouter({ clientFactory: () => lmClient }));
+
+    const response = await request(app)
+      .post('/chat')
+      .send({
+        provider: 'codex',
+        model: 'gpt-5.3-codex',
+        conversationId,
+        message: 'hi',
+      })
+      .expect(202);
+
+    assert.equal(response.body.provider, 'lmstudio');
+    assert.equal(response.body.model, 'llama-3');
+
+    const stored = memoryConversations.get(conversationId);
+    assert.ok(stored);
+    assert.equal(stored?.provider, 'lmstudio');
+    assert.equal(stored?.model, 'llama-3');
+    assert.equal(
+      Object.prototype.hasOwnProperty.call(stored?.flags ?? {}, 'threadId'),
+      false,
     );
   } finally {
     process.env.LMSTUDIO_BASE_URL = originalBaseUrl;

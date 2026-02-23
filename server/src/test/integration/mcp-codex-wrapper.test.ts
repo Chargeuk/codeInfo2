@@ -126,7 +126,7 @@ test('MCP responder returns answer-only segments', async () => {
     const payload = JSON.parse(result.content[0].text);
     assert.ok(typeof payload.conversationId === 'string');
     assert.ok(payload.conversationId.startsWith('codex-thread-'));
-    assert.equal(payload.modelId, 'gpt-5.1-codex-max');
+    assert.equal(payload.modelId, 'gpt-5.3-codex');
     assert.deepEqual(
       payload.segments.map((s: { type: string }) => s.type),
       ['answer'],

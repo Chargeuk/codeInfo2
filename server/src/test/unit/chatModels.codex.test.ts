@@ -318,3 +318,59 @@ test('non-codex provider omits codex defaults fields', async () => {
     await stopServer(server);
   }
 });
+
+test('codex models prioritize CHAT_DEFAULT_MODEL when codex is default provider', async () => {
+  env.set('CHAT_DEFAULT_PROVIDER', 'codex');
+  env.set('CHAT_DEFAULT_MODEL', 'gpt-5.1');
+  env.set('Codex_model_list', 'gpt-5.3-codex,gpt-5.1,gpt-5.2');
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+  });
+
+  const server = await startServer({ mcpAvailable: true });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/models?provider=codex')
+      .expect(200);
+
+    const modelKeys = res.body.models.map(
+      (model: { key: string }) => model.key,
+    );
+    assert.equal(modelKeys[0], 'gpt-5.1');
+  } finally {
+    await stopServer(server);
+  }
+});
+
+test('lmstudio models mark provider unavailable when no chat-capable model is returned', async () => {
+  env.set('LMSTUDIO_BASE_URL', 'http://localhost:1234');
+
+  const server = await startServer({
+    mcpAvailable: true,
+    clientFactory: () =>
+      createClient([
+        {
+          modelKey: 'embed-1',
+          displayName: 'Embedding Model',
+          type: 'embedding',
+        },
+      ]),
+  });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/models?provider=lmstudio')
+      .expect(200);
+
+    assert.equal(res.body.provider, 'lmstudio');
+    assert.equal(res.body.available, false);
+    assert.equal(res.body.toolsAvailable, false);
+    assert.equal(res.body.reason, 'lmstudio unavailable');
+    assert.equal(res.body.models.length, 0);
+  } finally {
+    await stopServer(server);
+  }
+});

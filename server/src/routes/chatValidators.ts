@@ -3,10 +3,13 @@ import type {
   ModelReasoningEffort,
   SandboxMode,
 } from '@openai/codex-sdk';
+import {
+  resolveChatDefaults,
+  type ChatDefaultProvider,
+} from '../config/chatDefaults.js';
 import { getCodexEnvDefaults } from '../config/codexEnvDefaults.js';
 import { baseLogger } from '../logger.js';
 
-const DEFAULT_PROVIDER = 'lmstudio';
 export type AppModelReasoningEffort = ModelReasoningEffort | 'xhigh';
 
 type Provider = 'codex' | 'lmstudio';
@@ -41,6 +44,12 @@ export type ValidatedChatRequest = {
     modelReasoningEffort?: AppModelReasoningEffort;
   };
   warnings: string[];
+  defaultsResolution: {
+    providerSource: 'request' | 'env' | 'fallback';
+    modelSource: 'request' | 'env' | 'fallback';
+    requestedProvider?: Provider;
+    requestedModel?: string;
+  };
 };
 
 export class ChatValidationError extends Error {
@@ -49,6 +58,47 @@ export class ChatValidationError extends Error {
     this.name = 'ChatValidationError';
   }
 }
+
+const validateRawTextInput = (params: {
+  field: 'message';
+  value: unknown;
+  requiredMessage: string;
+}) => {
+  const { field, value, requiredMessage } = params;
+  const isString = typeof value === 'string';
+  const hasNonWhitespace = isString && value.trim().length > 0;
+
+  baseLogger.info(
+    {
+      field,
+      isString,
+      hasNonWhitespace,
+      rawLength: isString ? value.length : undefined,
+    },
+    'DEV-0000035:T3:raw_input_validation_evaluated',
+  );
+
+  if (!hasNonWhitespace) {
+    baseLogger.info(
+      {
+        field,
+        accepted: false,
+        message: requiredMessage,
+      },
+      'DEV-0000035:T3:raw_input_validation_result',
+    );
+    throw new ChatValidationError(requiredMessage);
+  }
+
+  baseLogger.info(
+    {
+      field,
+      accepted: true,
+      rawLength: (value as string).length,
+    },
+    'DEV-0000035:T3:raw_input_validation_result',
+  );
+};
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -86,15 +136,23 @@ export function validateChatRequest(
     );
   }
 
-  const model = body.model;
-  if (typeof model !== 'string' || model.trim().length === 0) {
-    throw new ChatValidationError('model is required');
+  const rawModel = body.model;
+  let requestedModel: string | undefined;
+  if (rawModel !== undefined) {
+    if (typeof rawModel !== 'string' || rawModel.trim().length === 0) {
+      throw new ChatValidationError('model must be a non-empty string');
+    }
+    requestedModel = rawModel.trim();
   }
 
   const message = body.message;
-  if (typeof message !== 'string' || message.trim().length === 0) {
-    throw new ChatValidationError('message is required');
-  }
+  validateRawTextInput({
+    field: 'message',
+    value: message,
+    requiredMessage:
+      'message must contain at least one non-whitespace character',
+  });
+  const validatedMessage = message as string;
 
   const conversationId = body.conversationId;
   if (
@@ -105,15 +163,26 @@ export function validateChatRequest(
   }
 
   const rawProvider = body.provider;
-  let provider: Provider = DEFAULT_PROVIDER;
-  if (typeof rawProvider === 'string' && rawProvider.length > 0) {
-    if (rawProvider !== 'codex' && rawProvider !== 'lmstudio') {
+  let requestedProvider: Provider | undefined;
+  if (rawProvider !== undefined) {
+    if (typeof rawProvider !== 'string' || rawProvider.trim().length === 0) {
       throw new ChatValidationError('provider must be "codex" or "lmstudio"');
     }
-    provider = rawProvider;
+    const normalizedProvider = rawProvider.trim();
+    if (normalizedProvider !== 'codex' && normalizedProvider !== 'lmstudio') {
+      throw new ChatValidationError('provider must be "codex" or "lmstudio"');
+    }
+    requestedProvider = normalizedProvider as Provider;
   }
 
-  const warnings: string[] = [];
+  const resolvedDefaults = resolveChatDefaults({
+    requestProvider: requestedProvider as ChatDefaultProvider | undefined,
+    requestModel: requestedModel,
+  });
+  const provider: Provider = resolvedDefaults.provider;
+  const model = resolvedDefaults.model;
+
+  const warnings: string[] = [...resolvedDefaults.warnings];
 
   const threadId =
     typeof body.threadId === 'string' && body.threadId.length > 0
@@ -255,12 +324,18 @@ export function validateChatRequest(
 
   return {
     model,
-    message,
+    message: validatedMessage,
     conversationId,
     provider,
     threadId,
     inflightId,
     codexFlags,
     warnings,
+    defaultsResolution: {
+      providerSource: resolvedDefaults.providerSource,
+      modelSource: resolvedDefaults.modelSource,
+      requestedProvider,
+      requestedModel,
+    },
   };
 }

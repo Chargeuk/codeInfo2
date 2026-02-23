@@ -37,12 +37,42 @@ const validateBody = (
   const candidate = (body ?? {}) as AgentRunBody;
 
   const rawInstruction = candidate.instruction;
-  if (
-    typeof rawInstruction !== 'string' ||
-    rawInstruction.trim().length === 0
-  ) {
-    throw new Error('instruction is required');
+  const isInstructionString = typeof rawInstruction === 'string';
+  const instructionHasNonWhitespace =
+    isInstructionString && rawInstruction.trim().length > 0;
+
+  baseLogger.info(
+    {
+      field: 'instruction',
+      isString: isInstructionString,
+      hasNonWhitespace: instructionHasNonWhitespace,
+      rawLength: isInstructionString ? rawInstruction.length : undefined,
+    },
+    'DEV-0000035:T3:raw_input_validation_evaluated',
+  );
+
+  if (!instructionHasNonWhitespace) {
+    const message =
+      'instruction must contain at least one non-whitespace character';
+    baseLogger.info(
+      {
+        field: 'instruction',
+        accepted: false,
+        message,
+      },
+      'DEV-0000035:T3:raw_input_validation_result',
+    );
+    throw new Error(message);
   }
+
+  baseLogger.info(
+    {
+      field: 'instruction',
+      accepted: true,
+      rawLength: rawInstruction.length,
+    },
+    'DEV-0000035:T3:raw_input_validation_result',
+  );
 
   const rawConversationId = candidate.conversationId;
   const conversationId =

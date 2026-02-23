@@ -134,6 +134,11 @@ async function startServer(
     createChatRouter({
       clientFactory: () =>
         ({
+          system: {
+            listDownloadedModels: async () => [
+              { modelKey: 'model-1', displayName: 'model-1', type: 'llm' },
+            ],
+          },
           llm: {
             model: async () => ({ act }),
           },
@@ -327,7 +332,12 @@ test('chat route streams tool-result with hostPath/relPath from LM Studio tools'
 
     const res = await request(server.httpServer)
       .post('/chat')
-      .send({ model: 'dummy-model', conversationId, message: 'hello' })
+      .send({
+        provider: 'lmstudio',
+        model: 'dummy-model',
+        conversationId,
+        message: 'hello',
+      })
       .expect(202);
 
     const inflightId = res.body.inflightId as string;
@@ -450,7 +460,12 @@ test('chat route synthesizes tool-result when LM Studio only returns a final too
 
     await request(server.httpServer)
       .post('/chat')
-      .send({ model: 'dummy-model', conversationId, message: 'hello' })
+      .send({
+        provider: 'lmstudio',
+        model: 'dummy-model',
+        conversationId,
+        message: 'hello',
+      })
       .expect(202);
 
     const toolResultEvent = await toolResultPromise;
@@ -515,7 +530,12 @@ test('chat route emits tool-result with error details when a tool call fails', a
 
     await request(server.httpServer)
       .post('/chat')
-      .send({ model: 'dummy-model', conversationId, message: 'hello' })
+      .send({
+        provider: 'lmstudio',
+        model: 'dummy-model',
+        conversationId,
+        message: 'hello',
+      })
       .expect(202);
 
     const toolResultEvent = await toolResultPromise;
@@ -603,7 +623,12 @@ test('chat route synthesizes tool-result when LM Studio omits onToolCallResult e
 
     await request(server.httpServer)
       .post('/chat')
-      .send({ model: 'dummy-model', conversationId, message: 'hello' })
+      .send({
+        provider: 'lmstudio',
+        model: 'dummy-model',
+        conversationId,
+        message: 'hello',
+      })
       .expect(202);
 
     const toolResultEvent = await toolResultPromise;
@@ -693,7 +718,12 @@ test('chat route emits complete after tool-result arrives', async () => {
 
     await request(server.httpServer)
       .post('/chat')
-      .send({ model: 'dummy-model', conversationId, message: 'hello' })
+      .send({
+        provider: 'lmstudio',
+        model: 'dummy-model',
+        conversationId,
+        message: 'hello',
+      })
       .expect(202);
 
     const toolResultEvent = await toolResultPromise;
@@ -793,7 +823,12 @@ test('chat route suppresses assistant tool payload echo while emitting tool-resu
 
     await request(server.httpServer)
       .post('/chat')
-      .send({ model: 'dummy-model', conversationId, message: 'hello' })
+      .send({
+        provider: 'lmstudio',
+        model: 'dummy-model',
+        conversationId,
+        message: 'hello',
+      })
       .expect(202);
 
     const toolResultEvent = await toolResultPromise;

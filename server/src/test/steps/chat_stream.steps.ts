@@ -10,6 +10,7 @@ import type WebSocket from 'ws';
 
 import { query, resetStore } from '../../logStore.js';
 import { createRequestLogger } from '../../logger.js';
+import { setCodexDetection } from '../../providers/codexRegistry.js';
 import { createChatRouter } from '../../routes/chat.js';
 import { attachWs, type WsServerHandle } from '../../ws/server.js';
 import {
@@ -43,6 +44,7 @@ type WsEvent = {
   event?: { type?: string };
   status?: string;
   error?: { message?: string };
+  content?: string;
 };
 
 let server: Server | null = null;
@@ -51,6 +53,7 @@ let ws: WebSocket | null = null;
 let baseUrl = '';
 let statusCode: number | null = null;
 let startResponse: ChatStartResponse | null = null;
+let errorResponse: { code?: string; message?: string } | null = null;
 let received: WsEvent[] = [];
 
 async function ensureWsSubscribed(conversationId: string) {
@@ -118,6 +121,7 @@ After(async () => {
   received = [];
   statusCode = null;
   startResponse = null;
+  errorResponse = null;
 });
 
 Given('chat stream scenario {string}', (name: string) => {
@@ -147,15 +151,27 @@ When('I POST to the chat endpoint with the chat request fixture', async () => {
     }),
   });
   statusCode = res.status;
-  startResponse = (await res.json()) as ChatStartResponse;
+  const body = (await res.json()) as Record<string, unknown>;
+  if (statusCode === 202) {
+    startResponse = body as unknown as ChatStartResponse;
+    errorResponse = null;
+  } else {
+    startResponse = null;
+    errorResponse = {
+      code: body.code as string | undefined,
+      message: body.message as string | undefined,
+    };
+  }
 });
 
 Then('the chat stream status code is {int}', (status: number) => {
   assert.strictEqual(statusCode, status);
-  assert.ok(startResponse);
-  assert.equal(startResponse.status, 'started');
-  assert.ok(startResponse.conversationId);
-  assert.ok(startResponse.inflightId);
+  if (status === 202) {
+    assert.ok(startResponse);
+    assert.equal(startResponse.status, 'started');
+    assert.ok(startResponse.conversationId);
+    assert.ok(startResponse.inflightId);
+  }
 });
 
 Then(
@@ -345,4 +361,168 @@ When(
 
 Then('the LM Studio chat history length is {int}', (expected: number) => {
   assert.strictEqual(getLastChatHistory().length, expected);
+});
+
+Given('codex detection is unavailable', () => {
+  setCodexDetection({
+    available: false,
+    authPresent: false,
+    configPresent: false,
+    reason: 'codex unavailable in test',
+  });
+});
+
+Given('codex detection is available', () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+});
+
+When(
+  'I POST to the chat endpoint with provider {string} and model {string}',
+  async (provider: string, model: string) => {
+    const conversationId = `chat-provider-${provider}-${Date.now()}`;
+    await ensureWsSubscribed(conversationId);
+
+    const res = await fetch(`${baseUrl}/chat`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        provider,
+        model,
+        conversationId,
+        message: 'provider fallback check',
+      }),
+    });
+    statusCode = res.status;
+    const body = (await res.json()) as Record<string, unknown>;
+    if (statusCode === 202) {
+      startResponse = body as unknown as ChatStartResponse;
+      errorResponse = null;
+    } else {
+      startResponse = null;
+      errorResponse = {
+        code: body.code as string | undefined,
+        message: body.message as string | undefined,
+      };
+    }
+  },
+);
+
+Then('the chat start response provider is {string}', (provider: string) => {
+  assert.ok(startResponse);
+  assert.equal(startResponse.provider, provider);
+});
+
+Then('the chat error code is {string}', (code: string) => {
+  assert.ok(errorResponse);
+  assert.equal(errorResponse.code, code);
+});
+
+Then('the chat error message is {string}', (message: string) => {
+  assert.ok(errorResponse);
+  assert.equal(errorResponse.message, message);
+});
+
+When(
+  'I POST to the chat endpoint with raw message {string}',
+  async (message: string) => {
+    const conversationId = `chat-raw-${Date.now()}`;
+    await ensureWsSubscribed(conversationId);
+
+    const res = await fetch(`${baseUrl}/chat`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        provider: 'lmstudio',
+        model: 'model-1',
+        conversationId,
+        message,
+      }),
+    });
+
+    statusCode = res.status;
+    const body = (await res.json()) as Record<string, unknown>;
+    if (statusCode === 202) {
+      startResponse = body as unknown as ChatStartResponse;
+      errorResponse = null;
+    } else {
+      startResponse = null;
+      errorResponse = {
+        code: body.code as string | undefined,
+        message: body.message as string | undefined,
+      };
+    }
+  },
+);
+
+When('I POST to the chat endpoint with a whitespace-only message', async () => {
+  const conversationId = `chat-whitespace-${Date.now()}`;
+  await ensureWsSubscribed(conversationId);
+
+  const res = await fetch(`${baseUrl}/chat`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      provider: 'lmstudio',
+      model: 'model-1',
+      conversationId,
+      message: '   \t  ',
+    }),
+  });
+
+  statusCode = res.status;
+  startResponse = null;
+  const body = (await res.json()) as Record<string, unknown>;
+  errorResponse = {
+    code: body.code as string | undefined,
+    message: body.message as string | undefined,
+  };
+});
+
+When('I POST to the chat endpoint with a newline-only message', async () => {
+  const conversationId = `chat-newline-${Date.now()}`;
+  await ensureWsSubscribed(conversationId);
+
+  const res = await fetch(`${baseUrl}/chat`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      provider: 'lmstudio',
+      model: 'model-1',
+      conversationId,
+      message: '\n\n\r\n',
+    }),
+  });
+
+  statusCode = res.status;
+  startResponse = null;
+  const body = (await res.json()) as Record<string, unknown>;
+  errorResponse = {
+    code: body.code as string | undefined,
+    message: body.message as string | undefined,
+  };
+});
+
+Then('the user turn content is {string}', async (expected: string) => {
+  assert.ok(startResponse);
+  await ensureWsSubscribed(startResponse.conversationId);
+
+  const userTurn = await waitForEvent({
+    ws: ws as WebSocket,
+    predicate: (event: unknown): event is WsEvent => {
+      const e = event as WsEvent;
+      return (
+        e?.type === 'user_turn' &&
+        e.conversationId === startResponse?.conversationId &&
+        e.inflightId === startResponse?.inflightId
+      );
+    },
+    timeoutMs: 4000,
+  });
+
+  assert.equal(userTurn.content, expected);
 });

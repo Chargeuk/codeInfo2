@@ -14,7 +14,7 @@ beforeAll(() => {
 });
 
 describe('Chat mermaid rendering', () => {
-  it('renders mermaid diagrams and strips script tags', async () => {
+  it('renders equivalent mermaid diagrams and script stripping for assistant and user bubbles', async () => {
     const markdown = [
       'Here is a diagram:',
       '```mermaid',
@@ -27,16 +27,45 @@ describe('Chat mermaid rendering', () => {
       '```',
     ].join('\n');
 
-    render(<Markdown content={markdown} data-testid="assistant-markdown" />);
+    render(
+      <>
+        <Markdown content={markdown} data-testid="assistant-markdown" />
+        <Markdown content={markdown} data-testid="user-markdown" />
+      </>,
+    );
 
-    const markdownBox = await screen.findByTestId('assistant-markdown');
+    const assistantMarkdown = await screen.findByTestId('assistant-markdown');
+    const userMarkdown = await screen.findByTestId('user-markdown');
 
     await waitFor(() => {
-      const svg = markdownBox.querySelector('svg');
-      expect(svg).toBeTruthy();
+      expect(assistantMarkdown.querySelector('svg')).toBeTruthy();
+      expect(userMarkdown.querySelector('svg')).toBeTruthy();
     });
 
-    const script = markdownBox.querySelector('script');
-    expect(script).toBeNull();
+    expect(assistantMarkdown.querySelector('script')).toBeNull();
+    expect(userMarkdown.querySelector('script')).toBeNull();
+  });
+
+  it('shows equivalent safe fallback for malformed mermaid in assistant and user bubbles', async () => {
+    const malformedMermaid = [
+      '```mermaid',
+      'this is not valid mermaid syntax',
+      '```',
+    ].join('\n');
+
+    render(
+      <>
+        <Markdown content={malformedMermaid} data-testid="assistant-markdown" />
+        <Markdown content={malformedMermaid} data-testid="user-markdown" />
+      </>,
+    );
+
+    const assistantMarkdown = await screen.findByTestId('assistant-markdown');
+    const userMarkdown = await screen.findByTestId('user-markdown');
+
+    await waitFor(() => {
+      expect(assistantMarkdown).toHaveTextContent('Diagram failed to render');
+      expect(userMarkdown).toHaveTextContent('Diagram failed to render');
+    });
   });
 });

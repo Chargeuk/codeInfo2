@@ -22,9 +22,137 @@ For a current directory map, refer to `projectStructure.md` alongside this docum
 - Express 5 app with CORS enabled and env-driven port (default 5010 via `server/.env`).
 - Routes: `/health` returns `{ status: 'ok', uptime, timestamp }`; `/version` returns `VersionInfo` using `package.json` version; `/info` echoes a friendly message plus VersionInfo.
 - Depends on `@codeinfo2/common` for DTO helper; built with `tsc -b`, started via `npm run start --workspace server`.
+- Shared chat provider/model defaults are resolved in `server/src/config/chatDefaults.ts` with strict precedence: explicit request value -> `CHAT_DEFAULT_PROVIDER` / `CHAT_DEFAULT_MODEL` env -> hardcoded fallback (`codex`, `gpt-5.3-codex`).
+- `validateChatRequest` now accepts omitted `provider`/`model`, resolves both through the shared resolver, and keeps existing REST validation envelopes unchanged.
+- Runtime provider selection is single-hop and shared: if the selected/default provider is unavailable, execution switches once to the alternate provider only when that alternate has at least one selectable runtime model. If the alternate has no selectable model, execution stays on the original provider and surfaces existing unavailable contracts (`REST: 503 PROVIDER_UNAVAILABLE`, `MCP codebase_question: -32001 CODE_INFO_LLM_UNAVAILABLE`).
+- REST runtime fallback no longer treats explicit `provider=lmstudio` + non-empty model as availability; LM Studio is considered available only when runtime model listing returns at least one selectable chat model.
+- The resolved execution provider/model are persisted on conversation metadata for both REST `/chat` and MCP `codebase_question`; when execution is not Codex, stale `flags.threadId` is removed so Codex resume state is not reused across providers.
+- Raw-input contract enforcement is server-side: valid chat/agent payload text is forwarded unchanged (including surrounding whitespace/newlines), while whitespace-only/newline-only payloads are rejected before provider execution with fixed endpoint-specific `400` messages (`POST /chat`: `message must contain at least one non-whitespace character`; `POST /agents/:agentName/run`: `instruction must contain at least one non-whitespace character`).
+- Chat client send-flow matches the raw-input contract: `ChatPage` forwards non-whitespace input to `useChatStream.send(...)` without trim mutation, while local submit guards block whitespace-only input before dispatching `POST /chat`.
+- Agents client send-flow matches the same raw-input contract: `AgentsPage` forwards non-whitespace instruction text to `runAgentInstruction(...)` without trim mutation, while local submit guards keep whitespace-only input from dispatching `/agents/:agentName/run`.
+- Agents user-bubble rendering now uses the same shared markdown pipeline as assistant bubbles (`client/src/components/Markdown.tsx`) to keep list/code/mermaid rendering and sanitization behavior identical across roles while preserving existing bubble chrome/layout.
+- Agents user-markdown rendering path is render-pure: instrumentation side effects were removed from JSX render loops and kept in non-render paths only.
 - Codex env defaults are resolved by `server/src/config/codexEnvDefaults.ts`, which parses `Codex_*` env vars into validated defaults plus warnings and logs `[codex-env-defaults] resolved`.
 - `validateChatRequest` applies Codex env defaults when request flags are missing, surfaces env warnings on the response payload, and logs `[codex-validate] applied env defaults` with the defaulted flag list.
 - `ChatInterfaceCodex` builds thread options from validated flags without extra fallback defaults, leaving missing values undefined so Codex config/env defaults apply, and logs `[codex-thread-options] prepared` with `undefinedFlags`.
+
+```mermaid
+flowchart LR
+  Req[POST /chat body] --> P{provider supplied?}
+  Req --> M{model supplied?}
+  P -- yes --> RP[provider=request]
+  P -- no --> EP{CHAT_DEFAULT_PROVIDER valid?}
+  EP -- yes --> RPE[provider=env]
+  EP -- no --> RPF[provider=codex fallback]
+  M -- yes --> RM[model=request]
+  M -- no --> EM{CHAT_DEFAULT_MODEL valid?}
+  EM -- yes --> RME[model=env]
+  EM -- no --> RMF[model=gpt-5.3-codex fallback]
+  RP --> V[validateChatRequest]
+  RPE --> V
+  RPF --> V
+  RM --> V
+  RME --> V
+  RMF --> V
+  V --> C[chat route persists resolved provider/model]
+```
+
+```mermaid
+flowchart TD
+  R[Resolved default provider/model] --> A{Selected provider available?}
+  A -- yes --> S[Execute selected provider/model]
+  A -- no --> B{Alternate provider has selectable model?}
+  B -- yes --> F[Single-hop fallback to alternate provider + first selectable model]
+  B -- no --> U[Keep selected provider and return existing unavailable contract]
+  S --> P[Persist execution provider/model]
+  F --> P
+  P --> T{Execution provider == codex?}
+  T -- yes --> K[Keep/use Codex threadId]
+  T -- no --> X[Drop stale flags.threadId before persistence]
+```
+
+## MCP keepalive lifecycle (shared helper)
+
+- MCP keepalive lifecycle is centralized in `server/src/mcpCommon/keepAlive.ts` and reused by classic `POST /mcp`, MCP v2 (`server/src/mcp2/router.ts`), and Agents MCP (`server/src/mcpAgents/router.ts`).
+- Keepalive is scoped to long-running `tools/call` only. Non-tool requests (`initialize`, `tools/list`, parse/invalid request) return normal JSON-RPC payloads without keepalive preamble bytes.
+- Helper behavior is deterministic: `start` writes initial whitespace and heartbeat whitespace bytes, then `stop` clears timers on `sendJson`, response `finish`/`close`, or write failure to avoid write-after-close errors.
+
+```mermaid
+flowchart LR
+  Req[JSON-RPC request] --> Check{method == tools/call?}
+  Check -- no --> Json[Return JSON response]
+  Check -- yes --> Start[keepAlive.start]
+  Start --> Flush[Write initial whitespace]
+  Flush --> Beat[Heartbeat interval writes whitespace]
+  Beat --> Dispatch[Dispatch tool handler]
+  Dispatch --> Final[keepAlive.sendJson]
+  Final --> Stop[keepAlive.stop + clear timer]
+```
+
+```mermaid
+flowchart TD
+  A[tools/call route] --> B[createKeepAliveController]
+  B --> C[mcp2 router]
+  B --> D[mcpAgents router]
+  B --> E[classic /mcp router]
+  C --> F[shared lifecycle + logs]
+  D --> F
+  E --> F
+```
+
+## Reingest repository service (canonical validation + mapping)
+
+- Shared service `server/src/ingest/reingestService.ts` defines canonical validation and mapping for `reingest_repository` before MCP surface wiring.
+- Validation is strict and field-level for `sourceId`: missing, non-string, empty, non-absolute, non-normalized, ambiguous path forms, and unknown roots are rejected.
+- Reingest is existing-root-only: known roots are derived from `listIngestedRepositories()` container paths and must match exactly after POSIX normalization.
+- Run-start behavior reuses existing ingest semantics (`isBusy()` + `reembed(...)`) and maps outcomes to canonical contracts:
+  - invalid params -> JSON-RPC error `-32602` / `INVALID_PARAMS`
+  - unknown root -> JSON-RPC error `404` / `NOT_FOUND`
+  - busy -> JSON-RPC error `429` / `BUSY`
+- Validation/result logs are emitted with stable tags for manual verification:
+  - `DEV-0000035:T5:reingest_validation_evaluated`
+  - `DEV-0000035:T5:reingest_validation_result`
+
+```mermaid
+flowchart TD
+  A[reingest_repository args] --> B{sourceId valid?}
+  B -- no --> E1[-32602 INVALID_PARAMS\\nerror.data INVALID_SOURCE_ID]
+  B -- yes --> C{known ingested root exact match?}
+  C -- no --> E2[404 NOT_FOUND\\nerror.data unknown_root + retry lists]
+  C -- yes --> D{ingest lock held?}
+  D -- yes --> E3[429 BUSY\\nerror.data BUSY + retry lists]
+  D -- no --> F[reembed(sourceId)]
+  F --> G[success payload\\nstatus started, operation reembed, runId, sourceId]
+```
+
+## Classic MCP reingest wiring
+
+- Classic MCP (`POST /mcp`) now exposes `reingest_repository` in `tools/list` and routes `tools/call` to the shared `runReingestRepository(...)` service.
+- Success path stays in the classic wrapper (`result.content[0].text` JSON string), while failures remain JSON-RPC `error` envelopes for compatibility.
+- Classic-MCP-specific manual-verification logs use:
+  - `DEV-0000035:T6:classic_reingest_tool_call_evaluated`
+  - `DEV-0000035:T6:classic_reingest_tool_call_result`
+
+```mermaid
+sequenceDiagram
+  participant Client as MCP client
+  participant Classic as POST /mcp (classic)
+  participant Service as runReingestRepository
+
+  Client->>Classic: initialize
+  Classic-->>Client: jsonrpc result (capabilities)
+  Client->>Classic: tools/list
+  Classic-->>Client: includes reingest_repository
+  Client->>Classic: tools/call(reingest_repository, {sourceId})
+  Classic->>Service: runReingestRepository(args)
+  alt success
+    Service-->>Classic: {status, operation, runId, sourceId}
+    Classic-->>Client: jsonrpc result.content[0].text(JSON)
+  else validation/not_found/busy
+    Service-->>Classic: {code,message,data}
+    Classic-->>Client: jsonrpc error(code,message,data)
+  end
+```
 
 ## Flows (schema)
 
@@ -790,6 +918,45 @@ sequenceDiagram
   UI->>WS: cancel_inflight(conversationId, inflightId) (Stop)
 ```
 
+### Codex stream merge invariants (Task 8)
+
+- Codex assistant text is merged by assistant item id, not by a single global prefix stream.
+- Non-prefix `item.updated` snapshots are treated as full replacements for that item segment and are not appended as token deltas.
+- `item.completed` marks an assistant item as finalized, and later `item.updated` events for that same item are ignored as stale.
+- Final publication is single-shot across interface and bridge boundaries: one terminal `turn_final` publish per inflight turn.
+
+```mermaid
+sequenceDiagram
+  participant Codex as Codex app-server events
+  participant CI as ChatInterfaceCodex
+  participant IR as inflightRegistry
+  participant Bridge as chatStreamBridge
+  participant WS as WS server
+
+  Codex->>CI: item.updated(agent_message id=m1 text="Hel")
+  CI->>Bridge: token("Hel")
+  Bridge->>IR: appendAssistantDelta
+  Bridge->>WS: assistant_delta
+
+  Codex->>CI: item.started/item.completed(mcp_tool_call)
+  CI->>Bridge: tool_event(started/result)
+  Bridge->>IR: appendToolEvent
+  Bridge->>WS: tool_event
+
+  Codex->>CI: item.updated(agent_message id=m1 text="I can help")
+  Note over CI: non-prefix for item m1 => replace item segment
+  CI->>Bridge: final("I can help")
+  Bridge->>IR: setAssistantText(replaced=true)
+  Bridge->>WS: inflight_snapshot
+
+  Codex->>CI: item.completed(agent_message id=m1 text="I can help with that.")
+  Codex->>CI: turn.completed
+  CI->>Bridge: complete(threadId, usage)
+  Bridge->>IR: markInflightFinal(alreadyFinalized=false)
+  Bridge->>WS: turn_final (exactly once)
+  Note over Bridge,IR: repeat finalization attempts are ignored
+```
+
 ### POST /agents/:agentName/run (REST)
 
 - Request body:
@@ -921,16 +1088,16 @@ flowchart TD
   Reset --> ListConvos
 ```
 
-### Markdown rendering (assistant replies)
+### Markdown rendering (assistant + user bubbles)
 
-- Assistant-visible text renders through `react-markdown` with `remark-gfm` and `rehype-sanitize` (no `rehype-raw`) so lists, tables, inline code, and fenced blocks show safely while stripping unsafe HTML.
+- Assistant-visible and user-visible text segments render through the same `react-markdown` pipeline with `remark-gfm` and `rehype-sanitize` (no `rehype-raw`) so lists, tables, inline code, and fenced blocks show safely while stripping unsafe HTML.
 - Styled `<pre><code>` blocks and inline code backgrounds improve readability; links open in a new tab. Blockquotes use a divider-colored border to stay subtle inside bubbles.
 - Tool payloads and citation blocks bypass markdown to preserve structured layout and avoid escaping JSON/path details; hidden think text uses the same renderer when expanded. Assistant-role messages that contain tool payloads are suppressed server-side so raw tool JSON never shows as a normal assistant reply; only the structured tool block renders the data.
 - Streaming-safe: the Markdown wrapper simply re-renders on content changes, relying on the sanitized schema to drop scripts before the virtual DOM paint.
 
 ### Mermaid rendering
 
-- Markdown fences labeled `mermaid` are intercepted in `client/src/components/Markdown.tsx` and rendered via `mermaid.render` into a dedicated `<div>`, keeping the renderer isolated from normal markdown output.
+- Markdown fences labeled `mermaid` are intercepted in `client/src/components/Markdown.tsx` and rendered via `mermaid.render` into a dedicated `<div>` for both assistant and user bubble markdown paths, keeping the renderer isolated from normal markdown output.
 - Input is sanitized before rendering (script tags stripped) and the mermaid instance is initialized per theme (`default` for light, `dark` for dark mode); render errors fall back to a short inline error message.
 - Diagram containers use the page background + border, clamp width to the chat bubble, and allow horizontal scroll so wide graphs do not overflow on mobile.
 
@@ -1715,17 +1882,18 @@ flowchart TD
   Base --> Mcp[McpResponder -> segments JSON]
 ```
 
-### MCP server (Codex tools)
+### MCP server (classic tools)
 
 - Express `POST /mcp` implements MCP over JSON-RPC 2.0 with methods `initialize`, `tools/list`, and `tools/call` (protocol version `2024-11-05`).
-- Tools exposed: `ListIngestedRepositories` (no params) and `VectorSearch` (`query` required, optional `repository`, `limit` <= 20). Results are returned as a single `text` content item containing JSON (`content: [{ type: "text", text: "<json>" }]`) for Codex compatibility.
+- Tools exposed: `ListIngestedRepositories` (no params), `VectorSearch` (`query` required, optional `repository`, `limit` <= 20), and `reingest_repository` (`sourceId` required). Results are returned as a single `text` content item containing JSON (`content: [{ type: "text", text: "<json>" }]`) for Codex compatibility.
 - Errors follow JSON-RPC envelopes: validation maps to -32602, method-not-found to -32601, and domain errors map to 404/409/503 codes in the `error` object.
 - `config.toml.example` seeds `[mcp_servers]` entries for host (`http://localhost:5010/mcp`) and docker (`http://server:5010/mcp`) so Codex can call the MCP server directly.
 - Shared MCP infrastructure (guards, JSON-RPC helpers, dispatch skeleton) lives under `server/src/mcpCommon/` and is reused by both `/mcp` and MCP v2 while preserving their intentionally different wire formats, tool sets, and gating/error conventions.
 
-### Codex-gated MCP v2 (port 5011)
+### MCP v2 JSON-RPC (port 5011)
 
-- A second JSON-RPC server listens on `MCP_PORT` (default 5011) alongside Express, exposing `initialize`, `tools/list`, `tools/call`, `resources/list`, and `resources/listTemplates` with Codex availability gating. When Codex is unavailable it returns `CODE_INFO_LLM_UNAVAILABLE` (-32001) instead of tools. Resource listings return empty arrays for compatibility.
+- A second JSON-RPC server listens on `MCP_PORT` (default 5011) alongside Express, exposing `initialize`, `tools/list`, `tools/call`, `resources/list`, and `resources/listTemplates`. `tools/list` is discovery-only and remains available even when Codex is unavailable; provider availability is resolved per-tool execution path.
+- MCP v2 tools now include `codebase_question` and `reingest_repository`.
 - `initialize` now mirrors MCP v1: it returns `protocolVersion: "2024-11-05"`, `capabilities: { tools: { listChanged: false } }`, and `serverInfo { name: "codeinfo2-mcp", version: <server package version> }` so Codex/mcp-remote clients accept the handshake.
 - Startup/shutdown: `startMcp2Server()` is called from `server/src/index.ts`; `stopMcp2Server()` is invoked during SIGINT/SIGTERM alongside LM Studio client cleanup.
 
@@ -1733,20 +1901,21 @@ flowchart TD
 flowchart LR
   Browser/Agent -- HTTP 5010 --> Express
   Express -->|/mcp| MCP1
-  Browser/Agent -- JSON-RPC 5011 --> MCP2[Codex-gated MCP]
-  MCP2 -->|tools/list| Codex
-  MCP2 -->|tools/call| Codex
-  MCP1 -->|ListIngestedRepositories / VectorSearch| LMStudio
+  Browser/Agent -- JSON-RPC 5011 --> MCP2[MCP v2]
+  MCP2 -->|tools/list| Clients
+  MCP2 -->|tools/call codebase_question| ChatProvider
+  MCP2 -->|tools/call reingest_repository| ReingestService
+  MCP1 -->|ListIngestedRepositories / VectorSearch / reingest_repository| LMStudio
 ```
 
 ### MCP v2 `codebase_question` flow (Codex + optional LM Studio)
 
-- Tool: `codebase_question(question, conversationId?, provider?, model?)` exposed on the MCP v2 server (port 5011). `provider` defaults to `codex` when omitted; `model` defaults per provider.
+- Tool: `codebase_question(question, conversationId?, provider?, model?)` exposed on the MCP v2 server (port 5011). Shared default resolution matches REST chat (`request -> CHAT_DEFAULT_* env -> hardcoded fallback`), so omitted values resolve to `provider=codex` and `model=gpt-5.3-codex` before runtime availability fallback is applied.
 - Behaviour: runs the selected `ChatInterface` and buffers normalized events via `McpResponder`, then filters the MCP response to answer-only segments (no thinking/vector-summary data). The MCP transport remains single-response (not streaming) and returns JSON `{ conversationId, modelId, segments: [{ type: 'answer', text }] }` inside the single `content` text payload.
 - Provider specifics:
   - `provider=codex`: uses Codex thread options (workingDirectory, sandbox, web search, reasoning effort) and relies on Codex thread history (only the latest message is submitted per turn).
   - `provider=lmstudio`: uses `LMSTUDIO_BASE_URL` and the requested/default LM Studio model; history comes from stored turns for `conversationId`.
-- Error handling: the MCP v2 server is Codex-gated; when Codex is unavailable, `tools/list` and `tools/call` return `CODE_INFO_LLM_UNAVAILABLE` (-32001) even if the requested provider is `lmstudio`.
+- Error handling: MCP v2 `tools/list` and `tools/call` are no longer globally Codex-gated. Provider availability is resolved inside `codebase_question`, so LM Studio fallback remains reachable; terminal unavailable remains `CODE_INFO_LLM_UNAVAILABLE` (`-32001`) only when neither provider can execute.
 
 ```mermaid
 sequenceDiagram
@@ -1767,10 +1936,41 @@ sequenceDiagram
   Note over MCP2: if Codex unavailable → error -32001 CODE_INFO_LLM_UNAVAILABLE
 ```
 
+### MCP v2 `reingest_repository` parity with classic MCP
+
+- Tool name is identical on both surfaces: `reingest_repository`.
+- Contract parity is explicit for shared success/error mapping:
+  - success: `{ status: "started", operation: "reembed", runId, sourceId }`
+  - errors (compatibility lock): JSON-RPC `error` envelope, not `result.isError`
+    - `-32602 INVALID_PARAMS`
+    - `404 NOT_FOUND`
+    - `429 BUSY`
+
+```mermaid
+sequenceDiagram
+  participant Client
+  participant MCP2 as MCP v2 (5011)
+  participant Service as runReingestRepository
+  participant Classic as Classic /mcp
+
+  Client->>MCP2: tools/list
+  MCP2-->>Client: includes reingest_repository
+  Client->>MCP2: tools/call reingest_repository {sourceId}
+  MCP2->>Service: runReingestRepository(args)
+  alt success
+    Service-->>MCP2: {status, operation, runId, sourceId}
+    MCP2-->>Client: result.content[0].text(JSON)
+  else invalid/not-found/busy
+    Service-->>MCP2: {code, message, data}
+    MCP2-->>Client: JSON-RPC error(code, message, data)
+  end
+  Note over MCP2,Classic: Success and error envelopes intentionally match classic /mcp contracts
+```
+
 ## End-to-end validation
 
 - Playwright test `e2e/version.spec.ts` hits the client UI and asserts both client/server versions render.
-- Playwright test `e2e/chat.spec.ts` walks the chat page end-to-end (model select + two streamed turns) and skips automatically when `/chat/models` is unreachable/empty.
+- Playwright test `e2e/chat.spec.ts` walks the chat page end-to-end (model select + two streamed turns), validates raw outbound payload preservation (leading/trailing whitespace + multiline newlines), and asserts whitespace-only submit does not dispatch `POST /chat`; it skips automatically when `/chat/models` is unreachable/empty.
 - Playwright test `e2e/chat-tools.spec.ts` ingests the mounted fixture repo (`/fixtures/repo`), runs a vector search, mocks `POST /chat` (202) + `/ws` transcript events, and asserts citations render `repo/relPath` plus host path. The question is “What does main.txt say about the project?” with the expected answer text “This is the ingest test fixture for CodeInfo2.”
 - Scripts: `e2e:up` (compose stack), `e2e:test`, `e2e:down`, and `e2e` for the full chain; install browsers once via `npx playwright install --with-deps`.
 - Uses `E2E_BASE_URL` to override the client URL; defaults to http://localhost:5001.
@@ -2126,4 +2326,23 @@ sequenceDiagram
     UI->>Logs: GET /logs/stream (SSE)
     Logs-->>UI: events (id = sequence)
   end
+```
+
+### Story 0000035 final acceptance workflow
+
+- Final verification runs full server/client/e2e regressions before manual UI walkthrough.
+- Manual walkthrough is executed against the local compose client endpoint `http://host.docker.internal:5001`.
+- Task 13 acceptance markers are emitted through shared logger modules:
+  - `DEV-0000035:T13:manual_acceptance_check_started`
+  - `DEV-0000035:T13:manual_acceptance_check_completed`
+- Required visual artifacts are captured in `playwright-output-local/0000035-13-*.png` for chat raw-input parity, chat markdown parity, agents raw-input parity, agents markdown parity, and general regression state.
+
+```mermaid
+flowchart TD
+  A[Run full regression commands] --> B[Start compose stack]
+  B --> C[Emit manual_acceptance_check_started]
+  C --> D[Manual Playwright checks on /chat and /agents]
+  D --> E[Capture 0000035-13 screenshots]
+  E --> F[Emit manual_acceptance_check_completed]
+  F --> G[Record evidence in task implementation notes]
 ```

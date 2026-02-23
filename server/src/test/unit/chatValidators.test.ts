@@ -9,6 +9,8 @@ const ENV_KEYS = [
   'Codex_reasoning_effort',
   'Codex_network_access_enabled',
   'Codex_web_search_enabled',
+  'CHAT_DEFAULT_PROVIDER',
+  'CHAT_DEFAULT_MODEL',
 ];
 
 const originalEnv = new Map<string, string | undefined>();
@@ -68,6 +70,50 @@ test('env defaults apply when Codex flags are omitted', () => {
     webSearchEnabled: true,
   });
   assert.equal(result.warnings.length, 0);
+});
+
+test('chat request resolves provider and model from shared env defaults', () => {
+  setEnv({
+    CHAT_DEFAULT_PROVIDER: 'codex',
+    CHAT_DEFAULT_MODEL: 'gpt-5.3-codex',
+  });
+
+  const result = validateChatRequest({
+    message: 'hello',
+    conversationId: 'shared-defaults-1',
+  });
+
+  assert.equal(result.provider, 'codex');
+  assert.equal(result.model, 'gpt-5.3-codex');
+  assert.equal(result.defaultsResolution.providerSource, 'env');
+  assert.equal(result.defaultsResolution.modelSource, 'env');
+});
+
+test('invalid shared env defaults fallback without leaking invalid state', () => {
+  setEnv({
+    CHAT_DEFAULT_PROVIDER: 'not-a-provider',
+    CHAT_DEFAULT_MODEL: '',
+  });
+
+  const result = validateChatRequest({
+    message: 'hello',
+    conversationId: 'shared-defaults-2',
+  });
+
+  assert.equal(result.provider, 'codex');
+  assert.equal(result.model, 'gpt-5.3-codex');
+  assert.equal(result.defaultsResolution.providerSource, 'fallback');
+  assert.equal(result.defaultsResolution.modelSource, 'fallback');
+  assert.ok(
+    result.warnings.some((warning) =>
+      warning.includes('CHAT_DEFAULT_PROVIDER must be one of'),
+    ),
+  );
+  assert.ok(
+    result.warnings.some((warning) =>
+      warning.includes('CHAT_DEFAULT_MODEL is empty'),
+    ),
+  );
 });
 
 test('explicit Codex flags override env defaults', () => {
@@ -158,4 +204,35 @@ test('non-Codex provider emits warnings for Codex-only flags', () => {
       warning.includes('webSearchEnabled is Codex-only'),
     ),
   );
+});
+
+test('whitespace-only message is rejected with exact contract message', () => {
+  assert.throws(
+    () =>
+      validateChatRequest({
+        message: '   \t  ',
+        conversationId: 'c-whitespace',
+      }),
+    /message must contain at least one non-whitespace character/,
+  );
+});
+
+test('newline-only message is rejected with exact contract message', () => {
+  assert.throws(
+    () =>
+      validateChatRequest({
+        message: '\n\n\r\n',
+        conversationId: 'c-newline',
+      }),
+    /message must contain at least one non-whitespace character/,
+  );
+});
+
+test('message with surrounding whitespace is accepted and preserved', () => {
+  const result = validateChatRequest({
+    message: '  hello with spaces  \n',
+    conversationId: 'c-surrounding',
+  });
+
+  assert.equal(result.message, '  hello with spaces  \n');
 });

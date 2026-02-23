@@ -222,6 +222,221 @@ test('chat streams end-to-end', async ({ page }) => {
   }
 });
 
+test('chat preserves raw outbound payload and blocks whitespace-only submit', async ({
+  page,
+}) => {
+  await skipIfUnreachable(page);
+  test.skip(!useMockChat, 'raw payload assertions require mock chat routing');
+
+  const chatBodies: Array<Record<string, unknown>> = [];
+  const mockModels: ChatModel[] = [
+    { key: 'mock-1', displayName: 'Mock Model 1', type: 'gguf' },
+  ];
+  const mockWs = await installMockChatWs(page);
+
+  await page.route('**/chat/providers*', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        providers: [
+          {
+            id: 'lmstudio',
+            label: 'LM Studio',
+            available: true,
+            toolsAvailable: true,
+          },
+          {
+            id: 'codex',
+            label: 'OpenAI Codex',
+            available: false,
+            toolsAvailable: false,
+            reason: codexReason,
+          },
+        ],
+      }),
+    }),
+  );
+  await page.route('**/chat/models*', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        provider: 'lmstudio',
+        available: true,
+        toolsAvailable: true,
+        models: mockModels,
+      }),
+    }),
+  );
+
+  await page.route('**/chat', async (route) => {
+    if (route.request().method() !== 'POST') {
+      return route.continue();
+    }
+    const payload = (route.request().postDataJSON?.() ?? {}) as Record<
+      string,
+      unknown
+    >;
+    chatBodies.push(payload);
+
+    const conversationId = String(payload.conversationId ?? 'c-raw-1');
+    const inflightId = String(payload.inflightId ?? 'i-raw-1');
+
+    await route.fulfill({
+      status: 202,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'started',
+        conversationId,
+        inflightId,
+        provider: payload.provider,
+        model: payload.model,
+      }),
+    });
+
+    await mockWs.waitForConversationSubscription(conversationId);
+    mockWs.sendInflightSnapshot({ conversationId, inflightId });
+    mockWs.sendAssistantDelta({
+      conversationId,
+      inflightId,
+      delta: 'ack',
+    });
+    mockWs.sendFinal({ conversationId, inflightId, status: 'ok' });
+  });
+
+  await page.goto(`${baseUrl}/chat`);
+
+  const modelSelect = page.getByRole('combobox', { name: /Model/i });
+  await expect(modelSelect).toBeEnabled({ timeout: 20000 });
+  await modelSelect.click();
+  await page.getByRole('option', { name: 'Mock Model 1' }).click();
+  await expect(modelSelect).toHaveText('Mock Model 1');
+
+  const input = page.getByTestId('chat-input');
+  const send = page.getByTestId('chat-send');
+
+  const raw = '  first line\nsecond line  ';
+  await input.fill(raw);
+  await send.click();
+  await expect.poll(() => chatBodies.length).toBe(1);
+  expect(chatBodies[0]?.message).toBe(raw);
+
+  await input.fill('   \n   ');
+  await send.click();
+  await page.waitForTimeout(300);
+  expect(chatBodies).toHaveLength(1);
+});
+
+test('chat renders user markdown list/code with same structure as assistant markdown', async ({
+  page,
+}) => {
+  await skipIfUnreachable(page);
+  test.skip(!useMockChat, 'markdown parity assertions require mock chat routing');
+
+  const mockModels: ChatModel[] = [
+    { key: 'mock-1', displayName: 'Mock Model 1', type: 'gguf' },
+  ];
+  const mockWs = await installMockChatWs(page);
+
+  await page.route('**/chat/providers*', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        providers: [
+          {
+            id: 'lmstudio',
+            label: 'LM Studio',
+            available: true,
+            toolsAvailable: true,
+          },
+          {
+            id: 'codex',
+            label: 'OpenAI Codex',
+            available: false,
+            toolsAvailable: false,
+            reason: codexReason,
+          },
+        ],
+      }),
+    }),
+  );
+  await page.route('**/chat/models*', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        provider: 'lmstudio',
+        available: true,
+        toolsAvailable: true,
+        models: mockModels,
+      }),
+    }),
+  );
+
+  await page.route('**/chat', async (route) => {
+    if (route.request().method() !== 'POST') {
+      return route.continue();
+    }
+    const payload = (route.request().postDataJSON?.() ?? {}) as Record<
+      string,
+      unknown
+    >;
+    const conversationId = String(payload.conversationId ?? 'c-md-1');
+    const inflightId = String(payload.inflightId ?? 'i-md-1');
+    const message = String(payload.message ?? '');
+
+    await route.fulfill({
+      status: 202,
+      contentType: 'application/json',
+      body: JSON.stringify({
+        status: 'started',
+        conversationId,
+        inflightId,
+        provider: payload.provider,
+        model: payload.model,
+      }),
+    });
+
+    await mockWs.waitForConversationSubscription(conversationId);
+    mockWs.sendInflightSnapshot({ conversationId, inflightId });
+    mockWs.sendAssistantDelta({ conversationId, inflightId, delta: message });
+    mockWs.sendFinal({ conversationId, inflightId, status: 'ok' });
+  });
+
+  await page.goto(`${baseUrl}/chat`);
+  const input = page.getByTestId('chat-input');
+  const send = page.getByTestId('chat-send');
+
+  const markdown = [
+    'Shopping list:',
+    '- apples',
+    '- oranges',
+    '',
+    '```ts',
+    'const total = 2;',
+    '```',
+  ].join('\n');
+
+  await input.fill(markdown);
+  await send.click();
+
+  const userMarkdown = page.getByTestId('user-markdown').first();
+  const assistantMarkdown = page.getByTestId('assistant-markdown').first();
+
+  await expect(userMarkdown.getByRole('listitem')).toHaveCount(2, {
+    timeout: 20000,
+  });
+  await expect(assistantMarkdown.getByRole('listitem')).toHaveCount(2, {
+    timeout: 20000,
+  });
+  await expect(userMarkdown.locator('pre code')).toContainText('const total = 2;');
+  await expect(assistantMarkdown.locator('pre code')).toContainText(
+    'const total = 2;',
+  );
+});
+
 test('chat provider/model selects work on small viewport', async ({ page }) => {
   await skipIfUnreachable(page);
 

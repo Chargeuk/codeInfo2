@@ -20,6 +20,7 @@ User-visible outcome we are targeting:
 - Ingest can run using either LM Studio or OpenAI embedding models (subject to locking rules and availability).
 - Users are not asked to configure embedding dimensions in the UI; the system uses each selected model's default vector length.
 - OpenAI model visibility in the Ingest dropdown is constrained by a curated allowlist and not by raw `models.list()` output alone.
+- If `OPENAI_EMBEDDING_KEY` is configured but OpenAI model discovery fails transiently, `GET /ingest/models` still returns LM Studio models and includes explicit OpenAI warning state for the UI.
 
 Critical consistency rule that must remain true:
 
@@ -49,6 +50,7 @@ OpenAI dropdown filtering decision for this story:
   - models actually available to the configured `OPENAI_EMBEDDING_KEY` from `client.models.list()`.
 - If the key is present but none of the curated models are available, show no OpenAI options and return a clear informational message state.
 - Server enforces the same allowlist on ingest-start/reembed validation; clients cannot bypass the allowlist by posting arbitrary model ids.
+- `/ingest/models` includes explicit OpenAI availability fields so UI behavior does not depend on inference (for example `openaiEnabled`, `openaiStatusCode`, warning metadata).
 
 Operational failures to handle explicitly:
 
@@ -77,12 +79,15 @@ Retryability guidance for this taxonomy:
 
 - Retryable by default: `OPENAI_RATE_LIMITED`, `OPENAI_TIMEOUT`, `OPENAI_CONNECTION_FAILED`, `OPENAI_UNAVAILABLE`.
 - Non-retryable by default: `OPENAI_AUTH_FAILED`, `OPENAI_PERMISSION_DENIED`, `OPENAI_MODEL_UNAVAILABLE`, `OPENAI_BAD_REQUEST`, `OPENAI_INPUT_TOO_LARGE`, `OPENAI_UNPROCESSABLE`, `OPENAI_QUOTA_EXCEEDED`.
+- For retryable categories, this story will apply server-side retries using bounded exponential backoff before returning a terminal error.
 
 ### Acceptance Criteria
 
 - Server recognizes `OPENAI_EMBEDDING_KEY` and conditionally enables OpenAI embedding provider support without breaking LM Studio support.
 - `GET /ingest/models` returns OpenAI embedding models when `OPENAI_EMBEDDING_KEY` is present and valid enough to list models.
+- If OpenAI model listing fails transiently, `GET /ingest/models` still succeeds with LM Studio model results and includes explicit OpenAI warning state in the response.
 - When `OPENAI_EMBEDDING_KEY` is missing, the Ingest page displays an information bar that clearly states `OPENAI_EMBEDDING_KEY` is required for OpenAI embedding models.
+- `/ingest/models` exposes explicit OpenAI availability contract fields (including enabled/status/warning state) so UI info bars and empty/error states are deterministic.
 - Ingest UI model selection supports OpenAI models and LM Studio models in one coherent dropdown without ambiguity.
 - OpenAI options in the Ingest dropdown are restricted to a curated allowlist (`text-embedding-3-small`, `text-embedding-3-large`) intersected with models available to the configured key.
 - Dropdown ordering for OpenAI options is stable and deterministic (small before large).
@@ -101,14 +106,16 @@ Retryability guidance for this taxonomy:
 - Existing LM Studio-only workflows continue to work unchanged when OpenAI key is absent.
 - Server-side validation rejects OpenAI embedding model ids that are not in the curated allowlist, even if they appear in upstream model listings.
 - OpenAI ingest/vector-search failures use a stable internal taxonomy that distinguishes auth, quota, rate limit, input-size, model availability, timeout/network, and upstream availability errors.
+- Retryable OpenAI failures (`OPENAI_RATE_LIMITED`, `OPENAI_TIMEOUT`, `OPENAI_CONNECTION_FAILED`, `OPENAI_UNAVAILABLE`) are retried server-side with bounded exponential backoff before surfacing failure.
 - Tests are expanded to cover:
   - OpenAI models shown/hidden based on `OPENAI_EMBEDDING_KEY`.
   - Allowlist filtering and deterministic ordering for OpenAI models.
   - Info-bar behavior when key missing.
   - Key-present but no-curated-model-available informational behavior.
+  - Key-present plus transient OpenAI model-list failure returns LM Studio models and explicit OpenAI warning state.
   - Rejection of non-allowlisted OpenAI model ids at ingest start/reembed.
   - Provider/model lock enforcement across ingest and vector search.
-  - OpenAI error mapping, including quota/credit failures.
+  - OpenAI error mapping, including quota/credit failures and bounded retry behavior on retryable categories.
 
 ### Out Of Scope
 
@@ -120,10 +127,12 @@ Retryability guidance for this taxonomy:
 
 ### Questions
 
-- For `GET /ingest/models`, if `OPENAI_EMBEDDING_KEY` is set but `client.models.list()` fails transiently, should the server return LM Studio models plus an OpenAI warning state, or fail the full request?
-- For retryable OpenAI failures (`OPENAI_RATE_LIMITED`, `OPENAI_TIMEOUT`, `OPENAI_CONNECTION_FAILED`, `OPENAI_UNAVAILABLE`), should server-side retry be applied (for example with bounded exponential backoff), or should errors be surfaced immediately without retry?
-- Should `/ingest/models` include an explicit OpenAI availability contract (for example `openaiEnabled` and `openaiStatusCode`) so the Ingest UI info-bar and states are deterministic without inference?
-- Confirm canonical lock metadata naming across Chroma/root/API responses: should implementation standardize on explicit fields such as `embeddingProvider` and `embeddingModel` everywhere?
+- Lock metadata naming decision still required. Clarifying examples:
+  - Option A (explicit new naming everywhere): Chroma metadata `{ embeddingProvider: \"lmstudio\" | \"openai\", embeddingModel: \"text-embedding-3-small\" }`, root metadata same names, API payloads same names.
+  - Option B (legacy+new mixed naming): keep existing `lockedModelId` in some persistence/contracts, add provider separately (for example `provider`), and map to UI/API response aliases.
+  - Impact of Option A: cleaner long-term semantics and fewer translation layers, but may require touching more files/tests now.
+  - Impact of Option B: smaller immediate code churn but higher risk of future confusion and mapping bugs due to mixed field names.
+  - Please confirm preferred option so implementation can finalize the canonical schema.
 
 ## Implementation Ideas
 
@@ -137,6 +146,7 @@ Retryability guidance for this taxonomy:
   - OpenAI embedding provider (using official OpenAI SDK and `OPENAI_EMBEDDING_KEY`).
 - Add a small provider registry/factory that resolves enabled providers at runtime based on environment.
 - Add an OpenAI embedding allowlist config on the server (defaulting to `text-embedding-3-small,text-embedding-3-large`) and apply it consistently in list + ingest validation paths.
+- Update `/ingest/models` contract to expose explicit OpenAI availability/warning fields and keep LM Studio model output available when OpenAI model listing fails transiently.
 - Set and document a strict dimensions policy for this story: no UI control and no request-level override; always use the selected model default vector length.
 - Treat missing historical provider metadata as `lmstudio` at read/lock-evaluation time, and write explicit provider metadata on all new ingest and re-embed updates.
 - Refactor current LM Studio-specific embedding calls:
@@ -150,6 +160,7 @@ Retryability guidance for this taxonomy:
 - Remove or repurpose `server/src/ingest/modelLock.ts` placeholder so lock reporting cannot diverge from enforcement.
 - Ensure vector search path loads and uses the locked provider/model for query embeddings so retrieval space matches indexed vectors.
 - Add OpenAI error mapping utility to normalize quota/auth/rate-limit/upstream failures into stable API responses and logs.
+- Implement bounded exponential backoff retry utility for retryable OpenAI categories and apply it consistently in ingest-time and query-time embedding calls.
 - Include OpenAI `error.code` + HTTP-status mapping rules for `insufficient_quota`, `rate_limit_exceeded`, `invalid_api_key`, `model_not_found`, and input-limit failures, and carry retryability metadata through ingest/vector-search error payloads.
 - Update Ingest UI model handling to support provider-tagged model labels and missing-key info banner copy.
 - Keep backward compatibility for LM Studio-only setups and existing lock reset behavior when collections are emptied/removed.

@@ -117,6 +117,7 @@ Retryability guidance for this taxonomy:
 - Server-side validation rejects OpenAI embedding model ids that are not in the curated allowlist, even if they appear in upstream model listings.
 - OpenAI ingest/vector-search failures use a stable internal taxonomy that distinguishes auth, quota, rate limit, input-size, model availability, timeout/network, and upstream availability errors.
 - Retryable OpenAI failures (`OPENAI_RATE_LIMITED`, `OPENAI_TIMEOUT`, `OPENAI_CONNECTION_FAILED`, `OPENAI_UNAVAILABLE`) are retried server-side with bounded exponential backoff before surfacing failure.
+- Retry defaults are explicit and deterministic: `maxRetries=3`, `baseDelayMs=500`, `maxDelayMs=8000`, jitter up to 25 percent, and header-based wait hints are honored before fallback delay calculation.
 - Tests are expanded to cover:
   - OpenAI models shown/hidden based on `OPENAI_EMBEDDING_KEY`.
   - Allowlist filtering and deterministic ordering for OpenAI models.
@@ -138,8 +139,66 @@ Retryability guidance for this taxonomy:
 
 ### Questions
 
-- What are the exact bounded exponential backoff defaults for retryable OpenAI failures (for example `maxRetries`, `baseDelayMs`, `maxDelayMs`, and jitter strategy)?
-- What is the exact `/ingest/models` warning-state response shape for transient OpenAI model-list failures (for example `openaiWarningCode` value set and message contract)?
+## Message Contracts & Storage Shapes
+
+### Retry Defaults (OpenAI Embedding Calls)
+
+- `maxRetries`: `3` (three retries after initial attempt).
+- `baseDelayMs`: `500`.
+- `maxDelayMs`: `8000`.
+- `jitter`: multiply computed delay by a random factor in `[0.75, 1.0]` (up to 25 percent reduction), aligned with OpenAI SDK behavior.
+- Retryable categories remain: `OPENAI_RATE_LIMITED`, `OPENAI_TIMEOUT`, `OPENAI_CONNECTION_FAILED`, `OPENAI_UNAVAILABLE`.
+- Wait-hint precedence when OpenAI indicates rate/availability pressure:
+  - `retry-after-ms` header (milliseconds) when present and valid.
+  - `retry-after` header (seconds or HTTP date) when present and valid.
+  - `x-ratelimit-reset-requests` / `x-ratelimit-reset-tokens` when parseable as a positive reset duration.
+  - Fallback to bounded exponential delay when no valid hint is available.
+- Any server-provided wait hint above `60000ms` is treated as non-immediate and replaced by bounded exponential fallback, to avoid long blocking stalls in ingest/vector-search requests.
+
+### `/ingest/models` Warning-State Message Contract
+
+- Response shape includes explicit OpenAI status envelope so UI state is deterministic:
+
+```json
+{
+  "models": [],
+  "lock": null,
+  "openai": {
+    "enabled": true,
+    "status": "warning",
+    "warning": {
+      "code": "OPENAI_MODELS_LIST_TEMPORARY_FAILURE",
+      "message": "OpenAI model listing is temporarily unavailable. LM Studio models are still available.",
+      "retryable": true,
+      "retryAfterMs": 2000
+    }
+  }
+}
+```
+
+- `openai.status` values:
+  - `disabled`: no `OPENAI_EMBEDDING_KEY` configured.
+  - `ok`: key configured and model listing succeeded.
+  - `warning`: key configured but OpenAI model listing did not fully succeed.
+- `openai.warning.code` values for this story:
+  - `OPENAI_EMBEDDING_KEY_MISSING`
+  - `OPENAI_MODELS_LIST_TEMPORARY_FAILURE`
+  - `OPENAI_MODELS_LIST_AUTH_FAILED`
+  - `OPENAI_MODELS_LIST_UNAVAILABLE`
+- For the transient failure case requested in this story, use:
+  - `code=OPENAI_MODELS_LIST_TEMPORARY_FAILURE`
+  - `retryable=true`
+  - include LM Studio models as normal; do not fail the whole endpoint.
+
+### Canonical Storage Shapes (Option A + Backward Compatibility)
+
+- Chroma/root canonical lock fields:
+  - `embeddingProvider: "lmstudio" | "openai"`
+  - `embeddingModel: string`
+- Legacy read compatibility remains mandatory:
+  - If canonical fields are missing, read legacy `lockedModelId` and legacy root `model`.
+  - Infer `embeddingProvider="lmstudio"` when provider is missing.
+- New writes (ingest/re-embed) persist canonical fields only.
 
 ## Implementation Ideas
 

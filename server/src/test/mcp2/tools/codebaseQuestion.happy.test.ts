@@ -3,6 +3,7 @@ import http from 'node:http';
 import { AddressInfo } from 'node:net';
 import test from 'node:test';
 import { McpResponder } from '../../../chat/responders/McpResponder.js';
+import { resolveChatDefaults } from '../../../config/chatDefaults.js';
 import { handleRpc } from '../../../mcp2/router.js';
 import { resetToolDeps, setToolDeps } from '../../../mcp2/tools.js';
 
@@ -130,9 +131,10 @@ test('codebase_question returns answer-only payloads and preserves conversationI
 
     assert.equal(firstCall.result.content[0].type, 'text');
     const firstPayload = JSON.parse(firstCall.result.content[0].text);
+    const defaults = resolveChatDefaults({ requestProvider: 'codex' });
 
     assert.equal(firstPayload.conversationId, 'thread-abc');
-    assert.equal(firstPayload.modelId, 'gpt-5.3-codex');
+    assert.equal(firstPayload.modelId, defaults.model);
     assert.deepEqual(
       firstPayload.segments.map((s: { type: string }) => s.type),
       ['answer'],

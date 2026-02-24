@@ -142,3 +142,27 @@ test('getActiveStatus returns null when only terminal runs exist', () => {
 
   assert.equal(active, null);
 });
+
+test('ingest status snapshots preserve normalized error object with legacy lastError', () => {
+  const runId = 'run-openai-error';
+  __setStatusForTest(runId, {
+    runId,
+    state: 'error',
+    counts: { files: 2, chunks: 4, embedded: 1 },
+    message: 'Failed',
+    lastError: 'quota exhausted',
+    error: {
+      error: 'OPENAI_QUOTA_EXCEEDED',
+      message: 'quota exhausted',
+      retryable: false,
+      provider: 'openai',
+      upstreamStatus: 429,
+    },
+  });
+
+  const snapshot = getStatus(runId);
+  assert.ok(snapshot);
+  assert.equal(snapshot?.lastError, 'quota exhausted');
+  assert.equal(snapshot?.error?.error, 'OPENAI_QUOTA_EXCEEDED');
+  assert.equal(snapshot?.error?.retryable, false);
+});

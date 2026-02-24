@@ -8,6 +8,7 @@ import {
   IngestRequiredError,
 } from '../ingest/chromaClient.js';
 import { OpenAiEmbeddingError } from '../ingest/providers/index.js';
+import { toNormalizedOpenAiErrorPayload } from '../ingest/providers/index.js';
 import { baseLogger } from '../logger.js';
 import {
   RepoNotFoundError,
@@ -157,9 +158,7 @@ export function createLmStudioTools(options: ToolFactoryOptions = {}) {
           );
         }
         if (err instanceof OpenAiEmbeddingError) {
-          throw new Error(
-            `${err.code}: ${err.message}${err.retryable ? ' (retryable)' : ''}`,
-          );
+          throw new Error(JSON.stringify(toNormalizedOpenAiErrorPayload(err)));
         }
         throw err;
       }

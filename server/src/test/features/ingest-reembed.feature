@@ -13,3 +13,10 @@ Feature: Ingest re-embed
     Then ingest manage status for the last run becomes "completed"
     When I GET ingest manage roots
     Then ingest manage roots first model is "embed-1"
+
+  Scenario: re-embed uses lock-derived provider and rejects silent switching
+    Given ingest manage chroma stub is empty
+    And ingest manage root metadata exists for "/tmp/reembed-root" with legacy model "embed-1"
+    And ingest manage lock is provider "openai" model "text-embedding-3-small" dimensions 1536
+    When I POST ingest manage reembed for root "/tmp/reembed-root"
+    Then ingest manage response status is 409 with code "MODEL_LOCKED"

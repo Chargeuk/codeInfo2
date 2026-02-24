@@ -62,6 +62,11 @@ import type { ProviderEmbeddingModel } from './providers/types.js';
 import {
   createLmStudioEmbeddingProvider,
   createOpenAiEmbeddingProvider,
+  isOpenAiAllowlistedEmbeddingModel,
+  logOpenAiContractMapping,
+  resolveOpenAiRestStatus,
+  toNormalizedOpenAiErrorPayload,
+  OpenAiEmbeddingError,
   type ResolvedEmbeddingModelSelection,
   resolveEmbeddingModelSelection,
 } from './providers/index.js';
@@ -71,8 +76,19 @@ export type IngestJobInput = {
   name: string;
   description?: string;
   model: string;
+  embeddingProvider?: 'lmstudio' | 'openai';
+  embeddingModel?: string;
   dryRun?: boolean;
   operation?: 'start' | 'reembed';
+};
+
+export type IngestNormalizedError = {
+  error: string;
+  message: string;
+  retryable: boolean;
+  provider: 'lmstudio' | 'openai';
+  upstreamStatus?: number;
+  retryAfterMs?: number;
 };
 
 export type IngestAstCounts = {
@@ -88,6 +104,7 @@ export type IngestJobStatus = {
   ast?: IngestAstCounts;
   message?: string;
   lastError?: string | null;
+  error?: IngestNormalizedError | null;
   currentFile?: string;
   fileIndex?: number;
   fileTotal?: number;
@@ -187,6 +204,41 @@ async function embedText(modelKey: string, text: string): Promise<number[]> {
   return model.embedText(text);
 }
 
+function resolveInputSelection(
+  input: Pick<IngestJobInput, 'model' | 'embeddingProvider' | 'embeddingModel'>,
+): ResolvedEmbeddingModelSelection {
+  if (input.embeddingProvider && input.embeddingModel) {
+    return {
+      providerId: input.embeddingProvider,
+      modelKey: input.embeddingModel,
+    };
+  }
+  return resolveEmbeddingModelSelection(input.model);
+}
+
+function mapIngestError(err: unknown): {
+  message: string;
+  normalized: IngestNormalizedError | null;
+} {
+  if (err instanceof OpenAiEmbeddingError) {
+    const payload = toNormalizedOpenAiErrorPayload(err);
+    logOpenAiContractMapping({
+      surface: 'ingest',
+      payload,
+      statusCode: resolveOpenAiRestStatus(err),
+    });
+    return {
+      message: payload.message,
+      normalized: payload,
+    };
+  }
+  const message = (err as Error)?.message ?? 'Unknown error';
+  return {
+    message,
+    normalized: null,
+  };
+}
+
 function toProviderQualifiedModelId(
   selection: ResolvedEmbeddingModelSelection,
 ) {
@@ -260,15 +312,8 @@ async function processRun(runId: string, input: IngestJobInput) {
   jobInputs.set(runId, input);
   try {
     const ingestedAtMs = Date.now();
-    const {
-      path: startPath,
-      name,
-      description,
-      model,
-      dryRun,
-      operation: op,
-    } = input;
-    const requestedSelection = resolveEmbeddingModelSelection(model);
+    const { path: startPath, name, description, dryRun, operation: op } = input;
+    const requestedSelection = resolveInputSelection(input);
     const embeddingProvider = requestedSelection.providerId;
     const embeddingModel = requestedSelection.modelKey;
     const operation = op ?? 'start';
@@ -298,6 +343,12 @@ async function processRun(runId: string, input: IngestJobInput) {
         counts: { files: 0, chunks: 0, embedded: 0 },
         message: errorMsg,
         lastError: errorMsg,
+        error: {
+          error: 'NO_ELIGIBLE_FILES',
+          message: errorMsg,
+          retryable: false,
+          provider: requestedSelection.providerId,
+        },
       });
       logLifecycle('error', 'ingest error', {
         runId,
@@ -633,6 +684,7 @@ async function processRun(runId: string, input: IngestJobInput) {
         ast: astCounts,
         message: 'Cancelled',
         lastError: null,
+        error: null,
         currentFile: lastFileRelPath ?? currentFile,
         fileIndex,
         fileTotal,
@@ -948,6 +1000,7 @@ async function processRun(runId: string, input: IngestJobInput) {
           ? (finalSkipMessage ?? 'No changes detected')
           : 'Completed',
       lastError: null,
+      error: null,
       currentFile: lastFileRelPath,
       fileIndex: fileTotal,
       fileTotal,
@@ -972,7 +1025,9 @@ async function processRun(runId: string, input: IngestJobInput) {
       },
     );
   } catch (err) {
-    const errorMessage = (err as Error)?.message ?? 'Unknown error';
+    const mappedError = mapIngestError(err);
+    const errorMessage = mappedError.message;
+    const currentStatus = jobs.get(runId);
     baseLogger.error(
       {
         runId,
@@ -984,22 +1039,31 @@ async function processRun(runId: string, input: IngestJobInput) {
     setStatusAndPublish(runId, {
       runId,
       state: 'error',
-      counts: { files: 0, chunks: 0, embedded: 0 },
+      counts: currentStatus?.counts ?? { files: 0, chunks: 0, embedded: 0 },
+      ast: currentStatus?.ast,
       message: 'Failed',
       lastError: errorMessage,
+      error: mappedError.normalized,
+      currentFile: currentStatus?.currentFile,
+      fileIndex: currentStatus?.fileIndex,
+      fileTotal: currentStatus?.fileTotal,
+      percent: currentStatus?.percent,
+      etaMs: currentStatus?.etaMs,
     });
+    const selectedForErrorLog = resolveInputSelection(input);
     logLifecycle('error', 'ingest error', {
       runId,
       operation: input.operation ?? 'start',
       path: input.path,
-      model: resolveEmbeddingModelSelection(input.model).modelKey,
-      embeddingProvider: resolveEmbeddingModelSelection(input.model).providerId,
-      embeddingModel: resolveEmbeddingModelSelection(input.model).modelKey,
+      model: selectedForErrorLog.modelKey,
+      embeddingProvider: selectedForErrorLog.providerId,
+      embeddingModel: selectedForErrorLog.modelKey,
       name: input.name,
       description: input.description,
       state: 'error',
       lastError: errorMessage,
-      counts: { files: 0, chunks: 0, embedded: 0 },
+      counts: currentStatus?.counts ?? { files: 0, chunks: 0, embedded: 0 },
+      error: mappedError.normalized,
     });
   } finally {
     ingestLock.release(runId);
@@ -1010,7 +1074,15 @@ export async function startIngest(input: IngestJobInput, d: Deps) {
   deps = d;
   const operation = input.operation ?? 'start';
   const locked = await getLockedEmbeddingModel();
-  const requested = resolveEmbeddingModelSelection(input.model);
+  const requested = resolveInputSelection(input);
+  if (
+    requested.providerId === 'openai' &&
+    !isOpenAiAllowlistedEmbeddingModel(requested.modelKey)
+  ) {
+    const error = new Error('OPENAI_MODEL_UNAVAILABLE');
+    (error as { code?: string }).code = 'OPENAI_MODEL_UNAVAILABLE';
+    throw error;
+  }
   if (
     locked &&
     (locked.embeddingProvider !== requested.providerId ||
@@ -1032,6 +1104,7 @@ export async function startIngest(input: IngestJobInput, d: Deps) {
     counts: { files: 0, chunks: 0, embedded: 0 },
     message: 'Queued',
     lastError: null,
+    error: null,
   });
   jobInputs.set(runId, { ...input, root: input.path });
   setImmediate(() => {
@@ -1110,6 +1183,10 @@ export async function cancelRun(runId: string) {
   const status = jobs.get(runId);
   const input = jobInputs.get(runId);
   const root = input?.root;
+  const selected =
+    input?.model && input.model.length > 0
+      ? resolveInputSelection(input)
+      : null;
 
   if (status?.state === 'completed' || status?.state === 'error') {
     cancelledRuns.delete(runId);
@@ -1129,10 +1206,6 @@ export async function cancelRun(runId: string) {
       }
     ).get({ include: ['embeddings'], limit: 1 });
     const existingRootDim = existingRoots.embeddings?.[0]?.length;
-    const selected =
-      input?.model && input.model.length > 0
-        ? resolveEmbeddingModelSelection(input.model)
-        : null;
     const rootEmbeddingDim = await resolveRootEmbeddingDim({
       existingRootDim,
       modelKey: input?.model ?? '',
@@ -1182,24 +1255,16 @@ export async function cancelRun(runId: string) {
     ast: status?.ast,
     message: 'Cancelled',
     lastError: null,
+    error: null,
   });
   logLifecycle('info', 'ingest cancelled', {
     runId,
     operation: input?.operation ?? 'start',
     path: input?.path,
     root,
-    model:
-      input?.model && input.model.length > 0
-        ? resolveEmbeddingModelSelection(input.model).modelKey
-        : input?.model,
-    embeddingProvider:
-      input?.model && input.model.length > 0
-        ? resolveEmbeddingModelSelection(input.model).providerId
-        : undefined,
-    embeddingModel:
-      input?.model && input.model.length > 0
-        ? resolveEmbeddingModelSelection(input.model).modelKey
-        : undefined,
+    model: selected?.modelKey ?? input?.model,
+    embeddingProvider: selected?.providerId,
+    embeddingModel: selected?.modelKey,
     name: input?.name,
     description: input?.description,
     state: 'cancelled',
@@ -1323,6 +1388,14 @@ export async function reembed(rootPath: string, d: Deps) {
   if (!selectedModel) {
     const err = new Error('INVALID_REEMBED_STATE');
     (err as { code?: string }).code = 'INVALID_REEMBED_STATE';
+    throw err;
+  }
+  if (
+    selectedProvider === 'openai' &&
+    !isOpenAiAllowlistedEmbeddingModel(selectedModel)
+  ) {
+    const err = new Error('OPENAI_MODEL_UNAVAILABLE');
+    (err as { code?: string }).code = 'OPENAI_MODEL_UNAVAILABLE';
     throw err;
   }
   if (

@@ -28,6 +28,8 @@ export function createIngestReembedRouter({
         return res.status(429).json({ status: 'error', code });
       if (code === 'MODEL_LOCKED')
         return res.status(409).json({ status: 'error', code });
+      if (code === 'OPENAI_MODEL_UNAVAILABLE')
+        return res.status(409).json({ status: 'error', code });
       if (code === 'INVALID_REEMBED_STATE')
         return res.status(409).json({ status: 'error', code });
       if (code === 'INVALID_LOCK_METADATA')

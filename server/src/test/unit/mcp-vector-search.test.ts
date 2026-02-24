@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import express from 'express';
 import request from 'supertest';
+import { OpenAiEmbeddingError } from '../../ingest/providers/index.js';
 import { createMcpRouter } from '../../mcp/server.js';
 
 const payload = {
@@ -101,4 +102,87 @@ test('classic MCP VectorSearch validation error uses JSON-RPC error envelope', a
   assert.ok(res.body.error, 'expected JSON-RPC error envelope');
   assert.equal(res.body.error.code, -32602);
   assert.equal(res.body.error.data?.details?.length > 0, true);
+});
+
+test('classic MCP VectorSearch maps OpenAI errors to normalized JSON-RPC data contract', async () => {
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/',
+    createMcpRouter({
+      vectorSearch: async () => {
+        throw new OpenAiEmbeddingError(
+          'OPENAI_MODEL_UNAVAILABLE',
+          'model not available',
+          false,
+          404,
+        );
+      },
+    }),
+  );
+
+  const res = await request(app)
+    .post('/mcp')
+    .send({
+      jsonrpc: '2.0',
+      id: 3,
+      method: 'tools/call',
+      params: {
+        name: 'VectorSearch',
+        arguments: { query: 'hello' },
+      },
+    });
+
+  assert.equal(res.status, 200);
+  assert.equal(res.body.error.code, 404);
+  assert.equal(res.body.error.message, 'OPENAI_MODEL_UNAVAILABLE');
+  assert.equal(res.body.error.data.error, 'OPENAI_MODEL_UNAVAILABLE');
+  assert.equal(res.body.error.data.message, 'model not available');
+  assert.equal(res.body.error.data.retryable, false);
+  assert.equal(res.body.error.data.provider, 'openai');
+  assert.equal(res.body.error.data.upstreamStatus, 404);
+});
+
+test('classic MCP VectorSearch OpenAI error data redacts secret-like message material', async () => {
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/',
+    createMcpRouter({
+      vectorSearch: async () => {
+        throw new OpenAiEmbeddingError(
+          'OPENAI_AUTH_FAILED',
+          'Authorization: Bearer sk-secret-token-value',
+          false,
+          401,
+        );
+      },
+    }),
+  );
+
+  const res = await request(app)
+    .post('/mcp')
+    .send({
+      jsonrpc: '2.0',
+      id: 4,
+      method: 'tools/call',
+      params: {
+        name: 'VectorSearch',
+        arguments: { query: 'hello' },
+      },
+    });
+
+  assert.equal(res.status, 200);
+  assert.equal(res.body.error.code, 401);
+  assert.equal(res.body.error.data.error, 'OPENAI_AUTH_FAILED');
+  assert.equal(
+    String(res.body.error.data.message).includes('sk-secret-token-value'),
+    false,
+  );
+  assert.equal(
+    /authorization:\*\*\*|bearer \*\*\*/i.test(
+      String(res.body.error.data.message),
+    ),
+    true,
+  );
 });

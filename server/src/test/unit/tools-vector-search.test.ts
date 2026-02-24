@@ -3,6 +3,7 @@ import test, { afterEach, beforeEach } from 'node:test';
 import express from 'express';
 import request from 'supertest';
 import { EmbeddingDimensionMismatchError } from '../../ingest/chromaClient.js';
+import { OpenAiEmbeddingError } from '../../ingest/providers/index.js';
 import { createToolsVectorSearchRouter } from '../../routes/toolsVectorSearch.js';
 
 const ORIGINAL_HOST = process.env.HOST_INGEST_DIR;
@@ -183,6 +184,77 @@ test('returns EMBEDDING_DIMENSION_MISMATCH before executing Chroma query', async
   assert.equal(res.status, 409);
   assert.equal(res.body.error, 'EMBEDDING_DIMENSION_MISMATCH');
   assert.equal(queryCalled, false);
+});
+
+test('REST vector-search maps OpenAI errors to normalized contract fields', async () => {
+  const res = await request(
+    buildApp({
+      roots: defaultRoots,
+      lockedModelId: 'text-embed',
+      vectorsQuery: async () => ({}),
+      getLockedEmbeddingModel: async () => ({
+        embeddingProvider: 'openai',
+        embeddingModel: 'text-embedding-3-small',
+        embeddingDimensions: 1536,
+        lockedModelId: 'text-embedding-3-small',
+        source: 'canonical',
+      }),
+      generateLockedQueryEmbedding: async () => {
+        throw new OpenAiEmbeddingError(
+          'OPENAI_RATE_LIMITED',
+          'rate limited',
+          true,
+          429,
+          1200,
+        );
+      },
+    }),
+  )
+    .post('/tools/vector-search')
+    .send({ query: 'hello world' });
+
+  assert.equal(res.status, 429);
+  assert.equal(res.body.error, 'OPENAI_RATE_LIMITED');
+  assert.equal(res.body.message, 'rate limited');
+  assert.equal(res.body.retryable, true);
+  assert.equal(res.body.provider, 'openai');
+  assert.equal(res.body.upstreamStatus, 429);
+  assert.equal(res.body.retryAfterMs, 1200);
+});
+
+test('REST vector-search OpenAI error payload redacts secret-like message material', async () => {
+  const res = await request(
+    buildApp({
+      roots: defaultRoots,
+      lockedModelId: 'text-embed',
+      vectorsQuery: async () => ({}),
+      getLockedEmbeddingModel: async () => ({
+        embeddingProvider: 'openai',
+        embeddingModel: 'text-embedding-3-small',
+        embeddingDimensions: 1536,
+        lockedModelId: 'text-embedding-3-small',
+        source: 'canonical',
+      }),
+      generateLockedQueryEmbedding: async () => {
+        throw new OpenAiEmbeddingError(
+          'OPENAI_AUTH_FAILED',
+          'Authorization: Bearer sk-secret-token-value',
+          false,
+          401,
+        );
+      },
+    }),
+  )
+    .post('/tools/vector-search')
+    .send({ query: 'hello world' });
+
+  assert.equal(res.status, 401);
+  assert.equal(res.body.error, 'OPENAI_AUTH_FAILED');
+  assert.equal(res.body.message.includes('sk-secret-token-value'), false);
+  assert.equal(
+    /authorization:\*\*\*|bearer \*\*\*/i.test(String(res.body.message)),
+    true,
+  );
 });
 
 test('returns mapped search results with host path and model id', async () => {

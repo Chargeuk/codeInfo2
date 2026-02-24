@@ -21,6 +21,12 @@ import {
   getRootsCollection,
   getVectorsCollection,
 } from '../ingest/chromaClient.js';
+import {
+  OpenAiEmbeddingError,
+  logOpenAiContractMapping,
+  resolveOpenAiRestStatus,
+  toNormalizedOpenAiErrorPayload,
+} from '../ingest/providers/index.js';
 import { runReingestRepository } from '../ingest/reingestService.js';
 import {
   RepoNotFoundError,
@@ -866,6 +872,22 @@ export function createMcpRouter(
               return jsonRpcError(id as never, 503, err.code, {
                 modelId: err.modelId,
               }) as JsonRpcLikeResponse;
+            }
+            if (err instanceof OpenAiEmbeddingError) {
+              const payload = toNormalizedOpenAiErrorPayload(err);
+              const statusCode = resolveOpenAiRestStatus(err);
+              logOpenAiContractMapping({
+                requestId,
+                surface: 'mcp',
+                payload,
+                statusCode,
+              });
+              return jsonRpcError(
+                id as never,
+                statusCode,
+                payload.error,
+                payload,
+              ) as JsonRpcLikeResponse;
             }
             baseLogger.error({ requestId, err }, 'mcp tool call failed');
             return internalError(id, 'Internal error', { message: `${err}` });

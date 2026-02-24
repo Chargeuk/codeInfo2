@@ -14,6 +14,14 @@ type RootEntry = {
   lastIngestAt: string | null;
   counts: { files: number; chunks: number; embedded: number };
   lastError: string | null;
+  error?: {
+    error: string;
+    message: string;
+    retryable: boolean;
+    provider: 'lmstudio' | 'openai';
+    upstreamStatus?: number;
+    retryAfterMs?: number;
+  } | null;
   ast?: {
     supportedFileCount: number;
     skippedFileCount: number;
@@ -119,6 +127,41 @@ function parseAstMetadata(
   };
 }
 
+function parseNormalizedError(meta: Record<string, unknown>) {
+  const candidate = (
+    meta.error && typeof meta.error === 'object'
+      ? meta.error
+      : meta.lastError && typeof meta.lastError === 'object'
+        ? meta.lastError
+        : null
+  ) as Record<string, unknown> | null;
+  if (!candidate) return null;
+  const provider = candidate.provider;
+  const error = candidate.error;
+  const message = candidate.message;
+  const retryable = candidate.retryable;
+  if (
+    (provider === 'openai' || provider === 'lmstudio') &&
+    typeof error === 'string' &&
+    typeof message === 'string' &&
+    typeof retryable === 'boolean'
+  ) {
+    return {
+      error,
+      message,
+      retryable,
+      provider,
+      ...(typeof candidate.upstreamStatus === 'number'
+        ? { upstreamStatus: candidate.upstreamStatus }
+        : {}),
+      ...(typeof candidate.retryAfterMs === 'number'
+        ? { retryAfterMs: candidate.retryAfterMs }
+        : {}),
+    } as RootEntry['error'];
+  }
+  return null;
+}
+
 export function dedupeRootsByPath(roots: RootEntry[]): RootEntry[] {
   const bestByPath = new Map<string, RootEntry>();
   for (const root of roots) {
@@ -185,6 +228,15 @@ export function createIngestRootsRouter(deps: Partial<Deps> = {}) {
           const lastIngestAt =
             typeof m.lastIngestAt === 'string' ? m.lastIngestAt : null;
           const ast = parseAstMetadata(m);
+          const normalizedError = parseNormalizedError(m);
+          const legacyLastError =
+            typeof m.lastError === 'string'
+              ? m.lastError
+              : typeof normalizedError?.message === 'string'
+                ? normalizedError.message
+                : m.lastError === null
+                  ? null
+                  : null;
           return {
             runId: typeof ids[idx] === 'string' ? ids[idx] : `run-${idx}`,
             name: typeof m.name === 'string' ? m.name : '',
@@ -199,12 +251,8 @@ export function createIngestRootsRouter(deps: Partial<Deps> = {}) {
               chunks: Number(m.chunks ?? 0),
               embedded: Number(m.embedded ?? 0),
             },
-            lastError:
-              typeof m.lastError === 'string'
-                ? m.lastError
-                : m.lastError === null
-                  ? null
-                  : null,
+            lastError: legacyLastError,
+            error: normalizedError,
             ast,
           } satisfies RootEntry;
         })

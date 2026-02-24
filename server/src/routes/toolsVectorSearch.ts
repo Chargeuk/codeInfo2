@@ -10,6 +10,11 @@ import {
 } from '../ingest/chromaClient.js';
 import { OpenAiEmbeddingError } from '../ingest/providers/index.js';
 import {
+  logOpenAiContractMapping,
+  resolveOpenAiRestStatus,
+  toNormalizedOpenAiErrorPayload,
+} from '../ingest/providers/index.js';
+import {
   RepoNotFoundError,
   type ToolDeps,
   ValidationError,
@@ -111,21 +116,17 @@ export function createToolsVectorSearchRouter(
         });
       }
       if (err instanceof OpenAiEmbeddingError) {
-        const status =
-          typeof err.upstreamStatus === 'number'
-            ? err.upstreamStatus
-            : err.retryable
-              ? 503
-              : 400;
-        return res.status(status).json({
-          error: err.code,
-          message: err.message,
-          provider: err.provider,
-          retryable: err.retryable,
-          ...(typeof err.retryAfterMs === 'number'
-            ? { retryAfterMs: err.retryAfterMs }
-            : {}),
+        const payload = toNormalizedOpenAiErrorPayload(err);
+        const status = resolveOpenAiRestStatus(err);
+        const requestId =
+          (res.locals?.requestId as string | undefined) ?? undefined;
+        logOpenAiContractMapping({
+          requestId,
+          surface: 'rest',
+          payload,
+          statusCode: status,
         });
+        return res.status(status).json(payload);
       }
       return res
         .status(502)

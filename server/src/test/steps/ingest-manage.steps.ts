@@ -20,6 +20,8 @@ import {
   clearLockedModel,
   clearRootsCollection,
   clearVectorsCollection,
+  getRootsCollection,
+  setLockedModel,
 } from '../../ingest/chromaClient.js';
 import { setIngestDeps } from '../../ingest/ingestJob.js';
 import { createRequestLogger } from '../../logger.js';
@@ -168,6 +170,19 @@ When('I POST ingest manage reembed for the temp repo', async () => {
   }
 });
 
+When('I POST ingest manage reembed for root {string}', async (root: string) => {
+  const res = await fetch(
+    `${baseUrl}/ingest/reembed/${encodeURIComponent(root)}`,
+    {
+      method: 'POST',
+    },
+  );
+  response = { status: res.status, body: await res.json() };
+  if (response.status === 202) {
+    lastRunId = (response.body as { runId?: string }).runId ?? null;
+  }
+});
+
 When('I POST ingest manage remove for the temp repo', async () => {
   assert(tempDir, 'temp dir missing');
   const res = await fetch(
@@ -258,3 +273,48 @@ When('I GET ingest manage roots', async () => {
   const res = await fetch(`${baseUrl}/ingest/roots`);
   response = { status: res.status, body: await res.json() };
 });
+
+Given(
+  'ingest manage root metadata exists for {string} with legacy model {string}',
+  async (rootPath: string, model: string) => {
+    const roots = await getRootsCollection();
+    await roots.add({
+      ids: ['legacy-root-run'],
+      embeddings: [[0]],
+      metadatas: [
+        {
+          runId: 'legacy-root-run',
+          root: rootPath,
+          name: 'legacy-repo',
+          model,
+          files: 1,
+          chunks: 1,
+          embedded: 1,
+          state: 'completed',
+          lastIngestAt: new Date().toISOString(),
+          ingestedAtMs: Date.now(),
+        },
+      ],
+    });
+  },
+);
+
+Given(
+  'ingest manage lock is provider {string} model {string} dimensions {int}',
+  async (provider: string, model: string, dimensions: number) => {
+    await setLockedModel({
+      embeddingProvider: provider as 'lmstudio' | 'openai',
+      embeddingModel: model,
+      embeddingDimensions: dimensions,
+    });
+  },
+);
+
+Then(
+  'ingest manage response status is {int} with code {string}',
+  (status: number, code: string) => {
+    assert(response, 'expected response');
+    assert.equal(response.status, status);
+    assert.equal((response.body as { code?: string }).code, code);
+  },
+);

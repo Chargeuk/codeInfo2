@@ -251,6 +251,48 @@ flowchart TD
   M --> N[HTTP 200 deterministic response]
 ```
 
+## Ingest Start/Reembed/Vector-Search Contracts (Task 0000036-T9)
+
+- `POST /ingest/start` accepts canonical `embeddingProvider` + `embeddingModel` while still accepting legacy `model`.
+- Canonical fields are authoritative when canonical + legacy are both sent; legacy-only input continues to map to LM Studio compatibility behavior.
+- Ingest/re-embed OpenAI model validation is deterministic and allowlist-enforced. Non-allowlisted or unavailable models return `OPENAI_MODEL_UNAVAILABLE` with no silent fallback.
+- Lock conflicts return canonical lock payloads plus compatibility alias:
+  - `lock.embeddingProvider`
+  - `lock.embeddingModel`
+  - `lock.embeddingDimensions`
+  - `lockedModelId` mirrors `lock.embeddingModel`
+- Vector-search (REST + classic MCP) now shares one normalized OpenAI error contract:
+  - required: `error`, `message`, `retryable`, `provider`
+  - optional: `upstreamStatus`, `retryAfterMs`
+  - secret-safe message sanitization is enforced before responses/logging.
+- Ingest status and roots surfaces retain legacy `lastError` string compatibility while carrying normalized error object metadata.
+- Task 9 observability logs:
+  - `DEV-0000036:T9:ingest_request_contract_validated`
+  - `DEV-0000036:T9:openai_error_contract_mapped`
+
+```mermaid
+flowchart TD
+  A[POST /ingest/start request] --> B{canonical fields present?}
+  B -- yes --> C[validate embeddingProvider + embeddingModel]
+  B -- no --> D[map legacy model to lmstudio compatibility]
+  C --> E{openai model allowlisted?}
+  E -- no --> F[409 OPENAI_MODEL_UNAVAILABLE]
+  E -- yes --> G[resolve requested provider/model]
+  D --> G
+  G --> H{collection locked to different provider/model?}
+  H -- yes --> I[409 MODEL_LOCKED with canonical lock + lockedModelId alias]
+  H -- no --> J[start ingest with resolved canonical selection]
+```
+
+```mermaid
+flowchart LR
+  A1[OpenAI failure in embedding/query path] --> B1[map via canonical error translator]
+  B1 --> C1[secret-safe normalized payload]
+  C1 --> D1[REST /tools/vector-search error envelope]
+  C1 --> E1[classic MCP VectorSearch error envelope]
+  C1 --> F1[ingest status/roots normalized lastError metadata]
+```
+
 ## Startup env loading parity (Task 3)
 
 - Startup now uses deterministic env precedence that matches compose env-file behavior: `server/.env` first, then `server/.env.local` as an override when present.

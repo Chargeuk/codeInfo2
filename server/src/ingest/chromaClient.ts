@@ -9,6 +9,7 @@ import { baseLogger } from '../logger.js';
 import {
   createLmStudioEmbeddingProvider,
   createOpenAiEmbeddingProvider,
+  isOpenAiAllowlistedEmbeddingModel,
   OpenAiEmbeddingError,
 } from './providers/index.js';
 
@@ -194,6 +195,17 @@ function parseLockedEmbeddingMetadata(
 }
 
 function resolveProviderFromLock(lock: LockedEmbeddingModel) {
+  if (
+    lock.embeddingProvider === 'openai' &&
+    !isOpenAiAllowlistedEmbeddingModel(lock.embeddingModel)
+  ) {
+    throw new OpenAiEmbeddingError(
+      'OPENAI_MODEL_UNAVAILABLE',
+      'Requested OpenAI embedding model is unavailable for this deployment',
+      false,
+      404,
+    );
+  }
   const provider =
     lock.embeddingProvider === 'openai'
       ? createOpenAiEmbeddingProvider({

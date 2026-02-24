@@ -10,6 +10,7 @@ export {
   OPENAI_REQUEST_TIMEOUT_MS,
   OPENAI_MAX_INPUTS_PER_REQUEST,
   OPENAI_MAX_TOTAL_TOKENS_PER_REQUEST,
+  isOpenAiAllowlistedEmbeddingModel,
   resolveOpenAiModelTokenLimit,
 } from './openaiConstants.js';
 export {
@@ -17,6 +18,12 @@ export {
   mapOpenAiError,
   type OpenAiErrorCode,
 } from './openaiErrors.js';
+export {
+  logOpenAiContractMapping,
+  resolveOpenAiRestStatus,
+  toNormalizedOpenAiErrorPayload,
+  type NormalizedOpenAiErrorPayload,
+} from './openaiErrorContract.js';
 export {
   computeExponentialDelayMs,
   resolveRetryAfterMs,

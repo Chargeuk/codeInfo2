@@ -123,3 +123,36 @@ test('GET /ingest/roots returns canonical lock value from the unified resolver',
   assert.equal(response.body.roots.length, 1);
   assert.equal(response.body.roots[0].runId, 'run-1');
 });
+
+test('GET /ingest/roots preserves legacy lastError string and normalized error payload', async () => {
+  const response = await request(
+    createRootsApp(
+      {
+        ids: ['run-2'],
+        metadatas: [
+          {
+            name: 'repo',
+            root: '/data/repo',
+            model: 'text-embedding-3-small',
+            lastError: 'rate limited',
+            error: {
+              error: 'OPENAI_RATE_LIMITED',
+              message: 'rate limited',
+              retryable: true,
+              provider: 'openai',
+              upstreamStatus: 429,
+              retryAfterMs: 1000,
+            },
+          },
+        ],
+      },
+      'text-embedding-3-small',
+    ),
+  ).get('/ingest/roots');
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.roots[0].lastError, 'rate limited');
+  assert.equal(response.body.roots[0].error.error, 'OPENAI_RATE_LIMITED');
+  assert.equal(response.body.roots[0].error.retryable, true);
+  assert.equal(response.body.roots[0].error.provider, 'openai');
+});

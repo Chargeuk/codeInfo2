@@ -10,6 +10,7 @@ import type {
 
 import { handleRpc } from '../../mcp2/router.js';
 import { runCodebaseQuestion } from '../../mcp2/tools/codebaseQuestion.js';
+import { resolveChatDefaults } from '../../config/chatDefaults.js';
 import {
   getCodexDetection,
   setCodexDetection,
@@ -126,9 +127,10 @@ test('MCP responder returns answer-only segments', async () => {
     );
 
     const payload = JSON.parse(result.content[0].text);
+    const defaults = resolveChatDefaults({ requestProvider: 'codex' });
     assert.ok(typeof payload.conversationId === 'string');
     assert.ok(payload.conversationId.startsWith('codex-thread-'));
-    assert.equal(payload.modelId, 'gpt-5.3-codex');
+    assert.equal(payload.modelId, defaults.model);
     assert.deepEqual(
       payload.segments.map((s: { type: string }) => s.type),
       ['answer'],

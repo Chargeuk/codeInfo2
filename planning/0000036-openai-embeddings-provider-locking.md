@@ -1506,7 +1506,7 @@ Implement provider-aware request/response contracts for ingest start and vector 
 ### 10. Server Messages: `/ingest/roots`, `/tools/ingested-repos`, classic MCP `ListIngestedRepositories`, and schema docs
 
 - Task Status: **__done__**
-- Git Commits:
+- Git Commits: `baff46d`
 
 #### Overview
 

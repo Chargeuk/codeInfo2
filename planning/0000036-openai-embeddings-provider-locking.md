@@ -768,7 +768,7 @@ Refactor existing LM Studio embedding calls into a common provider interface wit
 
 ### 2. Server: Unify lock resolution source and remove placeholder lock path
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits:
 
 #### Overview

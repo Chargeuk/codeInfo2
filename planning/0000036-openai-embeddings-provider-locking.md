@@ -700,7 +700,7 @@ Refactor existing LM Studio embedding calls into a common provider interface wit
 - TypeScript handbook: https://www.typescriptlang.org/docs/ (use for provider interfaces, module boundaries, and strict typing patterns).
 - Express routing guide: https://expressjs.com/en/guide/routing.html (use to confirm route behavior remains unchanged during internal refactor).
 - JSON-RPC 2.0 spec: https://www.jsonrpc.org/specification (use to confirm classic MCP payloads are unchanged).
-- Jest docs: https://jestjs.io/docs/getting-started (use for parity/regression test updates without changing assertion semantics).
+- Jest: Context7 `/jestjs/jest` (use for parity/regression test updates without changing assertion semantics).
 
 #### Subtasks
 
@@ -742,7 +742,7 @@ Make one canonical lock resolver for all lock consumers so `/ingest/models` no l
 - JSON-RPC 2.0 spec: https://www.jsonrpc.org/specification (use for MCP lock-surface contract parity).
 - OpenAPI 3.0.3: https://spec.openapis.org/oas/v3.0.3.html (use for existing REST schema stability while internal lock source changes).
 - TypeScript modules handbook: https://www.typescriptlang.org/docs/handbook/modules/introduction.html (use for import-path cleanup and single-source resolver wiring).
-- Jest docs: https://jestjs.io/docs/getting-started (use for endpoint lock-parity regression tests).
+- Jest: Context7 `/jestjs/jest` (use for endpoint lock-parity regression tests).
 
 #### Subtasks
 
@@ -783,6 +783,7 @@ Implement deterministic local env loading (`server/.env` then `server/.env.local
 - Node.js environment variables: https://nodejs.org/api/environment_variables.html (use for runtime env parsing and process-level precedence rules).
 - Docker Compose env variables: https://docs.docker.com/compose/how-tos/environment-variables/set-environment-variables/ (use to match local env precedence behavior with compose semantics).
 - OpenAI embeddings docs: https://developers.openai.com/api/docs/guides/embeddings/ (use for key-dependent capability handling and secret-safe operational context).
+- Jest: Context7 `/jestjs/jest` (use for env-loading test structure and assertions in this task).
 - Jest environment variables docs: https://jestjs.io/docs/environment-variables (use for deterministic env precedence tests).
 - TypeScript handbook: https://www.typescriptlang.org/docs/ (use for typed config parser/refactor consistency).
 
@@ -825,7 +826,7 @@ Implement OpenAI embedding execution behind the shared provider interface, inclu
 - DeepWiki OpenAI Node: https://deepwiki.com/openai/openai-node (use for SDK structure cross-reference while implementing adapters/mappers).
 - Chroma docs: Context7 `/chroma-core/chroma` (use for dimension compatibility requirements before vector writes/queries).
 - MDN `Retry-After` header: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After (use for wait-hint precedence and fallback parsing semantics).
-- Jest docs: https://jestjs.io/docs/getting-started (use for retry/guardrail/error taxonomy unit test coverage patterns).
+- Jest: Context7 `/jestjs/jest` (use for retry/guardrail/error taxonomy unit test coverage patterns).
 
 #### Subtasks
 
@@ -895,7 +896,7 @@ Extend lock identity from model-only to provider+model+dimensions internally, wi
 - JSON-RPC 2.0 spec: https://www.jsonrpc.org/specification (use for classic MCP vector-search parity behavior).
 - Express error handling: https://expressjs.com/en/guide/error-handling.html (use for deterministic `BUSY`/validation error responses).
 - TypeScript handbook: https://www.typescriptlang.org/docs/ (use for canonical lock type definitions and compatibility mappings).
-- Jest docs: https://jestjs.io/docs/getting-started (use for concurrency/lifecycle and lock-compat regression tests).
+- Jest: Context7 `/jestjs/jest` (use for concurrency/lifecycle and lock-compat regression tests).
 
 #### Subtasks
 
@@ -953,8 +954,8 @@ Implement the agreed `/ingest/models` contract (`models`, `lock`, `openai`, `lms
 - OpenAI models list API: https://developers.openai.com/api/docs/api-reference/models/list (use for allowlist intersection and provider availability states).
 - Express error handling: https://expressjs.com/en/guide/error-handling.html (use for deterministic `200` warning-envelope behavior instead of route-level hard failures).
 - Node.js environment variables: https://nodejs.org/api/environment_variables.html (use for missing/blank/whitespace key handling semantics).
-- Cucumber guides overview: https://cucumber.io/docs/guides/overview/ (use for BDD feature/step structure while updating provider status scenarios).
-- Jest docs: https://jestjs.io/docs/getting-started (use for route-level unit/contract assertions).
+- Cucumber guides: https://cucumber.io/docs/guides/ (use for BDD feature/step structure while updating provider status scenarios).
+- Jest: Context7 `/jestjs/jest` (use for route-level unit/contract assertions).
 
 #### Subtasks
 
@@ -1008,8 +1009,8 @@ Implement provider-aware request/response contracts for ingest start and vector 
 - OpenAI models list API: https://developers.openai.com/api/docs/api-reference/models/list (use for allowlist validation behavior in start/reembed paths).
 - OpenAI embeddings guide: https://developers.openai.com/api/docs/guides/embeddings/ (use for provider-specific failure taxonomy context and deterministic mapping).
 - TypeScript handbook: https://www.typescriptlang.org/docs/ (use for normalized error object and compatibility type modeling).
-- Cucumber guides overview: https://cucumber.io/docs/guides/overview/ (use for BDD updates on canonical+legacy behavior).
-- Jest docs: https://jestjs.io/docs/getting-started (use for regression tests covering payload/field compatibility).
+- Cucumber guides: https://cucumber.io/docs/guides/ (use for BDD updates on canonical+legacy behavior).
+- Jest: Context7 `/jestjs/jest` (use for regression tests covering payload/field compatibility).
 
 #### Subtasks
 
@@ -1073,8 +1074,8 @@ Finalize the remaining message-contract surfaces so canonical lock/provider fiel
 
 - JSON-RPC 2.0 spec: https://www.jsonrpc.org/specification (use for classic MCP list output and error envelope parity).
 - OpenAPI 3.0.3: https://spec.openapis.org/oas/v3.0.3.html (use for REST schema alignment in roots/repos endpoints).
-- Cucumber guides overview: https://cucumber.io/docs/guides/overview/ (use for BDD feature/step updates across roots/manage scenarios).
-- Jest docs: https://jestjs.io/docs/getting-started (use for unit/integration contract parity and schema assertions).
+- Cucumber guides: https://cucumber.io/docs/guides/ (use for BDD feature/step updates across roots/manage scenarios).
+- Jest: Context7 `/jestjs/jest` (use for unit/integration contract parity and schema assertions).
 
 #### Subtasks
 
@@ -1121,7 +1122,7 @@ Align server-side transitive consumers that depend on ingest repository shapes s
 
 - TypeScript handbook: https://www.typescriptlang.org/docs/ (use for canonical-first type evolution with compatibility aliases).
 - JSON-RPC 2.0 spec: https://www.jsonrpc.org/specification (use for tool payload compatibility across REST/classic pathways).
-- Jest docs: https://jestjs.io/docs/getting-started (use for regression coverage across flows/agents/AST transitive consumers).
+- Jest: Context7 `/jestjs/jest` (use for regression coverage across flows/agents/AST transitive consumers).
 
 #### Subtasks
 
@@ -1162,7 +1163,7 @@ Update the client data layer (`useIngestModels`, `useIngestRoots`, related types
 - MUI MCP docs index: https://llms.mui.com/material-ui/6.4.12/llms.txt (use as canonical component API reference in this environment).
 - MUI v6.5.0 release notes: https://github.com/mui/material-ui/releases/tag/v6.5.0 (use to validate compatibility/deprecation behavior against resolved package version).
 - React reference: https://react.dev/reference/react (use for hook state/effect and safe normalization patterns).
-- Jest docs: https://jestjs.io/docs/getting-started (use for hook parsing/error compatibility tests).
+- Jest: Context7 `/jestjs/jest` (use for hook parsing/error compatibility tests).
 
 #### Subtasks
 
@@ -1209,7 +1210,7 @@ Implement the user-visible ingest UI behavior for provider-tagged model selectio
 - MUI TextField/Select docs: https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (use for provider-qualified select rendering and option state management).
 - MUI Alert docs: https://llms.mui.com/material-ui/6.4.12/components/alert.md (use for deterministic info/warning banner behavior).
 - React controlled input docs: https://react.dev/reference/react-dom/components/input (use for selection lifecycle, reset, and controlled submission behavior).
-- Jest docs: https://jestjs.io/docs/getting-started (use for UI contract tests on selection, banners, and payload shape).
+- Jest: Context7 `/jestjs/jest` (use for UI contract tests on selection, banners, and payload shape).
 
 #### Subtasks
 
@@ -1267,7 +1268,7 @@ Run the complete verification gate for Story 0000036, confirm acceptance criteri
 - Docker/Compose docs: Context7 `/docker/docs` (use for clean build/startup verification commands and compose lifecycle checks).
 - Playwright docs: Context7 `/microsoft/playwright` (use for end-to-end and screenshot validation guidance).
 - Jest docs: Context7 `/jestjs/jest` (use for final server/client automated verification strategy).
-- Cucumber guides overview: https://cucumber.io/docs/guides/overview/ (use for final BDD verification mapping against acceptance criteria).
+- Cucumber guides: https://cucumber.io/docs/guides/ (use for final BDD verification mapping against acceptance criteria).
 - Cucumber 10-minute tutorial: https://cucumber.io/docs/guides/10-minute-tutorial/ (use for concrete step-definition and feature authoring conventions).
 - Markdown Guide: https://www.markdownguide.org/basic-syntax/ (use for final story documentation updates and formatting consistency).
 - Conventional Commits: https://www.conventionalcommits.org/en/v1.0.0/ (use for final PR summary/commit message structure references).

@@ -723,9 +723,18 @@ Refactor existing LM Studio embedding calls into a common provider interface wit
 #### Testing
 
 1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test:unit --workspace server`
-3. [ ] Confirm `server/src/test/unit/chroma-embedding-selection.test.ts` still passes.
-4. [ ] Confirm `server/src/test/unit/tools-vector-search.test.ts` still passes.
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: verify story-specific behavior and general regression paths at `http://host.docker.internal:5001`, and confirm there are no logged errors in the browser debug console.
+9. [ ] `npm run compose:down`
+
+10. [ ] `npm run test:unit --workspace server`
+11. [ ] Confirm `server/src/test/unit/chroma-embedding-selection.test.ts` still passes.
+12. [ ] Confirm `server/src/test/unit/tools-vector-search.test.ts` still passes.
 
 #### Implementation notes
 
@@ -769,9 +778,18 @@ Make one canonical lock resolver for all lock consumers so `/ingest/models` no l
 #### Testing
 
 1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test:unit --workspace server`
-3. [ ] Confirm `server/src/test/unit/tools-ingested-repos.test.ts` passes.
-4. [ ] Confirm `server/src/test/unit/ingest-roots-dedupe.test.ts` passes.
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: verify story-specific behavior and general regression paths at `http://host.docker.internal:5001`, and confirm there are no logged errors in the browser debug console.
+9. [ ] `npm run compose:down`
+
+10. [ ] `npm run test:unit --workspace server`
+11. [ ] Confirm `server/src/test/unit/tools-ingested-repos.test.ts` passes.
+12. [ ] Confirm `server/src/test/unit/ingest-roots-dedupe.test.ts` passes.
 
 #### Implementation notes
 
@@ -815,8 +833,17 @@ Implement deterministic local env loading (`server/.env` then `server/.env.local
 #### Testing
 
 1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test:unit --workspace server`
-3. [ ] Manual check: local startup loads with `.env.local` override and no key leakage in logs.
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: verify story-specific behavior and general regression paths at `http://host.docker.internal:5001`, and confirm there are no logged errors in the browser debug console.
+9. [ ] `npm run compose:down`
+
+10. [ ] `npm run test:unit --workspace server`
+11. [ ] Manual check: local startup loads with `.env.local` override and no key leakage in logs.
 
 #### Implementation notes
 
@@ -882,15 +909,24 @@ Implement OpenAI embedding execution behind the shared provider interface, inclu
 #### Testing
 
 1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test:unit --workspace server`
-3. [ ] Confirm `npm ls openai --workspace server` resolves exactly one installed `openai` package and no ingestion code imports `@openai/codex-sdk` for embeddings/model-list calls.
-4. [ ] Confirm taxonomy/guardrail tests pass in provider adapter test suite.
-5. [ ] Confirm retry-exhaustion normalization tests pass (terminal error metadata, no raw SDK leak-through).
-6. [ ] Confirm wait-hint precedence tests (header-order and fallback) plus edge-case tests (invalid/negative/unparseable hints) pass in provider retry test suite.
-7. [ ] Confirm OpenAI taxonomy tests cover upstream input-too-large mapping (`OPENAI_INPUT_TOO_LARGE`) and quota mapping (`OPENAI_QUOTA_EXCEEDED`).
-8. [ ] Confirm OpenAI adapter tests prove API key/token material is not present in emitted error/log metadata.
-9. [ ] Confirm taxonomy matrix tests cover every planned `OPENAI_*` category with expected `retryable` classification and metadata.
-10. [ ] Confirm boundary-value guardrail tests pass for inputs/token limits at and beyond hard limits (`2048/2049`, `300000/300001`, per-input max boundary cases).
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: verify story-specific behavior and general regression paths at `http://host.docker.internal:5001`, and confirm there are no logged errors in the browser debug console.
+9. [ ] `npm run compose:down`
+
+10. [ ] `npm run test:unit --workspace server`
+11. [ ] Confirm `npm ls openai --workspace server` resolves exactly one installed `openai` package and no ingestion code imports `@openai/codex-sdk` for embeddings/model-list calls.
+12. [ ] Confirm taxonomy/guardrail tests pass in provider adapter test suite.
+13. [ ] Confirm retry-exhaustion normalization tests pass (terminal error metadata, no raw SDK leak-through).
+14. [ ] Confirm wait-hint precedence tests (header-order and fallback) plus edge-case tests (invalid/negative/unparseable hints) pass in provider retry test suite.
+15. [ ] Confirm OpenAI taxonomy tests cover upstream input-too-large mapping (`OPENAI_INPUT_TOO_LARGE`) and quota mapping (`OPENAI_QUOTA_EXCEEDED`).
+16. [ ] Confirm OpenAI adapter tests prove API key/token material is not present in emitted error/log metadata.
+17. [ ] Confirm taxonomy matrix tests cover every planned `OPENAI_*` category with expected `retryable` classification and metadata.
+18. [ ] Confirm boundary-value guardrail tests pass for inputs/token limits at and beyond hard limits (`2048/2049`, `300000/300001`, per-input max boundary cases).
 
 #### Implementation notes
 
@@ -948,13 +984,22 @@ Extend lock identity from model-only to provider+model+dimensions internally, wi
 #### Testing
 
 1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test:unit --workspace server`
-3. [ ] `npm run test:integration --workspace server`
-4. [ ] Confirm `server/src/test/integration/chat-vectorsearch-locked-model.test.ts` passes.
-5. [ ] Confirm classic MCP vector-search parity and ingest lock-lifecycle tests pass.
-6. [ ] Confirm invalid partial-canonical lock metadata and lock lifecycle cleanup tests pass.
-7. [ ] Confirm concurrency tests pass with deterministic `BUSY` outcomes for concurrent start/reembed/remove operations.
-8. [ ] Confirm lock-clear idempotence tests pass for empty-collection cleanup without clearing a newer lock.
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: verify story-specific behavior and general regression paths at `http://host.docker.internal:5001`, and confirm there are no logged errors in the browser debug console.
+9. [ ] `npm run compose:down`
+
+10. [ ] `npm run test:unit --workspace server`
+11. [ ] `npm run test:integration --workspace server`
+12. [ ] Confirm `server/src/test/integration/chat-vectorsearch-locked-model.test.ts` passes.
+13. [ ] Confirm classic MCP vector-search parity and ingest lock-lifecycle tests pass.
+14. [ ] Confirm invalid partial-canonical lock metadata and lock lifecycle cleanup tests pass.
+15. [ ] Confirm concurrency tests pass with deterministic `BUSY` outcomes for concurrent start/reembed/remove operations.
+16. [ ] Confirm lock-clear idempotence tests pass for empty-collection cleanup without clearing a newer lock.
 
 #### Implementation notes
 
@@ -1009,10 +1054,19 @@ Implement the agreed `/ingest/models` contract (`models`, `lock`, `openai`, `lms
 #### Testing
 
 1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test:unit --workspace server`
-3. [ ] Confirm `/ingest/models` route tests cover missing/blank key, success, transient failure, strict `allowlist ∩ models.list()` filtering, allowlist no-match (`retryable=false`), deterministic allowlist ordering, invalid `LMSTUDIO_BASE_URL`, LM Studio failure-only, and both-providers-fail cases.
-4. [ ] Confirm updated `ingest-models` Cucumber scenarios pass with deterministic `200` warning-envelope assertions.
-5. [ ] Confirm `/ingest/models` tests explicitly cover `OPENAI_MODELS_LIST_AUTH_FAILED` and `OPENAI_MODELS_LIST_UNAVAILABLE` status mappings.
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: verify story-specific behavior and general regression paths at `http://host.docker.internal:5001`, and confirm there are no logged errors in the browser debug console.
+9. [ ] `npm run compose:down`
+
+10. [ ] `npm run test:unit --workspace server`
+11. [ ] Confirm `/ingest/models` route tests cover missing/blank key, success, transient failure, strict `allowlist ∩ models.list()` filtering, allowlist no-match (`retryable=false`), deterministic allowlist ordering, invalid `LMSTUDIO_BASE_URL`, LM Studio failure-only, and both-providers-fail cases.
+12. [ ] Confirm updated `ingest-models` Cucumber scenarios pass with deterministic `200` warning-envelope assertions.
+13. [ ] Confirm `/ingest/models` tests explicitly cover `OPENAI_MODELS_LIST_AUTH_FAILED` and `OPENAI_MODELS_LIST_UNAVAILABLE` status mappings.
 
 #### Implementation notes
 
@@ -1078,17 +1132,26 @@ Implement provider-aware request/response contracts for ingest start and vector 
 #### Testing
 
 1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test:unit --workspace server`
-3. [ ] `npm run test:integration --workspace server`
-4. [ ] Confirm `server/src/test/unit/tools-vector-search.test.ts`, `server/src/test/unit/lmstudio-tools.test.ts` (or equivalent LM Studio tools suite), classic MCP vector-search error tests, and ingest-start route tests pass.
-5. [ ] Confirm vector-search success-shape regression tests pass (no contract changes on success path).
-6. [ ] Confirm ingest status/roots error-shape tests pass for normalized OpenAI failure payloads with backward-compatible `lastError` behavior and accurate partial-write progress accounting.
-7. [ ] Confirm updated ingest-start/reembed Cucumber scenarios pass.
-8. [ ] Confirm secret-safety redaction tests pass for ingest/vector-search/MCP error payloads and logs.
-9. [ ] Confirm cross-surface parity tests pass for equivalent OpenAI failures across REST, classic MCP, and ingest-run error surfaces.
-10. [ ] Confirm OpenAI happy-path integration tests pass for ingest start -> re-embed -> vector-search using locked provider/model identity.
-11. [ ] Confirm re-embed invalid-state tests pass for deterministic rejection of `cancelled`/`error` root states before run start.
-12. [ ] Confirm `OPENAI_MODEL_UNAVAILABLE` contract tests pass across ingest start, re-embed, REST vector-search, and classic MCP vector-search with no silent fallback.
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: verify story-specific behavior and general regression paths at `http://host.docker.internal:5001`, and confirm there are no logged errors in the browser debug console.
+9. [ ] `npm run compose:down`
+
+10. [ ] `npm run test:unit --workspace server`
+11. [ ] `npm run test:integration --workspace server`
+12. [ ] Confirm `server/src/test/unit/tools-vector-search.test.ts`, `server/src/test/unit/lmstudio-tools.test.ts` (or equivalent LM Studio tools suite), classic MCP vector-search error tests, and ingest-start route tests pass.
+13. [ ] Confirm vector-search success-shape regression tests pass (no contract changes on success path).
+14. [ ] Confirm ingest status/roots error-shape tests pass for normalized OpenAI failure payloads with backward-compatible `lastError` behavior and accurate partial-write progress accounting.
+15. [ ] Confirm updated ingest-start/reembed Cucumber scenarios pass.
+16. [ ] Confirm secret-safety redaction tests pass for ingest/vector-search/MCP error payloads and logs.
+17. [ ] Confirm cross-surface parity tests pass for equivalent OpenAI failures across REST, classic MCP, and ingest-run error surfaces.
+18. [ ] Confirm OpenAI happy-path integration tests pass for ingest start -> re-embed -> vector-search using locked provider/model identity.
+19. [ ] Confirm re-embed invalid-state tests pass for deterministic rejection of `cancelled`/`error` root states before run start.
+20. [ ] Confirm `OPENAI_MODEL_UNAVAILABLE` contract tests pass across ingest start, re-embed, REST vector-search, and classic MCP vector-search with no silent fallback.
 
 #### Implementation notes
 
@@ -1136,11 +1199,20 @@ Finalize the remaining message-contract surfaces so canonical lock/provider fiel
 #### Testing
 
 1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test:unit --workspace server`
-3. [ ] `npm run test:integration --workspace server`
-4. [ ] Confirm MCP server integration tests pass.
-5. [ ] Confirm updated ingest-roots/ingest-remove Cucumber scenarios pass.
-6. [ ] Confirm contract tests pass for same model-id across providers with provider-qualified identity preserved in REST and classic MCP responses.
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: verify story-specific behavior and general regression paths at `http://host.docker.internal:5001`, and confirm there are no logged errors in the browser debug console.
+9. [ ] `npm run compose:down`
+
+10. [ ] `npm run test:unit --workspace server`
+11. [ ] `npm run test:integration --workspace server`
+12. [ ] Confirm MCP server integration tests pass.
+13. [ ] Confirm updated ingest-roots/ingest-remove Cucumber scenarios pass.
+14. [ ] Confirm contract tests pass for same model-id across providers with provider-qualified identity preserved in REST and classic MCP responses.
 
 #### Implementation notes
 
@@ -1184,9 +1256,18 @@ Align server-side transitive consumers that depend on ingest repository/tool pay
 #### Testing
 
 1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test:unit --workspace server`
-3. [ ] `npm run test:integration --workspace server`
-4. [ ] Confirm `server/src/test/integration/flows.list.test.ts`, `server/src/test/integration/flows.run.basic.test.ts`, `server/src/test/unit/agent-commands-list.test.ts`, `server/src/test/integration/tools-ast.test.ts`, and `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` pass.
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: verify story-specific behavior and general regression paths at `http://host.docker.internal:5001`, and confirm there are no logged errors in the browser debug console.
+9. [ ] `npm run compose:down`
+
+10. [ ] `npm run test:unit --workspace server`
+11. [ ] `npm run test:integration --workspace server`
+12. [ ] Confirm `server/src/test/integration/flows.list.test.ts`, `server/src/test/integration/flows.run.basic.test.ts`, `server/src/test/unit/agent-commands-list.test.ts`, `server/src/test/integration/tools-ast.test.ts`, and `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` pass.
 
 #### Implementation notes
 
@@ -1232,12 +1313,20 @@ Update the client data layer (`useIngestModels`, `useIngestRoots`, related types
 
 #### Testing
 
-1. [ ] `npm run build --workspace client`
-2. [ ] `npm run test --workspace client`
-3. [ ] Confirm `client/src/test/ingestStatus.test.tsx` and `client/src/test/ingestRoots.test.tsx` pass.
-4. [ ] Confirm hook tests cover both legacy string and normalized-object error payload handling.
-5. [ ] Confirm normalization-pattern regression suites remain green (`client/src/test/useConversations.source.test.ts` and `client/src/test/useConversationTurns.commandMetadata.test.ts`) so ingest contract parsing changes do not regress shared normalization behavior.
-6. [ ] Confirm ingest hook tests pass for the full provider status/warning matrix and legacy fallback handling in both `client/src/test/useIngestModels.test.tsx` and `client/src/test/useIngestRoots.test.tsx`.
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: verify story-specific behavior and general regression paths at `http://host.docker.internal:5001`, and confirm there are no logged errors in the browser debug console.
+9. [ ] `npm run compose:down`
+
+10. [ ] Confirm `client/src/test/ingestStatus.test.tsx` and `client/src/test/ingestRoots.test.tsx` pass.
+11. [ ] Confirm hook tests cover both legacy string and normalized-object error payload handling.
+12. [ ] Confirm normalization-pattern regression suites remain green (`client/src/test/useConversations.source.test.ts` and `client/src/test/useConversationTurns.commandMetadata.test.ts`) so ingest contract parsing changes do not regress shared normalization behavior.
+13. [ ] Confirm ingest hook tests pass for the full provider status/warning matrix and legacy fallback handling in both `client/src/test/useIngestModels.test.tsx` and `client/src/test/useIngestRoots.test.tsx`.
 
 #### Implementation notes
 
@@ -1295,12 +1384,20 @@ Implement the user-visible ingest UI behavior for provider-tagged model selectio
 
 #### Testing
 
-1. [ ] `npm run build --workspace client`
-2. [ ] `npm run test --workspace client`
-3. [ ] Confirm `client/src/test/ingestForm.test.tsx` and `client/src/test/ingestPage.layout.test.tsx` pass.
-4. [ ] Confirm warning/info banner behavior is covered by existing banner-pattern tests (`client/src/test/chatPage.codexBanners.test.tsx`) plus new/updated ingest-specific assertions.
-5. [ ] Confirm ingest UI tests pass for same model-id cross-provider selection and the full OpenAI banner/statusCode matrix.
-6. [ ] Confirm tool-result compatibility tests pass in `client/src/test/chatPage.toolDetails.test.tsx` and `client/src/test/agentsPage.toolsUi.test.tsx`.
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check: verify story-specific behavior and general regression paths at `http://host.docker.internal:5001`, and confirm there are no logged errors in the browser debug console.
+9. [ ] `npm run compose:down`
+
+10. [ ] Confirm `client/src/test/ingestForm.test.tsx` and `client/src/test/ingestPage.layout.test.tsx` pass.
+11. [ ] Confirm warning/info banner behavior is covered by existing banner-pattern tests (`client/src/test/chatPage.codexBanners.test.tsx`) plus new/updated ingest-specific assertions.
+12. [ ] Confirm ingest UI tests pass for same model-id cross-provider selection and the full OpenAI banner/statusCode matrix.
+13. [ ] Confirm tool-result compatibility tests pass in `client/src/test/chatPage.toolDetails.test.tsx` and `client/src/test/agentsPage.toolsUi.test.tsx`.
 
 #### Implementation notes
 
@@ -1342,14 +1439,19 @@ Run the complete verification gate for Story 0000036, confirm acceptance criteri
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test:unit --workspace server`
-4. [ ] `npm run test:integration --workspace server`
-5. [ ] `npm run test --workspace client`
-6. [ ] `npm run compose:build:clean`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] `npm run e2e`
-9. [ ] Capture manual verification screenshots in `test-results/screenshots/` using naming `0000036-12-<description>.png`.
-10. [ ] Verify traceability matrix is complete with no uncovered acceptance or edge-case rows remaining.
+8. [ ] Manual Playwright-MCP check: verify story-specific behavior and general regression paths at `http://host.docker.internal:5001`, and confirm there are no logged errors in the browser debug console.
+9. [ ] `npm run compose:down`
+
+10. [ ] `npm run test:unit --workspace server`
+11. [ ] `npm run test:integration --workspace server`
+12. [ ] `npm run compose:build:clean`
+13. [ ] Capture manual verification screenshots in `test-results/screenshots/` using naming `0000036-12-<description>.png`.
+14. [ ] Verify traceability matrix is complete with no uncovered acceptance or edge-case rows remaining.
 
 #### Implementation notes
 

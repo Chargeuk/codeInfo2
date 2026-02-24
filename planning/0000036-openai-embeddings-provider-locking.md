@@ -847,7 +847,7 @@ Make one canonical lock resolver for all lock consumers so `/ingest/models` no l
 ### 3. Server: Environment loading parity for `.env` and `.env.local`
 
 - Task Status: **__done__**
-- Git Commits: `eb7aaaa`, `4d3ca55`
+- Git Commits: `ed9074f`, `320c151`, `39739e9`, `1fe83f4`
   - `ed9074f` - DEV-0000036 - Start Task 3 env loading parity
   - `320c151` - DEV-0000036 - Complete Task 3 env loading parity and verification
   - `39739e9` - DEV-0000036 - Mark Task 3 git commits in story plan
@@ -925,7 +925,7 @@ Implement deterministic local env loading (`server/.env` then `server/.env.local
 ### 4. Server: Make break-step answer parsing robust while preserving strict JSON schema
 
 - Task Status: **__done__**
-- Git Commits: `77de0ef`, `64d5e95`
+- Git Commits: `eb7aaaa`, `4d3ca55`, `d2d3339`
 
 #### Overview
 
@@ -1022,7 +1022,7 @@ Improve break-step parsing so the flow engine can safely recover the required JS
 ### 5. Server: Add configurable retry budget for failed command and flow steps
 
 - Task Status: **__done__**
-- Git Commits:
+- Git Commits: `77de0ef`, `64d5e95`, `a3597fc`
 
 #### Overview
 

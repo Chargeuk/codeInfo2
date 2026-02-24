@@ -1075,18 +1075,11 @@ Increase resilience by retrying failed command and flow execution steps with a s
 2. [ ] `npm run build --workspace client`
 3. [ ] `npm run test --workspace server`
 4. [ ] `npm run test --workspace client`
-5. [ ] `npm run test:unit --workspace server`
-6. [ ] `npm run test --workspace server -- agent-commands-runner-retry`
-7. [ ] `npm run test --workspace server -- flow-command-retries-config`
-8. [ ] `npm run test --workspace server -- flows.run.loop`
-9. [ ] `npm run test --workspace server -- flows.run.command`
-10. [ ] `npm run test --workspace server -- flows.run.resume`
-11. [ ] `npm run test --workspace server -- ws-chat-stream`
-12. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
-13. [ ] `npm run compose:build`
-14. [ ] `npm run compose:up`
-15. [ ] Manual check: run one command flow and one break/llm flow with induced transient failures; verify retried instruction text contains `Your previous attempt at this task failed with the error` followed by original step text, verify only one terminal final event is emitted per logical retried step, verify persisted flow/agent turn counts are not duplicated by intermediate failed attempts, and verify `/logs` includes `DEV-0000036:T5:step_retry_attempt` and `DEV-0000036:T5:step_retry_exhausted` with correct attempt counts plus `retryPromptInjected` and `sanitizedErrorLength` metadata and zero browser console errors.
-16. [ ] `npm run compose:down`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual check: run one command flow and one break/llm flow with induced transient failures; verify retried instruction text contains `Your previous attempt at this task failed with the error` followed by original step text, verify only one terminal final event is emitted per logical retried step, verify persisted flow/agent turn counts are not duplicated by intermediate failed attempts, and verify `/logs` includes `DEV-0000036:T5:step_retry_attempt` and `DEV-0000036:T5:step_retry_exhausted` with correct attempt counts plus `retryPromptInjected` and `sanitizedErrorLength` metadata and zero browser console errors.
+9. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1162,15 +1155,14 @@ Implement OpenAI embedding execution behind the shared provider interface, inclu
 8. [ ] Manual Playwright-MCP check: run OpenAI-backed ingest/vector-search from `http://host.docker.internal:5001`; verify server logs include `DEV-0000036:T6:openai_embedding_attempt` (attempt/model/input metadata) and `DEV-0000036:T6:openai_embedding_result_mapped` (canonical code/retryable mapping). Expected outcome: attempt/result logs align with observed behavior and browser debug console has zero errors.
 9. [ ] `npm run compose:down`
 
-10. [ ] `npm run test:unit --workspace server`
-11. [ ] Confirm `npm ls openai --workspace server` resolves exactly one installed `openai` package and no ingestion code imports `@openai/codex-sdk` for embeddings/model-list calls.
-12. [ ] Confirm taxonomy/guardrail tests pass in provider adapter test suite.
-13. [ ] Confirm retry-exhaustion normalization tests pass (terminal error metadata, no raw SDK leak-through).
-14. [ ] Confirm wait-hint precedence tests (header-order and fallback) plus edge-case tests (invalid/negative/unparseable hints) pass in provider retry test suite.
-15. [ ] Confirm OpenAI taxonomy tests cover upstream input-too-large mapping (`OPENAI_INPUT_TOO_LARGE`) and quota mapping (`OPENAI_QUOTA_EXCEEDED`).
-16. [ ] Confirm OpenAI adapter tests prove API key/token material is not present in emitted error/log metadata.
-17. [ ] Confirm taxonomy matrix tests cover every planned `OPENAI_*` category with expected `retryable` classification and metadata.
-18. [ ] Confirm boundary-value guardrail tests pass for inputs/token limits at and beyond hard limits (`2048/2049`, `300000/300001`, per-input max boundary cases).
+10. [ ] Confirm `npm ls openai --workspace server` resolves exactly one installed `openai` package and no ingestion code imports `@openai/codex-sdk` for embeddings/model-list calls.
+11. [ ] Confirm taxonomy/guardrail tests pass in provider adapter test suite.
+12. [ ] Confirm retry-exhaustion normalization tests pass (terminal error metadata, no raw SDK leak-through).
+13. [ ] Confirm wait-hint precedence tests (header-order and fallback) plus edge-case tests (invalid/negative/unparseable hints) pass in provider retry test suite.
+14. [ ] Confirm OpenAI taxonomy tests cover upstream input-too-large mapping (`OPENAI_INPUT_TOO_LARGE`) and quota mapping (`OPENAI_QUOTA_EXCEEDED`).
+15. [ ] Confirm OpenAI adapter tests prove API key/token material is not present in emitted error/log metadata.
+16. [ ] Confirm taxonomy matrix tests cover every planned `OPENAI_*` category with expected `retryable` classification and metadata.
+17. [ ] Confirm boundary-value guardrail tests pass for inputs/token limits at and beyond hard limits (`2048/2049`, `300000/300001`, per-input max boundary cases).
 
 #### Implementation notes
 
@@ -1238,13 +1230,11 @@ Extend lock identity from model-only to provider+model+dimensions internally, wi
 8. [ ] Manual Playwright-MCP check: run ingest start/reembed/remove flows from `http://host.docker.internal:5001`; verify server logs include `DEV-0000036:T7:embedding_lock_written` with provider/model/dimensions and `DEV-0000036:T7:embedding_lock_cleared` with correct lifecycle reason. Expected outcome: write/clear lifecycle logs appear in correct sequence and browser debug console has zero errors.
 9. [ ] `npm run compose:down`
 
-10. [ ] `npm run test:unit --workspace server`
-11. [ ] `npm run test:integration --workspace server`
-12. [ ] Confirm `server/src/test/integration/chat-vectorsearch-locked-model.test.ts` passes.
-13. [ ] Confirm classic MCP vector-search parity and ingest lock-lifecycle tests pass.
-14. [ ] Confirm invalid partial-canonical lock metadata and lock lifecycle cleanup tests pass.
-15. [ ] Confirm concurrency tests pass with deterministic `BUSY` outcomes for concurrent start/reembed/remove operations.
-16. [ ] Confirm lock-clear idempotence tests pass for empty-collection cleanup without clearing a newer lock.
+10. [ ] Confirm `server/src/test/integration/chat-vectorsearch-locked-model.test.ts` passes.
+11. [ ] Confirm classic MCP vector-search parity and ingest lock-lifecycle tests pass.
+12. [ ] Confirm invalid partial-canonical lock metadata and lock lifecycle cleanup tests pass.
+13. [ ] Confirm concurrency tests pass with deterministic `BUSY` outcomes for concurrent start/reembed/remove operations.
+14. [ ] Confirm lock-clear idempotence tests pass for empty-collection cleanup without clearing a newer lock.
 
 #### Implementation notes
 
@@ -1309,10 +1299,9 @@ Implement the agreed `/ingest/models` contract (`models`, `lock`, `openai`, `lms
 8. [ ] Manual Playwright-MCP check: open ingest models UI at `http://host.docker.internal:5001`; verify server logs include `DEV-0000036:T8:ingest_models_response_summary` and `DEV-0000036:T8:ingest_models_warning_status` whenever warning envelopes are returned. Expected outcome: warning/status logs match displayed state and browser debug console has zero errors.
 9. [ ] `npm run compose:down`
 
-10. [ ] `npm run test:unit --workspace server`
-11. [ ] Confirm `/ingest/models` route tests cover missing/blank key, success, transient failure, strict `allowlist ∩ models.list()` filtering, allowlist no-match (`retryable=false`), deterministic allowlist ordering, invalid `LMSTUDIO_BASE_URL`, LM Studio failure-only, and both-providers-fail cases.
-12. [ ] Confirm updated `ingest-models` Cucumber scenarios pass with deterministic `200` warning-envelope assertions.
-13. [ ] Confirm `/ingest/models` tests explicitly cover `OPENAI_MODELS_LIST_AUTH_FAILED` and `OPENAI_MODELS_LIST_UNAVAILABLE` status mappings.
+10. [ ] Confirm `/ingest/models` route tests cover missing/blank key, success, transient failure, strict `allowlist ∩ models.list()` filtering, allowlist no-match (`retryable=false`), deterministic allowlist ordering, invalid `LMSTUDIO_BASE_URL`, LM Studio failure-only, and both-providers-fail cases.
+11. [ ] Confirm updated `ingest-models` Cucumber scenarios pass with deterministic `200` warning-envelope assertions.
+12. [ ] Confirm `/ingest/models` tests explicitly cover `OPENAI_MODELS_LIST_AUTH_FAILED` and `OPENAI_MODELS_LIST_UNAVAILABLE` status mappings.
 
 #### Implementation notes
 
@@ -1388,17 +1377,15 @@ Implement provider-aware request/response contracts for ingest start and vector 
 8. [ ] Manual Playwright-MCP check: trigger ingest start/reembed/vector-search flows from `http://host.docker.internal:5001`; verify server logs include `DEV-0000036:T9:ingest_request_contract_validated` and `DEV-0000036:T9:openai_error_contract_mapped` for success/failure paths. Expected outcome: logged contract mapping matches API responses and browser debug console has zero errors.
 9. [ ] `npm run compose:down`
 
-10. [ ] `npm run test:unit --workspace server`
-11. [ ] `npm run test:integration --workspace server`
-12. [ ] Confirm `server/src/test/unit/tools-vector-search.test.ts`, `server/src/test/unit/lmstudio-tools.test.ts` (or equivalent LM Studio tools suite), classic MCP vector-search error tests, and ingest-start route tests pass.
-13. [ ] Confirm vector-search success-shape regression tests pass (no contract changes on success path).
-14. [ ] Confirm ingest status/roots error-shape tests pass for normalized OpenAI failure payloads with backward-compatible `lastError` behavior and accurate partial-write progress accounting.
-15. [ ] Confirm updated ingest-start/reembed Cucumber scenarios pass.
-16. [ ] Confirm secret-safety redaction tests pass for ingest/vector-search/MCP error payloads and logs.
-17. [ ] Confirm cross-surface parity tests pass for equivalent OpenAI failures across REST, classic MCP, and ingest-run error surfaces.
-18. [ ] Confirm OpenAI happy-path integration tests pass for ingest start -> re-embed -> vector-search using locked provider/model identity.
-19. [ ] Confirm re-embed invalid-state tests pass for deterministic rejection of `cancelled`/`error` root states before run start.
-20. [ ] Confirm `OPENAI_MODEL_UNAVAILABLE` and re-embed allowlist-enforcement contract tests pass across ingest start, re-embed, REST vector-search, and classic MCP vector-search with no silent fallback or model substitution.
+10. [ ] Confirm `server/src/test/unit/tools-vector-search.test.ts`, `server/src/test/unit/lmstudio-tools.test.ts` (or equivalent LM Studio tools suite), classic MCP vector-search error tests, and ingest-start route tests pass.
+11. [ ] Confirm vector-search success-shape regression tests pass (no contract changes on success path).
+12. [ ] Confirm ingest status/roots error-shape tests pass for normalized OpenAI failure payloads with backward-compatible `lastError` behavior and accurate partial-write progress accounting.
+13. [ ] Confirm updated ingest-start/reembed Cucumber scenarios pass.
+14. [ ] Confirm secret-safety redaction tests pass for ingest/vector-search/MCP error payloads and logs.
+15. [ ] Confirm cross-surface parity tests pass for equivalent OpenAI failures across REST, classic MCP, and ingest-run error surfaces.
+16. [ ] Confirm OpenAI happy-path integration tests pass for ingest start -> re-embed -> vector-search using locked provider/model identity.
+17. [ ] Confirm re-embed invalid-state tests pass for deterministic rejection of `cancelled`/`error` root states before run start.
+18. [ ] Confirm `OPENAI_MODEL_UNAVAILABLE` and re-embed allowlist-enforcement contract tests pass across ingest start, re-embed, REST vector-search, and classic MCP vector-search with no silent fallback or model substitution.
 
 #### Implementation notes
 
@@ -1456,11 +1443,9 @@ Finalize the remaining message-contract surfaces so canonical lock/provider fiel
 8. [ ] Manual Playwright-MCP check: view roots and ingested-repos flows from `http://host.docker.internal:5001`; verify server logs include `DEV-0000036:T10:ingest_repo_payload_emitted` and `DEV-0000036:T10:ingest_repo_schema_version_emitted` with canonical+alias fields. Expected outcome: emitted log payload matches rendered data/contracts and browser debug console has zero errors.
 9. [ ] `npm run compose:down`
 
-10. [ ] `npm run test:unit --workspace server`
-11. [ ] `npm run test:integration --workspace server`
-12. [ ] Confirm MCP server integration tests pass.
-13. [ ] Confirm updated ingest-roots/ingest-remove Cucumber scenarios pass.
-14. [ ] Confirm contract tests pass for same model-id across providers with provider-qualified identity preserved in REST and classic MCP responses.
+10. [ ] Confirm MCP server integration tests pass.
+11. [ ] Confirm updated ingest-roots/ingest-remove Cucumber scenarios pass.
+12. [ ] Confirm contract tests pass for same model-id across providers with provider-qualified identity preserved in REST and classic MCP responses.
 
 #### Implementation notes
 
@@ -1514,9 +1499,7 @@ Align server-side transitive consumers that depend on ingest repository/tool pay
 8. [ ] Manual Playwright-MCP check: run transitive consumer workflows via `http://host.docker.internal:5001`; verify server logs include `DEV-0000036:T11:transitive_consumer_contract_read` and `DEV-0000036:T11:transitive_consumer_alias_fallback`. Expected outcome: consumers report canonical reads with expected fallback flags and browser debug console has zero errors.
 9. [ ] `npm run compose:down`
 
-10. [ ] `npm run test:unit --workspace server`
-11. [ ] `npm run test:integration --workspace server`
-12. [ ] Confirm `server/src/test/integration/flows.list.test.ts`, `server/src/test/integration/flows.run.basic.test.ts`, `server/src/test/unit/agent-commands-list.test.ts`, `server/src/test/integration/tools-ast.test.ts`, and `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` pass.
+10. [ ] Confirm `server/src/test/integration/flows.list.test.ts`, `server/src/test/integration/flows.run.basic.test.ts`, `server/src/test/unit/agent-commands-list.test.ts`, `server/src/test/integration/tools-ast.test.ts`, and `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts` pass.
 
 #### Implementation notes
 
@@ -1699,11 +1682,9 @@ Run the complete verification gate for Story 0000036, confirm acceptance criteri
 8. [ ] Manual Playwright-MCP check: execute final acceptance/regression walkthrough at `http://host.docker.internal:5001`; verify combined logs include `DEV-0000036:T14:acceptance_matrix_verified` (`allRowsCovered=true`) and `DEV-0000036:T14:manual_regression_completed` (`consoleErrors=0`), and capture screenshots for every acceptance criterion that is GUI-verifiable (including ingest provider/model selection, warning/info banners, lock metadata display, root details/error rendering, and tool-result compatibility views) to `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped by `docker-compose.local.yml`) using `0000036-14-<acceptance-item>.png` naming. Expected outcome: screenshots are reviewed by the agent against Task 14 acceptance expectations, non-visual acceptance checks are confirmed via logs/API assertions as appropriate, and browser debug console has zero errors.
 9. [ ] `npm run compose:down`
 
-10. [ ] `npm run test:unit --workspace server`
-11. [ ] `npm run test:integration --workspace server`
-12. [ ] `npm run compose:build:clean`
-13. [ ] Capture and retain all Task 14 manual verification screenshots in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped by `docker-compose.local.yml`) using naming `0000036-14-<description>.png`, and ensure the agent has checked each screenshot against the corresponding GUI acceptance item.
-14. [ ] Verify traceability matrix is complete with no uncovered acceptance or edge-case rows remaining.
+10. [ ] `npm run compose:build:clean`
+11. [ ] Capture and retain all Task 14 manual verification screenshots in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped by `docker-compose.local.yml`) using naming `0000036-14-<description>.png`, and ensure the agent has checked each screenshot against the corresponding GUI acceptance item.
+12. [ ] Verify traceability matrix is complete with no uncovered acceptance or edge-case rows remaining.
 
 #### Implementation notes
 

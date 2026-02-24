@@ -9,7 +9,8 @@
 
 ## Working through story plans
 
-- When working through story plans from the ./planning folder you MUST mark each subtask as complete by marking the [ ] box with an 'x' so it becomes [x] at the point of implementing that subtask. DO NOT wait until multiple subtasks are complete and then mark them all in a batch. This ensures you know exactly where you are up to if your context is reset, and allows users to follow your progress precicely. Missing this step of marking subtasks complete at the point of implementation has caused multiple issues in the past, so DO NOT FORGET to keep the subtasks and testing steps up to date at the point you complete each of them!
+- When working through story plans from the ./planning folder you MUST mark each subtask and testing step as complete by marking the [ ] box with an 'x' so it becomes [x] at the point of implementing that subtask or testing step. DO NOT wait until multiple subtasks are complete and then mark them all in a batch. This ensures you know exactly where you are up to if your context is reset, and allows users to follow your progress precicely. Missing this step of marking subtasks complete at the point of implementation has caused multiple issues in the past, so DO NOT FORGET to keep the subtasks and testing steps up to date at the point you complete each of them!
+- After marking a subtask or testing step as complete, you must then add an implemention note point to the `Implementation Notes` section of the task, briefly stating what was done and any issues you needed to overcome, or if the subtask is blocked for some reason.
 
 ## Branching & Phase Flow
 

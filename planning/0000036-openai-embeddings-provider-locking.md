@@ -842,6 +842,8 @@ Make one canonical lock resolver for all lock consumers so `/ingest/models` no l
 
 - Task Status: **__done__**
 - Git Commits:
+  - `ed9074f` - DEV-0000036 - Start Task 3 env loading parity
+  - `320c151` - DEV-0000036 - Complete Task 3 env loading parity and verification
 
 #### Overview
 

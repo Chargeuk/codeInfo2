@@ -53,8 +53,15 @@ OpenAI research points (validated during discovery):
 
 - OpenAI embeddings are created via `POST /embeddings` (`client.embeddings.create(...)` in `openai-node`).
 - Available models for the API key are listed via `GET /models` (`client.models.list()`), but model capability filtering is application-side.
-- Embedding input constraints in OpenAI API reference include: max input tokens by model (8192 tokens for `text-embedding-ada-002`, and docs currently state 8192 for all embedding models), max 2048 inputs per request array, and max 300,000 total input tokens across a single request.
+- Embedding input constraints in OpenAI API reference include: per-model max input tokens, max 2048 inputs per request array, and max 300,000 total input tokens across a single request. Implementation must treat token limits as model-specific and avoid hard-coding one global token limit for every embedding model.
 - `dimensions` is supported for `text-embedding-3-small` (1..1536) and `text-embedding-3-large` (1..3072). This story keeps default dimensions only (no UI control, no request override).
+
+Version and dependency baseline for this story (validated from repository lockfile + docs):
+
+- Resolved server/runtime versions in this repo: `express@5.1.0`, `dotenv@16.6.1`, `chromadb@3.1.6`, `mongoose@9.0.1`, `typescript@5.9.3`.
+- Resolved client/runtime versions in this repo: `react@19.2.0`, `@mui/material@6.5.0` (manifest range is `^6.4.1`).
+- OpenAI SDK state before implementing this story: `openai` npm package is not currently installed; only `@openai/codex-sdk` is present and used for Codex chat interfaces, not embeddings/models APIs.
+- Consequence: this story must add and use the official `openai` SDK in server runtime for embeddings/model discovery; `@openai/codex-sdk` is not the OpenAI embeddings adapter for this story.
 
 OpenAI dropdown filtering decision for this story:
 
@@ -158,6 +165,8 @@ Retryability guidance for this taxonomy:
   - model listing endpoint returns basic model metadata and requires application-side capability filtering.
 - Confirmed from Chroma docs that collection/query embedding dimensions must match; mismatches fail. This plan now requires dimension-aware lock metadata and deterministic mismatch errors.
 - Confirmed from OpenAI Node SDK docs that SDK-level retries/timeouts exist by default; this plan now requires explicit retry ownership (SDK retries disabled for embeddings calls, server retry utility authoritative).
+- Confirmed from dependency inspection that `openai` SDK is not currently installed in the server workspace while this story requires OpenAI embeddings/model-list APIs. This plan now explicitly requires adding the official `openai` package before implementing OpenAI adapter logic.
+- Confirmed from dependency inspection that client resolves `@mui/material@6.5.0` while MUI MCP mirror docs available in this environment are `6.4.12`; this plan now requires using the MUI MCP mirror plus MUI release/migration docs to ensure no 6.5-specific deprecation regressions.
 
 ## Junior-Readable Definition of Done
 
@@ -795,32 +804,34 @@ Implement OpenAI embedding execution behind the shared provider interface, inclu
 #### Documentation Locations
 
 - OpenAI embeddings guide: https://developers.openai.com/api/docs/guides/embeddings/
-- OpenAI Node SDK behavior (timeouts/retries/errors): Context7 `/openai/openai-node`
+- OpenAI Node SDK behavior (timeouts/retries/errors): Context7 `/openai/openai-node/v6_1_0`
 - DeepWiki OpenAI Node references: `openai/openai-node`
 
 #### Subtasks
 
-1. [ ] Implement OpenAI provider adapter using `OPENAI_EMBEDDING_KEY` by extending existing embedding execution paths in `server/src/ingest/ingestJob.ts` and `server/src/ingest/chromaClient.ts` (no parallel ingest/query embedding pipeline).
-2. [ ] Enforce request guardrails (`<=2048` inputs, per-input token limit, `<=300000` total tokens/request) for both ingest-time and query-time embedding calls.
-3. [ ] Extract `runWithRetry`/`delayWithAbort` into a shared utility at `server/src/utils/retry.ts`, keep `server/src/agents/retry.ts` as a compatibility re-export, and use the shared utility for embedding retries with story defaults (`maxRetries=3`, `baseDelayMs=500`, `maxDelayMs=8000`, jitter factor `[0.75,1.0]`) so only one retry implementation exists.
-4. [ ] Implement wait-hint precedence exactly as specified: `retry-after-ms` -> `retry-after` (seconds/date) -> `x-ratelimit-reset-requests` / `x-ratelimit-reset-tokens` -> bounded exponential fallback.
-5. [ ] Enforce wait-hint edge handling: ignore invalid/negative hints, treat hints `>60000ms` as non-immediate, and fall back to bounded exponential delay.
-6. [ ] Set OpenAI embedding call timeout to `30000ms` per attempt and disable SDK auto-retries for embedding calls (`maxRetries=0`) so server retry logic is the only retry layer.
-7. [ ] Map upstream/OpenAI SDK failures to story taxonomy codes, including explicit quota/credits exhaustion mapping to `OPENAI_QUOTA_EXCEEDED` and `context_length_exceeded`-style upstream responses to `OPENAI_INPUT_TOO_LARGE`.
-8. [ ] Validate embedding response payload integrity (non-empty numeric vectors only) before writing any vectors.
-9. [ ] Ensure retry-budget exhaustion returns a normalized terminal `OPENAI_*` error with deterministic metadata (`retryable`, `upstreamStatus`, optional `retryAfterMs`) rather than raw SDK errors.
-10. [ ] Ensure OpenAI embedding errors/log fields never include secret material (`OPENAI_EMBEDDING_KEY`, authorization headers, or bearer tokens) by using sanitized error/log metadata at the provider boundary.
-11. [ ] Add/update focused unit tests for retry/backoff, wait-hint parsing and precedence ordering, timeout ownership, taxonomy mapping, response validation, guardrails, and secret-safety sanitization.
+1. [ ] Add official OpenAI SDK dependency to `server/package.json` (`openai`) and lockfile; do not reuse `@openai/codex-sdk` for embeddings/model-list calls.
+2. [ ] Implement OpenAI provider adapter using `OPENAI_EMBEDDING_KEY` by extending existing embedding execution paths in `server/src/ingest/ingestJob.ts` and `server/src/ingest/chromaClient.ts` (no parallel ingest/query embedding pipeline).
+3. [ ] Enforce request guardrails (`<=2048` inputs, per-input token limit, `<=300000` total tokens/request) for both ingest-time and query-time embedding calls, with model-specific token-limit resolution rather than one global hard-coded limit.
+4. [ ] Extract `runWithRetry`/`delayWithAbort` into a shared utility at `server/src/utils/retry.ts`, keep `server/src/agents/retry.ts` as a compatibility re-export, and use the shared utility for embedding retries with story defaults (`maxRetries=3`, `baseDelayMs=500`, `maxDelayMs=8000`, jitter factor `[0.75,1.0]`) so only one retry implementation exists.
+5. [ ] Implement wait-hint precedence exactly as specified: `retry-after-ms` -> `retry-after` (seconds/date) -> `x-ratelimit-reset-requests` / `x-ratelimit-reset-tokens` -> bounded exponential fallback.
+6. [ ] Enforce wait-hint edge handling: ignore invalid/negative hints, treat hints `>60000ms` as non-immediate, and fall back to bounded exponential delay.
+7. [ ] Set OpenAI embedding call timeout to `30000ms` per attempt and disable SDK auto-retries for embedding calls (`maxRetries=0`) so server retry logic is the only retry layer.
+8. [ ] Map upstream/OpenAI SDK failures to story taxonomy codes, including explicit quota/credits exhaustion mapping to `OPENAI_QUOTA_EXCEEDED` and `context_length_exceeded`-style upstream responses to `OPENAI_INPUT_TOO_LARGE`.
+9. [ ] Validate embedding response payload integrity (non-empty numeric vectors only) before writing any vectors.
+10. [ ] Ensure retry-budget exhaustion returns a normalized terminal `OPENAI_*` error with deterministic metadata (`retryable`, `upstreamStatus`, optional `retryAfterMs`) rather than raw SDK errors.
+11. [ ] Ensure OpenAI embedding errors/log fields never include secret material (`OPENAI_EMBEDDING_KEY`, authorization headers, or bearer tokens) by using sanitized error/log metadata at the provider boundary.
+12. [ ] Add/update focused unit tests for retry/backoff, wait-hint parsing and precedence ordering, timeout ownership, taxonomy mapping, response validation, guardrails, and secret-safety sanitization.
 
 #### Testing
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run test:unit --workspace server`
-3. [ ] Confirm taxonomy/guardrail tests pass in provider adapter test suite.
-4. [ ] Confirm retry-exhaustion normalization tests pass (terminal error metadata, no raw SDK leak-through).
-5. [ ] Confirm wait-hint precedence tests (header-order and fallback) plus edge-case tests (invalid/negative/date/over-60s) pass in provider retry test suite.
-6. [ ] Confirm OpenAI taxonomy tests cover upstream input-too-large mapping (`OPENAI_INPUT_TOO_LARGE`) and quota mapping (`OPENAI_QUOTA_EXCEEDED`).
-7. [ ] Confirm OpenAI adapter tests prove API key/token material is not present in emitted error/log metadata.
+3. [ ] Confirm `npm ls openai --workspace server` resolves exactly one installed `openai` package and no ingestion code imports `@openai/codex-sdk` for embeddings/model-list calls.
+4. [ ] Confirm taxonomy/guardrail tests pass in provider adapter test suite.
+5. [ ] Confirm retry-exhaustion normalization tests pass (terminal error metadata, no raw SDK leak-through).
+6. [ ] Confirm wait-hint precedence tests (header-order and fallback) plus edge-case tests (invalid/negative/date/over-60s) pass in provider retry test suite.
+7. [ ] Confirm OpenAI taxonomy tests cover upstream input-too-large mapping (`OPENAI_INPUT_TOO_LARGE`) and quota mapping (`OPENAI_QUOTA_EXCEEDED`).
+8. [ ] Confirm OpenAI adapter tests prove API key/token material is not present in emitted error/log metadata.
 
 #### Implementation notes
 
@@ -1048,7 +1059,8 @@ Update the client data layer (`useIngestModels`, `useIngestRoots`, related types
 
 #### Documentation Locations
 
-- MUI docs index for component props used by ingest views: https://llms.mui.com/material-ui/6.4.12/llms.txt
+- MUI MCP docs index (closest available mirror in this environment): https://llms.mui.com/material-ui/6.4.12/llms.txt
+- MUI v6 release notes (validate resolved `@mui/material@6.5.0` compatibility/deprecations): https://github.com/mui/material-ui/releases/tag/v6.5.0
 - React docs for state/effect patterns: https://react.dev/reference/react
 
 #### Subtasks
@@ -1084,8 +1096,9 @@ Implement the user-visible ingest UI behavior for provider-tagged model selectio
 
 #### Documentation Locations
 
-- MUI TextField/select docs: https://llms.mui.com/material-ui/6.4.12/components/text-fields.md
-- MUI Alert docs: https://llms.mui.com/material-ui/6.4.12/components/alert.md
+- MUI TextField/select docs (MCP mirror): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md
+- MUI Alert docs (MCP mirror): https://llms.mui.com/material-ui/6.4.12/components/alert.md
+- MUI deprecated API migration notes (`TextField` `*Props` -> `slotProps`): https://mui.com/material-ui/migration/migrating-from-deprecated-apis/
 - React controlled form inputs: https://react.dev/reference/react-dom/components/input
 
 #### Subtasks
@@ -1098,8 +1111,9 @@ Implement the user-visible ingest UI behavior for provider-tagged model selectio
 6. [ ] Keep ingest UI dimension-free for this story (no dimensions input/control introduced anywhere in the form).
 7. [ ] Update ingest status/error rendering in existing components (`client/src/components/ingest/ActiveRunCard.tsx`, `client/src/components/ingest/RootsTable.tsx`, and `client/src/components/ingest/RootDetailsDrawer.tsx`) so normalized OpenAI errors remain user-readable while legacy string errors still render correctly.
 8. [ ] Update lock display in existing ingest UI components/pages (`IngestPage`, `IngestForm`, `RootsTable`, `RootDetailsDrawer`) to prefer canonical lock fields and fallback to aliases.
-9. [ ] Reuse existing warning/info banner implementation style (MUI `Alert` layout + deterministic `data-testid` assertions) consistent with current patterns in `client/src/pages/ChatPage.tsx` and existing ingest banners in `client/src/pages/IngestPage.tsx`.
-10. [ ] Add/update client tests for dropdown options, provider-qualified selection identity, stale-selection clearing, warnings/info bars, no-dimensions-control behavior, ingest error rendering compatibility, and payload behavior.
+9. [ ] Replace deprecated `TextField` `SelectProps` usage in ingest form with supported `slotProps.select` API while preserving current behavior.
+10. [ ] Reuse existing warning/info banner implementation style (MUI `Alert` layout + deterministic `data-testid` assertions) consistent with current patterns in `client/src/pages/ChatPage.tsx` and existing ingest banners in `client/src/pages/IngestPage.tsx`.
+11. [ ] Add/update client tests for dropdown options, provider-qualified selection identity, stale-selection clearing, warnings/info bars, no-dimensions-control behavior, ingest error rendering compatibility, and payload behavior.
 
 #### Testing
 

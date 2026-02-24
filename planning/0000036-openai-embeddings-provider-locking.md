@@ -695,9 +695,12 @@ Refactor existing LM Studio embedding calls into a common provider interface wit
 
 #### Documentation Locations
 
-- OpenAI Node SDK (interface patterns, request options): Context7 `/openai/openai-node`
-- Chroma collection/query behavior: Context7 `/chroma-core/chroma`
-- TypeScript handbook (interfaces/types): https://www.typescriptlang.org/docs/
+- OpenAI Node SDK: Context7 `/openai/openai-node/v6_1_0` (use for provider-adapter method signatures, timeout/retry options, and error object behavior while preserving LM Studio parity).
+- Chroma docs: Context7 `/chroma-core/chroma` (use for collection/query behavior and embedding-dimension parity constraints).
+- TypeScript handbook: https://www.typescriptlang.org/docs/ (use for provider interfaces, module boundaries, and strict typing patterns).
+- Express routing guide: https://expressjs.com/en/guide/routing.html (use to confirm route behavior remains unchanged during internal refactor).
+- JSON-RPC 2.0 spec: https://www.jsonrpc.org/specification (use to confirm classic MCP payloads are unchanged).
+- Jest docs: https://jestjs.io/docs/getting-started (use for parity/regression test updates without changing assertion semantics).
 
 #### Subtasks
 
@@ -732,8 +735,12 @@ Make one canonical lock resolver for all lock consumers so `/ingest/models` no l
 
 #### Documentation Locations
 
-- Chroma metadata update/get semantics: Context7 `/chroma-core/chroma`
-- Express route consistency/error handling: https://expressjs.com/en/guide/error-handling.html
+- Chroma docs: Context7 `/chroma-core/chroma` (use for metadata and lock-state persistence semantics across collection reads/writes).
+- Express error handling: https://expressjs.com/en/guide/error-handling.html (use for deterministic route-level error envelopes during resolver unification).
+- JSON-RPC 2.0 spec: https://www.jsonrpc.org/specification (use for MCP lock-surface contract parity).
+- OpenAPI 3.0.3: https://spec.openapis.org/oas/v3.0.3.html (use for existing REST schema stability while internal lock source changes).
+- TypeScript modules handbook: https://www.typescriptlang.org/docs/handbook/modules/introduction.html (use for import-path cleanup and single-source resolver wiring).
+- Jest docs: https://jestjs.io/docs/getting-started (use for endpoint lock-parity regression tests).
 
 #### Subtasks
 
@@ -767,8 +774,12 @@ Implement deterministic local env loading (`server/.env` then `server/.env.local
 
 #### Documentation Locations
 
-- dotenv usage/reference: https://github.com/motdotla/dotenv
-- Node environment variables: https://nodejs.org/api/environment_variables.html
+- dotenv documentation: https://github.com/motdotla/dotenv (use for multi-file loading order and override behavior).
+- Node.js environment variables: https://nodejs.org/api/environment_variables.html (use for runtime env parsing and process-level precedence rules).
+- Docker Compose env variables: https://docs.docker.com/compose/how-tos/environment-variables/set-environment-variables/ (use to match local env precedence behavior with compose semantics).
+- OpenAI embeddings docs: https://developers.openai.com/api/docs/guides/embeddings/ (use for key-dependent capability handling and secret-safe operational context).
+- Jest environment variables docs: https://jestjs.io/docs/environment-variables (use for deterministic env precedence tests).
+- TypeScript handbook: https://www.typescriptlang.org/docs/ (use for typed config parser/refactor consistency).
 
 #### Subtasks
 
@@ -801,9 +812,13 @@ Implement OpenAI embedding execution behind the shared provider interface, inclu
 
 #### Documentation Locations
 
-- OpenAI embeddings guide: https://developers.openai.com/api/docs/guides/embeddings/
-- OpenAI Node SDK behavior (timeouts/retries/errors): Context7 `/openai/openai-node/v6_1_0`
-- DeepWiki OpenAI Node references: https://deepwiki.com/openai/openai-node
+- OpenAI embeddings guide: https://developers.openai.com/api/docs/guides/embeddings/ (use for request limits, model behavior, and payload expectations).
+- OpenAI models list API: https://developers.openai.com/api/docs/api-reference/models/list (use for allowlist-intersection and model availability validation behavior).
+- OpenAI Node SDK: Context7 `/openai/openai-node/v6_1_0` (use for timeout, retry, error-class behavior, and per-request options).
+- DeepWiki OpenAI Node: https://deepwiki.com/openai/openai-node (use for SDK structure cross-reference while implementing adapters/mappers).
+- Chroma docs: Context7 `/chroma-core/chroma` (use for dimension compatibility requirements before vector writes/queries).
+- MDN `Retry-After` header: https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Retry-After (use for wait-hint precedence and fallback parsing semantics).
+- Jest docs: https://jestjs.io/docs/getting-started (use for retry/guardrail/error taxonomy unit test coverage patterns).
 
 #### Subtasks
 
@@ -818,7 +833,7 @@ Implement OpenAI embedding execution behind the shared provider interface, inclu
 9. [ ] Implement wait-hint precedence handling. Files (read/edit): provider module error/retry handling functions. Constraint: `retry-after-ms` then `retry-after`, else bounded exponential fallback. Docs: Context7 `/openai/openai-node/v6_1_0`.
 10. [ ] Implement wait-hint invalid-value fallback rules. Files (read/edit): provider module retry parsing logic. Constraint: invalid/negative/unparseable hints must not throw; fallback to bounded delay. Docs: Context7 `/openai/openai-node/v6_1_0`.
 11. [ ] Enforce timeout and retry ownership. Files (read/edit): provider client creation and call options in `server/src/ingest/providers/*`. Constraint: timeout `30000ms` per attempt and OpenAI SDK `maxRetries=0`. Docs: Context7 `/openai/openai-node/v6_1_0`.
-12. [ ] Map OpenAI errors to story taxonomy. Files (read/edit): provider error mapper(s) and shared error type(s) used by ingest/vector-search paths. Constraint: return deterministic `OPENAI_*` codes only. Docs: DeepWiki `openai/openai-node`.
+12. [ ] Map OpenAI errors to story taxonomy. Files (read/edit): provider error mapper(s) and shared error type(s) used by ingest/vector-search paths. Constraint: return deterministic `OPENAI_*` codes only. Docs: DeepWiki https://deepwiki.com/openai/openai-node.
 13. [ ] Add explicit quota/input-too-large mappings. Files (read/edit): provider error mapper(s). Constraint: quota/credit -> `OPENAI_QUOTA_EXCEEDED`; token/input size (including `context_length_exceeded`) -> `OPENAI_INPUT_TOO_LARGE`. Docs: https://developers.openai.com/api/docs/guides/embeddings/.
 14. [ ] Validate embedding response payload shape before writes. Files (read/edit): provider response parser and write call sites in `server/src/ingest/ingestJob.ts`/`server/src/ingest/chromaClient.ts`. Constraint: reject empty/non-numeric vectors deterministically. Docs: Context7 `/openai/openai-node/v6_1_0`.
 15. [ ] Normalize retry-budget exhausted failures. Files (read/edit): provider retry wrapper and error mapper. Constraint: terminal error must include normalized metadata (`retryable`, `upstreamStatus`, `retryAfterMs?`) and never leak raw SDK error objects. Docs: Context7 `/openai/openai-node/v6_1_0`.
@@ -853,8 +868,13 @@ Extend lock identity from model-only to provider+model+dimensions internally, wi
 
 #### Documentation Locations
 
-- Chroma dimension constraints: Context7 `/chroma-core/chroma`
-- DeepWiki Chroma references: https://deepwiki.com/chroma-core/chroma
+- Chroma docs: Context7 `/chroma-core/chroma` (use for lock-dimension consistency and pre-query mismatch handling requirements).
+- DeepWiki Chroma: https://deepwiki.com/chroma-core/chroma (use for additional collection behavior references during lock metadata updates).
+- OpenAPI 3.0.3: https://spec.openapis.org/oas/v3.0.3.html (use for canonical lock field naming consistency with REST contracts).
+- JSON-RPC 2.0 spec: https://www.jsonrpc.org/specification (use for classic MCP vector-search parity behavior).
+- Express error handling: https://expressjs.com/en/guide/error-handling.html (use for deterministic `BUSY`/validation error responses).
+- TypeScript handbook: https://www.typescriptlang.org/docs/ (use for canonical lock type definitions and compatibility mappings).
+- Jest docs: https://jestjs.io/docs/getting-started (use for concurrency/lifecycle and lock-compat regression tests).
 
 #### Subtasks
 
@@ -899,21 +919,25 @@ Implement the agreed `/ingest/models` contract (`models`, `lock`, `openai`, `lms
 
 #### Documentation Locations
 
-- OpenAPI schema authoring: https://spec.openapis.org/oas/v3.0.3.html
-- OpenAI models API behavior: https://platform.openai.com/docs/api-reference/models/list
+- OpenAPI 3.0.3: https://spec.openapis.org/oas/v3.0.3.html (use for `/ingest/models` envelope schema and required/optional field semantics).
+- OpenAI models list API: https://developers.openai.com/api/docs/api-reference/models/list (use for allowlist intersection and provider availability states).
+- Express error handling: https://expressjs.com/en/guide/error-handling.html (use for deterministic `200` warning-envelope behavior instead of route-level hard failures).
+- Node.js environment variables: https://nodejs.org/api/environment_variables.html (use for missing/blank/whitespace key handling semantics).
+- Cucumber guides overview: https://cucumber.io/docs/guides/overview/ (use for BDD feature/step structure while updating provider status scenarios).
+- Jest docs: https://jestjs.io/docs/getting-started (use for route-level unit/contract assertions).
 
 #### Subtasks
 
 1. [ ] Implement canonical `/ingest/models` response envelope and lock source. Files (read/edit): `server/src/routes/ingestModels.ts`, shared lock resolver (`server/src/ingest/chromaClient.ts` or canonical helper), and remove placeholder read usage from `server/src/ingest/modelLock.ts`. Required behavior: response must include `models`, `lock`, `openai`, and `lmstudio`, and use the same lock resolver as ingest runtime. Docs: https://spec.openapis.org/oas/v3.0.3.html.
-2. [ ] Add deterministic OpenAI status machine and codes. Files (read/edit): `server/src/routes/ingestModels.ts` and related response-shape types/helpers. Required behavior: implement exactly `OPENAI_DISABLED`, `OPENAI_OK`, `OPENAI_ALLOWLIST_NO_MATCH`, `OPENAI_MODELS_LIST_TEMPORARY_FAILURE`, `OPENAI_MODELS_LIST_AUTH_FAILED`, `OPENAI_MODELS_LIST_UNAVAILABLE`. Docs: https://platform.openai.com/docs/api-reference/models/list.
+2. [ ] Add deterministic OpenAI status machine and codes. Files (read/edit): `server/src/routes/ingestModels.ts` and related response-shape types/helpers. Required behavior: implement exactly `OPENAI_DISABLED`, `OPENAI_OK`, `OPENAI_ALLOWLIST_NO_MATCH`, `OPENAI_MODELS_LIST_TEMPORARY_FAILURE`, `OPENAI_MODELS_LIST_AUTH_FAILED`, `OPENAI_MODELS_LIST_UNAVAILABLE`. Docs: https://developers.openai.com/api/docs/api-reference/models/list.
 3. [ ] Normalize missing-key detection. Files (read/edit): `server/src/routes/ingestModels.ts` and env helper used by this route. Required behavior: missing/blank/whitespace `OPENAI_EMBEDDING_KEY` always maps to `openai.status="disabled"` and no OpenAI API call is attempted. Docs: https://nodejs.org/api/environment_variables.html.
 4. [ ] Keep LM Studio options available when OpenAI is warning/disabled. Files (read/edit): `server/src/routes/ingestModels.ts` and LM Studio model-list helper path used there. Required behavior: OpenAI failures must not remove successful LM Studio options. Docs: https://expressjs.com/en/guide/error-handling.html.
-5. [ ] Enforce strict OpenAI allowlist and ordering. Files (read/edit): `server/src/routes/ingestModels.ts` plus shared allowlist constants helper (if introduced). Required behavior: output OpenAI options as `allowlist ∩ models.list()` only, with deterministic order `text-embedding-3-small` then `text-embedding-3-large`. Docs: https://platform.openai.com/docs/api-reference/models/list.
+5. [ ] Enforce strict OpenAI allowlist and ordering. Files (read/edit): `server/src/routes/ingestModels.ts` plus shared allowlist constants helper (if introduced). Required behavior: output OpenAI options as `allowlist ∩ models.list()` only, with deterministic order `text-embedding-3-small` then `text-embedding-3-large`. Docs: https://developers.openai.com/api/docs/api-reference/models/list.
 6. [ ] Enforce warning-payload rules for no-match and transient failures. Files (read/edit): `server/src/routes/ingestModels.ts` and warning metadata types/helpers. Required behavior: `OPENAI_ALLOWLIST_NO_MATCH` sets `openai.warning.retryable=false`; omit `openai.warning` when status is `ok` or `disabled`. Docs: https://spec.openapis.org/oas/v3.0.3.html.
 7. [ ] Add deterministic LM Studio status envelope in the same `200` response. Files (read/edit): `server/src/routes/ingestModels.ts` and LM Studio list wrapper helper. Required behavior: include `lmstudio.status`, `lmstudio.statusCode`, and optional `lmstudio.warning`; do not emit route-level `502` for LM Studio-only failures. Docs: https://expressjs.com/en/guide/error-handling.html.
 8. [ ] Treat invalid or unreachable `LMSTUDIO_BASE_URL` as warning metadata, not endpoint failure. Files (read/edit): `server/src/routes/ingestModels.ts`, relevant LM Studio client helper/config parser. Required behavior: return `200` with LM Studio warning and still include OpenAI options when available. Docs: https://nodejs.org/api/environment_variables.html.
 9. [ ] Keep compatibility alias behavior explicit. Files (read/edit): `server/src/routes/ingestModels.ts` and lock mapping helper. Required behavior: `lockedModelId` must mirror `lock.embeddingModel`, and `lock` must be `null` when no lock exists. Docs: https://spec.openapis.org/oas/v3.0.3.html.
-10. [ ] Update BDD scenarios to match deterministic envelope behavior. Files (read/edit): `server/src/test/features/ingest-models.feature` and matching step definitions under `server/src/test/features/step-definitions/*`. Required behavior: replace LM Studio `502` expectations with `200` plus provider-status assertions. Docs: https://cucumber.io/docs/guides/.
+10. [ ] Update BDD scenarios to match deterministic envelope behavior. Files (read/edit): `server/src/test/features/ingest-models.feature` and matching step definitions under `server/src/test/features/step-definitions/*`. Required behavior: replace LM Studio `502` expectations with `200` plus provider-status assertions. Docs: https://cucumber.io/docs/guides/overview/.
 11. [ ] Add focused route/unit coverage for all envelope states. Files (read/edit): existing unit suites covering `/ingest/models` under `server/src/test/unit/*ingest*models*.test.ts` (or nearest existing file). Required behavior: include missing key, blank key, success, transient OpenAI failure, allowlist no-match, ordering, invalid LM Studio URL, LM Studio-only failure, and both providers failing. Docs: https://jestjs.io/docs/getting-started.
 12. [ ] Add explicit schema-level assertions for model entry field shape. Files (read/edit): route tests from subtask 11. Required behavior: each model entry must include only contract fields `id`, `displayName`, and `provider`, with deterministic ordering. Docs: https://spec.openapis.org/oas/v3.0.3.html.
 
@@ -941,27 +965,32 @@ Implement provider-aware request/response contracts for ingest start and vector 
 
 #### Documentation Locations
 
-- JSON-RPC 2.0 (error consistency considerations): https://www.jsonrpc.org/specification
-- OpenAPI 3.0.3: https://spec.openapis.org/oas/v3.0.3.html
+- JSON-RPC 2.0 spec: https://www.jsonrpc.org/specification (use for classic MCP error payload consistency).
+- OpenAPI 3.0.3: https://spec.openapis.org/oas/v3.0.3.html (use for ingest start/reembed/vector-search REST contract definitions).
+- OpenAI models list API: https://developers.openai.com/api/docs/api-reference/models/list (use for allowlist validation behavior in start/reembed paths).
+- OpenAI embeddings guide: https://developers.openai.com/api/docs/guides/embeddings/ (use for provider-specific failure taxonomy context and deterministic mapping).
+- TypeScript handbook: https://www.typescriptlang.org/docs/ (use for normalized error object and compatibility type modeling).
+- Cucumber guides overview: https://cucumber.io/docs/guides/overview/ (use for BDD updates on canonical+legacy behavior).
+- Jest docs: https://jestjs.io/docs/getting-started (use for regression tests covering payload/field compatibility).
 
 #### Subtasks
 
 1. [ ] Add canonical ingest-start request fields. Files (read/edit): `server/src/routes/ingestStart.ts`. Constraint: accept `embeddingProvider` + `embeddingModel` while preserving legacy `model` compatibility. Docs: OpenAPI https://spec.openapis.org/oas/v3.0.3.html.
 2. [ ] Make canonical fields authoritative when both canonical+legacy are present. Files (read/edit): `server/src/ingest/ingestJob.ts`, `server/src/routes/ingestStart.ts`. Constraint: prevent ambiguous behavior. Docs: Story acceptance criterion for canonical precedence and https://spec.openapis.org/oas/v3.0.3.html.
 3. [ ] Update lock-conflict response body shape. Files (read/edit): `server/src/routes/ingestStart.ts` and shared lock payload builders touched. Constraint: include canonical `lock` plus compatibility alias `lockedModelId`. Docs: Story contract section “Ingest Start Conflict Contract” and https://spec.openapis.org/oas/v3.0.3.html.
-4. [ ] Enforce OpenAI allowlist at ingest-start validation. Files (read/edit): `server/src/routes/ingestStart.ts`, shared validation helper(s). Constraint: reject non-allowlisted OpenAI model ids deterministically. Docs: https://platform.openai.com/docs/api-reference/models/list.
+4. [ ] Enforce OpenAI allowlist at ingest-start validation. Files (read/edit): `server/src/routes/ingestStart.ts`, shared validation helper(s). Constraint: reject non-allowlisted OpenAI model ids deterministically. Docs: https://developers.openai.com/api/docs/api-reference/models/list.
 5. [ ] Enforce `/ingest/reembed/:root` lock-derived provider/model contract. Files (read/edit): `server/src/routes/ingestReembed.ts`, `server/src/ingest/reingestService.ts`, `server/src/ingest/ingestJob.ts`. Constraint: canonical-first resolution with legacy fallback, no silent switching. Docs: Story contract sections for re-embed + lock and https://spec.openapis.org/oas/v3.0.3.html.
-6. [ ] Enforce OpenAI allowlist during re-embed validation. Files (read/edit): re-embed route/service files touched in subtask 5. Constraint: same allowlist rules as ingest start. Docs: Story acceptance criteria for allowlist enforcement and https://platform.openai.com/docs/api-reference/models/list.
+6. [ ] Enforce OpenAI allowlist during re-embed validation. Files (read/edit): re-embed route/service files touched in subtask 5. Constraint: same allowlist rules as ingest start. Docs: Story acceptance criteria for allowlist enforcement and https://developers.openai.com/api/docs/api-reference/models/list.
 7. [ ] Normalize vector-search OpenAI error mapping. Files (read/edit): `server/src/lmstudio/toolService.ts`. Constraint: use normalized taxonomy and metadata fields. Docs: Story “OpenAI Embedding Failure Response Contract” and https://www.jsonrpc.org/specification.
 8. [ ] Keep `/tools/vector-search` success payload unchanged. Files (read/edit): `server/src/routes/toolsVectorSearch.ts`. Constraint: only error-contract changes in this task. Docs: Story contract section “/tools/vector-search Contract Extension” and https://spec.openapis.org/oas/v3.0.3.html.
 9. [ ] Enforce required normalized error fields across surfaces. Files (read/edit): `server/src/lmstudio/toolService.ts`, `server/src/routes/toolsVectorSearch.ts`, `server/src/mcp/server.ts`, `server/src/lmstudio/tools.ts`. Constraint: required fields `error/message/retryable/provider`; optional `upstreamStatus/retryAfterMs`. Docs: Story failure response contract and https://www.jsonrpc.org/specification.
 10. [ ] Normalize ingest-run error surfaces without breaking legacy consumers. Files (read/edit): `server/src/routes/ingestStatus.ts`, `server/src/routes/ingestRoots.ts`, related models/mappers. Constraint: preserve string-compatible `lastError` behavior. Docs: Story Scenario 7 + acceptance criteria and https://spec.openapis.org/oas/v3.0.3.html.
 11. [ ] Preserve progress accounting on partial-write failure. Files (read/edit): `server/src/ingest/ingestJob.ts`, ingest status/roots mapping files touched. Constraint: accurate counters + normalized `lastError`. Docs: Story edge case “timeout/connection resets after partial batches” and https://www.typescriptlang.org/docs/.
-12. [ ] Enforce deterministic `OPENAI_MODEL_UNAVAILABLE` behavior. Files (read/edit): validation/error mapping layers touched in subtasks 4-10. Constraint: no silent fallback provider/model switching. Docs: Story edge case “model no longer available” and https://platform.openai.com/docs/api-reference/models/list.
+12. [ ] Enforce deterministic `OPENAI_MODEL_UNAVAILABLE` behavior. Files (read/edit): validation/error mapping layers touched in subtasks 4-10. Constraint: no silent fallback provider/model switching. Docs: Story edge case “model no longer available” and https://developers.openai.com/api/docs/api-reference/models/list.
 13. [ ] Keep one shared error mapping path across REST/MCP/ingest. Files (read/edit): `server/src/lmstudio/toolService.ts`, `server/src/mcp/server.ts`. Constraint: one canonical translation path, no duplicated formatter logic. Docs: JSON-RPC spec https://www.jsonrpc.org/specification.
 14. [ ] Align LM Studio tool wrappers with shared mapping. Files (read/edit): `server/src/lmstudio/tools.ts`. Constraint: match REST and classic MCP behavior exactly. Docs: JSON-RPC spec https://www.jsonrpc.org/specification.
 15. [ ] Ensure secret-safe error/log output across surfaces. Files (read/edit): all touched error serialization/logging layers in this task. Constraint: never emit keys/headers/tokens. Docs: https://developers.openai.com/api/docs/guides/embeddings/.
-16. [ ] Update ingest-start/reembed BDD scenarios for canonical+legacy behavior. Files (read/edit): `server/src/test/features/ingest-start-body.feature`, `server/src/test/features/ingest-reembed.feature`, related step files. Constraint: explicit canonical precedence and lock-derived behavior assertions. Docs: Cucumber guides https://cucumber.io/docs/guides/.
+16. [ ] Update ingest-start/reembed BDD scenarios for canonical+legacy behavior. Files (read/edit): `server/src/test/features/ingest-start-body.feature`, `server/src/test/features/ingest-reembed.feature`, related step files. Constraint: explicit canonical precedence and lock-derived behavior assertions. Docs: Cucumber guides https://cucumber.io/docs/guides/overview/.
 17. [ ] Add/update focused tests for this task. Files (read/edit): existing unit/integration suites for ingest start/reembed/vector-search/MCP. Constraint: cover precedence, compatibility mapping, allowlist rejection, lock-model-unavailable, normalized field shape, partial-write status accounting, and secret redaction. Docs: task testing list below.
 
 #### Testing
@@ -992,8 +1021,10 @@ Finalize the remaining message-contract surfaces so canonical lock/provider fiel
 
 #### Documentation Locations
 
-- JSON-RPC 2.0: https://www.jsonrpc.org/specification
-- OpenAPI 3.0.3: https://spec.openapis.org/oas/v3.0.3.html
+- JSON-RPC 2.0 spec: https://www.jsonrpc.org/specification (use for classic MCP list output and error envelope parity).
+- OpenAPI 3.0.3: https://spec.openapis.org/oas/v3.0.3.html (use for REST schema alignment in roots/repos endpoints).
+- Cucumber guides overview: https://cucumber.io/docs/guides/overview/ (use for BDD feature/step updates across roots/manage scenarios).
+- Jest docs: https://jestjs.io/docs/getting-started (use for unit/integration contract parity and schema assertions).
 
 #### Subtasks
 
@@ -1001,8 +1032,8 @@ Finalize the remaining message-contract surfaces so canonical lock/provider fiel
 2. [ ] Add canonical fields to `/tools/ingested-repos`. Files (read/edit): `server/src/lmstudio/toolService.ts` (`listIngestedRepositories`) and `server/src/routes/toolsIngestedRepos.ts`. Constraint: keep route wrapper thin and service-centric. Docs: JSON-RPC spec https://www.jsonrpc.org/specification.
 3. [ ] Update classic MCP `ListIngestedRepositories` output shape. Files (read/edit): `server/src/mcp/server.ts`. Constraint: payload parity with REST contract plus compatibility aliases. Docs: JSON-RPC spec https://www.jsonrpc.org/specification.
 4. [ ] Enforce alias synchronization matrix across all lock-bearing responses. Files (read/edit): roots/tools/MCP mapping code touched in subtasks 1-3. Constraint: `lock.embeddingModel` must match alias fields (`lockedModelId`, `modelId`, legacy root `model`). Docs: Story “Compatibility Alias Matrix” and https://spec.openapis.org/oas/v3.0.3.html.
-5. [ ] Update ingest-roots BDD coverage for canonical+alias parity. Files (read/edit): `server/src/test/features/ingest-roots.feature`, related step files. Constraint: do not remove legacy fields required by existing consumers. Docs: Cucumber guides https://cucumber.io/docs/guides/.
-6. [ ] Update ingest-manage BDD coverage for canonical+alias parity. Files (read/edit): `server/src/test/features/ingest-manage.feature` (or equivalent), related step files. Constraint: preserve legacy field assertions alongside canonical fields. Docs: Cucumber guides https://cucumber.io/docs/guides/.
+5. [ ] Update ingest-roots BDD coverage for canonical+alias parity. Files (read/edit): `server/src/test/features/ingest-roots.feature`, related step files. Constraint: do not remove legacy fields required by existing consumers. Docs: Cucumber guides https://cucumber.io/docs/guides/overview/.
+6. [ ] Update ingest-manage BDD coverage for canonical+alias parity. Files (read/edit): `server/src/test/features/ingest-manage.feature` (or equivalent), related step files. Constraint: preserve legacy field assertions alongside canonical fields. Docs: Cucumber guides https://cucumber.io/docs/guides/overview/.
 7. [ ] Add/update unit/integration contract tests for roots/repos/MCP parity. Files (read/edit): existing suites under `server/src/test/unit` and `server/src/test/integration`. Constraint: explicit canonical+alias parity assertions. Docs: Story acceptance criteria for compatibility and https://jestjs.io/docs/getting-started.
 8. [ ] Update OpenAPI contract file with implemented schemas. Files (read/edit): `openapi.json`. Constraint: include all listed endpoints with provider status/warning envelopes and normalized error fields. Docs: OpenAPI https://spec.openapis.org/oas/v3.0.3.html.
 9. [ ] Add/update schema tests asserting OpenAPI path/field coverage. Files (read/edit): existing schema test files under `server/src/test/unit/*schema*.test.ts`. Constraint: assert required paths + lock/error fields match implementation. Docs: OpenAPI https://spec.openapis.org/oas/v3.0.3.html.
@@ -1032,8 +1063,9 @@ Align server-side transitive consumers that depend on ingest repository shapes s
 
 #### Documentation Locations
 
-- TypeScript handbook (type evolution and compatibility): https://www.typescriptlang.org/docs/
-- JSON-RPC 2.0 (payload compatibility): https://www.jsonrpc.org/specification
+- TypeScript handbook: https://www.typescriptlang.org/docs/ (use for canonical-first type evolution with compatibility aliases).
+- JSON-RPC 2.0 spec: https://www.jsonrpc.org/specification (use for tool payload compatibility across REST/classic pathways).
+- Jest docs: https://jestjs.io/docs/getting-started (use for regression coverage across flows/agents/AST transitive consumers).
 
 #### Subtasks
 
@@ -1068,9 +1100,10 @@ Update the client data layer (`useIngestModels`, `useIngestRoots`, related types
 
 #### Documentation Locations
 
-- MUI MCP docs index (closest available mirror in this environment): https://llms.mui.com/material-ui/6.4.12/llms.txt
-- MUI v6 release notes (validate resolved `@mui/material@6.5.0` compatibility/deprecations): https://github.com/mui/material-ui/releases/tag/v6.5.0
-- React docs for state/effect patterns: https://react.dev/reference/react
+- MUI MCP docs index: https://llms.mui.com/material-ui/6.4.12/llms.txt (use as canonical component API reference in this environment).
+- MUI v6.5.0 release notes: https://github.com/mui/material-ui/releases/tag/v6.5.0 (use to validate compatibility/deprecation behavior against resolved package version).
+- React reference: https://react.dev/reference/react (use for hook state/effect and safe normalization patterns).
+- Jest docs: https://jestjs.io/docs/getting-started (use for hook parsing/error compatibility tests).
 
 #### Subtasks
 
@@ -1105,9 +1138,10 @@ Implement the user-visible ingest UI behavior for provider-tagged model selectio
 
 #### Documentation Locations
 
-- MUI TextField/select docs (MCP mirror): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md
-- MUI Alert docs (MCP mirror): https://llms.mui.com/material-ui/6.4.12/components/alert.md
-- React controlled form inputs: https://react.dev/reference/react-dom/components/input
+- MUI TextField/Select docs: https://llms.mui.com/material-ui/6.4.12/components/text-fields.md (use for provider-qualified select rendering and option state management).
+- MUI Alert docs: https://llms.mui.com/material-ui/6.4.12/components/alert.md (use for deterministic info/warning banner behavior).
+- React controlled input docs: https://react.dev/reference/react-dom/components/input (use for selection lifecycle, reset, and controlled submission behavior).
+- Jest docs: https://jestjs.io/docs/getting-started (use for UI contract tests on selection, banners, and payload shape).
 
 #### Subtasks
 
@@ -1151,14 +1185,17 @@ Run the complete verification gate for Story 0000036, confirm acceptance criteri
 
 #### Documentation Locations
 
-- Docker/Compose docs: Context7 `/docker/docs`
-- Playwright docs: Context7 `/microsoft/playwright`
-- Jest docs: Context7 `/jestjs/jest`
-- Cucumber guides: https://cucumber.io/docs/guides/
+- Docker/Compose docs: Context7 `/docker/docs` (use for clean build/startup verification commands and compose lifecycle checks).
+- Playwright docs: Context7 `/microsoft/playwright` (use for end-to-end and screenshot validation guidance).
+- Jest docs: Context7 `/jestjs/jest` (use for final server/client automated verification strategy).
+- Cucumber guides overview: https://cucumber.io/docs/guides/overview/ (use for final BDD verification mapping against acceptance criteria).
+- Cucumber 10-minute tutorial: https://cucumber.io/docs/guides/10-minute-tutorial/ (use for concrete step-definition and feature authoring conventions).
+- Markdown Guide: https://www.markdownguide.org/basic-syntax/ (use for final story documentation updates and formatting consistency).
+- Conventional Commits: https://www.conventionalcommits.org/en/v1.0.0/ (use for final PR summary/commit message structure references).
 
 #### Subtasks
 
-1. [ ] Produce acceptance-criteria traceability matrix for Story 0000036. Files (read/edit): this planning file Implementation notes for Task 12, plus PR description/checklist location used by the team. Required behavior: each acceptance criterion must map to at least one automated test file path or an explicit manual verification artifact path. Docs: https://cucumber.io/docs/guides/ and https://jestjs.io/docs/getting-started.
+1. [ ] Produce acceptance-criteria traceability matrix for Story 0000036. Files (read/edit): this planning file Implementation notes for Task 12, plus PR description/checklist location used by the team. Required behavior: each acceptance criterion must map to at least one automated test file path or an explicit manual verification artifact path. Docs: https://cucumber.io/docs/guides/overview/ and https://jestjs.io/docs/getting-started.
 2. [ ] Update repository-level runtime documentation for implemented env/contract behavior. Files (read/edit): `README.md`. Required behavior: document `OPENAI_EMBEDDING_KEY`, provider-aware ingest model selection, and relevant server endpoints exactly as implemented (no future/aspirational text). Docs: https://www.markdownguide.org/basic-syntax/.
 3. [ ] Update architecture and behavior documentation for implemented contract changes. Files (read/edit): `design.md`. Required behavior: include canonical lock fields, compatibility behavior, and provider-aware request/response flow updates with concrete endpoint names. Docs: https://spec.openapis.org/oas/v3.0.3.html.
 4. [ ] Update structure map for all files created/renamed/removed by this story. Files (read/edit): `projectStructure.md`. Required behavior: include one-line purpose for each new or changed file/folder touched by Story 0000036. Docs: `projectStructure.md` top-level maintenance rule plus https://www.markdownguide.org/basic-syntax/.

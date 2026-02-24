@@ -810,17 +810,23 @@ Implement OpenAI embedding execution behind the shared provider interface, inclu
 #### Subtasks
 
 1. [ ] Add official OpenAI SDK dependency to `server/package.json` (`openai`) and lockfile; do not reuse `@openai/codex-sdk` for embeddings/model-list calls.
-2. [ ] Implement OpenAI provider adapter using `OPENAI_EMBEDDING_KEY` by extending existing embedding execution paths in `server/src/ingest/ingestJob.ts` and `server/src/ingest/chromaClient.ts` (no parallel ingest/query embedding pipeline).
-3. [ ] Enforce request guardrails (`<=2048` inputs, per-input token limit, `<=300000` total tokens/request) for both ingest-time and query-time embedding calls, with model-specific token-limit resolution rather than one global hard-coded limit.
-4. [ ] Extract `runWithRetry`/`delayWithAbort` into a shared utility at `server/src/utils/retry.ts`, keep `server/src/agents/retry.ts` as a compatibility re-export, and use the shared utility for embedding retries with story defaults (`maxRetries=3`, `baseDelayMs=500`, `maxDelayMs=8000`, jitter factor `[0.75,1.0]`) so only one retry implementation exists.
-5. [ ] Implement wait-hint precedence exactly as specified: `retry-after-ms` -> `retry-after` (seconds/date) -> `x-ratelimit-reset-requests` / `x-ratelimit-reset-tokens` -> bounded exponential fallback.
-6. [ ] Enforce wait-hint edge handling: ignore invalid/negative hints, treat hints `>60000ms` as non-immediate, and fall back to bounded exponential delay.
-7. [ ] Set OpenAI embedding call timeout to `30000ms` per attempt and disable SDK auto-retries for embedding calls (`maxRetries=0`) so server retry logic is the only retry layer.
-8. [ ] Map upstream/OpenAI SDK failures to story taxonomy codes, including explicit quota/credits exhaustion mapping to `OPENAI_QUOTA_EXCEEDED` and `context_length_exceeded`-style upstream responses to `OPENAI_INPUT_TOO_LARGE`.
-9. [ ] Validate embedding response payload integrity (non-empty numeric vectors only) before writing any vectors.
-10. [ ] Ensure retry-budget exhaustion returns a normalized terminal `OPENAI_*` error with deterministic metadata (`retryable`, `upstreamStatus`, optional `retryAfterMs`) rather than raw SDK errors.
-11. [ ] Ensure OpenAI embedding errors/log fields never include secret material (`OPENAI_EMBEDDING_KEY`, authorization headers, or bearer tokens) by using sanitized error/log metadata at the provider boundary.
-12. [ ] Add/update focused unit tests for retry/backoff, wait-hint parsing and precedence ordering, timeout ownership, taxonomy mapping, response validation, guardrails, and secret-safety sanitization.
+2. [ ] Create the OpenAI embedding provider module under `server/src/ingest/providers/` with explicit provider id and model-list/embed method contracts.
+3. [ ] Wire the OpenAI provider into ingest-time embedding execution in `server/src/ingest/ingestJob.ts` without creating a parallel ingest pipeline.
+4. [ ] Wire the OpenAI provider into query-time embedding execution in `server/src/ingest/chromaClient.ts`/vector-search paths without creating a parallel query pipeline.
+5. [ ] Add model-specific OpenAI token-limit resolution utility and use it in request guardrails (no single global token-limit constant for all models).
+6. [ ] Enforce OpenAI guardrails for ingest-time batches (`<=2048` inputs, per-input token limit, `<=300000` total request tokens) before upstream calls.
+7. [ ] Enforce the same OpenAI guardrails for query-time embedding requests before upstream calls.
+8. [ ] Extract `runWithRetry`/`delayWithAbort` into a shared utility at `server/src/utils/retry.ts`.
+9. [ ] Keep `server/src/agents/retry.ts` as a compatibility re-export and switch embedding retry usage to the shared utility so only one retry implementation exists.
+10. [ ] Implement wait-hint parser/priority handling in shared retry support with precedence: `retry-after-ms` -> `retry-after` (seconds/date) -> `x-ratelimit-reset-requests` / `x-ratelimit-reset-tokens` -> bounded exponential fallback.
+11. [ ] Enforce wait-hint edge handling: ignore invalid/negative hints, treat hints `>60000ms` as non-immediate, and fall back to bounded exponential delay.
+12. [ ] Set OpenAI embedding call timeout to `30000ms` per attempt and disable SDK auto-retries for embedding calls (`maxRetries=0`) so server retry logic is the only retry layer.
+13. [ ] Implement taxonomy mapping for OpenAI HTTP/SDK failures to story `OPENAI_*` codes.
+14. [ ] Add explicit mapping coverage for quota/credit exhaustion to `OPENAI_QUOTA_EXCEEDED` and input-size/token failures (including `context_length_exceeded`) to `OPENAI_INPUT_TOO_LARGE`.
+15. [ ] Validate embedding response payload integrity (non-empty numeric vectors only) before writing any vectors.
+16. [ ] Ensure retry-budget exhaustion returns a normalized terminal `OPENAI_*` error with deterministic metadata (`retryable`, `upstreamStatus`, optional `retryAfterMs`) rather than raw SDK errors.
+17. [ ] Ensure OpenAI embedding errors/log fields never include secret material (`OPENAI_EMBEDDING_KEY`, authorization headers, or bearer tokens) by using sanitized error/log metadata at the provider boundary.
+18. [ ] Add/update focused unit tests for retry/backoff defaults, wait-hint precedence and edge handling, timeout ownership, taxonomy mapping, response validation, guardrails, and secret-safety sanitization.
 
 #### Testing
 
@@ -860,13 +866,16 @@ Extend lock identity from model-only to provider+model+dimensions internally, wi
 3. [ ] Update re-embed metadata selection in `ingestJob.reembed(...)` to resolve canonical fields first (`embeddingProvider`, `embeddingModel`, `embeddingDimensions`) and fall back to legacy root `model` only when canonical fields are absent.
 4. [ ] Capture `embeddingDimensions` from the first successful embedding write for a lock and persist it as canonical lock metadata for reuse in validation/diagnostics.
 5. [ ] Treat partially populated canonical lock metadata (for example provider without model/dimensions) as deterministic invalid lock state; return a stable server validation error and never silently infer missing canonical fields.
-6. [ ] Ensure reembed and all query embedding paths (including classic MCP `VectorSearch`) always use the locked provider/model combination.
-7. [ ] Add deterministic pre-query dimension mismatch checks before Chroma query and map to `EMBEDDING_DIMENSION_MISMATCH` without leaking raw Chroma errors.
-8. [ ] Harden lock lifecycle/concurrency behavior by reusing existing lock ownership gates in `server/src/ingest/lock.ts` and `server/src/ingest/ingestJob.ts` (`isBusy`, `startIngest`, `reembed`, `removeRoot`) so `startIngest` remains authoritative, stale ownership is released after terminal/cancel paths, and `BUSY` remains deterministic for concurrent start/reembed/remove mutations.
-9. [ ] Add explicit active-run-over-lock-TTL guard so mutating endpoints still return deterministic `BUSY` when lock TTL has expired but a run remains non-terminal.
-10. [ ] Ensure vectors-empty cleanup clears lock metadata idempotently and does not clear a newly established lock from a newer run.
-11. [ ] Add deterministic re-embed eligibility validation for invalid root states (`cancelled`/`error` with stale metadata) before job start.
-12. [ ] Add/update tests for legacy inference, canonical writes, canonical-first reembed metadata selection, partial-canonical invalid-state handling, provider lock enforcement, classic-MCP parity, dimension mismatch, active-run-over-lock-TTL busy behavior, idempotent lock clearing, and lock lifecycle/concurrency edge cases.
+6. [ ] Update re-embed execution to always use locked provider/model combination (no override-based switching).
+7. [ ] Update REST vector-search embedding path to always use locked provider/model combination.
+8. [ ] Update classic MCP `VectorSearch` embedding path to always use locked provider/model combination.
+9. [ ] Add deterministic pre-query dimension mismatch checks before Chroma query and map to `EMBEDDING_DIMENSION_MISMATCH` without leaking raw Chroma errors.
+10. [ ] Reuse existing lock ownership gates in `server/src/ingest/lock.ts` and `server/src/ingest/ingestJob.ts` so `startIngest` remains the authoritative concurrency gate.
+11. [ ] Ensure stale lock ownership is released after terminal/cancel paths so long-running flows do not leave false `BUSY` state.
+12. [ ] Add explicit active-run-over-lock-TTL guard so mutating endpoints still return deterministic `BUSY` when lock TTL has expired but a run remains non-terminal.
+13. [ ] Ensure vectors-empty cleanup clears lock metadata idempotently and does not clear a newly established lock from a newer run.
+14. [ ] Add deterministic re-embed eligibility validation for invalid root states (`cancelled`/`error` with stale metadata) before job start.
+15. [ ] Add/update targeted tests for: legacy inference + canonical writes, canonical-first reembed metadata selection, partial-canonical invalid-state handling, provider lock enforcement across REST/MCP, dimension mismatch, active-run-over-lock-TTL busy behavior, idempotent lock clearing, and lock lifecycle/concurrency edge cases.
 
 #### Testing
 
@@ -942,21 +951,23 @@ Implement provider-aware request/response contracts for ingest start and vector 
 
 #### Subtasks
 
-1. [ ] Update `POST /ingest/start` in `server/src/routes/ingestStart.ts` and the underlying `startIngest` flow in `server/src/ingest/ingestJob.ts` to accept canonical `embeddingProvider` + `embeddingModel`, with legacy `model` mapping to LM Studio; when both canonical and legacy fields are present, canonical fields must be authoritative for validation and lock decisions.
-2. [ ] Update lock-conflict payload to include canonical `lock` object plus compatibility `lockedModelId`.
-3. [ ] Enforce OpenAI allowlist validation on ingest start/re-embed request handling so non-allowlisted OpenAI model ids are deterministically rejected.
-4. [ ] Define and enforce `/ingest/reembed/:root` contract so provider/model are always resolved from stored lock/root metadata (canonical-first with legacy fallback) and request overrides cannot silently switch provider/model.
-5. [ ] Update vector-search error payloads to include normalized OpenAI failures and retry metadata by extending existing error classes/mapping flow in `server/src/lmstudio/toolService.ts` and `server/src/routes/toolsVectorSearch.ts` (no separate vector-search error formatter).
-6. [ ] Keep `/tools/vector-search` success payload shape unchanged while expanding only error-contract behavior for OpenAI and dimension-mismatch paths.
-7. [ ] Ensure normalized OpenAI error payload shape includes required fields (`error`, `message`, `retryable`, `provider`) and optional fields (`upstreamStatus`, `retryAfterMs`) across ingest/vector-search/MCP surfaces.
-8. [ ] Ensure ingest-run error surfaces (`/ingest/status/:runId`, `/ingest/roots`, and related tooling payloads) expose normalized OpenAI failure information while remaining backward compatible for existing string-based `lastError` consumers.
-9. [ ] Ensure ingest failures after partial chunk batches preserve accurate progress counters and expose normalized `lastError` payloads without silent provider/model fallback.
-10. [ ] Ensure lock-model-unavailable paths fail deterministically as `OPENAI_MODEL_UNAVAILABLE` (no silent fallback model/provider switching).
-11. [ ] Use one shared mapping for REST `/tools/vector-search`, classic MCP `VectorSearch`, and ingest-path OpenAI embedding failures by extending existing classic MCP wiring in `server/src/mcp/server.ts` and runtime vector-search mapping in `server/src/lmstudio/toolService.ts`, keeping one canonical error translation path.
-12. [ ] Update `server/src/lmstudio/tools.ts` to consume the same normalized vector-search error mapping so tool execution paths used by LM Studio tooling remain consistent with REST and classic MCP error behavior.
-13. [ ] Ensure normalized OpenAI error payloads and emitted error logs across ingest/vector-search/MCP never include secret key/header/token values.
-14. [ ] Update ingest-start/reembed BDD coverage (`server/src/test/features/ingest-start-body.feature`, `server/src/test/features/ingest-reembed.feature`, and step definitions) so canonical+legacy parsing and reembed lock-derived behavior are explicitly validated.
-15. [ ] Add/update tests for canonical-vs-legacy precedence, canonical request parsing, legacy compatibility mapping, allowlist rejection, lock-model-unavailable handling, vector-search success-shape stability, normalized error-field requirements, partial-write failure status accounting, secret-safety redaction, and conflict/error payloads across ingest/vector-search surfaces.
+1. [ ] Update `POST /ingest/start` in `server/src/routes/ingestStart.ts` to accept canonical `embeddingProvider` + `embeddingModel`, with legacy `model` mapping to LM Studio compatibility input.
+2. [ ] Update `startIngest` validation in `server/src/ingest/ingestJob.ts` so canonical fields are authoritative whenever both canonical and legacy fields are provided.
+3. [ ] Update lock-conflict payload to include canonical `lock` object plus compatibility `lockedModelId`.
+4. [ ] Enforce OpenAI allowlist validation in ingest start handling so non-allowlisted OpenAI model ids are deterministically rejected.
+5. [ ] Define and enforce `/ingest/reembed/:root` contract so provider/model are always resolved from stored lock/root metadata (canonical-first with legacy fallback) and request overrides cannot silently switch provider/model.
+6. [ ] Enforce OpenAI allowlist validation in re-embed handling for any explicit/derived OpenAI model usage.
+7. [ ] Update vector-search error payload mapping in `server/src/lmstudio/toolService.ts` to include normalized OpenAI failures and retry metadata.
+8. [ ] Keep `/tools/vector-search` success payload shape unchanged while expanding only error-contract behavior for OpenAI and dimension-mismatch paths in `server/src/routes/toolsVectorSearch.ts`.
+9. [ ] Ensure normalized OpenAI error payload shape includes required fields (`error`, `message`, `retryable`, `provider`) and optional fields (`upstreamStatus`, `retryAfterMs`) across ingest/vector-search/MCP surfaces.
+10. [ ] Ensure ingest-run error surfaces (`/ingest/status/:runId`, `/ingest/roots`, and related tooling payloads) expose normalized OpenAI failure information while remaining backward compatible for existing string-based `lastError` consumers.
+11. [ ] Ensure ingest failures after partial chunk batches preserve accurate progress counters and expose normalized `lastError` payloads without silent provider/model fallback.
+12. [ ] Ensure lock-model-unavailable paths fail deterministically as `OPENAI_MODEL_UNAVAILABLE` (no silent fallback model/provider switching).
+13. [ ] Use one shared mapping for REST `/tools/vector-search`, classic MCP `VectorSearch`, and ingest-path OpenAI embedding failures by extending existing MCP wiring in `server/src/mcp/server.ts` and runtime mapping in `server/src/lmstudio/toolService.ts`.
+14. [ ] Update `server/src/lmstudio/tools.ts` to consume the same normalized vector-search error mapping so LM Studio tooling stays consistent with REST and classic MCP error behavior.
+15. [ ] Ensure normalized OpenAI error payloads and emitted error logs across ingest/vector-search/MCP never include secret key/header/token values.
+16. [ ] Update ingest-start/reembed BDD coverage (`server/src/test/features/ingest-start-body.feature`, `server/src/test/features/ingest-reembed.feature`, and step definitions) so canonical+legacy parsing and reembed lock-derived behavior are explicitly validated.
+17. [ ] Add/update focused tests for: canonical-vs-legacy precedence, canonical request parsing, legacy compatibility mapping, allowlist rejection, lock-model-unavailable handling, vector-search success-shape stability, normalized error-field requirements, partial-write failure status accounting, secret-safety redaction, and conflict/error payloads across ingest/vector-search surfaces.
 
 #### Testing
 
@@ -995,10 +1006,11 @@ Finalize the remaining message-contract surfaces so canonical lock/provider fiel
 2. [ ] Update `/tools/ingested-repos` response similarly (canonical + alias fields) by extending `server/src/lmstudio/toolService.ts:listIngestedRepositories(...)` and keeping `server/src/routes/toolsIngestedRepos.ts` as a thin transport wrapper.
 3. [ ] Update classic MCP `ListIngestedRepositories` output schema and emitted JSON text payload shape to match server contract by reusing the existing MCP tool dispatch path in `server/src/mcp/server.ts` that already serializes `listIngestedRepositories(...)` output.
 4. [ ] Ensure compatibility alias matrix remains synchronized across all lock-bearing surfaces (`lock.embeddingModel` equals alias fields such as `lockedModelId`/`modelId`/legacy root `model`).
-5. [ ] Update root `openapi.json` and any server schema docs to match implemented contracts for `/ingest/models`, `/ingest/start`, `/ingest/reembed/:root`, `/ingest/roots`, `/tools/ingested-repos`, and `/tools/vector-search`, including provider status/warning envelopes and normalized error fields.
-6. [ ] Update ingest-roots/ingest-manage BDD coverage and steps to assert canonical+alias field parity without dropping legacy fields consumed by existing tests and tools.
-7. [ ] Add/update tests for these surfaces and add schema contract snapshots/validators in this story if they do not already exist.
-8. [ ] Add/update schema tests that assert the required OpenAPI paths exist in `openapi.json` (`/ingest/models`, `/ingest/start`, `/ingest/reembed/{root}`, `/ingest/roots`, `/tools/ingested-repos`, `/tools/vector-search`) and that lock/error field contracts align with implementation.
+5. [ ] Update ingest-roots BDD coverage and step definitions to assert canonical+alias field parity without dropping legacy fields.
+6. [ ] Update ingest-manage BDD coverage and step definitions to assert canonical+alias field parity without dropping legacy fields.
+7. [ ] Add/update unit/integration tests for `/ingest/roots`, `/tools/ingested-repos`, and classic MCP `ListIngestedRepositories` contract parity.
+8. [ ] Update root `openapi.json` to match implemented contracts for `/ingest/models`, `/ingest/start`, `/ingest/reembed/:root`, `/ingest/roots`, `/tools/ingested-repos`, and `/tools/vector-search`, including provider status/warning envelopes and normalized error fields.
+9. [ ] Add/update schema tests that assert the required OpenAPI paths exist in `openapi.json` (`/ingest/models`, `/ingest/start`, `/ingest/reembed/{root}`, `/ingest/roots`, `/tools/ingested-repos`, `/tools/vector-search`) and that lock/error field contracts align with implementation.
 
 #### Testing
 
@@ -1109,11 +1121,16 @@ Implement the user-visible ingest UI behavior for provider-tagged model selectio
 4. [ ] Clear stale model selections deterministically when refreshed model lists no longer contain the selected provider/model option.
 5. [ ] Ensure UI selection identity is provider-qualified (`provider + model`) so same model-id strings across providers remain unambiguous in selection and submission.
 6. [ ] Keep ingest UI dimension-free for this story (no dimensions input/control introduced anywhere in the form).
-7. [ ] Update ingest status/error rendering in existing components (`client/src/components/ingest/ActiveRunCard.tsx`, `client/src/components/ingest/RootsTable.tsx`, and `client/src/components/ingest/RootDetailsDrawer.tsx`) so normalized OpenAI errors remain user-readable while legacy string errors still render correctly.
-8. [ ] Update lock display in existing ingest UI components/pages (`IngestPage`, `IngestForm`, `RootsTable`, `RootDetailsDrawer`) to prefer canonical lock fields and fallback to aliases.
-9. [ ] Replace deprecated `TextField` `SelectProps` usage in ingest form with supported `slotProps.select` API while preserving current behavior.
-10. [ ] Reuse existing warning/info banner implementation style (MUI `Alert` layout + deterministic `data-testid` assertions) consistent with current patterns in `client/src/pages/ChatPage.tsx` and existing ingest banners in `client/src/pages/IngestPage.tsx`.
-11. [ ] Add/update client tests for dropdown options, provider-qualified selection identity, stale-selection clearing, warnings/info bars, no-dimensions-control behavior, ingest error rendering compatibility, and payload behavior.
+7. [ ] Update ingest status/error rendering in `client/src/components/ingest/ActiveRunCard.tsx` so normalized OpenAI errors remain user-readable while legacy string errors still render correctly.
+8. [ ] Update ingest status/error rendering in `client/src/components/ingest/RootsTable.tsx` so normalized OpenAI errors remain user-readable while legacy string errors still render correctly.
+9. [ ] Update ingest status/error rendering in `client/src/components/ingest/RootDetailsDrawer.tsx` so normalized OpenAI errors remain user-readable while legacy string errors still render correctly.
+10. [ ] Update lock display in `client/src/pages/IngestPage.tsx` and `client/src/components/ingest/IngestForm.tsx` to prefer canonical lock fields and fallback to aliases.
+11. [ ] Update lock display in `client/src/components/ingest/RootsTable.tsx` and `client/src/components/ingest/RootDetailsDrawer.tsx` to prefer canonical lock fields and fallback to aliases.
+12. [ ] Replace deprecated `TextField` `SelectProps` usage in ingest form with supported `slotProps.select` API while preserving current behavior.
+13. [ ] Reuse existing warning/info banner implementation style (MUI `Alert` layout + deterministic `data-testid` assertions) consistent with current patterns in `client/src/pages/ChatPage.tsx` and existing ingest banners in `client/src/pages/IngestPage.tsx`.
+14. [ ] Add/update focused client tests for dropdown options and provider-qualified selection identity.
+15. [ ] Add/update focused client tests for stale-selection clearing and warning/info bars.
+16. [ ] Add/update focused client tests for no-dimensions-control behavior, ingest error rendering compatibility, and canonical payload behavior.
 
 #### Testing
 
@@ -1147,11 +1164,10 @@ Run the complete verification gate for Story 0000036, confirm acceptance criteri
 #### Subtasks
 
 1. [ ] Confirm every acceptance criterion in this story has a corresponding passing automated test or recorded manual verification step.
-2. [ ] Ensure documentation files are updated for implemented behavior:
-   - `README.md`
-   - `design.md`
-   - `projectStructure.md`
-3. [ ] Produce final story summary and PR comment covering all tasks and contract changes.
+2. [ ] Ensure `README.md` is updated for implemented behavior (runtime/env/contract changes from this story only).
+3. [ ] Ensure `design.md` is updated for implemented behavior (architecture/contract behavior from this story only).
+4. [ ] Ensure `projectStructure.md` is updated for implemented behavior (new/removed/renamed files from this story only).
+5. [ ] Produce final story summary and PR comment covering all tasks and contract changes.
 
 #### Testing
 

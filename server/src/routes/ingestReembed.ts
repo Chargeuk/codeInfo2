@@ -26,6 +26,12 @@ export function createIngestReembedRouter({
       const code = (err as { code?: string }).code;
       if (code === 'BUSY')
         return res.status(429).json({ status: 'error', code });
+      if (code === 'MODEL_LOCKED')
+        return res.status(409).json({ status: 'error', code });
+      if (code === 'INVALID_REEMBED_STATE')
+        return res.status(409).json({ status: 'error', code });
+      if (code === 'INVALID_LOCK_METADATA')
+        return res.status(409).json({ status: 'error', code });
       if (code === 'NOT_FOUND')
         return res.status(404).json({ status: 'error', code });
       return res

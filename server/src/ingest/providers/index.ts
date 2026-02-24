@@ -25,7 +25,10 @@ export {
   estimateOpenAiTokens,
   validateOpenAiEmbeddingGuardrails,
 } from './openaiGuardrails.js';
-export { resolveEmbeddingModelSelection } from './providerResolver.js';
+export {
+  resolveEmbeddingModelSelection,
+  type ResolvedEmbeddingModelSelection,
+} from './providerResolver.js';
 export {
   type DiscoveredEmbeddingModel,
   type EmbeddingProvider,

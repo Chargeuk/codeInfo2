@@ -2,7 +2,9 @@ import { tool } from '@lmstudio/sdk';
 import type { ToolCallContext } from '@lmstudio/sdk';
 import { z } from 'zod';
 import {
+  EmbeddingDimensionMismatchError,
   EmbedModelMissingError,
+  InvalidLockMetadataError,
   IngestRequiredError,
 } from '../ingest/chromaClient.js';
 import { OpenAiEmbeddingError } from '../ingest/providers/index.js';
@@ -144,6 +146,14 @@ export function createLmStudioTools(options: ToolFactoryOptions = {}) {
         if (err instanceof EmbedModelMissingError) {
           throw new Error(
             `EMBED_MODEL_MISSING: ${err.modelId} not available in LM Studio`,
+          );
+        }
+        if (err instanceof InvalidLockMetadataError) {
+          throw new Error(`${err.code}: ${err.message}`);
+        }
+        if (err instanceof EmbeddingDimensionMismatchError) {
+          throw new Error(
+            `${err.code}: expected=${err.expectedDimensions} actual=${err.actualDimensions}`,
           );
         }
         if (err instanceof OpenAiEmbeddingError) {

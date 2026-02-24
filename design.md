@@ -164,6 +164,51 @@ flowchart TD
   Y -->|>=500 or unknown transient| Z11[OPENAI_UNAVAILABLE retryable=true]
 ```
 
+## Provider-aware embedding lock lifecycle (Task 0000036-T7)
+
+- Lock identity is now canonical in vector collection metadata as:
+  - `embeddingProvider` (`lmstudio` | `openai`)
+  - `embeddingModel` (provider model id, unqualified)
+  - `embeddingDimensions` (resolved vector length)
+  - compatibility alias `lockedModelId` mirrors `embeddingModel`.
+- Lock read behavior is deterministic:
+  - First try canonical fields (`embeddingProvider` + `embeddingModel` + `embeddingDimensions`).
+  - If canonical fields are absent, fallback to legacy `lockedModelId` and infer `embeddingProvider=lmstudio` with unknown dimensions.
+  - If canonical fields are partially populated, throw deterministic `INVALID_LOCK_METADATA` (no silent inference).
+- Lock write behavior is canonical-only for runtime paths:
+  - first successful embedding write persists provider/model/dimensions and alias.
+- Re-embed provider/model resolution order:
+  - active canonical lock first, then canonical root metadata, then legacy root `model`.
+  - provider/model switching away from lock is rejected with `MODEL_LOCKED`.
+  - invalid terminal root states (`cancelled`, `error`) are rejected with `INVALID_REEMBED_STATE`.
+- Query-time enforcement:
+  - REST `/tools/vector-search` and classic MCP `VectorSearch` share `vectorSearch(...)` and use the locked provider/model path.
+  - query embedding is generated before Chroma query and validated against `embeddingDimensions`.
+  - mismatches return normalized `EMBEDDING_DIMENSION_MISMATCH` before Chroma call.
+- Task 7 lock lifecycle logs:
+  - `DEV-0000036:T7:embedding_lock_written`
+  - `DEV-0000036:T7:embedding_lock_cleared` (with `reason` and cleared id)
+
+```mermaid
+flowchart TD
+  A[Read vectors metadata] --> B{canonical provider/model/dim present?}
+  B -- yes --> C[Use canonical lock]
+  B -- no --> D{legacy lockedModelId present?}
+  D -- yes --> E[Infer provider=lmstudio, model=lockedModelId]
+  D -- no --> F[No lock]
+  B -->|partial canonical| G[INVALID_LOCK_METADATA]
+```
+
+```mermaid
+flowchart LR
+  A[vectorSearch request] --> B[resolve locked provider/model]
+  B --> C[generate query embedding with locked provider/model]
+  C --> D{embedding length == locked embeddingDimensions?}
+  D -- no --> E[EMBEDDING_DIMENSION_MISMATCH]
+  D -- yes --> F[Chroma queryEmbeddings]
+  F --> G[map results]
+```
+
 ## Startup env loading parity (Task 3)
 
 - Startup now uses deterministic env precedence that matches compose env-file behavior: `server/.env` first, then `server/.env.local` as an override when present.

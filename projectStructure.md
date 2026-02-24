@@ -558,6 +558,10 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 - server/src/utils/retryContext.ts — shared retry prompt/error sanitizer for Task 0000036-T5 flow and command retries
 - server/src/test/unit/codexDeviceAuth.test.ts — unit coverage for device-auth parsing and error handling
 - server/src/routes/codexDeviceAuth.ts — `POST /codex/device-auth` device-auth endpoint for chat/agent targets
+- server/src/test/unit/chroma-lock.test.ts — unit coverage for canonical/legacy lock resolution, canonical lock writes, and partial canonical lock rejection.
+- server/src/test/integration/ingest-lock-lifecycle.test.ts — integration coverage for deterministic `BUSY` lifecycle behavior and lock-clear idempotence guards.
+- server/src/test/integration/ingest-reembed.test.ts — integration coverage for re-embed provider/model immutability and invalid-state rejection.
+- server/src/test/integration/mcp-vector-search.test.ts — integration coverage for classic MCP vector-search provider/model lock parity with REST.
 - server/src/test/integration/codex.device-auth.test.ts — integration coverage for device-auth route validation + responses
 - server/src/agents/types.ts — agent DTOs for discovery/service (REST-safe + internal paths)
 - server/src/agents/discovery.ts — discovers agents from `CODEINFO_CODEX_AGENT_HOME`

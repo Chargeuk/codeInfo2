@@ -13,7 +13,9 @@ import {
   validateAstModuleImports,
 } from '../ast/toolService.js';
 import {
+  EmbeddingDimensionMismatchError,
   EmbedModelMissingError,
+  InvalidLockMetadataError,
   IngestRequiredError,
   getLockedModel,
   getRootsCollection,
@@ -22,6 +24,7 @@ import {
 import { runReingestRepository } from '../ingest/reingestService.js';
 import {
   RepoNotFoundError,
+  type ToolDeps,
   ValidationError,
   listIngestedRepositories,
   validateVectorSearch,
@@ -68,6 +71,8 @@ type Deps = {
   getRootsCollection: typeof getRootsCollection;
   getVectorsCollection: typeof getVectorsCollection;
   getLockedModel: typeof getLockedModel;
+  getLockedEmbeddingModel?: ToolDeps['getLockedEmbeddingModel'];
+  generateLockedQueryEmbedding?: ToolDeps['generateLockedQueryEmbedding'];
   runReingestRepository: typeof runReingestRepository;
 };
 
@@ -520,6 +525,8 @@ export function createMcpRouter(
     getRootsCollection,
     getVectorsCollection,
     getLockedModel,
+    getLockedEmbeddingModel: undefined,
+    generateLockedQueryEmbedding: undefined,
     runReingestRepository,
     ...deps,
   };
@@ -623,6 +630,17 @@ export function createMcpRouter(
                 getRootsCollection: resolved.getRootsCollection,
                 getVectorsCollection: resolved.getVectorsCollection,
                 getLockedModel: resolved.getLockedModel,
+                ...(resolved.getLockedEmbeddingModel
+                  ? {
+                      getLockedEmbeddingModel: resolved.getLockedEmbeddingModel,
+                    }
+                  : {}),
+                ...(resolved.generateLockedQueryEmbedding
+                  ? {
+                      generateLockedQueryEmbedding:
+                        resolved.generateLockedQueryEmbedding,
+                    }
+                  : {}),
               });
               logLockResolverState(
                 requestId,
@@ -826,6 +844,19 @@ export function createMcpRouter(
                 409,
                 err.code,
               ) as JsonRpcLikeResponse;
+            }
+            if (err instanceof InvalidLockMetadataError) {
+              return jsonRpcError(id as never, 409, err.code, {
+                message: err.message,
+              }) as JsonRpcLikeResponse;
+            }
+            if (err instanceof EmbeddingDimensionMismatchError) {
+              return jsonRpcError(id as never, 409, err.code, {
+                expectedDimensions: err.expectedDimensions,
+                actualDimensions: err.actualDimensions,
+                embeddingProvider: err.embeddingProvider,
+                embeddingModel: err.embeddingModel,
+              }) as JsonRpcLikeResponse;
             }
             if (err instanceof EmbedModelMissingError) {
               baseLogger.error(

@@ -1,6 +1,8 @@
 import path from 'path';
 import {
   IngestRequiredError,
+  generateLockedQueryEmbedding,
+  getLockedEmbeddingModel,
   getLockedModel,
   getRootsCollection,
   getVectorsCollection,
@@ -13,6 +15,8 @@ export type ToolDeps = {
   getRootsCollection: typeof getRootsCollection;
   getVectorsCollection: typeof getVectorsCollection;
   getLockedModel: typeof getLockedModel;
+  getLockedEmbeddingModel?: typeof getLockedEmbeddingModel;
+  generateLockedQueryEmbedding?: typeof generateLockedQueryEmbedding;
 };
 
 export type RepoEntry = {
@@ -169,7 +173,8 @@ type RootsGetter = {
 
 type ChromaQueryable = {
   query: (opts: {
-    queryTexts: string[];
+    queryTexts?: string[];
+    queryEmbeddings?: number[][];
     where?: Record<string, unknown>;
     nResults?: number;
   }) => Promise<{
@@ -182,10 +187,19 @@ type ChromaQueryable = {
 };
 
 function resolveDeps(partial: Partial<ToolDeps>): ToolDeps {
+  const hasLegacyOverrides =
+    typeof partial.getLockedModel === 'function' ||
+    typeof partial.getVectorsCollection === 'function';
   return {
     getRootsCollection,
     getVectorsCollection,
     getLockedModel,
+    getLockedEmbeddingModel: hasLegacyOverrides
+      ? undefined
+      : getLockedEmbeddingModel,
+    generateLockedQueryEmbedding: hasLegacyOverrides
+      ? undefined
+      : generateLockedQueryEmbedding,
     ...partial,
   } satisfies ToolDeps;
 }
@@ -453,11 +467,29 @@ export async function vectorSearch(
     getRootsCollection: rootsCollection,
     getVectorsCollection,
     getLockedModel,
+    getLockedEmbeddingModel,
+    generateLockedQueryEmbedding,
   } = resolveDeps(deps);
 
-  const lockedModelId = await getLockedModel();
+  const lockedFromStore =
+    typeof getLockedEmbeddingModel === 'function'
+      ? await getLockedEmbeddingModel()
+      : null;
+  const lockedModelId =
+    lockedFromStore?.embeddingModel ?? (await getLockedModel());
+  const locked =
+    lockedFromStore ??
+    (lockedModelId
+      ? {
+          embeddingProvider: 'lmstudio' as const,
+          embeddingModel: lockedModelId,
+          embeddingDimensions: 0,
+          lockedModelId,
+          source: 'legacy' as const,
+        }
+      : null);
   logLockResolverState('toolService/vectorSearch', undefined, lockedModelId);
-  if (!lockedModelId) {
+  if (!locked) {
     throw new IngestRequiredError();
   }
 
@@ -499,11 +531,21 @@ export async function vectorSearch(
   const collection = (await getVectorsCollection({
     requireEmbedding: true,
   })) as unknown as ChromaQueryable;
-  const queryResult = await collection.query({
-    queryTexts: [query],
-    where: whereClause,
-    nResults: resolvedLimit,
-  });
+  const queryResult =
+    typeof generateLockedQueryEmbedding === 'function'
+      ? await (async () => {
+          const { embedding } = await generateLockedQueryEmbedding(query);
+          return collection.query({
+            queryEmbeddings: [embedding],
+            where: whereClause,
+            nResults: resolvedLimit,
+          });
+        })()
+      : await collection.query({
+          queryTexts: [query],
+          where: whereClause,
+          nResults: resolvedLimit,
+        });
 
   const docs = Array.isArray(queryResult.documents?.[0])
     ? queryResult.documents[0]
@@ -649,7 +691,7 @@ export async function vectorSearch(
     },
   });
 
-  const modelId = lockedModelId ?? null;
+  const modelId = locked.embeddingModel ?? null;
   const files = aggregateVectorFiles(capped);
   return { results: capped, modelId, files };
 }

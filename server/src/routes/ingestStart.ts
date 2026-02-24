@@ -1,19 +1,23 @@
 import type { LMStudioClient } from '@lmstudio/sdk';
 import { Router } from 'express';
-import { collectionIsEmpty, getLockedModel } from '../ingest/chromaClient.js';
+import {
+  collectionIsEmpty,
+  getLockedEmbeddingModel,
+  InvalidLockMetadataError,
+} from '../ingest/chromaClient.js';
 import {
   getStatus,
   isBusy,
   startIngest,
   type IngestJobStatus,
 } from '../ingest/ingestJob.js';
+import { resolveEmbeddingModelSelection } from '../ingest/providers/index.js';
 import { toWebSocketUrl } from './lmstudioUrl.js';
 import { append } from '../logStore.js';
 
 type Deps = {
   clientFactory: (baseUrl: string) => LMStudioClient;
   collectionIsEmpty?: typeof collectionIsEmpty;
-  getLockedModel?: typeof getLockedModel;
 };
 
 function logLockResolverState(
@@ -50,7 +54,6 @@ function logLockResolverState(
 export function createIngestStartRouter({
   clientFactory,
   collectionIsEmpty: collectionIsEmptyOverride = collectionIsEmpty,
-  getLockedModel: getLockedModelResolver = getLockedModel,
 }: Deps) {
   const router = Router();
 
@@ -66,14 +69,21 @@ export function createIngestStartRouter({
     try {
       const requestId =
         (res.locals?.requestId as string | undefined) ?? undefined;
-      const locked = await getLockedModelResolver();
+      const locked = await getLockedEmbeddingModel();
+      const lockedModelId = locked?.embeddingModel ?? null;
       const empty = await collectionIsEmptyOverride();
-      logLockResolverState(requestId, 'ingest/start', locked);
-      if (!empty && locked && locked !== model) {
+      logLockResolverState(requestId, 'ingest/start', lockedModelId);
+      const requested = resolveEmbeddingModelSelection(model);
+      if (
+        !empty &&
+        locked &&
+        (locked.embeddingProvider !== requested.providerId ||
+          locked.embeddingModel !== requested.modelKey)
+      ) {
         return res.status(409).json({
           status: 'error',
           code: 'MODEL_LOCKED',
-          lockedModelId: locked,
+          lockedModelId,
         });
       }
       if (isBusy()) {
@@ -85,6 +95,9 @@ export function createIngestStartRouter({
       );
       return res.status(202).json({ runId });
     } catch (err) {
+      if (err instanceof InvalidLockMetadataError) {
+        return res.status(409).json({ status: 'error', code: err.code });
+      }
       const code = (err as { code?: string }).code;
       if (code === 'MODEL_LOCKED') {
         return res.status(409).json({ status: 'error', code });

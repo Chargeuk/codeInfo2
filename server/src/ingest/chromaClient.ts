@@ -10,7 +10,6 @@ import {
   createLmStudioEmbeddingProvider,
   createOpenAiEmbeddingProvider,
   OpenAiEmbeddingError,
-  resolveEmbeddingModelSelection,
 } from './providers/index.js';
 
 function getChromaUrl(): string {
@@ -22,6 +21,18 @@ type MinimalCollection = {
   modify: (opts: { metadata?: Record<string, unknown> }) => Promise<void>;
   count: () => Promise<number>;
 };
+
+export type EmbeddingProviderId = 'lmstudio' | 'openai';
+
+export type LockedEmbeddingModel = {
+  embeddingProvider: EmbeddingProviderId;
+  embeddingModel: string;
+  embeddingDimensions: number;
+  lockedModelId: string;
+  source: 'canonical' | 'legacy';
+};
+
+type LockClearReason = 'completed' | 'cleanup' | 'remove' | 'reset' | 'unknown';
 const COLLECTION_VECTORS = process.env.INGEST_COLLECTION ?? 'ingest_vectors';
 const COLLECTION_ROOTS = process.env.INGEST_ROOTS_COLLECTION ?? 'ingest_roots';
 
@@ -95,44 +106,164 @@ export class EmbedModelMissingError extends Error {
   }
 }
 
+export class InvalidLockMetadataError extends Error {
+  code = 'INVALID_LOCK_METADATA' as const;
+  constructor(message = 'Lock metadata is invalid or partially populated') {
+    super(message);
+    this.name = 'InvalidLockMetadataError';
+  }
+}
+
+export class EmbeddingDimensionMismatchError extends Error {
+  code = 'EMBEDDING_DIMENSION_MISMATCH' as const;
+  constructor(
+    public expectedDimensions: number,
+    public actualDimensions: number,
+    public embeddingProvider: EmbeddingProviderId,
+    public embeddingModel: string,
+  ) {
+    super(
+      `Embedding dimension mismatch. Expected ${expectedDimensions}, got ${actualDimensions}`,
+    );
+    this.name = 'EmbeddingDimensionMismatchError';
+  }
+}
+
+function normalizeEmbeddingProvider(
+  value: unknown,
+): EmbeddingProviderId | null {
+  if (typeof value !== 'string') return null;
+  const lowered = value.trim().toLowerCase();
+  if (lowered === 'openai' || lowered === 'lmstudio') return lowered;
+  return null;
+}
+
+function normalizeEmbeddingModel(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function normalizeEmbeddingDimensions(value: unknown): number | null {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
+    return null;
+  }
+  return value;
+}
+
+function parseLockedEmbeddingMetadata(
+  metadata: Record<string, unknown> | undefined,
+): LockedEmbeddingModel | null {
+  if (!metadata) return null;
+
+  const canonicalProviderRaw = metadata.embeddingProvider;
+  const canonicalModelRaw = metadata.embeddingModel;
+  const canonicalDimensionsRaw = metadata.embeddingDimensions;
+  const hasAnyCanonical =
+    (canonicalProviderRaw !== undefined && canonicalProviderRaw !== null) ||
+    (canonicalModelRaw !== undefined && canonicalModelRaw !== null) ||
+    (canonicalDimensionsRaw !== undefined && canonicalDimensionsRaw !== null);
+
+  if (hasAnyCanonical) {
+    const embeddingProvider = normalizeEmbeddingProvider(canonicalProviderRaw);
+    const embeddingModel = normalizeEmbeddingModel(canonicalModelRaw);
+    const embeddingDimensions = normalizeEmbeddingDimensions(
+      canonicalDimensionsRaw,
+    );
+    if (!embeddingProvider || !embeddingModel || !embeddingDimensions) {
+      throw new InvalidLockMetadataError();
+    }
+    return {
+      embeddingProvider,
+      embeddingModel,
+      embeddingDimensions,
+      lockedModelId: embeddingModel,
+      source: 'canonical',
+    };
+  }
+
+  const legacyLockedModel = normalizeEmbeddingModel(metadata.lockedModelId);
+  if (!legacyLockedModel) return null;
+  return {
+    embeddingProvider: 'lmstudio',
+    embeddingModel: legacyLockedModel,
+    embeddingDimensions: 0,
+    lockedModelId: legacyLockedModel,
+    source: 'legacy',
+  };
+}
+
+function resolveProviderFromLock(lock: LockedEmbeddingModel) {
+  const provider =
+    lock.embeddingProvider === 'openai'
+      ? createOpenAiEmbeddingProvider({
+          apiKey: process.env.OPENAI_EMBEDDING_KEY,
+        })
+      : createLmStudioEmbeddingProvider({
+          lmClientResolver,
+          baseUrl: toWebSocketUrl(process.env.LMSTUDIO_BASE_URL ?? ''),
+        });
+  return provider;
+}
+
 async function resolveLockedEmbeddingFunction(): Promise<EmbeddingFunction> {
-  const lockedModelId = await getLockedModel();
-  if (!lockedModelId) {
+  const locked = await getLockedEmbeddingModel();
+  if (!locked) {
     baseLogger.warn('resolveLockedEmbeddingFunction missing locked model');
     throw new IngestRequiredError();
   }
 
-  const selection = resolveEmbeddingModelSelection(lockedModelId);
   try {
     if (
-      selection.providerId === 'lmstudio' &&
+      locked.embeddingProvider === 'lmstudio' &&
       (!process.env.LMSTUDIO_BASE_URL || process.env.LMSTUDIO_BASE_URL === '')
     ) {
       throw new Error('LMSTUDIO_BASE_URL is not configured');
     }
-    const provider =
-      selection.providerId === 'openai'
-        ? createOpenAiEmbeddingProvider({
-            apiKey: process.env.OPENAI_EMBEDDING_KEY,
-          })
-        : createLmStudioEmbeddingProvider({
-            lmClientResolver,
-            baseUrl: toWebSocketUrl(process.env.LMSTUDIO_BASE_URL ?? ''),
-          });
+    const provider = resolveProviderFromLock(locked);
 
     // Proactively verify the model exists to surface clear errors before query time.
-    await provider.getModel(selection.modelKey);
-    return await provider.createEmbeddingFunction(selection.modelKey);
+    await provider.getModel(locked.embeddingModel);
+    return await provider.createEmbeddingFunction(locked.embeddingModel);
   } catch (err) {
     if (err instanceof OpenAiEmbeddingError) {
       throw err;
     }
     baseLogger.error(
-      { modelId: lockedModelId, cause: err },
+      {
+        provider: locked.embeddingProvider,
+        modelId: locked.embeddingModel,
+        cause: err,
+      },
       'resolveLockedEmbeddingFunction missing LM Studio model',
     );
-    throw new EmbedModelMissingError(lockedModelId, err);
+    throw new EmbedModelMissingError(locked.embeddingModel, err);
   }
+}
+
+export async function generateLockedQueryEmbedding(
+  text: string,
+): Promise<{ embedding: number[]; lock: LockedEmbeddingModel }> {
+  const locked = await getLockedEmbeddingModel();
+  if (!locked) {
+    throw new IngestRequiredError();
+  }
+
+  const provider = resolveProviderFromLock(locked);
+  const model = await provider.getModel(locked.embeddingModel);
+  const embedding = await model.embedText(text);
+  if (
+    locked.embeddingDimensions > 0 &&
+    embedding.length !== locked.embeddingDimensions
+  ) {
+    throw new EmbeddingDimensionMismatchError(
+      locked.embeddingDimensions,
+      embedding.length,
+      locked.embeddingProvider,
+      locked.embeddingModel,
+    );
+  }
+  return { embedding, lock: locked };
 }
 
 export async function getVectorsCollection(opts?: {
@@ -170,10 +301,8 @@ export async function getRootsCollection(): Promise<Collection> {
 export async function getLockedModel(): Promise<string | null> {
   const col = await getVectorsCollection();
   const metadata = (col as { metadata?: Record<string, unknown> }).metadata;
-  const lockedModelId =
-    metadata && typeof metadata.lockedModelId === 'string'
-      ? (metadata.lockedModelId ?? null)
-      : null;
+  const lock = parseLockedEmbeddingMetadata(metadata);
+  const lockedModelId = lock?.lockedModelId ?? null;
 
   append({
     level: 'info',
@@ -182,7 +311,7 @@ export async function getLockedModel(): Promise<string | null> {
     source: 'server',
     context: {
       surface: 'ingest/chromaClient#getLockedModel',
-      source: 'canonical',
+      source: lock?.source ?? 'none',
       lockedModelId,
     },
   });
@@ -193,27 +322,102 @@ export async function getLockedModel(): Promise<string | null> {
     source: 'server',
     context: {
       surface: 'ingest/chromaClient#getLockedModel',
-      embeddingProvider: 'lmstudio',
+      embeddingProvider: lock?.embeddingProvider ?? null,
       embeddingModel: lockedModelId,
+      embeddingDimensions: lock?.embeddingDimensions ?? null,
     },
   });
   return lockedModelId;
 }
 
-export async function setLockedModel(modelId: string): Promise<void> {
+export async function getLockedEmbeddingModel(): Promise<LockedEmbeddingModel | null> {
+  const col = await getVectorsCollection();
+  const metadata = (col as { metadata?: Record<string, unknown> }).metadata;
+  return parseLockedEmbeddingMetadata(metadata);
+}
+
+export async function setLockedModel(
+  lock:
+    | string
+    | {
+        embeddingProvider: EmbeddingProviderId;
+        embeddingModel: string;
+        embeddingDimensions: number;
+      },
+): Promise<void> {
+  const resolved: LockedEmbeddingModel =
+    typeof lock === 'string'
+      ? {
+          embeddingProvider: 'lmstudio',
+          embeddingModel: lock,
+          embeddingDimensions: 1,
+          lockedModelId: lock,
+          source: 'legacy',
+        }
+      : {
+          embeddingProvider: lock.embeddingProvider,
+          embeddingModel: lock.embeddingModel,
+          embeddingDimensions: lock.embeddingDimensions,
+          lockedModelId: lock.embeddingModel,
+          source: 'canonical',
+        };
   const col = (await getVectorsCollection()) as unknown as MinimalCollection;
-  await col.modify({ metadata: { lockedModelId: modelId } });
+  await col.modify({
+    metadata: {
+      lockedModelId: resolved.lockedModelId,
+      embeddingProvider: resolved.embeddingProvider,
+      embeddingModel: resolved.embeddingModel,
+      embeddingDimensions: resolved.embeddingDimensions,
+    },
+  });
+  append({
+    level: 'info',
+    source: 'server',
+    timestamp: new Date().toISOString(),
+    message: 'DEV-0000036:T7:embedding_lock_written',
+    context: {
+      embeddingProvider: resolved.embeddingProvider,
+      embeddingModel: resolved.embeddingModel,
+      embeddingDimensions: resolved.embeddingDimensions,
+      lockedModelId: resolved.lockedModelId,
+      source: resolved.source,
+    },
+  });
 }
 
 export async function clearLockedModel(options?: {
   recreateIfMissing?: boolean;
+  reason?: LockClearReason;
+  expectedLockId?: string;
 }): Promise<void> {
   if (!vectorsCollection && options?.recreateIfMissing === false) {
     return;
   }
   try {
+    const current = await getLockedEmbeddingModel();
+    const currentLockId = current?.lockedModelId ?? null;
+    if (options?.expectedLockId && currentLockId !== options.expectedLockId) {
+      return;
+    }
     const col = (await getVectorsCollection()) as unknown as MinimalCollection;
-    await col.modify({ metadata: { lockedModelId: null } });
+    await col.modify({
+      metadata: {
+        lockedModelId: null,
+        embeddingProvider: null,
+        embeddingModel: null,
+        embeddingDimensions: null,
+      },
+    });
+    append({
+      level: 'info',
+      source: 'server',
+      timestamp: new Date().toISOString(),
+      message: 'DEV-0000036:T7:embedding_lock_cleared',
+      context: {
+        reason: options?.reason ?? 'unknown',
+        clearedLockId: currentLockId,
+      },
+    });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     if (message.includes('ChromaNotFoundError')) {
@@ -233,6 +437,7 @@ function resetCachedCollections() {
 }
 
 export async function deleteVectorsCollection(): Promise<void> {
+  const currentLock = await getLockedEmbeddingModel();
   const c = await getClient();
   if (c) {
     try {
@@ -242,13 +447,28 @@ export async function deleteVectorsCollection(): Promise<void> {
     }
   }
   resetCachedCollections();
-  await clearLockedModel({ recreateIfMissing: false });
+  append({
+    level: 'info',
+    source: 'server',
+    timestamp: new Date().toISOString(),
+    message: 'DEV-0000036:T7:embedding_lock_cleared',
+    context: {
+      reason: 'cleanup',
+      clearedLockId: currentLock?.lockedModelId ?? null,
+    },
+  });
+  await clearLockedModel({
+    recreateIfMissing: false,
+    reason: 'cleanup',
+    expectedLockId: currentLock?.lockedModelId,
+  });
 }
 
 export async function deleteVectorsCollectionIfEmpty(): Promise<boolean> {
   const col = (await getVectorsCollection()) as unknown as MinimalCollection;
   const count = await col.count();
   if (count > 0) return false;
+  const currentLock = await getLockedEmbeddingModel();
 
   const c = await getClient();
   if (c) {
@@ -259,7 +479,21 @@ export async function deleteVectorsCollectionIfEmpty(): Promise<boolean> {
     }
   }
   resetCachedCollections();
-  await clearLockedModel({ recreateIfMissing: false });
+  append({
+    level: 'info',
+    source: 'server',
+    timestamp: new Date().toISOString(),
+    message: 'DEV-0000036:T7:embedding_lock_cleared',
+    context: {
+      reason: 'cleanup',
+      clearedLockId: currentLock?.lockedModelId ?? null,
+    },
+  });
+  await clearLockedModel({
+    recreateIfMissing: false,
+    reason: 'cleanup',
+    expectedLockId: currentLock?.lockedModelId,
+  });
   return true;
 }
 

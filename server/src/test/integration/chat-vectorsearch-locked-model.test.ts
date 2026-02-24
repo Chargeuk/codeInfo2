@@ -53,12 +53,15 @@ function setupLmStudioEmbedMock({ failModel }: { failModel?: boolean } = {}) {
   return calls;
 }
 
-function setupChromaMock(lockedModelId: string | null) {
+function setupChromaMock(
+  lockedModelId: string | null,
+  metadataOverride?: Record<string, unknown>,
+) {
   let capturedEmbedding:
     | { generate?: (texts: string[]) => Promise<number[][]> }
     | undefined;
   const vectors = {
-    metadata: { lockedModelId },
+    metadata: metadataOverride ?? { lockedModelId },
     count: async () => 0,
     query: async (opts: { queryTexts?: string[] }) => {
       if (capturedEmbedding?.generate && Array.isArray(opts.queryTexts)) {
@@ -431,6 +434,85 @@ test('chat VectorSearch uses locked embedding model and streams tool-result', as
       },
       timeoutMs: 4000,
     });
+  } finally {
+    await closeWs(ws);
+    await server.wsHandle.close();
+    await new Promise<void>((resolve) =>
+      server.httpServer.close(() => resolve()),
+    );
+  }
+});
+
+test('chat VectorSearch prefers canonical lock metadata over legacy alias when both exist', async () => {
+  setupChromaMock('legacy-model', {
+    embeddingProvider: 'lmstudio',
+    embeddingModel: 'canonical-model',
+    embeddingDimensions: 3,
+    lockedModelId: 'legacy-model',
+  });
+  const embedCalls = setupLmStudioEmbedMock();
+
+  const server = await startChatServer(
+    () =>
+      ({
+        llm: {
+          model: async () => ({
+            act: async (
+              _chat: unknown,
+              tools: VectorTool[],
+              opts: {
+                onToolCallRequestStart?: (
+                  roundIndex: number,
+                  callId: number,
+                ) => void;
+                onToolCallRequestFailure?: (
+                  roundIndex: number,
+                  callId: number,
+                  error: Error,
+                ) => void;
+              },
+            ) => {
+              const vectorTool = tools.find((t) => t.name === 'VectorSearch');
+              if (!vectorTool) throw new Error('VectorSearch tool missing');
+              opts.onToolCallRequestStart?.(0, 1);
+              const impl =
+                vectorTool.implementation as VectorTool['implementation'];
+              try {
+                if (!impl) throw new Error('VectorSearch tool missing');
+                await impl({ query: 'hi' }, toolContext());
+              } catch (err) {
+                opts.onToolCallRequestFailure?.(0, 1, err as Error);
+                throw err;
+              }
+            },
+          }),
+        },
+      }) as unknown as LMStudioClient,
+  );
+
+  const ws = await connectWs({ baseUrl: server.baseUrl });
+  try {
+    sendJson(ws, {
+      type: 'subscribe_conversation',
+      conversationId: 'conv-vectorsearch-canonical-preferred',
+    });
+
+    await request(server.httpServer)
+      .post('/chat')
+      .send({
+        provider: 'lmstudio',
+        model: 'm',
+        conversationId: 'conv-vectorsearch-canonical-preferred',
+        message: 'hello',
+      })
+      .expect(202);
+
+    const modelCalls = embedCalls.filter((c) => c.text === undefined);
+    assert.ok(modelCalls.some((c) => c.model === 'canonical-model'));
+    assert.equal(
+      modelCalls.some((c) => c.model === 'legacy-model'),
+      false,
+    );
   } finally {
     await closeWs(ws);
     await server.wsHandle.close();

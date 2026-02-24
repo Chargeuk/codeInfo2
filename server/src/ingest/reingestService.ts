@@ -21,7 +21,8 @@ type ValidationReason =
   | 'non_normalized'
   | 'ambiguous_path'
   | 'unknown_root'
-  | 'busy';
+  | 'busy'
+  | 'invalid_state';
 
 type ValidationFieldError = {
   field: 'sourceId';
@@ -187,6 +188,30 @@ function busyError(retryLists: ReingestRetryLists): ReingestError {
           field: 'sourceId',
           reason: 'busy',
           message: 'reingest is currently locked by another ingest operation',
+        },
+      ],
+      ...retryLists,
+    },
+  };
+}
+
+function invalidStateError(
+  message: string,
+  retryLists: ReingestRetryLists,
+): ReingestError {
+  return {
+    code: -32602,
+    message: 'INVALID_PARAMS',
+    data: {
+      tool: TOOL_NAME,
+      code: 'INVALID_SOURCE_ID',
+      retryable: true,
+      retryMessage: RETRY_MESSAGE,
+      fieldErrors: [
+        {
+          field: 'sourceId',
+          reason: 'invalid_state',
+          message,
         },
       ],
       ...retryLists,
@@ -389,6 +414,19 @@ export async function runReingestRepository(
 
     if (code === 'NOT_FOUND') {
       const err = notFoundError(retryLists);
+      logValidationResult(appendLog, { kind: 'error', error: err });
+      return { ok: false, error: err };
+    }
+
+    if (
+      code === 'INVALID_REEMBED_STATE' ||
+      code === 'INVALID_LOCK_METADATA' ||
+      code === 'MODEL_LOCKED'
+    ) {
+      const err = invalidStateError(
+        'sourceId points to a repository that cannot be re-embedded in its current state',
+        retryLists,
+      );
       logValidationResult(appendLog, { kind: 'error', error: err });
       return { ok: false, error: err };
     }

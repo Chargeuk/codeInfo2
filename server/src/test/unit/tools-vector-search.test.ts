@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test, { afterEach, beforeEach } from 'node:test';
 import express from 'express';
 import request from 'supertest';
+import { EmbeddingDimensionMismatchError } from '../../ingest/chromaClient.js';
 import { createToolsVectorSearchRouter } from '../../routes/toolsVectorSearch.js';
 
 const ORIGINAL_HOST = process.env.HOST_INGEST_DIR;
@@ -59,13 +60,33 @@ function buildApp({
   roots,
   lockedModelId = null,
   vectorsQuery,
+  getLockedEmbeddingModel,
+  generateLockedQueryEmbedding,
 }: {
   roots: RootsData;
   lockedModelId?: string | null;
   vectorsQuery: (opts: {
     nResults?: number;
     where?: Record<string, unknown>;
+    queryEmbeddings?: number[][];
   }) => Promise<unknown>;
+  getLockedEmbeddingModel?: () => Promise<{
+    embeddingProvider: 'lmstudio' | 'openai';
+    embeddingModel: string;
+    embeddingDimensions: number;
+    lockedModelId: string;
+    source: 'canonical' | 'legacy';
+  } | null>;
+  generateLockedQueryEmbedding?: (query: string) => Promise<{
+    embedding: number[];
+    lock: {
+      embeddingProvider: 'lmstudio' | 'openai';
+      embeddingModel: string;
+      embeddingDimensions: number;
+      lockedModelId: string;
+      source: 'canonical' | 'legacy';
+    };
+  }>;
 }) {
   const app = express();
   app.use(express.json());
@@ -80,6 +101,8 @@ function buildApp({
           query: vectorsQuery,
         }) as unknown as import('chromadb').Collection,
       getLockedModel: async () => lockedModelId,
+      ...(getLockedEmbeddingModel ? { getLockedEmbeddingModel } : {}),
+      ...(generateLockedQueryEmbedding ? { generateLockedQueryEmbedding } : {}),
     }),
   );
   return app;
@@ -125,6 +148,41 @@ test('returns 404 when repository id is unknown', async () => {
 
   assert.equal(res.status, 404);
   assert.equal(res.body.error, 'REPO_NOT_FOUND');
+});
+
+test('returns EMBEDDING_DIMENSION_MISMATCH before executing Chroma query', async () => {
+  let queryCalled = false;
+  const res = await request(
+    buildApp({
+      roots: defaultRoots,
+      lockedModelId: 'text-embed',
+      getLockedEmbeddingModel: async () => ({
+        embeddingProvider: 'openai',
+        embeddingModel: 'text-embedding-3-small',
+        embeddingDimensions: 1536,
+        lockedModelId: 'text-embedding-3-small',
+        source: 'canonical',
+      }),
+      generateLockedQueryEmbedding: async () => {
+        throw new EmbeddingDimensionMismatchError(
+          1536,
+          1024,
+          'openai',
+          'text-embedding-3-small',
+        );
+      },
+      vectorsQuery: async () => {
+        queryCalled = true;
+        return {};
+      },
+    }),
+  )
+    .post('/tools/vector-search')
+    .send({ query: 'hello world' });
+
+  assert.equal(res.status, 409);
+  assert.equal(res.body.error, 'EMBEDDING_DIMENSION_MISMATCH');
+  assert.equal(queryCalled, false);
 });
 
 test('returns mapped search results with host path and model id', async () => {

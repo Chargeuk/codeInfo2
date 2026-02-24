@@ -6,7 +6,12 @@ import {
 import { getClient as getLmClient } from '../lmstudio/clientPool.js';
 import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
-import { createLmStudioEmbeddingProvider } from './providers/index.js';
+import {
+  createLmStudioEmbeddingProvider,
+  createOpenAiEmbeddingProvider,
+  OpenAiEmbeddingError,
+  resolveEmbeddingModelSelection,
+} from './providers/index.js';
 
 function getChromaUrl(): string {
   const raw = process.env.CHROMA_URL;
@@ -97,25 +102,31 @@ async function resolveLockedEmbeddingFunction(): Promise<EmbeddingFunction> {
     throw new IngestRequiredError();
   }
 
-  const baseUrl = process.env.LMSTUDIO_BASE_URL;
-  if (!baseUrl) {
-    throw new EmbedModelMissingError(
-      lockedModelId,
-      new Error('LMSTUDIO_BASE_URL is not configured'),
-    );
-  }
-
-  const wsBase = toWebSocketUrl(baseUrl);
+  const selection = resolveEmbeddingModelSelection(lockedModelId);
   try {
-    const provider = createLmStudioEmbeddingProvider({
-      lmClientResolver,
-      baseUrl: wsBase,
-    });
+    if (
+      selection.providerId === 'lmstudio' &&
+      (!process.env.LMSTUDIO_BASE_URL || process.env.LMSTUDIO_BASE_URL === '')
+    ) {
+      throw new Error('LMSTUDIO_BASE_URL is not configured');
+    }
+    const provider =
+      selection.providerId === 'openai'
+        ? createOpenAiEmbeddingProvider({
+            apiKey: process.env.OPENAI_EMBEDDING_KEY,
+          })
+        : createLmStudioEmbeddingProvider({
+            lmClientResolver,
+            baseUrl: toWebSocketUrl(process.env.LMSTUDIO_BASE_URL ?? ''),
+          });
 
     // Proactively verify the model exists to surface clear errors before query time.
-    await provider.getModel(lockedModelId);
-    return await provider.createEmbeddingFunction(lockedModelId);
+    await provider.getModel(selection.modelKey);
+    return await provider.createEmbeddingFunction(selection.modelKey);
   } catch (err) {
+    if (err instanceof OpenAiEmbeddingError) {
+      throw err;
+    }
     baseLogger.error(
       { modelId: lockedModelId, cause: err },
       'resolveLockedEmbeddingFunction missing LM Studio model',

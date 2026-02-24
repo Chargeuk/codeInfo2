@@ -97,6 +97,73 @@ flowchart LR
   M --> N[Contracts unchanged]
 ```
 
+## OpenAI embedding adapter (Task 0000036-T6)
+
+- Added OpenAI embedding execution behind the shared provider interface in `server/src/ingest/providers/`.
+- Provider selection is deterministic from model id via `resolveEmbeddingModelSelection(...)`:
+  - `openai/<model>` prefix -> OpenAI provider.
+  - `lmstudio/<model>` prefix -> LM Studio provider.
+  - Unprefixed allowlisted OpenAI ids (`text-embedding-3-small`, `text-embedding-3-large`) -> OpenAI provider.
+  - Otherwise -> LM Studio provider.
+- Ingest and query paths both use the same provider boundary:
+  - Ingest: `ingestJob.ts` resolves provider model and executes `embedText(...)`.
+  - Query: `chromaClient.ts` resolves locked model provider and supplies `EmbeddingFunction` for `getVectorsCollection({ requireEmbedding: true })`.
+- OpenAI guardrails are enforced before each OpenAI upstream request:
+  - max `2048` inputs/request
+  - per-input model token limit (`resolveOpenAiModelTokenLimit`)
+  - max `300000` total estimated tokens/request.
+- Retry behavior uses existing shared retry utility (`runWithRetry`) with OpenAI-specific policy:
+  - retries: `maxRetries=3` (4 total attempts)
+  - base delay `500ms`, max delay `8000ms`
+  - jitter range `[0.75, 1.0]`
+  - wait-hint precedence: `retry-after-ms` -> `retry-after` -> bounded exponential fallback.
+- OpenAI SDK retry ownership is disabled (`maxRetries=0`) and per-call timeout is fixed to `30000ms`.
+- OpenAI errors are normalized into deterministic `OPENAI_*` taxonomy with `retryable`, `upstreamStatus`, and optional `retryAfterMs` metadata, with secret-safe message sanitization.
+- OpenAI adapter observability logs:
+  - `DEV-0000036:T6:openai_embedding_attempt` (`attempt`, `model`, `inputCount`, `tokenEstimate`)
+  - `DEV-0000036:T6:openai_embedding_result_mapped` (`status`, `code`, `retryable`, optional `waitMs`).
+
+```mermaid
+flowchart TD
+  A[Model id selected or locked] --> B[resolveEmbeddingModelSelection]
+  B -->|openai| C[createOpenAiEmbeddingProvider]
+  B -->|lmstudio| D[createLmStudioEmbeddingProvider]
+  C --> E[validateOpenAiEmbeddingGuardrails]
+  E --> F[runOpenAiWithRetry]
+  F --> G[openai.embeddings.create timeout=30000 maxRetries=0]
+  G --> H[validateEmbeddingResponse shape]
+  H --> I[return vectors to ingest/query caller]
+  D --> J[LM Studio model embed path]
+```
+
+```mermaid
+flowchart LR
+  A1[Retryable OpenAI failure] --> B1{retry-after-ms header?}
+  B1 -- yes --> C1[wait = retry-after-ms]
+  B1 -- no --> D1{retry-after header?}
+  D1 -- yes --> E1[wait = parsed retry-after]
+  D1 -- no --> F1[wait = exponential backoff capped at 8000 with jitter 0.75-1.0]
+  C1 --> G1[next attempt]
+  E1 --> G1
+  F1 --> G1
+```
+
+```mermaid
+flowchart TD
+  X[OpenAI error/input] --> Y{status/classification}
+  Y -->|401| Z1[OPENAI_AUTH_FAILED retryable=false]
+  Y -->|403| Z2[OPENAI_PERMISSION_DENIED retryable=false]
+  Y -->|404| Z3[OPENAI_MODEL_UNAVAILABLE retryable=false]
+  Y -->|400 + size/token| Z4[OPENAI_INPUT_TOO_LARGE retryable=false]
+  Y -->|400 other| Z5[OPENAI_BAD_REQUEST retryable=false]
+  Y -->|422| Z6[OPENAI_UNPROCESSABLE retryable=false]
+  Y -->|429 quota| Z7[OPENAI_QUOTA_EXCEEDED retryable=false]
+  Y -->|429 rate| Z8[OPENAI_RATE_LIMITED retryable=true]
+  Y -->|timeout| Z9[OPENAI_TIMEOUT retryable=true]
+  Y -->|connection| Z10[OPENAI_CONNECTION_FAILED retryable=true]
+  Y -->|>=500 or unknown transient| Z11[OPENAI_UNAVAILABLE retryable=true]
+```
+
 ## Startup env loading parity (Task 3)
 
 - Startup now uses deterministic env precedence that matches compose env-file behavior: `server/.env` first, then `server/.env.local` as an override when present.

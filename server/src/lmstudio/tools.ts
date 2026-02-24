@@ -5,6 +5,7 @@ import {
   EmbedModelMissingError,
   IngestRequiredError,
 } from '../ingest/chromaClient.js';
+import { OpenAiEmbeddingError } from '../ingest/providers/index.js';
 import { baseLogger } from '../logger.js';
 import {
   RepoNotFoundError,
@@ -143,6 +144,11 @@ export function createLmStudioTools(options: ToolFactoryOptions = {}) {
         if (err instanceof EmbedModelMissingError) {
           throw new Error(
             `EMBED_MODEL_MISSING: ${err.modelId} not available in LM Studio`,
+          );
+        }
+        if (err instanceof OpenAiEmbeddingError) {
+          throw new Error(
+            `${err.code}: ${err.message}${err.retryable ? ' (retryable)' : ''}`,
           );
         }
         throw err;

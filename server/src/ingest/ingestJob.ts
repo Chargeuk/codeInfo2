@@ -57,7 +57,11 @@ import {
   resolveConfig,
 } from './index.js';
 import type { ProviderEmbeddingModel } from './providers/types.js';
-import { createLmStudioEmbeddingProvider } from './providers/index.js';
+import {
+  createLmStudioEmbeddingProvider,
+  createOpenAiEmbeddingProvider,
+  resolveEmbeddingModelSelection,
+} from './providers/index.js';
 
 export type IngestJobInput = {
   path: string;
@@ -186,12 +190,20 @@ async function getEmbeddingModel(
   const d = deps;
   if (!d) throw new Error('ingest deps not set');
 
+  const selection = resolveEmbeddingModelSelection(modelKey);
+  if (selection.providerId === 'openai') {
+    const provider = createOpenAiEmbeddingProvider({
+      apiKey: process.env.OPENAI_EMBEDDING_KEY,
+    });
+    return provider.getModel(selection.modelKey);
+  }
+
   const provider = createLmStudioEmbeddingProvider({
     lmClientResolver: d.lmClientFactory,
     baseUrl: d.baseUrl,
   });
 
-  return provider.getModel(modelKey);
+  return provider.getModel(selection.modelKey);
 }
 
 async function resolveRootEmbeddingDim(params: {

@@ -566,6 +566,12 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 - server/src/agents/commandsLoader.ts — reads command files and returns safe `{ name, description, disabled }` summaries
 - server/src/agents/commandsRunner.ts — executes parsed agent commands sequentially with abort checks + conversation lock
 - server/src/agents/retry.ts — AbortSignal-aware retry/backoff helper used by the command runner
+- server/src/ingest/providers/openaiConstants.ts — OpenAI embedding adapter constants (allowlist, retry policy, guardrail thresholds, token-limit resolver)
+- server/src/ingest/providers/openaiErrors.ts — OpenAI error taxonomy mapper + normalized/secret-safe OpenAI embedding error shape
+- server/src/ingest/providers/openaiGuardrails.ts — OpenAI embeddings request guardrail checks (input count, per-input tokens, total tokens)
+- server/src/ingest/providers/openaiRetry.ts — OpenAI retry wrapper built on shared `runWithRetry` with wait-hint precedence + bounded exponential fallback
+- server/src/ingest/providers/openaiEmbeddingProvider.ts — OpenAI embedding provider implementation for shared ingest/query embedding contract
+- server/src/ingest/providers/providerResolver.ts — deterministic model-id -> provider/model resolver used by ingest/query embedding paths
 - server/src/agents/transientReconnect.ts — transient reconnect classifier ("Reconnecting... n/m") + safe error message helper
 - server/src/config/flowAndCommandRetries.ts — shared retry-budget resolver (`FLOW_AND_COMMAND_RETRIES`, default 5 total attempts)
 - server/src/agents/runLock.ts — in-memory per-conversation run lock for agent/command execution
@@ -589,6 +595,10 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 - server/src/test/unit/agent-commands-runner-retry.test.ts — unit coverage for transient reconnect retry behavior in the command runner
 - server/src/test/unit/flow-command-retries-config.test.ts — unit coverage for shared flow/command retry-budget parsing behavior
 - server/src/test/unit/agent-commands-runner-abort-retry.test.ts — unit coverage that retries stop immediately when aborted
+- server/src/test/unit/openai-provider-retry.test.ts — unit coverage for OpenAI retry defaults, wait-hint precedence/fallback, and retry-exhaustion normalization
+- server/src/test/unit/openai-provider.test.ts — unit coverage for OpenAI adapter timeout/maxRetries ownership and embedding response-shape validation
+- server/src/test/unit/openai-provider-errors.test.ts — unit coverage for OpenAI taxonomy mapping, retryability matrix, and secret-safe redaction
+- server/src/test/unit/openai-provider-guardrails.test.ts — unit coverage for OpenAI embedding guardrail boundaries (input count and token limits)
 - server/src/test/unit/flows.break-parser.test.ts — unit coverage for strict/fenced/balanced break-answer parsing order, schema gating, and terminal failure behavior
 - server/src/test/unit/mcp-responder-transient-error.test.ts — unit coverage that McpResponder ignores transient reconnect error events
 - server/src/test/unit/chat-command-metadata.test.ts — unit coverage that chat persistence attaches `command` metadata to turns created by command runs

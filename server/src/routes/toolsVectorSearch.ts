@@ -6,6 +6,7 @@ import {
   getRootsCollection,
   getVectorsCollection,
 } from '../ingest/chromaClient.js';
+import { OpenAiEmbeddingError } from '../ingest/providers/index.js';
 import {
   RepoNotFoundError,
   ValidationError,
@@ -83,6 +84,23 @@ export function createToolsVectorSearchRouter(
           error: err.code,
           modelId: err.modelId,
           message: err.message,
+        });
+      }
+      if (err instanceof OpenAiEmbeddingError) {
+        const status =
+          typeof err.upstreamStatus === 'number'
+            ? err.upstreamStatus
+            : err.retryable
+              ? 503
+              : 400;
+        return res.status(status).json({
+          error: err.code,
+          message: err.message,
+          provider: err.provider,
+          retryable: err.retryable,
+          ...(typeof err.retryAfterMs === 'number'
+            ? { retryAfterMs: err.retryAfterMs }
+            : {}),
         });
       }
       return res

@@ -654,8 +654,7 @@ test('flow step retries transient failures and eventually succeeds', async () =>
         (items) =>
           items.some(
             (turn) =>
-              turn.role === 'user' &&
-              turn.content.includes('Exit outer loop?'),
+              turn.role === 'user' && turn.content.includes('Exit outer loop?'),
           ) &&
           items.some(
             (turn) =>
@@ -770,10 +769,7 @@ test('aborted flow step is not retried', async () => {
             conversationId?: string;
             status?: string;
           };
-          return (
-            e.type === 'turn_final' &&
-            e.conversationId === conversationId
-          );
+          return e.type === 'turn_final' && e.conversationId === conversationId;
         },
         timeoutMs: 5000,
       });

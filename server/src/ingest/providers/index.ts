@@ -1,4 +1,31 @@
 export { createLmStudioEmbeddingProvider } from './lmstudioEmbeddingProvider.js';
+export { createOpenAiEmbeddingProvider } from './openaiEmbeddingProvider.js';
+export {
+  OPENAI_RETRY_BASE_DELAY_MS,
+  OPENAI_RETRY_JITTER_MAX,
+  OPENAI_RETRY_JITTER_MIN,
+  OPENAI_RETRY_MAX_DELAY_MS,
+  OPENAI_RETRY_MAX_RETRIES,
+  OPENAI_REQUEST_TIMEOUT_MS,
+  OPENAI_MAX_INPUTS_PER_REQUEST,
+  OPENAI_MAX_TOTAL_TOKENS_PER_REQUEST,
+  resolveOpenAiModelTokenLimit,
+} from './openaiConstants.js';
+export {
+  OpenAiEmbeddingError,
+  mapOpenAiError,
+  type OpenAiErrorCode,
+} from './openaiErrors.js';
+export {
+  computeExponentialDelayMs,
+  resolveRetryAfterMs,
+  runOpenAiWithRetry,
+} from './openaiRetry.js';
+export {
+  estimateOpenAiTokens,
+  validateOpenAiEmbeddingGuardrails,
+} from './openaiGuardrails.js';
+export { resolveEmbeddingModelSelection } from './providerResolver.js';
 export {
   type DiscoveredEmbeddingModel,
   type EmbeddingProvider,

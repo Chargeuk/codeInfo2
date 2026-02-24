@@ -33,7 +33,10 @@ import {
   shouldUseMemoryPersistence,
   updateMemoryConversationMeta,
 } from '../chat/memoryPersistence.js';
-import { listIngestedRepositories } from '../lmstudio/toolService.js';
+import {
+  listIngestedRepositories,
+  resolveRepoEmbeddingIdentity,
+} from '../lmstudio/toolService.js';
 import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
 import { ConversationModel } from '../mongo/conversation.js';
@@ -2097,6 +2100,32 @@ export async function startFlowRun(
       if (!repo) {
         throw toFlowRunError('FLOW_NOT_FOUND');
       }
+      const resolved = resolveRepoEmbeddingIdentity(repo);
+      append({
+        level: 'info',
+        message: 'DEV-0000036:T11:transitive_consumer_contract_read',
+        timestamp: new Date().toISOString(),
+        source: 'server',
+        context: {
+          consumer: 'flows.service.startFlowRun',
+          sourceId,
+          embeddingProvider: resolved.embeddingProvider,
+          embeddingModel: resolved.embeddingModel,
+          embeddingDimensions: resolved.embeddingDimensions,
+          modelId: resolved.modelId,
+        },
+      });
+      append({
+        level: 'info',
+        message: 'DEV-0000036:T11:transitive_consumer_alias_fallback',
+        timestamp: new Date().toISOString(),
+        source: 'server',
+        context: {
+          consumer: 'flows.service.startFlowRun',
+          sourceId,
+          aliasFallbackUsed: resolved.aliasFallbackUsed,
+        },
+      });
       flowsRoot = path.resolve(repo.containerPath, 'flows');
     }
     flow = await loadFlowFile({ flowName, flowsRoot, sourceId });

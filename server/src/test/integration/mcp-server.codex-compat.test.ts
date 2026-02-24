@@ -2,10 +2,40 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import express from 'express';
 import request from 'supertest';
-import { validateVectorSearch } from '../../lmstudio/toolService.js';
+import {
+  type RepoEntry,
+  validateVectorSearch,
+} from '../../lmstudio/toolService.js';
 import { createMcpRouter } from '../../mcp/server.js';
 
 type FixtureDeps = Partial<Parameters<typeof createMcpRouter>[0]>;
+
+const buildRepoEntry = (params: {
+  id: string;
+  containerPath: string;
+  hostPath: string;
+  modelId: string;
+}): RepoEntry => ({
+  id: params.id,
+  description: 'demo repo',
+  containerPath: params.containerPath,
+  hostPath: params.hostPath,
+  lastIngestAt: null,
+  embeddingProvider: 'lmstudio',
+  embeddingModel: params.modelId,
+  embeddingDimensions: 768,
+  model: params.modelId,
+  modelId: params.modelId,
+  lock: {
+    embeddingProvider: 'lmstudio',
+    embeddingModel: params.modelId,
+    embeddingDimensions: 768,
+    lockedModelId: params.modelId,
+    modelId: params.modelId,
+  },
+  counts: { files: 1, chunks: 1, embedded: 1 },
+  lastError: null,
+});
 
 const baseApp = (overrides: FixtureDeps = {}) => {
   const app = express();
@@ -15,17 +45,12 @@ const baseApp = (overrides: FixtureDeps = {}) => {
     createMcpRouter({
       listIngestedRepositories: async () => ({
         repos: [
-          {
+          buildRepoEntry({
             id: 'repo-1',
-            description: 'demo repo',
             containerPath: '/data/repo-1',
             hostPath: '/host/repo-1',
-            hostPathWarning: undefined,
-            lastIngestAt: null,
             modelId: 'embed-model',
-            counts: { files: 1, chunks: 1, embedded: 1 },
-            lastError: null,
-          },
+          }),
         ],
         lockedModelId: 'embed-model',
       }),

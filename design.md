@@ -2712,3 +2712,44 @@ sequenceDiagram
   REST2->>Docs: contract parity assertion coverage
   MCP->>Docs: parity validated by integration tests
 ```
+
+## Transitive consumer canonical-first adoption (Task 0000036-T11)
+
+- Task 11 completes transitive runtime adoption of canonical ingest-repo fields while preserving alias fallback behavior for staged rollouts.
+- Shared canonical resolver contract:
+  - `resolveRepoEmbeddingIdentity(repo)` resolves, in order: canonical fields, lock fields, then aliases (`modelId`, `model`) with provider default fallback to `lmstudio`.
+  - Consumers keep compatibility output/behavior by preserving `modelId` while reading canonical fields first where present.
+- Updated transitive consumers:
+  - AST repository selection path (`server/src/ast/toolService.ts`)
+  - Flow discovery and flow run source selection (`server/src/flows/discovery.ts`, `server/src/flows/service.ts`, `server/src/flows/types.ts`)
+  - Agent command source selection and listing (`server/src/agents/service.ts`)
+  - MCP v2 vector-summary normalization (`server/src/chat/responders/McpResponder.ts`, `server/src/mcp2/tools/codebaseQuestion.ts`)
+- Required compatibility logs are emitted from each transitive consumer path:
+  - `DEV-0000036:T11:transitive_consumer_contract_read`
+  - `DEV-0000036:T11:transitive_consumer_alias_fallback`
+
+```mermaid
+flowchart TD
+  A[ListIngestedRepositories payload] --> B[resolveRepoEmbeddingIdentity]
+  B --> C[AST repository resolver]
+  B --> D[Flows discovery + run source resolver]
+  B --> E[Agents command source resolver]
+  B --> F[MCP2 vector-summary normalization]
+  C --> G[Canonical-first behavior]
+  D --> G
+  E --> G
+  F --> H[Compatibility modelId preserved]
+```
+
+```mermaid
+sequenceDiagram
+  participant Repo as Ingest repo payload
+  participant Resolver as resolveRepoEmbeddingIdentity
+  participant Consumer as Transitive consumer
+  participant Logs as logStore
+
+  Repo->>Resolver: canonical + alias fields
+  Resolver-->>Consumer: embeddingProvider/embeddingModel/dimensions + aliasFallbackUsed
+  Consumer->>Logs: DEV-0000036:T11:transitive_consumer_contract_read
+  Consumer->>Logs: DEV-0000036:T11:transitive_consumer_alias_fallback
+```

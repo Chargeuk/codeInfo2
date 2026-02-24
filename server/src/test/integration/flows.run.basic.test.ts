@@ -9,6 +9,7 @@ import express from 'express';
 import supertest from 'supertest';
 
 import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
+import type { RepoEntry } from '../../lmstudio/toolService.js';
 import {
   memoryConversations,
   memoryTurns,
@@ -28,6 +29,28 @@ const fixturesDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '../fixtures/flows',
 );
+
+const buildRepoEntry = (containerPath: string): RepoEntry => ({
+  id: path.posix.basename(containerPath.replace(/\\/g, '/')) || 'repo',
+  description: null,
+  containerPath,
+  hostPath: containerPath,
+  lastIngestAt: null,
+  embeddingProvider: 'lmstudio',
+  embeddingModel: 'model',
+  embeddingDimensions: 768,
+  model: 'model',
+  modelId: 'model',
+  lock: {
+    embeddingProvider: 'lmstudio',
+    embeddingModel: 'model',
+    embeddingDimensions: 768,
+    lockedModelId: 'model',
+    modelId: 'model',
+  },
+  counts: { files: 0, chunks: 0, embedded: 0 },
+  lastError: null,
+});
 
 class StreamingChat extends ChatInterface {
   async execute(
@@ -283,7 +306,7 @@ test('POST /flows/:flowName/run returns 404 for unknown sourceId', async () => {
           ...params,
           chatFactory: () => new InstantChat(),
           listIngestedRepositories: async () => ({
-            repos: [{ containerPath: '/data/known-repo' }],
+            repos: [buildRepoEntry('/data/known-repo')],
             lockedModelId: null,
           }),
         }),
@@ -334,7 +357,7 @@ test('POST /flows/:flowName/run uses ingested flow when sourceId provided', asyn
           ...params,
           chatFactory: () => new InstantChat(),
           listIngestedRepositories: async () => ({
-            repos: [{ containerPath: tmpRepoRoot }],
+            repos: [buildRepoEntry(tmpRepoRoot)],
             lockedModelId: null,
           }),
         }),
@@ -343,6 +366,76 @@ test('POST /flows/:flowName/run uses ingested flow when sourceId provided', asyn
 
   try {
     const conversationId = 'flow-ingested-conv-1';
+    const res = await supertest(app)
+      .post('/flows/llm-basic/run')
+      .send({ conversationId, sourceId: tmpRepoRoot })
+      .expect(202);
+
+    assert.equal(res.body.status, 'started');
+    assert.equal(res.body.flowName, 'llm-basic');
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
+  } finally {
+    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    if (prevFlowsDir) {
+      process.env.FLOWS_DIR = prevFlowsDir;
+    } else {
+      delete process.env.FLOWS_DIR;
+    }
+    await fs.rm(tmpLocalDir, { recursive: true, force: true });
+    await fs.rm(tmpRepoRoot, { recursive: true, force: true });
+  }
+});
+
+test('POST /flows/:flowName/run resolves sourceId with legacy alias payloads', async () => {
+  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const prevFlowsDir = process.env.FLOWS_DIR;
+  const repoRoot = path.resolve(
+    path.dirname(fileURLToPath(import.meta.url)),
+    '../../../../',
+  );
+  const tmpLocalDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-run-local-legacy-'),
+  );
+  const tmpRepoRoot = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-run-ingested-legacy-'),
+  );
+  const tmpRepoFlows = path.join(tmpRepoRoot, 'flows');
+  await fs.mkdir(tmpRepoFlows, { recursive: true });
+  await fs.cp(fixturesDir, tmpRepoFlows, { recursive: true });
+
+  process.env.CODEINFO_CODEX_AGENT_HOME = path.join(repoRoot, 'codex_agents');
+  process.env.FLOWS_DIR = tmpLocalDir;
+
+  const app = express();
+  app.use(
+    createFlowsRunRouter({
+      startFlowRun: (params) =>
+        startFlowRun({
+          ...params,
+          chatFactory: () => new InstantChat(),
+          listIngestedRepositories: async () => ({
+            repos: [
+              {
+                id: 'Legacy',
+                description: null,
+                containerPath: tmpRepoRoot,
+                hostPath: tmpRepoRoot,
+                lastIngestAt: null,
+                model: 'legacy-model',
+                modelId: 'legacy-model',
+                counts: { files: 0, chunks: 0, embedded: 0 },
+                lastError: null,
+              } as unknown as RepoEntry,
+            ],
+            lockedModelId: null,
+          }),
+        }),
+    }),
+  );
+
+  try {
+    const conversationId = 'flow-ingested-conv-legacy';
     const res = await supertest(app)
       .post('/flows/llm-basic/run')
       .send({ conversationId, sourceId: tmpRepoRoot })
@@ -393,7 +486,7 @@ test('POST /flows/:flowName/run uses local flows when sourceId omitted', async (
           ...params,
           chatFactory: () => new InstantChat(),
           listIngestedRepositories: async () => ({
-            repos: [{ containerPath: tmpRepoRoot }],
+            repos: [buildRepoEntry(tmpRepoRoot)],
             lockedModelId: null,
           }),
         }),

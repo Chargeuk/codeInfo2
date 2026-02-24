@@ -13,6 +13,7 @@ import {
 } from '../../ast/toolService.js';
 import { IngestRequiredError } from '../../ingest/chromaClient.js';
 import {
+  type RepoEntry,
   ValidationError,
   validateVectorSearch,
 } from '../../lmstudio/toolService.js';
@@ -34,6 +35,33 @@ const sampleSymbol = {
   range: sampleRange,
 };
 
+const buildRepoEntry = (params: {
+  id: string;
+  containerPath: string;
+  hostPath: string;
+  modelId: string;
+}): RepoEntry => ({
+  id: params.id,
+  description: null,
+  containerPath: params.containerPath,
+  hostPath: params.hostPath,
+  lastIngestAt: null,
+  embeddingProvider: 'lmstudio',
+  embeddingModel: params.modelId,
+  embeddingDimensions: 768,
+  model: params.modelId,
+  modelId: params.modelId,
+  lock: {
+    embeddingProvider: 'lmstudio',
+    embeddingModel: params.modelId,
+    embeddingDimensions: 768,
+    lockedModelId: params.modelId,
+    modelId: params.modelId,
+  },
+  counts: { files: 1, chunks: 2, embedded: 2 },
+  lastError: null,
+});
+
 const baseApp = (
   overrides: Partial<Parameters<typeof createMcpRouter>[0]> = {},
 ) => {
@@ -44,17 +72,12 @@ const baseApp = (
     createMcpRouter({
       listIngestedRepositories: async () => ({
         repos: [
-          {
+          buildRepoEntry({
             id: 'repo-1',
-            description: null,
             containerPath: '/data/repo-1',
             hostPath: '/host/repo-1',
-            hostPathWarning: undefined,
-            lastIngestAt: null,
             modelId: 'embed-model',
-            counts: { files: 1, chunks: 2, embedded: 2 },
-            lastError: null,
-          },
+          }),
         ],
         lockedModelId: 'embed-model',
       }),

@@ -9,12 +9,35 @@ import supertest from 'supertest';
 
 import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
 import { startFlowRun } from '../../flows/service.js';
+import type { RepoEntry } from '../../lmstudio/toolService.js';
 import { createFlowsRunRouter } from '../../routes/flowsRun.js';
 
 const fixturesDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '../fixtures/flows',
 );
+
+const buildRepoEntry = (containerPath: string): RepoEntry => ({
+  id: path.posix.basename(containerPath.replace(/\\/g, '/')) || 'repo',
+  description: null,
+  containerPath,
+  hostPath: containerPath,
+  lastIngestAt: null,
+  embeddingProvider: 'lmstudio',
+  embeddingModel: 'model',
+  embeddingDimensions: 768,
+  model: 'model',
+  modelId: 'model',
+  lock: {
+    embeddingProvider: 'lmstudio',
+    embeddingModel: 'model',
+    embeddingDimensions: 768,
+    lockedModelId: 'model',
+    modelId: 'model',
+  },
+  counts: { files: 0, chunks: 0, embedded: 0 },
+  lastError: null,
+});
 
 class CapturingChat extends ChatInterface {
   constructor(private readonly onMessage: (message: string) => void) {
@@ -154,7 +177,7 @@ test('Flow run returns 404 when ingested flow file is missing', async () => {
           ...params,
           chatFactory: () => new CapturingChat(() => undefined),
           listIngestedRepositories: async () => ({
-            repos: [{ containerPath: tmpRepoRoot }],
+            repos: [buildRepoEntry(tmpRepoRoot)],
             lockedModelId: null,
           }),
         }),

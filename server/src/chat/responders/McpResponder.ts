@@ -26,6 +26,8 @@ export type VectorSummaryFile = {
   lines: number | null;
   repo?: string;
   modelId?: string;
+  embeddingProvider?: 'lmstudio' | 'openai';
+  embeddingModel?: string;
   hostPathWarning?: string;
 };
 
@@ -158,6 +160,29 @@ function buildVectorSummary(
 
   const relByHost = new Map<string, string>();
   const summaries = new Map<string, VectorSummaryFile>();
+  let aliasFallbackUsed = false;
+  let canonicalConsumed = false;
+
+  const normalizeModel = (value: unknown) => {
+    if (typeof value !== 'string') return null;
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  };
+
+  const normalizeProvider = (value: unknown): 'lmstudio' | 'openai' | null => {
+    if (value === 'lmstudio' || value === 'openai') return value;
+    return null;
+  };
+
+  const resolveEmbeddingIdentity = (item: Record<string, unknown>) => {
+    const provider = normalizeProvider(item.embeddingProvider);
+    const embeddingModel = normalizeModel(item.embeddingModel);
+    const modelId = normalizeModel(item.modelId) ?? embeddingModel ?? undefined;
+    const usedAlias = embeddingModel == null;
+    canonicalConsumed ||= embeddingModel != null;
+    aliasFallbackUsed ||= usedAlias;
+    return { provider: provider ?? undefined, embeddingModel, modelId };
+  };
 
   const countLines = (text: unknown): number | null => {
     if (typeof text !== 'string') return null;
@@ -173,6 +198,7 @@ function buildVectorSummary(
       typeof item.hostPath === 'string' ? item.hostPath : undefined;
     if (hostPath && relPath) relByHost.set(hostPath, relPath);
     const key = relPath ?? hostPath ?? `result-${index}`;
+    const embeddingIdentity = resolveEmbeddingIdentity(item);
     const base: VectorSummaryFile = summaries.get(key) ?? {
       path: relPath ?? hostPath ?? key,
       relPath,
@@ -180,7 +206,9 @@ function buildVectorSummary(
       chunks: 0,
       lines: null,
       repo: typeof item.repo === 'string' ? item.repo : undefined,
-      modelId: typeof item.modelId === 'string' ? item.modelId : undefined,
+      modelId: embeddingIdentity.modelId,
+      embeddingProvider: embeddingIdentity.provider,
+      embeddingModel: embeddingIdentity.embeddingModel ?? undefined,
       hostPathWarning:
         typeof item.hostPathWarning === 'string'
           ? item.hostPathWarning
@@ -210,6 +238,7 @@ function buildVectorSummary(
       typeof item.hostPath === 'string' ? item.hostPath : undefined;
     const relPath = hostPath ? relByHost.get(hostPath) : undefined;
     const key = hostPath ?? `file-${index}`;
+    const embeddingIdentity = resolveEmbeddingIdentity(item);
     const base: VectorSummaryFile = summaries.get(key) ?? {
       path: relPath ?? hostPath ?? key,
       relPath,
@@ -217,7 +246,9 @@ function buildVectorSummary(
       chunks: 0,
       lines: null,
       repo: typeof item.repo === 'string' ? item.repo : undefined,
-      modelId: typeof item.modelId === 'string' ? item.modelId : undefined,
+      modelId: embeddingIdentity.modelId,
+      embeddingProvider: embeddingIdentity.provider,
+      embeddingModel: embeddingIdentity.embeddingModel ?? undefined,
       hostPathWarning:
         typeof item.hostPathWarning === 'string'
           ? item.hostPathWarning
@@ -256,6 +287,27 @@ function buildVectorSummary(
       source: 'mcp',
       bestMatch,
       fileCount: summaryFiles.length,
+    },
+  });
+  append({
+    level: 'info',
+    message: 'DEV-0000036:T11:transitive_consumer_contract_read',
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      consumer: 'mcp_responder.vector_summary',
+      canonicalFieldsConsumed: canonicalConsumed,
+      fileCount: summaryFiles.length,
+    },
+  });
+  append({
+    level: 'info',
+    message: 'DEV-0000036:T11:transitive_consumer_alias_fallback',
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      consumer: 'mcp_responder.vector_summary',
+      aliasFallbackUsed,
     },
   });
 

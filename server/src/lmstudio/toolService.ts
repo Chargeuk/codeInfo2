@@ -27,9 +27,9 @@ export type RepoEntry = {
   hostPath: string;
   hostPathWarning?: string;
   lastIngestAt: string | null;
-  embeddingProvider?: EmbeddingProviderId;
-  embeddingModel?: string;
-  embeddingDimensions?: number;
+  embeddingProvider: EmbeddingProviderId;
+  embeddingModel: string;
+  embeddingDimensions: number;
   model?: string;
   modelId: string;
   lock?: {
@@ -57,6 +57,14 @@ export type ListReposResult = {
 };
 
 export const INGEST_REPO_SCHEMA_VERSION = '0000036-t10-canonical-alias-v1';
+
+export type RepoEmbeddingIdentity = {
+  embeddingProvider: EmbeddingProviderId;
+  embeddingModel: string;
+  embeddingDimensions: number;
+  modelId: string;
+  aliasFallbackUsed: boolean;
+};
 
 function logLockResolverState(
   surface: string,
@@ -211,6 +219,50 @@ function normalizeEmbeddingDimensions(value: unknown): number | null {
     return null;
   }
   return value;
+}
+
+export function resolveRepoEmbeddingIdentity(
+  repo: Partial<RepoEntry> & {
+    lock?: {
+      embeddingProvider?: EmbeddingProviderId;
+      embeddingModel?: string;
+      embeddingDimensions?: number;
+      modelId?: string;
+    };
+  },
+): RepoEmbeddingIdentity {
+  const canonicalProvider = normalizeEmbeddingProvider(repo.embeddingProvider);
+  const canonicalModel = normalizeEmbeddingModel(repo.embeddingModel);
+  const canonicalDimensions = normalizeEmbeddingDimensions(
+    repo.embeddingDimensions,
+  );
+  const lockProvider = normalizeEmbeddingProvider(repo.lock?.embeddingProvider);
+  const lockModel = normalizeEmbeddingModel(repo.lock?.embeddingModel);
+  const lockDimensions = normalizeEmbeddingDimensions(
+    repo.lock?.embeddingDimensions,
+  );
+  const aliasModel =
+    normalizeEmbeddingModel(repo.modelId) ??
+    normalizeEmbeddingModel(repo.lock?.modelId) ??
+    normalizeEmbeddingModel(repo.model) ??
+    '';
+
+  const embeddingProvider = canonicalProvider ?? lockProvider ?? 'lmstudio';
+  const embeddingModel = canonicalModel ?? lockModel ?? aliasModel;
+  const embeddingDimensions = canonicalDimensions ?? lockDimensions ?? 0;
+  const modelId =
+    normalizeEmbeddingModel(repo.modelId) ??
+    normalizeEmbeddingModel(repo.lock?.modelId) ??
+    embeddingModel;
+
+  const aliasFallbackUsed = canonicalModel == null;
+  return {
+    embeddingProvider,
+    embeddingModel,
+    embeddingDimensions,
+    modelId,
+    aliasFallbackUsed,
+  };
 }
 
 function resolveRepoLock(

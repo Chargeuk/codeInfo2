@@ -249,7 +249,8 @@ test('vector summary match uses the lowest distance', () => {
           score: 0.33,
           chunk: 'line1',
           chunkId: 'c1',
-          modelId: 'embed-1',
+          embeddingProvider: 'openai',
+          embeddingModel: 'text-embedding-3-small',
         },
         {
           repo: 'repo',
@@ -269,4 +270,7 @@ test('vector summary match uses the lowest distance', () => {
   const summaries = responder.getVectorSummaries();
   assert.equal(summaries.length, 1);
   assert.equal(summaries[0].files[0].match, 0.12);
+  assert.equal(summaries[0].files[0].modelId, 'text-embedding-3-small');
+  assert.equal(summaries[0].files[0].embeddingProvider, 'openai');
+  assert.equal(summaries[0].files[0].embeddingModel, 'text-embedding-3-small');
 });

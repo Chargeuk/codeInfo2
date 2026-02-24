@@ -1,4 +1,5 @@
 import type { ChatInterface } from '../chat/interfaces/ChatInterface.js';
+import type { ListReposResult } from '../lmstudio/toolService.js';
 
 export type FlowRunErrorCode =
   | 'FLOW_NOT_FOUND'
@@ -31,10 +32,7 @@ export type FlowRunStartParams = {
   source: 'REST' | 'MCP';
   inflightId?: string;
   chatFactory?: FlowChatFactory;
-  listIngestedRepositories?: () => Promise<{
-    repos: Array<{ containerPath: string }>;
-    lockedModelId: string | null;
-  }>;
+  listIngestedRepositories?: () => Promise<ListReposResult>;
 };
 
 export type FlowRunStartResult = {

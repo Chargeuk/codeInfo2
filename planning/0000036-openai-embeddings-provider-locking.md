@@ -925,7 +925,7 @@ Implement deterministic local env loading (`server/.env` then `server/.env.local
 ### 4. Server: Make break-step answer parsing robust while preserving strict JSON schema
 
 - Task Status: **__done__**
-- Git Commits:
+- Git Commits: `77de0ef`, `64d5e95`
 
 #### Overview
 

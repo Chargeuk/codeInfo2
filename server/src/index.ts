@@ -15,6 +15,7 @@ import {
   ensureStartupEnvLoaded,
   resolveOpenAiEmbeddingCapabilityState,
 } from './config/startupEnv.js';
+import { getFlowAndCommandRetries } from './config/flowAndCommandRetries.js';
 import { baseLogger, createRequestLogger } from './logger.js';
 import { createMcpRouter } from './mcp/server.js';
 import { startMcp2Server, stopMcp2Server } from './mcp2/server.js';
@@ -88,6 +89,23 @@ append({
     orderedFiles: startupEnvLoad.orderedFiles,
     loadedFiles: startupEnvLoad.loadedFiles,
     overrideApplied: startupEnvLoad.overrideApplied,
+  },
+});
+const flowAndCommandRetries = getFlowAndCommandRetries();
+baseLogger.info(
+  {
+    event: 'DEV-0000036:T5:flow_and_command_retries_configured',
+    flowAndCommandRetries,
+  },
+  'DEV-0000036:T5:flow_and_command_retries_configured',
+);
+append({
+  level: 'info',
+  message: 'DEV-0000036:T5:flow_and_command_retries_configured',
+  timestamp: new Date().toISOString(),
+  source: 'server',
+  context: {
+    flowAndCommandRetries,
   },
 });
 const openAiEmbeddingCapability = resolveOpenAiEmbeddingCapabilityState();

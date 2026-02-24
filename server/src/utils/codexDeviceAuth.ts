@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 
 import { buildCodexOptions, resolveCodexHome } from '../config/codexConfig.js';
 import { baseLogger } from '../logger.js';
+import { truncateText } from './truncateText.js';
 
 export type CodexDeviceAuthSuccess = {
   ok: true;
@@ -192,9 +193,4 @@ const ansiRegex =
 
 function stripAnsi(value: string) {
   return value.replace(ansiRegex, '');
-}
-
-function truncateText(value: string, maxLength: number) {
-  if (value.length <= maxLength) return value;
-  return `${value.slice(0, maxLength)}…`;
 }

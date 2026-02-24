@@ -45,6 +45,7 @@ import {
   updateConversationFlowState,
   updateConversationThreadId,
 } from '../mongo/repo.js';
+import { getFlowAndCommandRetries } from '../config/flowAndCommandRetries.js';
 import type {
   TurnCommandMetadata,
   Turn,
@@ -53,6 +54,7 @@ import type {
   TurnUsageMetadata,
 } from '../mongo/turn.js';
 import { detectCodexForHome } from '../providers/codexDetection.js';
+import { formatRetryInstruction } from '../utils/retryContext.js';
 import { publishUserTurn } from '../ws/server.js';
 
 import {
@@ -75,6 +77,7 @@ import type {
 } from './types.js';
 
 const FALLBACK_MODEL_ID = 'gpt-5.1-codex-max';
+const FLOW_STEP_BASE_DELAY_MS = 500;
 const agentConversationState = new Map<string, FlowAgentState>();
 
 const toFlowRunError = (code: FlowRunErrorCode, reason?: string) =>
@@ -509,6 +512,11 @@ type FlowInstructionPostProcess = (result: FlowInstructionResult) => {
   };
 };
 
+type FlowInstructionResultDecision = {
+  persist: boolean;
+  finalize: boolean;
+};
+
 async function persistFlowTurn(params: {
   conversationId: string;
   role: 'user' | 'assistant';
@@ -626,6 +634,11 @@ const runFlowInstruction = async (params: {
   chatFactory?: FlowChatFactory;
   deferFinal?: boolean;
   postProcess?: FlowInstructionPostProcess;
+  onResult?: (
+    result: FlowInstructionResult,
+    context: { attempt: number },
+  ) => FlowInstructionResultDecision;
+  attempt?: number;
   onThreadId: (threadId: string) => void;
   command?: TurnCommandMetadata;
 }): Promise<FlowInstructionResult> => {
@@ -749,7 +762,7 @@ const runFlowInstruction = async (params: {
     bridge.cleanup();
   }
 
-  if (status === 'ok' && inflightSignal?.aborted) {
+  if (inflightSignal?.aborted && status !== 'stopped') {
     status = 'stopped';
   }
   if (status === 'ok' && !sawComplete && lastErrorMessage) {
@@ -782,94 +795,100 @@ const runFlowInstruction = async (params: {
   if (postProcessed?.status) result.status = postProcessed.status;
   if (postProcessed?.content) result.content = postProcessed.content;
 
-  const userCreatedAt = new Date(createdAtIso);
-  const userPersisted = await persistFlowTurn({
-    conversationId: params.flowConversationId,
-    role: 'user',
-    content: params.instruction,
-    model: params.modelId,
-    provider: 'codex',
-    source: params.source,
-    status: 'ok',
-    toolCalls: null,
-    command: params.command,
-    createdAt: userCreatedAt,
-  });
+  const resultDecision = params.onResult?.(result, {
+    attempt: params.attempt ?? 1,
+  }) ?? { persist: true, finalize: true };
 
-  const assistantCreatedAt = new Date();
-  const assistantPersisted = await persistFlowTurn({
-    conversationId: params.flowConversationId,
-    role: 'assistant',
-    content: result.content,
-    model: params.modelId,
-    provider: 'codex',
-    source: params.source,
-    status: result.status,
-    toolCalls,
-    command: params.command,
-    usage: result.usage,
-    timing: result.timing,
-    createdAt: assistantCreatedAt,
-  });
+  if (resultDecision.persist) {
+    const userCreatedAt = new Date(createdAtIso);
+    const userPersisted = await persistFlowTurn({
+      conversationId: params.flowConversationId,
+      role: 'user',
+      content: params.instruction,
+      model: params.modelId,
+      provider: 'codex',
+      source: params.source,
+      status: 'ok',
+      toolCalls: null,
+      command: params.command,
+      createdAt: userCreatedAt,
+    });
 
-  const agentUserPersisted = await persistFlowTurn({
-    conversationId: params.agentConversationId,
-    role: 'user',
-    content: params.instruction,
-    model: params.modelId,
-    provider: 'codex',
-    source: params.source,
-    status: 'ok',
-    toolCalls: null,
-    command: params.command,
-    createdAt: userCreatedAt,
-  });
-  logAgentTurnPersisted({
-    flowConversationId: params.flowConversationId,
-    agentConversationId: params.agentConversationId,
-    agentType: params.agentType,
-    identifier: params.identifier,
-    role: 'user',
-    turnId: agentUserPersisted.turnId,
-  });
+    const assistantCreatedAt = new Date();
+    const assistantPersisted = await persistFlowTurn({
+      conversationId: params.flowConversationId,
+      role: 'assistant',
+      content: result.content,
+      model: params.modelId,
+      provider: 'codex',
+      source: params.source,
+      status: result.status,
+      toolCalls,
+      command: params.command,
+      usage: result.usage,
+      timing: result.timing,
+      createdAt: assistantCreatedAt,
+    });
 
-  const agentAssistantPersisted = await persistFlowTurn({
-    conversationId: params.agentConversationId,
-    role: 'assistant',
-    content: result.content,
-    model: params.modelId,
-    provider: 'codex',
-    source: params.source,
-    status: result.status,
-    toolCalls,
-    command: params.command,
-    usage: result.usage,
-    timing: result.timing,
-    createdAt: assistantCreatedAt,
-  });
-  logAgentTurnPersisted({
-    flowConversationId: params.flowConversationId,
-    agentConversationId: params.agentConversationId,
-    agentType: params.agentType,
-    identifier: params.identifier,
-    role: 'assistant',
-    turnId: agentAssistantPersisted.turnId,
-  });
+    const agentUserPersisted = await persistFlowTurn({
+      conversationId: params.agentConversationId,
+      role: 'user',
+      content: params.instruction,
+      model: params.modelId,
+      provider: 'codex',
+      source: params.source,
+      status: 'ok',
+      toolCalls: null,
+      command: params.command,
+      createdAt: userCreatedAt,
+    });
+    logAgentTurnPersisted({
+      flowConversationId: params.flowConversationId,
+      agentConversationId: params.agentConversationId,
+      agentType: params.agentType,
+      identifier: params.identifier,
+      role: 'user',
+      turnId: agentUserPersisted.turnId,
+    });
 
-  markInflightPersisted({
-    conversationId: params.flowConversationId,
-    inflightId: params.inflightId,
-    role: 'user',
-    turnId: userPersisted.turnId,
-  });
-  markInflightPersisted({
-    conversationId: params.flowConversationId,
-    inflightId: params.inflightId,
-    role: 'assistant',
-    turnId: assistantPersisted.turnId,
-  });
+    const agentAssistantPersisted = await persistFlowTurn({
+      conversationId: params.agentConversationId,
+      role: 'assistant',
+      content: result.content,
+      model: params.modelId,
+      provider: 'codex',
+      source: params.source,
+      status: result.status,
+      toolCalls,
+      command: params.command,
+      usage: result.usage,
+      timing: result.timing,
+      createdAt: assistantCreatedAt,
+    });
+    logAgentTurnPersisted({
+      flowConversationId: params.flowConversationId,
+      agentConversationId: params.agentConversationId,
+      agentType: params.agentType,
+      identifier: params.identifier,
+      role: 'assistant',
+      turnId: agentAssistantPersisted.turnId,
+    });
 
-  if (params.deferFinal) {
+    markInflightPersisted({
+      conversationId: params.flowConversationId,
+      inflightId: params.inflightId,
+      role: 'user',
+      turnId: userPersisted.turnId,
+    });
+    markInflightPersisted({
+      conversationId: params.flowConversationId,
+      inflightId: params.inflightId,
+      role: 'assistant',
+      turnId: assistantPersisted.turnId,
+    });
+  }
+
+  if (params.deferFinal && resultDecision.finalize) {
     bridge.finalize({
       override: postProcessed?.finalOverride,
       fallback: {
@@ -1439,6 +1458,7 @@ async function runFlowUnlocked(params: {
   const agentByName = new Map(discovered.map((agent) => [agent.name, agent]));
 
   const loopStack: LoopFrame[] = [];
+  const maxStepAttempts = getFlowAndCommandRetries();
   let stepInflightId = params.inflightId;
   const resumeStepPath = params.resumeStepPath ?? null;
   let lastCompletedStepPath =
@@ -1501,42 +1521,138 @@ async function runFlowUnlocked(params: {
       }
     }
 
-    const result = await runFlowInstruction({
-      flowConversationId: params.conversationId,
-      inflightId: stepInflightId,
-      instruction: instructionParams.instruction,
-      agentType: instructionParams.agentType,
-      identifier: instructionParams.identifier,
-      agentConversationId: agentState.conversationId,
-      agentHome: agent.home,
-      modelId,
-      threadId: agentState.threadId,
-      systemPrompt,
-      workingDirectoryOverride: params.workingDirectoryOverride,
-      source: params.source,
-      chatFactory: params.chatFactory,
-      deferFinal: instructionParams.deferFinal,
-      postProcess: instructionParams.postProcess,
-      command: instructionParams.command,
-      onThreadId: (threadId) => {
-        agentState.threadId = threadId;
-        void persistAgentThreadId({
-          conversationId: agentState.conversationId,
-          threadId,
-        });
-        void persistFlowResumeState({
-          conversationId: params.conversationId,
-          stepPath: lastCompletedStepPath,
-          loopStack,
-        });
-      },
-    });
+    let previousError: unknown = null;
+    let sanitizedErrorLength = 0;
 
-    if (!shouldStopAfter(result.status)) {
-      stepInflightId = crypto.randomUUID();
+    for (let attempt = 1; attempt <= maxStepAttempts; attempt += 1) {
+      const retryInstruction =
+        attempt > 1
+          ? formatRetryInstruction({
+              originalInstruction: instructionParams.instruction,
+              previousError,
+            })
+          : null;
+      if (retryInstruction) {
+        sanitizedErrorLength = retryInstruction.sanitizedErrorLength;
+      }
+
+      let shouldRetry = false;
+      const result = await runFlowInstruction({
+        flowConversationId: params.conversationId,
+        inflightId: stepInflightId,
+        instruction:
+          retryInstruction?.instruction ?? instructionParams.instruction,
+        agentType: instructionParams.agentType,
+        identifier: instructionParams.identifier,
+        agentConversationId: agentState.conversationId,
+        agentHome: agent.home,
+        modelId,
+        threadId: agentState.threadId,
+        systemPrompt,
+        workingDirectoryOverride: params.workingDirectoryOverride,
+        source: params.source,
+        chatFactory: params.chatFactory,
+        deferFinal: true,
+        postProcess: instructionParams.postProcess,
+        command: instructionParams.command,
+        attempt,
+        onResult: (candidate) => {
+          if (
+            candidate.status === 'failed' &&
+            deriveStatusFromError(candidate.content) === 'stopped'
+          ) {
+            candidate.status = 'stopped';
+          }
+          shouldRetry =
+            candidate.status === 'failed' && attempt < maxStepAttempts;
+          return {
+            persist: !shouldRetry,
+            finalize: !shouldRetry,
+          };
+        },
+        onThreadId: (threadId) => {
+          agentState.threadId = threadId;
+          void persistAgentThreadId({
+            conversationId: agentState.conversationId,
+            threadId,
+          });
+          void persistFlowResumeState({
+            conversationId: params.conversationId,
+            stepPath: lastCompletedStepPath,
+            loopStack,
+          });
+        },
+      });
+
+      if (shouldRetry) {
+        previousError = result.content;
+        const reason = result.content;
+        append({
+          level: 'warn',
+          message: 'DEV-0000036:T5:step_retry_attempt',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          context: {
+            surface: 'flow',
+            attempt,
+            maxAttempts: maxStepAttempts,
+            reason,
+            retryPromptInjected: attempt >= 1,
+            sanitizedErrorLength,
+          },
+        });
+        baseLogger.warn(
+          {
+            surface: 'flow',
+            attempt,
+            maxAttempts: maxStepAttempts,
+            reason,
+            retryPromptInjected: attempt >= 1,
+            sanitizedErrorLength,
+          },
+          'DEV-0000036:T5:step_retry_attempt',
+        );
+        stepInflightId = crypto.randomUUID();
+        continue;
+      }
+
+      if (result.status === 'failed' && attempt >= maxStepAttempts) {
+        append({
+          level: 'error',
+          message: 'DEV-0000036:T5:step_retry_exhausted',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          context: {
+            surface: 'flow',
+            attempt,
+            maxAttempts: maxStepAttempts,
+            reason: result.content,
+            retryPromptInjected: attempt > 1,
+            sanitizedErrorLength,
+            terminalStatus: result.status,
+          },
+        });
+        baseLogger.error(
+          {
+            surface: 'flow',
+            attempt,
+            maxAttempts: maxStepAttempts,
+            reason: result.content,
+            retryPromptInjected: attempt > 1,
+            sanitizedErrorLength,
+            terminalStatus: result.status,
+          },
+          'DEV-0000036:T5:step_retry_exhausted',
+        );
+      }
+
+      if (!shouldStopAfter(result.status)) {
+        stepInflightId = crypto.randomUUID();
+      }
+      return result;
     }
 
-    return result;
+    throw toFlowRunError('INVALID_REQUEST', 'Flow retry loop exhausted');
   };
 
   const runLlmStep = async (
@@ -1671,37 +1787,75 @@ async function runFlowUnlocked(params: {
       },
     });
 
-    const commandLoad = await loadCommandForAgent({
-      agentHome: agent.home,
-      commandName: step.commandName,
-    });
-    if (!commandLoad.ok) {
-      const modelId = await getAgentModelId(agent.configPath);
-      await emitFailedFlowStep({
-        flowConversationId: params.conversationId,
-        inflightId: stepInflightId,
-        instruction: `Command: ${step.commandName}`,
-        modelId,
-        source: params.source,
-        message: commandLoad.message,
-        errorCode: 'COMMAND_INVALID',
-        command,
+    for (let attempt = 1; attempt <= maxStepAttempts; attempt += 1) {
+      const commandLoad = await loadCommandForAgent({
+        agentHome: agent.home,
+        commandName: step.commandName,
       });
-      return 'failed';
+      if (!commandLoad.ok) {
+        if (attempt < maxStepAttempts) {
+          append({
+            level: 'warn',
+            message: 'DEV-0000036:T5:step_retry_attempt',
+            timestamp: new Date().toISOString(),
+            source: 'server',
+            context: {
+              surface: 'flow',
+              attempt,
+              maxAttempts: maxStepAttempts,
+              reason: commandLoad.message,
+              retryPromptInjected: false,
+              sanitizedErrorLength: 0,
+            },
+          });
+          await new Promise((resolve) =>
+            setTimeout(resolve, FLOW_STEP_BASE_DELAY_MS * 2 ** (attempt - 1)),
+          );
+          continue;
+        }
+        const modelId = await getAgentModelId(agent.configPath);
+        await emitFailedFlowStep({
+          flowConversationId: params.conversationId,
+          inflightId: stepInflightId,
+          instruction: `Command: ${step.commandName}`,
+          modelId,
+          source: params.source,
+          message: commandLoad.message,
+          errorCode: 'COMMAND_INVALID',
+          command,
+        });
+        append({
+          level: 'error',
+          message: 'DEV-0000036:T5:step_retry_exhausted',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          context: {
+            surface: 'flow',
+            attempt,
+            maxAttempts: maxStepAttempts,
+            reason: commandLoad.message,
+            retryPromptInjected: false,
+            sanitizedErrorLength: 0,
+            terminalStatus: 'failed',
+          },
+        });
+        return 'failed';
+      }
+
+      for (const item of commandLoad.command.items) {
+        const instruction = joinMessageContent(item.content);
+        const result = await runInstruction({
+          agentType: step.agentType,
+          identifier: step.identifier,
+          instruction,
+          command,
+        });
+        if (shouldStopAfter(result.status)) return result.status;
+      }
+      return 'ok';
     }
 
-    for (const item of commandLoad.command.items) {
-      const instruction = joinMessageContent(item.content);
-      const result = await runInstruction({
-        agentType: step.agentType,
-        identifier: step.identifier,
-        instruction,
-        command,
-      });
-      if (shouldStopAfter(result.status)) return result.status;
-    }
-
-    return 'ok';
+    return 'failed';
   };
 
   const runStartLoopStep = async (

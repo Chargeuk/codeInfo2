@@ -240,6 +240,47 @@ sequenceDiagram
 - Parser observability emits:
   - `DEV-0000036:T4:break_parse_strategy_attempted` with strategy name and candidate count.
   - `DEV-0000036:T4:break_parse_result` with accepted state and normalized reason code.
+- Task 0000036-T5 adds shared retry orchestration for flow-step and command-step failures:
+  - Shared budget: `FLOW_AND_COMMAND_RETRIES` (default `5`) where the value is total attempts (initial attempt included).
+  - Retry prompt format (attempts after the first): `Your previous attempt at this task failed with the error "<error information>", please try again:` followed by the original step instruction.
+  - Retry context sanitization uses shared helpers (`getErrorMessage` extraction, secret redaction, deterministic truncation).
+  - Non-retryable stop semantics are preserved (`status=stopped`, abort/cancel paths are not retried).
+  - Intermediate retry attempts suppress persistence/finalization so only terminal step outcomes emit `turn_final` and persisted turns.
+  - Observability logs:
+    - `DEV-0000036:T5:step_retry_attempt` (`surface`, `attempt`, `maxAttempts`, `reason`, `retryPromptInjected`, `sanitizedErrorLength`)
+    - `DEV-0000036:T5:step_retry_exhausted` (same metadata plus terminal status)
+- Flow retry loop semantics for Task 0000036-T5:
+
+```mermaid
+flowchart TD
+  A[Run flow step attempt N] --> B{status == stopped or abort?}
+  B -- yes --> C[Terminal stopped result, no retry]
+  B -- no --> D{status == failed and N < maxAttempts?}
+  D -- yes --> E[Log step_retry_attempt and sanitize error]
+  E --> F[Build retry instruction prefix plus original step text]
+  F --> G[Suppress intermediate persist and finalize]
+  G --> H[Run next attempt N+1]
+  D -- no --> I[Persist terminal outcome]
+  I --> J[Emit one terminal turn_final]
+  J --> K{status == failed and N == maxAttempts?}
+  K -- yes --> L[Log step_retry_exhausted]
+  K -- no --> M[Continue flow progression]
+```
+
+- Command step retry loop semantics for Task 0000036-T5:
+
+```mermaid
+flowchart TD
+  A1[Run command item attempt N] --> B1{AbortError?}
+  B1 -- yes --> C1[Stop immediately, no retry]
+  B1 -- no --> D1{Error and N < maxAttempts?}
+  D1 -- yes --> E1[Log step_retry_attempt with surface=command]
+  E1 --> F1[Inject sanitized retry prefix before original instruction]
+  F1 --> G1[Retry with backoff]
+  D1 -- no --> H1{Error and N == maxAttempts?}
+  H1 -- yes --> I1[Log step_retry_exhausted and fail step]
+  H1 -- no --> J1[Success path]
+```
 - `command` steps load `commands/<commandName>.json` for the specified agent and run each command item as a flow instruction; missing/invalid commands return `invalid_request` and emit a failed `turn_final`.
 - Each `llm` message entry is joined into a single instruction string and streamed via the existing WS protocol (no new event types).
 - Flow turns attach `turn.command` metadata with `{ name: 'flow', stepIndex, totalSteps, loopDepth, agentType, identifier, label }` (label defaults to the step type) and log `flows.turn.metadata_attached`.
@@ -694,7 +735,7 @@ flowchart LR
 
 - Codex can emit transient reconnect errors like `Reconnecting... 1/5`.
 - `McpResponder` treats messages matching `/^Reconnecting\.\.\.\s+\d+\/\d+$/` as non-fatal: it tracks/counts them for diagnostics but does not fail `toResult()`.
-- Agent command macros retry per step when the _step call_ fails with a transient reconnect error (fixed defaults): `MAX_ATTEMPTS = 3`, `BASE_DELAY_MS = 500`, exponential backoff (`* 2 ** (attempt - 1)`), AbortSignal-aware sleep.
+- Agent command macros use the same shared retry budget as flows (`FLOW_AND_COMMAND_RETRIES`, default `5`) with exponential backoff (`500ms * 2 ** (attempt - 1)`), AbortSignal-aware sleep, and retry prompt injection on attempts after the first.
 - Retry logs include `conversationId`, `agentName`, `commandName`, `stepIndex`, `attempt`, and `maxAttempts` and avoid logging prompt content.
 
 ```mermaid

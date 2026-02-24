@@ -554,6 +554,8 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 - server/src/test/unit/codexConfig.test.ts — verifies `buildCodexOptions({ codexHome })` resolves and injects `env.CODEX_HOME`
 - server/src/test/unit/codexConfig.device-auth.test.ts — unit coverage for device-auth config persistence helper
 - server/src/utils/codexDeviceAuth.ts — Codex device-auth CLI runner + stdout parser with sanitized logging
+- server/src/utils/truncateText.ts — shared deterministic truncation helper used by retry-context and device-auth sanitization
+- server/src/utils/retryContext.ts — shared retry prompt/error sanitizer for Task 0000036-T5 flow and command retries
 - server/src/test/unit/codexDeviceAuth.test.ts — unit coverage for device-auth parsing and error handling
 - server/src/routes/codexDeviceAuth.ts — `POST /codex/device-auth` device-auth endpoint for chat/agent targets
 - server/src/test/integration/codex.device-auth.test.ts — integration coverage for device-auth route validation + responses
@@ -565,6 +567,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 - server/src/agents/commandsRunner.ts — executes parsed agent commands sequentially with abort checks + conversation lock
 - server/src/agents/retry.ts — AbortSignal-aware retry/backoff helper used by the command runner
 - server/src/agents/transientReconnect.ts — transient reconnect classifier ("Reconnecting... n/m") + safe error message helper
+- server/src/config/flowAndCommandRetries.ts — shared retry-budget resolver (`FLOW_AND_COMMAND_RETRIES`, default 5 total attempts)
 - server/src/agents/runLock.ts — in-memory per-conversation run lock for agent/command execution
 - server/src/agents/config.ts — minimal agent `config.toml` parsing helpers (e.g. top-level `model`)
 - server/src/agents/service.ts — shared agents service used by REST + Agents MCP (list agents + run agent instruction)
@@ -584,6 +587,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 - server/src/test/unit/agent-commands-list.test.ts — unit coverage for listing agent commands from `commands/` (missing folder, filtering, sorting, no-cache)
 - server/src/test/unit/agent-commands-runner.test.ts — unit coverage for command execution runner (sequential steps, abort stop, lock behavior)
 - server/src/test/unit/agent-commands-runner-retry.test.ts — unit coverage for transient reconnect retry behavior in the command runner
+- server/src/test/unit/flow-command-retries-config.test.ts — unit coverage for shared flow/command retry-budget parsing behavior
 - server/src/test/unit/agent-commands-runner-abort-retry.test.ts — unit coverage that retries stop immediately when aborted
 - server/src/test/unit/flows.break-parser.test.ts — unit coverage for strict/fenced/balanced break-answer parsing order, schema gating, and terminal failure behavior
 - server/src/test/unit/mcp-responder-transient-error.test.ts — unit coverage that McpResponder ignores transient reconnect error events

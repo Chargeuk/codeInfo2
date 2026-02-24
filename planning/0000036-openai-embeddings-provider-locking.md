@@ -1596,7 +1596,7 @@ Finalize the remaining message-contract surfaces so canonical lock/provider fiel
 ### 11. Server: Update transitive runtime consumers to canonical+compat ingest repo contracts
 
 - Task Status: **__done__**
-- Git Commits:
+- Git Commits: `51e76ce`
 
 #### Overview
 

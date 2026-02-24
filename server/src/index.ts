@@ -7,6 +7,7 @@ import express from 'express';
 import pkg from '../package.json' with { type: 'json' };
 import { warmAstParserQueries } from './ast/parser.js';
 import { ensureCodexConfigSeeded, getCodexHome } from './config/codexConfig.js';
+import { resolveServerPort } from './config/serverPort.js';
 import './flows/flowSchema.js';
 import './ingest/index.js';
 import './mongo/astCoverage.js';
@@ -67,9 +68,9 @@ app.use(cors());
 app.use(express.json());
 app.use(createRequestLogger());
 baseLogger.info({ codexDetection }, 'Codex detection summary');
-const PORT = process.env.PORT ?? '5010';
-const mcpHostUrl = `http://localhost:${PORT}/mcp`;
-const mcpDockerUrl = `http://server:${PORT}/mcp`;
+const SERVER_PORT = resolveServerPort();
+const mcpHostUrl = `http://localhost:${SERVER_PORT}/mcp`;
+const mcpDockerUrl = `http://server:${SERVER_PORT}/mcp`;
 baseLogger.info({ mcpHostUrl, mcpDockerUrl }, 'MCP endpoint available');
 app.use((req, res, next) => {
   const requestId = (req as unknown as { id?: string }).id;
@@ -167,10 +168,13 @@ const start = async () => {
 
   const httpServer = http.createServer(app);
   wsServer = attachWs({ httpServer });
-  server = httpServer.listen(Number(PORT), () => {
-    baseLogger.info(`Server on ${PORT}`);
+  server = httpServer.listen(Number(SERVER_PORT), () => {
+    baseLogger.info(`Server on ${SERVER_PORT}`);
     baseLogger.info(
-      { event: 'DEV-0000032:T12:verification-ready', port: Number(PORT) },
+      {
+        event: 'DEV-0000032:T12:verification-ready',
+        port: Number(SERVER_PORT),
+      },
       'DEV-0000032:T12:verification-ready',
     );
     const timestamp = new Date().toISOString();
@@ -181,7 +185,7 @@ const start = async () => {
       source: 'server',
       context: {
         event: 'DEV-0000032:T12:verification-ready',
-        port: Number(PORT),
+        port: Number(SERVER_PORT),
       },
     });
   });

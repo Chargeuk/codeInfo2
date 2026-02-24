@@ -39,20 +39,6 @@
                     "steps": [
                         {
                             "type": "llm",
-                            "label": "Trigger Ingest",
-                            "agentType": "coding_agent",
-                            "identifier": "coder",
-                            "messages": [
-                                {
-                                    "role": "user",
-                                    "content": [
-                                        "Please use the code_info tool to ask a question that will trigger a vector ingestion of the repository you are working in. The format of the question should be `Please re-ingest repository [full path to the repository you are working in] and confirm what you did after the re-ingest completes.` Once the tool is complete, please output if the ingest was succesful or not."
-                                    ]
-                                }
-                            ]
-                        },
-                        {
-                            "type": "llm",
                             "label": "Explain Gotchas",
                             "agentType": "coding_agent",
                             "identifier": "coder",

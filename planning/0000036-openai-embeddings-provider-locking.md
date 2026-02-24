@@ -1316,7 +1316,7 @@ Extend lock identity from model-only to provider+model+dimensions internally, wi
 ### 8. Server Messages: `/ingest/models` provider-aware response contract and warning states
 
 - Task Status: **__done__**
-- Git Commits:
+- Git Commits: `a7df34c`
 
 #### Overview
 

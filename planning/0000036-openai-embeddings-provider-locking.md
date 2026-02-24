@@ -1108,7 +1108,7 @@ Increase resilience by retrying failed command and flow execution steps with a s
 ### 6. Server: Add OpenAI embedding provider adapter with retries, limits, and taxonomy mapping
 
 - Task Status: **__done__**
-- Git Commits: `ff8b653`
+- Git Commits: `69e1034`, `9d3d17d`
   - `69e1034` — Added OpenAI embedding provider adapter modules, provider selection wiring for ingest/query paths, guardrails/retry/taxonomy handling, Task 6 OpenAI adapter unit tests, and Task 6 documentation/verification updates.
 
 #### Overview
@@ -1217,7 +1217,7 @@ Implement OpenAI embedding execution behind the shared provider interface, inclu
 ### 7. Server: Provider-aware lock identity and embedding execution in ingest/reembed/vector-search internals
 
 - Task Status: **__done__**
-- Git Commits:
+- Git Commits: `ff8b653`, `f0278c9`
 
 #### Overview
 

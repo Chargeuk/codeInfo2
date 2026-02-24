@@ -690,7 +690,7 @@ This section defines how implementation tasks must be executed once development 
 ### 1. Server: Refactor LM Studio embedding flow behind a shared provider interface (parity only)
 
 - Task Status: **__done__**
-- Git Commits: `be6470e`, `7a1b0f7`, `5eb9e73`, `c2ab615`
+- Git Commits: `be6470e`, `7a1b0f7`, `5eb9e73`, `c2ab615`, `cccf011`
 
 #### Overview
 

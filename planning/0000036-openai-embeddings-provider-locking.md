@@ -840,7 +840,7 @@ Make one canonical lock resolver for all lock consumers so `/ingest/models` no l
 
 ### 3. Server: Environment loading parity for `.env` and `.env.local`
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits:
 
 #### Overview

@@ -647,6 +647,19 @@ This is a rough implementation sequence only (not tasking). It reflects current 
 - Client ingest UI tests: provider-tagged model dropdown, info/warning states, lock-display compatibility behavior.
 - Primary suites: `server/src/test/unit/*ingest*.test.ts`, `server/src/test/unit/tools-vector-search.test.ts`, `server/src/test/unit/chroma-embedding-selection.test.ts`, `server/src/test/integration/chat-vectorsearch-locked-model.test.ts`, `client/src/test/ingest*.test.tsx`, `client/src/test/ingestForm.test.tsx`, `e2e/ingest.spec.ts`, `e2e/chat-tools.spec.ts`.
 
+## Reuse-First Constraints (Validated via `code_info` + Manual Search)
+
+- Reuse existing lock helpers in `server/src/ingest/chromaClient.ts` (`getLockedModel`, `setLockedModel`, `clearLockedModel`, `resolveLockedEmbeddingFunction`) and extend them for canonical provider-aware lock metadata. Do not introduce a second lock storage/resolution path.
+- Remove route dependency on placeholder `server/src/ingest/modelLock.ts`; canonical lock reads must come from the same runtime lock resolver used by ingest/vector-search internals.
+- Keep vector-search behavior centralized in `server/src/lmstudio/toolService.ts` (`validateVectorSearch`, `vectorSearch`, `listIngestedRepositories`) and reuse existing route/MCP adapters in `server/src/routes/toolsVectorSearch.ts`, `server/src/routes/toolsIngestedRepos.ts`, `server/src/mcp/server.ts`, and `server/src/lmstudio/tools.ts`.
+- Reuse existing retry utility semantics by extracting from `server/src/agents/retry.ts` into shared utility form (with compatibility export), rather than introducing a separate retry framework for embeddings.
+- Reuse existing env/config parsing style from `server/src/config/chatDefaults.ts`, `server/src/config/codexEnvDefaults.ts`, `server/src/ingest/config.ts`, and `server/src/logger.ts` (`parseNumber`) for deterministic env handling and warnings.
+- Reuse existing client normalization patterns from `client/src/hooks/useConversations.ts` and `client/src/hooks/useConversationTurns.ts` when adapting ingest contracts.
+- Reuse existing warning/info banner implementation and test patterns (`client/src/pages/ChatPage.tsx`, `client/src/test/chatPage.codexBanners.test.tsx`) for new ingest provider warning states.
+- Prefer extending existing tests before creating new suites:
+  - server: `tools-vector-search`, `chroma-embedding-selection`, `tools-ingested-repos`, ingest Cucumber steps/features, MCP integration, flows/agent contract consumers.
+  - client: `ingestForm`, `ingestRoots`, `ingestStatus`, and banner-pattern tests.
+
 # Implementation Plan
 
 ## Instructions
@@ -684,9 +697,9 @@ Refactor existing LM Studio embedding calls into a common provider interface wit
 1. [ ] Document the current LM Studio embedding baseline in Implementation notes using `server/src/ingest/ingestJob.ts`, `server/src/ingest/chromaClient.ts`, and `server/src/lmstudio/toolService.ts` (ingest-time embeddings, query-time embeddings, and lock read/write points) so parity can be verified after refactor.
 2. [ ] Add shared provider contracts under `server/src/ingest/providers/` (for model discovery, embed generation, and provider id).
 3. [ ] Implement LM Studio provider adapter using current behavior as-is (no contract changes, no provider switching yet).
-4. [ ] Replace direct LM Studio embedding calls in ingest/vector core with the LM Studio adapter through the new interface.
+4. [ ] Replace direct LM Studio embedding calls in ingest/vector core with the LM Studio adapter through the new interface by extending existing `getVectorsCollection({ requireEmbedding: true })` and `vectorSearch(...)` call paths (no duplicate vector-search execution path).
 5. [ ] Keep all current REST/MCP response shapes and codes unchanged in this task.
-6. [ ] Add/update unit tests proving no behavior regression for LM Studio lock + vector search paths.
+6. [ ] Extend existing regression suites (`server/src/test/unit/chroma-embedding-selection.test.ts`, `server/src/test/unit/tools-vector-search.test.ts`, and related MCP tool tests) instead of creating a parallel LM Studio parity suite.
 
 #### Testing
 
@@ -756,6 +769,7 @@ Implement deterministic local env loading (`server/.env` then `server/.env.local
 2. [ ] Ensure startup behavior remains safe when `.env.local` is absent.
 3. [ ] Add startup logging that reports capability state without leaking key values.
 4. [ ] Add/update tests for env precedence behavior.
+5. [ ] Reuse existing env-parse warning/fallback patterns from `server/src/config/chatDefaults.ts`, `server/src/config/codexEnvDefaults.ts`, and `server/src/logger.ts` (no bespoke env parser for this story).
 
 #### Testing
 
@@ -1051,6 +1065,7 @@ Update the client data layer (`useIngestModels`, `useIngestRoots`, related types
 2. [ ] `npm run test --workspace client`
 3. [ ] Confirm `client/src/test/ingestStatus.test.tsx` and `client/src/test/ingestRoots.test.tsx` pass.
 4. [ ] Confirm hook tests cover both legacy string and normalized-object error payload handling.
+5. [ ] Confirm normalization-pattern regression suites remain green (`client/src/test/useConversations.source.test.ts` and `client/src/test/useConversationTurns.commandMetadata.test.ts`) so ingest contract parsing changes do not regress shared normalization behavior.
 
 #### Implementation notes
 
@@ -1083,13 +1098,15 @@ Implement the user-visible ingest UI behavior for provider-tagged model selectio
 6. [ ] Keep ingest UI dimension-free for this story (no dimensions input/control introduced anywhere in the form).
 7. [ ] Update ingest status/error rendering in existing components (`client/src/components/ingest/ActiveRunCard.tsx`, `client/src/components/ingest/RootsTable.tsx`, and `client/src/components/ingest/RootDetailsDrawer.tsx`) so normalized OpenAI errors remain user-readable while legacy string errors still render correctly.
 8. [ ] Update lock display in existing ingest UI components/pages (`IngestPage`, `IngestForm`, `RootsTable`, `RootDetailsDrawer`) to prefer canonical lock fields and fallback to aliases.
-9. [ ] Add/update client tests for dropdown options, provider-qualified selection identity, stale-selection clearing, warnings/info bars, no-dimensions-control behavior, ingest error rendering compatibility, and payload behavior.
+9. [ ] Reuse existing warning/info banner implementation style (MUI `Alert` layout + deterministic `data-testid` assertions) consistent with current patterns in `client/src/pages/ChatPage.tsx` and existing ingest banners in `client/src/pages/IngestPage.tsx`.
+10. [ ] Add/update client tests for dropdown options, provider-qualified selection identity, stale-selection clearing, warnings/info bars, no-dimensions-control behavior, ingest error rendering compatibility, and payload behavior.
 
 #### Testing
 
 1. [ ] `npm run build --workspace client`
 2. [ ] `npm run test --workspace client`
 3. [ ] Confirm `client/src/test/ingestForm.test.tsx` and `client/src/test/ingestPage.layout.test.tsx` pass.
+4. [ ] Confirm warning/info banner behavior is covered by existing banner-pattern tests (`client/src/test/chatPage.codexBanners.test.tsx`) plus new/updated ingest-specific assertions.
 
 #### Implementation notes
 

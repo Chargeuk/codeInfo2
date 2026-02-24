@@ -840,7 +840,7 @@ Make one canonical lock resolver for all lock consumers so `/ingest/models` no l
 
 ### 3. Server: Environment loading parity for `.env` and `.env.local`
 
-- Task Status: **__in_progress__**
+- Task Status: **__done__**
 - Git Commits:
 
 #### Overview
@@ -860,36 +860,56 @@ Implement deterministic local env loading (`server/.env` then `server/.env.local
 
 #### Subtasks
 
-1. [ ] Implement deterministic env load order at startup. Files (read/edit): server bootstrap entry (`server/src/index.ts` or current startup file where `dotenv.config()` is called). Required behavior: load `server/.env` first, then load `server/.env.local` with override semantics, matching docker-compose env-file precedence used by this repo. Docs: https://github.com/motdotla/dotenv and https://nodejs.org/api/environment_variables.html.
-2. [ ] Handle absent `.env.local` without warning noise or startup failure. Files (read/edit): `server/src/index.ts`. Required behavior: missing local override file is valid and must not crash startup. Docs: https://github.com/motdotla/dotenv.
-3. [ ] Emit capability-safe startup logging for OpenAI embeddings. Files (read/edit): `server/src/index.ts`, `server/src/logger.ts`. Required behavior: log enabled/disabled capability only; never log `OPENAI_EMBEDDING_KEY` values or token-like strings. Docs: https://nodejs.org/api/environment_variables.html and https://developers.openai.com/api/docs/guides/embeddings/.
-4. [ ] Add env-precedence override test for local startup loading. Test type: Unit (Jest). Location: `server/src/test/unit/env-loading.test.ts`. Description: assert `.env.local` value overrides `.env` value for `OPENAI_EMBEDDING_KEY` (or equivalent test var) when both files are present. Purpose: lock deterministic startup precedence to match docker behavior. Files (read/edit): `server/src/test/unit/env-loading.test.ts`. Docs: https://jestjs.io/docs/environment-variables.
-5. [ ] Add env-fallback test when `.env.local` is absent. Test type: Unit (Jest). Location: `server/src/test/unit/env-loading.test.ts`. Description: assert startup succeeds without `.env.local` and still reads values from `.env`. Purpose: prevent regressions that break local startup in default setups. Files (read/edit): `server/src/test/unit/env-loading.test.ts`. Docs: https://jestjs.io/docs/environment-variables.
-6. [ ] Add key-redaction test for startup capability logging. Test type: Unit (Jest). Location: `server/src/test/unit/env-logging.test.ts`. Description: assert startup logs include OpenAI capability enabled/disabled state but never include raw key/token material. Purpose: enforce secret-safe logging guarantees for local startup parity changes. Files (read/edit): `server/src/test/unit/env-logging.test.ts`. Docs: https://jestjs.io/docs/environment-variables.
-7. [ ] Reuse established env parsing patterns instead of adding bespoke parser code. Files (read/edit): touched bootstrap/config files and references `server/src/config/chatDefaults.ts`, `server/src/config/codexEnvDefaults.ts`, `server/src/logger.ts`. Required behavior: keep parsing/validation style consistent with existing config modules. Docs: https://www.typescriptlang.org/docs/.
-8. [ ] Update markdown document `design.md` for Task 3 architecture changes. Document: `design.md`. Location: repository root (`/design.md`). Description: document startup env precedence (`.env` then `.env.local`) and secret-safe capability logging flow with Mermaid diagrams that reflect implementation. Purpose: keep runtime configuration behavior documented and unambiguous. Files (read/edit): `design.md`, plus Task 3 implementation files for verification (server bootstrap/startup file where dotenv is loaded, `server/src/logger.ts`, `server/src/config/chatDefaults.ts`, `server/src/config/codexEnvDefaults.ts`). Docs: Context7 `/mermaid-js/mermaid`, https://github.com/motdotla/dotenv, and https://nodejs.org/api/environment_variables.html.
-9. [ ] Add startup env-loading logs for deterministic precedence and capability state. Files (read/edit): startup bootstrap file (`server/src/index.ts` or equivalent) and `server/src/logger.ts`. Required log lines: `DEV-0000036:T3:env_load_order_applied` (expected ordered files `[server/.env, server/.env.local]` and `overrideApplied=true|false`) and `DEV-0000036:T3:openai_embedding_capability_state` (expected `enabled=true|false` with no secret values). Purpose: make env precedence and key-gated capability observable without leaking secrets.
-10. [ ] Update markdown document `projectStructure.md` for Task 3 file-map changes. Document: `projectStructure.md`. Location: repository root (`/projectStructure.md`). Description: add/update tree entries for all Task 3 files that were created, removed, or renamed. Purpose: keep repository structure documentation accurate for junior developers and downstream tasks. Files (read/edit): `projectStructure.md`. Required behavior: after all Task 3 file additions/removals are complete, add/update entries for every created/removed path before marking this task done. Required `projectStructure.md` entries for this task: Added files: `server/src/test/unit/env-loading.test.ts` and `server/src/test/unit/env-logging.test.ts` (if created by subtasks 4-6). Removed files: `None planned`.
-11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+1. [x] Implement deterministic env load order at startup. Files (read/edit): server bootstrap entry (`server/src/index.ts` or current startup file where `dotenv.config()` is called). Required behavior: load `server/.env` first, then load `server/.env.local` with override semantics, matching docker-compose env-file precedence used by this repo. Docs: https://github.com/motdotla/dotenv and https://nodejs.org/api/environment_variables.html.
+2. [x] Handle absent `.env.local` without warning noise or startup failure. Files (read/edit): `server/src/index.ts`. Required behavior: missing local override file is valid and must not crash startup. Docs: https://github.com/motdotla/dotenv.
+3. [x] Emit capability-safe startup logging for OpenAI embeddings. Files (read/edit): `server/src/index.ts`, `server/src/logger.ts`. Required behavior: log enabled/disabled capability only; never log `OPENAI_EMBEDDING_KEY` values or token-like strings. Docs: https://nodejs.org/api/environment_variables.html and https://developers.openai.com/api/docs/guides/embeddings/.
+4. [x] Add env-precedence override test for local startup loading. Test type: Unit (Jest). Location: `server/src/test/unit/env-loading.test.ts`. Description: assert `.env.local` value overrides `.env` value for `OPENAI_EMBEDDING_KEY` (or equivalent test var) when both files are present. Purpose: lock deterministic startup precedence to match docker behavior. Files (read/edit): `server/src/test/unit/env-loading.test.ts`. Docs: https://jestjs.io/docs/environment-variables.
+5. [x] Add env-fallback test when `.env.local` is absent. Test type: Unit (Jest). Location: `server/src/test/unit/env-loading.test.ts`. Description: assert startup succeeds without `.env.local` and still reads values from `.env`. Purpose: prevent regressions that break local startup in default setups. Files (read/edit): `server/src/test/unit/env-loading.test.ts`. Docs: https://jestjs.io/docs/environment-variables.
+6. [x] Add key-redaction test for startup capability logging. Test type: Unit (Jest). Location: `server/src/test/unit/env-logging.test.ts`. Description: assert startup logs include OpenAI capability enabled/disabled state but never include raw key/token material. Purpose: enforce secret-safe logging guarantees for local startup parity changes. Files (read/edit): `server/src/test/unit/env-logging.test.ts`. Docs: https://jestjs.io/docs/environment-variables.
+7. [x] Reuse established env parsing patterns instead of adding bespoke parser code. Files (read/edit): touched bootstrap/config files and references `server/src/config/chatDefaults.ts`, `server/src/config/codexEnvDefaults.ts`, `server/src/logger.ts`. Required behavior: keep parsing/validation style consistent with existing config modules. Docs: https://www.typescriptlang.org/docs/.
+8. [x] Update markdown document `design.md` for Task 3 architecture changes. Document: `design.md`. Location: repository root (`/design.md`). Description: document startup env precedence (`.env` then `.env.local`) and secret-safe capability logging flow with Mermaid diagrams that reflect implementation. Purpose: keep runtime configuration behavior documented and unambiguous. Files (read/edit): `design.md`, plus Task 3 implementation files for verification (server bootstrap/startup file where dotenv is loaded, `server/src/logger.ts`, `server/src/config/chatDefaults.ts`, `server/src/config/codexEnvDefaults.ts`). Docs: Context7 `/mermaid-js/mermaid`, https://github.com/motdotla/dotenv, and https://nodejs.org/api/environment_variables.html.
+9. [x] Add startup env-loading logs for deterministic precedence and capability state. Files (read/edit): startup bootstrap file (`server/src/index.ts` or equivalent) and `server/src/logger.ts`. Required log lines: `DEV-0000036:T3:env_load_order_applied` (expected ordered files `[server/.env, server/.env.local]` and `overrideApplied=true|false`) and `DEV-0000036:T3:openai_embedding_capability_state` (expected `enabled=true|false` with no secret values). Purpose: make env precedence and key-gated capability observable without leaking secrets.
+10. [x] Update markdown document `projectStructure.md` for Task 3 file-map changes. Document: `projectStructure.md`. Location: repository root (`/projectStructure.md`). Description: add/update tree entries for all Task 3 files that were created, removed, or renamed. Purpose: keep repository structure documentation accurate for junior developers and downstream tasks. Files (read/edit): `projectStructure.md`. Required behavior: after all Task 3 file additions/removals are complete, add/update entries for every created/removed path before marking this task done. Required `projectStructure.md` entries for this task: Added files: `server/src/test/unit/env-loading.test.ts` and `server/src/test/unit/env-logging.test.ts` (if created by subtasks 4-6). Removed files: `None planned`.
+11. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: start server and load ingest UI at `http://host.docker.internal:5001`; verify server logs include `DEV-0000036:T3:env_load_order_applied` with `.env -> .env.local` ordering and `DEV-0000036:T3:openai_embedding_capability_state` without secret material. Expected outcome: precedence/capability logs are present and browser debug console has zero errors.
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check: start server and load ingest UI at `http://host.docker.internal:5001`; verify server logs include `DEV-0000036:T3:env_load_order_applied` with `.env -> .env.local` ordering and `DEV-0000036:T3:openai_embedding_capability_state` without secret material. Expected outcome: precedence/capability logs are present and browser debug console has zero errors.
+9. [x] `npm run compose:down`
 
-10. [ ] `npm run test:unit --workspace server`
-11. [ ] Manual check: local startup loads with `.env.local` override and no key leakage in logs.
+10. [x] `npm run test:unit --workspace server`
+11. [x] Manual check: local startup loads with `.env.local` override and no key leakage in logs.
 
 #### Implementation notes
 
-- Notes added during implementation.
+- Subtask 1: Added `server/src/config/startupEnv.ts` with deterministic startup env loading (`.env` first, then `.env.local` override) and wired startup bootstrap to use it.
+- Subtask 2: Implemented missing `.env.local` handling by checking file presence before including it in dotenv load paths; startup continues cleanly when absent.
+- Subtask 3: Added startup capability-state logging flow that emits only `enabled=true|false` for OpenAI embeddings and does not include secret values.
+- Subtasks 4-5: Added `server/src/test/unit/env-loading.test.ts` with override-order and missing-`.env.local` fallback coverage using temp env files.
+- Subtask 6: Added `server/src/test/unit/env-logging.test.ts` to assert capability-state output excludes API key material.
+- Subtask 7: Reused existing config parsing patterns by centralizing env bootstrap in `server/src/config/startupEnv.ts` and wiring through existing bootstrap/logger modules.
+- Subtask 8: Updated `design.md` with Task 3 env precedence architecture notes and a startup sequence diagram for deterministic `.env` -> `.env.local` loading.
+- Subtask 9: Added required startup logs `DEV-0000036:T3:env_load_order_applied` and `DEV-0000036:T3:openai_embedding_capability_state` to both structured logger and `/logs` append store.
+- Subtask 10: Updated `projectStructure.md` entries for the new startup env module and Task 3 unit test files.
+- Subtask 11: Ran workspace lint and format checks; formatting required a write pass for `env-loading.test.ts`, then all format checks passed.
+- Testing 1: `npm run build --workspace server` passed after tightening `startupEnv.ts` dotenv `processEnv` typing to match Node process env usage.
+- Testing 2: `npm run build --workspace client` passed (existing Vite large-chunk warning only).
+- Testing 3: `npm run test --workspace server` executed to completion (`tests: 635`, `pass: 631`, `fail: 4`) with the same known baseline Codex/MCP expectation failures (`approvalPolicy`, `modelReasoningEffort`, and codex model-id assertions) observed in prior tasks.
+- Testing 4: `npm run test --workspace client` passed (`90` suites / `333` tests).
+- Testing 5: `npm run e2e` passed (`42 passed`), and the e2e harness completed automatic compose teardown (`e2e:down`) successfully.
+- Testing 6: `npm run compose:build` completed successfully and produced fresh `codeinfo2-server` and `codeinfo2-client` images.
+- Testing 7: `npm run compose:up` completed with healthy `codeinfo2-server-1` and started `codeinfo2-client-1` for manual verification.
+- Testing 8: Manual Playwright-MCP check on `http://host.docker.internal:5001/ingest` confirmed UI load, zero browser console errors, and `/logs` entries for `DEV-0000036:T3:env_load_order_applied` (`orderedFiles=["server/.env","server/.env.local"]`) plus `DEV-0000036:T3:openai_embedding_capability_state` (`enabled=true`) without secret leakage.
+- Testing 9: `npm run compose:down` completed successfully and removed all compose services/networks started for manual verification.
+- Testing 10: `npm run test:unit --workspace server` completed with baseline known Codex expectation drift only (`tests: 635`, `pass: 631`, `fail: 4`; failures in existing `chat-codex-mcp` and MCP codex model-id expectation tests).
+- Testing 11: Manual startup parity check executed against the built startup env module using temp `.env` + `.env.local` files; verified `.env.local` override (`overrideApplied=true`, effective value from local file) and confirmed serialized capability log payload contains no raw key value.
 
 ---
 

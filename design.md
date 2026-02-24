@@ -97,6 +97,28 @@ flowchart LR
   M --> N[Contracts unchanged]
 ```
 
+## Startup env loading parity (Task 3)
+
+- Startup now uses deterministic env precedence that matches compose env-file behavior: `server/.env` first, then `server/.env.local` as an override when present.
+- Env bootstrap is centralized in `server/src/config/startupEnv.ts` and is loaded before logger config resolution so env-driven logger/runtime settings use the same startup precedence.
+- Missing `server/.env.local` is a valid state and does not fail startup.
+- Startup emits deterministic diagnostic events:
+  - `DEV-0000036:T3:env_load_order_applied` with ordered files and whether local override was applied.
+  - `DEV-0000036:T3:openai_embedding_capability_state` with `enabled=true|false` only.
+- Capability logging is secret-safe: no `OPENAI_EMBEDDING_KEY` value is logged or appended.
+
+```mermaid
+flowchart LR
+  A[Server boot] --> B[load server/.env]
+  B --> C{server/.env.local exists?}
+  C -- yes --> D[load server/.env.local with override]
+  C -- no --> E[skip local override]
+  D --> F[resolve logger/runtime config]
+  E --> F
+  F --> G[log DEV-0000036:T3:env_load_order_applied]
+  G --> H[log DEV-0000036:T3:openai_embedding_capability_state]
+```
+
 ## MCP keepalive lifecycle (shared helper)
 
 - MCP keepalive lifecycle is centralized in `server/src/mcpCommon/keepAlive.ts` and reused by classic `POST /mcp`, MCP v2 (`server/src/mcp2/router.ts`), and Agents MCP (`server/src/mcpAgents/router.ts`).

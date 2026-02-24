@@ -294,7 +294,9 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚     â”‚     â””â”€ cpp/locals.scm â€” Tree-sitter locals query for C++
 â”‚     â”œâ”€ config/
 â”‚     â”‚  â”œâ”€ codexConfig.ts â€” Codex home/env config builder
+â”‚     â”‚  â”œâ”€ chatDefaults.ts â€” shared chat provider/model default resolver (request -> env -> fallback)
 â”‚     â”‚  â””â”€ codexEnvDefaults.ts â€” Codex env defaults parser + warnings helper
+â”‚     â”‚  â””â”€ startupEnv.ts â€” startup env bootstrap (`.env` then optional `.env.local`) + OpenAI capability-state resolver
 â”‚     â”œâ”€ chatStream.ts — SSE helper for streaming endpoints (e.g., `/logs/stream`); chat runs stream over `/ws`
 â”‚     â”œâ”€ chat/
 â”‚     â”‚  â”œâ”€ factory.ts — provider map returning ChatInterface instances or throws UnsupportedProviderError
@@ -366,6 +368,8 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚     â”‚  â””â”€ types.ts — flow run types + error codes
 â”‚     â”œâ”€ test/unit/chat-assistant-suppress.test.ts â€” unit coverage for assistant-role tool payload suppression helpers
 â”‚     â”œâ”€ test/unit/codexEnvDefaults.test.ts â€” unit coverage for Codex env defaults parsing/warnings
+â”‚     â”œâ”€ test/unit/env-loading.test.ts â€” unit coverage for startup env precedence and missing `.env.local` fallback behavior
+â”‚     â”œâ”€ test/unit/env-logging.test.ts â€” unit coverage for OpenAI capability-state logging redaction behavior
 â”‚     â”œâ”€ ingest/ â€” ingest helpers (discovery, chunking, hashing, config)
 â”‚     â”‚  â”œâ”€ __fixtures__/sample.ts â€” sample text blocks for chunking tests
 â”‚     â”‚  â”œâ”€ lock.ts — single-flight ingest lock with TTL

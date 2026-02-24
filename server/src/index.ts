@@ -2,7 +2,6 @@ import http from 'node:http';
 import path from 'path';
 import { getAppInfo } from '@codeinfo2/common';
 import cors from 'cors';
-import { config } from 'dotenv';
 import express from 'express';
 import pkg from '../package.json' with { type: 'json' };
 import { warmAstParserQueries } from './ast/parser.js';
@@ -12,6 +11,10 @@ import './ingest/index.js';
 import './mongo/astCoverage.js';
 import { closeAll, getClient } from './lmstudio/clientPool.js';
 import { append } from './logStore.js';
+import {
+  ensureStartupEnvLoaded,
+  resolveOpenAiEmbeddingCapabilityState,
+} from './config/startupEnv.js';
 import { baseLogger, createRequestLogger } from './logger.js';
 import { createMcpRouter } from './mcp/server.js';
 import { startMcp2Server, stopMcp2Server } from './mcp2/server.js';
@@ -54,7 +57,7 @@ import { createToolsVectorSearchRouter } from './routes/toolsVectorSearch.js';
 import { ensureCodexAuthFromHost } from './utils/codexAuthCopy.js';
 import { attachWs, type WsServerHandle } from './ws/server.js';
 
-config();
+const startupEnvLoad = ensureStartupEnvLoaded();
 ensureCodexConfigSeeded();
 ensureCodexAuthFromHost({
   containerHome: getCodexHome(),
@@ -67,6 +70,43 @@ app.use(cors());
 app.use(express.json());
 app.use(createRequestLogger());
 baseLogger.info({ codexDetection }, 'Codex detection summary');
+baseLogger.info(
+  {
+    event: 'DEV-0000036:T3:env_load_order_applied',
+    orderedFiles: startupEnvLoad.orderedFiles,
+    loadedFiles: startupEnvLoad.loadedFiles,
+    overrideApplied: startupEnvLoad.overrideApplied,
+  },
+  'DEV-0000036:T3:env_load_order_applied',
+);
+append({
+  level: 'info',
+  message: 'DEV-0000036:T3:env_load_order_applied',
+  timestamp: new Date().toISOString(),
+  source: 'server',
+  context: {
+    orderedFiles: startupEnvLoad.orderedFiles,
+    loadedFiles: startupEnvLoad.loadedFiles,
+    overrideApplied: startupEnvLoad.overrideApplied,
+  },
+});
+const openAiEmbeddingCapability = resolveOpenAiEmbeddingCapabilityState();
+baseLogger.info(
+  {
+    event: 'DEV-0000036:T3:openai_embedding_capability_state',
+    enabled: openAiEmbeddingCapability.enabled,
+  },
+  'DEV-0000036:T3:openai_embedding_capability_state',
+);
+append({
+  level: 'info',
+  message: 'DEV-0000036:T3:openai_embedding_capability_state',
+  timestamp: new Date().toISOString(),
+  source: 'server',
+  context: {
+    enabled: openAiEmbeddingCapability.enabled,
+  },
+});
 const PORT = process.env.PORT ?? '5010';
 const mcpHostUrl = `http://localhost:${PORT}/mcp`;
 const mcpDockerUrl = `http://server:${PORT}/mcp`;

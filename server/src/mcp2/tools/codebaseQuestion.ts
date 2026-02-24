@@ -6,12 +6,6 @@ import mongoose from 'mongoose';
 import { z } from 'zod';
 
 import { attachChatStreamBridge } from '../../chat/chatStreamBridge.js';
-import { getCodexModelList } from '../../config/codexEnvDefaults.js';
-import {
-  resolveChatDefaults,
-  resolveRuntimeProviderSelection,
-  type ChatDefaultProvider,
-} from '../../config/chatDefaults.js';
 import {
   UnsupportedProviderError,
   getChatInterface,
@@ -30,6 +24,15 @@ import type {
   ChatToolResultEvent,
 } from '../../chat/interfaces/ChatInterface.js';
 import { McpResponder } from '../../chat/responders/McpResponder.js';
+import {
+  resolveChatDefaults,
+  resolveRuntimeProviderSelection,
+  type ChatDefaultProvider,
+} from '../../config/chatDefaults.js';
+import {
+  getCodexEnvDefaults,
+  getCodexModelList,
+} from '../../config/codexEnvDefaults.js';
 import { append } from '../../logStore.js';
 import { ConversationModel } from '../../mongo/conversation.js';
 import type { Conversation } from '../../mongo/conversation.js';
@@ -335,16 +338,18 @@ export async function runCodebaseQuestion(
   const executionModel = runtimeSelection.executionModel;
   const codexWorkingDirectory =
     process.env.CODEX_WORKDIR ?? process.env.CODEINFO_CODEX_WORKDIR ?? '/data';
+  const { defaults: codexDefaults } = getCodexEnvDefaults();
 
   const threadOpts: ThreadOptions = {
     model: executionModel,
     workingDirectory: codexWorkingDirectory,
     skipGitRepoCheck: true,
-    sandboxMode: 'workspace-write',
-    networkAccessEnabled: true,
-    webSearchEnabled: true,
-    approvalPolicy: 'on-failure',
-    modelReasoningEffort: 'high',
+    sandboxMode: codexDefaults.sandboxMode,
+    networkAccessEnabled: codexDefaults.networkAccessEnabled,
+    webSearchEnabled: codexDefaults.webSearchEnabled,
+    approvalPolicy: codexDefaults.approvalPolicy,
+    modelReasoningEffort:
+      codexDefaults.modelReasoningEffort as unknown as ThreadOptions['modelReasoningEffort'],
   } as ThreadOptions;
 
   let chat: ChatInterface;

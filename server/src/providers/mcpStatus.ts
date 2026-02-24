@@ -1,4 +1,5 @@
 import { setTimeout as delay } from 'timers/promises';
+import { resolveServerPort } from '../config/serverPort.js';
 import { baseLogger } from '../logger.js';
 
 type McpStatus = { available: boolean; reason?: string };
@@ -9,7 +10,7 @@ const DEFAULT_TTL_MS = 30_000;
 const DEFAULT_TIMEOUT_MS = 1_500;
 
 function buildMcpUrl() {
-  const port = process.env.PORT ?? '5010';
+  const port = resolveServerPort();
   return process.env.MCP_URL ?? `http://localhost:${port}/mcp`;
 }
 

@@ -123,7 +123,7 @@ RUN git config --system credential.helper '!f(){ gcf-client $*; }; f'
 # Make HOME and all subfolders read/write for all users
 RUN chmod -R 777 "${HOME}"
 ENV CODEINFO_CODEX_HOME=/app/codex
-ENV PORT=5010
+ENV SERVER_PORT=5010
 EXPOSE 5010
 EXPOSE 9222
 RUN chmod +x ./entrypoint.sh

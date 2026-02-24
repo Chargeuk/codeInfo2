@@ -839,6 +839,8 @@ Implement OpenAI embedding execution behind the shared provider interface, inclu
 15. [ ] Normalize retry-budget exhausted failures. Files (read/edit): provider retry wrapper and error mapper. Constraint: terminal error must include normalized metadata (`retryable`, `upstreamStatus`, `retryAfterMs?`) and never leak raw SDK error objects. Docs: Context7 `/openai/openai-node/v6_1_0`.
 16. [ ] Enforce secret-safe error/log metadata. Files (read/edit): provider boundary logging/error serialization, plus any route/tool layer passthroughs touched. Constraint: never log/expose API key/header/token material. Docs: https://developers.openai.com/api/docs/guides/embeddings/.
 17. [ ] Add/update focused tests for this task. Files (read/edit): server unit tests for provider/retry/error mapping (existing suites preferred). Constraint: include retry defaults, hint precedence/fallback, timeout ownership, taxonomy, guardrails, response validation, and secret-safety coverage. Docs: server test conventions in `server/src/test/unit/*`.
+18. [ ] Add explicit taxonomy matrix tests for every normalized OpenAI error code. Files (read/edit): provider error-mapping tests in `server/src/test/unit/*openai*` or nearest existing provider test files. Constraint: assert each category maps to expected `OPENAI_*` code and retryability classification with required metadata fields. Docs: https://developers.openai.com/api/docs/guides/embeddings/ and Context7 `/openai/openai-node/v6_1_0`.
+19. [ ] Add explicit boundary-value guardrail tests for OpenAI request limits. Files (read/edit): provider/ingest guardrail tests in existing unit suites. Constraint: cover `2048/2049` inputs, `300000/300001` total tokens, and per-input token max boundary (`max-1/max/max+1`) for model-specific limits. Docs: https://developers.openai.com/api/docs/guides/embeddings/.
 
 #### Testing
 
@@ -850,6 +852,8 @@ Implement OpenAI embedding execution behind the shared provider interface, inclu
 6. [ ] Confirm wait-hint precedence tests (header-order and fallback) plus edge-case tests (invalid/negative/unparseable hints) pass in provider retry test suite.
 7. [ ] Confirm OpenAI taxonomy tests cover upstream input-too-large mapping (`OPENAI_INPUT_TOO_LARGE`) and quota mapping (`OPENAI_QUOTA_EXCEEDED`).
 8. [ ] Confirm OpenAI adapter tests prove API key/token material is not present in emitted error/log metadata.
+9. [ ] Confirm taxonomy matrix tests cover every planned `OPENAI_*` category with expected `retryable` classification and metadata.
+10. [ ] Confirm boundary-value guardrail tests pass for inputs/token limits at and beyond hard limits (`2048/2049`, `300000/300001`, per-input max boundary cases).
 
 #### Implementation notes
 
@@ -891,6 +895,7 @@ Extend lock identity from model-only to provider+model+dimensions internally, wi
 11. [ ] Release stale lock ownership after terminal/cancel. Files (read/edit): `server/src/ingest/ingestJob.ts` cancellation/terminal paths. Constraint: avoid false `BUSY` on subsequent mutations. Docs: Story edge cases “Concurrency and State Transitions” and https://expressjs.com/en/guide/error-handling.html.
 12. [ ] Add re-embed eligibility validation for bad states. Files (read/edit): `server/src/ingest/ingestJob.ts` and/or `server/src/ingest/reingestService.ts`. Constraint: reject invalid root states before starting job. Docs: Story edge cases “Concurrency and State Transitions” and https://spec.openapis.org/oas/v3.0.3.html.
 13. [ ] Add/update focused tests for this task. Files (read/edit): existing lock/vector/MCP suites in `server/src/test/unit` and `server/src/test/integration`. Constraint: cover legacy inference, canonical writes, partial-canonical invalid state, provider lock enforcement (REST+MCP), dimension mismatch, concurrency lifecycle. Docs: Story acceptance criteria + edge-case sections and https://jestjs.io/docs/getting-started.
+14. [ ] Add lock-clear idempotence tests for empty-collection cleanup edge cases. Files (read/edit): lock lifecycle tests under `server/src/test/unit` and/or `server/src/test/integration`. Constraint: verify stale lock metadata clears when collection is empty and does not clear a newly established lock from a concurrent/new run. Docs: Context7 `/chroma-core/chroma` and https://jestjs.io/docs/getting-started.
 
 #### Testing
 
@@ -901,6 +906,7 @@ Extend lock identity from model-only to provider+model+dimensions internally, wi
 5. [ ] Confirm classic MCP vector-search parity and ingest lock-lifecycle tests pass.
 6. [ ] Confirm invalid partial-canonical lock metadata and lock lifecycle cleanup tests pass.
 7. [ ] Confirm concurrency tests pass with deterministic `BUSY` outcomes for concurrent start/reembed/remove operations.
+8. [ ] Confirm lock-clear idempotence tests pass for empty-collection cleanup without clearing a newer lock.
 
 #### Implementation notes
 
@@ -940,6 +946,7 @@ Implement the agreed `/ingest/models` contract (`models`, `lock`, `openai`, `lms
 10. [ ] Update BDD scenarios to match deterministic envelope behavior. Files (read/edit): `server/src/test/features/ingest-models.feature` and matching step definitions under `server/src/test/features/step-definitions/*`. Required behavior: replace LM Studio `502` expectations with `200` plus provider-status assertions. Docs: https://cucumber.io/docs/guides/overview/.
 11. [ ] Add focused route/unit coverage for all envelope states. Files (read/edit): existing unit suites covering `/ingest/models` under `server/src/test/unit/*ingest*models*.test.ts` (or nearest existing file). Required behavior: include missing key, blank key, success, transient OpenAI failure, allowlist no-match, ordering, invalid LM Studio URL, LM Studio-only failure, and both providers failing. Docs: https://jestjs.io/docs/getting-started.
 12. [ ] Add explicit schema-level assertions for model entry field shape. Files (read/edit): route tests from subtask 11. Required behavior: each model entry must include only contract fields `id`, `displayName`, and `provider`, with deterministic ordering. Docs: https://spec.openapis.org/oas/v3.0.3.html.
+13. [ ] Add explicit tests for OpenAI model-list non-transient failure statuses. Files (read/edit): `/ingest/models` route unit tests and any related BDD scenario files. Required behavior: assert deterministic mapping for `OPENAI_MODELS_LIST_AUTH_FAILED` and `OPENAI_MODELS_LIST_UNAVAILABLE` with correct warning metadata and `200` envelope behavior. Docs: https://developers.openai.com/api/docs/api-reference/models/list and https://jestjs.io/docs/getting-started.
 
 #### Testing
 
@@ -947,6 +954,7 @@ Implement the agreed `/ingest/models` contract (`models`, `lock`, `openai`, `lms
 2. [ ] `npm run test:unit --workspace server`
 3. [ ] Confirm `/ingest/models` route tests cover missing/blank key, success, transient failure, strict `allowlist ∩ models.list()` filtering, allowlist no-match (`retryable=false`), deterministic allowlist ordering, invalid `LMSTUDIO_BASE_URL`, LM Studio failure-only, and both-providers-fail cases.
 4. [ ] Confirm updated `ingest-models` Cucumber scenarios pass with deterministic `200` warning-envelope assertions.
+5. [ ] Confirm `/ingest/models` tests explicitly cover `OPENAI_MODELS_LIST_AUTH_FAILED` and `OPENAI_MODELS_LIST_UNAVAILABLE` status mappings.
 
 #### Implementation notes
 
@@ -992,6 +1000,8 @@ Implement provider-aware request/response contracts for ingest start and vector 
 15. [ ] Ensure secret-safe error/log output across surfaces. Files (read/edit): all touched error serialization/logging layers in this task. Constraint: never emit keys/headers/tokens. Docs: https://developers.openai.com/api/docs/guides/embeddings/.
 16. [ ] Update ingest-start/reembed BDD scenarios for canonical+legacy behavior. Files (read/edit): `server/src/test/features/ingest-start-body.feature`, `server/src/test/features/ingest-reembed.feature`, related step files. Constraint: explicit canonical precedence and lock-derived behavior assertions. Docs: Cucumber guides https://cucumber.io/docs/guides/overview/.
 17. [ ] Add/update focused tests for this task. Files (read/edit): existing unit/integration suites for ingest start/reembed/vector-search/MCP. Constraint: cover precedence, compatibility mapping, allowlist rejection, lock-model-unavailable, normalized field shape, partial-write status accounting, and secret redaction. Docs: task testing list below.
+18. [ ] Add cross-surface parity tests for equivalent OpenAI failures. Files (read/edit): REST route tests, classic MCP tests, and ingest status/error tests touched in this task. Constraint: equivalent upstream failures must map to the same normalized code/retryability semantics across REST `/tools/vector-search`, classic MCP `VectorSearch`, and ingest-run error surfaces. Docs: https://www.jsonrpc.org/specification and https://spec.openapis.org/oas/v3.0.3.html.
+19. [ ] Add integration happy-path tests for provider-locked OpenAI flow. Files (read/edit): existing integration suites for ingest start/reembed/vector-search. Constraint: cover canonical OpenAI ingest start success, re-embed using stored lock provider/model, and successful vector-search using the same lock identity. Docs: https://developers.openai.com/api/docs/guides/embeddings/ and Context7 `/chroma-core/chroma`.
 
 #### Testing
 
@@ -1003,6 +1013,8 @@ Implement provider-aware request/response contracts for ingest start and vector 
 6. [ ] Confirm ingest status/roots error-shape tests pass for normalized OpenAI failure payloads with backward-compatible `lastError` behavior and accurate partial-write progress accounting.
 7. [ ] Confirm updated ingest-start/reembed Cucumber scenarios pass.
 8. [ ] Confirm secret-safety redaction tests pass for ingest/vector-search/MCP error payloads and logs.
+9. [ ] Confirm cross-surface parity tests pass for equivalent OpenAI failures across REST, classic MCP, and ingest-run error surfaces.
+10. [ ] Confirm OpenAI happy-path integration tests pass for ingest start -> re-embed -> vector-search using locked provider/model identity.
 
 #### Implementation notes
 
@@ -1037,6 +1049,7 @@ Finalize the remaining message-contract surfaces so canonical lock/provider fiel
 7. [ ] Add/update unit/integration contract tests for roots/repos/MCP parity. Files (read/edit): existing suites under `server/src/test/unit` and `server/src/test/integration`. Constraint: explicit canonical+alias parity assertions. Docs: Story acceptance criteria for compatibility and https://jestjs.io/docs/getting-started.
 8. [ ] Update OpenAPI contract file with implemented schemas. Files (read/edit): `openapi.json`. Constraint: include all listed endpoints with provider status/warning envelopes and normalized error fields. Docs: OpenAPI https://spec.openapis.org/oas/v3.0.3.html.
 9. [ ] Add/update schema tests asserting OpenAPI path/field coverage. Files (read/edit): existing schema test files under `server/src/test/unit/*schema*.test.ts`. Constraint: assert required paths + lock/error fields match implementation. Docs: OpenAPI https://spec.openapis.org/oas/v3.0.3.html.
+10. [ ] Add contract tests for same model-id across providers. Files (read/edit): roots/repos/MCP contract tests in existing unit/integration suites. Constraint: when providers share the same model id string, responses remain provider-qualified and no cross-provider identity collapse occurs in canonical or alias fields. Docs: https://spec.openapis.org/oas/v3.0.3.html and https://www.jsonrpc.org/specification.
 
 #### Testing
 
@@ -1045,6 +1058,7 @@ Finalize the remaining message-contract surfaces so canonical lock/provider fiel
 3. [ ] `npm run test:integration --workspace server`
 4. [ ] Confirm MCP server integration tests pass.
 5. [ ] Confirm updated ingest-roots/ingest-manage Cucumber scenarios pass.
+6. [ ] Confirm contract tests pass for same model-id across providers with provider-qualified identity preserved in REST and classic MCP responses.
 
 #### Implementation notes
 
@@ -1112,6 +1126,7 @@ Update the client data layer (`useIngestModels`, `useIngestRoots`, related types
 3. [ ] Parse normalized OpenAI errors while retaining legacy `lastError` compatibility. Files (read/edit): same ingest hooks as above plus local helper types. Constraint: legacy string behavior must continue rendering correctly. Docs: Story Task 7 contract sections and https://react.dev/reference/react.
 4. [ ] Preserve backward-safe handling for older server payloads. Files (read/edit): `client/src/hooks/useIngestModels.ts`, `client/src/hooks/useIngestRoots.ts`. Constraint: avoid hard-fail on missing canonical fields during rollout. Docs: Story acceptance criteria (backward compatibility) and https://react.dev/reference/react.
 5. [ ] Add/update hook-level tests for loading/error/parsing behavior. Files (read/edit): existing ingest hook/component tests under `client/src/test/*ingest*.test.tsx`. Constraint: include provider warning envelope parsing and legacy/new `lastError` variants. Docs: existing client test patterns in repo.
+6. [ ] Add hook tests for full provider status/warning matrix parsing. Files (read/edit): ingest hook tests in `client/src/test/*ingest*.test.tsx`. Constraint: cover `openai.status` (`disabled/ok/warning`), status codes (`OPENAI_MODELS_LIST_TEMPORARY_FAILURE`, `OPENAI_MODELS_LIST_AUTH_FAILED`, `OPENAI_MODELS_LIST_UNAVAILABLE`, `OPENAI_ALLOWLIST_NO_MATCH`), and provider envelope fallback safety. Docs: https://react.dev/reference/react and https://jestjs.io/docs/getting-started.
 
 #### Testing
 
@@ -1120,6 +1135,7 @@ Update the client data layer (`useIngestModels`, `useIngestRoots`, related types
 3. [ ] Confirm `client/src/test/ingestStatus.test.tsx` and `client/src/test/ingestRoots.test.tsx` pass.
 4. [ ] Confirm hook tests cover both legacy string and normalized-object error payload handling.
 5. [ ] Confirm normalization-pattern regression suites remain green (`client/src/test/useConversations.source.test.ts` and `client/src/test/useConversationTurns.commandMetadata.test.ts`) so ingest contract parsing changes do not regress shared normalization behavior.
+6. [ ] Confirm ingest hook tests pass for the full provider status/warning matrix and legacy fallback handling.
 
 #### Implementation notes
 
@@ -1160,6 +1176,8 @@ Implement the user-visible ingest UI behavior for provider-tagged model selectio
 13. [ ] Add/update tests for provider-qualified dropdown behavior. Files (read/edit): `client/src/test/ingestForm.test.tsx` and related ingest tests. Constraint: include provider+model identity assertions. Docs: existing ingest test conventions in repo.
 14. [ ] Add/update tests for stale-selection clearing + banners. Files (read/edit): `client/src/test/ingestForm.test.tsx`, `client/src/test/ingestPage.layout.test.tsx` (or nearest existing ingest page suite). Constraint: include statusCode-driven banner assertions. Docs: MUI Alert docs https://llms.mui.com/material-ui/6.4.12/components/alert.md.
 15. [ ] Add/update tests for no-dimensions-control, error compatibility rendering, and canonical payload submission. Files (read/edit): ingest form/status/detail component tests. Constraint: assert no dimensions input and correct payload keys. Docs: Story acceptance criteria + Task 7 contract and https://jestjs.io/docs/getting-started.
+16. [ ] Add explicit UI tests for same model-id cross-provider ambiguity. Files (read/edit): `client/src/test/ingestForm.test.tsx` (and nearest ingest page suite if needed). Constraint: when two options share model id but different providers, selected value, rendered label, and submitted payload remain provider-qualified and unambiguous. Docs: https://react.dev/reference/react-dom/components/input and https://llms.mui.com/material-ui/6.4.12/components/text-fields.md.
+17. [ ] Add explicit UI tests for full OpenAI banner matrix. Files (read/edit): ingest page/form tests in `client/src/test/ingestForm.test.tsx` and `client/src/test/ingestPage.layout.test.tsx`. Constraint: cover `OPENAI_DISABLED`, `OPENAI_MODELS_LIST_TEMPORARY_FAILURE`, `OPENAI_MODELS_LIST_AUTH_FAILED`, `OPENAI_MODELS_LIST_UNAVAILABLE`, and `OPENAI_ALLOWLIST_NO_MATCH` banner copy/visibility behavior. Docs: https://llms.mui.com/material-ui/6.4.12/components/alert.md and https://jestjs.io/docs/getting-started.
 
 #### Testing
 
@@ -1167,6 +1185,7 @@ Implement the user-visible ingest UI behavior for provider-tagged model selectio
 2. [ ] `npm run test --workspace client`
 3. [ ] Confirm `client/src/test/ingestForm.test.tsx` and `client/src/test/ingestPage.layout.test.tsx` pass.
 4. [ ] Confirm warning/info banner behavior is covered by existing banner-pattern tests (`client/src/test/chatPage.codexBanners.test.tsx`) plus new/updated ingest-specific assertions.
+5. [ ] Confirm ingest UI tests pass for same model-id cross-provider selection and the full OpenAI banner/statusCode matrix.
 
 #### Implementation notes
 
@@ -1195,11 +1214,12 @@ Run the complete verification gate for Story 0000036, confirm acceptance criteri
 
 #### Subtasks
 
-1. [ ] Produce acceptance-criteria traceability matrix for Story 0000036. Files (read/edit): this planning file Implementation notes for Task 12, plus PR description/checklist location used by the team. Required behavior: each acceptance criterion must map to at least one automated test file path or an explicit manual verification artifact path. Docs: https://cucumber.io/docs/guides/overview/ and https://jestjs.io/docs/getting-started.
+1. [ ] Produce full requirements traceability matrix for Story 0000036. Files (read/edit): this planning file Implementation notes for Task 12, plus PR description/checklist location used by the team. Required behavior: each acceptance criterion and each item in the “Edge Cases and Failure Modes” section must map to at least one automated test file path or an explicit manual verification artifact path. Docs: https://cucumber.io/docs/guides/overview/ and https://jestjs.io/docs/getting-started.
 2. [ ] Update repository-level runtime documentation for implemented env/contract behavior. Files (read/edit): `README.md`. Required behavior: document `OPENAI_EMBEDDING_KEY`, provider-aware ingest model selection, and relevant server endpoints exactly as implemented (no future/aspirational text). Docs: https://www.markdownguide.org/basic-syntax/.
 3. [ ] Update architecture and behavior documentation for implemented contract changes. Files (read/edit): `design.md`. Required behavior: include canonical lock fields, compatibility behavior, and provider-aware request/response flow updates with concrete endpoint names. Docs: https://spec.openapis.org/oas/v3.0.3.html.
 4. [ ] Update structure map for all files created/renamed/removed by this story. Files (read/edit): `projectStructure.md`. Required behavior: include one-line purpose for each new or changed file/folder touched by Story 0000036. Docs: `projectStructure.md` top-level maintenance rule plus https://www.markdownguide.org/basic-syntax/.
 5. [ ] Produce final implementation summary in story + PR context. Files (read/edit): this planning file Task 12 Implementation notes and PR comment template/location used in the repo process. Required behavior: summary must include contract changes, backward-compat decisions, test evidence, and any intentionally deferred out-of-scope items already listed in this story. Docs: https://www.conventionalcommits.org/en/v1.0.0/ (for clear summary structure guidance) and story Out Of Scope section.
+6. [ ] Close any uncovered matrix rows before story sign-off. Files (read/edit): relevant task sections in this planning file plus associated test files touched during implementation. Required behavior: if any acceptance/edge-case row lacks coverage, add or update the corresponding automated test and update the matrix entry before marking Task 12 done. Docs: https://jestjs.io/docs/getting-started and https://cucumber.io/docs/guides/overview/.
 
 #### Testing
 
@@ -1212,6 +1232,7 @@ Run the complete verification gate for Story 0000036, confirm acceptance criteri
 7. [ ] `npm run compose:up`
 8. [ ] `npm run e2e`
 9. [ ] Capture manual verification screenshots in `test-results/screenshots/` using naming `0000036-12-<description>.png`.
+10. [ ] Verify traceability matrix is complete with no uncovered acceptance or edge-case rows remaining.
 
 #### Implementation notes
 

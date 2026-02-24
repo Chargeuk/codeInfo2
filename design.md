@@ -209,6 +209,48 @@ flowchart LR
   F --> G[map results]
 ```
 
+## `/ingest/models` provider-aware warning envelopes (Task 0000036-T8)
+
+- `GET /ingest/models` now returns deterministic `200` envelopes for partial provider failures.
+- Response contract is canonical:
+  - `models[]` entries include only `id`, `displayName`, and `provider`.
+  - `lock` returns canonical lock identity (`embeddingProvider`, `embeddingModel`, `embeddingDimensions`) or `null`.
+  - `lockedModelId` remains a compatibility alias and mirrors `lock.embeddingModel` when lock exists.
+  - `openai` and `lmstudio` envelopes expose deterministic `status`/`statusCode` plus optional warning metadata.
+- OpenAI status machine:
+  - `OPENAI_DISABLED` when key is missing/blank/whitespace (no OpenAI list call attempted).
+  - `OPENAI_OK` when allowlisted OpenAI models are available.
+  - `OPENAI_ALLOWLIST_NO_MATCH` when list succeeds but `allowlist ∩ list` is empty (`retryable=false`).
+  - `OPENAI_MODELS_LIST_TEMPORARY_FAILURE`, `OPENAI_MODELS_LIST_AUTH_FAILED`, and `OPENAI_MODELS_LIST_UNAVAILABLE` for mapped list failures.
+- LM Studio status machine:
+  - `LMSTUDIO_OK` when embedding model list succeeds.
+  - `LMSTUDIO_MODELS_LIST_TEMPORARY_FAILURE` or `LMSTUDIO_MODELS_LIST_UNAVAILABLE` when listing fails or base URL is invalid/unreachable.
+- Required Task 8 observability logs:
+  - `DEV-0000036:T8:ingest_models_response_summary`
+  - `DEV-0000036:T8:ingest_models_warning_status` (emitted for OpenAI warning states).
+
+```mermaid
+flowchart TD
+  A[GET /ingest/models] --> B[Resolve canonical lock]
+  B --> C{OPENAI_EMBEDDING_KEY usable?}
+  C -- no --> D[openai: OPENAI_DISABLED]
+  C -- yes --> E[List OpenAI models]
+  E -->|mapped failure| F[openai warning statusCode]
+  E -->|success| G[allowlist intersection + deterministic ordering]
+  G -->|empty| H[OPENAI_ALLOWLIST_NO_MATCH]
+  G -->|non-empty| I[OPENAI_OK]
+  B --> J{LMSTUDIO_BASE_URL valid + list ok?}
+  J -- yes --> K[LMSTUDIO_OK + lmstudio models]
+  J -- no --> L[LMSTUDIO warning envelope]
+  D --> M[merge models + lock + envelopes]
+  F --> M
+  H --> M
+  I --> M
+  K --> M
+  L --> M
+  M --> N[HTTP 200 deterministic response]
+```
+
 ## Startup env loading parity (Task 3)
 
 - Startup now uses deterministic env precedence that matches compose env-file behavior: `server/.env` first, then `server/.env.local` as an override when present.

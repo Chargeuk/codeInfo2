@@ -1059,36 +1059,225 @@ const persistFlowResumeState = async (params: {
   });
 };
 
-const parseBreakAnswer = (
-  content: string,
-): { ok: true; answer: 'yes' | 'no' } | { ok: false; message: string } => {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(content);
-  } catch {
-    return {
-      ok: false,
-      message: 'Break response must be valid JSON with {"answer":"yes"|"no"}.',
-    };
-  }
+type BreakParseStrategy = 'strict' | 'fenced_json' | 'balanced_object';
+type BreakParseReasonCode =
+  | 'ANSWER_FOUND'
+  | 'INVALID_JSON'
+  | 'NOT_JSON_OBJECT'
+  | 'INVALID_SCHEMA'
+  | 'NO_VALID_CANDIDATE';
 
-  if (!parsed || typeof parsed !== 'object') {
+type BreakParseAttempt = {
+  strategy: BreakParseStrategy;
+  candidateCount: number;
+};
+
+type BreakParseSuccess = {
+  ok: true;
+  answer: 'yes' | 'no';
+  normalizedContent: string;
+  attempts: BreakParseAttempt[];
+  reasonCode: BreakParseReasonCode;
+};
+
+type BreakParseFailure = {
+  ok: false;
+  message: string;
+  attempts: BreakParseAttempt[];
+  reasonCode: BreakParseReasonCode;
+};
+
+const MAX_BREAK_PARSE_SCAN_LENGTH = 20_000;
+const MAX_BREAK_PARSE_CANDIDATES = 100;
+
+const validateBreakPayload = (
+  parsed: unknown,
+): { ok: true; answer: 'yes' | 'no' } | { ok: false; reason: string } => {
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
     return {
       ok: false,
-      message:
+      reason:
         'Break response must be a JSON object with {"answer":"yes"|"no"}.',
     };
   }
 
-  const answer = (parsed as { answer?: unknown }).answer;
+  const payload = parsed as Record<string, unknown>;
+  const keys = Object.keys(payload);
+  if (keys.length !== 1 || keys[0] !== 'answer') {
+    return {
+      ok: false,
+      reason:
+        'Break response must be exactly {"answer":"yes"} or {"answer":"no"}.',
+    };
+  }
+
+  const answer = payload.answer;
   if (answer !== 'yes' && answer !== 'no') {
     return {
       ok: false,
-      message: 'Break response must include answer "yes" or "no".',
+      reason: 'Break response must include answer "yes" or "no".',
     };
   }
 
   return { ok: true, answer };
+};
+
+const tryParseBreakCandidate = (
+  candidate: string,
+):
+  | { ok: true; answer: 'yes' | 'no' }
+  | { ok: false; errorKind: 'json' | 'schema'; message: string } => {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(candidate);
+  } catch {
+    return {
+      ok: false,
+      errorKind: 'json',
+      message: 'Break response must be valid JSON with {"answer":"yes"|"no"}.',
+    };
+  }
+
+  const validated = validateBreakPayload(parsed);
+  if (!validated.ok) {
+    return { ok: false, errorKind: 'schema', message: validated.reason };
+  }
+
+  return { ok: true, answer: validated.answer };
+};
+
+const extractFencedJsonCandidates = (content: string): string[] => {
+  const candidates: string[] = [];
+  const regex = /```\s*json\b[^\n]*\n?([\s\S]*?)```/gi;
+  let match: RegExpExecArray | null = regex.exec(content);
+  while (match && candidates.length < MAX_BREAK_PARSE_CANDIDATES) {
+    const candidate = match[1]?.trim();
+    if (candidate?.startsWith('{') && candidate.endsWith('}')) {
+      candidates.push(candidate);
+    }
+    match = regex.exec(content);
+  }
+  return candidates;
+};
+
+const extractBalancedObjectCandidates = (content: string): string[] => {
+  const candidates: string[] = [];
+  const text = content.slice(0, MAX_BREAK_PARSE_SCAN_LENGTH);
+  let depth = 0;
+  let start = -1;
+  let inString = false;
+  let escaped = false;
+
+  for (let i = 0; i < text.length; i += 1) {
+    const char = text[i];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (char === '\\') {
+      escaped = true;
+      continue;
+    }
+    if (char === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (inString) continue;
+
+    if (char === '{') {
+      if (depth === 0) start = i;
+      depth += 1;
+      continue;
+    }
+    if (char === '}' && depth > 0) {
+      depth -= 1;
+      if (depth === 0 && start >= 0) {
+        const candidate = text.slice(start, i + 1).trim();
+        if (candidate.length > 1) {
+          candidates.push(candidate);
+          if (candidates.length >= MAX_BREAK_PARSE_CANDIDATES) break;
+        }
+        start = -1;
+      }
+    }
+  }
+
+  return candidates;
+};
+
+export const parseBreakAnswer = (
+  content: string,
+): BreakParseSuccess | BreakParseFailure => {
+  const attempts: BreakParseAttempt[] = [];
+  let lastSchemaMessage = 'Break response must include answer "yes" or "no".';
+
+  attempts.push({ strategy: 'strict', candidateCount: 1 });
+  const strict = tryParseBreakCandidate(content);
+  if (strict.ok) {
+    return {
+      ok: true,
+      answer: strict.answer,
+      normalizedContent: JSON.stringify({ answer: strict.answer }),
+      attempts,
+      reasonCode: 'ANSWER_FOUND',
+    };
+  }
+  if (strict.errorKind === 'schema') {
+    lastSchemaMessage = strict.message;
+  }
+
+  const fencedCandidates = extractFencedJsonCandidates(content);
+  attempts.push({
+    strategy: 'fenced_json',
+    candidateCount: fencedCandidates.length,
+  });
+  for (const candidate of fencedCandidates) {
+    const parsed = tryParseBreakCandidate(candidate);
+    if (parsed.ok) {
+      return {
+        ok: true,
+        answer: parsed.answer,
+        normalizedContent: JSON.stringify({ answer: parsed.answer }),
+        attempts,
+        reasonCode: 'ANSWER_FOUND',
+      };
+    }
+    if (parsed.errorKind === 'schema') {
+      lastSchemaMessage = parsed.message;
+    }
+  }
+
+  const balancedCandidates = extractBalancedObjectCandidates(content);
+  attempts.push({
+    strategy: 'balanced_object',
+    candidateCount: balancedCandidates.length,
+  });
+  for (const candidate of balancedCandidates) {
+    const parsed = tryParseBreakCandidate(candidate);
+    if (parsed.ok) {
+      return {
+        ok: true,
+        answer: parsed.answer,
+        normalizedContent: JSON.stringify({ answer: parsed.answer }),
+        attempts,
+        reasonCode: 'ANSWER_FOUND',
+      };
+    }
+    if (parsed.errorKind === 'schema') {
+      lastSchemaMessage = parsed.message;
+    }
+  }
+
+  const sawCandidates =
+    fencedCandidates.length > 0 || balancedCandidates.length > 0;
+  return {
+    ok: false,
+    message: sawCandidates
+      ? lastSchemaMessage
+      : 'Break response must be valid JSON with {"answer":"yes"|"no"}.',
+    attempts,
+    reasonCode: sawCandidates ? 'INVALID_SCHEMA' : 'NO_VALID_CANDIDATE',
+  };
 };
 
 const findFirstAgentStep = (
@@ -1388,6 +1577,29 @@ async function runFlowUnlocked(params: {
       command,
       postProcess: (candidate) => {
         const parsed = parseBreakAnswer(candidate.content);
+        parsed.attempts.forEach((attempt) => {
+          append({
+            level: 'info',
+            message: 'DEV-0000036:T4:break_parse_strategy_attempted',
+            timestamp: new Date().toISOString(),
+            source: 'server',
+            context: {
+              strategy: attempt.strategy,
+              candidateCount: attempt.candidateCount,
+            },
+          });
+        });
+        append({
+          level: parsed.ok ? 'info' : 'warn',
+          message: 'DEV-0000036:T4:break_parse_result',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          context: {
+            accepted: parsed.ok,
+            reasonCode: parsed.reasonCode,
+          },
+        });
+
         if (!parsed.ok) {
           return {
             status: 'failed',
@@ -1404,7 +1616,7 @@ async function runFlowUnlocked(params: {
 
         breakAnswer = parsed.answer;
         return {
-          content: JSON.stringify({ answer: parsed.answer }),
+          content: parsed.normalizedContent,
         };
       },
     });

@@ -235,6 +235,11 @@ sequenceDiagram
 - Core execution supports `llm`, `startLoop`, `break`, and `command` steps; unsupported step types return `400 { error: "invalid_request" }`.
 - `startLoop` executes its nested steps repeatedly, tracking a loop stack with `loopStepPath` and iteration count; `break` exits only the nearest loop.
 - `break` asks the configured agent to answer JSON `{ "answer": "yes" | "no" }` and fails the step (turn_final status `failed`) if the response is invalid.
+- Break parsing uses a strict-first strategy order in `parseBreakAnswer`: direct JSON body parse, then fenced `json` block extraction, then balanced JSON-object scanning.
+- Schema gating remains exact for break answers: only `{ "answer": "yes" | "no" }` is accepted; extra keys or unsupported values are rejected deterministically.
+- Parser observability emits:
+  - `DEV-0000036:T4:break_parse_strategy_attempted` with strategy name and candidate count.
+  - `DEV-0000036:T4:break_parse_result` with accepted state and normalized reason code.
 - `command` steps load `commands/<commandName>.json` for the specified agent and run each command item as a flow instruction; missing/invalid commands return `invalid_request` and emit a failed `turn_final`.
 - Each `llm` message entry is joined into a single instruction string and streamed via the existing WS protocol (no new event types).
 - Flow turns attach `turn.command` metadata with `{ name: 'flow', stepIndex, totalSteps, loopDepth, agentType, identifier, label }` (label defaults to the step type) and log `flows.turn.metadata_attached`.
@@ -270,6 +275,20 @@ sequenceDiagram
     else continue
   end
 end
+```
+
+```mermaid
+flowchart TD
+  A[Break assistant content] --> B[Strategy 1: strict JSON.parse(content)]
+  B -->|valid + exact schema| C[accept answer]
+  B -->|invalid| D[Strategy 2: fenced json candidates]
+  D -->|first valid candidate| C
+  D -->|none valid| E[Strategy 3: balanced object candidates]
+  E -->|first valid candidate| C
+  E -->|none valid| F[INVALID_BREAK_RESPONSE]
+  C --> G[normalize content to {"answer":"yes|no"}]
+  G --> H[emit turn_final status ok]
+  F --> I[emit turn_final status failed]
 ```
 
 ## Flows (agent transcript persistence)

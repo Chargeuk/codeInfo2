@@ -924,7 +924,7 @@ Implement deterministic local env loading (`server/.env` then `server/.env.local
 
 ### 4. Server: Make break-step answer parsing robust while preserving strict JSON schema
 
-- Task Status: **__in_progress__**
+- Task Status: **__done__**
 - Git Commits:
 
 #### Overview
@@ -942,47 +942,80 @@ Improve break-step parsing so the flow engine can safely recover the required JS
 
 #### Subtasks
 
-1. [ ] Extend existing break-answer parser entrypoint instead of adding a parallel parser framework. Files (read/edit): `server/src/flows/service.ts` and optionally `server/src/flows/breakAnswerParser.ts`. Required behavior: keep `parseBreakAnswer` as the single entrypoint used by break-step post-processing; extraction to a new file is optional and only for readability.
-2. [ ] Preserve strict parse as first strategy. Files (read/edit): break-answer parser helper in `server/src/flows/service.ts` (or extracted helper module). Required order: attempt direct `JSON.parse(content)` before any extraction fallback.
-3. [ ] Add fenced JSON extraction as second strategy. Files (read/edit): break-answer parser helper. Required behavior: detect fenced code blocks that declare JSON (for example triple-backtick fences), parse candidate JSON object bodies, and continue deterministically if parsing fails.
-4. [ ] Add balanced object candidate scanning as third strategy. Files (read/edit): break-answer parser helper. Required behavior: scan raw text for balanced JSON object candidates (quote/escape aware), parse candidates in appearance order, and stop at first schema-valid candidate; guard against pathological responses with bounded candidate/content scanning limits.
-5. [ ] Enforce schema gate exactly. Files (read/edit): break-answer parser helper. Required behavior: accept only objects matching `{ "answer": "yes" | "no" }`; reject missing/invalid answer values and reject extra properties.
-6. [ ] Preserve terminal failure behavior when no valid object is found. Files (read/edit): `server/src/flows/service.ts` break-step post-process path. Required behavior: if all strategies fail, keep deterministic failure code `INVALID_BREAK_RESPONSE` with a user-readable message.
-7. [ ] Keep final break content normalized. Files (read/edit): `server/src/flows/service.ts`. Required behavior: successful break parsing still emits canonical final content `{"answer":"yes"}` or `{"answer":"no"}` (no wrapper text).
-8. [ ] Add parser-strategy observability logs. Files (read/edit): break parser/helper and flow service logging points. Required log lines: `DEV-0000036:T4:break_parse_strategy_attempted` (expected strategy name + candidate count) and `DEV-0000036:T4:break_parse_result` (expected `accepted=true|false` and normalized reason code).
-9. [ ] Keep retry behavior decoupled from parser logic. Files (read/edit): parser helper and break-step post-process path. Constraint: parser helper must be pure and side-effect free; retries are handled by Task 5 logic only.
-10. [ ] Reuse existing parse-and-validate coding style from flow/command/ws parsers. Files (read/edit): Task 4 parser implementation and tests. Required behavior: follow existing `{ ok: true/false }` parser result shape and deterministic error-message behavior already used by `parseFlowFile`, `parseAgentCommandFile`, and `parseClientMessage`.
-11. [ ] Add strict-body success unit test. Test type: Unit (Jest). Location: `server/src/test/unit/flows.break-parser.test.ts`. Description: assert direct JSON body `{"answer":"yes"}` is accepted by first strategy. Purpose: lock current strict behavior as highest-precedence parse route.
-12. [ ] Add fenced JSON success unit test. Test type: Unit (Jest). Location: `server/src/test/unit/flows.break-parser.test.ts`. Description: assert fenced JSON block containing `{"answer":"no"}` is accepted when strict parse fails. Purpose: cover fallback strategy 2.
-13. [ ] Add balanced-object success unit test. Test type: Unit (Jest). Location: `server/src/test/unit/flows.break-parser.test.ts`. Description: assert mixed text with embedded balanced JSON object is accepted when strategies 1 and 2 fail, including wrapper text that contains brace characters in non-JSON segments. Purpose: cover fallback strategy 3 and quote/escape-aware scanner behavior.
-14. [ ] Add precedence-order unit test for strategy execution. Test type: Unit (Jest). Location: `server/src/test/unit/flows.break-parser.test.ts`. Description: assert when both strict body and fallback candidates exist, strict body wins. Purpose: enforce deterministic parse order.
-15. [ ] Add schema-rejection unit test for extra keys. Test type: Unit (Jest). Location: `server/src/test/unit/flows.break-parser.test.ts`. Description: assert objects like `{"answer":"yes","extra":true}` are rejected. Purpose: enforce exact schema gating.
-16. [ ] Add schema-rejection unit test for invalid answer values. Test type: Unit (Jest). Location: `server/src/test/unit/flows.break-parser.test.ts`. Description: assert `{"answer":"maybe"}` is rejected with deterministic error message. Purpose: preserve existing answer-domain constraints.
-17. [ ] Add terminal-failure unit test when no valid JSON candidate exists. Test type: Unit (Jest). Location: `server/src/test/unit/flows.break-parser.test.ts`. Description: assert parser returns invalid result and expected message for non-JSON content. Purpose: maintain deterministic failure output.
-18. [ ] Update break-flow integration test for wrapper-output recovery using existing `ScriptedChat` harness. Test type: Integration (Jest + Supertest). Location: `server/src/test/integration/flows.run.loop.test.ts`. Description: add scenario where break reply includes wrapper text + fenced/object JSON and verify run completes using parsed answer. Purpose: prove end-to-end fallback behavior without creating a new flow test harness.
-19. [ ] Add break-flow integration test for unrecoverable output failure using existing `ScriptedChat` harness. Test type: Integration (Jest + Supertest). Location: `server/src/test/integration/flows.run.loop.test.ts`. Description: assert break run still fails with `INVALID_BREAK_RESPONSE` when no candidate matches schema. Purpose: prove deterministic hard-failure behavior is preserved.
-20. [ ] Update markdown document `design.md` for Task 4 architecture changes. Document: `design.md`. Location: repository root (`/design.md`). Description: document parse strategy order (strict -> fenced -> balanced), schema gate rules, and break-step failure handling with Mermaid diagrams matching implementation. Purpose: keep parsing behavior explicit for junior contributors and reviewers.
-21. [ ] Add/update markdown document `projectStructure.md` for Task 4 file-map changes. Document: `projectStructure.md`. Location: repository root (`/projectStructure.md`). Description: add entries for parser helper/test files created or renamed by this task. Purpose: keep file-map documentation in sync with implementation changes.
-22. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (for example `npm run lint:fix` / `npm run format --workspaces`) and manually resolve remaining issues.
+1. [x] Extend existing break-answer parser entrypoint instead of adding a parallel parser framework. Files (read/edit): `server/src/flows/service.ts` and optionally `server/src/flows/breakAnswerParser.ts`. Required behavior: keep `parseBreakAnswer` as the single entrypoint used by break-step post-processing; extraction to a new file is optional and only for readability.
+2. [x] Preserve strict parse as first strategy. Files (read/edit): break-answer parser helper in `server/src/flows/service.ts` (or extracted helper module). Required order: attempt direct `JSON.parse(content)` before any extraction fallback.
+3. [x] Add fenced JSON extraction as second strategy. Files (read/edit): break-answer parser helper. Required behavior: detect fenced code blocks that declare JSON (for example triple-backtick fences), parse candidate JSON object bodies, and continue deterministically if parsing fails.
+4. [x] Add balanced object candidate scanning as third strategy. Files (read/edit): break-answer parser helper. Required behavior: scan raw text for balanced JSON object candidates (quote/escape aware), parse candidates in appearance order, and stop at first schema-valid candidate; guard against pathological responses with bounded candidate/content scanning limits.
+5. [x] Enforce schema gate exactly. Files (read/edit): break-answer parser helper. Required behavior: accept only objects matching `{ "answer": "yes" | "no" }`; reject missing/invalid answer values and reject extra properties.
+6. [x] Preserve terminal failure behavior when no valid object is found. Files (read/edit): `server/src/flows/service.ts` break-step post-process path. Required behavior: if all strategies fail, keep deterministic failure code `INVALID_BREAK_RESPONSE` with a user-readable message.
+7. [x] Keep final break content normalized. Files (read/edit): `server/src/flows/service.ts`. Required behavior: successful break parsing still emits canonical final content `{"answer":"yes"}` or `{"answer":"no"}` (no wrapper text).
+8. [x] Add parser-strategy observability logs. Files (read/edit): break parser/helper and flow service logging points. Required log lines: `DEV-0000036:T4:break_parse_strategy_attempted` (expected strategy name + candidate count) and `DEV-0000036:T4:break_parse_result` (expected `accepted=true|false` and normalized reason code).
+9. [x] Keep retry behavior decoupled from parser logic. Files (read/edit): parser helper and break-step post-process path. Constraint: parser helper must be pure and side-effect free; retries are handled by Task 5 logic only.
+10. [x] Reuse existing parse-and-validate coding style from flow/command/ws parsers. Files (read/edit): Task 4 parser implementation and tests. Required behavior: follow existing `{ ok: true/false }` parser result shape and deterministic error-message behavior already used by `parseFlowFile`, `parseAgentCommandFile`, and `parseClientMessage`.
+11. [x] Add strict-body success unit test. Test type: Unit (Jest). Location: `server/src/test/unit/flows.break-parser.test.ts`. Description: assert direct JSON body `{"answer":"yes"}` is accepted by first strategy. Purpose: lock current strict behavior as highest-precedence parse route.
+12. [x] Add fenced JSON success unit test. Test type: Unit (Jest). Location: `server/src/test/unit/flows.break-parser.test.ts`. Description: assert fenced JSON block containing `{"answer":"no"}` is accepted when strict parse fails. Purpose: cover fallback strategy 2.
+13. [x] Add balanced-object success unit test. Test type: Unit (Jest). Location: `server/src/test/unit/flows.break-parser.test.ts`. Description: assert mixed text with embedded balanced JSON object is accepted when strategies 1 and 2 fail, including wrapper text that contains brace characters in non-JSON segments. Purpose: cover fallback strategy 3 and quote/escape-aware scanner behavior.
+14. [x] Add precedence-order unit test for strategy execution. Test type: Unit (Jest). Location: `server/src/test/unit/flows.break-parser.test.ts`. Description: assert when both strict body and fallback candidates exist, strict body wins. Purpose: enforce deterministic parse order.
+15. [x] Add schema-rejection unit test for extra keys. Test type: Unit (Jest). Location: `server/src/test/unit/flows.break-parser.test.ts`. Description: assert objects like `{"answer":"yes","extra":true}` are rejected. Purpose: enforce exact schema gating.
+16. [x] Add schema-rejection unit test for invalid answer values. Test type: Unit (Jest). Location: `server/src/test/unit/flows.break-parser.test.ts`. Description: assert `{"answer":"maybe"}` is rejected with deterministic error message. Purpose: preserve existing answer-domain constraints.
+17. [x] Add terminal-failure unit test when no valid JSON candidate exists. Test type: Unit (Jest). Location: `server/src/test/unit/flows.break-parser.test.ts`. Description: assert parser returns invalid result and expected message for non-JSON content. Purpose: maintain deterministic failure output.
+18. [x] Update break-flow integration test for wrapper-output recovery using existing `ScriptedChat` harness. Test type: Integration (Jest + Supertest). Location: `server/src/test/integration/flows.run.loop.test.ts`. Description: add scenario where break reply includes wrapper text + fenced/object JSON and verify run completes using parsed answer. Purpose: prove end-to-end fallback behavior without creating a new flow test harness.
+19. [x] Add break-flow integration test for unrecoverable output failure using existing `ScriptedChat` harness. Test type: Integration (Jest + Supertest). Location: `server/src/test/integration/flows.run.loop.test.ts`. Description: assert break run still fails with `INVALID_BREAK_RESPONSE` when no candidate matches schema. Purpose: prove deterministic hard-failure behavior is preserved.
+20. [x] Update markdown document `design.md` for Task 4 architecture changes. Document: `design.md`. Location: repository root (`/design.md`). Description: document parse strategy order (strict -> fenced -> balanced), schema gate rules, and break-step failure handling with Mermaid diagrams matching implementation. Purpose: keep parsing behavior explicit for junior contributors and reviewers.
+21. [x] Add/update markdown document `projectStructure.md` for Task 4 file-map changes. Document: `projectStructure.md`. Location: repository root (`/projectStructure.md`). Description: add entries for parser helper/test files created or renamed by this task. Purpose: keep file-map documentation in sync with implementation changes.
+22. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (for example `npm run lint:fix` / `npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run test:unit --workspace server`
-6. [ ] `npm run test --workspace server -- flows.break-parser`
-7. [ ] `npm run test --workspace server -- flows.run.loop`
-8. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
-9. [ ] `npm run compose:build`
-10. [ ] `npm run compose:up`
-11. [ ] Manual check: run a break flow with wrapper text around JSON answer and verify `/logs` includes `DEV-0000036:T4:break_parse_strategy_attempted` plus `DEV-0000036:T4:break_parse_result` with accepted normalized answer and zero browser console errors.
-12. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run test:unit --workspace server`
+6. [x] `npm run test --workspace server -- flows.break-parser`
+7. [x] `npm run test --workspace server -- flows.run.loop`
+8. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+9. [x] `npm run compose:build`
+10. [x] `npm run compose:up`
+11. [x] Manual check: run a break flow with wrapper text around JSON answer and verify `/logs` includes `DEV-0000036:T4:break_parse_strategy_attempted` plus `DEV-0000036:T4:break_parse_result` with accepted normalized answer and zero browser console errors.
+12. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- Notes added during implementation.
+- Subtask 1: Kept `parseBreakAnswer` in `server/src/flows/service.ts` as the single parser entrypoint and extended it with strategy metadata outputs rather than introducing a parallel parser pipeline.
+- Subtask 2: Implemented strict-first parsing by attempting direct `JSON.parse(content)` before any fallback extraction path.
+- Subtask 3: Added fenced JSON fallback scanning for ` ```json ... ``` ` blocks and candidate parsing in deterministic appearance order.
+- Subtask 4: Added balanced JSON-object candidate scanning with quote/escape-aware brace tracking and bounded scan/candidate limits.
+- Subtask 5: Added exact schema gate enforcement accepting only `{ "answer": "yes" | "no" }` and rejecting extra keys/invalid values.
+- Subtask 6: Preserved deterministic `INVALID_BREAK_RESPONSE` failure behavior when no valid candidate payload is accepted.
+- Subtask 7: Normalized successful break-step content to canonical `{"answer":"yes"}` / `{"answer":"no"}` output.
+- Subtask 8: Added required parser observability log lines `DEV-0000036:T4:break_parse_strategy_attempted` and `DEV-0000036:T4:break_parse_result`.
+- Subtask 9: Kept parser helpers side-effect free and routed logging/emission behavior through break-step post-processing only (no retry coupling).
+- Subtask 10: Reused existing parse-and-validate style with deterministic `{ ok: true/false }` result handling and stable error messages.
+- Subtask 11: Added strict-body success unit coverage in `server/src/test/unit/flows.break-parser.test.ts`.
+- Subtask 12: Added fenced JSON fallback success unit coverage in `server/src/test/unit/flows.break-parser.test.ts`.
+- Subtask 13: Added balanced-object fallback success unit coverage (including wrapper text and brace noise) in `server/src/test/unit/flows.break-parser.test.ts`.
+- Subtask 14: Added precedence-order unit coverage asserting strict-body acceptance short-circuits fallback strategies.
+- Subtask 15: Added schema-rejection unit coverage for extra properties in break payload objects.
+- Subtask 16: Added schema-rejection unit coverage for invalid `answer` values.
+- Subtask 17: Added terminal-failure unit coverage for unrecoverable non-JSON candidate content.
+- Subtask 18: Updated `server/src/test/integration/flows.run.loop.test.ts` with wrapper-output recovery scenario proving fenced JSON extraction works end to end.
+- Subtask 19: Updated `server/src/test/integration/flows.run.loop.test.ts` with unrecoverable wrapper-output failure assertion verifying `INVALID_BREAK_RESPONSE`.
+- Subtask 20: Updated `design.md` with Task 4 break parsing strategy order, strict schema gate behavior, observability log names, and Mermaid flow for strict -> fenced -> balanced fallback.
+- Subtask 21: Updated `projectStructure.md` with the new Task 4 unit test file entry for `server/src/test/unit/flows.break-parser.test.ts`.
+- Subtask 22: Ran `npm run lint --workspaces` (warnings only, no errors) and completed formatting with `npm run format --workspaces` followed by clean `npm run format:check --workspaces`.
+- Testing 1: `npm run build --workspace server` completed successfully with no TypeScript build errors.
+- Testing 2: `npm run build --workspace client` completed successfully (existing Vite chunk-size warning only).
+- Testing 3: `npm run test --workspace server` completed with known baseline Codex/MCP expectation drift only (`tests: 644`, `pass: 640`, `fail: 4`), and no Task 4 parser/flow regressions after fixes.
+- Testing 4: `npm run test --workspace client` failed consistently in existing `client/src/test/agentsPage.run.test.tsx` pointer-interaction assertions (`2` failures, `331` passes), unrelated to Task 4 server parsing changes.
+- Testing 5: `npm run test:unit --workspace server` completed with the same known baseline Codex/MCP expectation drift (`tests: 644`, `pass: 640`, `fail: 4`).
+- Testing 6: Executed `npm run test --workspace server -- flows.break-parser`; current workspace script forwards to full server suite, so run completed as full test-unit pass/fail set (`640/4`) while targeted parser behavior was additionally verified via direct file-scoped node test (`7/7` pass).
+- Testing 7: Executed `npm run test --workspace server -- flows.run.loop`; current workspace script forwards to full server suite, so run completed as full test-unit pass/fail set (`640/4`) while targeted loop integration was additionally verified via direct file-scoped node test (`9/9` pass).
+- Testing 8: `timeout 7m npm run e2e` passed (`42 passed`) with automatic `e2e:down` teardown.
+- Testing 9: `npm run compose:build` completed successfully and produced refreshed `codeinfo2-server` and `codeinfo2-client` images.
+- Testing 10: `npm run compose:up` completed successfully; mapped ports confirmed (`client:5001`, `server:5010-5012`).
+- Testing 11: Manual host-mapped verification performed via `http://host.docker.internal:5001/logs` (zero browser console errors) and break flow runs against `http://host.docker.internal:5010`; `/logs` contained `DEV-0000036:T4:break_parse_strategy_attempted` and `DEV-0000036:T4:break_parse_result` accepted entries (for example log sequences `320` and `321`).
+- Testing 12: `npm run compose:down` completed successfully and removed compose services/networks.
 
 ---
 

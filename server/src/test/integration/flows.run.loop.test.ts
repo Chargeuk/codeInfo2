@@ -227,11 +227,16 @@ test('break step fails on invalid JSON response', async () => {
         ws: wsUrl,
         predicate: (
           event: unknown,
-        ): event is { type: 'turn_final'; status: string } => {
+        ): event is {
+          type: 'turn_final';
+          status: string;
+          error?: { code?: string };
+        } => {
           const e = event as {
             type?: string;
             conversationId?: string;
             status?: string;
+            error?: { code?: string };
           };
           return (
             e.type === 'turn_final' &&
@@ -243,6 +248,103 @@ test('break step fails on invalid JSON response', async () => {
       });
 
       assert.equal(final.status, 'failed');
+      assert.equal(final.error?.code, 'INVALID_BREAK_RESPONSE');
+      cleanupMemory(conversationId);
+    },
+  );
+});
+
+test('break step recovers from wrapper output containing json fence', async () => {
+  await withFlowServer(
+    (message) => {
+      if (message.includes('Exit inner loop?')) {
+        return 'wrapper output\n```json\n{"answer":"yes"}\n```';
+      }
+      if (message.includes('Exit outer loop?')) {
+        return 'analysis first\n```json\n{"answer":"yes"}\n```';
+      }
+      return 'ok';
+    },
+    async ({ baseUrl, wsUrl }) => {
+      const conversationId = 'flow-loop-conv-wrapper-json';
+      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+
+      await supertest(baseUrl)
+        .post('/flows/loop-break/run')
+        .send({ conversationId })
+        .expect(202);
+
+      const final = await waitForEvent({
+        ws: wsUrl,
+        predicate: (
+          event: unknown,
+        ): event is { type: 'turn_final'; status: string } => {
+          const e = event as {
+            type?: string;
+            conversationId?: string;
+            status?: string;
+          };
+          return (
+            e.type === 'turn_final' &&
+            e.conversationId === conversationId &&
+            e.status === 'ok'
+          );
+        },
+        timeoutMs: 4000,
+      });
+
+      assert.equal(final.status, 'ok');
+      cleanupMemory(conversationId);
+    },
+  );
+});
+
+test('break step fails with INVALID_BREAK_RESPONSE when wrappers contain no valid answer', async () => {
+  await withFlowServer(
+    (message) => {
+      if (message.includes('Exit inner loop?')) {
+        return '{"answer":"yes"}';
+      }
+      if (message.includes('Exit outer loop?')) {
+        return '```json\\n{\"answer\":\"maybe\"}\\n``` trailing text';
+      }
+      return 'ok';
+    },
+    async ({ baseUrl, wsUrl }) => {
+      const conversationId = 'flow-loop-conv-wrapper-invalid';
+      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+
+      await supertest(baseUrl)
+        .post('/flows/loop-break/run')
+        .send({ conversationId })
+        .expect(202);
+
+      const final = await waitForEvent({
+        ws: wsUrl,
+        predicate: (
+          event: unknown,
+        ): event is {
+          type: 'turn_final';
+          status: string;
+          error?: { code?: string };
+        } => {
+          const e = event as {
+            type?: string;
+            conversationId?: string;
+            status?: string;
+            error?: { code?: string };
+          };
+          return (
+            e.type === 'turn_final' &&
+            e.conversationId === conversationId &&
+            e.status === 'failed'
+          );
+        },
+        timeoutMs: 4000,
+      });
+
+      assert.equal(final.status, 'failed');
+      assert.equal(final.error?.code, 'INVALID_BREAK_RESPONSE');
       cleanupMemory(conversationId);
     },
   );

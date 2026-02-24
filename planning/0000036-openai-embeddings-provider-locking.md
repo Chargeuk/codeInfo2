@@ -1409,7 +1409,7 @@ Implement the agreed `/ingest/models` contract (`models`, `lock`, `openai`, `lms
 ### 9. Server Messages: ingest start/reembed/vector-search request and error contracts
 
 - Task Status: **__done__**
-- Git Commits: `59630b7`
+- Git Commits: `59630b7`, `afd89bf`
 
 #### Overview
 

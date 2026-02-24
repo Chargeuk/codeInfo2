@@ -70,7 +70,7 @@ Hereâ€™s the streaming approach weâ€™ll use:
 
 _(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
-- Task Status: **in_progress**
+- Task Status: **done**
 - Git Commits: 9a6c1c7, 0aac90f
 
 #### Overview
@@ -472,7 +472,7 @@ Create a dedicated model list endpoint to supply the chat UI with available LM S
 
 _(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
-- Task Status: **to_do**
+- Task Status: **done**
 - Git Commits: a3f3019, 6270e34
 
 #### Overview
@@ -896,7 +896,6 @@ Add a Stop/Cancel button on the chat page that halts an in-progress response, co
 
 _(Reminder: tick each subtask/test checkbox as soon as you complete it before moving on.)_
 
-- Task Status: **in_progress**
 - Task Status: **done**
 - Git Commits: abc441c
 
@@ -1034,7 +1033,7 @@ Update the LM Studio models endpoint and client selection so only LLM-capable mo
 3. [x] Update the client hook `useChatModel.ts` to handle an empty post-filtered list with a distinct "No chat-capable models" state.
 4. [x] Update `client/src/pages/ChatPage.tsx` copy/empty-state to reflect “No chat-capable models available” when filtered out.
 5. [x] Update README.md and design.md to note that the chat dropdown shows only LLM-capable models and embeddings are hidden.
-6. [ ] Update projectStructure.md if any files are added/renamed.
+6. [x] Update projectStructure.md if any files are added/renamed.
 7. [x] Add/extend RTL test(s) (e.g., `chatPage.models.test.tsx`) to confirm embedding models are excluded from the dropdown.
 8. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix via `npm run lint:fix`/`npm run format --workspaces` if needed.
 
@@ -1053,7 +1052,8 @@ Update the LM Studio models endpoint and client selection so only LLM-capable mo
 
 - Implemented server-side filter (type not embedding/vector) so `/chat/models` emits only chat-capable LLMs; mock LM Studio now includes an embedding to prove filtering.
 - Client empty/error copy now says “No chat-capable models…”; RTL test ensures embedding entries are not shown in the dropdown.
-- E2E still fails against live LM Studio due to the underlying tool/act issue (error bubbles); screenshot captured at `test-results/screenshots/0000004-9-chat.png`. Subtask 6 (projectStructure.md) remains open if structure changes occur later.
+- E2E still fails against live LM Studio due to the underlying tool/act issue (error bubbles); screenshot captured at `test-results/screenshots/0000004-9-chat.png`.
+- Answered/closed Task 10 Subtask 6: no files were added or renamed during Task 10, so no `projectStructure.md` update was required.
 
 ---
 

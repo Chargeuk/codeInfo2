@@ -1330,7 +1330,7 @@ Update the client data layer (`useIngestModels`, `useIngestRoots`, related types
 5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: exercise ingest hooks through the UI at `http://host.docker.internal:5001`; verify browser debug logs include `DEV-0000036:T10:useIngestModels_normalized` and `DEV-0000036:T10:useIngestRoots_normalized` with expected normalization metadata. Expected outcome: hook normalization logs match response fixtures and browser debug console has zero runtime errors.
+8. [ ] Manual Playwright-MCP check: exercise ingest hooks through the UI at `http://host.docker.internal:5001`; verify browser debug logs include `DEV-0000036:T10:useIngestModels_normalized` and `DEV-0000036:T10:useIngestRoots_normalized` with expected normalization metadata, then capture screenshots of the ingest page model/lock state and roots list state to `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped by `docker-compose.local.yml`) using names `0000036-10-ingest-hooks-model-lock.png` and `0000036-10-ingest-hooks-roots.png`. Expected outcome: hook normalization logs match response fixtures, screenshots are reviewed by the agent against Task 10 GUI expectations, and browser debug console has zero runtime errors.
 9. [ ] `npm run compose:down`
 
 10. [ ] Confirm `client/src/test/ingestStatus.test.tsx` and `client/src/test/ingestRoots.test.tsx` pass.
@@ -1402,7 +1402,7 @@ Implement the user-visible ingest UI behavior for provider-tagged model selectio
 5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: interact with ingest form/status UI at `http://host.docker.internal:5001`; verify browser debug logs include `DEV-0000036:T11:ingest_ui_state_rendered` and `DEV-0000036:T11:ingest_ui_submit_payload` with provider-qualified selections and canonical payload fields. Expected outcome: UI logs match displayed state/submission payload and browser debug console has zero errors.
+8. [ ] Manual Playwright-MCP check: interact with ingest form/status UI at `http://host.docker.internal:5001`; verify browser debug logs include `DEV-0000036:T11:ingest_ui_state_rendered` and `DEV-0000036:T11:ingest_ui_submit_payload` with provider-qualified selections and canonical payload fields, then capture screenshots for provider-qualified model selection, OpenAI warning/info banner state, active run card, and roots details drawer to `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped by `docker-compose.local.yml`) using names `0000036-11-provider-select.png`, `0000036-11-openai-banner.png`, `0000036-11-active-run-card.png`, and `0000036-11-root-details-drawer.png`. Expected outcome: UI logs match displayed state/submission payload, screenshots are reviewed by the agent against Task 11 GUI expectations, and browser debug console has zero errors.
 9. [ ] `npm run compose:down`
 
 10. [ ] Confirm `client/src/test/ingestForm.test.tsx` and `client/src/test/ingestPage.layout.test.tsx` pass.
@@ -1456,13 +1456,13 @@ Run the complete verification gate for Story 0000036, confirm acceptance criteri
 5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: execute final acceptance/regression walkthrough at `http://host.docker.internal:5001`; verify combined logs include `DEV-0000036:T12:acceptance_matrix_verified` (`allRowsCovered=true`) and `DEV-0000036:T12:manual_regression_completed` (`consoleErrors=0`). Expected outcome: final evidence logs confirm full coverage and no console errors.
+8. [ ] Manual Playwright-MCP check: execute final acceptance/regression walkthrough at `http://host.docker.internal:5001`; verify combined logs include `DEV-0000036:T12:acceptance_matrix_verified` (`allRowsCovered=true`) and `DEV-0000036:T12:manual_regression_completed` (`consoleErrors=0`), and capture screenshots for every acceptance criterion that is GUI-verifiable (including ingest provider/model selection, warning/info banners, lock metadata display, root details/error rendering, and tool-result compatibility views) to `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped by `docker-compose.local.yml`) using `0000036-12-<acceptance-item>.png` naming. Expected outcome: screenshots are reviewed by the agent against Task 12 acceptance expectations, non-visual acceptance checks are confirmed via logs/API assertions as appropriate, and browser debug console has zero errors.
 9. [ ] `npm run compose:down`
 
 10. [ ] `npm run test:unit --workspace server`
 11. [ ] `npm run test:integration --workspace server`
 12. [ ] `npm run compose:build:clean`
-13. [ ] Capture manual verification screenshots in `test-results/screenshots/` using naming `0000036-12-<description>.png`.
+13. [ ] Capture and retain all Task 12 manual verification screenshots in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped by `docker-compose.local.yml`) using naming `0000036-12-<description>.png`, and ensure the agent has checked each screenshot against the corresponding GUI acceptance item.
 14. [ ] Verify traceability matrix is complete with no uncovered acceptance or edge-case rows remaining.
 
 #### Implementation notes

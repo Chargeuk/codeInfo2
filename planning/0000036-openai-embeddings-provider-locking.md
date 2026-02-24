@@ -847,7 +847,7 @@ Make one canonical lock resolver for all lock consumers so `/ingest/models` no l
 ### 3. Server: Environment loading parity for `.env` and `.env.local`
 
 - Task Status: **__done__**
-- Git Commits:
+- Git Commits: `eb7aaaa`, `4d3ca55`
   - `ed9074f` - DEV-0000036 - Start Task 3 env loading parity
   - `320c151` - DEV-0000036 - Complete Task 3 env loading parity and verification
   - `39739e9` - DEV-0000036 - Mark Task 3 git commits in story plan

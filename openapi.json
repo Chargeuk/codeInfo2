@@ -265,15 +265,124 @@
                                 "nullable": true
                               }
                             }
+                          },
+                          "embeddingProvider": {
+                            "type": "string",
+                            "enum": [
+                              "lmstudio",
+                              "openai"
+                            ]
+                          },
+                          "embeddingModel": {
+                            "type": "string"
+                          },
+                          "embeddingDimensions": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "modelId": {
+                            "type": "string"
+                          },
+                          "lock": {
+                            "type": "object",
+                            "properties": {
+                              "embeddingProvider": {
+                                "type": "string",
+                                "enum": [
+                                  "lmstudio",
+                                  "openai"
+                                ]
+                              },
+                              "embeddingModel": {
+                                "type": "string"
+                              },
+                              "embeddingDimensions": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "lockedModelId": {
+                                "type": "string"
+                              },
+                              "modelId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "embeddingProvider",
+                              "embeddingModel",
+                              "embeddingDimensions",
+                              "lockedModelId",
+                              "modelId"
+                            ],
+                            "additionalProperties": false
                           }
-                        }
+                        },
+                        "required": [
+                          "runId",
+                          "name",
+                          "path",
+                          "embeddingProvider",
+                          "embeddingModel",
+                          "embeddingDimensions",
+                          "model",
+                          "modelId",
+                          "lock",
+                          "status",
+                          "counts",
+                          "lastError"
+                        ],
+                        "additionalProperties": false
                       }
                     },
                     "lockedModelId": {
                       "type": "string",
                       "nullable": true
+                    },
+                    "lock": {
+                      "type": "object",
+                      "properties": {
+                        "embeddingProvider": {
+                          "type": "string",
+                          "enum": [
+                            "lmstudio",
+                            "openai"
+                          ]
+                        },
+                        "embeddingModel": {
+                          "type": "string"
+                        },
+                        "embeddingDimensions": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "lockedModelId": {
+                          "type": "string"
+                        },
+                        "modelId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "embeddingProvider",
+                        "embeddingModel",
+                        "embeddingDimensions",
+                        "lockedModelId",
+                        "modelId"
+                      ],
+                      "additionalProperties": false,
+                      "nullable": true
+                    },
+                    "schemaVersion": {
+                      "type": "string"
                     }
-                  }
+                  },
+                  "required": [
+                    "roots",
+                    "lock",
+                    "lockedModelId",
+                    "schemaVersion"
+                  ],
+                  "additionalProperties": false
                 }
               }
             }
@@ -1401,6 +1510,191 @@
                     "error",
                     "message"
                   ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tools/ingested-repos": {
+      "get": {
+        "responses": {
+          "200": {
+            "description": "Ingested repositories listing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "repos": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "id": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "containerPath": {
+                            "type": "string"
+                          },
+                          "hostPath": {
+                            "type": "string"
+                          },
+                          "hostPathWarning": {
+                            "type": "string"
+                          },
+                          "lastIngestAt": {
+                            "type": "string",
+                            "nullable": true
+                          },
+                          "embeddingProvider": {
+                            "type": "string",
+                            "enum": [
+                              "lmstudio",
+                              "openai"
+                            ]
+                          },
+                          "embeddingModel": {
+                            "type": "string"
+                          },
+                          "embeddingDimensions": {
+                            "type": "integer",
+                            "minimum": 0
+                          },
+                          "model": {
+                            "type": "string"
+                          },
+                          "modelId": {
+                            "type": "string"
+                          },
+                          "lock": {
+                            "type": "object",
+                            "properties": {
+                              "embeddingProvider": {
+                                "type": "string",
+                                "enum": [
+                                  "lmstudio",
+                                  "openai"
+                                ]
+                              },
+                              "embeddingModel": {
+                                "type": "string"
+                              },
+                              "embeddingDimensions": {
+                                "type": "integer",
+                                "minimum": 0
+                              },
+                              "lockedModelId": {
+                                "type": "string"
+                              },
+                              "modelId": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "embeddingProvider",
+                              "embeddingModel",
+                              "embeddingDimensions",
+                              "lockedModelId",
+                              "modelId"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "counts": {
+                            "type": "object",
+                            "properties": {
+                              "files": {
+                                "type": "number"
+                              },
+                              "chunks": {
+                                "type": "number"
+                              },
+                              "embedded": {
+                                "type": "number"
+                              }
+                            },
+                            "required": [
+                              "files",
+                              "chunks",
+                              "embedded"
+                            ],
+                            "additionalProperties": false
+                          },
+                          "lastError": {
+                            "type": "string",
+                            "nullable": true
+                          }
+                        },
+                        "required": [
+                          "id",
+                          "containerPath",
+                          "hostPath",
+                          "embeddingProvider",
+                          "embeddingModel",
+                          "embeddingDimensions",
+                          "model",
+                          "modelId",
+                          "lock",
+                          "counts",
+                          "lastError"
+                        ],
+                        "additionalProperties": false
+                      }
+                    },
+                    "lock": {
+                      "type": "object",
+                      "properties": {
+                        "embeddingProvider": {
+                          "type": "string",
+                          "enum": [
+                            "lmstudio",
+                            "openai"
+                          ]
+                        },
+                        "embeddingModel": {
+                          "type": "string"
+                        },
+                        "embeddingDimensions": {
+                          "type": "integer",
+                          "minimum": 0
+                        },
+                        "lockedModelId": {
+                          "type": "string"
+                        },
+                        "modelId": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "embeddingProvider",
+                        "embeddingModel",
+                        "embeddingDimensions",
+                        "lockedModelId",
+                        "modelId"
+                      ],
+                      "additionalProperties": false,
+                      "nullable": true
+                    },
+                    "lockedModelId": {
+                      "type": "string",
+                      "nullable": true
+                    },
+                    "schemaVersion": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "repos",
+                    "lock",
+                    "lockedModelId",
+                    "schemaVersion"
+                  ],
+                  "additionalProperties": false
                 }
               }
             }

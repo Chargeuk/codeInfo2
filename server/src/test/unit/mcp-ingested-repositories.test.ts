@@ -54,11 +54,35 @@ test('ListIngestedRepositories returns canonical lock from resolver', async () =
   const parsed = JSON.parse(
     response.body?.result?.content?.[0]?.text ?? '{}',
   ) as {
+    lock: {
+      embeddingProvider: string;
+      embeddingModel: string;
+      embeddingDimensions: number;
+      lockedModelId: string;
+      modelId: string;
+    } | null;
+    schemaVersion: string;
     lockedModelId: string | null;
-    repos: Array<{ id: string; modelId: string; hostPath: string }>;
+    repos: Array<{
+      id: string;
+      embeddingProvider: string;
+      embeddingModel: string;
+      modelId: string;
+      model: string;
+      lock: { embeddingModel: string; modelId: string };
+      hostPath: string;
+    }>;
   };
   assert.equal(parsed.lockedModelId, 'text-embedding-openai');
+  assert.equal(parsed.lock?.embeddingModel, 'text-embedding-openai');
+  assert.equal(parsed.lock?.modelId, 'text-embedding-openai');
+  assert.equal(parsed.schemaVersion, '0000036-t10-canonical-alias-v1');
   assert.equal(parsed.repos.length, 1);
   assert.equal(parsed.repos[0].id, 'repo');
+  assert.equal(parsed.repos[0].embeddingProvider, 'lmstudio');
+  assert.equal(parsed.repos[0].embeddingModel, 'embed-model');
+  assert.equal(parsed.repos[0].model, 'embed-model');
   assert.equal(parsed.repos[0].modelId, 'embed-model');
+  assert.equal(parsed.repos[0].lock.embeddingModel, 'embed-model');
+  assert.equal(parsed.repos[0].lock.modelId, 'embed-model');
 });

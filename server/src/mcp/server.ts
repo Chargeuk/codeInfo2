@@ -29,6 +29,7 @@ import {
 } from '../ingest/providers/index.js';
 import { runReingestRepository } from '../ingest/reingestService.js';
 import {
+  INGEST_REPO_SCHEMA_VERSION,
   RepoNotFoundError,
   type ToolDeps,
   ValidationError,
@@ -238,13 +239,24 @@ const baseToolDefinitions = [
     },
     outputSchema: {
       type: 'object',
-      required: ['repos', 'lockedModelId'],
+      required: ['repos', 'lock', 'lockedModelId', 'schemaVersion'],
       properties: {
         repos: {
           type: 'array',
           items: {
             type: 'object',
-            required: ['id', 'containerPath', 'hostPath', 'counts', 'modelId'],
+            required: [
+              'id',
+              'containerPath',
+              'hostPath',
+              'counts',
+              'embeddingProvider',
+              'embeddingModel',
+              'embeddingDimensions',
+              'model',
+              'modelId',
+              'lock',
+            ],
             properties: {
               id: { type: 'string' },
               description: { type: ['string', 'null'] },
@@ -252,7 +264,35 @@ const baseToolDefinitions = [
               hostPath: { type: 'string' },
               hostPathWarning: { type: 'string' },
               lastIngestAt: { type: ['string', 'null'], format: 'date-time' },
+              embeddingProvider: {
+                type: 'string',
+                enum: ['lmstudio', 'openai'],
+              },
+              embeddingModel: { type: 'string' },
+              embeddingDimensions: { type: 'integer', minimum: 0 },
+              model: { type: 'string' },
               modelId: { type: 'string' },
+              lock: {
+                type: 'object',
+                required: [
+                  'embeddingProvider',
+                  'embeddingModel',
+                  'embeddingDimensions',
+                  'lockedModelId',
+                  'modelId',
+                ],
+                properties: {
+                  embeddingProvider: {
+                    type: 'string',
+                    enum: ['lmstudio', 'openai'],
+                  },
+                  embeddingModel: { type: 'string' },
+                  embeddingDimensions: { type: 'integer', minimum: 0 },
+                  lockedModelId: { type: 'string' },
+                  modelId: { type: 'string' },
+                },
+                additionalProperties: false,
+              },
               counts: {
                 type: 'object',
                 required: ['files', 'chunks', 'embedded'],
@@ -267,7 +307,26 @@ const baseToolDefinitions = [
             additionalProperties: false,
           },
         },
+        lock: {
+          type: ['object', 'null'],
+          required: [
+            'embeddingProvider',
+            'embeddingModel',
+            'embeddingDimensions',
+            'lockedModelId',
+            'modelId',
+          ],
+          properties: {
+            embeddingProvider: { type: 'string', enum: ['lmstudio', 'openai'] },
+            embeddingModel: { type: 'string' },
+            embeddingDimensions: { type: 'integer', minimum: 0 },
+            lockedModelId: { type: 'string' },
+            modelId: { type: 'string' },
+          },
+          additionalProperties: false,
+        },
         lockedModelId: { type: ['string', 'null'] },
+        schemaVersion: { type: 'string' },
       },
       additionalProperties: false,
     },
@@ -609,6 +668,11 @@ export function createMcpRouter(
               const payload = await resolved.listIngestedRepositories({
                 getRootsCollection: resolved.getRootsCollection,
                 getLockedModel: resolved.getLockedModel,
+                ...(resolved.getLockedEmbeddingModel
+                  ? {
+                      getLockedEmbeddingModel: resolved.getLockedEmbeddingModel,
+                    }
+                  : {}),
               });
               logLockResolverState(
                 requestId,
@@ -623,6 +687,35 @@ export function createMcpRouter(
                 },
                 'mcp tool call',
               );
+              append({
+                level: 'info',
+                source: 'server',
+                timestamp: new Date().toISOString(),
+                message: 'DEV-0000036:T10:ingest_repo_payload_emitted',
+                requestId,
+                context: {
+                  surface: 'mcp/ListIngestedRepositories',
+                  repoCount: payload.repos.length,
+                  embeddingProvider: payload.lock?.embeddingProvider ?? null,
+                  embeddingModel: payload.lock?.embeddingModel ?? null,
+                  embeddingDimensions:
+                    payload.lock?.embeddingDimensions ?? null,
+                  aliasLockedModelIdPresent: payload.lockedModelId != null,
+                  aliasModelIdPresent: payload.lock?.modelId != null,
+                },
+              });
+              append({
+                level: 'info',
+                source: 'server',
+                timestamp: new Date().toISOString(),
+                message: 'DEV-0000036:T10:ingest_repo_schema_version_emitted',
+                requestId,
+                context: {
+                  surface: 'mcp/ListIngestedRepositories',
+                  schemaVersion:
+                    payload.schemaVersion ?? INGEST_REPO_SCHEMA_VERSION,
+                },
+              });
               return jsonRpcResult(id as never, {
                 content: [{ type: 'text', text: JSON.stringify(payload) }],
               }) as JsonRpcLikeResponse;

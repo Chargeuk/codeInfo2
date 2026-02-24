@@ -2669,3 +2669,46 @@ flowchart TD
   E --> F[Emit manual_acceptance_check_completed]
   F --> G[Record evidence in task implementation notes]
 ```
+
+## Server message contract alignment (Task 0000036-T10)
+
+- `/ingest/roots`, `/tools/ingested-repos`, and classic MCP `ListIngestedRepositories` now expose canonical lock identity fields and compatibility aliases together.
+- Canonical fields are first-class:
+  - `embeddingProvider`
+  - `embeddingModel`
+  - `embeddingDimensions`
+- Compatibility aliases remain present and synchronized:
+  - top-level alias: `lockedModelId`
+  - per-record aliases: `modelId` and legacy `model`
+  - all lock-bearing payloads expose `lock.embeddingModel` that matches alias values for the same record.
+- A schema marker (`schemaVersion = 0000036-t10-canonical-alias-v1`) is emitted across these surfaces for docs/runtime parity checks.
+- Required task logs are emitted when payloads are produced:
+  - `DEV-0000036:T10:ingest_repo_payload_emitted`
+  - `DEV-0000036:T10:ingest_repo_schema_version_emitted`
+
+```mermaid
+flowchart LR
+  A[getLockedEmbeddingModel/getLockedModel] --> B[/ingest/roots]
+  A --> C[listIngestedRepositories service]
+  C --> D[/tools/ingested-repos]
+  C --> E[MCP ListIngestedRepositories]
+  B --> F[canonical fields + aliases + lock + schemaVersion]
+  D --> F
+  E --> F
+```
+
+```mermaid
+sequenceDiagram
+  participant Runtime as Chroma metadata + lock resolver
+  participant REST1 as GET /ingest/roots
+  participant REST2 as GET /tools/ingested-repos
+  participant MCP as tools/call ListIngestedRepositories
+  participant Docs as openapi.json
+
+  Runtime->>REST1: root rows + lock
+  Runtime->>REST2: repo rows + lock
+  Runtime->>MCP: repo rows + lock
+  REST1->>Docs: contract parity assertion coverage
+  REST2->>Docs: contract parity assertion coverage
+  MCP->>Docs: parity validated by integration tests
+```

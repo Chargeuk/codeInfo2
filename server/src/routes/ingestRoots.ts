@@ -1,15 +1,34 @@
 import { Router } from 'express';
 import { LogEntry } from '@codeinfo2/common';
-import { getLockedModel, getRootsCollection } from '../ingest/chromaClient.js';
+import {
+  type EmbeddingProviderId,
+  getLockedEmbeddingModel,
+  getLockedModel,
+  getRootsCollection,
+} from '../ingest/chromaClient.js';
+import { INGEST_REPO_SCHEMA_VERSION } from '../lmstudio/toolService.js';
 import { append as appendLog } from '../logStore.js';
 import { baseLogger } from '../logger.js';
+
+type LockEnvelope = {
+  embeddingProvider: EmbeddingProviderId;
+  embeddingModel: string;
+  embeddingDimensions: number;
+  lockedModelId: string;
+  modelId: string;
+};
 
 type RootEntry = {
   runId: string;
   name: string;
   description: string | null;
   path: string;
+  embeddingProvider: EmbeddingProviderId;
+  embeddingModel: string;
+  embeddingDimensions: number;
   model: string;
+  modelId: string;
+  lock: LockEnvelope;
   status: string;
   lastIngestAt: string | null;
   counts: { files: number; chunks: number; embedded: number };
@@ -32,11 +51,13 @@ type RootEntry = {
 
 type Deps = {
   getLockedModel: typeof getLockedModel;
+  getLockedEmbeddingModel?: typeof getLockedEmbeddingModel;
   getRootsCollection: typeof getRootsCollection;
 };
 
 const DEFAULT_DEPS: Deps = {
   getLockedModel,
+  getLockedEmbeddingModel,
   getRootsCollection,
 };
 
@@ -55,8 +76,9 @@ function logLifecycle(message: string, context: Record<string, unknown>) {
 function logLockResolverState(
   requestId: string | undefined,
   surface: string,
-  lockedModelId: string | null,
+  lock: LockEnvelope | null,
 ) {
+  const lockedModelId = lock?.lockedModelId ?? null;
   appendLog({
     level: 'info',
     source: 'server',
@@ -76,8 +98,9 @@ function logLockResolverState(
     timestamp: new Date().toISOString(),
     context: {
       surface,
-      embeddingProvider: 'lmstudio',
-      embeddingModel: lockedModelId,
+      embeddingProvider: lock?.embeddingProvider ?? null,
+      embeddingModel: lock?.embeddingModel ?? null,
+      embeddingDimensions: lock?.embeddingDimensions ?? null,
     },
     requestId,
   });
@@ -87,6 +110,9 @@ function logLockResolverState(
       surface,
       source: 'canonical',
       lockedModelId,
+      embeddingProvider: lock?.embeddingProvider ?? null,
+      embeddingModel: lock?.embeddingModel ?? null,
+      embeddingDimensions: lock?.embeddingDimensions ?? null,
     },
     'lock resolver parity baseline',
   );
@@ -162,6 +188,26 @@ function parseNormalizedError(meta: Record<string, unknown>) {
   return null;
 }
 
+function normalizeEmbeddingProvider(
+  value: unknown,
+): EmbeddingProviderId | null {
+  if (value === 'lmstudio' || value === 'openai') return value;
+  return null;
+}
+
+function normalizeEmbeddingModel(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function normalizeEmbeddingDimensions(value: unknown): number | null {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
+    return null;
+  }
+  return value;
+}
+
 export function dedupeRootsByPath(roots: RootEntry[]): RootEntry[] {
   const bestByPath = new Map<string, RootEntry>();
   for (const root of roots) {
@@ -202,8 +248,26 @@ export function createIngestRootsRouter(deps: Partial<Deps> = {}) {
       const collection = await resolved.getRootsCollection();
       const requestId =
         (res.locals?.requestId as string | undefined) ?? undefined;
-      const lockedModelId = await resolved.getLockedModel();
-      logLockResolverState(requestId, 'ingest/roots', lockedModelId);
+      const useCanonicalResolver =
+        typeof deps.getLockedEmbeddingModel === 'function' ||
+        deps.getLockedModel === undefined;
+      const canonicalLock =
+        useCanonicalResolver &&
+        typeof resolved.getLockedEmbeddingModel === 'function'
+          ? await resolved.getLockedEmbeddingModel()
+          : null;
+      const lockedModelId =
+        canonicalLock?.embeddingModel ?? (await resolved.getLockedModel());
+      const lock = lockedModelId
+        ? {
+            embeddingProvider: canonicalLock?.embeddingProvider ?? 'lmstudio',
+            embeddingModel: lockedModelId,
+            embeddingDimensions: canonicalLock?.embeddingDimensions ?? 0,
+            lockedModelId,
+            modelId: lockedModelId,
+          }
+        : null;
+      logLockResolverState(requestId, 'ingest/roots', lock);
       type CollectionGetter = {
         get: (opts: {
           include?: string[];
@@ -237,13 +301,44 @@ export function createIngestRootsRouter(deps: Partial<Deps> = {}) {
                 : m.lastError === null
                   ? null
                   : null;
+          const embeddingModel =
+            normalizeEmbeddingModel(m.embeddingModel) ??
+            normalizeEmbeddingModel(m.model) ??
+            lock?.embeddingModel ??
+            '';
+          const embeddingProvider =
+            normalizeEmbeddingProvider(m.embeddingProvider) ??
+            (lock &&
+            lock.embeddingModel === embeddingModel &&
+            embeddingModel.length > 0
+              ? lock.embeddingProvider
+              : 'lmstudio');
+          const embeddingDimensions =
+            normalizeEmbeddingDimensions(m.embeddingDimensions) ??
+            (lock &&
+            lock.embeddingProvider === embeddingProvider &&
+            lock.embeddingModel === embeddingModel
+              ? lock.embeddingDimensions
+              : 0);
+          const rootLock: LockEnvelope = {
+            embeddingProvider,
+            embeddingModel,
+            embeddingDimensions,
+            lockedModelId: embeddingModel,
+            modelId: embeddingModel,
+          };
           return {
             runId: typeof ids[idx] === 'string' ? ids[idx] : `run-${idx}`,
             name: typeof m.name === 'string' ? m.name : '',
             description:
               typeof m.description === 'string' ? m.description : null,
             path: typeof m.root === 'string' ? m.root : '',
-            model: typeof m.model === 'string' ? m.model : '',
+            embeddingProvider,
+            embeddingModel,
+            embeddingDimensions,
+            model: embeddingModel,
+            modelId: embeddingModel,
+            lock: rootLock,
             status: typeof m.state === 'string' ? m.state : 'unknown',
             lastIngestAt,
             counts: {
@@ -269,7 +364,40 @@ export function createIngestRootsRouter(deps: Partial<Deps> = {}) {
         logLifecycle('0000020 ingest roots dedupe applied', { before, after });
       }
 
-      res.json({ roots: deduped, lockedModelId });
+      appendLog({
+        level: 'info',
+        source: 'server',
+        message: 'DEV-0000036:T10:ingest_repo_payload_emitted',
+        timestamp: new Date().toISOString(),
+        requestId,
+        context: {
+          surface: 'ingest/roots',
+          repoCount: deduped.length,
+          embeddingProvider: lock?.embeddingProvider ?? null,
+          embeddingModel: lock?.embeddingModel ?? null,
+          embeddingDimensions: lock?.embeddingDimensions ?? null,
+          aliasLockedModelIdPresent: lock?.lockedModelId != null,
+          aliasModelIdPresent: lock?.modelId != null,
+        },
+      });
+      appendLog({
+        level: 'info',
+        source: 'server',
+        message: 'DEV-0000036:T10:ingest_repo_schema_version_emitted',
+        timestamp: new Date().toISOString(),
+        requestId,
+        context: {
+          surface: 'ingest/roots',
+          schemaVersion: INGEST_REPO_SCHEMA_VERSION,
+        },
+      });
+
+      res.json({
+        roots: deduped,
+        lock,
+        lockedModelId: lock?.lockedModelId ?? null,
+        schemaVersion: INGEST_REPO_SCHEMA_VERSION,
+      });
     } catch (err) {
       res
         .status(502)

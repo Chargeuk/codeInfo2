@@ -8,6 +8,7 @@ Feature: Ingest remove
     Then ingest manage status for the last run becomes "completed"
     When I GET ingest manage roots
     Then ingest manage roots count is 1
+    And ingest manage roots first entry has canonical and alias lock parity
     When I POST ingest manage remove for the temp repo
     When I GET ingest manage roots
     Then ingest manage roots count is 0

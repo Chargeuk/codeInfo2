@@ -264,6 +264,39 @@ Then('ingest manage locked model id is null', () => {
   assert.equal(locked, null);
 });
 
+Then(
+  'ingest manage roots first entry has canonical and alias lock parity',
+  () => {
+    assert(response, 'expected response');
+    const roots = (response.body as { roots?: unknown[] }).roots ?? [];
+    assert(roots.length > 0, 'no roots returned');
+    const first = roots[0] as {
+      embeddingProvider?: string;
+      embeddingModel?: string;
+      embeddingDimensions?: number;
+      model?: string;
+      modelId?: string;
+      lock?: {
+        embeddingProvider?: string;
+        embeddingModel?: string;
+        embeddingDimensions?: number;
+        lockedModelId?: string;
+        modelId?: string;
+      };
+    };
+    assert.equal(typeof first.embeddingProvider, 'string');
+    assert.equal(typeof first.embeddingModel, 'string');
+    assert.equal(typeof first.embeddingDimensions, 'number');
+    assert.equal(first.model, first.embeddingModel);
+    assert.equal(first.modelId, first.embeddingModel);
+    assert.equal(first.lock?.embeddingProvider, first.embeddingProvider);
+    assert.equal(first.lock?.embeddingModel, first.embeddingModel);
+    assert.equal(first.lock?.embeddingDimensions, first.embeddingDimensions);
+    assert.equal(first.lock?.lockedModelId, first.embeddingModel);
+    assert.equal(first.lock?.modelId, first.embeddingModel);
+  },
+);
+
 Then('ingest manage roots payload is fetched', async () => {
   const res = await fetch(`${baseUrl}/ingest/roots`);
   response = { status: res.status, body: await res.json() };

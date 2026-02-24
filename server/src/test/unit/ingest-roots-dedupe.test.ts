@@ -38,13 +38,25 @@ afterEach(() => {
 });
 
 test('dedupeRootsByPath: keeps newest by lastIngestAt when path duplicates', () => {
+  const lock = {
+    embeddingProvider: 'lmstudio' as const,
+    embeddingModel: 'embed-1',
+    embeddingDimensions: 0,
+    lockedModelId: 'embed-1',
+    modelId: 'embed-1',
+  };
   const roots = [
     {
       runId: 'r1',
       name: 'old',
       description: null,
       path: '/data/repo',
+      embeddingProvider: 'lmstudio' as const,
+      embeddingModel: 'embed-1',
+      embeddingDimensions: 0,
       model: 'embed-1',
+      modelId: 'embed-1',
+      lock,
       status: 'completed',
       lastIngestAt: '2026-01-01T00:00:00Z',
       counts: { files: 1, chunks: 1, embedded: 1 },
@@ -55,7 +67,12 @@ test('dedupeRootsByPath: keeps newest by lastIngestAt when path duplicates', () 
       name: 'new',
       description: null,
       path: '/data/repo',
+      embeddingProvider: 'lmstudio' as const,
+      embeddingModel: 'embed-1',
+      embeddingDimensions: 0,
       model: 'embed-1',
+      modelId: 'embed-1',
+      lock,
       status: 'completed',
       lastIngestAt: '2026-01-02T00:00:00Z',
       counts: { files: 1, chunks: 1, embedded: 1 },
@@ -70,13 +87,25 @@ test('dedupeRootsByPath: keeps newest by lastIngestAt when path duplicates', () 
 });
 
 test('dedupeRootsByPath: falls back to runId when lastIngestAt is missing', () => {
+  const lock = {
+    embeddingProvider: 'lmstudio' as const,
+    embeddingModel: 'embed-1',
+    embeddingDimensions: 0,
+    lockedModelId: 'embed-1',
+    modelId: 'embed-1',
+  };
   const roots = [
     {
       runId: 'r1',
       name: 'old',
       description: null,
       path: '/data/repo',
+      embeddingProvider: 'lmstudio' as const,
+      embeddingModel: 'embed-1',
+      embeddingDimensions: 0,
       model: 'embed-1',
+      modelId: 'embed-1',
+      lock,
       status: 'completed',
       lastIngestAt: null,
       counts: { files: 1, chunks: 1, embedded: 1 },
@@ -87,7 +116,12 @@ test('dedupeRootsByPath: falls back to runId when lastIngestAt is missing', () =
       name: 'newer',
       description: null,
       path: '/data/repo',
+      embeddingProvider: 'lmstudio' as const,
+      embeddingModel: 'embed-1',
+      embeddingDimensions: 0,
       model: 'embed-1',
+      modelId: 'embed-1',
+      lock,
       status: 'completed',
       lastIngestAt: null,
       counts: { files: 1, chunks: 1, embedded: 1 },
@@ -120,8 +154,14 @@ test('GET /ingest/roots returns canonical lock value from the unified resolver',
 
   assert.equal(response.status, 200);
   assert.equal(response.body.lockedModelId, 'text-embedding-openai');
+  assert.equal(response.body.lock.embeddingModel, 'text-embedding-openai');
+  assert.equal(response.body.lock.modelId, 'text-embedding-openai');
   assert.equal(response.body.roots.length, 1);
   assert.equal(response.body.roots[0].runId, 'run-1');
+  assert.equal(response.body.roots[0].embeddingModel, 'embed-model');
+  assert.equal(response.body.roots[0].model, 'embed-model');
+  assert.equal(response.body.roots[0].modelId, 'embed-model');
+  assert.equal(response.body.roots[0].lock.embeddingModel, 'embed-model');
 });
 
 test('GET /ingest/roots preserves legacy lastError string and normalized error payload', async () => {
@@ -155,4 +195,50 @@ test('GET /ingest/roots preserves legacy lastError string and normalized error p
   assert.equal(response.body.roots[0].error.error, 'OPENAI_RATE_LIMITED');
   assert.equal(response.body.roots[0].error.retryable, true);
   assert.equal(response.body.roots[0].error.provider, 'openai');
+});
+
+test('GET /ingest/roots keeps provider-qualified identity when model ids collide across providers', async () => {
+  const response = await request(
+    createRootsApp(
+      {
+        ids: ['openai-run', 'lmstudio-run'],
+        metadatas: [
+          {
+            name: 'repo-openai',
+            root: '/data/openai',
+            model: 'shared-id',
+            embeddingProvider: 'openai',
+            embeddingModel: 'shared-id',
+            embeddingDimensions: 1536,
+          },
+          {
+            name: 'repo-lmstudio',
+            root: '/data/lmstudio',
+            model: 'shared-id',
+            embeddingProvider: 'lmstudio',
+            embeddingModel: 'shared-id',
+            embeddingDimensions: 768,
+          },
+        ],
+      },
+      'shared-id',
+    ),
+  ).get('/ingest/roots');
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.roots.length, 2);
+  const openaiRoot = response.body.roots.find(
+    (root: { embeddingProvider?: string; path?: string }) =>
+      root.path === '/data/openai',
+  );
+  const lmstudioRoot = response.body.roots.find(
+    (root: { embeddingProvider?: string; path?: string }) =>
+      root.path === '/data/lmstudio',
+  );
+  assert.equal(openaiRoot?.embeddingProvider, 'openai');
+  assert.equal(openaiRoot?.embeddingModel, 'shared-id');
+  assert.equal(openaiRoot?.modelId, 'shared-id');
+  assert.equal(lmstudioRoot?.embeddingProvider, 'lmstudio');
+  assert.equal(lmstudioRoot?.embeddingModel, 'shared-id');
+  assert.equal(lmstudioRoot?.modelId, 'shared-id');
 });

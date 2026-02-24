@@ -1,9 +1,9 @@
-import type { EmbeddingModel } from '@lmstudio/sdk';
 import { resolveConfig } from './config.js';
+import type { ProviderEmbeddingModel } from './providers/types.js';
 import { IngestConfig, Chunk } from './types.js';
 
 async function getSafeLimit(
-  model: EmbeddingModel,
+  model: ProviderEmbeddingModel,
   cfg: IngestConfig,
 ): Promise<number> {
   try {
@@ -14,7 +14,10 @@ async function getSafeLimit(
   }
 }
 
-async function count(model: EmbeddingModel, text: string): Promise<number> {
+async function count(
+  model: ProviderEmbeddingModel,
+  text: string,
+): Promise<number> {
   try {
     return await model.countTokens(text);
   } catch {
@@ -38,7 +41,7 @@ function splitOnBoundaries(text: string, boundary: RegExp): string[] {
 }
 
 async function sliceToFit(
-  model: EmbeddingModel,
+  model: ProviderEmbeddingModel,
   text: string,
   maxTokens: number,
 ): Promise<string[]> {
@@ -61,7 +64,7 @@ async function sliceToFit(
 
 export async function chunkText(
   text: string,
-  model: EmbeddingModel,
+  model: ProviderEmbeddingModel,
   cfg?: IngestConfig,
 ): Promise<Chunk[]> {
   const config = cfg ?? resolveConfig();

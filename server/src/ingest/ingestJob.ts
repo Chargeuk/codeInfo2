@@ -2,7 +2,7 @@ import { randomUUID } from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
 import { LogEntry } from '@codeinfo2/common';
-import type { EmbeddingModel, LMStudioClient } from '@lmstudio/sdk';
+import type { LMStudioClient } from '@lmstudio/sdk';
 import type { Metadata } from 'chromadb';
 import mongoose from 'mongoose';
 import { parseAstSource } from '../ast/parser.js';
@@ -56,6 +56,8 @@ import {
   hashFile,
   resolveConfig,
 } from './index.js';
+import type { ProviderEmbeddingModel } from './providers/types.js';
+import { createLmStudioEmbeddingProvider } from './providers/index.js';
 
 export type IngestJobInput = {
   path: string;
@@ -174,12 +176,22 @@ export function isBusy() {
 }
 
 async function embedText(modelKey: string, text: string): Promise<number[]> {
+  const model = await getEmbeddingModel(modelKey);
+  return model.embedText(text);
+}
+
+async function getEmbeddingModel(
+  modelKey: string,
+): Promise<ProviderEmbeddingModel> {
   const d = deps;
   if (!d) throw new Error('ingest deps not set');
-  const client = d.lmClientFactory(d.baseUrl);
-  const model = await client.embedding.model(modelKey);
-  const result = await model.embed(text);
-  return result.embedding;
+
+  const provider = createLmStudioEmbeddingProvider({
+    lmClientResolver: d.lmClientFactory,
+    baseUrl: d.baseUrl,
+  });
+
+  return provider.getModel(modelKey);
 }
 
 async function resolveRootEmbeddingDim(params: {
@@ -710,16 +722,11 @@ async function processRun(runId: string, input: IngestJobInput) {
         fileHashesByRelPath.get(file.relPath) ??
         (await hashFile(file.absPath));
       fileHashesByRelPath.set(file.relPath, fileHash);
-      const chunks = await chunkText(
-        text,
-        (await deps
-          ?.lmClientFactory(deps.baseUrl)
-          .embedding.model(model)) as unknown as EmbeddingModel,
-        ingestConfig,
-      );
+      const embeddingModel = await getEmbeddingModel(model);
+      const chunks = await chunkText(text, embeddingModel, ingestConfig);
       for (const chunk of chunks) {
         const chunkHash = hashChunk(file.relPath, chunk.chunkIndex, chunk.text);
-        const embedding = await embedText(model, chunk.text);
+        const embedding = await embeddingModel.embedText(chunk.text);
         if (embedding.length > 0) {
           vectorDim = embedding.length;
         }

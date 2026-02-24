@@ -1,6 +1,41 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import express from 'express';
+import test, { afterEach, beforeEach } from 'node:test';
+import request from 'supertest';
+import { createIngestRootsRouter } from '../../routes/ingestRoots.js';
 import { dedupeRootsByPath } from '../../routes/ingestRoots.js';
+
+const ORIGINAL_HOST = process.env.HOST_INGEST_DIR;
+
+function createRootsApp(
+  roots: { ids: string[]; metadatas: Record<string, unknown>[] },
+  lockedModelId: string | null,
+) {
+  const app = express();
+  app.use(express.json());
+  app.use(
+    createIngestRootsRouter({
+      getLockedModel: async () => lockedModelId,
+      getRootsCollection: async () =>
+        ({
+          get: async () => roots,
+        }) as never,
+    }),
+  );
+  return app;
+}
+
+beforeEach(() => {
+  process.env.HOST_INGEST_DIR = '/host/base';
+});
+
+afterEach(() => {
+  if (ORIGINAL_HOST === undefined) {
+    delete process.env.HOST_INGEST_DIR;
+  } else {
+    process.env.HOST_INGEST_DIR = ORIGINAL_HOST;
+  }
+});
 
 test('dedupeRootsByPath: keeps newest by lastIngestAt when path duplicates', () => {
   const roots = [
@@ -64,4 +99,27 @@ test('dedupeRootsByPath: falls back to runId when lastIngestAt is missing', () =
   assert.equal(deduped.length, 1);
   assert.equal(deduped[0]?.runId, 'r9');
   assert.equal(deduped[0]?.name, 'newer');
+});
+
+test('GET /ingest/roots returns canonical lock value from the unified resolver', async () => {
+  const response = await request(
+    createRootsApp(
+      {
+        ids: ['run-1'],
+        metadatas: [
+          {
+            name: 'repo',
+            root: '/data/repo',
+            model: 'embed-model',
+          },
+        ],
+      },
+      'text-embedding-openai',
+    ),
+  ).get('/ingest/roots');
+
+  assert.equal(response.status, 200);
+  assert.equal(response.body.lockedModelId, 'text-embedding-openai');
+  assert.equal(response.body.roots.length, 1);
+  assert.equal(response.body.roots[0].runId, 'run-1');
 });

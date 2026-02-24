@@ -1,11 +1,16 @@
 import type { LMStudioClient } from '@lmstudio/sdk';
 import { Router } from 'express';
-import { getLockedModel } from '../ingest/modelLock.js';
+import { getLockedModel as getCanonicalLockedModel } from '../ingest/chromaClient.js';
 import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
 import { BASE_URL_REGEX, scrubBaseUrl, toWebSocketUrl } from './lmstudioUrl.js';
 
 type ClientFactory = (baseUrl: string) => LMStudioClient;
+type Deps = {
+  clientFactory: ClientFactory;
+  getLockedModel?: () => Promise<string | null>;
+};
+
 const mapModel = (model: {
   modelKey?: string;
   displayName?: string;
@@ -28,11 +33,52 @@ const mapModel = (model: {
     (model.path ? (model.path.split('/').pop() ?? null) : null),
 });
 
+function logLockResolverState(
+  requestId: string | undefined,
+  surface: string,
+  lockedModelId: string | null,
+) {
+  append({
+    level: 'info',
+    message: 'DEV-0000036:T2:lock_resolver_source_selected',
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    requestId,
+    context: {
+      surface,
+      source: 'canonical',
+      lockedModelId,
+    },
+  });
+
+  append({
+    level: 'info',
+    message: 'DEV-0000036:T2:lock_resolver_surface_parity',
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    requestId,
+    context: {
+      surface,
+      embeddingProvider: 'lmstudio',
+      embeddingModel: lockedModelId,
+    },
+  });
+
+  baseLogger.info(
+    {
+      requestId,
+      surface,
+      source: 'canonical',
+      lockedModelId,
+    },
+    'lock resolver parity baseline',
+  );
+}
+
 export function createIngestModelsRouter({
   clientFactory,
-}: {
-  clientFactory: ClientFactory;
-}) {
+  getLockedModel: getLockedModelResolver = getCanonicalLockedModel,
+}: Deps) {
   const router = Router();
   router.get('/ingest/models', async (_req, res) => {
     const requestId = res.locals.requestId as string | undefined;
@@ -80,7 +126,8 @@ export function createIngestModelsRouter({
       });
 
       const mapped = embedding.map(mapModel);
-      const lockedModelId = await getLockedModel();
+      const lockedModelId = await getLockedModelResolver();
+      logLockResolverState(requestId, 'ingest/models', lockedModelId);
 
       append({
         level: 'info',

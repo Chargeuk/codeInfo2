@@ -1,27 +1,28 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import type { EmbeddingModel } from '@lmstudio/sdk';
+import type { ProviderEmbeddingModel } from '../../ingest/providers/types.js';
 import { exampleOne, longRun } from '../../ingest/__fixtures__/sample.js';
 import { chunkText } from '../../ingest/chunker.js';
 
 const mockModel = (
   ctx: number,
   tokenPerChar = 0.2,
-): Pick<EmbeddingModel, 'getContextLength' | 'countTokens'> => ({
+): ProviderEmbeddingModel => ({
   async getContextLength() {
     return ctx;
   },
   async countTokens(text: string) {
     return Math.ceil(text.length * tokenPerChar);
   },
+  async embedText(text: string) {
+    void text;
+    return [];
+  },
 });
 
 test('splits on boundary markers first', async () => {
   const model = mockModel(200);
-  const chunks = await chunkText(
-    exampleOne,
-    model as unknown as EmbeddingModel,
-  );
+  const chunks = await chunkText(exampleOne, model);
   assert.ok(chunks.length >= 2, 'expected multiple chunks');
   assert.ok(chunks[0].text.includes('function alpha'));
   assert.ok(chunks[1].text.includes('class Beta'));
@@ -37,11 +38,7 @@ test('falls back to slicing when chunk exceeds limit', async () => {
     flushEvery: 20,
   };
   const maxTokens = Math.floor(50 * config.tokenSafetyMargin);
-  const chunks = await chunkText(
-    longRun,
-    model as unknown as EmbeddingModel,
-    config,
-  );
+  const chunks = await chunkText(longRun, model, config);
   assert.ok(chunks.length > 1, 'expected slices');
   assert.ok(chunks.every((c) => c.tokenCount <= maxTokens));
 });

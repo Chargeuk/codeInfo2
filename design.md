@@ -71,6 +71,32 @@ flowchart TD
   T -- no --> X[Drop stale flags.threadId before persistence]
 ```
 
+## Embedding flow refactor (Task 1)
+
+- `server/src/ingest/providers/lmstudioEmbeddingProvider.ts` now centralizes LM Studio-specific embedding/model-discovery operations behind a provider interface consumed by ingest and vector-search paths.
+- Ingest path (`server/src/ingest/ingestJob.ts`) now asks the provider for `getModel()` and uses `embedText()` for chunk embeddings, replacing inline LM Studio client calls while preserving vector payload and lock behavior.
+- Query path (`server/src/lmstudio/toolService.ts` + `server/src/ingest/chromaClient.ts`) now uses `createLmStudioEmbeddingProvider(...).createEmbeddingFunction()` and resolves the locked embedding function through `getVectorsCollection({ requireEmbedding: true })`, preserving the same `getVectorsCollection(...).query(...)` usage.
+- Task 1 does not change REST/MCP response contracts; parity is enforced by parity-focused unit tests and logs.
+
+```mermaid
+flowchart LR
+  A[Ingest chunk loop] --> B[resolveEmbeddingModel]
+  B --> C[provider.getModel(modelKey)]
+  C --> D[Provider embedText(text)]
+  D --> E[vectors.add]
+  F[tools/vector-search] --> G[resolveLockedEmbeddingFunction]
+  G --> H[provider.createEmbeddingFunction(modelKey)]
+  H --> I[embedding.generate(queryTexts)]
+  I --> J[collection.query]
+```
+
+```mermaid
+flowchart LR
+  K[Legacy direct LM Studio calls] --> L[Task 1 adapter calls]
+  L --> M[Single LM Studio adapter for ingest/query]
+  M --> N[Contracts unchanged]
+```
+
 ## MCP keepalive lifecycle (shared helper)
 
 - MCP keepalive lifecycle is centralized in `server/src/mcpCommon/keepAlive.ts` and reused by classic `POST /mcp`, MCP v2 (`server/src/mcp2/router.ts`), and Agents MCP (`server/src/mcpAgents/router.ts`).
@@ -1255,6 +1281,25 @@ sequenceDiagram
 ```
 
 - Flow: client calls server → server lists downloaded models → filters to embedding type/capability → adds lock status → returns JSON; errors bubble as 502 with `{status:"error", message}`.
+
+### Ingest lock resolver unification (Task 0000036-T2)
+
+- Canonical lock reads now come from `server/src/ingest/chromaClient.ts#getLockedModel`.
+- `server/src/ingest/modelLock.ts` has been removed; routes/tools no longer read lock state from a placeholder path.
+- Lock-reporting surfaces (`/ingest/models`, `/ingest/roots`, `/tools/ingested-repos`, classic MCP `ListIngestedRepositories`, and vector-search call paths) all resolve lock values through the same canonical dependency wiring.
+- Task 2 intentionally keeps public payloads unchanged (`lockedModelId` remains the contract in these surfaces) while removing internal divergence.
+
+```mermaid
+flowchart TD
+  A[chromaClient.getLockedModel\ncanonical source] --> B[/ingest/models]
+  A --> C[/ingest/roots]
+  A --> D[/tools/ingested-repos]
+  A --> E[toolService.listIngestedRepositories]
+  E --> F[MCP ListIngestedRepositories]
+  A --> G[getVectorsCollection requireEmbedding]
+  G --> H[toolService.vectorSearch]
+  H --> I[MCP VectorSearch]
+```
 
 ### Ingest directory picker (server-backed)
 

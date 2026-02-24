@@ -4,7 +4,9 @@ import {
   type EmbeddingFunction,
 } from 'chromadb';
 import { getClient as getLmClient } from '../lmstudio/clientPool.js';
+import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
+import { createLmStudioEmbeddingProvider } from './providers/index.js';
 
 function getChromaUrl(): string {
   const raw = process.env.CHROMA_URL;
@@ -30,24 +32,6 @@ const toWebSocketUrl = (value: string) => {
   if (value.startsWith('https://')) return value.replace(/^https:/i, 'wss:');
   return value;
 };
-
-class LmStudioEmbeddingFunction implements EmbeddingFunction {
-  constructor(
-    private modelKey: string,
-    private baseUrl: string,
-  ) {}
-
-  async generate(texts: string[]): Promise<number[][]> {
-    const client = lmClientResolver(this.baseUrl);
-    const model = await client.embedding.model(this.modelKey);
-    const results: number[][] = [];
-    for (const text of texts) {
-      const res = await model.embed(text);
-      results.push(res.embedding);
-    }
-    return results;
-  }
-}
 
 function toChromaClientArgs(connectionString: string): {
   host: string;
@@ -123,10 +107,14 @@ async function resolveLockedEmbeddingFunction(): Promise<EmbeddingFunction> {
 
   const wsBase = toWebSocketUrl(baseUrl);
   try {
-    const client = lmClientResolver(wsBase);
+    const provider = createLmStudioEmbeddingProvider({
+      lmClientResolver,
+      baseUrl: wsBase,
+    });
+
     // Proactively verify the model exists to surface clear errors before query time.
-    await client.embedding.model(lockedModelId);
-    return new LmStudioEmbeddingFunction(lockedModelId, wsBase);
+    await provider.getModel(lockedModelId);
+    return await provider.createEmbeddingFunction(lockedModelId);
   } catch (err) {
     baseLogger.error(
       { modelId: lockedModelId, cause: err },
@@ -171,10 +159,34 @@ export async function getRootsCollection(): Promise<Collection> {
 export async function getLockedModel(): Promise<string | null> {
   const col = await getVectorsCollection();
   const metadata = (col as { metadata?: Record<string, unknown> }).metadata;
-  if (metadata && typeof metadata.lockedModelId === 'string') {
-    return metadata.lockedModelId || null;
-  }
-  return null;
+  const lockedModelId =
+    metadata && typeof metadata.lockedModelId === 'string'
+      ? (metadata.lockedModelId ?? null)
+      : null;
+
+  append({
+    level: 'info',
+    message: 'DEV-0000036:T2:lock_resolver_source_selected',
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      surface: 'ingest/chromaClient#getLockedModel',
+      source: 'canonical',
+      lockedModelId,
+    },
+  });
+  append({
+    level: 'info',
+    message: 'DEV-0000036:T2:lock_resolver_surface_parity',
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      surface: 'ingest/chromaClient#getLockedModel',
+      embeddingProvider: 'lmstudio',
+      embeddingModel: lockedModelId,
+    },
+  });
+  return lockedModelId;
 }
 
 export async function setLockedModel(modelId: string): Promise<void> {

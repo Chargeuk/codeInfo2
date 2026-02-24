@@ -73,6 +73,37 @@ type Deps = {
 
 const PROTOCOL_VERSION = '2024-11-05';
 
+function logLockResolverState(
+  requestId: string | undefined,
+  surface: string,
+  lockedModelId: string | null,
+) {
+  append({
+    level: 'info',
+    message: 'DEV-0000036:T2:lock_resolver_source_selected',
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    requestId,
+    context: {
+      surface,
+      source: 'canonical',
+      lockedModelId,
+    },
+  });
+  append({
+    level: 'info',
+    message: 'DEV-0000036:T2:lock_resolver_surface_parity',
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    requestId,
+    context: {
+      surface,
+      embeddingProvider: 'lmstudio',
+      embeddingModel: lockedModelId,
+    },
+  });
+}
+
 const rangeSchema = {
   type: 'object',
   properties: {
@@ -566,6 +597,11 @@ export function createMcpRouter(
                 getRootsCollection: resolved.getRootsCollection,
                 getLockedModel: resolved.getLockedModel,
               });
+              logLockResolverState(
+                requestId,
+                'mcp/ListIngestedRepositories',
+                (payload.lockedModelId ?? null) as string | null,
+              );
               baseLogger.info(
                 {
                   requestId,
@@ -588,6 +624,11 @@ export function createMcpRouter(
                 getVectorsCollection: resolved.getVectorsCollection,
                 getLockedModel: resolved.getLockedModel,
               });
+              logLockResolverState(
+                requestId,
+                'mcp/VectorSearch',
+                (payload.modelId ?? null) as string | null,
+              );
               baseLogger.info(
                 {
                   requestId,

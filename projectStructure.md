@@ -368,7 +368,6 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚     â”œâ”€ test/unit/codexEnvDefaults.test.ts â€” unit coverage for Codex env defaults parsing/warnings
 â”‚     â”œâ”€ ingest/ â€” ingest helpers (discovery, chunking, hashing, config)
 â”‚     â”‚  â”œâ”€ __fixtures__/sample.ts â€” sample text blocks for chunking tests
-â”‚     â”‚  â”œâ”€ modelLock.ts — placeholder for ingest model lock retrieval
 â”‚     â”‚  â”œâ”€ lock.ts — single-flight ingest lock with TTL
 â”‚     â”‚  â”œâ”€ chunker.ts â€” boundary-aware chunking with token limits
 â”‚     â”‚  â”œâ”€ config.ts â€” ingest config resolver for include/exclude and token safety
@@ -454,6 +453,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚           â”œâ”€ turn-command-metadata.test.ts — Turn persistence plumbs optional command metadata through append/list helpers
 â”‚           â”œâ”€ toolService.synthetic.test.ts — unit coverage for onToolResult callback emission
 â”‚           â”œâ”€ chroma-embedding-selection.test.ts â€” locked-model embedding function selection + error paths
+â”‚           â”œâ”€ ingest-models.test.ts â€” supertest coverage for /ingest/models lock-source parity
 â”‚           â”œâ”€ ingest-status.test.ts â€” ingest status progress fields round-trip helper coverage
 â”‚           â”œâ”€ ingest-ast-indexing.test.ts â€” unit coverage for AST ingest counts, delta handling, and persistence skipping
 â”‚           â”œâ”€ ingest-files-schema.test.ts â€” unit coverage for `ingest_files` Mongoose schema fields + indexes
@@ -478,6 +478,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚           â”œâ”€ mcp2-router-method-not-found.test.ts â€” MCP v2 method not found (-32601) characterization (unknown method)
 â”‚           â”œâ”€ mcp2-router-tool-not-found.test.ts â€” MCP v2 unknown tool mapping characterization (tools/call -> -32601)
 â”‚           â”œâ”€ mcp2.reingest.tool.test.ts â€” MCP v2 `reingest_repository` tools/list + tools/call success/error + parity contract coverage
+â”‚           â”œâ”€ mcp-ingested-repositories.test.ts â€” supertest coverage for classic MCP ListIngestedRepositories lock parity
 â”‚           â”œâ”€ mcp.keepalive.helper.test.ts â€” unit coverage for shared keepalive helper lifecycle and write-after-close protection
 â”‚           â”œâ”€ mcp.reingest.classic.test.ts â€” unit coverage for classic MCP `reingest_repository` tools/list + tools/call success/error contracts
 â”‚           â”œâ”€ reingestService.test.ts â€” unit coverage for `reingest_repository` validation, success mapping, unknown root retry guidance, and busy contracts

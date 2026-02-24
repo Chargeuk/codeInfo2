@@ -22,6 +22,25 @@ export function createToolsIngestedReposRouter(
         getRootsCollection: deps.getRootsCollection,
         getLockedModel: deps.getLockedModel,
       });
+      baseLogger.info(
+        {
+          surface: 'tools/ingested-repos',
+          source: 'canonical',
+          lockedModelId,
+          count: repos.length,
+          requestId: res.locals?.requestId as string | undefined,
+        },
+        'DEV-0000036:T2:lock_resolver_source_selected',
+      );
+      baseLogger.info(
+        {
+          surface: 'tools/ingested-repos',
+          embeddingProvider: 'lmstudio',
+          embeddingModel: lockedModelId,
+          requestId: res.locals?.requestId as string | undefined,
+        },
+        'DEV-0000036:T2:lock_resolver_surface_parity',
+      );
       const requestId =
         (res.locals?.requestId as string | undefined) ?? undefined;
       baseLogger.info(

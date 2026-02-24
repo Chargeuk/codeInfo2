@@ -32,6 +32,36 @@ export type ListReposResult = {
   lockedModelId: string | null;
 };
 
+function logLockResolverState(
+  surface: string,
+  requestId: string | undefined,
+  lockedModelId: string | null,
+) {
+  append({
+    level: 'info',
+    message: 'DEV-0000036:T2:lock_resolver_source_selected',
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      surface,
+      source: 'canonical',
+      lockedModelId,
+    },
+  });
+  append({
+    level: 'info',
+    message: 'DEV-0000036:T2:lock_resolver_surface_parity',
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      surface,
+      embeddingProvider: 'lmstudio',
+      embeddingModel: lockedModelId,
+      requestId,
+    },
+  });
+}
+
 export type VectorSearchParams = {
   query: string;
   repository?: string;
@@ -403,6 +433,11 @@ export async function listIngestedRepositories(
     });
 
   const lockedModelId = (await lockedModel()) ?? null;
+  logLockResolverState(
+    'tools/listIngestedRepositories',
+    undefined,
+    lockedModelId,
+  );
   return { repos, lockedModelId };
 }
 
@@ -421,6 +456,7 @@ export async function vectorSearch(
   } = resolveDeps(deps);
 
   const lockedModelId = await getLockedModel();
+  logLockResolverState('toolService/vectorSearch', undefined, lockedModelId);
   if (!lockedModelId) {
     throw new IngestRequiredError();
   }

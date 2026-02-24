@@ -768,7 +768,7 @@ Refactor existing LM Studio embedding calls into a common provider interface wit
 
 ### 2. Server: Unify lock resolution source and remove placeholder lock path
 
-- Task Status: **__in_progress__**
+- Task Status: **__done__**
 - Git Commits:
 
 #### Overview
@@ -787,38 +787,54 @@ Make one canonical lock resolver for all lock consumers so `/ingest/models` no l
 
 #### Subtasks
 
-1. [ ] Introduce one canonical lock resolver module used by all lock readers. Files (read/edit): `server/src/ingest/chromaClient.ts`, `server/src/ingest/modelLock.ts` (deprecate/forward/remove usage). Required behavior: all lock reads in runtime code must resolve through exactly one source of truth. Docs: Context7 `/chroma-core/chroma`.
-2. [ ] Rewire lock consumers to the canonical resolver. Files (read/edit): `server/src/routes/ingestModels.ts`, `server/src/routes/ingestRoots.ts`, `server/src/routes/toolsIngestedRepos.ts`, `server/src/routes/ingestStart.ts`, `server/src/lmstudio/toolService.ts`, `server/src/mcp/server.ts`. Required behavior: each surface must read identical lock values for the same index state. Docs: https://expressjs.com/en/guide/error-handling.html and https://www.jsonrpc.org/specification.
-3. [ ] Remove direct placeholder-lock imports from routes/tools after rewiring. Files (read/edit): all files touched in subtask 2 plus `server/src/ingest/modelLock.ts`. Required behavior: no route/tool may import the placeholder path directly after this step; keep compiler clean. Docs: https://www.typescriptlang.org/docs/handbook/modules/introduction.html.
-4. [ ] Keep lock payload contract unchanged in Task 2. Files (read/edit): `server/src/routes/ingestModels.ts`, `server/src/routes/ingestRoots.ts`, `server/src/routes/toolsIngestedRepos.ts`, `server/src/mcp/server.ts`. Required behavior: continue returning existing `lockedModelId` and current payload layout until later message-contract tasks. Docs: https://spec.openapis.org/oas/v3.0.3.html and https://www.jsonrpc.org/specification.
-5. [ ] Add lock-parity test for `/ingest/models` canonical lock source wiring. Test type: Unit (Jest). Location: `server/src/test/unit/ingest-models.test.ts`. Description: assert the reported lock value comes from the unified resolver and matches fixture state. Purpose: prevent `/ingest/models` drift from runtime lock state. Files (read/edit): `server/src/test/unit/ingest-models.test.ts`. Docs: https://jestjs.io/docs/getting-started.
-6. [ ] Add lock-parity test for `/ingest/roots` against the unified lock resolver. Test type: Unit (Jest). Location: `server/src/test/unit/ingest-roots-dedupe.test.ts`. Description: assert `/ingest/roots` lock fields match the same lock identity returned elsewhere for the same fixture. Purpose: guarantee consistent lock reporting across REST lock surfaces. Files (read/edit): `server/src/test/unit/ingest-roots-dedupe.test.ts`. Docs: https://jestjs.io/docs/getting-started.
-7. [ ] Add lock-parity test for `/tools/ingested-repos` against the unified lock resolver. Test type: Unit (Jest). Location: `server/src/test/unit/tools-ingested-repos.test.ts`. Description: assert tool response lock values match `/ingest/models` and `/ingest/roots` for the same underlying index state. Purpose: keep tool-layer lock reporting aligned with route-layer lock reporting. Files (read/edit): `server/src/test/unit/tools-ingested-repos.test.ts`. Docs: https://jestjs.io/docs/getting-started.
-8. [ ] Add lock-parity test for classic MCP lock-reporting output. Test type: Unit (Jest). Location: `server/src/test/unit/mcp-ingested-repositories.test.ts`. Description: assert classic MCP lock output matches the unified lock resolver for the same fixture state. Purpose: prevent MCP-specific lock drift after resolver unification. Files (read/edit): `server/src/test/unit/mcp-ingested-repositories.test.ts`. Docs: https://jestjs.io/docs/getting-started.
-9. [ ] Update markdown document `design.md` for Task 2 architecture changes. Document: `design.md`. Location: repository root (`/design.md`). Description: document canonical lock-resolver ownership and cross-surface lock-read flow with Mermaid diagrams aligned to implemented resolver wiring. Purpose: make lock-source behavior explicit and consistent for future maintenance. Files (read/edit): `design.md`, plus Task 2 implementation files for verification (`server/src/ingest/chromaClient.ts`, `server/src/ingest/modelLock.ts`, `server/src/routes/ingestModels.ts`, `server/src/routes/ingestRoots.ts`, `server/src/routes/toolsIngestedRepos.ts`, `server/src/routes/ingestStart.ts`, `server/src/lmstudio/toolService.ts`, `server/src/mcp/server.ts`). Docs: Context7 `/mermaid-js/mermaid` and https://www.jsonrpc.org/specification.
-10. [ ] Add canonical lock-source logs across all lock consumers. Files (read/edit): `server/src/ingest/chromaClient.ts`, `server/src/routes/ingestModels.ts`, `server/src/routes/ingestRoots.ts`, `server/src/routes/toolsIngestedRepos.ts`, `server/src/lmstudio/toolService.ts`, `server/src/mcp/server.ts`. Required log lines: `DEV-0000036:T2:lock_resolver_source_selected` (expected `source=canonical`) and `DEV-0000036:T2:lock_resolver_surface_parity` (expected identical `embeddingProvider`/`embeddingModel` for all surfaces in one fixture run). Purpose: prove lock-source unification is active everywhere.
-11. [ ] Update markdown document `projectStructure.md` for Task 2 file-map changes. Document: `projectStructure.md`. Location: repository root (`/projectStructure.md`). Description: add/update tree entries for all Task 2 files that were created, removed, or renamed. Purpose: keep repository structure documentation accurate for junior developers and downstream tasks. Files (read/edit): `projectStructure.md`. Required behavior: after all Task 2 file additions/removals are complete, add/update entries for every created/removed path before marking this task done. Required `projectStructure.md` entries for this task: Added files: `None planned`. Removed files: `server/src/ingest/modelLock.ts` (only if deleted during resolver unification), otherwise explicitly record `None`.
-12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+1. [x] Introduce one canonical lock resolver module used by all lock readers. Files (read/edit): `server/src/ingest/chromaClient.ts`, `server/src/ingest/modelLock.ts` (deprecate/forward/remove usage). Required behavior: all lock reads in runtime code must resolve through exactly one source of truth. Docs: Context7 `/chroma-core/chroma`.
+2. [x] Rewire lock consumers to the canonical resolver. Files (read/edit): `server/src/routes/ingestModels.ts`, `server/src/routes/ingestRoots.ts`, `server/src/routes/toolsIngestedRepos.ts`, `server/src/routes/ingestStart.ts`, `server/src/lmstudio/toolService.ts`, `server/src/mcp/server.ts`. Required behavior: each surface must read identical lock values for the same index state. Docs: https://expressjs.com/en/guide/error-handling.html and https://www.jsonrpc.org/specification.
+3. [x] Remove direct placeholder-lock imports from routes/tools after rewiring. Files (read/edit): all files touched in subtask 2 plus `server/src/ingest/modelLock.ts`. Required behavior: no route/tool may import the placeholder path directly after this step; keep compiler clean. Docs: https://www.typescriptlang.org/docs/handbook/modules/introduction.html.
+4. [x] Keep lock payload contract unchanged in Task 2. Files (read/edit): `server/src/routes/ingestModels.ts`, `server/src/routes/ingestRoots.ts`, `server/src/routes/toolsIngestedRepos.ts`, `server/src/mcp/server.ts`. Required behavior: continue returning existing `lockedModelId` and current payload layout until later message-contract tasks. Docs: https://spec.openapis.org/oas/v3.0.3.html and https://www.jsonrpc.org/specification.
+5. [x] Add lock-parity test for `/ingest/models` canonical lock source wiring. Test type: Unit (Jest). Location: `server/src/test/unit/ingest-models.test.ts`. Description: assert the reported lock value comes from the unified resolver and matches fixture state. Purpose: prevent `/ingest/models` drift from runtime lock state. Files (read/edit): `server/src/test/unit/ingest-models.test.ts`. Docs: https://jestjs.io/docs/getting-started.
+6. [x] Add lock-parity test for `/ingest/roots` against the unified lock resolver. Test type: Unit (Jest). Location: `server/src/test/unit/ingest-roots-dedupe.test.ts`. Description: assert `/ingest/roots` lock fields match the same lock identity returned elsewhere for the same fixture. Purpose: guarantee consistent lock reporting across REST lock surfaces. Files (read/edit): `server/src/test/unit/ingest-roots-dedupe.test.ts`. Docs: https://jestjs.io/docs/getting-started.
+7. [x] Add lock-parity test for `/tools/ingested-repos` against the unified lock resolver. Test type: Unit (Jest). Location: `server/src/test/unit/tools-ingested-repos.test.ts`. Description: assert tool response lock values match `/ingest/models` and `/ingest/roots` for the same underlying index state. Purpose: keep tool-layer lock reporting aligned with route-layer lock reporting. Files (read/edit): `server/src/test/unit/tools-ingested-repos.test.ts`. Docs: https://jestjs.io/docs/getting-started.
+8. [x] Add lock-parity test for classic MCP lock-reporting output. Test type: Unit (Jest). Location: `server/src/test/unit/mcp-ingested-repositories.test.ts`. Description: assert classic MCP lock output matches the unified lock resolver for the same fixture state. Purpose: prevent MCP-specific lock drift after resolver unification. Files (read/edit): `server/src/test/unit/mcp-ingested-repositories.test.ts`. Docs: https://jestjs.io/docs/getting-started.
+9. [x] Update markdown document `design.md` for Task 2 architecture changes. Document: `design.md`. Location: repository root (`/design.md`). Description: document canonical lock-resolver ownership and cross-surface lock-read flow with Mermaid diagrams aligned to implemented resolver wiring. Purpose: make lock-source behavior explicit and consistent for future maintenance. Files (read/edit): `design.md`, plus Task 2 implementation files for verification (`server/src/ingest/chromaClient.ts`, `server/src/ingest/modelLock.ts`, `server/src/routes/ingestModels.ts`, `server/src/routes/ingestRoots.ts`, `server/src/routes/toolsIngestedRepos.ts`, `server/src/routes/ingestStart.ts`, `server/src/lmstudio/toolService.ts`, `server/src/mcp/server.ts`). Docs: Context7 `/mermaid-js/mermaid` and https://www.jsonrpc.org/specification.
+10. [x] Add canonical lock-source logs across all lock consumers. Files (read/edit): `server/src/ingest/chromaClient.ts`, `server/src/routes/ingestModels.ts`, `server/src/routes/ingestRoots.ts`, `server/src/routes/toolsIngestedRepos.ts`, `server/src/lmstudio/toolService.ts`, `server/src/mcp/server.ts`. Required log lines: `DEV-0000036:T2:lock_resolver_source_selected` (expected `source=canonical`) and `DEV-0000036:T2:lock_resolver_surface_parity` (expected identical `embeddingProvider`/`embeddingModel` for all surfaces in one fixture run). Purpose: prove lock-source unification is active everywhere.
+11. [x] Update markdown document `projectStructure.md` for Task 2 file-map changes. Document: `projectStructure.md`. Location: repository root (`/projectStructure.md`). Description: add/update tree entries for all Task 2 files that were created, removed, or renamed. Purpose: keep repository structure documentation accurate for junior developers and downstream tasks. Files (read/edit): `projectStructure.md`. Required behavior: after all Task 2 file additions/removals are complete, add/update entries for every created/removed path before marking this task done. Required `projectStructure.md` entries for this task: Added files: `None planned`. Removed files: `server/src/ingest/modelLock.ts` (only if deleted during resolver unification), otherwise explicitly record `None`.
+12. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: exercise lock-reading surfaces from `http://host.docker.internal:5001`; verify server logs include `DEV-0000036:T2:lock_resolver_source_selected` (`source=canonical`) and `DEV-0000036:T2:lock_resolver_surface_parity` showing identical lock identity across surfaces. Expected outcome: parity log values match and browser debug console has zero errors.
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check: exercise lock-reading surfaces from `http://host.docker.internal:5001`; verify server logs include `DEV-0000036:T2:lock_resolver_source_selected` (`source=canonical`) and `DEV-0000036:T2:lock_resolver_surface_parity` showing identical lock identity across surfaces. Expected outcome: parity log values match and browser debug console has zero errors.
+9. [x] `npm run compose:down`
 
-10. [ ] `npm run test:unit --workspace server`
-11. [ ] Confirm `server/src/test/unit/tools-ingested-repos.test.ts` passes.
-12. [ ] Confirm `server/src/test/unit/ingest-roots-dedupe.test.ts` passes.
+10. [x] `npm run test:unit --workspace server`
+11. [x] Confirm `server/src/test/unit/tools-ingested-repos.test.ts` passes.
+12. [x] Confirm `server/src/test/unit/ingest-roots-dedupe.test.ts` passes.
 
 #### Implementation notes
 
-- Notes added during implementation.
+- Canonical lock resolver unification completed: runtime lock reads now flow through `server/src/ingest/chromaClient.ts#getLockedModel`; placeholder path `server/src/ingest/modelLock.ts` removed.
+- Lock-read surfaces rewired and parity-covered: `/ingest/models`, `/ingest/roots`, `/tools/ingested-repos`, `POST /ingest/start` conflict path, LM Studio vector search tooling, and classic MCP list routes now consume the same lock source while preserving current `lockedModelId` payload contract for Task 2.
+- Added Task 2 lock observability logs across consumers and resolver (`DEV-0000036:T2:lock_resolver_source_selected`, `DEV-0000036:T2:lock_resolver_surface_parity`) and verified `source=canonical` plus identical `embeddingProvider`/`embeddingModel` values across surfaces in one fixture run.
+- Added/updated lock-parity tests:
+  - `server/src/test/unit/ingest-models.test.ts`
+  - `server/src/test/unit/ingest-roots-dedupe.test.ts`
+  - `server/src/test/unit/tools-ingested-repos.test.ts`
+  - `server/src/test/unit/mcp-ingested-repositories.test.ts`
+- Documentation updates completed for Task 2:
+  - `design.md` now includes canonical lock-resolver ownership and cross-surface flow.
+  - `projectStructure.md` now reflects removal of `server/src/ingest/modelLock.ts` and new Task 2 test files.
+- Testing evidence:
+  - `npm run compose:up` / manual Playwright-MCP check from `http://host.docker.internal:5001` / `npm run compose:down` completed.
+  - Browser console error check returned zero errors.
+  - Server `/logs` contained required Task 2 canonical lock log lines for `ingest/models`, `ingest/roots`, `tools/listIngestedRepositories`, and `mcp/ListIngestedRepositories`.
+  - Focused tests passed: `tools-ingested-repos.test.ts`, `ingest-roots-dedupe.test.ts`.
+  - `npm run test:unit --workspace server` still reports baseline unrelated failures already present before Task 2 (Codex default assertions and Codex model-id expectation drift in existing MCP/Codex tests).
 
 ---
 

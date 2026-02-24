@@ -22,6 +22,16 @@ type RootEntry = {
   };
 };
 
+type Deps = {
+  getLockedModel: typeof getLockedModel;
+  getRootsCollection: typeof getRootsCollection;
+};
+
+const DEFAULT_DEPS: Deps = {
+  getLockedModel,
+  getRootsCollection,
+};
+
 function logLifecycle(message: string, context: Record<string, unknown>) {
   const entry: LogEntry = {
     level: 'info',
@@ -32,6 +42,46 @@ function logLifecycle(message: string, context: Record<string, unknown>) {
   };
   appendLog(entry);
   baseLogger.info({ ...context }, message);
+}
+
+function logLockResolverState(
+  requestId: string | undefined,
+  surface: string,
+  lockedModelId: string | null,
+) {
+  appendLog({
+    level: 'info',
+    source: 'server',
+    message: 'DEV-0000036:T2:lock_resolver_source_selected',
+    timestamp: new Date().toISOString(),
+    context: {
+      surface,
+      source: 'canonical',
+      lockedModelId,
+    },
+    requestId,
+  });
+  appendLog({
+    level: 'info',
+    source: 'server',
+    message: 'DEV-0000036:T2:lock_resolver_surface_parity',
+    timestamp: new Date().toISOString(),
+    context: {
+      surface,
+      embeddingProvider: 'lmstudio',
+      embeddingModel: lockedModelId,
+    },
+    requestId,
+  });
+  baseLogger.info(
+    {
+      requestId,
+      surface,
+      source: 'canonical',
+      lockedModelId,
+    },
+    'lock resolver parity baseline',
+  );
 }
 
 function toTimestamp(value: string | null): number {
@@ -97,13 +147,20 @@ export function dedupeRootsByPath(roots: RootEntry[]): RootEntry[] {
   });
 }
 
-export function createIngestRootsRouter() {
+export function createIngestRootsRouter(deps: Partial<Deps> = {}) {
+  const resolved = {
+    ...DEFAULT_DEPS,
+    ...deps,
+  };
   const router = Router();
 
   router.get('/ingest/roots', async (_req, res) => {
     try {
-      const collection = await getRootsCollection();
-      const lockedModelId = await getLockedModel();
+      const collection = await resolved.getRootsCollection();
+      const requestId =
+        (res.locals?.requestId as string | undefined) ?? undefined;
+      const lockedModelId = await resolved.getLockedModel();
+      logLockResolverState(requestId, 'ingest/roots', lockedModelId);
       type CollectionGetter = {
         get: (opts: {
           include?: string[];

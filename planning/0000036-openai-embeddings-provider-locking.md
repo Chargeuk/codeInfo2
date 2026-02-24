@@ -297,9 +297,7 @@ This section defines concrete "done" behavior so a junior developer can verify o
 - Wait-hint precedence when OpenAI indicates rate/availability pressure:
   - `retry-after-ms` header (milliseconds) when present and valid.
   - `retry-after` header (seconds or HTTP date) when present and valid.
-  - `x-ratelimit-reset-requests` / `x-ratelimit-reset-tokens` when parseable as a positive reset duration.
   - Fallback to bounded exponential delay when no valid hint is available.
-- Any server-provided wait hint above `60000ms` is treated as non-immediate and replaced by bounded exponential fallback, to avoid long blocking stalls in ingest/vector-search requests.
 
 ### `/ingest/models` Warning-State Message Contract
 
@@ -570,15 +568,13 @@ This section defines additional failure-mode expectations that must be implement
 ### Concurrency and State Transitions
 
 - Edge case: race window in `POST /ingest/start` prechecks (`getLockedModel` + `collectionIsEmpty` + `isBusy`) before `startIngest` lock acquisition. Required handling: `startIngest` remains the authoritative atomic gate; rejected starts must never create queued runs.
-- Edge case: ingest lock TTL expires while a run is still non-terminal. Required handling: busy decision uses active run state plus lock state; mutating endpoints must reject while any non-terminal run exists.
 - Edge case: canceling a terminal run while lock ownership is still present. Required handling: cancel path must release stale ingest lock ownership to prevent false `BUSY`.
 - Edge case: concurrent remove/reembed/start operations against same root. Required handling: remove/reembed mutations must honor same ingest lock discipline and return deterministic `BUSY` conflicts when lock is held.
 - Edge case: reembed requested while latest root state is `cancelled`/`error` with stale metadata. Required handling: deterministic eligibility check before reembed start; reject invalid states with stable validation error.
 
 ### OpenAI Request/Retry Failure Modes
 
-- Edge case: retryable OpenAI failures include `retry-after-ms`, `retry-after`, or rate-limit reset headers that are invalid/negative/unparseable. Required handling: ignore invalid hints and fall back to bounded exponential delay contract.
-- Edge case: retry hint is excessively long (greater than 60s). Required handling: treat as non-immediate and use bounded fallback delay to avoid long blocking requests.
+- Edge case: retryable OpenAI failures include `retry-after-ms` or `retry-after` headers that are invalid/negative/unparseable. Required handling: ignore invalid hints and fall back to bounded exponential delay contract.
 - Edge case: retry budget exhausted after transient failures. Required handling: return final normalized `OPENAI_*` terminal error containing retryability metadata and last-known upstream status.
 - Edge case: OpenAI SDK retries left enabled while server retries are also enabled. Required handling: enforce one retry layer only (`maxRetries=0` in SDK client for embeddings calls).
 - Edge case: timeout/connection resets during ingest after partial chunk batches were written. Required handling: run fails with deterministic OpenAI taxonomy code and preserves accurate progress/lastError; no silent provider fallback.
@@ -816,17 +812,16 @@ Implement OpenAI embedding execution behind the shared provider interface, inclu
 5. [ ] Add model-specific OpenAI token-limit resolution utility and use it in request guardrails (no single global token-limit constant for all models).
 6. [ ] Enforce OpenAI guardrails for ingest-time batches (`<=2048` inputs, per-input token limit, `<=300000` total request tokens) before upstream calls.
 7. [ ] Enforce the same OpenAI guardrails for query-time embedding requests before upstream calls.
-8. [ ] Extract `runWithRetry`/`delayWithAbort` into a shared utility at `server/src/utils/retry.ts`.
-9. [ ] Keep `server/src/agents/retry.ts` as a compatibility re-export and switch embedding retry usage to the shared utility so only one retry implementation exists.
-10. [ ] Implement wait-hint parser/priority handling in shared retry support with precedence: `retry-after-ms` -> `retry-after` (seconds/date) -> `x-ratelimit-reset-requests` / `x-ratelimit-reset-tokens` -> bounded exponential fallback.
-11. [ ] Enforce wait-hint edge handling: ignore invalid/negative hints, treat hints `>60000ms` as non-immediate, and fall back to bounded exponential delay.
-12. [ ] Set OpenAI embedding call timeout to `30000ms` per attempt and disable SDK auto-retries for embedding calls (`maxRetries=0`) so server retry logic is the only retry layer.
-13. [ ] Implement taxonomy mapping for OpenAI HTTP/SDK failures to story `OPENAI_*` codes.
-14. [ ] Add explicit mapping coverage for quota/credit exhaustion to `OPENAI_QUOTA_EXCEEDED` and input-size/token failures (including `context_length_exceeded`) to `OPENAI_INPUT_TOO_LARGE`.
-15. [ ] Validate embedding response payload integrity (non-empty numeric vectors only) before writing any vectors.
-16. [ ] Ensure retry-budget exhaustion returns a normalized terminal `OPENAI_*` error with deterministic metadata (`retryable`, `upstreamStatus`, optional `retryAfterMs`) rather than raw SDK errors.
-17. [ ] Ensure OpenAI embedding errors/log fields never include secret material (`OPENAI_EMBEDDING_KEY`, authorization headers, or bearer tokens) by using sanitized error/log metadata at the provider boundary.
-18. [ ] Add/update focused unit tests for retry/backoff defaults, wait-hint precedence and edge handling, timeout ownership, taxonomy mapping, response validation, guardrails, and secret-safety sanitization.
+8. [ ] Reuse existing `server/src/agents/retry.ts` for OpenAI embedding retry behavior in this story (no retry utility extraction/refactor).
+9. [ ] Implement wait-hint handling with precedence: `retry-after-ms` -> `retry-after` (seconds/date) -> bounded exponential fallback.
+10. [ ] Enforce wait-hint edge handling: ignore invalid/negative/unparseable hints and fall back to bounded exponential delay.
+11. [ ] Set OpenAI embedding call timeout to `30000ms` per attempt and disable SDK auto-retries for embedding calls (`maxRetries=0`) so server retry logic is the only retry layer.
+12. [ ] Implement taxonomy mapping for OpenAI HTTP/SDK failures to story `OPENAI_*` codes.
+13. [ ] Add explicit mapping coverage for quota/credit exhaustion to `OPENAI_QUOTA_EXCEEDED` and input-size/token failures (including `context_length_exceeded`) to `OPENAI_INPUT_TOO_LARGE`.
+14. [ ] Validate embedding response payload integrity (non-empty numeric vectors only) before writing any vectors.
+15. [ ] Ensure retry-budget exhaustion returns a normalized terminal `OPENAI_*` error with deterministic metadata (`retryable`, `upstreamStatus`, optional `retryAfterMs`) rather than raw SDK errors.
+16. [ ] Ensure OpenAI embedding errors/log fields never include secret material (`OPENAI_EMBEDDING_KEY`, authorization headers, or bearer tokens) by using sanitized error/log metadata at the provider boundary.
+17. [ ] Add/update focused unit tests for retry/backoff defaults, wait-hint precedence handling, timeout ownership, taxonomy mapping, response validation, guardrails, and secret-safety sanitization.
 
 #### Testing
 
@@ -835,7 +830,7 @@ Implement OpenAI embedding execution behind the shared provider interface, inclu
 3. [ ] Confirm `npm ls openai --workspace server` resolves exactly one installed `openai` package and no ingestion code imports `@openai/codex-sdk` for embeddings/model-list calls.
 4. [ ] Confirm taxonomy/guardrail tests pass in provider adapter test suite.
 5. [ ] Confirm retry-exhaustion normalization tests pass (terminal error metadata, no raw SDK leak-through).
-6. [ ] Confirm wait-hint precedence tests (header-order and fallback) plus edge-case tests (invalid/negative/date/over-60s) pass in provider retry test suite.
+6. [ ] Confirm wait-hint precedence tests (header-order and fallback) plus edge-case tests (invalid/negative/unparseable hints) pass in provider retry test suite.
 7. [ ] Confirm OpenAI taxonomy tests cover upstream input-too-large mapping (`OPENAI_INPUT_TOO_LARGE`) and quota mapping (`OPENAI_QUOTA_EXCEEDED`).
 8. [ ] Confirm OpenAI adapter tests prove API key/token material is not present in emitted error/log metadata.
 
@@ -872,10 +867,8 @@ Extend lock identity from model-only to provider+model+dimensions internally, wi
 9. [ ] Add deterministic pre-query dimension mismatch checks before Chroma query and map to `EMBEDDING_DIMENSION_MISMATCH` without leaking raw Chroma errors.
 10. [ ] Reuse existing lock ownership gates in `server/src/ingest/lock.ts` and `server/src/ingest/ingestJob.ts` so `startIngest` remains the authoritative concurrency gate.
 11. [ ] Ensure stale lock ownership is released after terminal/cancel paths so long-running flows do not leave false `BUSY` state.
-12. [ ] Add explicit active-run-over-lock-TTL guard so mutating endpoints still return deterministic `BUSY` when lock TTL has expired but a run remains non-terminal.
-13. [ ] Ensure vectors-empty cleanup clears lock metadata idempotently and does not clear a newly established lock from a newer run.
-14. [ ] Add deterministic re-embed eligibility validation for invalid root states (`cancelled`/`error` with stale metadata) before job start.
-15. [ ] Add/update targeted tests for: legacy inference + canonical writes, canonical-first reembed metadata selection, partial-canonical invalid-state handling, provider lock enforcement across REST/MCP, dimension mismatch, active-run-over-lock-TTL busy behavior, idempotent lock clearing, and lock lifecycle/concurrency edge cases.
+12. [ ] Add deterministic re-embed eligibility validation for invalid root states (`cancelled`/`error` with stale metadata) before job start.
+13. [ ] Add/update targeted tests for: legacy inference + canonical writes, canonical-first reembed metadata selection, partial-canonical invalid-state handling, provider lock enforcement across REST/MCP, dimension mismatch, and lock lifecycle/concurrency edge cases.
 
 #### Testing
 
@@ -884,8 +877,8 @@ Extend lock identity from model-only to provider+model+dimensions internally, wi
 3. [ ] `npm run test:integration --workspace server`
 4. [ ] Confirm `server/src/test/integration/chat-vectorsearch-locked-model.test.ts` passes.
 5. [ ] Confirm classic MCP vector-search parity and ingest lock-lifecycle tests pass.
-6. [ ] Confirm invalid partial-canonical lock metadata and lock-clear idempotency tests pass.
-7. [ ] Confirm active-run-over-lock-TTL concurrency tests pass with deterministic `BUSY` outcomes.
+6. [ ] Confirm invalid partial-canonical lock metadata and lock lifecycle cleanup tests pass.
+7. [ ] Confirm concurrency tests pass with deterministic `BUSY` outcomes for concurrent start/reembed/remove operations.
 
 #### Implementation notes
 
@@ -1110,7 +1103,6 @@ Implement the user-visible ingest UI behavior for provider-tagged model selectio
 
 - MUI TextField/select docs (MCP mirror): https://llms.mui.com/material-ui/6.4.12/components/text-fields.md
 - MUI Alert docs (MCP mirror): https://llms.mui.com/material-ui/6.4.12/components/alert.md
-- MUI deprecated API migration notes (`TextField` `*Props` -> `slotProps`): https://mui.com/material-ui/migration/migrating-from-deprecated-apis/
 - React controlled form inputs: https://react.dev/reference/react-dom/components/input
 
 #### Subtasks
@@ -1126,11 +1118,10 @@ Implement the user-visible ingest UI behavior for provider-tagged model selectio
 9. [ ] Update ingest status/error rendering in `client/src/components/ingest/RootDetailsDrawer.tsx` so normalized OpenAI errors remain user-readable while legacy string errors still render correctly.
 10. [ ] Update lock display in `client/src/pages/IngestPage.tsx` and `client/src/components/ingest/IngestForm.tsx` to prefer canonical lock fields and fallback to aliases.
 11. [ ] Update lock display in `client/src/components/ingest/RootsTable.tsx` and `client/src/components/ingest/RootDetailsDrawer.tsx` to prefer canonical lock fields and fallback to aliases.
-12. [ ] Replace deprecated `TextField` `SelectProps` usage in ingest form with supported `slotProps.select` API while preserving current behavior.
-13. [ ] Reuse existing warning/info banner implementation style (MUI `Alert` layout + deterministic `data-testid` assertions) consistent with current patterns in `client/src/pages/ChatPage.tsx` and existing ingest banners in `client/src/pages/IngestPage.tsx`.
-14. [ ] Add/update focused client tests for dropdown options and provider-qualified selection identity.
-15. [ ] Add/update focused client tests for stale-selection clearing and warning/info bars.
-16. [ ] Add/update focused client tests for no-dimensions-control behavior, ingest error rendering compatibility, and canonical payload behavior.
+12. [ ] Reuse existing warning/info banner implementation style (MUI `Alert` layout + deterministic `data-testid` assertions) consistent with current patterns in `client/src/pages/ChatPage.tsx` and existing ingest banners in `client/src/pages/IngestPage.tsx`.
+13. [ ] Add/update focused client tests for dropdown options and provider-qualified selection identity.
+14. [ ] Add/update focused client tests for stale-selection clearing and warning/info bars.
+15. [ ] Add/update focused client tests for no-dimensions-control behavior, ingest error rendering compatibility, and canonical payload behavior.
 
 #### Testing
 

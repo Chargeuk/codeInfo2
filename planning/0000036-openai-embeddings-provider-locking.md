@@ -24,7 +24,7 @@ User-visible outcome we are targeting:
 
 Local testing context for this story:
 
-- For the primary local test environment backing this story, `OPENAI_EMBEDDING_KEY` is already configured in `server/.env.local` (`/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/.env.local`).
+- For the primary local test environment backing this story, `OPENAI_EMBEDDING_KEY` is already configured in `server/.env.local` (for example, `<your-repo>/server/.env.local`).
 - Planning and test steps must assume the key value itself is secret and must never be copied into logs, test output, or committed files.
 
 Critical consistency rule that must remain true:

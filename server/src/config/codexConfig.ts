@@ -3,8 +3,9 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import type { CodexOptions } from '@openai/codex-sdk';
 import { baseLogger } from '../logger.js';
+import { resolveServerPort } from './serverPort.js';
 
-const defaultCodexConfig = `model = "gpt-5.3-codex-spark"
+const defaultCodexConfigTemplate = `model = "gpt-5.3-codex-spark"
 model_reasoning_effort = "xhigh"
 approval_policy = "never"
 sandbox_mode    = "danger-full-access"
@@ -30,7 +31,7 @@ startup_timeout_sec = 20.0
 
 [mcp_servers.code_info]
 command = "npx"
-args    = ["-y", "mcp-remote", "http://localhost:5010/mcp"]
+args    = ["-y", "mcp-remote", "http://localhost:__SERVER_PORT__/mcp"]
 startup_timeout_sec = 60
 
 [projects]
@@ -75,6 +76,25 @@ const authStoreRegex = new RegExp(
   `${authStoreKey}\\s*=\\s*["']?([^"'\\n]+)["']?`,
 );
 
+const serverPortPlaceholder = '__SERVER_PORT__';
+
+export function applyResolvedServerPortToCodexConfig(
+  configText: string,
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  const port = resolveServerPort(env);
+  return configText
+    .replaceAll('http://localhost:5010/mcp', `http://localhost:${port}/mcp`)
+    .replaceAll('http://server:5010/mcp', `http://server:${port}/mcp`)
+    .replaceAll(serverPortPlaceholder, port);
+}
+
+export function buildDefaultCodexConfig(
+  env: NodeJS.ProcessEnv = process.env,
+): string {
+  return applyResolvedServerPortToCodexConfig(defaultCodexConfigTemplate, env);
+}
+
 export function ensureCodexConfigSeeded(): string {
   const home = getCodexHome();
   const target = getCodexConfigPath();
@@ -95,10 +115,16 @@ export function ensureCodexConfigSeeded(): string {
       fs.copyFileSync(examplePath, target);
       console.log(`Seeded Codex config from example to ${target}`);
     } else {
-      fs.writeFileSync(target, defaultCodexConfig);
+      fs.writeFileSync(target, buildDefaultCodexConfig());
       console.warn(
         'config.toml.example not found; wrote default Codex config instead.',
       );
+    }
+
+    const seededConfig = fs.readFileSync(target, 'utf8');
+    const normalizedConfig = applyResolvedServerPortToCodexConfig(seededConfig);
+    if (normalizedConfig !== seededConfig) {
+      fs.writeFileSync(target, normalizedConfig);
     }
   }
 

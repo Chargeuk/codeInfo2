@@ -1676,6 +1676,7 @@ Align server-side transitive consumers that depend on ingest repository/tool pay
 
 - Task Status: **__done__**
 - Git Commits:
+  - `479b947` DEV-0000036 - Complete Task 12 ingest hook canonical normalization
 
 #### Overview
 

@@ -2105,3 +2105,26 @@ Re-run full story verification after Task 15 remediation to reconfirm acceptance
 - Testing 10: `npm run compose:build:clean` passed (`docker compose build --pull --no-cache`) and rebuilt both `codeinfo2-client` and `codeinfo2-server` images from clean layers.
 - Testing 11: Captured Task 16 screenshots with `0000036-16-<description>.png` naming for manual evidence review (`0000036-16-ingest-provider-lock.png`, `0000036-16-chat-tool-surface.png`, `0000036-16-agents-tool-surface.png`, `0000036-16-logs-surface.png`).
 - Testing 12: Re-audited AC/EC traceability coverage and confirmed there are no `Uncovered` rows remaining in the Story `0000036` matrix.
+
+---
+
+## Post-Completion Code Review (Branch vs `main`)
+
+### Review scope and method
+
+- Compared all branch changes against `main` (`git diff main...HEAD`) including server routes/services, ingest providers, lock handling, retry/error mapping, client ingest UI/hooks, tests, OpenAPI, and story/docs updates.
+- Reviewed latest story commits and plan status consistency for Tasks 1-16, including completion markers and implementation notes.
+- Cross-checked acceptance/edge-case traceability coverage documented in this story against implemented code/test surfaces.
+
+### Checks performed
+
+- Code quality and maintainability: reviewed architecture boundaries (provider adapters, request contracts, lock resolver consolidation), naming consistency, and backward-compatibility alias handling.
+- Security and safety: reviewed OpenAI error sanitization, normalized error contracts, retry metadata handling, and env-loading behavior for preserving runtime-preseeded values.
+- Performance and reliability: reviewed ingest chunking/embedding flow behavior, retry ceilings/jitter, cancellation/lock lifecycle behavior, and vector-search lock parity across REST and MCP paths.
+- Best-practice adherence: reviewed deterministic contract shapes, explicit status/error codes, and regression coverage additions for both server and client.
+
+### Outcome
+
+- No additional blocking issues were identified in the branch-vs-main review beyond the already remediated Task 15 findings.
+- Story remains complete with Tasks 1-16 marked `__done__`, and Task 16 verification evidence records full regression/build/test/e2e/manual checks.
+- No further remediation tasks were added from this review pass.

@@ -2001,7 +2001,7 @@ Story `0000036` is now finalized with provider-aware embedding lock contracts an
 ### 15. Post-implementation review remediation: provider-qualified lock-option collision and startup env precedence hardening
 
 - Task Status: **__done__**
-- Git Commits:
+- Git Commits: `c5523f2`
   - `c950b51` - DEV-0000036 - Fix provider-qualified lock fallback and preserve pre-seeded startup env values
 
 #### Overview

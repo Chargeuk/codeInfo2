@@ -1756,7 +1756,7 @@ Update the client data layer (`useIngestModels`, `useIngestRoots`, related types
 ### 13. Client: Ingest UI provider-model selection and info/warning state behavior
 
 - Task Status: **__done__**
-- Git Commits:
+- Git Commits: `5ecd1af`, `3e1eeb6`
 
 #### Overview
 

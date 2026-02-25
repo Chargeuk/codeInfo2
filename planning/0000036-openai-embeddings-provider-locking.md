@@ -2050,7 +2050,7 @@ Address issues found during branch-vs-main code review that affect lock-selectio
 
 ### 16. Final re-verification: full acceptance regression after Task 15 remediation
 
-- Task Status: **__to_do__**
+- Task Status: **__done__**
 - Git Commits:
 
 #### Overview
@@ -2067,26 +2067,41 @@ Re-run full story verification after Task 15 remediation to reconfirm acceptance
 
 #### Subtasks
 
-1. [ ] Re-audit requirements traceability matrix rows affected by Task 15 and confirm no acceptance/edge-case regressions.
-2. [ ] Update this story file with final Task 16 implementation notes and verification evidence references.
-3. [ ] Confirm no uncovered matrix rows remain after Task 15 changes.
-4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues before marking Task 16 done.
+1. [x] Re-audit requirements traceability matrix rows affected by Task 15 and confirm no acceptance/edge-case regressions.
+2. [x] Update this story file with final Task 16 implementation notes and verification evidence references.
+3. [x] Confirm no uncovered matrix rows remain after Task 15 changes.
+4. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues before marking Task 16 done.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000`)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`; confirm UI behavior for provider-qualified lock handling plus prior Story 0000036 acceptance surfaces, and verify browser console has zero errors.
-9. [ ] `npm run compose:down`
-10. [ ] `npm run compose:build:clean`
-11. [ ] Capture/retain Task 16 screenshots in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` using `0000036-16-<description>.png` naming.
-12. [ ] Verify traceability matrix still has zero uncovered acceptance or edge-case rows.
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000`)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check at `http://host.docker.internal:5001`; confirm UI behavior for provider-qualified lock handling plus prior Story 0000036 acceptance surfaces, and verify browser console has zero errors.
+9. [x] `npm run compose:down`
+10. [x] `npm run compose:build:clean`
+11. [x] Capture/retain Task 16 screenshots in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` using `0000036-16-<description>.png` naming.
+12. [x] Verify traceability matrix still has zero uncovered acceptance or edge-case rows.
 
 #### Implementation notes
 
-- Notes added during implementation.
+- Subtask 1: Re-audited Task 14 AC/EC matrix rows impacted by Task 15 remediation (provider-qualified same-id handling and startup env precedence behavior); existing mapped coverage remains valid and no regressions were identified in matrix scope.
+- Subtask 3: Confirmed AC and EC traceability tables still show all rows as `Covered` with no `Uncovered` entries after Task 15 updates.
+- Subtask 4: Ran `npm run lint --workspaces` (passes with existing baseline import-order warnings only) and `npm run format:check --workspaces` (passes all workspaces with no formatting changes required).
+- Testing 1: `npm run build --workspace server` passed (`tsc -b` completed without build errors).
+- Testing 2: `npm run build --workspace client` passed (`vite build`) with existing non-blocking chunk-size warnings only.
+- Testing 3: `npm run test --workspace server` passed; unit summary reported `718` tests with `0` failures and Cucumber integration summary reported `67` scenarios / `402` steps passing.
+- Testing 4: `npm run test --workspace client` passed (`92/92` suites, `361/361` tests).
+- Testing 5: `timeout 7m npm run e2e` passed (`42` Playwright tests) and completed automatic e2e compose teardown via `e2e:down`.
+- Testing 6: `npm run compose:build` passed and produced updated local compose images for `codeinfo2-server` and `codeinfo2-client`.
+- Testing 7: `npm run compose:up` passed and started local verification services including client (`5001`) and server APIs (`5010`/`5011`/`5012`).
+- Subtask 2: Finalized Task 16 documentation by recording complete verification evidence (manual walkthrough outcomes, compose lifecycle checks, screenshot artifacts, and matrix re-audit results) directly in this task section.
+- Testing 8: Manual Playwright-MCP walkthrough at `http://host.docker.internal:5001` validated provider-qualified lock behavior on `/ingest`, reviewed prior acceptance surfaces on `/chat`, `/agents`, and `/logs`, and confirmed browser error-level console output is empty.
+- Testing 9: `npm run compose:down` passed and removed all compose services/networks from the Task 16 manual verification run.
+- Testing 10: `npm run compose:build:clean` passed (`docker compose build --pull --no-cache`) and rebuilt both `codeinfo2-client` and `codeinfo2-server` images from clean layers.
+- Testing 11: Captured Task 16 screenshots with `0000036-16-<description>.png` naming for manual evidence review (`0000036-16-ingest-provider-lock.png`, `0000036-16-chat-tool-surface.png`, `0000036-16-agents-tool-surface.png`, `0000036-16-logs-surface.png`).
+- Testing 12: Re-audited AC/EC traceability coverage and confirmed there are no `Uncovered` rows remaining in the Story `0000036` matrix.

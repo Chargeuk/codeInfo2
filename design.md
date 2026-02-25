@@ -2753,3 +2753,57 @@ sequenceDiagram
   Consumer->>Logs: DEV-0000036:T11:transitive_consumer_contract_read
   Consumer->>Logs: DEV-0000036:T11:transitive_consumer_alias_fallback
 ```
+
+## Story 0000036 final architecture + contract summary (Task 0000036-T14)
+
+- Story 0000036 is completed around a single canonical embedding identity contract:
+  - `embeddingProvider`
+  - `embeddingModel`
+  - `embeddingDimensions`
+- Compatibility aliases remain exposed for existing consumers:
+  - `lockedModelId` at lock-bearing top-level surfaces.
+  - `modelId` and legacy `model` on root/repo records.
+- Provider-aware lock semantics are now unified across ingest start/re-embed/query and all reporting surfaces:
+  - `GET /ingest/models`
+  - `POST /ingest/start`
+  - `GET /ingest/roots`
+  - `GET /tools/ingested-repos`
+  - `POST /tools/vector-search`
+  - classic MCP `ListIngestedRepositories` / `VectorSearch`
+- OpenAI enablement and model visibility are runtime-configured by `OPENAI_EMBEDDING_KEY` and server allowlist intersection, with deterministic warning/disabled envelopes for partial failures.
+- Query embedding execution is lock-bound and dimension-validated prior to Chroma queries so mismatch handling is deterministic (`EMBEDDING_DIMENSION_MISMATCH`) rather than raw backend leakage.
+
+```mermaid
+flowchart TD
+  A[OPENAI_EMBEDDING_KEY + provider discovery] --> B[/ingest/models envelopes]
+  B --> C[Ingest UI provider-qualified selection]
+  C --> D[POST /ingest/start canonical request]
+  D --> E[Canonical lock write]
+  E --> F[Re-embed + vector-search reuse lock identity]
+  F --> G[REST/MCP contract surfaces emit canonical + aliases]
+```
+
+```mermaid
+sequenceDiagram
+  participant UI as Ingest UI
+  participant API as Server routes
+  participant Lock as Canonical lock resolver
+  participant VS as Vector search service
+  participant MCP as Classic MCP tools
+
+  UI->>API: GET /ingest/models
+  API->>Lock: resolve canonical lock
+  Lock-->>API: provider/model/dimensions + alias mirror
+  API-->>UI: models + openai/lmstudio status envelopes
+
+  UI->>API: POST /ingest/start (embeddingProvider, embeddingModel)
+  API->>Lock: enforce lock compatibility
+  API-->>UI: 202 started OR 409 MODEL_LOCKED (canonical lock + alias)
+
+  UI->>VS: POST /tools/vector-search
+  VS->>Lock: resolve lock + generate locked query embedding
+  VS-->>UI: results + modelId OR normalized deterministic error
+
+  MCP->>VS: VectorSearch / ListIngestedRepositories
+  VS-->>MCP: canonical + compatibility payload parity
+```

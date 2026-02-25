@@ -409,37 +409,57 @@ Ingest collection names (`INGEST_COLLECTION`, `INGEST_ROOTS_COLLECTION`) come fr
 
 ### Ingest embedding models
 
-- GET `/ingest/models` returns embedding-capable LM Studio models plus the current lock (if any):
+- GET `/ingest/models` returns provider-qualified embedding options (`lmstudio` + `openai`) plus canonical lock and provider-status envelopes.
+- OpenAI discovery is enabled only when `OPENAI_EMBEDDING_KEY` is configured (non-empty). OpenAI options are filtered to the server allowlist intersection (`text-embedding-3-small`, `text-embedding-3-large`).
+- The endpoint remains `200` even for partial provider failure states; warning/disabled details are surfaced in `openai` / `lmstudio` envelopes:
   ```json
   {
     "models": [
       {
-        "id": "embed-1",
-        "displayName": "all-MiniLM",
-        "contextLength": 2048,
-        "format": "gguf",
-        "size": 145000000,
-        "filename": "all-mini.gguf"
+        "id": "text-embedding-3-small",
+        "displayName": "text-embedding-3-small",
+        "provider": "openai"
+      },
+      {
+        "id": "text-embedding-nomic-embed-text-v1.5",
+        "displayName": "Nomic Embed Text v1.5",
+        "provider": "lmstudio"
       }
     ],
-    "lockedModelId": null
+    "lock": {
+      "embeddingProvider": "openai",
+      "embeddingModel": "text-embedding-3-small",
+      "embeddingDimensions": 1536
+    },
+    "lockedModelId": "text-embedding-3-small",
+    "openai": {
+      "enabled": true,
+      "status": "ok",
+      "statusCode": "OPENAI_OK"
+    },
+    "lmstudio": {
+      "status": "ok",
+      "statusCode": "LMSTUDIO_OK"
+    }
   }
   ```
-- Filters to `type === "embedding"` or capabilities including `embedding`; returns 502 `{status:"error", message}` if LM Studio is unavailable.
+- Common OpenAI status codes include `OPENAI_DISABLED`, `OPENAI_OK`, `OPENAI_ALLOWLIST_NO_MATCH`, `OPENAI_MODELS_LIST_TEMPORARY_FAILURE`, `OPENAI_MODELS_LIST_AUTH_FAILED`, and `OPENAI_MODELS_LIST_UNAVAILABLE`.
 
 ### Ingest start/status
 
-- POST `/ingest/start` starts an ingest job. Body:
+- POST `/ingest/start` starts an ingest job. Canonical request fields are provider-aware:
   ```json
   {
     "path": "/repo",
     "name": "repo",
     "description": "optional",
-    "model": "embed-1",
+    "embeddingProvider": "openai",
+    "embeddingModel": "text-embedding-3-small",
     "dryRun": false
   }
   ```
-  Responses: `202 {"runId":"..."}` on start; `409 {"status":"error","code":"MODEL_LOCKED"}` if collection locked to another model; `429 {"status":"error","code":"BUSY"}` if an ingest is already running; `400` on validation errors.
+  Compatibility input `model` is still accepted and mapped to LM Studio behavior when canonical fields are omitted.
+  Responses: `202 {"runId":"..."}` on start; `409 {"status":"error","code":"MODEL_LOCKED","lock":{"embeddingProvider":"...","embeddingModel":"...","embeddingDimensions":...},"lockedModelId":"..."}` when locked to a different provider/model; `429 {"status":"error","code":"BUSY"}` when ingest is active; `400` on validation errors.
 - GET `/ingest/status/{runId}` returns current state:
   ```json
   {"runId":"r1","state":"scanning","counts":{"files":3,"chunks":0,"embedded":0},"message":"Walking repo"}
@@ -447,7 +467,7 @@ Ingest collection names (`INGEST_COLLECTION`, `INGEST_ROOTS_COLLECTION`) come fr
   {"runId":"r1","state":"skipped","counts":{"files":0},"message":"No changes detected"}
   {"runId":"r1","state":"error","counts":{"files":1,"chunks":2,"embedded":0},"lastError":"Chroma unavailable"}
   ```
-- Model lock: first ingest sets lock to the chosen embedding model; subsequent ingests must use the same model while data exists.
+- Model lock: first successful ingest stores canonical lock identity (`embeddingProvider`, `embeddingModel`, `embeddingDimensions`); subsequent ingest/re-embed/query operations must use the same lock identity while vectors exist.
 
 ### Ingest directory picker
 
@@ -464,13 +484,13 @@ Ingest collection names (`INGEST_COLLECTION`, `INGEST_ROOTS_COLLECTION`) come fr
   - Unchanged files are skipped (existing vectors remain intact).
   - Deleted files have their vectors removed.
   - Legacy roots (no `ingest_files` records) fall back to a full rebuild (delete all vectors, then re-ingest).
-  - Respects the existing model lock and returns `202 { runId }` or `404 NOT_FOUND` if the root is unknown.
+  - Uses the existing provider/model lock identity and returns `202 { runId }` or `404 NOT_FOUND` if the root is unknown.
 - POST `/ingest/remove/{root}` deletes vectors and root metadata for the given root; if the vectors collection becomes empty, the locked model is cleared. Responds `{ status: 'ok', unlocked: boolean }`.
 - Single-flight: concurrent ingest/re-embed/remove requests return `429 {code:'BUSY'}` while a run is active. Cancel is allowed to break an active run; the lock is released after cancellation completes.
 
 ### Ingest roots listing
 
-- GET `/ingest/roots` returns stored roots in descending `lastIngestAt` order along with the current model lock:
+- GET `/ingest/roots` returns stored roots in descending `lastIngestAt` order with canonical embedding identity and compatibility aliases:
   ```json
   {
     "roots": [
@@ -479,21 +499,40 @@ Ingest collection names (`INGEST_COLLECTION`, `INGEST_ROOTS_COLLECTION`) come fr
         "name": "repo",
         "description": "project",
         "path": "/repo",
-        "model": "embed-1",
+        "embeddingProvider": "openai",
+        "embeddingModel": "text-embedding-3-small",
+        "embeddingDimensions": 1536,
+        "model": "text-embedding-3-small",
+        "modelId": "text-embedding-3-small",
+        "lock": {
+          "embeddingProvider": "openai",
+          "embeddingModel": "text-embedding-3-small",
+          "embeddingDimensions": 1536,
+          "lockedModelId": "text-embedding-3-small",
+          "modelId": "text-embedding-3-small"
+        },
         "status": "completed",
         "lastIngestAt": "2025-01-01T12:00:00.000Z",
         "counts": { "files": 3, "chunks": 12, "embedded": 12 },
         "lastError": null
       }
     ],
-    "lockedModelId": "embed-1"
+    "lock": {
+      "embeddingProvider": "openai",
+      "embeddingModel": "text-embedding-3-small",
+      "embeddingDimensions": 1536,
+      "lockedModelId": "text-embedding-3-small",
+      "modelId": "text-embedding-3-small"
+    },
+    "lockedModelId": "text-embedding-3-small",
+    "schemaVersion": "0000036-t10-canonical-alias-v1"
   }
   ```
 
 ### Tooling endpoints (LM Studio agent support)
 
-- GET `/tools/ingested-repos` lists ingested repositories for the agent tools and includes `id`, `description`, `containerPath`, `hostPath`, `counts`, `lastIngestAt`, `lastError`, and `lockedModelId`. Paths stored under `/data/<repo>/...` are rewritten to host paths using `HOST_INGEST_DIR` (defaults to `/data`) and include a warning flag when that env var is unset.
-- POST `/tools/vector-search` accepts `{ "query": string, "repository"?: string, "limit"?: number }`, validates input (`query` required, `limit` default 5/max 20, `repository` must match a known repo id), and queries Chroma. Responses include ordered `results` with `repo`, `relPath`, `containerPath`, `hostPath`, `chunk`, `chunkId`, `score`, and `modelId`, plus top-level `modelId` (locked model). Errors: `400 VALIDATION_FAILED`, `404 REPO_NOT_FOUND`, `409 INGEST_REQUIRED` (no locked embedding model yet), `503 EMBED_MODEL_MISSING` (locked model not available in LM Studio), `502 CHROMA_UNAVAILABLE`.
+- GET `/tools/ingested-repos` lists ingested repositories for tools and returns canonical embedding identity (`embeddingProvider`, `embeddingModel`, `embeddingDimensions`) plus compatibility aliases (`model`, `modelId`, `lockedModelId`) and top-level canonical `lock` + `schemaVersion`. Paths stored under `/data/<repo>/...` are rewritten to host paths using `HOST_INGEST_DIR` (defaults to `/data`) and include `hostPathWarning` when that env var is unset.
+- POST `/tools/vector-search` accepts `{ "query": string, "repository"?: string, "limit"?: number }`, validates input (`query` required, `limit` default 5/max 20, optional `repository` constrained to known repo id), and queries Chroma using the locked provider/model embedding function. Responses include ordered `results` (`repo`, `relPath`, `containerPath`, `hostPath`, `chunk`, `chunkId`, `score`, `modelId`) plus top-level `modelId`. Deterministic error contracts include `400 VALIDATION_FAILED`, `404 REPO_NOT_FOUND`, `409 INGEST_REQUIRED` (no lock), normalized provider errors (for example `OPENAI_*`), and `EMBEDDING_DIMENSION_MISMATCH` when generated query vectors differ from lock dimensions.
 
 ## Logging
 

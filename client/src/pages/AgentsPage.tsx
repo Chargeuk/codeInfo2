@@ -1327,6 +1327,9 @@ export default function AgentsPage() {
     hostPathWarning?: string;
     lastIngestAt?: string | null;
     modelId?: string;
+    embeddingProvider?: string;
+    embeddingModel?: string;
+    embeddingDimensions?: number;
     counts?: { files?: number; chunks?: number; embedded?: number };
     lastError?: string | null;
   };
@@ -1350,6 +1353,14 @@ export default function AgentsPage() {
     score: number | null;
     chunk?: string;
     modelId?: string;
+  };
+
+  const resolveRepoModelLabel = (repo: RepoEntry): string | null => {
+    if (repo.embeddingProvider && repo.embeddingModel) {
+      return `${repo.embeddingProvider} / ${repo.embeddingModel}`;
+    }
+    if (repo.modelId) return repo.modelId;
+    return null;
   };
 
   const renderRepoList = (repos: RepoEntry[]) => (
@@ -1400,9 +1411,9 @@ export default function AgentsPage() {
                   Last ingest: {repo.lastIngestAt}
                 </Typography>
               )}
-              {repo.modelId && (
+              {resolveRepoModelLabel(repo) && (
                 <Typography variant="caption" color="text.secondary">
-                  Model: {repo.modelId}
+                  Model: {resolveRepoModelLabel(repo)}
                 </Typography>
               )}
               {repo.lastError && (

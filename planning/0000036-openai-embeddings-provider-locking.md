@@ -2179,7 +2179,7 @@ Ensure all ingest-process failures tied to OpenAI or LM Studio are emitted as fr
 
 ### 18. Server configuration extension: env-configurable OpenAI ingest retry budget (`OPENAI_INGEST_MAX_RETRIES`)
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **to_do**
 
 #### Overview

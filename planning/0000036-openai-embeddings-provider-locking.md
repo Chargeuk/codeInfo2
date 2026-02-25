@@ -1675,7 +1675,7 @@ Align server-side transitive consumers that depend on ingest repository/tool pay
 ### 12. Client: Update ingest data hooks and API types to new server contracts
 
 - Task Status: **__done__**
-- Git Commits:
+- Git Commits: `5ecd1af`
   - `479b947` DEV-0000036 - Complete Task 12 ingest hook canonical normalization
 
 #### Overview

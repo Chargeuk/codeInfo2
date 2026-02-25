@@ -406,7 +406,7 @@ This task adds a top-level optional `Conversation.agentName?: string` and thread
 3. [x] `npm run test --workspace server`
 4. [x] `npm run test --workspace client`
 5. [x] `npm run e2e`
-6. [ ] `npm run compose:build`
+6. [x] `npm run compose:build`
 7. [x] `npm run compose:up`
 8. [x] Manual Playwright-MCP check:
    - `/chat` loads; conversation list renders; existing non-agent conversations behave unchanged.
@@ -557,7 +557,7 @@ Note: auth seeding is a separate concern and is implemented in Task 4. Task 4 wi
 4. [x] `npm run test --workspace client`
 5. [x] `npm run e2e`
 6. [x] `npm run compose:build`
-7. [ ] `npm run compose:up`
+7. [x] `npm run compose:up`
 8. [x] Manual Playwright-MCP check:
    - `/chat` loads with `CODEINFO_CODEX_AGENT_HOME` set; no console errors.
    - If agents UI is not implemented yet, confirm existing Chat UX still works end-to-end (send message, stop, reload).

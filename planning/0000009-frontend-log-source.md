@@ -125,7 +125,7 @@ Prepare to inject a provided system-context text block once it’s supplied. Ide
 #### Subtasks
 
 1. [x] Create/stub `client/src/constants/systemContext.ts` now with `export const SYSTEM_CONTEXT = '';` so the target is fixed. Document this exact path here.
-2. [ ] When text is provided, replace the empty string with the supplied content; no other behaviour change. Record the exact commit hash in the plan.
+2. [x] When text is provided, replace the empty string with the supplied content; no other behaviour change. Record the exact commit hash in the plan.
 3. [x] Identify the consumer: note which component/hook will read the constant (e.g., `client/src/hooks/useChatStream.ts` or `client/src/pages/ChatPage.tsx`) and add a TODO comment there pointing to the constant until content arrives.
 4. [x] Test (unit/RTL) for the chosen consumer: add an assertion that the constant is read (e.g., render path picks up `SYSTEM_CONTEXT` value). Purpose: ensure injected text is actually used.
 5. [x] Documentation: README “Chat” (or “Logging/Chat tooling”) subsection — add a sentence stating system context is stored in `client/src/constants/systemContext.ts` and injected when provided.

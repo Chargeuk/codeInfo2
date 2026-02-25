@@ -41,7 +41,7 @@ Enhance chat tool-call visibility so users can understand exactly which tool ran
 
 ### 1. Data shaping & plumbing
 
-- Task Status: **in_progress**
+- Task Status: **__done__**
 - Git Commits: ac9bfd2
 
 #### Overview
@@ -97,7 +97,7 @@ Ensure tool payloads (success and error) include needed fields for ListIngestedR
    }
    ```
 5. [x] Update client chat stream state in `client/src/hooks/useChatStream.ts` (e.g., `handleToolResult` path) to retain tool parameters and tool-specific payloads (host-path-only VectorSearch aggregation fields, highestMatch, chunkCount, lineCount, trimmed/full error flags) and mark tool complete on first result/error.
-6. [ ] Docs to update later: README, design, projectStructure.
+6. [x] Docs to update later: README, design, projectStructure.
 7. [x] Test: Server integration (type) — update `server/src/test/integration/chat-tools-wire.test.ts` (or equivalent) to assert tool-result frames contain parameters, hostPath only, summed chunk count per file, highestMatch, lineCount, and trimmed+full error fields; purpose: verify server emits correct payloads and completion status.
 8. [x] Test: Server unit (type) — add/extend targeted unit test (e.g., `server/src/test/unit/toolService.test.ts`) to cover aggregation logic for chunk sums and line counts, and error payload trimming/expansion flags; purpose: guard data shaping.
 9. [x] Test: Client hook unit (type) — add/extend `client/src/test/useChatStream.toolPayloads.test.ts` (or new) to ensure chat state stores parameters, host-path-only file aggregation, highestMatch, summed chunks, lineCount, trimmed/full error, and completion status; purpose: client state correctness.

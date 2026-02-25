@@ -1995,3 +1995,87 @@ Story `0000036` is now finalized with provider-aware embedding lock contracts an
 - Testing 10: `npm run compose:build:clean` passed (`docker compose build --pull --no-cache`) and rebuilt both `codeinfo2-client` and `codeinfo2-server` images from clean layers.
 - Testing 11: Verified retained screenshot set in `playwright-output-local` (`0000036-14-ingest-provider-model-selection.png`, `0000036-14-warning-info-banners.png`, `0000036-14-lock-metadata-display.png`, `0000036-14-root-error-rendering.png`, `0000036-14-chat-tool-result-compatibility.png`, `0000036-14-agents-tool-result-compatibility.png`), confirmed valid PNG signatures, and manually reviewed each image against its mapped GUI acceptance item.
 - Testing 12: Re-audited the Task 14 AC/EC traceability tables (`AC-01..AC-41`, `EC-01..EC-26`) and confirmed every row is marked `Covered` with no `Uncovered` entries remaining.
+
+---
+
+### 15. Post-implementation review remediation: provider-qualified lock-option collision and startup env precedence hardening
+
+- Task Status: **__to_do__**
+- Git Commits:
+
+#### Overview
+
+Address issues found during branch-vs-main code review that affect lock-selection correctness in the ingest UI and environment precedence safety at server startup.
+
+#### Documentation Locations
+
+- React controlled inputs: https://react.dev/reference/react-dom/components/input
+- MUI select behavior: https://llms.mui.com/material-ui/6.4.12/components/text-fields.md
+- dotenv configuration semantics: https://github.com/motdotla/dotenv#options
+- Jest docs: https://jestjs.io/docs/getting-started
+
+#### Subtasks
+
+1. [ ] Fix provider-qualified lock-option dedupe in ingest form. Files (read/edit): `client/src/components/ingest/IngestForm.tsx`. Constraint: when adding lock fallback option, dedupe by provider-qualified identity (`provider + model`) instead of model id only so cross-provider same-id collisions cannot hide the locked option.
+2. [ ] Add regression UI coverage for lock fallback collision path. Files (read/edit): `client/src/test/ingestForm.test.tsx`. Constraint: test case must prove that a locked OpenAI model remains selectable/submittable when only LM Studio option with the same model id exists in fetched models.
+3. [ ] Harden startup env precedence to preserve runtime-provided env vars. Files (read/edit): `server/src/config/startupEnv.ts`. Constraint: `.env.local` must still override `.env` values, but file loading must not clobber env vars already present in process environment from runtime/container configuration.
+4. [ ] Add startup env precedence regression tests for pre-seeded env vars. Files (read/edit): `server/src/test/unit/env-loading.test.ts`. Constraint: cover both `.env` and `.env.local` scenarios where pre-existing `targetEnv` values are preserved.
+5. [ ] Keep docs/contracts synchronized if behavior wording changes. Files (read/edit): `README.md`, `design.md`, `planning/0000036-openai-embeddings-provider-locking.md` (Task 15 notes). Constraint: no aspirational text; document only implemented precedence behavior.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run available fix scripts and manually resolve remaining issues.
+
+#### Testing
+
+1. [ ] `npm run test --workspace client -- --runTestsByPath src/test/ingestForm.test.tsx`
+2. [ ] `npm run test --workspace server -- --testPathPattern=env-loading.test.ts`
+3. [ ] `npm run test --workspace server -- --runInBand src/test/unit/ingest-models.test.ts src/test/unit/ingest-start.test.ts src/test/unit/tools-vector-search.test.ts`
+4. [ ] `npm run build --workspace client`
+5. [ ] `npm run build --workspace server`
+
+#### Implementation notes
+
+- Notes added during implementation.
+
+---
+
+### 16. Final re-verification: full acceptance regression after Task 15 remediation
+
+- Task Status: **__to_do__**
+- Git Commits:
+
+#### Overview
+
+Re-run full story verification after Task 15 remediation to reconfirm acceptance criteria, edge-case coverage, and end-to-end stability before sign-off.
+
+#### Documentation Locations
+
+- Docker/Compose docs: Context7 `/docker/docs`
+- Playwright docs: Context7 `/microsoft/playwright`
+- Jest docs: Context7 `/jestjs/jest`
+- Cucumber guides: https://cucumber.io/docs/guides/
+- Markdown Guide: https://www.markdownguide.org/basic-syntax/
+
+#### Subtasks
+
+1. [ ] Re-audit requirements traceability matrix rows affected by Task 15 and confirm no acceptance/edge-case regressions.
+2. [ ] Update this story file with final Task 16 implementation notes and verification evidence references.
+3. [ ] Confirm no uncovered matrix rows remain after Task 15 changes.
+4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; fix issues before marking Task 16 done.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000`)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`; confirm UI behavior for provider-qualified lock handling plus prior Story 0000036 acceptance surfaces, and verify browser console has zero errors.
+9. [ ] `npm run compose:down`
+10. [ ] `npm run compose:build:clean`
+11. [ ] Capture/retain Task 16 screenshots in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` using `0000036-16-<description>.png` naming.
+12. [ ] Verify traceability matrix still has zero uncovered acceptance or edge-case rows.
+
+#### Implementation notes
+
+- Notes added during implementation.

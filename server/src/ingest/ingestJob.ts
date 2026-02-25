@@ -60,10 +60,12 @@ import {
 } from './index.js';
 import type { ProviderEmbeddingModel } from './providers/types.js';
 import {
+  appendIngestFailureLog,
   createLmStudioEmbeddingProvider,
   createOpenAiEmbeddingProvider,
   isOpenAiAllowlistedEmbeddingModel,
   logOpenAiContractMapping,
+  mapLmStudioIngestError,
   resolveOpenAiRestStatus,
   toNormalizedOpenAiErrorPayload,
   OpenAiEmbeddingError,
@@ -232,10 +234,15 @@ function mapIngestError(err: unknown): {
       normalized: payload,
     };
   }
-  const message = (err as Error)?.message ?? 'Unknown error';
+  const lmstudio = mapLmStudioIngestError(err);
   return {
-    message,
-    normalized: null,
+    message: lmstudio.message,
+    normalized: {
+      error: lmstudio.error,
+      message: lmstudio.message,
+      retryable: lmstudio.retryable,
+      provider: lmstudio.provider,
+    },
   };
 }
 
@@ -249,6 +256,14 @@ function toProviderQualifiedModelId(
 
 async function getEmbeddingModel(
   modelKey: string,
+  options?: {
+    ingestFailureContext?: () => {
+      runId?: string;
+      path?: string;
+      root?: string;
+      currentFile?: string;
+    };
+  },
 ): Promise<ProviderEmbeddingModel> {
   const d = deps;
   if (!d) throw new Error('ingest deps not set');
@@ -257,6 +272,7 @@ async function getEmbeddingModel(
   if (selection.providerId === 'openai') {
     const provider = createOpenAiEmbeddingProvider({
       apiKey: process.env.OPENAI_EMBEDDING_KEY,
+      ingestFailureContext: options?.ingestFailureContext,
     });
     return provider.getModel(selection.modelKey);
   }
@@ -813,6 +829,14 @@ async function processRun(runId: string, input: IngestJobInput) {
       fileHashesByRelPath.set(file.relPath, fileHash);
       const embeddingModelClient = await getEmbeddingModel(
         toProviderQualifiedModelId(requestedSelection),
+        {
+          ingestFailureContext: () => ({
+            runId,
+            path: startPath,
+            root,
+            currentFile: lastFileRelPath,
+          }),
+        },
       );
       const chunks = await chunkText(text, embeddingModelClient, ingestConfig);
       for (const chunk of chunks) {
@@ -1051,6 +1075,20 @@ async function processRun(runId: string, input: IngestJobInput) {
       etaMs: currentStatus?.etaMs,
     });
     const selectedForErrorLog = resolveInputSelection(input);
+    if (mappedError.normalized?.provider === 'lmstudio') {
+      appendIngestFailureLog('error', {
+        runId,
+        provider: 'lmstudio',
+        code: mappedError.normalized.error,
+        retryable: mappedError.normalized.retryable,
+        model: selectedForErrorLog.modelKey,
+        path: input.path,
+        root: jobInputs.get(runId)?.root,
+        currentFile: currentStatus?.currentFile,
+        message: mappedError.normalized.message,
+        stage: 'terminal',
+      });
+    }
     logLifecycle('error', 'ingest error', {
       runId,
       operation: input.operation ?? 'start',

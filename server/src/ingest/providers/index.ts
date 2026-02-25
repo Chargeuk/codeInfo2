@@ -25,6 +25,11 @@ export {
   type NormalizedOpenAiErrorPayload,
 } from './openaiErrorContract.js';
 export {
+  appendIngestFailureLog,
+  mapLmStudioIngestError,
+  type IngestFailureLogContext,
+} from './ingestFailureLogging.js';
+export {
   computeExponentialDelayMs,
   resolveRetryAfterMs,
   runOpenAiWithRetry,

@@ -2648,6 +2648,14 @@ sequenceDiagram
     Logs-->>UI: { items, lastSequence }
   else Assert via stream
     UI->>Logs: GET /logs/stream (SSE)
+
+### Story 0000036 Task 17: ingest provider failure visibility
+
+- Ingest provider failures are now emitted as frontend-visible log entries with message `DEV-0000036:T17:ingest_provider_failure`.
+- OpenAI retry attempts emit `level=warn` with `stage=retry` and include retry context (`attempt`, `waitMs`) while preserving existing retry/backoff behavior.
+- Terminal provider failures emit `level=error` with `stage=terminal`; this includes non-retryable OpenAI first-attempt failures and LM Studio ingest/provider failures.
+- Required context fields are emitted when available: `runId`, `provider`, `code`, `retryable`, `attempt`, `waitMs`, `model`, `path`, `root`, `currentFile`, `message`, and `stage` (plus `upstreamStatus`/`retryAfterMs` when available).
+- Backend diagnostics remain unchanged: `baseLogger` still records stack/cause details, and frontend-visible summary entries are appended in parallel for `/logs` and `/logs/stream` consumption.
     Logs-->>UI: events (id = sequence)
   end
 ```

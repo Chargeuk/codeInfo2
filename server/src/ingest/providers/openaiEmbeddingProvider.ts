@@ -107,6 +107,12 @@ export function createOpenAiEmbeddingProvider(params: {
   apiKey: string | undefined;
   clientFactory?: (apiKey: string) => OpenAiClientLike;
   retrySleep?: (ms: number, signal?: AbortSignal) => Promise<void>;
+  ingestFailureContext?: () => {
+    runId?: string;
+    path?: string;
+    root?: string;
+    currentFile?: string;
+  };
 }): EmbeddingProvider {
   const apiKey = params.apiKey?.trim();
   if (!apiKey) {
@@ -140,6 +146,7 @@ export function createOpenAiEmbeddingProvider(params: {
       inputCount: inputs.length,
       tokenEstimate,
       sleep: params.retrySleep,
+      ingestFailureContext: params.ingestFailureContext,
       runStep: async (attempt) => {
         append({
           level: 'info',

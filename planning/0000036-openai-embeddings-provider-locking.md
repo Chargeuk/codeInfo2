@@ -2110,7 +2110,7 @@ Re-run full story verification after Task 15 remediation to reconfirm acceptance
 
 ### 17. Server observability hardening: frontend-visible ingest failure logging for OpenAI and LM Studio
 
-- Task Status: **__in_progress__**
+- Task Status: **__done__**
 - Git Commits: **to_do**
 
 #### Overview
@@ -2128,33 +2128,52 @@ Ensure all ingest-process failures tied to OpenAI or LM Studio are emitted as fr
 
 #### Subtasks
 
-1. [ ] Add a shared ingest-failure logging helper for appendable frontend-visible events in `server/src/ingest/ingestJob.ts` (or `server/src/ingest/providers/` helper module) with deterministic context fields: `runId`, `provider`, `code`, `retryable`, `attempt`, `waitMs`, `model`, `path/root`, `currentFile`, `message`, and `stage`.
-2. [ ] OpenAI retry classification: ensure retried failure events emit `warn` entries (with retry wait/context) and retry exhaustion emits `error` entries through the shared helper while preserving existing retry/backoff behavior.
-3. [ ] OpenAI terminal ingest failure parity: ensure terminal OpenAI failures are always represented in appendable ingest lifecycle logs with normalized error detail (including retryability and upstream status when available), not only in server file logger output.
-4. [ ] LM Studio failure mapping for ingest: add deterministic mapping for LM Studio ingest/provider failures to structured provider-aware error detail (code/message/retryable) so frontend logs have consistent shape with OpenAI entries.
-5. [ ] LM Studio terminal failure severity: ensure LM Studio failures that are not retried are emitted as `error` frontend log lines with provider-specific details and run context.
-6. [ ] Keep `baseLogger` stack/cause output for backend diagnostics, but guarantee equivalent appendable frontend-visible ingest failure summary lines for all OpenAI/LM Studio ingest failures.
-7. [ ] Server unit test addition (OpenAI retry): add a dedicated test file (for example `server/src/test/unit/ingest-openai-logging.test.ts`) verifying retried OpenAI failures produce `warn` entries and exhausted retries produce `error` entries with required context fields.
-8. [ ] Server unit test addition (LM Studio failure): add a dedicated test file (for example `server/src/test/unit/ingest-lmstudio-logging.test.ts`) verifying LM Studio ingest/provider failures emit frontend-visible `error` entries with provider/detail context and no missing required fields.
-9. [ ] Server integration test addition (logs endpoint visibility): add integration coverage (for example `server/src/test/integration/ingest-logging-visibility.test.ts`) that drives ingest failure paths and asserts `/logs` + `/logs/stream` expose the expected warning/error entries and detail payloads.
-10. [ ] Client RTL test addition (logs rendering): add/update client log-view tests (for example `client/src/test/logsPage.test.tsx`) to assert warning/error ingest failure entries and detail context render correctly in the Logs page UI.
-11. [ ] Documentation updates: update `README.md` and `design.md` to document provider failure logging behavior and warning-vs-error retry semantics; update `projectStructure.md` for any new test/helper files.
-12. [ ] Lint/format: run `npm run lint --workspaces` and `npm run format:check --workspaces`; resolve issues before task completion.
+1. [x] Add a shared ingest-failure logging helper for appendable frontend-visible events in `server/src/ingest/ingestJob.ts` (or `server/src/ingest/providers/` helper module) with deterministic context fields: `runId`, `provider`, `code`, `retryable`, `attempt`, `waitMs`, `model`, `path/root`, `currentFile`, `message`, and `stage`.
+2. [x] OpenAI retry classification: ensure retried failure events emit `warn` entries (with retry wait/context) and retry exhaustion emits `error` entries through the shared helper while preserving existing retry/backoff behavior.
+3. [x] OpenAI terminal ingest failure parity: ensure terminal OpenAI failures are always represented in appendable ingest lifecycle logs with normalized error detail (including retryability and upstream status when available), not only in server file logger output.
+4. [x] LM Studio failure mapping for ingest: add deterministic mapping for LM Studio ingest/provider failures to structured provider-aware error detail (code/message/retryable) so frontend logs have consistent shape with OpenAI entries.
+5. [x] LM Studio terminal failure severity: ensure LM Studio failures that are not retried are emitted as `error` frontend log lines with provider-specific details and run context.
+6. [x] Keep `baseLogger` stack/cause output for backend diagnostics, but guarantee equivalent appendable frontend-visible ingest failure summary lines for all OpenAI/LM Studio ingest failures.
+7. [x] Server unit test addition (OpenAI retry): add a dedicated test file (for example `server/src/test/unit/ingest-openai-logging.test.ts`) verifying retried OpenAI failures produce `warn` entries and exhausted retries produce `error` entries with required context fields.
+8. [x] Server unit test addition (LM Studio failure): add a dedicated test file (for example `server/src/test/unit/ingest-lmstudio-logging.test.ts`) verifying LM Studio ingest/provider failures emit frontend-visible `error` entries with provider/detail context and no missing required fields.
+9. [x] Server integration test addition (logs endpoint visibility): add integration coverage (for example `server/src/test/integration/ingest-logging-visibility.test.ts`) that drives ingest failure paths and asserts `/logs` + `/logs/stream` expose the expected warning/error entries and detail payloads.
+10. [x] Client RTL test addition (logs rendering): add/update client log-view tests (for example `client/src/test/logsPage.test.tsx`) to assert warning/error ingest failure entries and detail context render correctly in the Logs page UI.
+11. [x] Documentation updates: update `README.md` and `design.md` to document provider failure logging behavior and warning-vs-error retry semantics; update `projectStructure.md` for any new test/helper files.
+12. [x] Lint/format: run `npm run lint --workspaces` and `npm run format:check --workspaces`; resolve issues before task completion.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000`)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000`)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] `npm run compose:down`
 
 #### Implementation notes
 
-- Pending implementation.
+- Subtask 1: Added `server/src/ingest/providers/ingestFailureLogging.ts` with shared appendable ingest failure logging (`appendIngestFailureLog`) and deterministic context fields (`runId`, `provider`, `code`, `retryable`, `attempt`, `waitMs`, `model`, `path`, `root`, `currentFile`, `message`, `stage`), including message sanitization for secret-safe output.
+- Subtask 2: Updated `runOpenAiWithRetry` to emit retry-attempt `warn` logs and retry-exhaustion `error` logs through the shared Task 17 helper, preserving existing backoff and retry-after behavior.
+- Subtask 3: Added guaranteed terminal OpenAI failure visibility in `runOpenAiWithRetry` catch-path logging so non-retryable first-attempt failures are emitted as frontend-visible terminal `error` entries.
+- Subtask 4: Added deterministic LM Studio ingest/provider failure normalization (`LMSTUDIO_UNAVAILABLE`, `LMSTUDIO_MODEL_UNAVAILABLE`, `LMSTUDIO_BAD_REQUEST`) via `mapLmStudioIngestError`.
+- Subtask 5: Wired ingest terminal catch handling to emit LM Studio terminal failures as frontend-visible `error` entries with run/model/path/currentFile context.
+- Subtask 6: Preserved existing backend stack diagnostics (`baseLogger.error` in ingest catch) and added/kept equivalent appendable frontend-visible summary lines for OpenAI/LM Studio provider failures.
+- Subtask 7: Added `server/src/test/unit/ingest-openai-logging.test.ts` covering OpenAI retry `warn` emission and terminal `error` emission with required ingest context fields.
+- Subtask 8: Added `server/src/test/unit/ingest-lmstudio-logging.test.ts` validating LM Studio provider failure normalization and terminal frontend-visible error-log context shape.
+- Subtask 9: Added `server/src/test/integration/ingest-logging-visibility.test.ts` asserting Task 17 warning/error entries are visible through both `GET /logs` and `GET /logs/stream`.
+- Subtask 10: Extended `client/src/test/logsPage.test.tsx` with warning/error ingest failure rendering coverage for provider/code/stage context visibility in the Logs page UI.
+- Subtask 11: Updated `README.md`, `design.md`, and `projectStructure.md` to document Task 17 ingest provider failure logging semantics (retry warn vs terminal error), required context fields, and newly added helper/test files.
+- Subtask 12: Ran `npm run lint --workspaces` and `npm run format:check --workspaces`; lint passed with existing baseline import-order warnings only, and format checks pass after writing Prettier updates for new Task 17 files.
+- Testing 1: `npm run build --workspace server` passed (`tsc -b` completed without errors).
+- Testing 2: `npm run build --workspace client` passed (`vite build`) with existing non-blocking chunk-size warnings only.
+- Testing 3: `npm run test --workspace server` passed end-to-end with node test summary `729/729` and Cucumber summary `67/67` scenarios (`402/402` steps).
+- Testing 4: `npm run test --workspace client` passed (`92/92` suites, `362/362` tests).
+- Testing 5: `timeout 7m npm run e2e` passed (`42/42` Playwright tests) and completed `e2e:down` teardown successfully.
+- Testing 6: `npm run compose:build` passed and produced refreshed local compose images (`codeinfo2-server`, `codeinfo2-client`).
+- Testing 7: `npm run compose:up` passed with local services started and healthy for host-mapped verification.
+- Testing 8: `npm run compose:down` passed and removed compose containers/networks cleanly.
 
 ---
 

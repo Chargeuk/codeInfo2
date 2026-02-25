@@ -1,4 +1,3 @@
-import { append } from '../../logStore.js';
 import { delayWithAbort, runWithRetry } from '../../agents/retry.js';
 import {
   OPENAI_RETRY_BASE_DELAY_MS,
@@ -12,6 +11,7 @@ import {
   isRetryableOpenAiCode,
   mapOpenAiError,
 } from './openaiErrors.js';
+import { appendIngestFailureLog } from './ingestFailureLogging.js';
 
 export type RetryHeaders = Headers | Record<string, unknown> | undefined;
 
@@ -78,10 +78,17 @@ export async function runOpenAiWithRetry<T>(params: {
   tokenEstimate: number;
   signal?: AbortSignal;
   sleep?: (ms: number, signal?: AbortSignal) => Promise<void>;
+  ingestFailureContext?: () => {
+    runId?: string;
+    path?: string;
+    root?: string;
+    currentFile?: string;
+  };
   runStep: (attempt: number) => Promise<T>;
 }): Promise<T> {
   let nextDelayMs = OPENAI_RETRY_BASE_DELAY_MS;
   let attemptCounter = 0;
+  let terminalLogged = false;
 
   try {
     return await runWithRetry({
@@ -110,37 +117,37 @@ export async function runOpenAiWithRetry<T>(params: {
             ? retryAfterMs
             : computeExponentialDelayMs(attempt);
 
-        append({
-          level: 'warn',
-          message: 'DEV-0000036:T6:openai_embedding_result_mapped',
-          timestamp: new Date().toISOString(),
-          source: 'server',
-          context: {
-            status: 'error',
-            code: mapped.code,
-            retryable: mapped.retryable,
-            waitMs: nextDelayMs,
-            model: params.model,
-            inputCount: params.inputCount,
-            tokenEstimate: params.tokenEstimate,
-          },
+        appendIngestFailureLog('warn', {
+          ...params.ingestFailureContext?.(),
+          provider: 'openai',
+          code: mapped.code,
+          retryable: mapped.retryable,
+          attempt,
+          waitMs: nextDelayMs,
+          model: params.model,
+          message: mapped.message,
+          stage: 'retry',
+          ...(typeof mapped.upstreamStatus === 'number'
+            ? { upstreamStatus: mapped.upstreamStatus }
+            : {}),
+          ...(typeof retryAfterMs === 'number' ? { retryAfterMs } : {}),
         });
       },
-      onExhausted: ({ error }) => {
+      onExhausted: ({ attempt, error }) => {
         const mapped = mapOpenAiError(error);
-        append({
-          level: 'error',
-          message: 'DEV-0000036:T6:openai_embedding_result_mapped',
-          timestamp: new Date().toISOString(),
-          source: 'server',
-          context: {
-            status: 'error',
-            code: mapped.code,
-            retryable: mapped.retryable,
-            model: params.model,
-            inputCount: params.inputCount,
-            tokenEstimate: params.tokenEstimate,
-          },
+        terminalLogged = true;
+        appendIngestFailureLog('error', {
+          ...params.ingestFailureContext?.(),
+          provider: 'openai',
+          code: mapped.code,
+          retryable: mapped.retryable,
+          attempt,
+          model: params.model,
+          message: mapped.message,
+          stage: 'terminal',
+          ...(typeof mapped.upstreamStatus === 'number'
+            ? { upstreamStatus: mapped.upstreamStatus }
+            : {}),
         });
       },
     });
@@ -151,6 +158,22 @@ export async function runOpenAiWithRetry<T>(params: {
         ? ((error as { headers?: RetryHeaders }).headers ?? undefined)
         : undefined,
     );
+    if (!terminalLogged) {
+      appendIngestFailureLog('error', {
+        ...params.ingestFailureContext?.(),
+        provider: 'openai',
+        code: mapped.code,
+        retryable: mapped.retryable,
+        attempt: Math.max(attemptCounter, 1),
+        model: params.model,
+        message: mapped.message,
+        stage: 'terminal',
+        ...(typeof mapped.upstreamStatus === 'number'
+          ? { upstreamStatus: mapped.upstreamStatus }
+          : {}),
+        ...(typeof retryAfterMs === 'number' ? { retryAfterMs } : {}),
+      });
+    }
     throw new OpenAiEmbeddingError(
       mapped.code,
       mapped.message,

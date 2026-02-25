@@ -1845,7 +1845,7 @@ Implement the user-visible ingest UI behavior for provider-tagged model selectio
 ### 14. Final verification: full acceptance validation, regressions, and documentation sync
 
 - Task Status: **__done__**
-- Git Commits:
+- Git Commits: `b695ed9`
 
 #### Overview
 

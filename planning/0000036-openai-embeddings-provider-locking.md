@@ -2108,6 +2108,106 @@ Re-run full story verification after Task 15 remediation to reconfirm acceptance
 
 ---
 
+### 17. Server observability hardening: frontend-visible ingest failure logging for OpenAI and LM Studio
+
+- Task Status: **__to_do__**
+- Git Commits: **to_do**
+
+#### Overview
+
+Ensure all ingest-process failures tied to OpenAI or LM Studio are emitted as frontend-visible `/logs` entries with actionable detail. Retry-attempt failures must be logged as `warn` with retry context, while terminal non-retried failures must be logged as `error` with provider/code/message detail. This task closes current visibility gaps where some ingest failures only reach server file logs.
+
+#### Documentation Locations
+
+- Server ingest orchestration: `server/src/ingest/ingestJob.ts`
+- OpenAI provider + retry mapping: `server/src/ingest/providers/openaiEmbeddingProvider.ts`, `server/src/ingest/providers/openaiRetry.ts`, `server/src/ingest/providers/openaiErrors.ts`, `server/src/ingest/providers/openaiErrorContract.ts`
+- LM Studio provider adapter: `server/src/ingest/providers/lmstudioEmbeddingProvider.ts`
+- Server log transport/store: `server/src/logStore.ts`, `server/src/routes/logs.ts`
+- Client logs UX: `client/src/hooks/useLogs.ts`, `client/src/pages/LogsPage.tsx`
+- Ingest status contracts: `server/src/routes/ingestStart.ts`, `server/src/routes/ingestRoots.ts`
+
+#### Subtasks
+
+1. [ ] Add a shared ingest-failure logging helper for appendable frontend-visible events in `server/src/ingest/ingestJob.ts` (or `server/src/ingest/providers/` helper module) with deterministic context fields: `runId`, `provider`, `code`, `retryable`, `attempt`, `waitMs`, `model`, `path/root`, `currentFile`, `message`, and `stage`.
+2. [ ] OpenAI retry classification: ensure retried failure events emit `warn` entries (with retry wait/context) and retry exhaustion emits `error` entries through the shared helper while preserving existing retry/backoff behavior.
+3. [ ] OpenAI terminal ingest failure parity: ensure terminal OpenAI failures are always represented in appendable ingest lifecycle logs with normalized error detail (including retryability and upstream status when available), not only in server file logger output.
+4. [ ] LM Studio failure mapping for ingest: add deterministic mapping for LM Studio ingest/provider failures to structured provider-aware error detail (code/message/retryable) so frontend logs have consistent shape with OpenAI entries.
+5. [ ] LM Studio terminal failure severity: ensure LM Studio failures that are not retried are emitted as `error` frontend log lines with provider-specific details and run context.
+6. [ ] Keep `baseLogger` stack/cause output for backend diagnostics, but guarantee equivalent appendable frontend-visible ingest failure summary lines for all OpenAI/LM Studio ingest failures.
+7. [ ] Server unit test addition (OpenAI retry): add a dedicated test file (for example `server/src/test/unit/ingest-openai-logging.test.ts`) verifying retried OpenAI failures produce `warn` entries and exhausted retries produce `error` entries with required context fields.
+8. [ ] Server unit test addition (LM Studio failure): add a dedicated test file (for example `server/src/test/unit/ingest-lmstudio-logging.test.ts`) verifying LM Studio ingest/provider failures emit frontend-visible `error` entries with provider/detail context and no missing required fields.
+9. [ ] Server integration test addition (logs endpoint visibility): add integration coverage (for example `server/src/test/integration/ingest-logging-visibility.test.ts`) that drives ingest failure paths and asserts `/logs` + `/logs/stream` expose the expected warning/error entries and detail payloads.
+10. [ ] Client RTL test addition (logs rendering): add/update client log-view tests (for example `client/src/test/logsPage.test.tsx`) to assert warning/error ingest failure entries and detail context render correctly in the Logs page UI.
+11. [ ] Documentation updates: update `README.md` and `design.md` to document provider failure logging behavior and warning-vs-error retry semantics; update `projectStructure.md` for any new test/helper files.
+12. [ ] Lint/format: run `npm run lint --workspaces` and `npm run format:check --workspaces`; resolve issues before task completion.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000`)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Pending implementation.
+
+---
+
+### 18. Server configuration extension: env-configurable OpenAI ingest retry budget (`OPENAI_INGEST_MAX_RETRIES`)
+
+- Task Status: **__to_do__**
+- Git Commits: **to_do**
+
+#### Overview
+
+Add a server environment variable, `OPENAI_INGEST_MAX_RETRIES`, to override the current default OpenAI ingest retry limit of `3` retries (retry attempts after the initial call). The override must apply only to OpenAI ingest embedding retries, preserve deterministic fallback to default behavior when unset/invalid, and include a committed server default value of `10` in `server/.env` for this repository.
+
+#### Documentation Locations
+
+- OpenAI retry constants + retry loop wiring: `server/src/ingest/providers/openaiConstants.ts`, `server/src/ingest/providers/openaiRetry.ts`, `server/src/ingest/providers/index.ts`
+- Existing env retry resolver pattern reference: `server/src/config/flowAndCommandRetries.ts`
+- Server env defaults file: `server/.env`
+- Existing OpenAI retry tests: `server/src/test/unit/openai-provider-retry.test.ts`
+- Story and architecture docs: `README.md`, `design.md`, `projectStructure.md`, `planning/0000036-openai-embeddings-provider-locking.md`
+
+#### Subtasks
+
+1. [ ] Add a dedicated OpenAI ingest retry-budget resolver module (for example `server/src/config/openaiIngestRetries.ts`) that reads `OPENAI_INGEST_MAX_RETRIES`, defaults to `3` when unset, and falls back to `3` when value is non-numeric, zero, or negative.
+2. [ ] Keep retry semantics explicit: document and enforce that `OPENAI_INGEST_MAX_RETRIES` means retry attempts after the initial attempt, and ensure the retry runner still computes `maxAttempts = retries + 1`.
+3. [ ] Wire `runOpenAiWithRetry` to the new resolver so OpenAI ingest retry limits are read from env at runtime and no longer hardcoded at call-site.
+4. [ ] Preserve existing OpenAI retry/backoff behavior (base delay, max delay, jitter, retry-after precedence, retryable-code mapping) while changing only the max-retries source.
+5. [ ] Update/export constants/types as needed so default retry value remains clear and testable (for example retain a default constant value of `3` while deriving runtime retries from resolver output).
+6. [ ] Set `OPENAI_INGEST_MAX_RETRIES=10` in `server/.env` as part of this task, keeping the rest of server env defaults unchanged.
+7. [ ] Add unit test file for config resolver behavior (for example `server/src/test/unit/openai-ingest-retries-config.test.ts`) covering: unset env -> `3`, invalid env -> `3`, valid positive integer env -> parsed value.
+8. [ ] Update OpenAI retry unit tests in `server/src/test/unit/openai-provider-retry.test.ts` to verify runtime env override is honored by retry execution (attempt budget/stop behavior) while default fallback remains `3`.
+9. [ ] Add a dedicated server integration test (for example `server/src/test/integration/openai-retry-env-override.test.ts`) that exercises an OpenAI retryable failure path and asserts effective retry-attempt count reflects env override semantics.
+10. [ ] Update story docs to reflect the new configurability and committed server default (`OPENAI_INGEST_MAX_RETRIES=10`) in `README.md`, `design.md`, and `projectStructure.md` where env/retry behavior is described.
+11. [ ] Update this story plan section evidence after implementation with exact file paths, retry semantics decisions, and test outcomes.
+12. [ ] Lint/format validation: run `npm run lint --workspaces` and `npm run format:check --workspaces`; resolve any introduced issues before marking done.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000`)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] `npm run compose:down`
+9. [ ] `npm run compose:build:clean`
+
+#### Implementation notes
+
+- Pending implementation.
+
+---
+
 ## Post-Completion Code Review (Branch vs `main`)
 
 ### Review scope and method
@@ -2126,5 +2226,6 @@ Re-run full story verification after Task 15 remediation to reconfirm acceptance
 ### Outcome
 
 - No additional blocking issues were identified in the branch-vs-main review beyond the already remediated Task 15 findings.
-- Story remains complete with Tasks 1-16 marked `__done__`, and Task 16 verification evidence records full regression/build/test/e2e/manual checks.
+- At the time this review was recorded, Tasks 1-16 were `__done__`, and Task 16 verification evidence recorded full regression/build/test/e2e/manual checks.
+- Tasks 17-18 were added later and are currently pending (`__to_do__`).
 - No further remediation tasks were added from this review pass.

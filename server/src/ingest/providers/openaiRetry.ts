@@ -1,10 +1,10 @@
 import { delayWithAbort, runWithRetry } from '../../agents/retry.js';
+import { getOpenAiIngestMaxRetries } from '../../config/openaiIngestRetries.js';
 import {
   OPENAI_RETRY_BASE_DELAY_MS,
   OPENAI_RETRY_JITTER_MAX,
   OPENAI_RETRY_JITTER_MIN,
   OPENAI_RETRY_MAX_DELAY_MS,
-  OPENAI_RETRY_MAX_RETRIES,
 } from './openaiConstants.js';
 import {
   OpenAiEmbeddingError,
@@ -91,8 +91,9 @@ export async function runOpenAiWithRetry<T>(params: {
   let terminalLogged = false;
 
   try {
+    const maxRetries = getOpenAiIngestMaxRetries();
     return await runWithRetry({
-      maxAttempts: OPENAI_RETRY_MAX_RETRIES + 1,
+      maxAttempts: maxRetries + 1,
       baseDelayMs: OPENAI_RETRY_BASE_DELAY_MS,
       signal: params.signal,
       sleep: async (_delayMs: number, signal?: AbortSignal) =>

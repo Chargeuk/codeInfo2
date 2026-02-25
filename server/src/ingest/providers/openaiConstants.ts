@@ -8,7 +8,9 @@ export const OPENAI_EMBEDDING_MODEL_ALLOWLIST = [
 export const OPENAI_MAX_INPUTS_PER_REQUEST = 2048;
 export const OPENAI_MAX_TOTAL_TOKENS_PER_REQUEST = 300_000;
 
-export const OPENAI_RETRY_MAX_RETRIES = 3;
+export const OPENAI_RETRY_DEFAULT_MAX_RETRIES = 3;
+// Backward-compatible alias retained for existing imports/tests.
+export const OPENAI_RETRY_MAX_RETRIES = OPENAI_RETRY_DEFAULT_MAX_RETRIES;
 export const OPENAI_RETRY_BASE_DELAY_MS = 500;
 export const OPENAI_RETRY_MAX_DELAY_MS = 8_000;
 export const OPENAI_RETRY_JITTER_MIN = 0.75;

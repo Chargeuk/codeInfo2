@@ -2,6 +2,7 @@ export { createLmStudioEmbeddingProvider } from './lmstudioEmbeddingProvider.js'
 export { createOpenAiEmbeddingProvider } from './openaiEmbeddingProvider.js';
 export {
   OPENAI_EMBEDDING_MODEL_ALLOWLIST,
+  OPENAI_RETRY_DEFAULT_MAX_RETRIES,
   OPENAI_RETRY_BASE_DELAY_MS,
   OPENAI_RETRY_JITTER_MAX,
   OPENAI_RETRY_JITTER_MIN,

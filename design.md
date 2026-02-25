@@ -113,7 +113,8 @@ flowchart LR
   - per-input model token limit (`resolveOpenAiModelTokenLimit`)
   - max `300000` total estimated tokens/request.
 - Retry behavior uses existing shared retry utility (`runWithRetry`) with OpenAI-specific policy:
-  - retries: `maxRetries=3` (4 total attempts)
+  - retries: runtime-configurable via `OPENAI_INGEST_MAX_RETRIES` (retry attempts after the initial call)
+  - fallback/default retries: `3` (4 total attempts when fallback is used)
   - base delay `500ms`, max delay `8000ms`
   - jitter range `[0.75, 1.0]`
   - wait-hint precedence: `retry-after-ms` -> `retry-after` -> bounded exponential fallback.
@@ -2656,6 +2657,14 @@ sequenceDiagram
 - Terminal provider failures emit `level=error` with `stage=terminal`; this includes non-retryable OpenAI first-attempt failures and LM Studio ingest/provider failures.
 - Required context fields are emitted when available: `runId`, `provider`, `code`, `retryable`, `attempt`, `waitMs`, `model`, `path`, `root`, `currentFile`, `message`, and `stage` (plus `upstreamStatus`/`retryAfterMs` when available).
 - Backend diagnostics remain unchanged: `baseLogger` still records stack/cause details, and frontend-visible summary entries are appended in parallel for `/logs` and `/logs/stream` consumption.
+
+### Story 0000036 Task 18: OpenAI ingest retry budget env override
+
+- OpenAI ingest retry budget is now resolved from `OPENAI_INGEST_MAX_RETRIES` at runtime.
+- Semantics are explicit: env value is retry attempts after the initial attempt, and retry execution still uses `maxAttempts = retries + 1`.
+- Invalid, non-numeric, zero, and negative values deterministically fall back to default retry budget `3`.
+- The repository default is committed in `server/.env` as `OPENAI_INGEST_MAX_RETRIES=10`.
+- Existing retry mechanics are unchanged: wait-hint precedence, bounded exponential backoff, jitter range, retryable-code mapping, and SDK retry disablement (`maxRetries=0`) remain in place.
     Logs-->>UI: events (id = sequence)
   end
 ```

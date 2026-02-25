@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test, { mock } from 'node:test';
 import {
+  OPENAI_RETRY_DEFAULT_MAX_RETRIES,
   OPENAI_RETRY_BASE_DELAY_MS,
   OPENAI_RETRY_JITTER_MAX,
   OPENAI_RETRY_JITTER_MIN,
@@ -16,7 +17,8 @@ test.afterEach(() => {
 });
 
 test('OpenAI retry defaults match story policy', () => {
-  assert.equal(OPENAI_RETRY_MAX_RETRIES, 3);
+  assert.equal(OPENAI_RETRY_DEFAULT_MAX_RETRIES, 3);
+  assert.equal(OPENAI_RETRY_MAX_RETRIES, OPENAI_RETRY_DEFAULT_MAX_RETRIES);
   assert.equal(OPENAI_RETRY_BASE_DELAY_MS, 500);
   assert.equal(OPENAI_RETRY_MAX_DELAY_MS, 8000);
   assert.equal(OPENAI_RETRY_JITTER_MIN, 0.75);
@@ -30,6 +32,66 @@ test('OpenAI retry defaults match story policy', () => {
   mock.method(Math, 'random', () => 1);
   const high = computeExponentialDelayMs(10);
   assert.equal(high, 8000);
+});
+
+test('runtime OPENAI_INGEST_MAX_RETRIES override is honored for retry budget', async () => {
+  const previous = process.env.OPENAI_INGEST_MAX_RETRIES;
+  process.env.OPENAI_INGEST_MAX_RETRIES = '2';
+  try {
+    let callCount = 0;
+    await assert.rejects(
+      () =>
+        runOpenAiWithRetry({
+          model: 'text-embedding-3-small',
+          inputCount: 1,
+          tokenEstimate: 42,
+          sleep: async () => {},
+          runStep: async () => {
+            callCount += 1;
+            throw { status: 503, message: 'temporary outage' };
+          },
+        }),
+      () => true,
+    );
+    // 2 retries after initial attempt => 3 total attempts.
+    assert.equal(callCount, 3);
+  } finally {
+    if (previous === undefined) {
+      delete process.env.OPENAI_INGEST_MAX_RETRIES;
+    } else {
+      process.env.OPENAI_INGEST_MAX_RETRIES = previous;
+    }
+  }
+});
+
+test('runtime OPENAI_INGEST_MAX_RETRIES falls back to default when invalid', async () => {
+  const previous = process.env.OPENAI_INGEST_MAX_RETRIES;
+  process.env.OPENAI_INGEST_MAX_RETRIES = '0';
+  try {
+    let callCount = 0;
+    await assert.rejects(
+      () =>
+        runOpenAiWithRetry({
+          model: 'text-embedding-3-small',
+          inputCount: 1,
+          tokenEstimate: 42,
+          sleep: async () => {},
+          runStep: async () => {
+            callCount += 1;
+            throw { status: 503, message: 'temporary outage' };
+          },
+        }),
+      () => true,
+    );
+    // Default is 3 retries after initial attempt => 4 total attempts.
+    assert.equal(callCount, OPENAI_RETRY_DEFAULT_MAX_RETRIES + 1);
+  } finally {
+    if (previous === undefined) {
+      delete process.env.OPENAI_INGEST_MAX_RETRIES;
+    } else {
+      process.env.OPENAI_INGEST_MAX_RETRIES = previous;
+    }
+  }
 });
 
 test('retry-after-ms takes precedence over retry-after', () => {

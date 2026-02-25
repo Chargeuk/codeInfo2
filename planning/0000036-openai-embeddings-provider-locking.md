@@ -2179,7 +2179,7 @@ Ensure all ingest-process failures tied to OpenAI or LM Studio are emitted as fr
 
 ### 18. Server configuration extension: env-configurable OpenAI ingest retry budget (`OPENAI_INGEST_MAX_RETRIES`)
 
-- Task Status: **__in_progress__**
+- Task Status: **__done__**
 - Git Commits: **to_do**
 
 #### Overview
@@ -2196,34 +2196,54 @@ Add a server environment variable, `OPENAI_INGEST_MAX_RETRIES`, to override the 
 
 #### Subtasks
 
-1. [ ] Add a dedicated OpenAI ingest retry-budget resolver module (for example `server/src/config/openaiIngestRetries.ts`) that reads `OPENAI_INGEST_MAX_RETRIES`, defaults to `3` when unset, and falls back to `3` when value is non-numeric, zero, or negative.
-2. [ ] Keep retry semantics explicit: document and enforce that `OPENAI_INGEST_MAX_RETRIES` means retry attempts after the initial attempt, and ensure the retry runner still computes `maxAttempts = retries + 1`.
-3. [ ] Wire `runOpenAiWithRetry` to the new resolver so OpenAI ingest retry limits are read from env at runtime and no longer hardcoded at call-site.
-4. [ ] Preserve existing OpenAI retry/backoff behavior (base delay, max delay, jitter, retry-after precedence, retryable-code mapping) while changing only the max-retries source.
-5. [ ] Update/export constants/types as needed so default retry value remains clear and testable (for example retain a default constant value of `3` while deriving runtime retries from resolver output).
-6. [ ] Set `OPENAI_INGEST_MAX_RETRIES=10` in `server/.env` as part of this task, keeping the rest of server env defaults unchanged.
-7. [ ] Add unit test file for config resolver behavior (for example `server/src/test/unit/openai-ingest-retries-config.test.ts`) covering: unset env -> `3`, invalid env -> `3`, valid positive integer env -> parsed value.
-8. [ ] Update OpenAI retry unit tests in `server/src/test/unit/openai-provider-retry.test.ts` to verify runtime env override is honored by retry execution (attempt budget/stop behavior) while default fallback remains `3`.
-9. [ ] Add a dedicated server integration test (for example `server/src/test/integration/openai-retry-env-override.test.ts`) that exercises an OpenAI retryable failure path and asserts effective retry-attempt count reflects env override semantics.
-10. [ ] Update story docs to reflect the new configurability and committed server default (`OPENAI_INGEST_MAX_RETRIES=10`) in `README.md`, `design.md`, and `projectStructure.md` where env/retry behavior is described.
-11. [ ] Update this story plan section evidence after implementation with exact file paths, retry semantics decisions, and test outcomes.
-12. [ ] Lint/format validation: run `npm run lint --workspaces` and `npm run format:check --workspaces`; resolve any introduced issues before marking done.
+1. [x] Add a dedicated OpenAI ingest retry-budget resolver module (for example `server/src/config/openaiIngestRetries.ts`) that reads `OPENAI_INGEST_MAX_RETRIES`, defaults to `3` when unset, and falls back to `3` when value is non-numeric, zero, or negative.
+2. [x] Keep retry semantics explicit: document and enforce that `OPENAI_INGEST_MAX_RETRIES` means retry attempts after the initial attempt, and ensure the retry runner still computes `maxAttempts = retries + 1`.
+3. [x] Wire `runOpenAiWithRetry` to the new resolver so OpenAI ingest retry limits are read from env at runtime and no longer hardcoded at call-site.
+4. [x] Preserve existing OpenAI retry/backoff behavior (base delay, max delay, jitter, retry-after precedence, retryable-code mapping) while changing only the max-retries source.
+5. [x] Update/export constants/types as needed so default retry value remains clear and testable (for example retain a default constant value of `3` while deriving runtime retries from resolver output).
+6. [x] Set `OPENAI_INGEST_MAX_RETRIES=10` in `server/.env` as part of this task, keeping the rest of server env defaults unchanged.
+7. [x] Add unit test file for config resolver behavior (for example `server/src/test/unit/openai-ingest-retries-config.test.ts`) covering: unset env -> `3`, invalid env -> `3`, valid positive integer env -> parsed value.
+8. [x] Update OpenAI retry unit tests in `server/src/test/unit/openai-provider-retry.test.ts` to verify runtime env override is honored by retry execution (attempt budget/stop behavior) while default fallback remains `3`.
+9. [x] Add a dedicated server integration test (for example `server/src/test/integration/openai-retry-env-override.test.ts`) that exercises an OpenAI retryable failure path and asserts effective retry-attempt count reflects env override semantics.
+10. [x] Update story docs to reflect the new configurability and committed server default (`OPENAI_INGEST_MAX_RETRIES=10`) in `README.md`, `design.md`, and `projectStructure.md` where env/retry behavior is described.
+11. [x] Update this story plan section evidence after implementation with exact file paths, retry semantics decisions, and test outcomes.
+12. [x] Lint/format validation: run `npm run lint --workspaces` and `npm run format:check --workspaces`; resolve any introduced issues before marking done.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000`)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] `npm run compose:down`
-9. [ ] `npm run compose:build:clean`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000`)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] `npm run compose:down`
+9. [x] `npm run compose:build:clean`
 
 #### Implementation notes
 
-- Pending implementation.
+- Subtask 1: Added `server/src/config/openaiIngestRetries.ts` with deterministic `OPENAI_INGEST_MAX_RETRIES` parsing (`unset/invalid -> 3`, positive integer -> parsed value).
+- Subtask 2: Documented resolver semantics in-code as retry attempts after the initial attempt and kept retry runner semantics as `maxAttempts = retries + 1`.
+- Subtask 3: Updated `server/src/ingest/providers/openaiRetry.ts` to read retry budget at runtime via `getOpenAiIngestMaxRetries()` instead of a hardcoded call-site constant.
+- Subtask 4: Preserved all existing OpenAI retry/backoff behavior (wait-hint precedence, exponential/jitter fallback, retryability mapping) while changing only max-retries source.
+- Subtask 5: Added explicit default constant `OPENAI_RETRY_DEFAULT_MAX_RETRIES=3` (with backward-compatible alias) and exported it via provider index for testability.
+- Subtask 6: Added committed server default `OPENAI_INGEST_MAX_RETRIES=10` in `server/.env` without changing other env defaults.
+- Subtask 7: Added `server/src/test/unit/openai-ingest-retries-config.test.ts` covering unset/invalid/valid env parsing behavior.
+- Subtask 8: Extended `server/src/test/unit/openai-provider-retry.test.ts` with runtime env override attempt-budget assertions plus invalid-value fallback assertions.
+- Subtask 9: Added `server/src/test/integration/openai-retry-env-override.test.ts` covering retryable failure attempt counts under env override semantics.
+- Subtask 10: Updated `README.md`, `design.md`, and `projectStructure.md` to document `OPENAI_INGEST_MAX_RETRIES` semantics, fallback default behavior, committed `.env` default (`10`), and new Task 18 config/test files.
+- Subtask 11: Updated Task 18 evidence with exact implementation/test paths and semantics: runtime env resolver in `server/src/config/openaiIngestRetries.ts`, retry wiring in `server/src/ingest/providers/openaiRetry.ts`, default constant in `server/src/ingest/providers/openaiConstants.ts`, committed default in `server/.env`, resolver tests in `server/src/test/unit/openai-ingest-retries-config.test.ts`, retry unit coverage in `server/src/test/unit/openai-provider-retry.test.ts`, and integration coverage in `server/src/test/integration/openai-retry-env-override.test.ts` verifying retries are counted as attempts after the initial call.
+- Subtask 12: Ran `npm run lint --workspaces && npm run format:check --workspaces`; lint completed with existing baseline import-order warnings only (`0` errors), and format checks passed for client/server/common.
+- Testing 1: `npm run build --workspace server` passed (`tsc -b` completed with no TypeScript errors).
+- Testing 2: `npm run build --workspace client` passed (`vite build`) with existing non-blocking chunk-size warnings only.
+- Testing 3: `npm run test --workspace server` passed with node test summary `735/735` (`624` subtests, `0` fail) and Cucumber summary `67/67` scenarios (`402/402` steps).
+- Testing 4: `npm run test --workspace client` passed (`92/92` suites, `362/362` tests).
+- Testing 5: `timeout 7m npm run e2e` passed (`39` passed, `3` skipped) and completed `e2e:down` teardown successfully.
+- Testing 6: `npm run compose:build` passed and produced refreshed local compose images (`codeinfo2-server`, `codeinfo2-client`).
+- Testing 7: `npm run compose:up` passed and started host-mapped services for manual verification (`client` on `5001`, `server` on `5010-5012`).
+- Testing 8: `npm run compose:down` passed and removed compose containers/networks cleanly.
+- Testing 9: `npm run compose:build:clean` passed (`--pull --no-cache`) and rebuilt both compose images successfully.
 
 ---
 

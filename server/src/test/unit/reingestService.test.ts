@@ -36,7 +36,9 @@ test('success branch returns canonical payload', async () => {
     { sourceId: '/data/repo-a' },
     {
       listIngestedRepositories: async () => ({
-        repos: [buildRepoEntry({ id: 'repo-a', containerPath: '/data/repo-a' })],
+        repos: [
+          buildRepoEntry({ id: 'repo-a', containerPath: '/data/repo-a' }),
+        ],
         lockedModelId: 'model',
       }),
       isBusy: () => false,

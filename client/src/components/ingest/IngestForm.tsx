@@ -18,6 +18,7 @@ const serverBase = getApiBaseUrl();
 export type IngestModel = {
   id: string;
   displayName: string;
+  provider?: 'lmstudio' | 'openai';
   contextLength?: number;
 };
 

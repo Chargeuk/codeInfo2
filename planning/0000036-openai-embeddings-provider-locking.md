@@ -2110,7 +2110,7 @@ Re-run full story verification after Task 15 remediation to reconfirm acceptance
 
 ### 17. Server observability hardening: frontend-visible ingest failure logging for OpenAI and LM Studio
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **to_do**
 
 #### Overview

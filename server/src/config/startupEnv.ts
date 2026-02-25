@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { config } from 'dotenv';
+import { parse } from 'dotenv';
 
 export const STARTUP_ENV_ORDER = ['server/.env', 'server/.env.local'] as const;
 
@@ -31,20 +31,28 @@ export const loadStartupEnv = ({
 } = {}): StartupEnvLoadResult => {
   const envPath = path.resolve(serverRoot, '.env');
   const envLocalPath = path.resolve(serverRoot, '.env.local');
+  const envExists = fs.existsSync(envPath);
   const envLocalExists = fs.existsSync(envLocalPath);
 
-  const filesToLoad = envLocalExists ? [envPath, envLocalPath] : [envPath];
-  config({
-    path: filesToLoad,
-    override: true,
-    processEnv: targetEnv as Record<string, string>,
-  });
+  const preseededKeys = new Set(Object.keys(targetEnv));
+  const assignParsedValues = (filePath: string, allowFileOverride = false) => {
+    const parsed = parse(fs.readFileSync(filePath, 'utf8'));
+    for (const [key, value] of Object.entries(parsed)) {
+      if (preseededKeys.has(key)) continue;
+      if (!allowFileOverride && key in targetEnv) continue;
+      targetEnv[key] = value;
+    }
+  };
+
+  if (envExists) assignParsedValues(envPath);
+  if (envLocalExists) assignParsedValues(envLocalPath, true);
 
   return {
     orderedFiles: STARTUP_ENV_ORDER,
-    loadedFiles: envLocalExists
-      ? ['server/.env', 'server/.env.local']
-      : ['server/.env'],
+    loadedFiles: [
+      ...(envExists ? (['server/.env'] as const) : []),
+      ...(envLocalExists ? (['server/.env.local'] as const) : []),
+    ],
     overrideApplied: envLocalExists,
   };
 };

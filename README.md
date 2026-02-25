@@ -411,6 +411,7 @@ Ingest collection names (`INGEST_COLLECTION`, `INGEST_ROOTS_COLLECTION`) come fr
 
 - GET `/ingest/models` returns provider-qualified embedding options (`lmstudio` + `openai`) plus canonical lock and provider-status envelopes.
 - OpenAI discovery is enabled only when `OPENAI_EMBEDDING_KEY` is configured (non-empty). OpenAI options are filtered to the server allowlist intersection (`text-embedding-3-small`, `text-embedding-3-large`).
+- Server startup env loading applies `server/.env` then `server/.env.local` for unset keys, while preserving runtime/container-preseeded env values (for example injected `OPENAI_EMBEDDING_KEY`).
 - The endpoint remains `200` even for partial provider failure states; warning/disabled details are surfaced in `openai` / `lmstudio` envelopes:
   ```json
   {

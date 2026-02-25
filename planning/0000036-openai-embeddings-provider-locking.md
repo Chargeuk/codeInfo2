@@ -2000,7 +2000,7 @@ Story `0000036` is now finalized with provider-aware embedding lock contracts an
 
 ### 15. Post-implementation review remediation: provider-qualified lock-option collision and startup env precedence hardening
 
-- Task Status: **__to_do__**
+- Task Status: **__done__**
 - Git Commits:
 
 #### Overview
@@ -2016,24 +2016,34 @@ Address issues found during branch-vs-main code review that affect lock-selectio
 
 #### Subtasks
 
-1. [ ] Fix provider-qualified lock-option dedupe in ingest form. Files (read/edit): `client/src/components/ingest/IngestForm.tsx`. Constraint: when adding lock fallback option, dedupe by provider-qualified identity (`provider + model`) instead of model id only so cross-provider same-id collisions cannot hide the locked option.
-2. [ ] Add regression UI coverage for lock fallback collision path. Files (read/edit): `client/src/test/ingestForm.test.tsx`. Constraint: test case must prove that a locked OpenAI model remains selectable/submittable when only LM Studio option with the same model id exists in fetched models.
-3. [ ] Harden startup env precedence to preserve runtime-provided env vars. Files (read/edit): `server/src/config/startupEnv.ts`. Constraint: `.env.local` must still override `.env` values, but file loading must not clobber env vars already present in process environment from runtime/container configuration.
-4. [ ] Add startup env precedence regression tests for pre-seeded env vars. Files (read/edit): `server/src/test/unit/env-loading.test.ts`. Constraint: cover both `.env` and `.env.local` scenarios where pre-existing `targetEnv` values are preserved.
-5. [ ] Keep docs/contracts synchronized if behavior wording changes. Files (read/edit): `README.md`, `design.md`, `planning/0000036-openai-embeddings-provider-locking.md` (Task 15 notes). Constraint: no aspirational text; document only implemented precedence behavior.
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run available fix scripts and manually resolve remaining issues.
+1. [x] Fix provider-qualified lock-option dedupe in ingest form. Files (read/edit): `client/src/components/ingest/IngestForm.tsx`. Constraint: when adding lock fallback option, dedupe by provider-qualified identity (`provider + model`) instead of model id only so cross-provider same-id collisions cannot hide the locked option.
+2. [x] Add regression UI coverage for lock fallback collision path. Files (read/edit): `client/src/test/ingestForm.test.tsx`. Constraint: test case must prove that a locked OpenAI model remains selectable/submittable when only LM Studio option with the same model id exists in fetched models.
+3. [x] Harden startup env precedence to preserve runtime-provided env vars. Files (read/edit): `server/src/config/startupEnv.ts`. Constraint: `.env.local` must still override `.env` values, but file loading must not clobber env vars already present in process environment from runtime/container configuration.
+4. [x] Add startup env precedence regression tests for pre-seeded env vars. Files (read/edit): `server/src/test/unit/env-loading.test.ts`. Constraint: cover both `.env` and `.env.local` scenarios where pre-existing `targetEnv` values are preserved.
+5. [x] Keep docs/contracts synchronized if behavior wording changes. Files (read/edit): `README.md`, `design.md`, `planning/0000036-openai-embeddings-provider-locking.md` (Task 15 notes). Constraint: no aspirational text; document only implemented precedence behavior.
+6. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run available fix scripts and manually resolve remaining issues.
 
 #### Testing
 
-1. [ ] `npm run test --workspace client -- --runTestsByPath src/test/ingestForm.test.tsx`
-2. [ ] `npm run test --workspace server -- --testPathPattern=env-loading.test.ts`
-3. [ ] `npm run test --workspace server -- --runInBand src/test/unit/ingest-models.test.ts src/test/unit/ingest-start.test.ts src/test/unit/tools-vector-search.test.ts`
-4. [ ] `npm run build --workspace client`
-5. [ ] `npm run build --workspace server`
+1. [x] `npm run test --workspace client -- --runTestsByPath src/test/ingestForm.test.tsx`
+2. [x] `npm run test --workspace server -- --testPathPattern=env-loading.test.ts`
+3. [x] `npm run test --workspace server -- --runInBand src/test/unit/ingest-models.test.ts src/test/unit/ingest-start.test.ts src/test/unit/tools-vector-search.test.ts`
+4. [x] `npm run build --workspace client`
+5. [x] `npm run build --workspace server`
 
 #### Implementation notes
 
-- Notes added during implementation.
+- Subtask 1: Updated ingest lock fallback option insertion to dedupe on provider-qualified identity (`provider + model`) instead of raw model id so same-id models across providers no longer suppress the locked fallback option.
+- Subtask 2: Added ingest form regression test covering locked OpenAI fallback with LM Studio same-id collision, asserting the locked OpenAI option remains present/selected and submit payload keeps canonical OpenAI provider/model fields.
+- Subtask 3: Reworked startup env loading to parse `.env` then `.env.local` manually while preserving pre-seeded runtime/container env keys and still allowing `.env.local` to override `.env` for non-preseeded keys.
+- Subtask 4: Added env-loading regressions for pre-seeded runtime values covering both `.env + .env.local` and `.env`-only scenarios to lock in no-clobber precedence behavior.
+- Subtask 5: Updated `README.md` and `design.md` startup-env wording to explicitly document that runtime/container-preseeded env variables are preserved while `.env.local` still overrides `.env` for unset keys.
+- Subtask 6: Ran workspace lint and format checks; lint completed with existing baseline import-order warnings only, `format:check` initially failed for two changed files, then `npm run format --workspace client` + `npm run format --workspace server` fixed formatting and final `npm run format:check --workspaces` passed.
+- Testing 1: `npm run test --workspace client -- --runTestsByPath src/test/ingestForm.test.tsx` passed (`22/22`), including the new locked OpenAI fallback collision regression.
+- Testing 2: `npm run test --workspace server -- --testPathPattern=env-loading.test.ts` completed via workspace `test` pipeline (unit/integration + Cucumber); the env-loading assertions passed, and the run finished with `67` Cucumber scenarios / `402` steps passing.
+- Testing 3: Original `npm run test --workspace server -- --runInBand ...` invocation forwarded args into `test:integration` and failed with Cucumber `.feature` path validation; reran as `npm run test:unit --workspace server -- --runInBand src/test/unit/ingest-models.test.ts src/test/unit/ingest-start.test.ts src/test/unit/tools-vector-search.test.ts`, which passed with `718/718` tests.
+- Testing 4: `npm run build --workspace client` passed (`vite build`), with existing non-blocking chunk-size warnings only.
+- Testing 5: `npm run build --workspace server` passed (`tsc -b` completed without build errors).
 
 ---
 

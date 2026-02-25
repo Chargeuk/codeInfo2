@@ -295,7 +295,8 @@ flowchart LR
 
 ## Startup env loading parity (Task 3)
 
-- Startup now uses deterministic env precedence that matches compose env-file behavior: `server/.env` first, then `server/.env.local` as an override when present.
+- Startup now uses deterministic env precedence that matches compose env-file behavior for unset values: `server/.env` first, then `server/.env.local`.
+- Runtime/container-preseeded env vars are preserved and are not clobbered by file loading (for example an externally injected `OPENAI_EMBEDDING_KEY`).
 - Env bootstrap is centralized in `server/src/config/startupEnv.ts` and is loaded before logger config resolution so env-driven logger/runtime settings use the same startup precedence.
 - Missing `server/.env.local` is a valid state and does not fail startup.
 - Startup emits deterministic diagnostic events:

@@ -68,7 +68,13 @@ export default function IngestForm({
     const list = [...models];
     const lockProvider = lockedModel?.embeddingProvider ?? 'lmstudio';
     const lockModelId = lockedModel?.embeddingModel ?? lockedModelId;
-    if (lockModelId && !list.find((m) => m.id === lockModelId)) {
+    if (
+      lockModelId &&
+      !list.find(
+        (m) =>
+          (m.provider ?? 'lmstudio') === lockProvider && m.id === lockModelId,
+      )
+    ) {
       list.push({
         id: lockModelId,
         displayName: lockModelId,

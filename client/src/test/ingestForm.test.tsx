@@ -402,6 +402,55 @@ describe('IngestForm', () => {
     });
   });
 
+  it('keeps locked openai fallback option when fetched models only include lmstudio same-id', async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ runId: 'run-301' }),
+    });
+    const onStarted = jest.fn();
+
+    render(
+      <IngestForm
+        models={[{ id: 'dup-model', displayName: 'Dup', provider: 'lmstudio' }]}
+        lockedModelId="dup-model"
+        lockedModel={{
+          embeddingProvider: 'openai',
+          embeddingModel: 'dup-model',
+          embeddingDimensions: 1536,
+        }}
+        onStarted={onStarted}
+      />,
+    );
+
+    const select = screen.getByRole('combobox', { name: /embedding model/i });
+    expect(select).toBeDisabled();
+    expect(select).toHaveValue('openai::dup-model');
+
+    const options = Array.from(select.querySelectorAll('option')).map(
+      (option) => option.value,
+    );
+    expect(options).toEqual(
+      expect.arrayContaining(['lmstudio::dup-model', 'openai::dup-model']),
+    );
+
+    fireEvent.change(screen.getByLabelText(/folder path/i), {
+      target: { value: '/repo' },
+    });
+    fireEvent.change(screen.getByLabelText(/display name/i), {
+      target: { value: 'Repo' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /start ingest/i }));
+
+    await waitFor(() => expect(onStarted).toHaveBeenCalledWith('run-301'));
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body as string);
+    expect(body).toMatchObject({
+      embeddingProvider: 'openai',
+      embeddingModel: 'dup-model',
+      model: 'dup-model',
+    });
+  });
+
   it('shows server error message when request fails', async () => {
     mockFetch.mockResolvedValue({
       ok: false,

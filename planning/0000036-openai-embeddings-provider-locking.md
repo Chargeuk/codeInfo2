@@ -2469,3 +2469,36 @@ After Task 20 fixes, execute a full-story regression against Story 0000036 accep
 - Testing 13: Final e2e summary reconfirmed all passing from Testing 5 output (`42 passed`, `0 failed`) with teardown complete.
 
 ---
+
+## Post-Completion Code Review (main...HEAD)
+
+### Scope
+
+- Reviewed branch `feature/0000036-openai-embeddings-provider-locking` against `main` using full file diff and targeted high-risk file inspection.
+- Reviewed latest completion metadata commits (`773effd`, `38b92da`, `3f3f856`) and validated story status alignment in this plan.
+
+### Checks Performed
+
+1. `git diff --name-status main...HEAD` and `git diff --stat main...HEAD` to review change scope and touched surfaces across client/server/common/docs/tests.
+2. `git diff --check main...HEAD` to verify no whitespace/conflict-marker issues in branch changes.
+3. Targeted server review of high-risk remediation areas:
+   - `server/src/config/openaiIngestRetries.ts`
+   - `server/src/routes/ingestReembed.ts`
+   - `server/src/ingest/providers/ingestFailureClassifier.ts`
+4. Verified acceptance/edge-case traceability matrix remains fully covered (`AC-01..AC-41`, `EC-01..EC-26`) with no `Uncovered` entries in this story file.
+5. Re-ran quality gates:
+   - `npm run lint --workspaces` (passes with existing baseline import-order warnings only; 0 errors)
+   - `npm run format:check --workspaces` (passes all workspaces)
+
+### Review Outcome
+
+- No new blocking defects or regression risks were identified beyond the already-completed Task 20 remediation.
+- Security/logging posture remains aligned with the implemented secret-sanitization and deterministic failure-classification approach.
+- Maintainability/performance posture is acceptable for the delivered scope, with test coverage breadth across unit/integration/e2e and explicit contract tests retained.
+- Acceptance criteria coverage remains complete based on Task 21 re-audit evidence and current plan matrix status.
+
+### Changes Made In This Review Step
+
+- Added this post-completion code-review section to document review scope, commands executed, and final outcome.
+
+---

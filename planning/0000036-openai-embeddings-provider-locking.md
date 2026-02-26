@@ -2410,7 +2410,7 @@ Address defects identified during branch-vs-main code review: (1) `OPENAI_INGEST
 
 ### 21. Final re-verification after Task 20 remediation: full acceptance regression and traceability re-audit
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **to_do**
 
 #### Overview
@@ -2425,30 +2425,46 @@ After Task 20 fixes, execute a full-story regression against Story 0000036 accep
 
 #### Subtasks
 
-1. [ ] Re-audit Story 0000036 acceptance and edge-case matrix rows after Task 20 changes; confirm no regressions and no uncovered rows.
-2. [ ] Verify Task 20 strict retry-env parsing and reembed log-context fixes remain consistent with prior contract expectations.
-3. [ ] Update this story plan with final Task 21 implementation notes and verification evidence references.
+1. [x] Re-audit Story 0000036 acceptance and edge-case matrix rows after Task 20 changes; confirm no regressions and no uncovered rows.
+2. [x] Verify Task 20 strict retry-env parsing and reembed log-context fixes remain consistent with prior contract expectations.
+3. [x] Update this story plan with final Task 21 implementation notes and verification evidence references.
 4. [ ] Confirm all story tasks (1-21) have complete, traceable evidence and commit metadata.
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; resolve issues before marking Task 21 done.
+5. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; resolve issues before marking Task 21 done.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000`)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP verification at `http://host.docker.internal:5001` covering `/ingest`, `/logs`, `/chat`, and `/agents` with browser console error-level messages = `0`.
-9. [ ] `npm run compose:down`
-10. [ ] `npm run compose:build:clean`
-11. [ ] Confirm final server test summary reports all server tests passing.
-12. [ ] Confirm final client test summary reports all client tests passing.
-13. [ ] Confirm e2e summary reports all scenarios passing.
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000`)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP verification at `http://host.docker.internal:5001` covering `/ingest`, `/logs`, `/chat`, and `/agents` with browser console error-level messages = `0`.
+9. [x] `npm run compose:down`
+10. [x] `npm run compose:build:clean`
+11. [x] Confirm final server test summary reports all server tests passing.
+12. [x] Confirm final client test summary reports all client tests passing.
+13. [x] Confirm e2e summary reports all scenarios passing.
 
 #### Implementation notes
 
-- Pending implementation.
+- Subtask 1: Re-audited the Story `0000036` traceability matrix (`AC-01..AC-41`, `EC-01..EC-26`) and confirmed every row remains `Covered` with zero `Uncovered` entries after Task 20 remediation.
+- Subtask 2: Re-verified Task 20 behaviors against current contracts via targeted checks and tests: strict retry parser remains in `server/src/config/openaiIngestRetries.ts`, reembed catch-path keeps run context without synthetic `runId` in `server/src/routes/ingestReembed.ts`, and focused test run `node --import tsx --test server/src/test/unit/openai-ingest-retries-config.test.ts server/src/test/unit/openai-provider-retry.test.ts server/src/test/unit/ingest-reembed.test.ts server/src/test/integration/ingest-failure-logging-coverage.test.ts` passed (`15/15`).
+- Subtask 3: Updated Task 21 implementation notes/evidence references in this section and will append each testing and final traceability verification output as Task 21 execution progresses.
+- Subtask 5: Ran `npm run lint --workspaces` (passes with existing baseline import-order warnings only, no errors) and `npm run format:check --workspaces` (client/server/common all clean).
+- Testing 1: `npm run build --workspace server` passed (`tsc -b` completed without TypeScript build errors).
+- Testing 2: `npm run build --workspace client` passed (`vite build`) with existing non-blocking chunk-size warnings only.
+- Testing 3: `npm run test --workspace server` completed with all server suites passing; node test summary reported `tests 746`, `pass 746`, `fail 0`, and Cucumber integration summary reported `67/67` scenarios with `402/402` steps passing.
+- Testing 4: `npm run test --workspace client` passed with all suites and tests green (`92/92` suites, `362/362` tests), with existing non-failing console noise only.
+- Testing 5: `timeout 7m npm run e2e` passed (`42 passed`) and completed compose e2e teardown (`e2e:down`) successfully.
+- Testing 6: `npm run compose:build` passed and rebuilt local compose images (`codeinfo2-server`, `codeinfo2-client`) successfully.
+- Testing 7: `npm run compose:up` passed and started host-mapped local verification services (`client` on `5001`, `server` on `5010-5012`).
+- Testing 8: Manual Playwright-MCP host-mapped walkthrough completed at `http://host.docker.internal:5001/ingest`, `/logs`, `/chat`, and `/agents`; each route rendered expected UI state and `browser_console_messages(level=\"error\")` returned no entries (`0`) for all checks.
+- Testing 9: `npm run compose:down` passed and removed the local compose verification services/networks cleanly.
+- Testing 10: `npm run compose:build:clean` passed (`docker compose build --pull --no-cache`) and rebuilt both local compose images from clean layers.
+- Testing 11: Final server summary reconfirmed all passing from Testing 3 output (`tests 746`, `pass 746`, `fail 0`; Cucumber `67/67` scenarios and `402/402` steps passed).
+- Testing 12: Final client summary reconfirmed all passing from Testing 4 output (`92/92` suites, `362/362` tests).
+- Testing 13: Final e2e summary reconfirmed all passing from Testing 5 output (`42 passed`, `0 failed`) with teardown complete.
 
 ---

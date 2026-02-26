@@ -2250,7 +2250,7 @@ Add a server environment variable, `OPENAI_INGEST_MAX_RETRIES`, to override the 
 ### 19. Ingest reliability hardening: close missing catch/log coverage gaps with retry-aware severity semantics
 
 - Task Status: **__done__**
-- Git Commits: `1feb4b6`
+- Git Commits: `1feb4b6`, `777649c`
 
 #### Overview
 

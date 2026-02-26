@@ -2341,3 +2341,96 @@ Close the remaining ingest failure-handling gaps identified during Story 0000036
 - Testing 12: Final client/e2e summary confirmed all client tests passed (`362/362`) and e2e scenarios passed (`39` passed, `3` skipped, `0` failed).
 
 ---
+
+### 20. Post-review remediation: retry-env parsing strictness and reembed failure log context correctness
+
+- Task Status: **__to_do__**
+- Git Commits: **to_do**
+
+#### Overview
+
+Address defects identified during branch-vs-main code review: (1) `OPENAI_INGEST_MAX_RETRIES` currently accepts mixed-format values like `"7abc"` due to permissive integer parsing, violating Task 18 invalid-value fallback intent; and (2) `/ingest/reembed/:root` failure logging currently sets `runId` to the root path, which produces misleading log context and can break runId-based filtering expectations.
+
+#### Documentation Locations
+
+- Retry env parsing: `server/src/config/openaiIngestRetries.ts`
+- Retry env tests: `server/src/test/unit/openai-ingest-retries-config.test.ts`, `server/src/test/unit/openai-provider-retry.test.ts`
+- Reembed catch/log path: `server/src/routes/ingestReembed.ts`
+- Reembed log coverage tests: `server/src/test/unit/ingest-reembed.test.ts`, `server/src/test/integration/ingest-failure-logging-coverage.test.ts`
+- Story/docs surfaces: `README.md`, `design.md`, `projectStructure.md`, `planning/0000036-openai-embeddings-provider-locking.md`
+
+#### Subtasks
+
+1. [ ] Harden `OPENAI_INGEST_MAX_RETRIES` parsing so only full positive-integer strings are accepted; mixed-format or non-decimal inputs (for example `7abc`, `3.5`, `1e2`) must fall back to default `3`.
+2. [ ] Preserve explicit semantics that retries are attempts after the initial attempt (`maxAttempts = retries + 1`) while updating parser behavior only.
+3. [ ] Expand retry-config unit coverage to include mixed-format invalid values and whitespace-trim behavior expectations.
+4. [ ] Update retry execution tests (OpenAI retry unit/integration as needed) to assert strict fallback behavior when invalid mixed-format env values are supplied.
+5. [ ] Fix `/ingest/reembed/:root` catch-path logging so `runId` is omitted when unavailable (instead of being populated with root path), while retaining `root` and other context fields.
+6. [ ] Add/extend unit and integration assertions to verify reembed failure logs include `root` and `surface=ingest/reembed` but do not include incorrect synthetic `runId` values.
+7. [ ] Update `README.md`, `design.md`, and `projectStructure.md` if any behavior or file-map documentation requires adjustment from this remediation.
+8. [ ] Update this story plan section evidence with exact implementation paths and command outputs for remediation verification.
+9. [ ] Lint/format gate: run `npm run lint --workspaces` and `npm run format:check --workspaces`; resolve introduced issues before marking task complete.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000`)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual verification: confirm invalid `OPENAI_INGEST_MAX_RETRIES` formats fall back to `3`, and confirm reembed failure log entries include `root` context with no synthetic `runId`.
+9. [ ] `npm run compose:down`
+10. [ ] `npm run compose:build:clean`
+
+#### Implementation notes
+
+- Pending implementation.
+
+---
+
+### 21. Final re-verification after Task 20 remediation: full acceptance regression and traceability re-audit
+
+- Task Status: **__to_do__**
+- Git Commits: **to_do**
+
+#### Overview
+
+After Task 20 fixes, execute a full-story regression against Story 0000036 acceptance criteria and edge cases, ensuring no behavioral regressions across provider-aware lock handling, ingest routes/contracts, retry/error semantics, and logs visibility surfaces.
+
+#### Documentation Locations
+
+- Story traceability matrix and acceptance/edge-case tables: `planning/0000036-openai-embeddings-provider-locking.md`
+- Server/client docs expected to remain aligned: `README.md`, `design.md`, `projectStructure.md`
+- E2E/manual evidence artifacts: `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local`
+
+#### Subtasks
+
+1. [ ] Re-audit Story 0000036 acceptance and edge-case matrix rows after Task 20 changes; confirm no regressions and no uncovered rows.
+2. [ ] Verify Task 20 strict retry-env parsing and reembed log-context fixes remain consistent with prior contract expectations.
+3. [ ] Update this story plan with final Task 21 implementation notes and verification evidence references.
+4. [ ] Confirm all story tasks (1-21) have complete, traceable evidence and commit metadata.
+5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; resolve issues before marking Task 21 done.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000`)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP verification at `http://host.docker.internal:5001` covering `/ingest`, `/logs`, `/chat`, and `/agents` with browser console error-level messages = `0`.
+9. [ ] `npm run compose:down`
+10. [ ] `npm run compose:build:clean`
+11. [ ] Confirm final server test summary reports all server tests passing.
+12. [ ] Confirm final client test summary reports all client tests passing.
+13. [ ] Confirm e2e summary reports all scenarios passing.
+
+#### Implementation notes
+
+- Pending implementation.
+
+---

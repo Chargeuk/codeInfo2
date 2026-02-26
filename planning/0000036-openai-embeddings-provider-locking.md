@@ -2411,7 +2411,7 @@ Address defects identified during branch-vs-main code review: (1) `OPENAI_INGEST
 ### 21. Final re-verification after Task 20 remediation: full acceptance regression and traceability re-audit
 
 - Task Status: **__done__**
-- Git Commits: **eed4752**
+- Git Commits: **eed4752, 3f3f856**
 
 #### Overview
 

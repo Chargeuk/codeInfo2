@@ -26,4 +26,23 @@ test('OpenAI ingest retry config accepts valid positive integer env values', () 
     resolveOpenAiIngestMaxRetries({ OPENAI_INGEST_MAX_RETRIES: '7' }),
     7,
   );
+  assert.equal(
+    resolveOpenAiIngestMaxRetries({ OPENAI_INGEST_MAX_RETRIES: ' 7 ' }),
+    7,
+  );
+});
+
+test('OpenAI ingest retry config rejects mixed-format and non-decimal values', () => {
+  assert.equal(
+    resolveOpenAiIngestMaxRetries({ OPENAI_INGEST_MAX_RETRIES: '7abc' }),
+    3,
+  );
+  assert.equal(
+    resolveOpenAiIngestMaxRetries({ OPENAI_INGEST_MAX_RETRIES: '3.5' }),
+    3,
+  );
+  assert.equal(
+    resolveOpenAiIngestMaxRetries({ OPENAI_INGEST_MAX_RETRIES: '1e2' }),
+    3,
+  );
 });

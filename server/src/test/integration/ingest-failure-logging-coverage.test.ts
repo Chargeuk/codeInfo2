@@ -109,6 +109,13 @@ test('ingest route failure coverage emits structured warn/error entries via /log
           entry.context?.code === 'MODEL_LOCKED',
       ),
     );
+    const reembedEntry = items.find(
+      (entry) =>
+        entry.context?.surface === 'ingest/reembed' &&
+        entry.context?.code === 'MODEL_LOCKED',
+    );
+    assert.equal(reembedEntry?.context?.root, '/tmp/repo');
+    assert.equal(reembedEntry?.context?.runId, undefined);
     assert.ok(
       items.some(
         (entry) =>

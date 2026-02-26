@@ -10,12 +10,12 @@ export const resolveOpenAiIngestMaxRetries = (
   const raw = env.OPENAI_INGEST_MAX_RETRIES;
   if (!raw) return OPENAI_RETRY_DEFAULT_MAX_RETRIES;
 
-  const parsed = Number.parseInt(raw, 10);
-  if (!Number.isFinite(parsed) || parsed <= 0) {
+  const normalized = raw.trim();
+  if (!/^[1-9]\d*$/.test(normalized)) {
     return OPENAI_RETRY_DEFAULT_MAX_RETRIES;
   }
 
-  return parsed;
+  return Number(normalized);
 };
 
 export const getOpenAiIngestMaxRetries = (): number =>

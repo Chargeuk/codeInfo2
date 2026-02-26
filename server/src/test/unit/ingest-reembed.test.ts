@@ -82,4 +82,6 @@ test('ingest-reembed catch-path logs non-retryable failures as error', async () 
   );
   assert.ok(errorEntry, 'expected non-retryable reembed error log');
   assert.equal(errorEntry?.context?.retryable, false);
+  assert.equal(errorEntry?.context?.root, '/tmp/repo');
+  assert.equal(errorEntry?.context?.runId, undefined);
 });

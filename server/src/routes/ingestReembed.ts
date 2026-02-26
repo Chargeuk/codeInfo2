@@ -37,7 +37,6 @@ export function createIngestReembedRouter({
         defaultCode: 'INGEST_REEMBED_FAILED',
       });
       appendIngestFailureLog(classified.severity, {
-        runId: req.params.root,
         provider: classified.provider,
         code: classified.code,
         retryable: classified.retryable,

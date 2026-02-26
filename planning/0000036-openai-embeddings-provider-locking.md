@@ -2344,7 +2344,7 @@ Close the remaining ingest failure-handling gaps identified during Story 0000036
 
 ### 20. Post-review remediation: retry-env parsing strictness and reembed failure log context correctness
 
-- Task Status: **__in_progress__**
+- Task Status: **__done__**
 - Git Commits: **to_do**
 
 #### Overview
@@ -2361,32 +2361,50 @@ Address defects identified during branch-vs-main code review: (1) `OPENAI_INGEST
 
 #### Subtasks
 
-1. [ ] Harden `OPENAI_INGEST_MAX_RETRIES` parsing so only full positive-integer strings are accepted; mixed-format or non-decimal inputs (for example `7abc`, `3.5`, `1e2`) must fall back to default `3`.
-2. [ ] Preserve explicit semantics that retries are attempts after the initial attempt (`maxAttempts = retries + 1`) while updating parser behavior only.
-3. [ ] Expand retry-config unit coverage to include mixed-format invalid values and whitespace-trim behavior expectations.
-4. [ ] Update retry execution tests (OpenAI retry unit/integration as needed) to assert strict fallback behavior when invalid mixed-format env values are supplied.
-5. [ ] Fix `/ingest/reembed/:root` catch-path logging so `runId` is omitted when unavailable (instead of being populated with root path), while retaining `root` and other context fields.
-6. [ ] Add/extend unit and integration assertions to verify reembed failure logs include `root` and `surface=ingest/reembed` but do not include incorrect synthetic `runId` values.
-7. [ ] Update `README.md`, `design.md`, and `projectStructure.md` if any behavior or file-map documentation requires adjustment from this remediation.
-8. [ ] Update this story plan section evidence with exact implementation paths and command outputs for remediation verification.
-9. [ ] Lint/format gate: run `npm run lint --workspaces` and `npm run format:check --workspaces`; resolve introduced issues before marking task complete.
+1. [x] Harden `OPENAI_INGEST_MAX_RETRIES` parsing so only full positive-integer strings are accepted; mixed-format or non-decimal inputs (for example `7abc`, `3.5`, `1e2`) must fall back to default `3`.
+2. [x] Preserve explicit semantics that retries are attempts after the initial attempt (`maxAttempts = retries + 1`) while updating parser behavior only.
+3. [x] Expand retry-config unit coverage to include mixed-format invalid values and whitespace-trim behavior expectations.
+4. [x] Update retry execution tests (OpenAI retry unit/integration as needed) to assert strict fallback behavior when invalid mixed-format env values are supplied.
+5. [x] Fix `/ingest/reembed/:root` catch-path logging so `runId` is omitted when unavailable (instead of being populated with root path), while retaining `root` and other context fields.
+6. [x] Add/extend unit and integration assertions to verify reembed failure logs include `root` and `surface=ingest/reembed` but do not include incorrect synthetic `runId` values.
+7. [x] Update `README.md`, `design.md`, and `projectStructure.md` if any behavior or file-map documentation requires adjustment from this remediation.
+8. [x] Update this story plan section evidence with exact implementation paths and command outputs for remediation verification.
+9. [x] Lint/format gate: run `npm run lint --workspaces` and `npm run format:check --workspaces`; resolve introduced issues before marking task complete.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000`)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual verification: confirm invalid `OPENAI_INGEST_MAX_RETRIES` formats fall back to `3`, and confirm reembed failure log entries include `root` context with no synthetic `runId`.
-9. [ ] `npm run compose:down`
-10. [ ] `npm run compose:build:clean`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000`)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual verification: confirm invalid `OPENAI_INGEST_MAX_RETRIES` formats fall back to `3`, and confirm reembed failure log entries include `root` context with no synthetic `runId`.
+9. [x] `npm run compose:down`
+10. [x] `npm run compose:build:clean`
 
 #### Implementation notes
 
-- Pending implementation.
+- Subtask 1: Updated `server/src/config/openaiIngestRetries.ts` to strict parsing via trimmed full-string positive-integer validation (`^[1-9]\\d*$`), so mixed/non-decimal formats now deterministically fall back to `3`.
+- Subtask 2: Preserved Task 18 retry semantics by changing parser behavior only; retry runner logic remains unchanged (`maxAttempts = retries + 1` in existing OpenAI retry path).
+- Subtask 3: Extended `server/src/test/unit/openai-ingest-retries-config.test.ts` with whitespace-trim acceptance (`\" 7 \" -> 7`) and strict invalid mixed-format coverage (`7abc`, `3.5`, `1e2` -> `3`).
+- Subtask 4: Updated `server/src/test/unit/openai-provider-retry.test.ts` invalid-env fallback case to assert strict default fallback when `OPENAI_INGEST_MAX_RETRIES` is mixed-format (`7abc`).
+- Subtask 5: Fixed `server/src/routes/ingestReembed.ts` catch-path logging to omit `runId` when unavailable, while retaining canonical `root`, `surface`, and existing failure context fields.
+- Subtask 6: Extended `server/src/test/unit/ingest-reembed.test.ts` and `server/src/test/integration/ingest-failure-logging-coverage.test.ts` to assert reembed failure logs keep `root=/tmp/repo` and do not emit synthetic `runId`.
+- Subtask 7: Updated `README.md` (strict retry-env examples), `design.md` (Task 20 remediation section), and `projectStructure.md` (Task `0000036-T20` file-map update) to reflect implemented strict parsing and reembed log-context behavior.
+- Subtask 8: Verification evidence captured with exact implementation paths and outputs: parser change in `server/src/config/openaiIngestRetries.ts` (`^[1-9]\\d*$` strict validation), reembed context change in `server/src/routes/ingestReembed.ts` (no fallback `runId` assignment), plus command outputs `invalid_7abc= 3`, `invalid_3_5= 3`, `invalid_1e2= 3`, `valid_trim_7= 7` from `docker exec codeinfo2-server-1 node --input-type=module -e "import { resolveOpenAiIngestMaxRetries as r } from './dist/config/openaiIngestRetries.js'; ..."`, and `POST /ingest/reembed/%2Ftmp%2Fdoes-not-exist -> {\"status\":\"error\",\"code\":\"NOT_FOUND\"}` with `/logs` entry carrying `surface=ingest/reembed`, `root=/tmp/does-not-exist`, and no `runId`.
+- Subtask 9: Ran `npm run lint --workspaces` (passes with existing baseline warnings only, no errors) and `npm run format:check --workspaces` (clean across client/server/common).
+- Testing 1: `npm run build --workspace server` passed (`tsc -b` completed without TypeScript errors).
+- Testing 2: `npm run build --workspace client` passed (`vite build`) with existing non-blocking chunk-size warnings only.
+- Testing 3: `npm run test --workspace server` passed end-to-end (unit suite passed; Cucumber summary reported `67/67` scenarios and `402/402` steps passing).
+- Testing 4: `npm run test --workspace client` passed (`92/92` suites, `362/362` tests).
+- Testing 5: `timeout 7m npm run e2e` passed (`39` passed, `3` skipped) and completed automatic `e2e:down` teardown.
+- Testing 6: `npm run compose:build` passed and rebuilt local `codeinfo2-server` and `codeinfo2-client` images successfully.
+- Testing 7: `npm run compose:up` passed with local host-mapped services started for manual verification (`client` `5001`, `server` `5010-5012`).
+- Testing 8: Manual runtime verification against host-mapped services confirmed strict retry fallback and corrected reembed log context: `docker exec codeinfo2-server-1 node --input-type=module -e "import { resolveOpenAiIngestMaxRetries as r } from './dist/config/openaiIngestRetries.js'; ..."` returned `invalid_7abc= 3`, `invalid_3_5= 3`, `invalid_1e2= 3`, `valid_trim_7= 7`; `POST http://host.docker.internal:5010/ingest/reembed/%2Ftmp%2Fdoes-not-exist` returned `{\"status\":\"error\",\"code\":\"NOT_FOUND\"}`, and `/logs` entry `DEV-0000036:T17:ingest_provider_failure` included `surface=ingest/reembed` with `root=/tmp/does-not-exist` and no `runId` field.
+- Testing 9: `npm run compose:down` passed and removed local compose services/networks used for manual verification.
+- Testing 10: `npm run compose:build:clean` passed (`docker compose build --pull --no-cache`) and rebuilt `codeinfo2-server` and `codeinfo2-client` images from clean layers.
 
 ---
 

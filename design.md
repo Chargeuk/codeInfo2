@@ -2673,6 +2673,12 @@ sequenceDiagram
 - LM Studio provider path now emits deterministic normalized errors (`LmStudioEmbeddingError`) and applies bounded ingestion retry (`maxAttempts=3`, base delay `350ms`) for transient failures only; retry attempts emit `warn` and terminal exhaustion emits `error`.
 - Silent ingest fallback catches were replaced with observable warnings in discovery/chunker/dimension-probe internals, so fallback behavior is visible in `/logs` and `/logs/stream`.
 - Extended failure context fields now include `surface` and `operation` in addition to existing provider/code/retryability/context identifiers, while preserving backend stack/cause diagnostics through `baseLogger.error`.
+
+### Story 0000036 Task 20: retry env strictness and reembed log-context correction
+
+- `OPENAI_INGEST_MAX_RETRIES` parsing is strict positive-integer only after trimming input (`^[1-9]\d*$`), so mixed/decimal/scientific formats (for example `7abc`, `3.5`, `1e2`) now deterministically fall back to default retry budget `3`.
+- Retry execution semantics are unchanged from Task 18: env value remains retries after the initial attempt, and runtime execution still computes `maxAttempts = retries + 1`.
+- `/ingest/reembed/:root` catch-path logging no longer writes synthetic `runId` values from route params; when unavailable, `runId` is omitted and `root` remains the canonical context field for reembed failure entries.
     Logs-->>UI: events (id = sequence)
   end
 ```

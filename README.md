@@ -461,6 +461,7 @@ Ingest collection names (`INGEST_COLLECTION`, `INGEST_ROOTS_COLLECTION`) come fr
   ```
   Compatibility input `model` is still accepted and mapped to LM Studio behavior when canonical fields are omitted.
   OpenAI ingest retry budget is controlled by `OPENAI_INGEST_MAX_RETRIES`, where the value is the number of retries after the initial attempt (`maxAttempts = retries + 1`); unset/invalid values fall back to `3`.
+  Parsing is strict positive-integer only after trim (`7` and ` 7 ` are valid; `7abc`, `3.5`, and `1e2` are invalid and use fallback `3`).
   Responses: `202 {"runId":"..."}` on start; `409 {"status":"error","code":"MODEL_LOCKED","lock":{"embeddingProvider":"...","embeddingModel":"...","embeddingDimensions":...},"lockedModelId":"..."}` when locked to a different provider/model; `429 {"status":"error","code":"BUSY"}` when ingest is active; `400` on validation errors.
 - GET `/ingest/status/{runId}` returns current state:
   ```json

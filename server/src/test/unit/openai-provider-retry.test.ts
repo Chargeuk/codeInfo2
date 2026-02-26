@@ -68,7 +68,7 @@ test('runtime OPENAI_INGEST_MAX_RETRIES override is honored for retry budget', a
 
 test('runtime OPENAI_INGEST_MAX_RETRIES falls back to default when invalid', async () => {
   const previous = process.env.OPENAI_INGEST_MAX_RETRIES;
-  process.env.OPENAI_INGEST_MAX_RETRIES = '0';
+  process.env.OPENAI_INGEST_MAX_RETRIES = '7abc';
   try {
     let callCount = 0;
     await assert.rejects(

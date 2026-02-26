@@ -24,7 +24,18 @@ const buildRepoEntry = (params: {
   containerPath: params.containerPath,
   hostPath: params.containerPath,
   lastIngestAt: null,
+  embeddingProvider: 'lmstudio',
+  embeddingModel: 'model-1',
+  embeddingDimensions: 768,
+  model: 'model-1',
   modelId: 'model-1',
+  lock: {
+    embeddingProvider: 'lmstudio',
+    embeddingModel: 'model-1',
+    embeddingDimensions: 768,
+    lockedModelId: 'model-1',
+    modelId: 'model-1',
+  },
   counts: { files: 0, chunks: 0, embedded: 0 },
   lastError: null,
 });
@@ -233,6 +244,48 @@ describe('GET /flows', () => {
         ingested.sourceLabel,
         path.posix.basename(ingestedRoot.replace(/\\/g, '/')),
       );
+    });
+
+    await fs.rm(tmpDir, { recursive: true, force: true });
+    await fs.rm(ingestedRoot, { recursive: true, force: true });
+  });
+
+  test('ingested flow discovery tolerates legacy-only alias payloads', async () => {
+    const tmpDir = await fs.mkdtemp(
+      path.join(process.cwd(), 'tmp-flows-local-legacy-'),
+    );
+    const ingestedRoot = await fs.mkdtemp(
+      path.join(process.cwd(), 'tmp-flows-ingested-legacy-'),
+    );
+    await writeFlowFile(path.join(ingestedRoot, 'flows'), 'legacy', 'Legacy');
+
+    await withFlowsDir(tmpDir, async () => {
+      const legacyRepo = {
+        id: 'Legacy Repo',
+        description: null,
+        containerPath: ingestedRoot,
+        hostPath: ingestedRoot,
+        lastIngestAt: null,
+        model: 'legacy-model',
+        modelId: 'legacy-model',
+        counts: { files: 0, chunks: 0, embedded: 0 },
+        lastError: null,
+      } as unknown as RepoEntry;
+      const response = await supertest(
+        buildApp({
+          listIngestedRepositories: async () => ({
+            repos: [legacyRepo],
+            lockedModelId: null,
+          }),
+        }),
+      ).get('/flows');
+
+      assert.equal(response.status, 200);
+      const ingested = response.body.flows.find(
+        (flow: { name: string }) => flow.name === 'legacy',
+      );
+      assert.equal(ingested.sourceId, ingestedRoot);
+      assert.equal(ingested.sourceLabel, 'Legacy Repo');
     });
 
     await fs.rm(tmpDir, { recursive: true, force: true });

@@ -675,11 +675,12 @@ test('codex chat defaults approvalPolicy when omitted', async () => {
   );
 
   await request(app).post('/chat').send(buildCodexBody()).expect(202);
+  const { defaults: codexDefaults } = getCodexEnvDefaults();
 
   assert.equal(
     mockCodex.lastStartOptions?.approvalPolicy,
-    'on-failure',
-    'approvalPolicy should default to on-failure',
+    codexDefaults.approvalPolicy,
+    'approvalPolicy should default to configured codex defaults',
   );
 });
 
@@ -739,11 +740,12 @@ test('codex chat defaults modelReasoningEffort when omitted', async () => {
   );
 
   await request(app).post('/chat').send(buildCodexBody()).expect(202);
+  const { defaults: codexDefaults } = getCodexEnvDefaults();
 
   assert.equal(
     mockCodex.lastStartOptions?.modelReasoningEffort,
-    'high',
-    'modelReasoningEffort should default to high',
+    codexDefaults.modelReasoningEffort,
+    'modelReasoningEffort should default to configured codex defaults',
   );
 });
 

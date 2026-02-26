@@ -80,8 +80,8 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 |     |  |- useConversationTurns.ts ? lazy turn loading with load-older cursor handling
 |     |  |- usePersistenceStatus.ts ? fetches /health for mongoConnected banner flag
 |     |  |- useIngestStatus.ts ? polls /ingest/status/:runId and supports cancelling
-|     |  |- useIngestRoots.ts ? fetches /ingest/roots with lock info and refetch helper
-|     |  |- useIngestModels.ts ? fetches /ingest/models with lock + default selection
+|     |  |- useIngestRoots.ts ? fetches /ingest/roots with canonical-first lock/error normalization, alias fallback, and refetch helper
+|     |  |- useIngestModels.ts ? fetches /ingest/models with canonical-first lock normalization, provider envelope parsing, and default selection
 |     |  - useLogs.ts ? log history + SSE hook with filters
 |     |- utils/
 |     |  - isDevEnv.ts ? shared dev/test environment detection helper
@@ -294,7 +294,9 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚     â”‚     â””â”€ cpp/locals.scm â€” Tree-sitter locals query for C++
 â”‚     â”œâ”€ config/
 â”‚     â”‚  â”œâ”€ codexConfig.ts â€” Codex home/env config builder
+â”‚     â”‚  â”œâ”€ chatDefaults.ts â€” shared chat provider/model default resolver (request -> env -> fallback)
 â”‚     â”‚  â””â”€ codexEnvDefaults.ts â€” Codex env defaults parser + warnings helper
+â”‚     â”‚  â””â”€ startupEnv.ts â€” startup env bootstrap (`.env` then optional `.env.local`) + OpenAI capability-state resolver
 â”‚     â”œâ”€ chatStream.ts — SSE helper for streaming endpoints (e.g., `/logs/stream`); chat runs stream over `/ws`
 â”‚     â”œâ”€ chat/
 â”‚     â”‚  â”œâ”€ factory.ts — provider map returning ChatInterface instances or throws UnsupportedProviderError
@@ -366,9 +368,10 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚     â”‚  â””â”€ types.ts — flow run types + error codes
 â”‚     â”œâ”€ test/unit/chat-assistant-suppress.test.ts â€” unit coverage for assistant-role tool payload suppression helpers
 â”‚     â”œâ”€ test/unit/codexEnvDefaults.test.ts â€” unit coverage for Codex env defaults parsing/warnings
+â”‚     â”œâ”€ test/unit/env-loading.test.ts â€” unit coverage for startup env precedence and missing `.env.local` fallback behavior
+â”‚     â”œâ”€ test/unit/env-logging.test.ts â€” unit coverage for OpenAI capability-state logging redaction behavior
 â”‚     â”œâ”€ ingest/ â€” ingest helpers (discovery, chunking, hashing, config)
 â”‚     â”‚  â”œâ”€ __fixtures__/sample.ts â€” sample text blocks for chunking tests
-â”‚     â”‚  â”œâ”€ modelLock.ts — placeholder for ingest model lock retrieval
 â”‚     â”‚  â”œâ”€ lock.ts — single-flight ingest lock with TTL
 â”‚     â”‚  â”œâ”€ chunker.ts â€” boundary-aware chunking with token limits
 â”‚     â”‚  â”œâ”€ config.ts â€” ingest config resolver for include/exclude and token safety
@@ -454,6 +457,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚           â”œâ”€ turn-command-metadata.test.ts — Turn persistence plumbs optional command metadata through append/list helpers
 â”‚           â”œâ”€ toolService.synthetic.test.ts — unit coverage for onToolResult callback emission
 â”‚           â”œâ”€ chroma-embedding-selection.test.ts â€” locked-model embedding function selection + error paths
+â”‚           â”œâ”€ ingest-models.test.ts â€” supertest coverage for /ingest/models lock-source parity
 â”‚           â”œâ”€ ingest-status.test.ts â€” ingest status progress fields round-trip helper coverage
 â”‚           â”œâ”€ ingest-ast-indexing.test.ts â€” unit coverage for AST ingest counts, delta handling, and persistence skipping
 â”‚           â”œâ”€ ingest-files-schema.test.ts â€” unit coverage for `ingest_files` Mongoose schema fields + indexes
@@ -478,6 +482,7 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 â”‚           â”œâ”€ mcp2-router-method-not-found.test.ts â€” MCP v2 method not found (-32601) characterization (unknown method)
 â”‚           â”œâ”€ mcp2-router-tool-not-found.test.ts â€” MCP v2 unknown tool mapping characterization (tools/call -> -32601)
 â”‚           â”œâ”€ mcp2.reingest.tool.test.ts â€” MCP v2 `reingest_repository` tools/list + tools/call success/error + parity contract coverage
+â”‚           â”œâ”€ mcp-ingested-repositories.test.ts â€” supertest coverage for classic MCP ListIngestedRepositories lock parity
 â”‚           â”œâ”€ mcp.keepalive.helper.test.ts â€” unit coverage for shared keepalive helper lifecycle and write-after-close protection
 â”‚           â”œâ”€ mcp.reingest.classic.test.ts â€” unit coverage for classic MCP `reingest_repository` tools/list + tools/call success/error contracts
 â”‚           â”œâ”€ reingestService.test.ts â€” unit coverage for `reingest_repository` validation, success mapping, unknown root retry guidance, and busy contracts
@@ -549,8 +554,14 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 - server/src/test/unit/codexConfig.test.ts — verifies `buildCodexOptions({ codexHome })` resolves and injects `env.CODEX_HOME`
 - server/src/test/unit/codexConfig.device-auth.test.ts — unit coverage for device-auth config persistence helper
 - server/src/utils/codexDeviceAuth.ts — Codex device-auth CLI runner + stdout parser with sanitized logging
+- server/src/utils/truncateText.ts — shared deterministic truncation helper used by retry-context and device-auth sanitization
+- server/src/utils/retryContext.ts — shared retry prompt/error sanitizer for Task 0000036-T5 flow and command retries
 - server/src/test/unit/codexDeviceAuth.test.ts — unit coverage for device-auth parsing and error handling
 - server/src/routes/codexDeviceAuth.ts — `POST /codex/device-auth` device-auth endpoint for chat/agent targets
+- server/src/test/unit/chroma-lock.test.ts — unit coverage for canonical/legacy lock resolution, canonical lock writes, and partial canonical lock rejection.
+- server/src/test/integration/ingest-lock-lifecycle.test.ts — integration coverage for deterministic `BUSY` lifecycle behavior and lock-clear idempotence guards.
+- server/src/test/integration/ingest-reembed.test.ts — integration coverage for re-embed provider/model immutability and invalid-state rejection.
+- server/src/test/integration/mcp-vector-search.test.ts — integration coverage for classic MCP vector-search provider/model lock parity with REST.
 - server/src/test/integration/codex.device-auth.test.ts — integration coverage for device-auth route validation + responses
 - server/src/agents/types.ts — agent DTOs for discovery/service (REST-safe + internal paths)
 - server/src/agents/discovery.ts — discovers agents from `CODEINFO_CODEX_AGENT_HOME`
@@ -559,7 +570,15 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 - server/src/agents/commandsLoader.ts — reads command files and returns safe `{ name, description, disabled }` summaries
 - server/src/agents/commandsRunner.ts — executes parsed agent commands sequentially with abort checks + conversation lock
 - server/src/agents/retry.ts — AbortSignal-aware retry/backoff helper used by the command runner
+- server/src/ingest/providers/openaiConstants.ts — OpenAI embedding adapter constants (allowlist, retry policy, guardrail thresholds, token-limit resolver)
+- server/src/ingest/providers/openaiErrors.ts — OpenAI error taxonomy mapper + normalized/secret-safe OpenAI embedding error shape
+- server/src/ingest/providers/openaiGuardrails.ts — OpenAI embeddings request guardrail checks (input count, per-input tokens, total tokens)
+- server/src/ingest/providers/openaiRetry.ts — OpenAI retry wrapper built on shared `runWithRetry` with wait-hint precedence + bounded exponential fallback
+- server/src/ingest/providers/openaiEmbeddingProvider.ts — OpenAI embedding provider implementation for shared ingest/query embedding contract
+- server/src/ingest/providers/providerResolver.ts — deterministic model-id -> provider/model resolver used by ingest/query embedding paths
 - server/src/agents/transientReconnect.ts — transient reconnect classifier ("Reconnecting... n/m") + safe error message helper
+- server/src/config/flowAndCommandRetries.ts — shared retry-budget resolver (`FLOW_AND_COMMAND_RETRIES`, default 5 total attempts)
+- server/src/config/openaiIngestRetries.ts — OpenAI ingest retry-budget resolver (`OPENAI_INGEST_MAX_RETRIES`, retries after initial attempt, fallback default 3)
 - server/src/agents/runLock.ts — in-memory per-conversation run lock for agent/command execution
 - server/src/agents/config.ts — minimal agent `config.toml` parsing helpers (e.g. top-level `model`)
 - server/src/agents/service.ts — shared agents service used by REST + Agents MCP (list agents + run agent instruction)
@@ -579,11 +598,19 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 - server/src/test/unit/agent-commands-list.test.ts — unit coverage for listing agent commands from `commands/` (missing folder, filtering, sorting, no-cache)
 - server/src/test/unit/agent-commands-runner.test.ts — unit coverage for command execution runner (sequential steps, abort stop, lock behavior)
 - server/src/test/unit/agent-commands-runner-retry.test.ts — unit coverage for transient reconnect retry behavior in the command runner
+- server/src/test/unit/flow-command-retries-config.test.ts — unit coverage for shared flow/command retry-budget parsing behavior
 - server/src/test/unit/agent-commands-runner-abort-retry.test.ts — unit coverage that retries stop immediately when aborted
+- server/src/test/unit/openai-provider-retry.test.ts — unit coverage for OpenAI retry defaults, wait-hint precedence/fallback, and retry-exhaustion normalization
+- server/src/test/unit/openai-ingest-retries-config.test.ts — unit coverage for OpenAI ingest retry env parsing (unset/invalid fallback and valid override)
+- server/src/test/unit/openai-provider.test.ts — unit coverage for OpenAI adapter timeout/maxRetries ownership and embedding response-shape validation
+- server/src/test/unit/openai-provider-errors.test.ts — unit coverage for OpenAI taxonomy mapping, retryability matrix, and secret-safe redaction
+- server/src/test/unit/openai-provider-guardrails.test.ts — unit coverage for OpenAI embedding guardrail boundaries (input count and token limits)
+- server/src/test/unit/flows.break-parser.test.ts — unit coverage for strict/fenced/balanced break-answer parsing order, schema gating, and terminal failure behavior
 - server/src/test/unit/mcp-responder-transient-error.test.ts — unit coverage that McpResponder ignores transient reconnect error events
 - server/src/test/unit/chat-command-metadata.test.ts — unit coverage that chat persistence attaches `command` metadata to turns created by command runs
 - server/src/test/unit/chatModels.codex.test.ts — unit coverage for `/chat/models` Codex defaults, warnings, and env model lists
 - server/src/test/unit/chatProviders.test.ts — unit coverage for `/chat/providers` runtime availability ordering and fallback-ready provider selection
+- server/src/test/integration/openai-retry-env-override.test.ts — integration coverage for OpenAI retryable-failure attempt counts honoring `OPENAI_INGEST_MAX_RETRIES`
 - server/src/config/chatDefaults.ts — shared resolver for chat provider/model defaults (`request -> env -> fallback`)
 - server/src/test/unit/config.chatDefaults.test.ts — unit coverage for shared chat default resolution precedence
 - server/src/test/unit/chatValidators.test.ts — unit coverage for Codex env defaults + warnings in chat validation
@@ -653,3 +680,14 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 - e2e/support/mockChatWs.ts — Playwright `routeWebSocket` helper for mocking chat WS protocol in end-to-end tests
 - e2e/agents.spec.ts — e2e coverage for Agents raw outbound payload preservation, whitespace-only submit blocking, and hydrated markdown parity/fallback behavior
 - e2e/chat-ws-logs.spec.ts — e2e asserting Logs UI shows client-forwarded chat WS log lines after mocked transcript events
+- Task 0000036-T8 file-map update — no file paths were added/removed; existing files updated in place: `server/src/routes/ingestModels.ts`, `server/src/test/unit/ingest-models.test.ts`, `server/src/test/features/ingest-models.feature`, `server/src/test/steps/ingest-models.steps.ts`, `server/src/ingest/providers/index.ts`, and `design.md`.
+- Task 0000036-T9 file-map update — added files: `server/src/ingest/providers/openaiErrorContract.ts`, `server/src/ingest/requestContracts.ts`, `server/src/test/unit/ingest-start.test.ts`, `server/src/test/integration/openai-error-parity.test.ts`, `server/src/test/integration/ingest-progress-accounting.test.ts`, `server/src/test/integration/ingest-reembed-invalid-state.test.ts`, and `server/src/test/integration/openai-model-unavailable-contract.test.ts`; removed files: `None`.
+- Task 0000036-T10 file-map update — added files: `server/src/test/integration/mcp-ingested-repositories.test.ts` and `server/src/test/unit/openapi.contract.test.ts`; removed files: `None`. Existing files updated in place include `server/src/routes/ingestRoots.ts`, `server/src/lmstudio/toolService.ts`, `server/src/routes/toolsIngestedRepos.ts`, `server/src/mcp/server.ts`, `server/src/test/features/ingest-roots.feature`, `server/src/test/features/ingest-remove.feature`, `server/src/test/steps/ingest-manage.steps.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`, `server/src/test/unit/tools-ingested-repos.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`, `openapi.json`, and `design.md`.
+- Task 0000036-T11 file-map update — added files: `None`; removed files: `None`. Existing files updated in place include `server/src/lmstudio/toolService.ts`, `server/src/ast/toolService.ts`, `server/src/flows/types.ts`, `server/src/flows/discovery.ts`, `server/src/flows/service.ts`, `server/src/agents/service.ts`, `server/src/chat/responders/McpResponder.ts`, `server/src/mcp2/tools/codebaseQuestion.ts`, `server/src/test/integration/flows.list.test.ts`, `server/src/test/integration/flows.run.basic.test.ts`, `server/src/test/unit/agent-commands-list.test.ts`, `server/src/test/integration/tools-ast.test.ts`, `server/src/test/mcp2/tools/codebaseQuestion.happy.test.ts`, `server/src/test/unit/ast-tool-service.test.ts`, and `design.md`.
+- Task 0000036-T12 file-map update — added files: `client/src/test/useIngestModels.test.tsx` and `client/src/test/useIngestRoots.test.tsx`; removed files: `None`. Existing files updated in place include `client/src/hooks/useIngestModels.ts`, `client/src/hooks/useIngestRoots.ts`, `client/src/components/ingest/IngestForm.tsx`, and `planning/0000036-openai-embeddings-provider-locking.md`.
+- Task 0000036-T13 file-map update — added files: `None`; removed files: `None`. Existing files updated in place include `client/src/components/ingest/IngestForm.tsx`, `client/src/components/ingest/ActiveRunCard.tsx`, `client/src/components/ingest/RootsTable.tsx`, `client/src/components/ingest/RootDetailsDrawer.tsx`, `client/src/pages/IngestPage.tsx`, `client/src/pages/ChatPage.tsx`, `client/src/pages/AgentsPage.tsx`, `client/src/test/ingestForm.test.tsx`, `client/src/test/ingestStatus.test.tsx`, `client/src/test/ingestRoots.test.tsx`, `client/src/test/chatPage.toolDetails.test.tsx`, `client/src/test/agentsPage.toolsUi.test.tsx`, `e2e/ingest.spec.ts`, and `planning/0000036-openai-embeddings-provider-locking.md`.
+- Story 0000036 final file-map summary — added files: `planning/0000036-openai-embeddings-provider-locking.md`, `server/src/config/startupEnv.ts`, `server/src/config/flowAndCommandRetries.ts`, `server/src/ingest/providers/types.ts`, `server/src/ingest/providers/lmstudioEmbeddingProvider.ts`, `server/src/ingest/providers/index.ts`, `server/src/ingest/providers/openaiConstants.ts`, `server/src/ingest/providers/openaiEmbeddingProvider.ts`, `server/src/ingest/providers/openaiErrors.ts`, `server/src/ingest/providers/openaiGuardrails.ts`, `server/src/ingest/providers/openaiRetry.ts`, `server/src/ingest/providers/providerResolver.ts`, `server/src/ingest/providers/openaiErrorContract.ts`, `server/src/ingest/requestContracts.ts`, `server/src/test/unit/ingest-models.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`, `server/src/test/unit/mcp-vector-search.test.ts`, `server/src/test/unit/env-loading.test.ts`, `server/src/test/unit/env-logging.test.ts`, `server/src/test/unit/flows.break-parser.test.ts`, `server/src/test/unit/flow-command-retries-config.test.ts`, `server/src/test/unit/openai-provider-errors.test.ts`, `server/src/test/unit/openai-provider-guardrails.test.ts`, `server/src/test/unit/openai-provider-retry.test.ts`, `server/src/test/unit/openai-provider.test.ts`, `server/src/test/unit/chroma-lock.test.ts`, `server/src/test/unit/ingest-start.test.ts`, `server/src/test/unit/openapi.contract.test.ts`, `server/src/test/integration/ingest-lock-lifecycle.test.ts`, `server/src/test/integration/ingest-reembed.test.ts`, `server/src/test/integration/mcp-vector-search.test.ts`, `server/src/test/integration/openai-error-parity.test.ts`, `server/src/test/integration/ingest-progress-accounting.test.ts`, `server/src/test/integration/ingest-reembed-invalid-state.test.ts`, `server/src/test/integration/openai-model-unavailable-contract.test.ts`, `server/src/test/integration/mcp-ingested-repositories.test.ts`, `server/src/utils/retryContext.ts`, `server/src/utils/truncateText.ts`, `client/src/test/useIngestModels.test.tsx`, `client/src/test/useIngestRoots.test.tsx`, and `scripts/emit-0000036-t14-verification-logs.sh`; removed files: `server/src/ingest/modelLock.ts`.
+- Task 0000036-T17 file-map update — added files: `server/src/ingest/providers/ingestFailureLogging.ts`, `server/src/test/unit/ingest-openai-logging.test.ts`, `server/src/test/unit/ingest-lmstudio-logging.test.ts`, and `server/src/test/integration/ingest-logging-visibility.test.ts`; updated files: `server/src/ingest/providers/openaiRetry.ts`, `server/src/ingest/providers/openaiEmbeddingProvider.ts`, `server/src/ingest/ingestJob.ts`, and `client/src/test/logsPage.test.tsx`; removed files: `None`.
+- Task 0000036-T18 file-map update — added files: `server/src/config/openaiIngestRetries.ts`, `server/src/test/unit/openai-ingest-retries-config.test.ts`, and `server/src/test/integration/openai-retry-env-override.test.ts`; updated files: `server/src/ingest/providers/openaiRetry.ts`, `server/src/ingest/providers/openaiConstants.ts`, `server/src/ingest/providers/index.ts`, `server/src/test/unit/openai-provider-retry.test.ts`, and `server/.env`; removed files: `None`.
+- Task 0000036-T19 file-map update — added files: `server/src/ingest/providers/ingestFailureClassifier.ts`, `server/src/test/unit/ingest-cancel.test.ts`, `server/src/test/unit/ingest-reembed.test.ts`, `server/src/test/unit/lmstudio-provider-retry-logging.test.ts`, and `server/src/test/integration/ingest-failure-logging-coverage.test.ts`; updated files: `server/src/ingest/providers/ingestFailureLogging.ts`, `server/src/ingest/providers/lmstudioEmbeddingProvider.ts`, `server/src/ingest/providers/index.ts`, `server/src/ingest/providers/types.ts`, `server/src/ingest/chunker.ts`, `server/src/ingest/discovery.ts`, `server/src/ingest/ingestJob.ts`, `server/src/routes/ingestCancel.ts`, `server/src/routes/ingestStart.ts`, `server/src/routes/ingestReembed.ts`, `server/src/routes/ingestRoots.ts`, `server/src/test/unit/ingest-start.test.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`, `server/src/test/unit/openai-provider-retry.test.ts`, `client/src/test/logsPage.test.tsx`, `README.md`, `design.md`, and `planning/0000036-openai-embeddings-provider-locking.md`; removed files: `None`.
+- Task 0000036-T20 file-map update — added files: `None`; updated files: `server/src/config/openaiIngestRetries.ts`, `server/src/routes/ingestReembed.ts`, `server/src/test/unit/openai-ingest-retries-config.test.ts`, `server/src/test/unit/openai-provider-retry.test.ts`, `server/src/test/unit/ingest-reembed.test.ts`, `server/src/test/integration/ingest-failure-logging-coverage.test.ts`, `README.md`, `design.md`, and `planning/0000036-openai-embeddings-provider-locking.md`; removed files: `None`.

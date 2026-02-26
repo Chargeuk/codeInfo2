@@ -1,25 +1,68 @@
-import { Router } from 'express';
 import { LogEntry } from '@codeinfo2/common';
-import { getLockedModel, getRootsCollection } from '../ingest/chromaClient.js';
+import { Router } from 'express';
+import {
+  type EmbeddingProviderId,
+  getLockedEmbeddingModel,
+  getLockedModel,
+  getRootsCollection,
+} from '../ingest/chromaClient.js';
+import {
+  appendIngestFailureLog,
+  classifyIngestFailure,
+} from '../ingest/providers/index.js';
+import { INGEST_REPO_SCHEMA_VERSION } from '../lmstudio/toolService.js';
 import { append as appendLog } from '../logStore.js';
 import { baseLogger } from '../logger.js';
+
+type LockEnvelope = {
+  embeddingProvider: EmbeddingProviderId;
+  embeddingModel: string;
+  embeddingDimensions: number;
+  lockedModelId: string;
+  modelId: string;
+};
 
 type RootEntry = {
   runId: string;
   name: string;
   description: string | null;
   path: string;
+  embeddingProvider: EmbeddingProviderId;
+  embeddingModel: string;
+  embeddingDimensions: number;
   model: string;
+  modelId: string;
+  lock: LockEnvelope;
   status: string;
   lastIngestAt: string | null;
   counts: { files: number; chunks: number; embedded: number };
   lastError: string | null;
+  error?: {
+    error: string;
+    message: string;
+    retryable: boolean;
+    provider: 'lmstudio' | 'openai';
+    upstreamStatus?: number;
+    retryAfterMs?: number;
+  } | null;
   ast?: {
     supportedFileCount: number;
     skippedFileCount: number;
     failedFileCount: number;
     lastIndexedAt: string | null;
   };
+};
+
+type Deps = {
+  getLockedModel: typeof getLockedModel;
+  getLockedEmbeddingModel?: typeof getLockedEmbeddingModel;
+  getRootsCollection: typeof getRootsCollection;
+};
+
+const DEFAULT_DEPS: Deps = {
+  getLockedModel,
+  getLockedEmbeddingModel,
+  getRootsCollection,
 };
 
 function logLifecycle(message: string, context: Record<string, unknown>) {
@@ -32,6 +75,51 @@ function logLifecycle(message: string, context: Record<string, unknown>) {
   };
   appendLog(entry);
   baseLogger.info({ ...context }, message);
+}
+
+function logLockResolverState(
+  requestId: string | undefined,
+  surface: string,
+  lock: LockEnvelope | null,
+) {
+  const lockedModelId = lock?.lockedModelId ?? null;
+  appendLog({
+    level: 'info',
+    source: 'server',
+    message: 'DEV-0000036:T2:lock_resolver_source_selected',
+    timestamp: new Date().toISOString(),
+    context: {
+      surface,
+      source: 'canonical',
+      lockedModelId,
+    },
+    requestId,
+  });
+  appendLog({
+    level: 'info',
+    source: 'server',
+    message: 'DEV-0000036:T2:lock_resolver_surface_parity',
+    timestamp: new Date().toISOString(),
+    context: {
+      surface,
+      embeddingProvider: lock?.embeddingProvider ?? null,
+      embeddingModel: lock?.embeddingModel ?? null,
+      embeddingDimensions: lock?.embeddingDimensions ?? null,
+    },
+    requestId,
+  });
+  baseLogger.info(
+    {
+      requestId,
+      surface,
+      source: 'canonical',
+      lockedModelId,
+      embeddingProvider: lock?.embeddingProvider ?? null,
+      embeddingModel: lock?.embeddingModel ?? null,
+      embeddingDimensions: lock?.embeddingDimensions ?? null,
+    },
+    'lock resolver parity baseline',
+  );
 }
 
 function toTimestamp(value: string | null): number {
@@ -69,6 +157,61 @@ function parseAstMetadata(
   };
 }
 
+function parseNormalizedError(meta: Record<string, unknown>) {
+  const candidate = (
+    meta.error && typeof meta.error === 'object'
+      ? meta.error
+      : meta.lastError && typeof meta.lastError === 'object'
+        ? meta.lastError
+        : null
+  ) as Record<string, unknown> | null;
+  if (!candidate) return null;
+  const provider = candidate.provider;
+  const error = candidate.error;
+  const message = candidate.message;
+  const retryable = candidate.retryable;
+  if (
+    (provider === 'openai' || provider === 'lmstudio') &&
+    typeof error === 'string' &&
+    typeof message === 'string' &&
+    typeof retryable === 'boolean'
+  ) {
+    return {
+      error,
+      message,
+      retryable,
+      provider,
+      ...(typeof candidate.upstreamStatus === 'number'
+        ? { upstreamStatus: candidate.upstreamStatus }
+        : {}),
+      ...(typeof candidate.retryAfterMs === 'number'
+        ? { retryAfterMs: candidate.retryAfterMs }
+        : {}),
+    } as RootEntry['error'];
+  }
+  return null;
+}
+
+function normalizeEmbeddingProvider(
+  value: unknown,
+): EmbeddingProviderId | null {
+  if (value === 'lmstudio' || value === 'openai') return value;
+  return null;
+}
+
+function normalizeEmbeddingModel(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function normalizeEmbeddingDimensions(value: unknown): number | null {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
+    return null;
+  }
+  return value;
+}
+
 export function dedupeRootsByPath(roots: RootEntry[]): RootEntry[] {
   const bestByPath = new Map<string, RootEntry>();
   for (const root of roots) {
@@ -97,13 +240,38 @@ export function dedupeRootsByPath(roots: RootEntry[]): RootEntry[] {
   });
 }
 
-export function createIngestRootsRouter() {
+export function createIngestRootsRouter(deps: Partial<Deps> = {}) {
+  const resolved = {
+    ...DEFAULT_DEPS,
+    ...deps,
+  };
   const router = Router();
 
   router.get('/ingest/roots', async (_req, res) => {
     try {
-      const collection = await getRootsCollection();
-      const lockedModelId = await getLockedModel();
+      const collection = await resolved.getRootsCollection();
+      const requestId =
+        (res.locals?.requestId as string | undefined) ?? undefined;
+      const useCanonicalResolver =
+        typeof deps.getLockedEmbeddingModel === 'function' ||
+        deps.getLockedModel === undefined;
+      const canonicalLock =
+        useCanonicalResolver &&
+        typeof resolved.getLockedEmbeddingModel === 'function'
+          ? await resolved.getLockedEmbeddingModel()
+          : null;
+      const lockedModelId =
+        canonicalLock?.embeddingModel ?? (await resolved.getLockedModel());
+      const lock = lockedModelId
+        ? {
+            embeddingProvider: canonicalLock?.embeddingProvider ?? 'lmstudio',
+            embeddingModel: lockedModelId,
+            embeddingDimensions: canonicalLock?.embeddingDimensions ?? 0,
+            lockedModelId,
+            modelId: lockedModelId,
+          }
+        : null;
+      logLockResolverState(requestId, 'ingest/roots', lock);
       type CollectionGetter = {
         get: (opts: {
           include?: string[];
@@ -128,13 +296,53 @@ export function createIngestRootsRouter() {
           const lastIngestAt =
             typeof m.lastIngestAt === 'string' ? m.lastIngestAt : null;
           const ast = parseAstMetadata(m);
+          const normalizedError = parseNormalizedError(m);
+          const legacyLastError =
+            typeof m.lastError === 'string'
+              ? m.lastError
+              : typeof normalizedError?.message === 'string'
+                ? normalizedError.message
+                : m.lastError === null
+                  ? null
+                  : null;
+          const embeddingModel =
+            normalizeEmbeddingModel(m.embeddingModel) ??
+            normalizeEmbeddingModel(m.model) ??
+            lock?.embeddingModel ??
+            '';
+          const embeddingProvider =
+            normalizeEmbeddingProvider(m.embeddingProvider) ??
+            (lock &&
+            lock.embeddingModel === embeddingModel &&
+            embeddingModel.length > 0
+              ? lock.embeddingProvider
+              : 'lmstudio');
+          const embeddingDimensions =
+            normalizeEmbeddingDimensions(m.embeddingDimensions) ??
+            (lock &&
+            lock.embeddingProvider === embeddingProvider &&
+            lock.embeddingModel === embeddingModel
+              ? lock.embeddingDimensions
+              : 0);
+          const rootLock: LockEnvelope = {
+            embeddingProvider,
+            embeddingModel,
+            embeddingDimensions,
+            lockedModelId: embeddingModel,
+            modelId: embeddingModel,
+          };
           return {
             runId: typeof ids[idx] === 'string' ? ids[idx] : `run-${idx}`,
             name: typeof m.name === 'string' ? m.name : '',
             description:
               typeof m.description === 'string' ? m.description : null,
             path: typeof m.root === 'string' ? m.root : '',
-            model: typeof m.model === 'string' ? m.model : '',
+            embeddingProvider,
+            embeddingModel,
+            embeddingDimensions,
+            model: embeddingModel,
+            modelId: embeddingModel,
+            lock: rootLock,
             status: typeof m.state === 'string' ? m.state : 'unknown',
             lastIngestAt,
             counts: {
@@ -142,12 +350,8 @@ export function createIngestRootsRouter() {
               chunks: Number(m.chunks ?? 0),
               embedded: Number(m.embedded ?? 0),
             },
-            lastError:
-              typeof m.lastError === 'string'
-                ? m.lastError
-                : m.lastError === null
-                  ? null
-                  : null,
+            lastError: legacyLastError,
+            error: normalizedError,
             ast,
           } satisfies RootEntry;
         })
@@ -164,11 +368,66 @@ export function createIngestRootsRouter() {
         logLifecycle('0000020 ingest roots dedupe applied', { before, after });
       }
 
-      res.json({ roots: deduped, lockedModelId });
+      appendLog({
+        level: 'info',
+        source: 'server',
+        message: 'DEV-0000036:T10:ingest_repo_payload_emitted',
+        timestamp: new Date().toISOString(),
+        requestId,
+        context: {
+          surface: 'ingest/roots',
+          repoCount: deduped.length,
+          embeddingProvider: lock?.embeddingProvider ?? null,
+          embeddingModel: lock?.embeddingModel ?? null,
+          embeddingDimensions: lock?.embeddingDimensions ?? null,
+          aliasLockedModelIdPresent: lock?.lockedModelId != null,
+          aliasModelIdPresent: lock?.modelId != null,
+        },
+      });
+      appendLog({
+        level: 'info',
+        source: 'server',
+        message: 'DEV-0000036:T10:ingest_repo_schema_version_emitted',
+        timestamp: new Date().toISOString(),
+        requestId,
+        context: {
+          surface: 'ingest/roots',
+          schemaVersion: INGEST_REPO_SCHEMA_VERSION,
+        },
+      });
+
+      res.json({
+        roots: deduped,
+        lock,
+        lockedModelId: lock?.lockedModelId ?? null,
+        schemaVersion: INGEST_REPO_SCHEMA_VERSION,
+      });
     } catch (err) {
-      res
-        .status(502)
-        .json({ status: 'error', message: (err as Error).message });
+      const classified = classifyIngestFailure(err, {
+        surface: 'ingest/roots',
+        defaultCode: 'INGEST_ROOTS_LOOKUP_FAILED',
+      });
+      appendIngestFailureLog(classified.severity, {
+        provider: classified.provider,
+        code: classified.code,
+        retryable: classified.retryable,
+        message: classified.message,
+        stage: 'terminal',
+        surface: classified.surface,
+        operation: 'roots',
+        ...(typeof classified.upstreamStatus === 'number'
+          ? { upstreamStatus: classified.upstreamStatus }
+          : {}),
+        ...(typeof classified.retryAfterMs === 'number'
+          ? { retryAfterMs: classified.retryAfterMs }
+          : {}),
+      });
+      baseLogger.error({ err }, 'ingest roots failed');
+      res.status(502).json({
+        status: 'error',
+        code: classified.code,
+        message: classified.message,
+      });
     }
   });
 

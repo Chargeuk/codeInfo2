@@ -2,18 +2,19 @@ import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
+import { getFlowAndCommandRetries } from '../config/flowAndCommandRetries.js';
 import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
+import { formatRetryInstruction } from '../utils/retryContext.js';
 
 import { loadAgentCommandFile } from './commandsLoader.js';
-import { runWithRetry } from './retry.js';
+import { AbortError, runWithRetry } from './retry.js';
 import {
   releaseConversationLock,
   tryAcquireConversationLock,
 } from './runLock.js';
-import { getErrorMessage, isTransientReconnect } from './transientReconnect.js';
+import { getErrorMessage } from './transientReconnect.js';
 
-const MAX_ATTEMPTS = 3;
 const BASE_DELAY_MS = 500;
 
 const commandAbortByConversationId = new Map<string, AbortController>();
@@ -153,13 +154,14 @@ export async function runAgentCommandRunner(
 
   let modelId = 'gpt-5.1-codex-max';
   const logger = params.logger ?? (baseLogger as LoggerLike);
+  const maxAttempts = getFlowAndCommandRetries();
 
   try {
     for (let i = 0; i < totalSteps; i++) {
       if (combinedSignal.aborted) break;
 
       const item = command.items[i];
-      const instruction = item.content.join('\n');
+      const originalInstruction = item.content.join('\n');
 
       const stepMeta = {
         name: commandName,
@@ -167,25 +169,52 @@ export async function runAgentCommandRunner(
         totalSteps,
       };
 
+      let previousError: unknown = null;
+      let sanitizedErrorLength = 0;
+      let currentAttempt = 0;
+
       const res = await runWithRetry({
-        runStep: async () =>
-          params.runAgentInstructionUnlocked({
+        runStep: async () => {
+          currentAttempt += 1;
+          const retryInstruction =
+            currentAttempt > 1
+              ? formatRetryInstruction({
+                  originalInstruction,
+                  previousError,
+                })
+              : null;
+          if (retryInstruction) {
+            sanitizedErrorLength = retryInstruction.sanitizedErrorLength;
+          }
+          return params.runAgentInstructionUnlocked({
             agentName: params.agentName,
-            instruction,
+            instruction: retryInstruction?.instruction ?? originalInstruction,
             working_folder: params.working_folder,
             conversationId,
             mustExist,
             command: stepMeta,
             signal: combinedSignal,
             source: params.source,
-          }),
-        isRetryableError: (err) =>
-          isTransientReconnect(getErrorMessage(err) ?? null),
-        maxAttempts: MAX_ATTEMPTS,
+          });
+        },
+        isRetryableError: (err) => !(err instanceof AbortError),
+        maxAttempts,
         baseDelayMs: BASE_DELAY_MS,
         signal: combinedSignal,
         sleep: params.sleep,
-        onRetry: ({ attempt, maxAttempts, error, delayMs }) => {
+        onRetry: ({
+          attempt,
+          maxAttempts: allowedAttempts,
+          error,
+          delayMs,
+        }) => {
+          previousError = error;
+          const retryInstruction = formatRetryInstruction({
+            originalInstruction,
+            previousError: error,
+          });
+          sanitizedErrorLength = retryInstruction.sanitizedErrorLength;
+          const retryPromptInjected = attempt >= 1;
           logger.warn(
             {
               agentName: params.agentName,
@@ -193,14 +222,31 @@ export async function runAgentCommandRunner(
               conversationId,
               stepIndex: stepMeta.stepIndex,
               attempt,
-              maxAttempts,
+              maxAttempts: allowedAttempts,
               delayMs,
-              errorMessage: getErrorMessage(error) ?? null,
+              reason: getErrorMessage(error) ?? null,
+              retryPromptInjected,
+              sanitizedErrorLength,
             },
-            'transient reconnect; retrying command step',
+            'DEV-0000036:T5:step_retry_attempt',
           );
+          append({
+            level: 'warn',
+            message: 'DEV-0000036:T5:step_retry_attempt',
+            timestamp: new Date().toISOString(),
+            source: 'server',
+            context: {
+              surface: 'command',
+              stepIndex: stepMeta.stepIndex,
+              attempt,
+              maxAttempts: allowedAttempts,
+              reason: getErrorMessage(error) ?? null,
+              retryPromptInjected,
+              sanitizedErrorLength,
+            },
+          });
         },
-        onSuccessAfterRetry: ({ attempts, maxAttempts }) => {
+        onSuccessAfterRetry: ({ attempts, maxAttempts: allowedAttempts }) => {
           logger.info(
             {
               agentName: params.agentName,
@@ -208,12 +254,12 @@ export async function runAgentCommandRunner(
               conversationId,
               stepIndex: stepMeta.stepIndex,
               attempts,
-              maxAttempts,
+              maxAttempts: allowedAttempts,
             },
             'command step succeeded after retry',
           );
         },
-        onExhausted: ({ attempt, maxAttempts, error }) => {
+        onExhausted: ({ attempt, maxAttempts: allowedAttempts, error }) => {
           logger.error(
             {
               agentName: params.agentName,
@@ -221,11 +267,28 @@ export async function runAgentCommandRunner(
               conversationId,
               stepIndex: stepMeta.stepIndex,
               attempt,
-              maxAttempts,
-              errorMessage: getErrorMessage(error) ?? null,
+              maxAttempts: allowedAttempts,
+              reason: getErrorMessage(error) ?? null,
+              retryPromptInjected: attempt > 1,
+              sanitizedErrorLength,
             },
-            'command retries exhausted',
+            'DEV-0000036:T5:step_retry_exhausted',
           );
+          append({
+            level: 'error',
+            message: 'DEV-0000036:T5:step_retry_exhausted',
+            timestamp: new Date().toISOString(),
+            source: 'server',
+            context: {
+              surface: 'command',
+              stepIndex: stepMeta.stepIndex,
+              attempt,
+              maxAttempts: allowedAttempts,
+              reason: getErrorMessage(error) ?? null,
+              retryPromptInjected: attempt > 1,
+              sanitizedErrorLength,
+            },
+          });
         },
       });
 

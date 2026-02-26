@@ -481,7 +481,7 @@ describe('agent commands runner (v1)', () => {
       }),
     );
 
-    assert.deepEqual(calls, [1, 2]);
+    assert.deepEqual(calls, [1, 2, 2, 2, 2, 2]);
 
     const secondCalls: number[] = [];
 

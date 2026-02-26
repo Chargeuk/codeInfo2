@@ -1,7 +1,10 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-import { listIngestedRepositories } from '../lmstudio/toolService.js';
+import {
+  listIngestedRepositories,
+  resolveRepoEmbeddingIdentity,
+} from '../lmstudio/toolService.js';
 import { append } from '../logStore.js';
 import { parseFlowFile } from './flowSchema.js';
 
@@ -152,6 +155,32 @@ export async function discoverFlows(params?: {
         const sourceLabel =
           repo.id?.trim() || path.posix.basename(sourceId.replace(/\\/g, '/'));
         if (!sourceLabel) return [];
+        const resolved = resolveRepoEmbeddingIdentity(repo);
+        append({
+          level: 'info',
+          message: 'DEV-0000036:T11:transitive_consumer_contract_read',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          context: {
+            consumer: 'flows.discovery',
+            sourceId,
+            embeddingProvider: resolved.embeddingProvider,
+            embeddingModel: resolved.embeddingModel,
+            embeddingDimensions: resolved.embeddingDimensions,
+            modelId: resolved.modelId,
+          },
+        });
+        append({
+          level: 'info',
+          message: 'DEV-0000036:T11:transitive_consumer_alias_fallback',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          context: {
+            consumer: 'flows.discovery',
+            sourceId,
+            aliasFallbackUsed: resolved.aliasFallbackUsed,
+          },
+        });
         const flowsRoot = path.join(sourceId, 'flows');
         return await listFlowsFromDir({
           flowsDir: flowsRoot,

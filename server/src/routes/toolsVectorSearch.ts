@@ -1,13 +1,22 @@
 import { Router } from 'express';
 import {
+  EmbeddingDimensionMismatchError,
   EmbedModelMissingError,
+  InvalidLockMetadataError,
   IngestRequiredError,
   getLockedModel,
   getRootsCollection,
   getVectorsCollection,
 } from '../ingest/chromaClient.js';
+import { OpenAiEmbeddingError } from '../ingest/providers/index.js';
+import {
+  logOpenAiContractMapping,
+  resolveOpenAiRestStatus,
+  toNormalizedOpenAiErrorPayload,
+} from '../ingest/providers/index.js';
 import {
   RepoNotFoundError,
+  type ToolDeps,
   ValidationError,
   validateVectorSearch,
   vectorSearch,
@@ -18,6 +27,8 @@ type Deps = {
   getRootsCollection: typeof getRootsCollection;
   getVectorsCollection: typeof getVectorsCollection;
   getLockedModel: typeof getLockedModel;
+  getLockedEmbeddingModel?: ToolDeps['getLockedEmbeddingModel'];
+  generateLockedQueryEmbedding?: ToolDeps['generateLockedQueryEmbedding'];
 };
 
 type VectorSearchBody = {
@@ -42,6 +53,12 @@ export function createToolsVectorSearchRouter(
         getRootsCollection: deps.getRootsCollection,
         getVectorsCollection: deps.getVectorsCollection,
         getLockedModel: deps.getLockedModel,
+        ...(deps.getLockedEmbeddingModel
+          ? { getLockedEmbeddingModel: deps.getLockedEmbeddingModel }
+          : {}),
+        ...(deps.generateLockedQueryEmbedding
+          ? { generateLockedQueryEmbedding: deps.generateLockedQueryEmbedding }
+          : {}),
       });
       const requestId =
         (res.locals?.requestId as string | undefined) ?? undefined;
@@ -72,6 +89,19 @@ export function createToolsVectorSearchRouter(
         );
         return res.status(409).json({ error: err.code, message: err.message });
       }
+      if (err instanceof InvalidLockMetadataError) {
+        return res.status(409).json({ error: err.code, message: err.message });
+      }
+      if (err instanceof EmbeddingDimensionMismatchError) {
+        return res.status(409).json({
+          error: err.code,
+          message: err.message,
+          expectedDimensions: err.expectedDimensions,
+          actualDimensions: err.actualDimensions,
+          embeddingProvider: err.embeddingProvider,
+          embeddingModel: err.embeddingModel,
+        });
+      }
       if (err instanceof EmbedModelMissingError) {
         const requestId =
           (res.locals?.requestId as string | undefined) ?? undefined;
@@ -84,6 +114,19 @@ export function createToolsVectorSearchRouter(
           modelId: err.modelId,
           message: err.message,
         });
+      }
+      if (err instanceof OpenAiEmbeddingError) {
+        const payload = toNormalizedOpenAiErrorPayload(err);
+        const status = resolveOpenAiRestStatus(err);
+        const requestId =
+          (res.locals?.requestId as string | undefined) ?? undefined;
+        logOpenAiContractMapping({
+          requestId,
+          surface: 'rest',
+          payload,
+          statusCode: status,
+        });
+        return res.status(status).json(payload);
       }
       return res
         .status(502)

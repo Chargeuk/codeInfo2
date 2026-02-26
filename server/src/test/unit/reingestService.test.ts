@@ -2,8 +2,34 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import { runReingestRepository } from '../../ingest/reingestService.js';
+import type { RepoEntry } from '../../lmstudio/toolService.js';
 
 const noopLog = () => undefined;
+
+const buildRepoEntry = (params: {
+  id: string;
+  containerPath: string;
+}): RepoEntry => ({
+  id: params.id,
+  description: null,
+  containerPath: params.containerPath,
+  hostPath: `/host${params.containerPath}`,
+  lastIngestAt: null,
+  embeddingProvider: 'lmstudio',
+  embeddingModel: 'model',
+  embeddingDimensions: 768,
+  model: 'model',
+  modelId: 'model',
+  lock: {
+    embeddingProvider: 'lmstudio',
+    embeddingModel: 'model',
+    embeddingDimensions: 768,
+    lockedModelId: 'model',
+    modelId: 'model',
+  },
+  counts: { files: 1, chunks: 1, embedded: 1 },
+  lastError: null,
+});
 
 test('success branch returns canonical payload', async () => {
   const result = await runReingestRepository(
@@ -11,16 +37,7 @@ test('success branch returns canonical payload', async () => {
     {
       listIngestedRepositories: async () => ({
         repos: [
-          {
-            id: 'repo-a',
-            description: null,
-            containerPath: '/data/repo-a',
-            hostPath: '/host/repo-a',
-            lastIngestAt: null,
-            modelId: 'model',
-            counts: { files: 1, chunks: 1, embedded: 1 },
-            lastError: null,
-          },
+          buildRepoEntry({ id: 'repo-a', containerPath: '/data/repo-a' }),
         ],
         lockedModelId: 'model',
       }),
@@ -42,18 +59,7 @@ test('success branch returns canonical payload', async () => {
 
 test('invalid sourceId reason branches map to INVALID_PARAMS', async () => {
   const listIngestedRepositories = async () => ({
-    repos: [
-      {
-        id: 'repo-a',
-        description: null,
-        containerPath: '/data/repo-a',
-        hostPath: '/host/repo-a',
-        lastIngestAt: null,
-        modelId: 'model',
-        counts: { files: 1, chunks: 1, embedded: 1 },
-        lastError: null,
-      },
-    ],
+    repos: [buildRepoEntry({ id: 'repo-a', containerPath: '/data/repo-a' })],
     lockedModelId: 'model',
   });
 
@@ -101,26 +107,8 @@ test('unknown root includes AI retry guidance fields', async () => {
     {
       listIngestedRepositories: async () => ({
         repos: [
-          {
-            id: 'repo-a',
-            description: null,
-            containerPath: '/data/repo-a',
-            hostPath: '/host/repo-a',
-            lastIngestAt: null,
-            modelId: 'model',
-            counts: { files: 1, chunks: 1, embedded: 1 },
-            lastError: null,
-          },
-          {
-            id: 'repo-b',
-            description: null,
-            containerPath: '/data/repo-b',
-            hostPath: '/host/repo-b',
-            lastIngestAt: null,
-            modelId: 'model',
-            counts: { files: 1, chunks: 1, embedded: 1 },
-            lastError: null,
-          },
+          buildRepoEntry({ id: 'repo-a', containerPath: '/data/repo-a' }),
+          buildRepoEntry({ id: 'repo-b', containerPath: '/data/repo-b' }),
         ],
         lockedModelId: 'model',
       }),
@@ -147,18 +135,7 @@ test('unknown root includes AI retry guidance fields', async () => {
 
 test('busy maps to canonical BUSY contract from lock and reembed', async () => {
   const listIngestedRepositories = async () => ({
-    repos: [
-      {
-        id: 'repo-a',
-        description: null,
-        containerPath: '/data/repo-a',
-        hostPath: '/host/repo-a',
-        lastIngestAt: null,
-        modelId: 'model',
-        counts: { files: 1, chunks: 1, embedded: 1 },
-        lastError: null,
-      },
-    ],
+    repos: [buildRepoEntry({ id: 'repo-a', containerPath: '/data/repo-a' })],
     lockedModelId: 'model',
   });
 

@@ -30,14 +30,19 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 class ScriptedChat extends ChatInterface {
   async execute(
-    _message: string,
+    message: string,
     _flags: Record<string, unknown>,
     conversationId: string,
     _model: string,
   ) {
     void _model;
+    const delayedMatch = message.match(/^__delay:(\d+)::([\s\S]*)$/);
+    if (delayedMatch) {
+      await delay(Number(delayedMatch[1]));
+    }
+    const response = delayedMatch ? delayedMatch[2] : 'ok';
     this.emit('thread', { type: 'thread', threadId: conversationId });
-    this.emit('final', { type: 'final', content: 'ok' });
+    this.emit('final', { type: 'final', content: response });
     this.emit('complete', { type: 'complete', threadId: conversationId });
   }
 }
@@ -199,6 +204,96 @@ test('invalid command steps return 400 invalid_request', async () => {
 
     assert.equal(res.body.error, 'invalid_request');
   });
+});
+
+test('command-load failures are retried and then fail deterministically', async () => {
+  const previousRetries = process.env.FLOW_AND_COMMAND_RETRIES;
+  process.env.FLOW_AND_COMMAND_RETRIES = '2';
+  const commandName = 'task5_retry_temp_command';
+  const commandPath = path.join(
+    repoRoot,
+    'codex_agents',
+    'planning_agent',
+    'commands',
+    `${commandName}.json`,
+  );
+  await fs.writeFile(
+    commandPath,
+    JSON.stringify({
+      Description: 'Temporary command for Task 5 retry test',
+      items: [{ type: 'message', role: 'user', content: ['temporary step'] }],
+    }),
+  );
+  await withFlowServer(async ({ baseUrl, wsUrl, tmpDir }) => {
+    const conversationId = 'flow-command-missing-retry-conv';
+    sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+
+    const retryFlow = {
+      description: 'Retry missing command',
+      steps: [
+        {
+          type: 'llm',
+          agentType: 'planning_agent',
+          identifier: 'prep',
+          messages: [{ role: 'user', content: ['__delay:300::prep'] }],
+        },
+        {
+          type: 'command',
+          agentType: 'planning_agent',
+          identifier: 'missing-command',
+          commandName,
+        },
+      ],
+    };
+    await fs.writeFile(
+      path.join(tmpDir, 'command-missing-retry.json'),
+      JSON.stringify(retryFlow, null, 2),
+    );
+
+    await supertest(baseUrl)
+      .post('/flows/command-missing-retry/run')
+      .send({ conversationId })
+      .expect(202);
+    await delay(50);
+    await fs.rm(commandPath, { force: true });
+
+    const final = await waitForEvent({
+      ws: wsUrl,
+      predicate: (
+        event: unknown,
+      ): event is { type: 'turn_final'; status: string } => {
+        const e = event as {
+          type?: string;
+          conversationId?: string;
+          status?: string;
+        };
+        return (
+          e.type === 'turn_final' &&
+          e.conversationId === conversationId &&
+          e.status === 'failed'
+        );
+      },
+      timeoutMs: 5000,
+    });
+
+    assert.equal(final.status, 'failed');
+    const turns = await waitForTurns(
+      conversationId,
+      (items) => items.filter((turn) => turn.role === 'assistant').length >= 1,
+      3000,
+    );
+    const assistantTurns = turns.filter((turn) => turn.role === 'assistant');
+    assert.equal(assistantTurns.length, 2);
+
+    memoryConversations.delete(conversationId);
+    memoryTurns.delete(conversationId);
+  });
+  await fs.rm(commandPath, { force: true });
+  if (previousRetries === undefined) {
+    delete process.env.FLOW_AND_COMMAND_RETRIES;
+  } else {
+    process.env.FLOW_AND_COMMAND_RETRIES = previousRetries;
+  }
 });
 
 test('flow run rejects path traversal attempts', async () => {

@@ -45,7 +45,16 @@ class ScriptedChat extends ChatInterface {
       return;
     }
     this.emit('thread', { type: 'thread', threadId: conversationId });
-    const response = this.responder(message);
+    const rawResponse = this.responder(message);
+    const delayedMatch = rawResponse.match(/^__delay:(\d+)::([\s\S]*)$/);
+    if (delayedMatch) {
+      await delay(Number(delayedMatch[1]));
+      if (signal?.aborted) {
+        this.emit('error', { type: 'error', message: 'aborted' });
+        return;
+      }
+    }
+    const response = delayedMatch ? delayedMatch[2] : rawResponse;
     this.emit('final', { type: 'final', content: response });
     this.emit('complete', { type: 'complete', threadId: conversationId });
   }
@@ -142,6 +151,31 @@ const cleanupMemory = (...conversationIds: Array<string | undefined>) => {
   });
 };
 
+const expectNoTerminalFinal = async (
+  ws: WebSocket,
+  conversationId: string,
+  waitMs = 300,
+) => {
+  await assert.rejects(
+    () =>
+      waitForEvent({
+        ws,
+        predicate: (
+          event: unknown,
+        ): event is { type: 'turn_final'; status: string } => {
+          const e = event as {
+            type?: string;
+            conversationId?: string;
+            status?: string;
+          };
+          return e.type === 'turn_final' && e.conversationId === conversationId;
+        },
+        timeoutMs: waitMs,
+      }),
+    /Timed out waiting for WebSocket event/,
+  );
+};
+
 test('flow loops until break answer matches breakOn', async () => {
   let outerBreakCount = 0;
   await withFlowServer(
@@ -227,11 +261,16 @@ test('break step fails on invalid JSON response', async () => {
         ws: wsUrl,
         predicate: (
           event: unknown,
-        ): event is { type: 'turn_final'; status: string } => {
+        ): event is {
+          type: 'turn_final';
+          status: string;
+          error?: { code?: string };
+        } => {
           const e = event as {
             type?: string;
             conversationId?: string;
             status?: string;
+            error?: { code?: string };
           };
           return (
             e.type === 'turn_final' &&
@@ -243,6 +282,103 @@ test('break step fails on invalid JSON response', async () => {
       });
 
       assert.equal(final.status, 'failed');
+      assert.equal(final.error?.code, 'INVALID_BREAK_RESPONSE');
+      cleanupMemory(conversationId);
+    },
+  );
+});
+
+test('break step recovers from wrapper output containing json fence', async () => {
+  await withFlowServer(
+    (message) => {
+      if (message.includes('Exit inner loop?')) {
+        return 'wrapper output\n```json\n{"answer":"yes"}\n```';
+      }
+      if (message.includes('Exit outer loop?')) {
+        return 'analysis first\n```json\n{"answer":"yes"}\n```';
+      }
+      return 'ok';
+    },
+    async ({ baseUrl, wsUrl }) => {
+      const conversationId = 'flow-loop-conv-wrapper-json';
+      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+
+      await supertest(baseUrl)
+        .post('/flows/loop-break/run')
+        .send({ conversationId })
+        .expect(202);
+
+      const final = await waitForEvent({
+        ws: wsUrl,
+        predicate: (
+          event: unknown,
+        ): event is { type: 'turn_final'; status: string } => {
+          const e = event as {
+            type?: string;
+            conversationId?: string;
+            status?: string;
+          };
+          return (
+            e.type === 'turn_final' &&
+            e.conversationId === conversationId &&
+            e.status === 'ok'
+          );
+        },
+        timeoutMs: 4000,
+      });
+
+      assert.equal(final.status, 'ok');
+      cleanupMemory(conversationId);
+    },
+  );
+});
+
+test('break step fails with INVALID_BREAK_RESPONSE when wrappers contain no valid answer', async () => {
+  await withFlowServer(
+    (message) => {
+      if (message.includes('Exit inner loop?')) {
+        return '{"answer":"yes"}';
+      }
+      if (message.includes('Exit outer loop?')) {
+        return '```json\\n{\"answer\":\"maybe\"}\\n``` trailing text';
+      }
+      return 'ok';
+    },
+    async ({ baseUrl, wsUrl }) => {
+      const conversationId = 'flow-loop-conv-wrapper-invalid';
+      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+
+      await supertest(baseUrl)
+        .post('/flows/loop-break/run')
+        .send({ conversationId })
+        .expect(202);
+
+      const final = await waitForEvent({
+        ws: wsUrl,
+        predicate: (
+          event: unknown,
+        ): event is {
+          type: 'turn_final';
+          status: string;
+          error?: { code?: string };
+        } => {
+          const e = event as {
+            type?: string;
+            conversationId?: string;
+            status?: string;
+            error?: { code?: string };
+          };
+          return (
+            e.type === 'turn_final' &&
+            e.conversationId === conversationId &&
+            e.status === 'failed'
+          );
+        },
+        timeoutMs: 4000,
+      });
+
+      assert.equal(final.status, 'failed');
+      assert.equal(final.error?.code, 'INVALID_BREAK_RESPONSE');
       cleanupMemory(conversationId);
     },
   );
@@ -489,4 +625,163 @@ test('failed flow step persists to agent conversation', async () => {
       cleanupMemory(conversationId, agentConversationId);
     },
   );
+});
+
+test('flow step retries transient failures and eventually succeeds', async () => {
+  const previousRetries = process.env.FLOW_AND_COMMAND_RETRIES;
+  process.env.FLOW_AND_COMMAND_RETRIES = '3';
+  let outerBreakAttempts = 0;
+  await withFlowServer(
+    (message) => {
+      if (message.includes('Exit inner loop?')) return '{"answer":"yes"}';
+      if (message.includes('Exit outer loop?')) {
+        outerBreakAttempts += 1;
+        if (outerBreakAttempts < 2) return '{"answer":"maybe"}';
+        return '{"answer":"yes"}';
+      }
+      return 'ok';
+    },
+    async ({ baseUrl, wsUrl }) => {
+      const conversationId = 'flow-loop-retry-success';
+      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await supertest(baseUrl)
+        .post('/flows/loop-break/run')
+        .send({ conversationId })
+        .expect(202);
+
+      await waitForTurns(
+        conversationId,
+        (items) =>
+          items.some(
+            (turn) =>
+              turn.role === 'user' && turn.content.includes('Exit outer loop?'),
+          ) &&
+          items.some(
+            (turn) =>
+              turn.role === 'assistant' &&
+              turn.content.includes('{"answer":"yes"}'),
+          ),
+        5000,
+      );
+      assert.equal(outerBreakAttempts, 2);
+      cleanupMemory(conversationId);
+    },
+  );
+  if (previousRetries === undefined) {
+    delete process.env.FLOW_AND_COMMAND_RETRIES;
+  } else {
+    process.env.FLOW_AND_COMMAND_RETRIES = previousRetries;
+  }
+});
+
+test('flow step retries to exhaustion and emits one terminal failure', async () => {
+  const previousRetries = process.env.FLOW_AND_COMMAND_RETRIES;
+  process.env.FLOW_AND_COMMAND_RETRIES = '2';
+  let outerBreakAttempts = 0;
+  await withFlowServer(
+    (message) => {
+      if (message.includes('Exit inner loop?')) return '{"answer":"yes"}';
+      if (message.includes('Exit outer loop?')) {
+        outerBreakAttempts += 1;
+        return '{"answer":"maybe"}';
+      }
+      return 'ok';
+    },
+    async ({ baseUrl, wsUrl }) => {
+      const conversationId = 'flow-loop-retry-exhausted';
+      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      await supertest(baseUrl)
+        .post('/flows/loop-break/run')
+        .send({ conversationId })
+        .expect(202);
+
+      const final = await waitForEvent({
+        ws: wsUrl,
+        predicate: (
+          event: unknown,
+        ): event is {
+          type: 'turn_final';
+          status: string;
+          error?: { code?: string };
+        } => {
+          const e = event as {
+            type?: string;
+            conversationId?: string;
+            status?: string;
+            error?: { code?: string };
+          };
+          return (
+            e.type === 'turn_final' &&
+            e.conversationId === conversationId &&
+            e.status === 'failed'
+          );
+        },
+        timeoutMs: 5000,
+      });
+
+      assert.equal(final.status, 'failed');
+      assert.equal(outerBreakAttempts, 2);
+      await expectNoTerminalFinal(wsUrl, conversationId);
+      cleanupMemory(conversationId);
+    },
+  );
+  if (previousRetries === undefined) {
+    delete process.env.FLOW_AND_COMMAND_RETRIES;
+  } else {
+    process.env.FLOW_AND_COMMAND_RETRIES = previousRetries;
+  }
+});
+
+test('aborted flow step is not retried', async () => {
+  const previousRetries = process.env.FLOW_AND_COMMAND_RETRIES;
+  process.env.FLOW_AND_COMMAND_RETRIES = '3';
+  let outerBreakAttempts = 0;
+  await withFlowServer(
+    (message) => {
+      if (message.includes('Say hello from a flow step.')) {
+        outerBreakAttempts += 1;
+        return '__delay:1000::Flow agent response';
+      }
+      return 'ok';
+    },
+    async ({ baseUrl, wsUrl }) => {
+      const conversationId = 'flow-loop-retry-aborted';
+      sendJson(wsUrl, { type: 'subscribe_conversation', conversationId });
+      const response = await supertest(baseUrl)
+        .post('/flows/llm-basic/run')
+        .send({ conversationId })
+        .expect(202);
+
+      const inflightId = response.body.inflightId as string;
+      sendJson(wsUrl, {
+        type: 'cancel_inflight',
+        conversationId,
+        inflightId,
+      });
+
+      const final = await waitForEvent({
+        ws: wsUrl,
+        predicate: (
+          event: unknown,
+        ): event is { type: 'turn_final'; status: string } => {
+          const e = event as {
+            type?: string;
+            conversationId?: string;
+            status?: string;
+          };
+          return e.type === 'turn_final' && e.conversationId === conversationId;
+        },
+        timeoutMs: 5000,
+      });
+
+      assert.ok(final.status === 'stopped' || final.status === 'failed');
+      assert.equal(outerBreakAttempts <= 1, true);
+      cleanupMemory(conversationId);
+    },
+  );
+  if (previousRetries === undefined) {
+    delete process.env.FLOW_AND_COMMAND_RETRIES;
+  } else {
+    process.env.FLOW_AND_COMMAND_RETRIES = previousRetries;
+  }
 });

@@ -33,7 +33,10 @@ import {
   shouldUseMemoryPersistence,
   updateMemoryConversationMeta,
 } from '../chat/memoryPersistence.js';
-import { listIngestedRepositories } from '../lmstudio/toolService.js';
+import {
+  listIngestedRepositories,
+  resolveRepoEmbeddingIdentity,
+} from '../lmstudio/toolService.js';
 import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
 import { ConversationModel } from '../mongo/conversation.js';
@@ -45,6 +48,7 @@ import {
   updateConversationFlowState,
   updateConversationThreadId,
 } from '../mongo/repo.js';
+import { getFlowAndCommandRetries } from '../config/flowAndCommandRetries.js';
 import type {
   TurnCommandMetadata,
   Turn,
@@ -53,6 +57,7 @@ import type {
   TurnUsageMetadata,
 } from '../mongo/turn.js';
 import { detectCodexForHome } from '../providers/codexDetection.js';
+import { formatRetryInstruction } from '../utils/retryContext.js';
 import { publishUserTurn } from '../ws/server.js';
 
 import {
@@ -75,6 +80,7 @@ import type {
 } from './types.js';
 
 const FALLBACK_MODEL_ID = 'gpt-5.1-codex-max';
+const FLOW_STEP_BASE_DELAY_MS = 500;
 const agentConversationState = new Map<string, FlowAgentState>();
 
 const toFlowRunError = (code: FlowRunErrorCode, reason?: string) =>
@@ -509,6 +515,11 @@ type FlowInstructionPostProcess = (result: FlowInstructionResult) => {
   };
 };
 
+type FlowInstructionResultDecision = {
+  persist: boolean;
+  finalize: boolean;
+};
+
 async function persistFlowTurn(params: {
   conversationId: string;
   role: 'user' | 'assistant';
@@ -626,6 +637,11 @@ const runFlowInstruction = async (params: {
   chatFactory?: FlowChatFactory;
   deferFinal?: boolean;
   postProcess?: FlowInstructionPostProcess;
+  onResult?: (
+    result: FlowInstructionResult,
+    context: { attempt: number },
+  ) => FlowInstructionResultDecision;
+  attempt?: number;
   onThreadId: (threadId: string) => void;
   command?: TurnCommandMetadata;
 }): Promise<FlowInstructionResult> => {
@@ -749,7 +765,7 @@ const runFlowInstruction = async (params: {
     bridge.cleanup();
   }
 
-  if (status === 'ok' && inflightSignal?.aborted) {
+  if (inflightSignal?.aborted && status !== 'stopped') {
     status = 'stopped';
   }
   if (status === 'ok' && !sawComplete && lastErrorMessage) {
@@ -782,94 +798,100 @@ const runFlowInstruction = async (params: {
   if (postProcessed?.status) result.status = postProcessed.status;
   if (postProcessed?.content) result.content = postProcessed.content;
 
-  const userCreatedAt = new Date(createdAtIso);
-  const userPersisted = await persistFlowTurn({
-    conversationId: params.flowConversationId,
-    role: 'user',
-    content: params.instruction,
-    model: params.modelId,
-    provider: 'codex',
-    source: params.source,
-    status: 'ok',
-    toolCalls: null,
-    command: params.command,
-    createdAt: userCreatedAt,
-  });
+  const resultDecision = params.onResult?.(result, {
+    attempt: params.attempt ?? 1,
+  }) ?? { persist: true, finalize: true };
 
-  const assistantCreatedAt = new Date();
-  const assistantPersisted = await persistFlowTurn({
-    conversationId: params.flowConversationId,
-    role: 'assistant',
-    content: result.content,
-    model: params.modelId,
-    provider: 'codex',
-    source: params.source,
-    status: result.status,
-    toolCalls,
-    command: params.command,
-    usage: result.usage,
-    timing: result.timing,
-    createdAt: assistantCreatedAt,
-  });
+  if (resultDecision.persist) {
+    const userCreatedAt = new Date(createdAtIso);
+    const userPersisted = await persistFlowTurn({
+      conversationId: params.flowConversationId,
+      role: 'user',
+      content: params.instruction,
+      model: params.modelId,
+      provider: 'codex',
+      source: params.source,
+      status: 'ok',
+      toolCalls: null,
+      command: params.command,
+      createdAt: userCreatedAt,
+    });
 
-  const agentUserPersisted = await persistFlowTurn({
-    conversationId: params.agentConversationId,
-    role: 'user',
-    content: params.instruction,
-    model: params.modelId,
-    provider: 'codex',
-    source: params.source,
-    status: 'ok',
-    toolCalls: null,
-    command: params.command,
-    createdAt: userCreatedAt,
-  });
-  logAgentTurnPersisted({
-    flowConversationId: params.flowConversationId,
-    agentConversationId: params.agentConversationId,
-    agentType: params.agentType,
-    identifier: params.identifier,
-    role: 'user',
-    turnId: agentUserPersisted.turnId,
-  });
+    const assistantCreatedAt = new Date();
+    const assistantPersisted = await persistFlowTurn({
+      conversationId: params.flowConversationId,
+      role: 'assistant',
+      content: result.content,
+      model: params.modelId,
+      provider: 'codex',
+      source: params.source,
+      status: result.status,
+      toolCalls,
+      command: params.command,
+      usage: result.usage,
+      timing: result.timing,
+      createdAt: assistantCreatedAt,
+    });
 
-  const agentAssistantPersisted = await persistFlowTurn({
-    conversationId: params.agentConversationId,
-    role: 'assistant',
-    content: result.content,
-    model: params.modelId,
-    provider: 'codex',
-    source: params.source,
-    status: result.status,
-    toolCalls,
-    command: params.command,
-    usage: result.usage,
-    timing: result.timing,
-    createdAt: assistantCreatedAt,
-  });
-  logAgentTurnPersisted({
-    flowConversationId: params.flowConversationId,
-    agentConversationId: params.agentConversationId,
-    agentType: params.agentType,
-    identifier: params.identifier,
-    role: 'assistant',
-    turnId: agentAssistantPersisted.turnId,
-  });
+    const agentUserPersisted = await persistFlowTurn({
+      conversationId: params.agentConversationId,
+      role: 'user',
+      content: params.instruction,
+      model: params.modelId,
+      provider: 'codex',
+      source: params.source,
+      status: 'ok',
+      toolCalls: null,
+      command: params.command,
+      createdAt: userCreatedAt,
+    });
+    logAgentTurnPersisted({
+      flowConversationId: params.flowConversationId,
+      agentConversationId: params.agentConversationId,
+      agentType: params.agentType,
+      identifier: params.identifier,
+      role: 'user',
+      turnId: agentUserPersisted.turnId,
+    });
 
-  markInflightPersisted({
-    conversationId: params.flowConversationId,
-    inflightId: params.inflightId,
-    role: 'user',
-    turnId: userPersisted.turnId,
-  });
-  markInflightPersisted({
-    conversationId: params.flowConversationId,
-    inflightId: params.inflightId,
-    role: 'assistant',
-    turnId: assistantPersisted.turnId,
-  });
+    const agentAssistantPersisted = await persistFlowTurn({
+      conversationId: params.agentConversationId,
+      role: 'assistant',
+      content: result.content,
+      model: params.modelId,
+      provider: 'codex',
+      source: params.source,
+      status: result.status,
+      toolCalls,
+      command: params.command,
+      usage: result.usage,
+      timing: result.timing,
+      createdAt: assistantCreatedAt,
+    });
+    logAgentTurnPersisted({
+      flowConversationId: params.flowConversationId,
+      agentConversationId: params.agentConversationId,
+      agentType: params.agentType,
+      identifier: params.identifier,
+      role: 'assistant',
+      turnId: agentAssistantPersisted.turnId,
+    });
 
-  if (params.deferFinal) {
+    markInflightPersisted({
+      conversationId: params.flowConversationId,
+      inflightId: params.inflightId,
+      role: 'user',
+      turnId: userPersisted.turnId,
+    });
+    markInflightPersisted({
+      conversationId: params.flowConversationId,
+      inflightId: params.inflightId,
+      role: 'assistant',
+      turnId: assistantPersisted.turnId,
+    });
+  }
+
+  if (params.deferFinal && resultDecision.finalize) {
     bridge.finalize({
       override: postProcessed?.finalOverride,
       fallback: {
@@ -1059,36 +1081,225 @@ const persistFlowResumeState = async (params: {
   });
 };
 
-const parseBreakAnswer = (
-  content: string,
-): { ok: true; answer: 'yes' | 'no' } | { ok: false; message: string } => {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(content);
-  } catch {
-    return {
-      ok: false,
-      message: 'Break response must be valid JSON with {"answer":"yes"|"no"}.',
-    };
-  }
+type BreakParseStrategy = 'strict' | 'fenced_json' | 'balanced_object';
+type BreakParseReasonCode =
+  | 'ANSWER_FOUND'
+  | 'INVALID_JSON'
+  | 'NOT_JSON_OBJECT'
+  | 'INVALID_SCHEMA'
+  | 'NO_VALID_CANDIDATE';
 
-  if (!parsed || typeof parsed !== 'object') {
+type BreakParseAttempt = {
+  strategy: BreakParseStrategy;
+  candidateCount: number;
+};
+
+type BreakParseSuccess = {
+  ok: true;
+  answer: 'yes' | 'no';
+  normalizedContent: string;
+  attempts: BreakParseAttempt[];
+  reasonCode: BreakParseReasonCode;
+};
+
+type BreakParseFailure = {
+  ok: false;
+  message: string;
+  attempts: BreakParseAttempt[];
+  reasonCode: BreakParseReasonCode;
+};
+
+const MAX_BREAK_PARSE_SCAN_LENGTH = 20_000;
+const MAX_BREAK_PARSE_CANDIDATES = 100;
+
+const validateBreakPayload = (
+  parsed: unknown,
+): { ok: true; answer: 'yes' | 'no' } | { ok: false; reason: string } => {
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
     return {
       ok: false,
-      message:
+      reason:
         'Break response must be a JSON object with {"answer":"yes"|"no"}.',
     };
   }
 
-  const answer = (parsed as { answer?: unknown }).answer;
+  const payload = parsed as Record<string, unknown>;
+  const keys = Object.keys(payload);
+  if (keys.length !== 1 || keys[0] !== 'answer') {
+    return {
+      ok: false,
+      reason:
+        'Break response must be exactly {"answer":"yes"} or {"answer":"no"}.',
+    };
+  }
+
+  const answer = payload.answer;
   if (answer !== 'yes' && answer !== 'no') {
     return {
       ok: false,
-      message: 'Break response must include answer "yes" or "no".',
+      reason: 'Break response must include answer "yes" or "no".',
     };
   }
 
   return { ok: true, answer };
+};
+
+const tryParseBreakCandidate = (
+  candidate: string,
+):
+  | { ok: true; answer: 'yes' | 'no' }
+  | { ok: false; errorKind: 'json' | 'schema'; message: string } => {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(candidate);
+  } catch {
+    return {
+      ok: false,
+      errorKind: 'json',
+      message: 'Break response must be valid JSON with {"answer":"yes"|"no"}.',
+    };
+  }
+
+  const validated = validateBreakPayload(parsed);
+  if (!validated.ok) {
+    return { ok: false, errorKind: 'schema', message: validated.reason };
+  }
+
+  return { ok: true, answer: validated.answer };
+};
+
+const extractFencedJsonCandidates = (content: string): string[] => {
+  const candidates: string[] = [];
+  const regex = /```\s*json\b[^\n]*\n?([\s\S]*?)```/gi;
+  let match: RegExpExecArray | null = regex.exec(content);
+  while (match && candidates.length < MAX_BREAK_PARSE_CANDIDATES) {
+    const candidate = match[1]?.trim();
+    if (candidate?.startsWith('{') && candidate.endsWith('}')) {
+      candidates.push(candidate);
+    }
+    match = regex.exec(content);
+  }
+  return candidates;
+};
+
+const extractBalancedObjectCandidates = (content: string): string[] => {
+  const candidates: string[] = [];
+  const text = content.slice(0, MAX_BREAK_PARSE_SCAN_LENGTH);
+  let depth = 0;
+  let start = -1;
+  let inString = false;
+  let escaped = false;
+
+  for (let i = 0; i < text.length; i += 1) {
+    const char = text[i];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (char === '\\') {
+      escaped = true;
+      continue;
+    }
+    if (char === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (inString) continue;
+
+    if (char === '{') {
+      if (depth === 0) start = i;
+      depth += 1;
+      continue;
+    }
+    if (char === '}' && depth > 0) {
+      depth -= 1;
+      if (depth === 0 && start >= 0) {
+        const candidate = text.slice(start, i + 1).trim();
+        if (candidate.length > 1) {
+          candidates.push(candidate);
+          if (candidates.length >= MAX_BREAK_PARSE_CANDIDATES) break;
+        }
+        start = -1;
+      }
+    }
+  }
+
+  return candidates;
+};
+
+export const parseBreakAnswer = (
+  content: string,
+): BreakParseSuccess | BreakParseFailure => {
+  const attempts: BreakParseAttempt[] = [];
+  let lastSchemaMessage = 'Break response must include answer "yes" or "no".';
+
+  attempts.push({ strategy: 'strict', candidateCount: 1 });
+  const strict = tryParseBreakCandidate(content);
+  if (strict.ok) {
+    return {
+      ok: true,
+      answer: strict.answer,
+      normalizedContent: JSON.stringify({ answer: strict.answer }),
+      attempts,
+      reasonCode: 'ANSWER_FOUND',
+    };
+  }
+  if (strict.errorKind === 'schema') {
+    lastSchemaMessage = strict.message;
+  }
+
+  const fencedCandidates = extractFencedJsonCandidates(content);
+  attempts.push({
+    strategy: 'fenced_json',
+    candidateCount: fencedCandidates.length,
+  });
+  for (const candidate of fencedCandidates) {
+    const parsed = tryParseBreakCandidate(candidate);
+    if (parsed.ok) {
+      return {
+        ok: true,
+        answer: parsed.answer,
+        normalizedContent: JSON.stringify({ answer: parsed.answer }),
+        attempts,
+        reasonCode: 'ANSWER_FOUND',
+      };
+    }
+    if (parsed.errorKind === 'schema') {
+      lastSchemaMessage = parsed.message;
+    }
+  }
+
+  const balancedCandidates = extractBalancedObjectCandidates(content);
+  attempts.push({
+    strategy: 'balanced_object',
+    candidateCount: balancedCandidates.length,
+  });
+  for (const candidate of balancedCandidates) {
+    const parsed = tryParseBreakCandidate(candidate);
+    if (parsed.ok) {
+      return {
+        ok: true,
+        answer: parsed.answer,
+        normalizedContent: JSON.stringify({ answer: parsed.answer }),
+        attempts,
+        reasonCode: 'ANSWER_FOUND',
+      };
+    }
+    if (parsed.errorKind === 'schema') {
+      lastSchemaMessage = parsed.message;
+    }
+  }
+
+  const sawCandidates =
+    fencedCandidates.length > 0 || balancedCandidates.length > 0;
+  return {
+    ok: false,
+    message: sawCandidates
+      ? lastSchemaMessage
+      : 'Break response must be valid JSON with {"answer":"yes"|"no"}.',
+    attempts,
+    reasonCode: sawCandidates ? 'INVALID_SCHEMA' : 'NO_VALID_CANDIDATE',
+  };
 };
 
 const findFirstAgentStep = (
@@ -1250,6 +1461,7 @@ async function runFlowUnlocked(params: {
   const agentByName = new Map(discovered.map((agent) => [agent.name, agent]));
 
   const loopStack: LoopFrame[] = [];
+  const maxStepAttempts = getFlowAndCommandRetries();
   let stepInflightId = params.inflightId;
   const resumeStepPath = params.resumeStepPath ?? null;
   let lastCompletedStepPath =
@@ -1312,42 +1524,138 @@ async function runFlowUnlocked(params: {
       }
     }
 
-    const result = await runFlowInstruction({
-      flowConversationId: params.conversationId,
-      inflightId: stepInflightId,
-      instruction: instructionParams.instruction,
-      agentType: instructionParams.agentType,
-      identifier: instructionParams.identifier,
-      agentConversationId: agentState.conversationId,
-      agentHome: agent.home,
-      modelId,
-      threadId: agentState.threadId,
-      systemPrompt,
-      workingDirectoryOverride: params.workingDirectoryOverride,
-      source: params.source,
-      chatFactory: params.chatFactory,
-      deferFinal: instructionParams.deferFinal,
-      postProcess: instructionParams.postProcess,
-      command: instructionParams.command,
-      onThreadId: (threadId) => {
-        agentState.threadId = threadId;
-        void persistAgentThreadId({
-          conversationId: agentState.conversationId,
-          threadId,
-        });
-        void persistFlowResumeState({
-          conversationId: params.conversationId,
-          stepPath: lastCompletedStepPath,
-          loopStack,
-        });
-      },
-    });
+    let previousError: unknown = null;
+    let sanitizedErrorLength = 0;
 
-    if (!shouldStopAfter(result.status)) {
-      stepInflightId = crypto.randomUUID();
+    for (let attempt = 1; attempt <= maxStepAttempts; attempt += 1) {
+      const retryInstruction =
+        attempt > 1
+          ? formatRetryInstruction({
+              originalInstruction: instructionParams.instruction,
+              previousError,
+            })
+          : null;
+      if (retryInstruction) {
+        sanitizedErrorLength = retryInstruction.sanitizedErrorLength;
+      }
+
+      let shouldRetry = false;
+      const result = await runFlowInstruction({
+        flowConversationId: params.conversationId,
+        inflightId: stepInflightId,
+        instruction:
+          retryInstruction?.instruction ?? instructionParams.instruction,
+        agentType: instructionParams.agentType,
+        identifier: instructionParams.identifier,
+        agentConversationId: agentState.conversationId,
+        agentHome: agent.home,
+        modelId,
+        threadId: agentState.threadId,
+        systemPrompt,
+        workingDirectoryOverride: params.workingDirectoryOverride,
+        source: params.source,
+        chatFactory: params.chatFactory,
+        deferFinal: true,
+        postProcess: instructionParams.postProcess,
+        command: instructionParams.command,
+        attempt,
+        onResult: (candidate) => {
+          if (
+            candidate.status === 'failed' &&
+            deriveStatusFromError(candidate.content) === 'stopped'
+          ) {
+            candidate.status = 'stopped';
+          }
+          shouldRetry =
+            candidate.status === 'failed' && attempt < maxStepAttempts;
+          return {
+            persist: !shouldRetry,
+            finalize: !shouldRetry,
+          };
+        },
+        onThreadId: (threadId) => {
+          agentState.threadId = threadId;
+          void persistAgentThreadId({
+            conversationId: agentState.conversationId,
+            threadId,
+          });
+          void persistFlowResumeState({
+            conversationId: params.conversationId,
+            stepPath: lastCompletedStepPath,
+            loopStack,
+          });
+        },
+      });
+
+      if (shouldRetry) {
+        previousError = result.content;
+        const reason = result.content;
+        append({
+          level: 'warn',
+          message: 'DEV-0000036:T5:step_retry_attempt',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          context: {
+            surface: 'flow',
+            attempt,
+            maxAttempts: maxStepAttempts,
+            reason,
+            retryPromptInjected: attempt >= 1,
+            sanitizedErrorLength,
+          },
+        });
+        baseLogger.warn(
+          {
+            surface: 'flow',
+            attempt,
+            maxAttempts: maxStepAttempts,
+            reason,
+            retryPromptInjected: attempt >= 1,
+            sanitizedErrorLength,
+          },
+          'DEV-0000036:T5:step_retry_attempt',
+        );
+        stepInflightId = crypto.randomUUID();
+        continue;
+      }
+
+      if (result.status === 'failed' && attempt >= maxStepAttempts) {
+        append({
+          level: 'error',
+          message: 'DEV-0000036:T5:step_retry_exhausted',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          context: {
+            surface: 'flow',
+            attempt,
+            maxAttempts: maxStepAttempts,
+            reason: result.content,
+            retryPromptInjected: attempt > 1,
+            sanitizedErrorLength,
+            terminalStatus: result.status,
+          },
+        });
+        baseLogger.error(
+          {
+            surface: 'flow',
+            attempt,
+            maxAttempts: maxStepAttempts,
+            reason: result.content,
+            retryPromptInjected: attempt > 1,
+            sanitizedErrorLength,
+            terminalStatus: result.status,
+          },
+          'DEV-0000036:T5:step_retry_exhausted',
+        );
+      }
+
+      if (!shouldStopAfter(result.status)) {
+        stepInflightId = crypto.randomUUID();
+      }
+      return result;
     }
 
-    return result;
+    throw toFlowRunError('INVALID_REQUEST', 'Flow retry loop exhausted');
   };
 
   const runLlmStep = async (
@@ -1388,6 +1696,29 @@ async function runFlowUnlocked(params: {
       command,
       postProcess: (candidate) => {
         const parsed = parseBreakAnswer(candidate.content);
+        parsed.attempts.forEach((attempt) => {
+          append({
+            level: 'info',
+            message: 'DEV-0000036:T4:break_parse_strategy_attempted',
+            timestamp: new Date().toISOString(),
+            source: 'server',
+            context: {
+              strategy: attempt.strategy,
+              candidateCount: attempt.candidateCount,
+            },
+          });
+        });
+        append({
+          level: parsed.ok ? 'info' : 'warn',
+          message: 'DEV-0000036:T4:break_parse_result',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          context: {
+            accepted: parsed.ok,
+            reasonCode: parsed.reasonCode,
+          },
+        });
+
         if (!parsed.ok) {
           return {
             status: 'failed',
@@ -1404,7 +1735,7 @@ async function runFlowUnlocked(params: {
 
         breakAnswer = parsed.answer;
         return {
-          content: JSON.stringify({ answer: parsed.answer }),
+          content: parsed.normalizedContent,
         };
       },
     });
@@ -1459,37 +1790,75 @@ async function runFlowUnlocked(params: {
       },
     });
 
-    const commandLoad = await loadCommandForAgent({
-      agentHome: agent.home,
-      commandName: step.commandName,
-    });
-    if (!commandLoad.ok) {
-      const modelId = await getAgentModelId(agent.configPath);
-      await emitFailedFlowStep({
-        flowConversationId: params.conversationId,
-        inflightId: stepInflightId,
-        instruction: `Command: ${step.commandName}`,
-        modelId,
-        source: params.source,
-        message: commandLoad.message,
-        errorCode: 'COMMAND_INVALID',
-        command,
+    for (let attempt = 1; attempt <= maxStepAttempts; attempt += 1) {
+      const commandLoad = await loadCommandForAgent({
+        agentHome: agent.home,
+        commandName: step.commandName,
       });
-      return 'failed';
+      if (!commandLoad.ok) {
+        if (attempt < maxStepAttempts) {
+          append({
+            level: 'warn',
+            message: 'DEV-0000036:T5:step_retry_attempt',
+            timestamp: new Date().toISOString(),
+            source: 'server',
+            context: {
+              surface: 'flow',
+              attempt,
+              maxAttempts: maxStepAttempts,
+              reason: commandLoad.message,
+              retryPromptInjected: false,
+              sanitizedErrorLength: 0,
+            },
+          });
+          await new Promise((resolve) =>
+            setTimeout(resolve, FLOW_STEP_BASE_DELAY_MS * 2 ** (attempt - 1)),
+          );
+          continue;
+        }
+        const modelId = await getAgentModelId(agent.configPath);
+        await emitFailedFlowStep({
+          flowConversationId: params.conversationId,
+          inflightId: stepInflightId,
+          instruction: `Command: ${step.commandName}`,
+          modelId,
+          source: params.source,
+          message: commandLoad.message,
+          errorCode: 'COMMAND_INVALID',
+          command,
+        });
+        append({
+          level: 'error',
+          message: 'DEV-0000036:T5:step_retry_exhausted',
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          context: {
+            surface: 'flow',
+            attempt,
+            maxAttempts: maxStepAttempts,
+            reason: commandLoad.message,
+            retryPromptInjected: false,
+            sanitizedErrorLength: 0,
+            terminalStatus: 'failed',
+          },
+        });
+        return 'failed';
+      }
+
+      for (const item of commandLoad.command.items) {
+        const instruction = joinMessageContent(item.content);
+        const result = await runInstruction({
+          agentType: step.agentType,
+          identifier: step.identifier,
+          instruction,
+          command,
+        });
+        if (shouldStopAfter(result.status)) return result.status;
+      }
+      return 'ok';
     }
 
-    for (const item of commandLoad.command.items) {
-      const instruction = joinMessageContent(item.content);
-      const result = await runInstruction({
-        agentType: step.agentType,
-        identifier: step.identifier,
-        instruction,
-        command,
-      });
-      if (shouldStopAfter(result.status)) return result.status;
-    }
-
-    return 'ok';
+    return 'failed';
   };
 
   const runStartLoopStep = async (
@@ -1731,6 +2100,32 @@ export async function startFlowRun(
       if (!repo) {
         throw toFlowRunError('FLOW_NOT_FOUND');
       }
+      const resolved = resolveRepoEmbeddingIdentity(repo);
+      append({
+        level: 'info',
+        message: 'DEV-0000036:T11:transitive_consumer_contract_read',
+        timestamp: new Date().toISOString(),
+        source: 'server',
+        context: {
+          consumer: 'flows.service.startFlowRun',
+          sourceId,
+          embeddingProvider: resolved.embeddingProvider,
+          embeddingModel: resolved.embeddingModel,
+          embeddingDimensions: resolved.embeddingDimensions,
+          modelId: resolved.modelId,
+        },
+      });
+      append({
+        level: 'info',
+        message: 'DEV-0000036:T11:transitive_consumer_alias_fallback',
+        timestamp: new Date().toISOString(),
+        source: 'server',
+        context: {
+          consumer: 'flows.service.startFlowRun',
+          sourceId,
+          aliasFallbackUsed: resolved.aliasFallbackUsed,
+        },
+      });
       flowsRoot = path.resolve(repo.containerPath, 'flows');
     }
     flow = await loadFlowFile({ flowName, flowsRoot, sourceId });

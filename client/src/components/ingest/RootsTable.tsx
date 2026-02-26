@@ -14,13 +14,19 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { getApiBaseUrl } from '../../api/baseUrl';
 import type { IngestRoot } from '../../hooks/useIngestRoots';
+import { createLogger } from '../../logging';
 
 export type RootsTableProps = {
   roots: IngestRoot[];
   lockedModelId?: string;
+  lockedModel?: {
+    embeddingProvider?: 'lmstudio' | 'openai';
+    embeddingModel?: string;
+    embeddingDimensions?: number;
+  };
   isLoading: boolean;
   error?: string;
   disabled?: boolean;
@@ -50,6 +56,7 @@ const statusColor: Record<
 export default function RootsTable({
   roots,
   lockedModelId,
+  lockedModel,
   isLoading,
   error,
   disabled,
@@ -58,6 +65,7 @@ export default function RootsTable({
   onShowDetails,
   onRefreshModels,
 }: RootsTableProps) {
+  const log = useMemo(() => createLogger('client'), []);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [actionState, setActionState] = useState<Record<string, ActionState>>(
     {},
@@ -65,6 +73,17 @@ export default function RootsTable({
   const [bulkMessage, setBulkMessage] = useState<ActionState | null>(null);
 
   const busy = disabled || isLoading;
+  const lockedProvider = lockedModel?.embeddingProvider;
+  const lockModel = lockedModel?.embeddingModel ?? lockedModelId;
+  const lockDimensions = lockedModel?.embeddingDimensions;
+  const lockDisplay = lockModel
+    ? [
+        lockedProvider ? `${lockedProvider} / ${lockModel}` : lockModel,
+        typeof lockDimensions === 'number' ? `${lockDimensions} dims` : '',
+      ]
+        .filter(Boolean)
+        .join(' · ')
+    : null;
 
   const toggle = (path: string) => {
     setSelected((prev) => {
@@ -155,9 +174,9 @@ export default function RootsTable({
         <Typography variant="h6" sx={{ flex: 1 }}>
           Embedded folders
         </Typography>
-        {lockedModelId ? (
+        {lockDisplay ? (
           <Chip
-            label={`Model locked to ${lockedModelId}`}
+            label={`Model locked to ${lockDisplay}`}
             size="small"
             color="info"
             variant="outlined"
@@ -169,8 +188,18 @@ export default function RootsTable({
         </Button>
       </Stack>
     ),
-    [lockedModelId, onRefresh, busy],
+    [lockDisplay, onRefresh, busy],
   );
+
+  useEffect(() => {
+    log('info', 'DEV-0000036:T13:ingest_ui_state_rendered', {
+      component: 'RootsTable',
+      selectedEmbeddingProvider: lockedProvider ?? null,
+      selectedEmbeddingModel: lockModel ?? null,
+      openAiStatusCode: null,
+      hasDimensionsInput: false,
+    });
+  }, [log, lockModel, lockedProvider]);
 
   if (isLoading && !roots.length) {
     return (
@@ -262,7 +291,7 @@ export default function RootsTable({
               </TableCell>
               <TableCell>Name</TableCell>
               <TableCell>Path</TableCell>
-              <TableCell>Model</TableCell>
+              <TableCell>Embedding</TableCell>
               <TableCell>Status</TableCell>
               <TableCell>Last ingest</TableCell>
               <TableCell>Counts</TableCell>
@@ -276,6 +305,12 @@ export default function RootsTable({
               const rowDisabled = busy || state === 'loading';
               const isSelected = selected.has(root.path);
               const chipColor = statusColor[root.status] ?? 'default';
+              const rootModelDisplay =
+                root.embeddingModel && root.embeddingProvider
+                  ? `${root.embeddingProvider} / ${root.embeddingModel}`
+                  : root.model;
+              const rootError =
+                root.lastError ?? root.error?.message ?? root.error?.details;
               const astCounts = root.ast;
               return (
                 <TableRow key={root.path} hover selected={isSelected}>
@@ -302,7 +337,7 @@ export default function RootsTable({
                       {root.path}
                     </Typography>
                   </TableCell>
-                  <TableCell>{root.model}</TableCell>
+                  <TableCell>{rootModelDisplay}</TableCell>
                   <TableCell>
                     <Chip label={root.status} color={chipColor} size="small" />
                   </TableCell>
@@ -361,6 +396,15 @@ export default function RootsTable({
                         Details
                       </Button>
                     </Stack>
+                    {rootError ? (
+                      <Typography
+                        variant="caption"
+                        color="error.main"
+                        data-testid="roots-row-last-error"
+                      >
+                        Last error: {rootError}
+                      </Typography>
+                    ) : null}
                     {message ? (
                       <Typography
                         variant="body2"

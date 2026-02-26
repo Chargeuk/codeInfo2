@@ -665,7 +665,7 @@ This task is deliberately separate from WS protocol plumbing (Task 1) and from b
 - Requirements:
   - Seed terminal statuses only; verify `null` result.
 
-11. [ ] Update `design.md` with ingest active-status selection flow:
+11. [x] Update `design.md` with ingest active-status selection flow:
 
 - Documentation to read:
   - Mermaid syntax (Context7): `/mermaid-js/mermaid`
@@ -1514,7 +1514,7 @@ This task does not change the Ingest page layout yet; it only changes how status
 5. [x] `npm run e2e`
 6. [x] `npm run compose:build`
 7. [x] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check: open `/ingest`, start an ingest run, and confirm the Active run UI updates via WS without polling. Then open `/logs` and filter for `0000022 ingest status snapshot received` and `0000022 ingest status update received` (source `client-ingest`).
+8. [x] Manual Playwright-MCP check: open `/ingest`, start an ingest run, and confirm the Active run UI updates via WS without polling. Then open `/logs` and filter for `0000022 ingest status snapshot received` and `0000022 ingest status update received` (source `client-ingest`).
 9. [x] `npm run compose:down`
 
 #### Implementation notes
@@ -1721,7 +1721,7 @@ Make `/ingest` use the WS-based `useIngestStatus()` output and enforce the story
   - Use the WS mock to inject `ingest_snapshot` / `ingest_update` into the mounted page.
   - Use `data-testid="ingest-status-chip"` and absence of “Active ingest” heading as stable selectors.
 
-13. [ ] Documentation update (task-local):
+13. [x] Documentation update (task-local):
 
 - Documentation to read:
   - GitHub Markdown syntax: https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax

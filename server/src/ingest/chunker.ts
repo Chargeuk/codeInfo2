@@ -1,23 +1,73 @@
-import type { EmbeddingModel } from '@lmstudio/sdk';
+import { append } from '../logStore.js';
+import { baseLogger } from '../logger.js';
 import { resolveConfig } from './config.js';
+import type { ProviderEmbeddingModel } from './providers/types.js';
 import { IngestConfig, Chunk } from './types.js';
 
+function resolveModelKey(model: ProviderEmbeddingModel): string {
+  return model.modelKey ?? 'unknown';
+}
+
 async function getSafeLimit(
-  model: EmbeddingModel,
+  model: ProviderEmbeddingModel,
   cfg: IngestConfig,
 ): Promise<number> {
   try {
     const ctx = await model.getContextLength();
     return Math.floor(ctx * cfg.tokenSafetyMargin);
-  } catch {
+  } catch (error) {
+    append({
+      level: 'warn',
+      source: 'server',
+      message: 'DEV-0000036:T19:chunker_context_limit_fallback',
+      timestamp: new Date().toISOString(),
+      context: {
+        model: resolveModelKey(model),
+        fallbackTokenLimit: cfg.fallbackTokenLimit,
+        reason:
+          error instanceof Error
+            ? error.message.slice(0, 300)
+            : String(error ?? 'unknown').slice(0, 300),
+      },
+    });
+    baseLogger.warn(
+      {
+        model: resolveModelKey(model),
+        fallbackTokenLimit: cfg.fallbackTokenLimit,
+        err: error,
+      },
+      'chunker context-length fallback',
+    );
     return cfg.fallbackTokenLimit;
   }
 }
 
-async function count(model: EmbeddingModel, text: string): Promise<number> {
+async function count(
+  model: ProviderEmbeddingModel,
+  text: string,
+): Promise<number> {
   try {
     return await model.countTokens(text);
-  } catch {
+  } catch (error) {
+    append({
+      level: 'warn',
+      source: 'server',
+      message: 'DEV-0000036:T19:chunker_token_count_fallback',
+      timestamp: new Date().toISOString(),
+      context: {
+        model: resolveModelKey(model),
+        fallback: 'whitespace_estimate',
+        charLength: text.length,
+        reason:
+          error instanceof Error
+            ? error.message.slice(0, 300)
+            : String(error ?? 'unknown').slice(0, 300),
+      },
+    });
+    baseLogger.warn(
+      { model: resolveModelKey(model), charLength: text.length, err: error },
+      'chunker token-count fallback',
+    );
     return text.split(/\s+/).filter(Boolean).length;
   }
 }
@@ -38,7 +88,7 @@ function splitOnBoundaries(text: string, boundary: RegExp): string[] {
 }
 
 async function sliceToFit(
-  model: EmbeddingModel,
+  model: ProviderEmbeddingModel,
   text: string,
   maxTokens: number,
 ): Promise<string[]> {
@@ -61,7 +111,7 @@ async function sliceToFit(
 
 export async function chunkText(
   text: string,
-  model: EmbeddingModel,
+  model: ProviderEmbeddingModel,
   cfg?: IngestConfig,
 ): Promise<Chunk[]> {
   const config = cfg ?? resolveConfig();

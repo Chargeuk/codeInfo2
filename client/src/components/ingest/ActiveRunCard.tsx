@@ -8,6 +8,8 @@ import {
   Typography,
 } from '@mui/material';
 import { Link as RouterLink } from 'react-router-dom';
+import { useEffect, useMemo } from 'react';
+import { createLogger } from '../../logging';
 
 export type ActiveRunCardProps = {
   runId: string;
@@ -36,7 +38,13 @@ export type ActiveRunCardProps = {
   fileTotal?: number;
   percent?: number;
   etaMs?: number;
-  lastError?: string | null;
+  lastError?:
+    | string
+    | {
+        message?: string;
+        details?: string;
+      }
+    | null;
   message?: string | null;
   isLoading: boolean;
   isCancelling: boolean;
@@ -74,6 +82,7 @@ export default function ActiveRunCard({
   onCancel,
   error,
 }: ActiveRunCardProps) {
+  const log = useMemo(() => createLogger('client'), []);
   const isTerminal =
     status === 'completed' ||
     status === 'cancelled' ||
@@ -81,6 +90,25 @@ export default function ActiveRunCard({
     status === 'skipped';
   const showCancel = !isTerminal;
   const logsHref = `/logs?text=${encodeURIComponent(runId)}`;
+  const lastErrorText =
+    typeof lastError === 'string'
+      ? lastError
+      : typeof lastError?.message === 'string'
+        ? lastError.message
+        : typeof lastError?.details === 'string'
+          ? lastError.details
+          : null;
+
+  useEffect(() => {
+    log('info', 'DEV-0000036:T13:ingest_ui_state_rendered', {
+      component: 'ActiveRunCard',
+      selectedEmbeddingProvider: null,
+      selectedEmbeddingModel: null,
+      openAiStatusCode: null,
+      hasDimensionsInput: false,
+      status: status ?? null,
+    });
+  }, [log, status]);
 
   return (
     <Stack spacing={1.5}>
@@ -136,9 +164,9 @@ export default function ActiveRunCard({
         </Typography>
       ) : null}
 
-      {lastError ? (
+      {lastErrorText ? (
         <Alert severity="error" data-testid="ingest-last-error">
-          {lastError}
+          {lastErrorText}
         </Alert>
       ) : null}
 

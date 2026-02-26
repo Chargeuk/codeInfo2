@@ -4,6 +4,7 @@ import express from 'express';
 import request from 'supertest';
 import {
   AstIndexRequiredError,
+  astListSymbols,
   type AstCallGraphParams,
   type AstCallGraphResult,
   type AstFindDefinitionParams,
@@ -20,7 +21,10 @@ import {
   validateAstModuleImports,
 } from '../../ast/toolService.js';
 import { IngestRequiredError } from '../../ingest/chromaClient.js';
-import { RepoNotFoundError } from '../../lmstudio/toolService.js';
+import {
+  RepoNotFoundError,
+  type RepoEntry,
+} from '../../lmstudio/toolService.js';
 import { createToolsAstCallGraphRouter } from '../../routes/toolsAstCallGraph.js';
 import { createToolsAstFindDefinitionRouter } from '../../routes/toolsAstFindDefinition.js';
 import { createToolsAstFindReferencesRouter } from '../../routes/toolsAstFindReferences.js';
@@ -277,4 +281,70 @@ test('AST tool routes map repo and ingest errors', async () => {
   assert.equal(coverageRes.status, 409);
   assert.equal(coverageRes.body.error, 'AST_INDEX_REQUIRED');
   assert.equal(coverageRes.body.repository, 'repo');
+});
+
+test('AST symbol discovery supports canonical-first with alias fallback repo payloads', async () => {
+  const legacyRepo = {
+    id: 'legacy-repo',
+    description: null,
+    containerPath: '/repo/legacy',
+    hostPath: '/repo/legacy',
+    lastIngestAt: null,
+    model: 'legacy-model',
+    modelId: 'legacy-model',
+    counts: { files: 0, chunks: 0, embedded: 0 },
+    lastError: null,
+  } as unknown as RepoEntry;
+
+  const buildFindChain = <T>(rows: T[]) => ({
+    limit: (value: number) => buildFindChain(rows.slice(0, value)),
+    lean: () => ({ exec: async () => rows }),
+  });
+  const astSymbolModel = {
+    find: (query: Record<string, unknown>) => {
+      void query;
+      return buildFindChain([
+        {
+          symbolId: 'sym-1',
+          root: '/repo/legacy',
+          relPath: 'src/index.ts',
+          fileHash: 'hash',
+          language: 'typescript',
+          kind: 'Function',
+          name: 'run',
+          range: {
+            start: { line: 1, column: 1 },
+            end: { line: 1, column: 4 },
+          },
+        },
+      ]);
+    },
+    findOne: (query: Record<string, unknown>) => {
+      void query;
+      return {
+        lean: () => ({ exec: async () => null }),
+      };
+    },
+  };
+
+  const result = await astListSymbols(
+    { repository: 'legacy-repo' },
+    {
+      listIngestedRepositories: async () => ({
+        repos: [legacyRepo],
+        lockedModelId: null,
+      }),
+      astCoverageModel: {
+        find: () => buildFindChain([{ root: '/repo/legacy' }]),
+        findOne: () => ({ lean: () => ({ exec: async () => null }) }),
+      },
+      astSymbolModel,
+      astEdgeModel: { find: () => buildFindChain([]) },
+      astReferenceModel: { find: () => buildFindChain([]) },
+      astModuleImportModel: { find: () => buildFindChain([]) },
+    },
+  );
+
+  assert.equal(result.symbols.length, 1);
+  assert.equal(result.symbols[0].root, '/repo/legacy');
 });

@@ -4,6 +4,7 @@ import {
   type ListReposResult,
   ValidationError,
   listIngestedRepositories,
+  resolveRepoEmbeddingIdentity,
 } from '../lmstudio/toolService.js';
 import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
@@ -187,6 +188,40 @@ function logToolRequest(tool: string, repository: string) {
   baseLogger.info(context, 'AST tool service request');
 }
 
+function logTransitiveContractRead(params: {
+  consumer: string;
+  repository: string;
+  repo: RepoEntry;
+}) {
+  const resolved = resolveRepoEmbeddingIdentity(params.repo);
+  append({
+    level: 'info',
+    message: 'DEV-0000036:T11:transitive_consumer_contract_read',
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      consumer: params.consumer,
+      repository: params.repository,
+      containerPath: params.repo.containerPath,
+      embeddingProvider: resolved.embeddingProvider,
+      embeddingModel: resolved.embeddingModel,
+      embeddingDimensions: resolved.embeddingDimensions,
+      modelId: resolved.modelId,
+    },
+  });
+  append({
+    level: 'info',
+    message: 'DEV-0000036:T11:transitive_consumer_alias_fallback',
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      consumer: params.consumer,
+      repository: params.repository,
+      aliasFallbackUsed: resolved.aliasFallbackUsed,
+    },
+  });
+}
+
 function toSymbolRecord(symbol: AstSymbolRow): SymbolRecord {
   return {
     symbolId: symbol.symbolId,
@@ -312,6 +347,11 @@ async function resolveRepoRoot(
       )}`,
     ]);
   }
+  logTransitiveContractRead({
+    consumer: 'ast.toolService.resolveRepoRoot',
+    repository,
+    repo,
+  });
   return { root: repo.containerPath, repo };
 }
 

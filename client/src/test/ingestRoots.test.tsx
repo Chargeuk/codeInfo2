@@ -230,6 +230,47 @@ describe('RootsTable', () => {
     const placeholders = within(row).getAllByText('–');
     expect(placeholders).toHaveLength(3);
   });
+
+  it('renders legacy string and normalized error payloads safely in rows', async () => {
+    render(
+      <RootsTable
+        roots={[
+          {
+            ...root,
+            path: '/repo-legacy',
+            name: 'repo-legacy',
+            lastError: 'Legacy table error',
+          },
+          {
+            ...root,
+            path: '/repo-normalized',
+            name: 'repo-normalized',
+            lastError: null,
+            error: {
+              code: 'OPENAI_TIMEOUT',
+              message: 'Normalized table error',
+            },
+          },
+        ]}
+        lockedModelId={undefined}
+        isLoading={false}
+        error={undefined}
+        disabled={false}
+        onRefresh={() => Promise.resolve()}
+      />,
+    );
+
+    const legacyRow = await screen.findByRole('row', { name: /repo-legacy/i });
+    const normalizedRow = await screen.findByRole('row', {
+      name: /repo-normalized/i,
+    });
+    expect(
+      within(legacyRow).getByTestId('roots-row-last-error'),
+    ).toHaveTextContent('Last error: Legacy table error');
+    expect(
+      within(normalizedRow).getByTestId('roots-row-last-error'),
+    ).toHaveTextContent('Last error: Normalized table error');
+  });
 });
 
 describe('RootDetailsDrawer', () => {
@@ -310,5 +351,55 @@ describe('RootDetailsDrawer', () => {
     expect(screen.getByText(/AST Supported: –/)).toBeInTheDocument();
     expect(screen.getByText(/AST Skipped: –/)).toBeInTheDocument();
     expect(screen.getByText(/AST Failed: –/)).toBeInTheDocument();
+  });
+
+  it('renders legacy and normalized error payloads safely in details', () => {
+    const { rerender } = render(
+      <RootDetailsDrawer
+        open
+        onClose={() => undefined}
+        root={{
+          runId: 'run-legacy-error',
+          name: 'repo',
+          description: 'demo repo',
+          path: '/repo',
+          model: 'embed-1',
+          status: 'completed',
+          lastIngestAt: '2025-01-01T00:00:00.000Z',
+          counts: { files: 2, chunks: 4, embedded: 4 },
+          lastError: 'Legacy details error',
+        }}
+      />,
+    );
+
+    expect(
+      screen.getByText(/Last error: Legacy details error/),
+    ).toBeInTheDocument();
+
+    rerender(
+      <RootDetailsDrawer
+        open
+        onClose={() => undefined}
+        root={{
+          runId: 'run-normalized-error',
+          name: 'repo',
+          description: 'demo repo',
+          path: '/repo',
+          model: 'embed-1',
+          status: 'completed',
+          lastIngestAt: '2025-01-01T00:00:00.000Z',
+          counts: { files: 2, chunks: 4, embedded: 4 },
+          lastError: null,
+          error: {
+            code: 'OPENAI_TIMEOUT',
+            message: 'Normalized details error',
+          },
+        }}
+      />,
+    );
+
+    expect(
+      screen.getByText(/Last error: Normalized details error/),
+    ).toBeInTheDocument();
   });
 });

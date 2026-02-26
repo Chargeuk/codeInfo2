@@ -560,10 +560,10 @@ Enforce one ingest at a time, implement soft cancel, and purge partial embedding
 Prereqs: Chroma reachable; LM Studio mocked; ensure no other ingest run active. Expected: builds/tests/compose succeed; cancel/re-embed/remove scenarios verified via Cucumber.
 
 1. [x] `npm run build --workspace server`
-2. [ ] `npm run test --workspace server`
-3. [ ] `npm run compose:build`
-4. [ ] `npm run compose:up`
-5. [ ] `npm run compose:down`
+2. [x] `npm run test --workspace server`
+3. [x] `npm run compose:build`
+4. [x] `npm run compose:up`
+5. [x] `npm run compose:down`
 
 #### Implementation notes
 

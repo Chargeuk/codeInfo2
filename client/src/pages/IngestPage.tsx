@@ -23,6 +23,8 @@ export default function IngestPage() {
   const {
     models,
     lockedModelId,
+    lockedModel,
+    openai,
     defaultModelId,
     isLoading,
     isError,
@@ -46,7 +48,21 @@ export default function IngestPage() {
   );
   const lastFinishedRef = useRef<string | null>(null);
 
-  const locked = lockedModelId ?? rootsLockedModelId;
+  const canonicalLock =
+    lockedModel.embeddingModel ?? roots[0]?.lock?.embeddingModel ?? undefined;
+  const lockedProvider =
+    lockedModel.embeddingProvider ?? roots[0]?.lock?.embeddingProvider;
+  const lockedDimensions =
+    lockedModel.embeddingDimensions ?? roots[0]?.lock?.embeddingDimensions;
+  const locked = canonicalLock ?? lockedModelId ?? rootsLockedModelId;
+  const lockDisplay = locked
+    ? [
+        lockedProvider ? `${lockedProvider} / ${locked}` : locked,
+        typeof lockedDimensions === 'number' ? `${lockedDimensions} dims` : '',
+      ]
+        .filter(Boolean)
+        .join(' · ')
+    : undefined;
 
   const active = useMemo(() => {
     if (!ingest.status) return null;
@@ -62,8 +78,11 @@ export default function IngestPage() {
     if (!locked) return;
     log('info', '0000020 ingest lock notice displayed', {
       lockedModelId: locked,
+      embeddingProvider: lockedProvider ?? null,
+      embeddingModel: locked ?? null,
+      embeddingDimensions: lockedDimensions ?? null,
     });
-  }, [locked, log]);
+  }, [locked, lockedDimensions, lockedProvider, log]);
 
   useEffect(() => {
     log('info', '0000022 ingest layout full-width', {
@@ -94,6 +113,16 @@ export default function IngestPage() {
       failedFileCount,
     });
   }, [skippedFileCount, failedFileCount]);
+
+  useEffect(() => {
+    log('info', 'DEV-0000036:T13:ingest_ui_state_rendered', {
+      component: 'IngestPage',
+      selectedEmbeddingProvider: lockedProvider ?? null,
+      selectedEmbeddingModel: locked ?? null,
+      openAiStatusCode: openai?.statusCode ?? null,
+      hasDimensionsInput: false,
+    });
+  }, [locked, lockedProvider, openai?.statusCode, log]);
 
   return (
     <Container maxWidth={containerMaxWidth} sx={{ py: 3 }}>
@@ -144,15 +173,21 @@ export default function IngestPage() {
             {isLoading ? <CircularProgress size={20} /> : null}
           </Stack>
 
-          {locked ? (
+          {lockDisplay ? (
             <Alert severity="info" sx={{ mb: 2 }}>
-              Embedding model locked to {locked}
+              Embedding model locked to {lockDisplay}
             </Alert>
           ) : null}
 
           <IngestForm
             models={models}
             lockedModelId={locked}
+            lockedModel={{
+              embeddingProvider: lockedProvider,
+              embeddingModel: locked ?? undefined,
+              embeddingDimensions: lockedDimensions,
+            }}
+            openai={openai}
             defaultModelId={defaultModelId}
             disabled={isRunActive}
           />
@@ -184,6 +219,11 @@ export default function IngestPage() {
           <RootsTable
             roots={roots}
             lockedModelId={locked}
+            lockedModel={{
+              embeddingProvider: lockedProvider,
+              embeddingModel: locked ?? undefined,
+              embeddingDimensions: lockedDimensions,
+            }}
             isLoading={rootsLoading}
             error={rootsError}
             disabled={isRunActive}
@@ -196,6 +236,11 @@ export default function IngestPage() {
         <RootDetailsDrawer
           root={detailRoot}
           lockedModelId={locked}
+          lockedModel={{
+            embeddingProvider: lockedProvider,
+            embeddingModel: locked ?? undefined,
+            embeddingDimensions: lockedDimensions,
+          }}
           open={Boolean(detailRoot)}
           onClose={() => setDetailRoot(undefined)}
         />

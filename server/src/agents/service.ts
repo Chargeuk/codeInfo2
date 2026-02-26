@@ -20,7 +20,11 @@ import {
 } from '../chat/memoryPersistence.js';
 import { McpResponder } from '../chat/responders/McpResponder.js';
 import { mapHostWorkingFolderToWorkdir } from '../ingest/pathMap.js';
-import { listIngestedRepositories } from '../lmstudio/toolService.js';
+import {
+  listIngestedRepositories,
+  resolveRepoEmbeddingIdentity,
+  type RepoEntry,
+} from '../lmstudio/toolService.js';
 import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
 import { ConversationModel } from '../mongo/conversation.js';
@@ -91,6 +95,39 @@ type RunAgentError = {
 
 const toRunAgentError = (code: RunAgentErrorCode, reason?: string) =>
   ({ code, reason }) satisfies RunAgentError;
+
+function logTransitiveContractRead(params: {
+  consumer: string;
+  sourceId: string;
+  repo: RepoEntry;
+}) {
+  const resolved = resolveRepoEmbeddingIdentity(params.repo);
+  append({
+    level: 'info',
+    message: 'DEV-0000036:T11:transitive_consumer_contract_read',
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      consumer: params.consumer,
+      sourceId: params.sourceId,
+      embeddingProvider: resolved.embeddingProvider,
+      embeddingModel: resolved.embeddingModel,
+      embeddingDimensions: resolved.embeddingDimensions,
+      modelId: resolved.modelId,
+    },
+  });
+  append({
+    level: 'info',
+    message: 'DEV-0000036:T11:transitive_consumer_alias_fallback',
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      consumer: params.consumer,
+      sourceId: params.sourceId,
+      aliasFallbackUsed: resolved.aliasFallbackUsed,
+    },
+  });
+}
 
 export async function resolveWorkingFolderWorkingDirectory(
   working_folder: string | undefined,
@@ -411,6 +448,11 @@ export async function startAgentCommand(params: {
       if (!matchingRoot) {
         throw toRunAgentError('COMMAND_NOT_FOUND');
       }
+      logTransitiveContractRead({
+        consumer: 'agents.service.startAgentCommand',
+        sourceId,
+        repo: matchingRoot,
+      });
 
       commandsDir = path.join(
         matchingRoot.containerPath,
@@ -561,6 +603,11 @@ export async function runAgentCommand(params: {
     if (!matchingRoot) {
       throw toRunAgentError('COMMAND_NOT_FOUND');
     }
+    logTransitiveContractRead({
+      consumer: 'agents.service.runAgentCommand',
+      sourceId,
+      repo: matchingRoot,
+    });
 
     commandsRoot = path.join(
       matchingRoot.containerPath,
@@ -908,6 +955,11 @@ export async function listAgentCommands(
         const sourceLabel =
           repo.id?.trim() || path.posix.basename(sourceId.replace(/\\/g, '/'));
         if (!sourceLabel) return [];
+        logTransitiveContractRead({
+          consumer: 'agents.service.listAgentCommands',
+          sourceId,
+          repo,
+        });
         const ingestedCommandsDir = path.join(
           sourceId,
           'codex_agents',

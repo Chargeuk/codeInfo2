@@ -89,6 +89,45 @@ export type CodebaseQuestionResult = {
   segments: Segment[];
 };
 
+function logSummaryContractRead(params: {
+  conversationId: string;
+  summaries: ReturnType<McpResponder['getVectorSummaries']>;
+}) {
+  const files = params.summaries.flatMap((summary) => summary.files);
+  const canonicalFieldsConsumed = files.some(
+    (file) =>
+      typeof (file as { embeddingModel?: unknown }).embeddingModel === 'string',
+  );
+  const aliasFallbackUsed = files.some(
+    (file) =>
+      typeof file.modelId === 'string' &&
+      typeof (file as { embeddingModel?: unknown }).embeddingModel !== 'string',
+  );
+  append({
+    level: 'info',
+    message: 'DEV-0000036:T11:transitive_consumer_contract_read',
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      consumer: 'mcp2.codebase_question.summary',
+      conversationId: params.conversationId,
+      canonicalFieldsConsumed,
+      summaryFileCount: files.length,
+    },
+  });
+  append({
+    level: 'info',
+    message: 'DEV-0000036:T11:transitive_consumer_alias_fallback',
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      consumer: 'mcp2.codebase_question.summary',
+      conversationId: params.conversationId,
+      aliasFallbackUsed,
+    },
+  });
+}
+
 export type CodebaseQuestionDeps = {
   codexFactory?: () => import('../../chat/interfaces/ChatInterfaceCodex.js').CodexLike;
   clientFactory?: (baseUrl: string) => import('@lmstudio/sdk').LMStudioClient;
@@ -448,6 +487,10 @@ export async function runCodebaseQuestion(
     executionModel,
     resolvedConversationId,
   );
+  logSummaryContractRead({
+    conversationId: resolvedConversationId,
+    summaries: responder.getVectorSummaries(),
+  });
 
   const answerOnly = payload.segments.filter(
     (segment) => segment.type === 'answer',

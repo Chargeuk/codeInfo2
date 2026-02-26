@@ -36,6 +36,11 @@ let server: Server | null = null;
 let baseUrl = '';
 let response: { status: number; body: unknown } | null = null;
 let tempDir: string | null = null;
+let lastStartInput: {
+  embeddingProvider?: 'lmstudio' | 'openai';
+  embeddingModel?: string;
+  model: string;
+} | null = null;
 
 Before(async () => {
   process.env.LMSTUDIO_BASE_URL = 'ws://localhost:1234';
@@ -62,6 +67,14 @@ Before(async () => {
     createIngestStartRouter({
       clientFactory: () =>
         new MockLMStudioClient() as unknown as LMStudioClient,
+      startIngest: async (input) => {
+        lastStartInput = {
+          embeddingProvider: input.embeddingProvider,
+          embeddingModel: input.embeddingModel,
+          model: input.model,
+        };
+        return '00000000-0000-0000-0000-000000000001';
+      },
     }),
   );
 
@@ -125,6 +138,26 @@ When('I POST the ingest start endpoint with JSON body', async () => {
   response = { status: res.status, body: await res.json() };
 });
 
+When('I POST ingest start with canonical and legacy model fields', async () => {
+  tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ingest-body-'));
+  const filePath = path.join(tempDir, 'readme.md');
+  await fs.writeFile(filePath, '# sample');
+
+  const res = await fetch(`${baseUrl}/ingest/start`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({
+      path: tempDir,
+      name: 'tmp',
+      model: 'legacy-embed-1',
+      embeddingProvider: 'openai',
+      embeddingModel: 'text-embedding-3-small',
+    }),
+  });
+
+  response = { status: res.status, body: await res.json() };
+});
+
 Then('the response status should be 202', () => {
   assert.ok(response, 'response should be present');
   assert.equal(response?.status, 202);
@@ -135,3 +168,13 @@ Then('the response body should contain a runId', () => {
   assert.ok(body?.runId, 'runId should be defined');
   assert.equal(typeof body?.runId, 'string');
 });
+
+Then(
+  'the ingest start request uses provider {string} and model {string}',
+  (provider: string, model: string) => {
+    assert.ok(lastStartInput, 'expected captured start input');
+    assert.equal(lastStartInput?.embeddingProvider, provider);
+    assert.equal(lastStartInput?.embeddingModel, model);
+    assert.equal(lastStartInput?.model, `${provider}/${model}`);
+  },
+);

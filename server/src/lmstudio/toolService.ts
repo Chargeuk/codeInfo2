@@ -1,6 +1,9 @@
 import path from 'path';
 import {
+  type EmbeddingProviderId,
   IngestRequiredError,
+  generateLockedQueryEmbedding,
+  getLockedEmbeddingModel,
   getLockedModel,
   getRootsCollection,
   getVectorsCollection,
@@ -13,6 +16,8 @@ export type ToolDeps = {
   getRootsCollection: typeof getRootsCollection;
   getVectorsCollection: typeof getVectorsCollection;
   getLockedModel: typeof getLockedModel;
+  getLockedEmbeddingModel?: typeof getLockedEmbeddingModel;
+  generateLockedQueryEmbedding?: typeof generateLockedQueryEmbedding;
 };
 
 export type RepoEntry = {
@@ -22,15 +27,74 @@ export type RepoEntry = {
   hostPath: string;
   hostPathWarning?: string;
   lastIngestAt: string | null;
+  embeddingProvider: EmbeddingProviderId;
+  embeddingModel: string;
+  embeddingDimensions: number;
+  model?: string;
   modelId: string;
+  lock?: {
+    embeddingProvider: EmbeddingProviderId;
+    embeddingModel: string;
+    embeddingDimensions: number;
+    lockedModelId: string;
+    modelId: string;
+  };
   counts: { files: number; chunks: number; embedded: number };
   lastError: string | null;
 };
 
 export type ListReposResult = {
   repos: RepoEntry[];
+  lock?: {
+    embeddingProvider: EmbeddingProviderId;
+    embeddingModel: string;
+    embeddingDimensions: number;
+    lockedModelId: string;
+    modelId: string;
+  } | null;
   lockedModelId: string | null;
+  schemaVersion?: string;
 };
+
+export const INGEST_REPO_SCHEMA_VERSION = '0000036-t10-canonical-alias-v1';
+
+export type RepoEmbeddingIdentity = {
+  embeddingProvider: EmbeddingProviderId;
+  embeddingModel: string;
+  embeddingDimensions: number;
+  modelId: string;
+  aliasFallbackUsed: boolean;
+};
+
+function logLockResolverState(
+  surface: string,
+  requestId: string | undefined,
+  lockedModelId: string | null,
+) {
+  append({
+    level: 'info',
+    message: 'DEV-0000036:T2:lock_resolver_source_selected',
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      surface,
+      source: 'canonical',
+      lockedModelId,
+    },
+  });
+  append({
+    level: 'info',
+    message: 'DEV-0000036:T2:lock_resolver_surface_parity',
+    timestamp: new Date().toISOString(),
+    source: 'server',
+    context: {
+      surface,
+      embeddingProvider: 'lmstudio',
+      embeddingModel: lockedModelId,
+      requestId,
+    },
+  });
+}
 
 export type VectorSearchParams = {
   query: string;
@@ -137,9 +201,107 @@ type RootsGetter = {
   }>;
 };
 
+function normalizeEmbeddingProvider(
+  value: unknown,
+): EmbeddingProviderId | null {
+  if (value === 'lmstudio' || value === 'openai') return value;
+  return null;
+}
+
+function normalizeEmbeddingModel(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function normalizeEmbeddingDimensions(value: unknown): number | null {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
+    return null;
+  }
+  return value;
+}
+
+export function resolveRepoEmbeddingIdentity(
+  repo: Partial<RepoEntry> & {
+    lock?: {
+      embeddingProvider?: EmbeddingProviderId;
+      embeddingModel?: string;
+      embeddingDimensions?: number;
+      modelId?: string;
+    };
+  },
+): RepoEmbeddingIdentity {
+  const canonicalProvider = normalizeEmbeddingProvider(repo.embeddingProvider);
+  const canonicalModel = normalizeEmbeddingModel(repo.embeddingModel);
+  const canonicalDimensions = normalizeEmbeddingDimensions(
+    repo.embeddingDimensions,
+  );
+  const lockProvider = normalizeEmbeddingProvider(repo.lock?.embeddingProvider);
+  const lockModel = normalizeEmbeddingModel(repo.lock?.embeddingModel);
+  const lockDimensions = normalizeEmbeddingDimensions(
+    repo.lock?.embeddingDimensions,
+  );
+  const aliasModel =
+    normalizeEmbeddingModel(repo.modelId) ??
+    normalizeEmbeddingModel(repo.lock?.modelId) ??
+    normalizeEmbeddingModel(repo.model) ??
+    '';
+
+  const embeddingProvider = canonicalProvider ?? lockProvider ?? 'lmstudio';
+  const embeddingModel = canonicalModel ?? lockModel ?? aliasModel;
+  const embeddingDimensions = canonicalDimensions ?? lockDimensions ?? 0;
+  const modelId =
+    normalizeEmbeddingModel(repo.modelId) ??
+    normalizeEmbeddingModel(repo.lock?.modelId) ??
+    embeddingModel;
+
+  const aliasFallbackUsed = canonicalModel == null;
+  return {
+    embeddingProvider,
+    embeddingModel,
+    embeddingDimensions,
+    modelId,
+    aliasFallbackUsed,
+  };
+}
+
+function resolveRepoLock(
+  metadata: Record<string, unknown>,
+  fallback: {
+    embeddingProvider: EmbeddingProviderId;
+    embeddingModel: string;
+    embeddingDimensions: number;
+  } | null,
+) {
+  const model =
+    normalizeEmbeddingModel(metadata.embeddingModel) ??
+    normalizeEmbeddingModel(metadata.model) ??
+    fallback?.embeddingModel ??
+    '';
+  const provider =
+    normalizeEmbeddingProvider(metadata.embeddingProvider) ??
+    fallback?.embeddingProvider ??
+    'lmstudio';
+  const dimensions =
+    normalizeEmbeddingDimensions(metadata.embeddingDimensions) ??
+    (fallback &&
+    fallback.embeddingProvider === provider &&
+    fallback.embeddingModel === model
+      ? fallback.embeddingDimensions
+      : 0);
+  return {
+    embeddingProvider: provider,
+    embeddingModel: model,
+    embeddingDimensions: dimensions,
+    lockedModelId: model,
+    modelId: model,
+  };
+}
+
 type ChromaQueryable = {
   query: (opts: {
-    queryTexts: string[];
+    queryTexts?: string[];
+    queryEmbeddings?: number[][];
     where?: Record<string, unknown>;
     nResults?: number;
   }) => Promise<{
@@ -152,10 +314,19 @@ type ChromaQueryable = {
 };
 
 function resolveDeps(partial: Partial<ToolDeps>): ToolDeps {
+  const hasLegacyOverrides =
+    typeof partial.getLockedModel === 'function' ||
+    typeof partial.getVectorsCollection === 'function';
   return {
     getRootsCollection,
     getVectorsCollection,
     getLockedModel,
+    getLockedEmbeddingModel: hasLegacyOverrides
+      ? undefined
+      : getLockedEmbeddingModel,
+    generateLockedQueryEmbedding: hasLegacyOverrides
+      ? undefined
+      : generateLockedQueryEmbedding,
     ...partial,
   } satisfies ToolDeps;
 }
@@ -350,8 +521,26 @@ function aggregateVectorFiles(
 export async function listIngestedRepositories(
   deps: Partial<ToolDeps> = {},
 ): Promise<ListReposResult> {
-  const { getRootsCollection: rootsCollection, getLockedModel: lockedModel } =
-    resolveDeps(deps);
+  const {
+    getRootsCollection: rootsCollection,
+    getLockedModel: lockedModel,
+    getLockedEmbeddingModel,
+  } = resolveDeps(deps);
+  const lockedFromStore =
+    typeof getLockedEmbeddingModel === 'function'
+      ? await getLockedEmbeddingModel()
+      : null;
+  const lockedModelId =
+    lockedFromStore?.embeddingModel ?? (await lockedModel());
+  const lock = lockedModelId
+    ? {
+        embeddingProvider: lockedFromStore?.embeddingProvider ?? 'lmstudio',
+        embeddingModel: lockedModelId,
+        embeddingDimensions: lockedFromStore?.embeddingDimensions ?? 0,
+        lockedModelId,
+        modelId: lockedModelId,
+      }
+    : null;
 
   const collection = await rootsCollection();
   const raw = await (collection as unknown as RootsGetter).get({
@@ -372,6 +561,16 @@ export async function listIngestedRepositories(
         rawPath,
         typeof ids[idx] === 'string' ? ids[idx] : `repo-${idx}`,
       );
+      const repoLock = resolveRepoLock(
+        m,
+        lock
+          ? {
+              embeddingProvider: lock.embeddingProvider,
+              embeddingModel: lock.embeddingModel,
+              embeddingDimensions: lock.embeddingDimensions,
+            }
+          : null,
+      );
       return {
         id: repoId,
         description: typeof m.description === 'string' ? m.description : null,
@@ -382,7 +581,12 @@ export async function listIngestedRepositories(
           : {}),
         lastIngestAt:
           typeof m.lastIngestAt === 'string' ? m.lastIngestAt : null,
-        modelId: typeof m.model === 'string' ? m.model : '',
+        embeddingProvider: repoLock.embeddingProvider,
+        embeddingModel: repoLock.embeddingModel,
+        embeddingDimensions: repoLock.embeddingDimensions,
+        model: repoLock.embeddingModel,
+        modelId: repoLock.modelId,
+        lock: repoLock,
         counts: {
           files: Number(m.files ?? 0),
           chunks: Number(m.chunks ?? 0),
@@ -402,8 +606,17 @@ export async function listIngestedRepositories(
       return bTs - aTs;
     });
 
-  const lockedModelId = (await lockedModel()) ?? null;
-  return { repos, lockedModelId };
+  logLockResolverState(
+    'tools/listIngestedRepositories',
+    undefined,
+    lock?.lockedModelId ?? null,
+  );
+  return {
+    repos,
+    lock,
+    lockedModelId: lock?.lockedModelId ?? null,
+    schemaVersion: INGEST_REPO_SCHEMA_VERSION,
+  };
 }
 
 export async function vectorSearch(
@@ -418,10 +631,29 @@ export async function vectorSearch(
     getRootsCollection: rootsCollection,
     getVectorsCollection,
     getLockedModel,
+    getLockedEmbeddingModel,
+    generateLockedQueryEmbedding,
   } = resolveDeps(deps);
 
-  const lockedModelId = await getLockedModel();
-  if (!lockedModelId) {
+  const lockedFromStore =
+    typeof getLockedEmbeddingModel === 'function'
+      ? await getLockedEmbeddingModel()
+      : null;
+  const lockedModelId =
+    lockedFromStore?.embeddingModel ?? (await getLockedModel());
+  const locked =
+    lockedFromStore ??
+    (lockedModelId
+      ? {
+          embeddingProvider: 'lmstudio' as const,
+          embeddingModel: lockedModelId,
+          embeddingDimensions: 0,
+          lockedModelId,
+          source: 'legacy' as const,
+        }
+      : null);
+  logLockResolverState('toolService/vectorSearch', undefined, lockedModelId);
+  if (!locked) {
     throw new IngestRequiredError();
   }
 
@@ -463,11 +695,21 @@ export async function vectorSearch(
   const collection = (await getVectorsCollection({
     requireEmbedding: true,
   })) as unknown as ChromaQueryable;
-  const queryResult = await collection.query({
-    queryTexts: [query],
-    where: whereClause,
-    nResults: resolvedLimit,
-  });
+  const queryResult =
+    typeof generateLockedQueryEmbedding === 'function'
+      ? await (async () => {
+          const { embedding } = await generateLockedQueryEmbedding(query);
+          return collection.query({
+            queryEmbeddings: [embedding],
+            where: whereClause,
+            nResults: resolvedLimit,
+          });
+        })()
+      : await collection.query({
+          queryTexts: [query],
+          where: whereClause,
+          nResults: resolvedLimit,
+        });
 
   const docs = Array.isArray(queryResult.documents?.[0])
     ? queryResult.documents[0]
@@ -613,7 +855,7 @@ export async function vectorSearch(
     },
   });
 
-  const modelId = lockedModelId ?? null;
+  const modelId = locked.embeddingModel ?? null;
   const files = aggregateVectorFiles(capped);
   return { results: capped, modelId, files };
 }

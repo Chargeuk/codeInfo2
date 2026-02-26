@@ -11,6 +11,7 @@ import {
 import { useEffect, useMemo, useState } from 'react';
 import { getApiBaseUrl } from '../../api/baseUrl';
 import { createLogger } from '../../logging';
+import type { OpenAiStatus } from '../../hooks/useIngestModels';
 import DirectoryPickerDialog from './DirectoryPickerDialog';
 
 const serverBase = getApiBaseUrl();
@@ -18,7 +19,14 @@ const serverBase = getApiBaseUrl();
 export type IngestModel = {
   id: string;
   displayName: string;
+  provider?: 'lmstudio' | 'openai';
   contextLength?: number;
+};
+
+type LockIdentity = {
+  embeddingProvider?: 'lmstudio' | 'openai';
+  embeddingModel?: string;
+  embeddingDimensions?: number;
 };
 
 type FormErrors = Partial<Record<'path' | 'name' | 'model', string>>;
@@ -26,6 +34,8 @@ type FormErrors = Partial<Record<'path' | 'name' | 'model', string>>;
 export type IngestFormProps = {
   models: IngestModel[];
   lockedModelId?: string;
+  lockedModel?: LockIdentity;
+  openai?: OpenAiStatus;
   defaultModelId?: string;
   onStarted?: (runId: string) => void;
   disabled?: boolean;
@@ -34,6 +44,8 @@ export type IngestFormProps = {
 export default function IngestForm({
   models,
   lockedModelId,
+  lockedModel,
+  openai,
   defaultModelId,
   onStarted,
   disabled = false,
@@ -41,9 +53,9 @@ export default function IngestForm({
   const [path, setPath] = useState('');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [model, setModel] = useState<string | undefined>(
-    lockedModelId ?? defaultModelId,
-  );
+  const [selectedModelKey, setSelectedModelKey] = useState<
+    string | undefined
+  >();
   const [dryRun, setDryRun] = useState(false);
   const [errors, setErrors] = useState<FormErrors>({});
   const [submitError, setSubmitError] = useState<string | undefined>();
@@ -54,28 +66,117 @@ export default function IngestForm({
 
   const modelOptions = useMemo(() => {
     const list = [...models];
-    if (lockedModelId && !list.find((m) => m.id === lockedModelId)) {
-      list.push({ id: lockedModelId, displayName: lockedModelId });
+    const lockProvider = lockedModel?.embeddingProvider ?? 'lmstudio';
+    const lockModelId = lockedModel?.embeddingModel ?? lockedModelId;
+    if (
+      lockModelId &&
+      !list.find(
+        (m) =>
+          (m.provider ?? 'lmstudio') === lockProvider && m.id === lockModelId,
+      )
+    ) {
+      list.push({
+        id: lockModelId,
+        displayName: lockModelId,
+        provider: lockProvider,
+      });
     }
-    return list;
-  }, [models, lockedModelId]);
+    return list.map((entry) => ({
+      ...entry,
+      provider: entry.provider ?? 'lmstudio',
+      optionKey: `${entry.provider ?? 'lmstudio'}::${entry.id}`,
+      providerQualifiedLabel: `${entry.provider ?? 'lmstudio'} / ${
+        entry.displayName || entry.id
+      }`,
+    }));
+  }, [
+    models,
+    lockedModel?.embeddingModel,
+    lockedModel?.embeddingProvider,
+    lockedModelId,
+  ]);
+
+  const selectedModel = useMemo(
+    () => modelOptions.find((entry) => entry.optionKey === selectedModelKey),
+    [modelOptions, selectedModelKey],
+  );
 
   useEffect(() => {
-    setModel((prev) => {
-      if (lockedModelId) return lockedModelId;
-      if (prev && modelOptions.some((m) => m.id === prev)) return prev;
-      if (defaultModelId && modelOptions.some((m) => m.id === defaultModelId)) {
-        return defaultModelId;
+    setSelectedModelKey((prev) => {
+      const lockProvider = lockedModel?.embeddingProvider ?? 'lmstudio';
+      const lockModelId = lockedModel?.embeddingModel ?? lockedModelId;
+      if (lockModelId) return `${lockProvider}::${lockModelId}`;
+      if (prev && modelOptions.some((m) => m.optionKey === prev)) return prev;
+      if (defaultModelId) {
+        const defaultOption = modelOptions.find((m) => m.id === defaultModelId);
+        if (defaultOption) return defaultOption.optionKey;
       }
-      return modelOptions[0]?.id;
+      return modelOptions[0]?.optionKey;
     });
-  }, [lockedModelId, defaultModelId, modelOptions]);
+  }, [
+    lockedModel?.embeddingModel,
+    lockedModel?.embeddingProvider,
+    lockedModelId,
+    defaultModelId,
+    modelOptions,
+  ]);
+
+  const openAiBanner = useMemo(() => {
+    const statusCode = openai?.statusCode;
+    if (!statusCode) return null;
+    if (statusCode === 'OPENAI_DISABLED') {
+      return {
+        severity: 'info' as const,
+        testId: 'ingest-openai-banner-openai-disabled',
+        statusCode,
+        message:
+          'OpenAI embedding models are unavailable. Set OPENAI_EMBEDDING_KEY on the server to enable them.',
+      };
+    }
+    if (statusCode === 'OPENAI_MODELS_LIST_TEMPORARY_FAILURE') {
+      return {
+        severity: 'warning' as const,
+        testId: 'ingest-openai-banner-openai-models-list-temporary-failure',
+        statusCode,
+        message:
+          'OpenAI embedding model listing is temporarily unavailable. LM Studio models are still available.',
+      };
+    }
+    if (statusCode === 'OPENAI_MODELS_LIST_AUTH_FAILED') {
+      return {
+        severity: 'warning' as const,
+        testId: 'ingest-openai-banner-openai-models-list-auth-failed',
+        statusCode,
+        message:
+          'OpenAI embedding model listing failed authentication. Verify OPENAI_EMBEDDING_KEY and account access.',
+      };
+    }
+    if (statusCode === 'OPENAI_MODELS_LIST_UNAVAILABLE') {
+      return {
+        severity: 'warning' as const,
+        testId: 'ingest-openai-banner-openai-models-list-unavailable',
+        statusCode,
+        message:
+          'OpenAI embedding model listing is currently unavailable. LM Studio models are still available.',
+      };
+    }
+    if (statusCode === 'OPENAI_ALLOWLIST_NO_MATCH') {
+      return {
+        severity: 'warning' as const,
+        testId: 'ingest-openai-banner-openai-allowlist-no-match',
+        statusCode,
+        message:
+          'No allowlisted OpenAI embedding models are available for this key. LM Studio models are still available.',
+      };
+    }
+    return null;
+  }, [openai?.statusCode]);
 
   const validate = () => {
     const next: FormErrors = {};
     if (!path.trim()) next.path = 'Path is required';
     if (!name.trim()) next.name = 'Name is required';
-    if (!model) next.model = 'Select a model';
+    if (!selectedModel) next.model = 'Select a model';
     setErrors(next);
     return Object.keys(next).length === 0;
   };
@@ -103,16 +204,27 @@ export default function IngestForm({
     if (!validate()) return;
     setIsSubmitting(true);
     try {
+      if (!selectedModel) {
+        throw new Error('Select a model');
+      }
+      const payload = {
+        path: path.trim(),
+        name: name.trim(),
+        description: description.trim() || undefined,
+        model: selectedModel.id,
+        embeddingProvider: selectedModel.provider,
+        embeddingModel: selectedModel.id,
+        dryRun,
+      };
+      logger('info', 'DEV-0000036:T13:ingest_ui_submit_payload', {
+        embeddingProvider: payload.embeddingProvider,
+        embeddingModel: payload.embeddingModel,
+        hasDimensionsInput: false,
+      });
       const res = await fetch(new URL('/ingest/start', serverBase).toString(), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          path: path.trim(),
-          name: name.trim(),
-          description: description.trim() || undefined,
-          model,
-          dryRun,
-        }),
+        body: JSON.stringify(payload),
       });
       if (!res.ok) {
         const payload = await res.json().catch(() => ({}));
@@ -129,7 +241,7 @@ export default function IngestForm({
     }
   };
 
-  const isValid = path.trim() && name.trim() && model;
+  const isValid = path.trim() && name.trim() && selectedModel;
 
   useEffect(() => {
     logger('info', 'DEV-0000028[T7] ingest controls sizing applied', {
@@ -137,9 +249,34 @@ export default function IngestForm({
     });
   }, [logger]);
 
+  useEffect(() => {
+    logger('info', 'DEV-0000036:T13:ingest_ui_state_rendered', {
+      component: 'IngestForm',
+      selectedEmbeddingProvider: selectedModel?.provider ?? null,
+      selectedEmbeddingModel: selectedModel?.id ?? null,
+      openAiStatusCode: openAiBanner?.statusCode ?? openai?.statusCode ?? null,
+      hasDimensionsInput: false,
+    });
+  }, [
+    logger,
+    selectedModel?.id,
+    selectedModel?.provider,
+    openAiBanner?.statusCode,
+    openai?.statusCode,
+  ]);
+
   return (
     <Box component="form" onSubmit={handleSubmit} noValidate>
       <Stack spacing={2}>
+        {openAiBanner ? (
+          <Alert
+            severity={openAiBanner.severity}
+            data-testid={openAiBanner.testId}
+          >
+            {openAiBanner.message}
+          </Alert>
+        ) : null}
+
         <Stack direction="row" spacing={1} alignItems="flex-start">
           <TextField
             label="Folder path"
@@ -202,16 +339,16 @@ export default function IngestForm({
           SelectProps={{ native: true }}
           label="Embedding model"
           name="model"
-          value={model ?? ''}
+          value={selectedModelKey ?? ''}
           onChange={(e) => {
-            setModel(e.target.value);
+            setSelectedModelKey(e.target.value);
             if (errors.model) updateFieldError('model', e.target.value);
           }}
           onBlur={(e) => updateFieldError('model', e.target.value)}
           required
           fullWidth
           disabled={
-            Boolean(lockedModelId) ||
+            Boolean(lockedModel?.embeddingModel ?? lockedModelId) ||
             isFormDisabled ||
             modelOptions.length === 0
           }
@@ -220,8 +357,8 @@ export default function IngestForm({
           size="small"
         >
           {modelOptions.map((m) => (
-            <option key={m.id} value={m.id}>
-              {m.displayName}
+            <option key={m.optionKey} value={m.optionKey}>
+              {m.providerQualifiedLabel}
             </option>
           ))}
         </TextField>

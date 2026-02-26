@@ -10,12 +10,19 @@ import {
   Stack,
   Typography,
 } from '@mui/material';
+import { useEffect, useMemo } from 'react';
 import type { IngestRoot } from '../../hooks/useIngestRoots';
+import { createLogger } from '../../logging';
 
 export type RootDetailsDrawerProps = {
   root?: IngestRoot;
   open: boolean;
   lockedModelId?: string;
+  lockedModel?: {
+    embeddingProvider?: 'lmstudio' | 'openai';
+    embeddingModel?: string;
+    embeddingDimensions?: number;
+  };
   onClose: () => void;
 };
 
@@ -23,12 +30,44 @@ export default function RootDetailsDrawer({
   root,
   open,
   lockedModelId,
+  lockedModel,
   onClose,
 }: RootDetailsDrawerProps) {
+  const log = useMemo(() => createLogger('client'), []);
   const loading = open && !root;
   const includeList = DEFAULT_INCLUDE_EXTENSIONS;
   const excludeList = DEFAULT_EXCLUDES;
   const astCounts = root?.ast;
+  const lockModel = lockedModel?.embeddingModel ?? lockedModelId;
+  const lockDisplay = lockModel
+    ? [
+        lockedModel?.embeddingProvider
+          ? `${lockedModel.embeddingProvider} / ${lockModel}`
+          : lockModel,
+        typeof lockedModel?.embeddingDimensions === 'number'
+          ? `${lockedModel.embeddingDimensions} dims`
+          : '',
+      ]
+        .filter(Boolean)
+        .join(' · ')
+    : null;
+  const rootModelDisplay =
+    root?.embeddingProvider && root?.embeddingModel
+      ? `${root.embeddingProvider} / ${root.embeddingModel}`
+      : root?.model;
+  const rootError =
+    root?.lastError ?? root?.error?.message ?? root?.error?.details;
+
+  useEffect(() => {
+    if (!open) return;
+    log('info', 'DEV-0000036:T13:ingest_ui_state_rendered', {
+      component: 'RootDetailsDrawer',
+      selectedEmbeddingProvider: root?.embeddingProvider ?? null,
+      selectedEmbeddingModel: root?.embeddingModel ?? root?.model ?? null,
+      openAiStatusCode: null,
+      hasDimensionsInput: false,
+    });
+  }, [log, open, root?.embeddingModel, root?.embeddingProvider, root?.model]);
 
   return (
     <Drawer
@@ -60,11 +99,11 @@ export default function RootDetailsDrawer({
                 value={root.description || 'No description provided'}
               />
               <LabelValue label="Path" value={root.path} mono />
-              <LabelValue label="Model" value={root.model} />
-              {lockedModelId ? (
+              <LabelValue label="Model" value={rootModelDisplay ?? '—'} />
+              {lockDisplay ? (
                 <LabelValue
                   label="Model lock"
-                  value={`Embedding model locked to ${lockedModelId}`}
+                  value={`Embedding model locked to ${lockDisplay}`}
                 />
               ) : null}
               <LabelValue
@@ -94,9 +133,9 @@ export default function RootDetailsDrawer({
               </Typography>
             </Stack>
 
-            {root.lastError ? (
+            {rootError ? (
               <Typography variant="body2" color="error">
-                Last error: {root.lastError}
+                Last error: {rootError}
               </Typography>
             ) : null}
 

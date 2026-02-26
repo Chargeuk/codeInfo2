@@ -2,7 +2,7 @@ import { randomUUID } from 'crypto';
 import fs from 'fs/promises';
 import path from 'path';
 import { LogEntry } from '@codeinfo2/common';
-import type { EmbeddingModel, LMStudioClient } from '@lmstudio/sdk';
+import type { LMStudioClient } from '@lmstudio/sdk';
 import type { Metadata } from 'chromadb';
 import mongoose from 'mongoose';
 import { parseAstSource } from '../ast/parser.js';
@@ -41,9 +41,11 @@ import {
   deleteRoots,
   deleteVectors,
   deleteVectorsCollectionIfEmpty,
+  getLockedEmbeddingModel,
   getLockedModel,
   getRootsCollection,
   getVectorsCollection,
+  InvalidLockMetadataError,
   setLockedModel,
 } from './chromaClient.js';
 import { buildDeltaPlan, type DiscoveredFileHash } from './deltaPlan.js';
@@ -56,14 +58,39 @@ import {
   hashFile,
   resolveConfig,
 } from './index.js';
+import type { ProviderEmbeddingModel } from './providers/types.js';
+import {
+  appendIngestFailureLog,
+  createLmStudioEmbeddingProvider,
+  createOpenAiEmbeddingProvider,
+  isOpenAiAllowlistedEmbeddingModel,
+  logOpenAiContractMapping,
+  mapLmStudioIngestError,
+  resolveOpenAiRestStatus,
+  toNormalizedOpenAiErrorPayload,
+  OpenAiEmbeddingError,
+  type ResolvedEmbeddingModelSelection,
+  resolveEmbeddingModelSelection,
+} from './providers/index.js';
 
 export type IngestJobInput = {
   path: string;
   name: string;
   description?: string;
   model: string;
+  embeddingProvider?: 'lmstudio' | 'openai';
+  embeddingModel?: string;
   dryRun?: boolean;
   operation?: 'start' | 'reembed';
+};
+
+export type IngestNormalizedError = {
+  error: string;
+  message: string;
+  retryable: boolean;
+  provider: 'lmstudio' | 'openai';
+  upstreamStatus?: number;
+  retryAfterMs?: number;
 };
 
 export type IngestAstCounts = {
@@ -79,6 +106,7 @@ export type IngestJobStatus = {
   ast?: IngestAstCounts;
   message?: string;
   lastError?: string | null;
+  error?: IngestNormalizedError | null;
   currentFile?: string;
   fileIndex?: number;
   fileTotal?: number;
@@ -174,12 +202,88 @@ export function isBusy() {
 }
 
 async function embedText(modelKey: string, text: string): Promise<number[]> {
+  const model = await getEmbeddingModel(modelKey);
+  return model.embedText(text);
+}
+
+function resolveInputSelection(
+  input: Pick<IngestJobInput, 'model' | 'embeddingProvider' | 'embeddingModel'>,
+): ResolvedEmbeddingModelSelection {
+  if (input.embeddingProvider && input.embeddingModel) {
+    return {
+      providerId: input.embeddingProvider,
+      modelKey: input.embeddingModel,
+    };
+  }
+  return resolveEmbeddingModelSelection(input.model);
+}
+
+function mapIngestError(err: unknown): {
+  message: string;
+  normalized: IngestNormalizedError | null;
+} {
+  if (err instanceof OpenAiEmbeddingError) {
+    const payload = toNormalizedOpenAiErrorPayload(err);
+    logOpenAiContractMapping({
+      surface: 'ingest',
+      payload,
+      statusCode: resolveOpenAiRestStatus(err),
+    });
+    return {
+      message: payload.message,
+      normalized: payload,
+    };
+  }
+  const lmstudio = mapLmStudioIngestError(err);
+  return {
+    message: lmstudio.message,
+    normalized: {
+      error: lmstudio.error,
+      message: lmstudio.message,
+      retryable: lmstudio.retryable,
+      provider: lmstudio.provider,
+    },
+  };
+}
+
+function toProviderQualifiedModelId(
+  selection: ResolvedEmbeddingModelSelection,
+) {
+  return selection.providerId === 'lmstudio'
+    ? selection.modelKey
+    : `${selection.providerId}/${selection.modelKey}`;
+}
+
+async function getEmbeddingModel(
+  modelKey: string,
+  options?: {
+    ingestFailureContext?: () => {
+      runId?: string;
+      path?: string;
+      root?: string;
+      currentFile?: string;
+    };
+  },
+): Promise<ProviderEmbeddingModel> {
   const d = deps;
   if (!d) throw new Error('ingest deps not set');
-  const client = d.lmClientFactory(d.baseUrl);
-  const model = await client.embedding.model(modelKey);
-  const result = await model.embed(text);
-  return result.embedding;
+
+  const selection = resolveEmbeddingModelSelection(modelKey);
+  if (selection.providerId === 'openai') {
+    const provider = createOpenAiEmbeddingProvider({
+      apiKey: process.env.OPENAI_EMBEDDING_KEY,
+      ingestFailureContext: options?.ingestFailureContext,
+    });
+    return provider.getModel(selection.modelKey);
+  }
+
+  const provider = createLmStudioEmbeddingProvider({
+    lmClientResolver: d.lmClientFactory,
+    baseUrl: d.baseUrl,
+    ingestFailureContext: options?.ingestFailureContext,
+  });
+
+  return provider.getModel(selection.modelKey);
 }
 
 async function resolveRootEmbeddingDim(params: {
@@ -205,15 +309,31 @@ async function resolveRootEmbeddingDim(params: {
     ).get({ include: ['embeddings'], limit: 1 });
     const dim = raw.embeddings?.[0]?.length;
     if (dim && dim > 0) return dim;
-  } catch {
-    // ignore
+  } catch (error) {
+    logWarning('ingest root dimension probe fallback', {
+      model: params.modelKey,
+      stage: 'vectors_collection_probe',
+      fallback: 'embedding_probe',
+      reason:
+        error instanceof Error
+          ? error.message.slice(0, 300)
+          : String(error ?? 'unknown').slice(0, 300),
+    });
   }
 
   try {
     const probe = await embedText(params.modelKey, 'dimension probe');
     if (probe.length > 0) return probe.length;
-  } catch {
-    // ignore
+  } catch (error) {
+    logWarning('ingest root dimension probe fallback', {
+      model: params.modelKey,
+      stage: 'embedding_probe',
+      fallback: 'dimension=1',
+      reason:
+        error instanceof Error
+          ? error.message.slice(0, 300)
+          : String(error ?? 'unknown').slice(0, 300),
+    });
   }
 
   return 1;
@@ -225,14 +345,10 @@ async function processRun(runId: string, input: IngestJobInput) {
   jobInputs.set(runId, input);
   try {
     const ingestedAtMs = Date.now();
-    const {
-      path: startPath,
-      name,
-      description,
-      model,
-      dryRun,
-      operation: op,
-    } = input;
+    const { path: startPath, name, description, dryRun, operation: op } = input;
+    const requestedSelection = resolveInputSelection(input);
+    const embeddingProvider = requestedSelection.providerId;
+    const embeddingModel = requestedSelection.modelKey;
     const operation = op ?? 'start';
     logLifecycle('info', 'ingest start', {
       runId,
@@ -240,7 +356,8 @@ async function processRun(runId: string, input: IngestJobInput) {
       path: startPath,
       name,
       description,
-      model,
+      model: embeddingModel,
+      embeddingProvider,
       state: 'start',
     });
     setStatusAndPublish(runId, {
@@ -259,13 +376,20 @@ async function processRun(runId: string, input: IngestJobInput) {
         counts: { files: 0, chunks: 0, embedded: 0 },
         message: errorMsg,
         lastError: errorMsg,
+        error: {
+          error: 'NO_ELIGIBLE_FILES',
+          message: errorMsg,
+          retryable: false,
+          provider: requestedSelection.providerId,
+        },
       });
       logLifecycle('error', 'ingest error', {
         runId,
         operation,
         path: startPath,
         root,
-        model,
+        model: embeddingModel,
+        embeddingProvider,
         name,
         description,
         state: 'error',
@@ -477,10 +601,14 @@ async function processRun(runId: string, input: IngestJobInput) {
 
       vectorDim = embeddingsBatch[0]?.length ?? vectorDim;
       counts.embedded += embeddingsBatch.length;
-      const locked = await getLockedModel();
+      const locked = await getLockedEmbeddingModel();
       if (!locked) {
         // If the collection was dropped after an empty run, the first real write recreates the lock.
-        await setLockedModel(model);
+        await setLockedModel({
+          embeddingProvider,
+          embeddingModel,
+          embeddingDimensions: embeddingsBatch[0]?.length ?? 1,
+        });
       }
 
       clearBatch();
@@ -589,6 +717,7 @@ async function processRun(runId: string, input: IngestJobInput) {
         ast: astCounts,
         message: 'Cancelled',
         lastError: null,
+        error: null,
         currentFile: lastFileRelPath ?? currentFile,
         fileIndex,
         fileTotal,
@@ -602,13 +731,16 @@ async function processRun(runId: string, input: IngestJobInput) {
       const rootEmbeddingDim = await resolveRootEmbeddingDim({
         existingRootDim,
         vectorDim,
-        modelKey: model,
+        modelKey: toProviderQualifiedModelId(requestedSelection),
       });
       const cancelMetadata: Metadata = {
         runId,
         root,
         name,
-        model,
+        model: embeddingModel,
+        embeddingProvider,
+        embeddingModel,
+        embeddingDimensions: rootEmbeddingDim,
         files: counts.files,
         chunks: counts.chunks,
         embedded: counts.embedded,
@@ -631,7 +763,9 @@ async function processRun(runId: string, input: IngestJobInput) {
         operation,
         path: startPath,
         root,
-        model,
+        model: embeddingModel,
+        embeddingProvider,
+        embeddingModel,
         name,
         description,
         state: 'cancelled',
@@ -710,16 +844,21 @@ async function processRun(runId: string, input: IngestJobInput) {
         fileHashesByRelPath.get(file.relPath) ??
         (await hashFile(file.absPath));
       fileHashesByRelPath.set(file.relPath, fileHash);
-      const chunks = await chunkText(
-        text,
-        (await deps
-          ?.lmClientFactory(deps.baseUrl)
-          .embedding.model(model)) as unknown as EmbeddingModel,
-        ingestConfig,
+      const embeddingModelClient = await getEmbeddingModel(
+        toProviderQualifiedModelId(requestedSelection),
+        {
+          ingestFailureContext: () => ({
+            runId,
+            path: startPath,
+            root,
+            currentFile: lastFileRelPath,
+          }),
+        },
       );
+      const chunks = await chunkText(text, embeddingModelClient, ingestConfig);
       for (const chunk of chunks) {
         const chunkHash = hashChunk(file.relPath, chunk.chunkIndex, chunk.text);
-        const embedding = await embedText(model, chunk.text);
+        const embedding = await embeddingModelClient.embedText(chunk.text);
         if (embedding.length > 0) {
           vectorDim = embedding.length;
         }
@@ -735,7 +874,10 @@ async function processRun(runId: string, input: IngestJobInput) {
             chunkHash,
             embeddedAt: new Date().toISOString(),
             ingestedAtMs,
-            model,
+            model: embeddingModel,
+            embeddingProvider,
+            embeddingModel,
+            embeddingDimensions: embedding.length,
             name,
           };
           if (description) metadata.description = description;
@@ -784,13 +926,16 @@ async function processRun(runId: string, input: IngestJobInput) {
     const rootEmbeddingDim = await resolveRootEmbeddingDim({
       existingRootDim,
       vectorDim,
-      modelKey: model,
+      modelKey: toProviderQualifiedModelId(requestedSelection),
     });
     const rootMetadata: Metadata = {
       runId,
       root,
       name,
-      model,
+      model: embeddingModel,
+      embeddingProvider,
+      embeddingModel,
+      embeddingDimensions: rootEmbeddingDim,
       files: counts.files,
       chunks: counts.chunks,
       embedded: counts.embedded,
@@ -896,6 +1041,7 @@ async function processRun(runId: string, input: IngestJobInput) {
           ? (finalSkipMessage ?? 'No changes detected')
           : 'Completed',
       lastError: null,
+      error: null,
       currentFile: lastFileRelPath,
       fileIndex: fileTotal,
       fileTotal,
@@ -910,7 +1056,9 @@ async function processRun(runId: string, input: IngestJobInput) {
         operation,
         path: startPath,
         root,
-        model,
+        model: embeddingModel,
+        embeddingProvider,
+        embeddingModel,
         name,
         description,
         state: resultState,
@@ -918,7 +1066,9 @@ async function processRun(runId: string, input: IngestJobInput) {
       },
     );
   } catch (err) {
-    const errorMessage = (err as Error)?.message ?? 'Unknown error';
+    const mappedError = mapIngestError(err);
+    const errorMessage = mappedError.message;
+    const currentStatus = jobs.get(runId);
     baseLogger.error(
       {
         runId,
@@ -930,20 +1080,45 @@ async function processRun(runId: string, input: IngestJobInput) {
     setStatusAndPublish(runId, {
       runId,
       state: 'error',
-      counts: { files: 0, chunks: 0, embedded: 0 },
+      counts: currentStatus?.counts ?? { files: 0, chunks: 0, embedded: 0 },
+      ast: currentStatus?.ast,
       message: 'Failed',
       lastError: errorMessage,
+      error: mappedError.normalized,
+      currentFile: currentStatus?.currentFile,
+      fileIndex: currentStatus?.fileIndex,
+      fileTotal: currentStatus?.fileTotal,
+      percent: currentStatus?.percent,
+      etaMs: currentStatus?.etaMs,
     });
+    const selectedForErrorLog = resolveInputSelection(input);
+    if (mappedError.normalized?.provider === 'lmstudio') {
+      appendIngestFailureLog('error', {
+        runId,
+        provider: 'lmstudio',
+        code: mappedError.normalized.error,
+        retryable: mappedError.normalized.retryable,
+        model: selectedForErrorLog.modelKey,
+        path: input.path,
+        root: jobInputs.get(runId)?.root,
+        currentFile: currentStatus?.currentFile,
+        message: mappedError.normalized.message,
+        stage: 'terminal',
+      });
+    }
     logLifecycle('error', 'ingest error', {
       runId,
       operation: input.operation ?? 'start',
       path: input.path,
-      model: input.model,
+      model: selectedForErrorLog.modelKey,
+      embeddingProvider: selectedForErrorLog.providerId,
+      embeddingModel: selectedForErrorLog.modelKey,
       name: input.name,
       description: input.description,
       state: 'error',
       lastError: errorMessage,
-      counts: { files: 0, chunks: 0, embedded: 0 },
+      counts: currentStatus?.counts ?? { files: 0, chunks: 0, embedded: 0 },
+      error: mappedError.normalized,
     });
   } finally {
     ingestLock.release(runId);
@@ -953,8 +1128,21 @@ async function processRun(runId: string, input: IngestJobInput) {
 export async function startIngest(input: IngestJobInput, d: Deps) {
   deps = d;
   const operation = input.operation ?? 'start';
-  const locked = await getLockedModel();
-  if (locked && locked !== input.model) {
+  const locked = await getLockedEmbeddingModel();
+  const requested = resolveInputSelection(input);
+  if (
+    requested.providerId === 'openai' &&
+    !isOpenAiAllowlistedEmbeddingModel(requested.modelKey)
+  ) {
+    const error = new Error('OPENAI_MODEL_UNAVAILABLE');
+    (error as { code?: string }).code = 'OPENAI_MODEL_UNAVAILABLE';
+    throw error;
+  }
+  if (
+    locked &&
+    (locked.embeddingProvider !== requested.providerId ||
+      locked.embeddingModel !== requested.modelKey)
+  ) {
     const error = new Error('MODEL_LOCKED');
     (error as { code?: string }).code = 'MODEL_LOCKED';
     throw error;
@@ -971,6 +1159,7 @@ export async function startIngest(input: IngestJobInput, d: Deps) {
     counts: { files: 0, chunks: 0, embedded: 0 },
     message: 'Queued',
     lastError: null,
+    error: null,
   });
   jobInputs.set(runId, { ...input, root: input.path });
   setImmediate(() => {
@@ -1014,7 +1203,7 @@ export function getActiveStatus(): IngestJobStatus | null {
 
 export async function resetLocksIfEmpty() {
   if (await collectionIsEmpty()) {
-    await clearLockedModel();
+    await clearLockedModel({ reason: 'cleanup' });
   }
 }
 
@@ -1049,6 +1238,10 @@ export async function cancelRun(runId: string) {
   const status = jobs.get(runId);
   const input = jobInputs.get(runId);
   const root = input?.root;
+  const selected =
+    input?.model && input.model.length > 0
+      ? resolveInputSelection(input)
+      : null;
 
   if (status?.state === 'completed' || status?.state === 'error') {
     cancelledRuns.delete(runId);
@@ -1077,7 +1270,8 @@ export async function cancelRun(runId: string) {
       runId,
       root,
       name: input?.name ?? '',
-      model: input?.model ?? '',
+      model: selected?.modelKey ?? input?.model ?? '',
+      embeddingDimensions: rootEmbeddingDim,
       files: status?.counts.files ?? 0,
       chunks: status?.counts.chunks ?? 0,
       embedded: status?.counts.embedded ?? 0,
@@ -1085,6 +1279,10 @@ export async function cancelRun(runId: string) {
       lastIngestAt: new Date().toISOString(),
       ingestedAtMs: Date.now(),
     };
+    if (selected) {
+      cancelMetadata.embeddingProvider = selected.providerId;
+      cancelMetadata.embeddingModel = selected.modelKey;
+    }
     if (status?.ast) {
       cancelMetadata.astSupportedFileCount = status.ast.supportedFileCount;
       cancelMetadata.astSkippedFileCount = status.ast.skippedFileCount;
@@ -1112,13 +1310,16 @@ export async function cancelRun(runId: string) {
     ast: status?.ast,
     message: 'Cancelled',
     lastError: null,
+    error: null,
   });
   logLifecycle('info', 'ingest cancelled', {
     runId,
     operation: input?.operation ?? 'start',
     path: input?.path,
     root,
-    model: input?.model,
+    model: selected?.modelKey ?? input?.model,
+    embeddingProvider: selected?.providerId,
+    embeddingModel: selected?.modelKey,
     name: input?.name,
     description: input?.description,
     state: 'cancelled',
@@ -1206,12 +1407,70 @@ export async function reembed(rootPath: string, d: Deps) {
   });
 
   const meta = best.meta;
+  const currentLock = await getLockedEmbeddingModel();
+  const canonicalProvider =
+    typeof meta.embeddingProvider === 'string' ? meta.embeddingProvider : null;
+  const canonicalModel =
+    typeof meta.embeddingModel === 'string' ? meta.embeddingModel : null;
+  const canonicalDimensions =
+    typeof meta.embeddingDimensions === 'number' && meta.embeddingDimensions > 0
+      ? meta.embeddingDimensions
+      : null;
+  const hasAnyCanonical =
+    canonicalProvider !== null ||
+    canonicalModel !== null ||
+    canonicalDimensions !== null;
+  if (
+    hasAnyCanonical &&
+    (!canonicalProvider || !canonicalModel || !canonicalDimensions)
+  ) {
+    throw new InvalidLockMetadataError();
+  }
+  const rootState = typeof meta.state === 'string' ? meta.state : null;
+  if (rootState === 'cancelled' || rootState === 'error') {
+    const err = new Error('INVALID_REEMBED_STATE');
+    (err as { code?: string }).code = 'INVALID_REEMBED_STATE';
+    throw err;
+  }
+  const selectedProvider = hasAnyCanonical
+    ? (canonicalProvider as 'lmstudio' | 'openai')
+    : 'lmstudio';
+  const selectedModel = hasAnyCanonical
+    ? (canonicalModel as string)
+    : typeof meta.model === 'string'
+      ? meta.model
+      : '';
+  if (!selectedModel) {
+    const err = new Error('INVALID_REEMBED_STATE');
+    (err as { code?: string }).code = 'INVALID_REEMBED_STATE';
+    throw err;
+  }
+  if (
+    selectedProvider === 'openai' &&
+    !isOpenAiAllowlistedEmbeddingModel(selectedModel)
+  ) {
+    const err = new Error('OPENAI_MODEL_UNAVAILABLE');
+    (err as { code?: string }).code = 'OPENAI_MODEL_UNAVAILABLE';
+    throw err;
+  }
+  if (
+    currentLock &&
+    (currentLock.embeddingProvider !== selectedProvider ||
+      currentLock.embeddingModel !== selectedModel)
+  ) {
+    const err = new Error('MODEL_LOCKED');
+    (err as { code?: string }).code = 'MODEL_LOCKED';
+    throw err;
+  }
   const name = (meta.name as string) ?? 'repo';
   const description =
     typeof meta.description === 'string' || meta.description === null
       ? (meta.description as string | null)
       : null;
-  const model = (meta.model as string) ?? '';
+  const model =
+    selectedProvider === 'lmstudio'
+      ? selectedModel
+      : `${selectedProvider}/${selectedModel}`;
 
   await deleteRoots({ where: { root: rootPath } });
 
@@ -1242,7 +1501,9 @@ export async function removeRoot(rootPath: string) {
   baseLogger.info({ rootPath }, 'removeRoot roots deleted');
   const collectionDeleted = await deleteVectorsCollectionIfEmpty();
   if (!collectionDeleted) {
-    await resetLocksIfEmpty();
+    if (await collectionIsEmpty()) {
+      await clearLockedModel({ reason: 'remove' });
+    }
   }
   const unlocked = collectionDeleted ? true : !(await getLockedModel());
   baseLogger.info({ rootPath, unlocked }, 'removeRoot done');

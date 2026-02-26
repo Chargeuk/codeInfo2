@@ -47,7 +47,18 @@ function createRepoEntry(params: {
     containerPath: params.containerPath,
     hostPath: params.containerPath,
     lastIngestAt: null,
+    embeddingProvider: 'lmstudio',
+    embeddingModel: 'model',
+    embeddingDimensions: 768,
+    model: 'model',
     modelId: 'model',
+    lock: {
+      embeddingProvider: 'lmstudio',
+      embeddingModel: 'model',
+      embeddingDimensions: 768,
+      lockedModelId: 'model',
+      modelId: 'model',
+    },
     counts: { files: 0, chunks: 0, embedded: 0 },
     lastError: null,
   };
@@ -289,6 +300,47 @@ describe('agent commands list (v1)', () => {
     });
 
     assert.equal(res.commands[0].sourceLabel, 'repo-folder');
+  });
+
+  test('ingested command discovery tolerates legacy alias-only repo payloads', async () => {
+    const agent = await createAgent({ agentsHome: tmpDir, agentName: 'a1' });
+    const ingestedRoot = path.join(tmpDir, 'repo-legacy');
+    const ingestedCommandsDir = path.join(
+      ingestedRoot,
+      'codex_agents',
+      agent.name,
+      'commands',
+    );
+    await fs.mkdir(ingestedCommandsDir, { recursive: true });
+    await fs.writeFile(
+      path.join(ingestedCommandsDir, 'ship.json'),
+      validCommand('Ship'),
+      'utf-8',
+    );
+
+    const res = await listCommands(agent.name, {
+      listIngestedRepositories: async () => ({
+        repos: [
+          {
+            id: 'Legacy Repo',
+            description: null,
+            containerPath: ingestedRoot,
+            hostPath: ingestedRoot,
+            lastIngestAt: null,
+            model: 'legacy-model',
+            modelId: 'legacy-model',
+            counts: { files: 0, chunks: 0, embedded: 0 },
+            lastError: null,
+          } as unknown as RepoEntry,
+        ],
+        lockedModelId: null,
+      }),
+    });
+
+    assert.equal(res.commands.length, 1);
+    assert.equal(res.commands[0].name, 'ship');
+    assert.equal(res.commands[0].sourceId, ingestedRoot);
+    assert.equal(res.commands[0].sourceLabel, 'Legacy Repo');
   });
 
   test('ingested commands are skipped when agent is missing locally', async () => {

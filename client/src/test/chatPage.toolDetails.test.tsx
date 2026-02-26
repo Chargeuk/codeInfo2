@@ -262,4 +262,69 @@ describe('Chat tool details rendering (WS transcript events)', () => {
     expect(matches[0].textContent ?? '').toContain('Distance: —');
     expect(matches[0].textContent ?? '').toContain('Preview: —');
   });
+
+  it('renders model identity from canonical repo fields when modelId alias is absent', async () => {
+    const harness = setupChatWsHarness({ mockFetch });
+    const user = userEvent.setup();
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+    render(<RouterProvider router={router} />);
+
+    const input = await screen.findByTestId('chat-input');
+    fireEvent.change(input, { target: { value: 'List repos' } });
+    const sendButton = await screen.findByTestId('chat-send');
+    await waitFor(() => expect(sendButton).toBeEnabled());
+
+    await act(async () => {
+      await user.click(sendButton);
+    });
+
+    await waitFor(() => expect(harness.chatBodies.length).toBe(1));
+
+    const conversationId = harness.getConversationId();
+    const inflightId = harness.getInflightId() ?? 'i1';
+    expect(conversationId).toBeTruthy();
+
+    harness.emitInflightSnapshot({
+      conversationId: conversationId!,
+      inflightId,
+    });
+    harness.emitToolEvent({
+      conversationId: conversationId!,
+      inflightId,
+      event: {
+        type: 'tool-result',
+        callId: 't4',
+        name: 'ListIngestedRepositories',
+        stage: 'success',
+        parameters: {},
+        result: {
+          repos: [
+            {
+              id: 'repo-one',
+              containerPath: '/repo',
+              embeddingProvider: 'openai',
+              embeddingModel: 'text-embedding-3-small',
+            },
+          ],
+        },
+      },
+    });
+    harness.emitAssistantDelta({
+      conversationId: conversationId!,
+      inflightId,
+      delta: 'done',
+    });
+    harness.emitFinal({
+      conversationId: conversationId!,
+      inflightId,
+      status: 'ok',
+    });
+
+    const toolToggle = await screen.findByTestId('tool-toggle');
+    await user.click(toolToggle);
+    expect(
+      await screen.findByText(/Model: openai \/ text-embedding-3-small/),
+    ).toBeInTheDocument();
+  });
 });

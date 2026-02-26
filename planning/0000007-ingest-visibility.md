@@ -93,7 +93,7 @@ Expose per-file ingest progress: show current file path, index/total, percentage
 8. [x] Docs: update `design.md` with per-file progress flow and mermaid diagram.
 9. [x] Docs: update `projectStructure.md` if new files are added.
 10. [x] Lint/format: `npm run lint --workspaces`, `npm run format:check --workspaces`; fix issues.
-11. [ ] Execution order: server fields → server unit → Cucumber → client hook/UI → client RTL → e2e → docs → lint/format.
+11. [x] Execution order: server fields → server unit → Cucumber → client hook/UI → client RTL → e2e → docs → lint/format.
 
 #### Testing
 
@@ -209,7 +209,7 @@ Handle streaming reasoning for `<think>` and Harmony channel tags by collapsing 
 8. [x] Docs: update `design.md` with parser state machine bullets and mermaid diagram.
 9. [x] Docs: update `projectStructure.md` if a helper module is added.
 10. [x] Lint/format: `npm run lint --workspaces`, `npm run format:check --workspaces`; fix issues.
-11. [ ] Order: parser → UI → client tests → server tests (if any) → e2e → docs → lint/format.
+11. [x] Order: parser → UI → client tests → server tests (if any) → e2e → docs → lint/format.
 
 #### Testing
 
@@ -260,7 +260,7 @@ Render assistant visible content as markdown (excluding mermaid) with safe strea
 6. [x] Docs: update `design.md` with renderer choice, sanitizer, and streaming notes.
 7. [x] Docs: update `projectStructure.md` if a markdown wrapper file is added.
 8. [x] Lint/format: `npm run lint --workspaces`, `npm run format:check --workspaces`; fix issues.
-9. [ ] Order: renderer wrapper → wire into chat → client tests → docs → lint/format.
+9. [x] Order: renderer wrapper → wire into chat → client tests → docs → lint/format.
 
 #### Testing
 
@@ -286,7 +286,7 @@ Render assistant visible content as markdown (excluding mermaid) with safe strea
 
 ### 5. Mermaid rendering
 
-- Task Status: **in_progress**
+- Task Status: **__done__**
 - Git Commits: **to_do**
 
 #### Overview
@@ -365,7 +365,7 @@ End-to-end validation against acceptance criteria: ingest progress visibility, t
 8. [x] E2E: mermaid rendering of `mermaid` block (new `e2e/chat-mermaid.spec.ts`); capture screenshot.
 9. [x] Create a reasonable summary of all changes within this story and create a pull request comment. It needs to include information about ALL changes made as part of this story.
 10. [x] Run `npm run lint --workspaces`, `npm run format:check --workspaces` & fix any issues.
-11. [ ] Order: docs updates -> e2e additions -> summary/PR comment -> lint/format.
+11. [x] Order: docs updates -> e2e additions -> summary/PR comment -> lint/format.
 
 #### Testing
 

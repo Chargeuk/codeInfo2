@@ -4,6 +4,7 @@ import path from 'node:path';
 import pino from 'pino';
 import { pinoHttp } from 'pino-http';
 import pinoRoll from 'pino-roll';
+import { ensureStartupEnvLoaded } from './config/startupEnv.js';
 
 type LogConfig = {
   level: string;
@@ -13,6 +14,8 @@ type LogConfig = {
   filePath: string;
   rotate: boolean;
 };
+
+ensureStartupEnvLoaded();
 
 export const MANUAL_ACCEPTANCE_CHECK_STARTED_TAG =
   'DEV-0000035:T13:manual_acceptance_check_started';

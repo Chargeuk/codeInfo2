@@ -145,7 +145,25 @@ const selectEmbeddingModel = async (
   }
   const modelSelect = page.getByLabel('Embedding model');
   if (await modelSelect.isEnabled()) {
-    await modelSelect.selectOption(chosenModelId as string);
+    const resolvedValue = await modelSelect.evaluate((el, modelId) => {
+      const select = el as HTMLSelectElement;
+      const options = Array.from(select.options);
+      const direct = options.find((option) => option.value === modelId);
+      if (direct) {
+        return direct.value;
+      }
+      const providerQualified = options.find((option) =>
+        option.value.endsWith(`::${modelId}`),
+      );
+      return providerQualified?.value ?? null;
+    }, chosenModelId as string);
+
+    if (!resolvedValue) {
+      throw new Error(
+        `embedding model option not found in select for ${chosenModelId}`,
+      );
+    }
+    await modelSelect.selectOption(resolvedValue);
   } else {
     console.log(
       `[e2e:ingest] embedding model select disabled; assuming locked to ${chosenModelId}`,

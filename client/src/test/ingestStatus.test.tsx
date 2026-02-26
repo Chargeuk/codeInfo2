@@ -1,12 +1,18 @@
 import { jest } from '@jest/globals';
 import {
   act,
+  cleanup,
   render,
   renderHook,
   screen,
   waitFor,
 } from '@testing-library/react';
-import { RouterProvider, createMemoryRouter } from 'react-router-dom';
+import {
+  MemoryRouter,
+  RouterProvider,
+  createMemoryRouter,
+} from 'react-router-dom';
+import ActiveRunCard from '../components/ingest/ActiveRunCard';
 import useIngestStatus from '../hooks/useIngestStatus';
 import type {
   WebSocketMockInstance,
@@ -433,5 +439,52 @@ describe('IngestPage realtime status UI', () => {
       expect(rootCalls.length).toBeGreaterThan(1);
       expect(screen.queryByText('Active ingest')).not.toBeInTheDocument();
     });
+  });
+});
+
+describe('ActiveRunCard error compatibility rendering', () => {
+  afterEach(() => {
+    cleanup();
+  });
+
+  it('renders legacy string lastError payload safely', () => {
+    render(
+      <MemoryRouter>
+        <ActiveRunCard
+          runId="run-legacy"
+          status="error"
+          lastError="Legacy failure message"
+          isLoading={false}
+          isCancelling={false}
+          onCancel={async () => undefined}
+        />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByTestId('ingest-last-error')).toHaveTextContent(
+      'Legacy failure message',
+    );
+  });
+
+  it('renders normalized object lastError payload safely', () => {
+    render(
+      <MemoryRouter>
+        <ActiveRunCard
+          runId="run-normalized"
+          status="error"
+          lastError={{
+            message: 'Normalized failure message',
+            details: 'detail',
+          }}
+          isLoading={false}
+          isCancelling={false}
+          onCancel={async () => undefined}
+        />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByTestId('ingest-last-error')).toHaveTextContent(
+      'Normalized failure message',
+    );
   });
 });

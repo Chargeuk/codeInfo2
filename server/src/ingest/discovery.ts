@@ -2,6 +2,7 @@ import { execFile as execFileCb } from 'child_process';
 import fs from 'fs/promises';
 import path from 'path';
 import { promisify } from 'util';
+import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
 import { resolveConfig } from './config.js';
 import { IngestConfig, DiscoveredFile } from './types.js';
@@ -89,7 +90,25 @@ async function isLikelyText(filePath: string): Promise<boolean> {
       if (buffer[i] === 0) return false;
     }
     return true;
-  } catch {
+  } catch (error) {
+    append({
+      level: 'warn',
+      source: 'server',
+      message: 'DEV-0000036:T19:ingest_discovery_text_detection_fallback',
+      timestamp: new Date().toISOString(),
+      context: {
+        path: filePath,
+        fallback: 'skip_file',
+        reason:
+          error instanceof Error
+            ? error.message.slice(0, 300)
+            : String(error ?? 'unknown').slice(0, 300),
+      },
+    });
+    baseLogger.warn(
+      { path: filePath, err: error },
+      'ingest discovery text detection fallback',
+    );
     return false;
   }
 }

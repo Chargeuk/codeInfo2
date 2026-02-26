@@ -6,6 +6,7 @@ import { After, Before, Given, Then, When } from '@cucumber/cucumber';
 import type { LMStudioClient } from '@lmstudio/sdk';
 import cors from 'cors';
 import express from 'express';
+import { OpenAiEmbeddingError } from '../../ingest/providers/index.js';
 import { createRequestLogger } from '../../logger.js';
 import { createIngestModelsRouter } from '../../routes/ingestModels.js';
 import { createLogsRouter } from '../../routes/logs.js';
@@ -19,9 +20,16 @@ import {
 let server: Server | null = null;
 let baseUrl = '';
 let response: { status: number; body: unknown | null } | null = null;
+let openAiScenario:
+  | 'ok'
+  | 'disabled'
+  | 'transient-failure'
+  | 'allowlist-no-match' = 'ok';
 
 Before(async () => {
   process.env.LMSTUDIO_BASE_URL = 'ws://localhost:1234';
+  process.env.OPENAI_EMBEDDING_KEY = 'sk-test';
+  openAiScenario = 'ok';
   const app = express();
   app.use(cors());
   app.use(createRequestLogger());
@@ -36,6 +44,24 @@ Before(async () => {
     createIngestModelsRouter({
       clientFactory: () =>
         new MockLMStudioClient() as unknown as LMStudioClient,
+      openAiListModels: async () => {
+        if (openAiScenario === 'disabled') {
+          throw new Error('OpenAI list should not be called when disabled');
+        }
+        if (openAiScenario === 'transient-failure') {
+          throw new OpenAiEmbeddingError(
+            'OPENAI_TIMEOUT',
+            'timeout',
+            true,
+            408,
+            2000,
+          );
+        }
+        if (openAiScenario === 'allowlist-no-match') {
+          return [{ id: 'text-embedding-ada-002' }];
+        }
+        return [{ id: 'text-embedding-3-small' }];
+      },
     }),
   );
   app.use('/logs', createLogsRouter());
@@ -65,6 +91,16 @@ Given('ingest models scenario {string}', (name: string) => {
   startMock({ scenario: name as MockScenario });
 });
 
+Given('ingest models OpenAI scenario {string}', (name: string) => {
+  const next = name as typeof openAiScenario;
+  openAiScenario = next;
+  if (next === 'disabled') {
+    process.env.OPENAI_EMBEDDING_KEY = '   ';
+  } else {
+    process.env.OPENAI_EMBEDDING_KEY = 'sk-test';
+  }
+});
+
 When('I request ingest models', async () => {
   const res = await fetch(`${baseUrl}/ingest/models`);
   response = { status: res.status, body: await res.json() };
@@ -87,6 +123,23 @@ Then(
   (field: string, expected: string) => {
     assert(response?.body, 'expected response body');
     const value = (response.body as Record<string, unknown>)[field];
+    assert.equal(String(value), expected);
+  },
+);
+
+Then(
+  'the ingest models path {string} equals {string}',
+  (path: string, expected: string) => {
+    assert(response?.body, 'expected response body');
+    const value = path
+      .split('.')
+      .reduce<unknown>(
+        (acc, key) =>
+          acc && typeof acc === 'object'
+            ? (acc as Record<string, unknown>)[key]
+            : undefined,
+        response.body as unknown,
+      );
     assert.equal(String(value), expected);
   },
 );

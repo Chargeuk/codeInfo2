@@ -71,6 +71,252 @@ flowchart TD
   T -- no --> X[Drop stale flags.threadId before persistence]
 ```
 
+## Embedding flow refactor (Task 1)
+
+- `server/src/ingest/providers/lmstudioEmbeddingProvider.ts` now centralizes LM Studio-specific embedding/model-discovery operations behind a provider interface consumed by ingest and vector-search paths.
+- Ingest path (`server/src/ingest/ingestJob.ts`) now asks the provider for `getModel()` and uses `embedText()` for chunk embeddings, replacing inline LM Studio client calls while preserving vector payload and lock behavior.
+- Query path (`server/src/lmstudio/toolService.ts` + `server/src/ingest/chromaClient.ts`) now uses `createLmStudioEmbeddingProvider(...).createEmbeddingFunction()` and resolves the locked embedding function through `getVectorsCollection({ requireEmbedding: true })`, preserving the same `getVectorsCollection(...).query(...)` usage.
+- Task 1 does not change REST/MCP response contracts; parity is enforced by parity-focused unit tests and logs.
+
+```mermaid
+flowchart LR
+  A[Ingest chunk loop] --> B[resolveEmbeddingModel]
+  B --> C[provider.getModel(modelKey)]
+  C --> D[Provider embedText(text)]
+  D --> E[vectors.add]
+  F[tools/vector-search] --> G[resolveLockedEmbeddingFunction]
+  G --> H[provider.createEmbeddingFunction(modelKey)]
+  H --> I[embedding.generate(queryTexts)]
+  I --> J[collection.query]
+```
+
+```mermaid
+flowchart LR
+  K[Legacy direct LM Studio calls] --> L[Task 1 adapter calls]
+  L --> M[Single LM Studio adapter for ingest/query]
+  M --> N[Contracts unchanged]
+```
+
+## OpenAI embedding adapter (Task 0000036-T6)
+
+- Added OpenAI embedding execution behind the shared provider interface in `server/src/ingest/providers/`.
+- Provider selection is deterministic from model id via `resolveEmbeddingModelSelection(...)`:
+  - `openai/<model>` prefix -> OpenAI provider.
+  - `lmstudio/<model>` prefix -> LM Studio provider.
+  - Unprefixed allowlisted OpenAI ids (`text-embedding-3-small`, `text-embedding-3-large`) -> OpenAI provider.
+  - Otherwise -> LM Studio provider.
+- Ingest and query paths both use the same provider boundary:
+  - Ingest: `ingestJob.ts` resolves provider model and executes `embedText(...)`.
+  - Query: `chromaClient.ts` resolves locked model provider and supplies `EmbeddingFunction` for `getVectorsCollection({ requireEmbedding: true })`.
+- OpenAI guardrails are enforced before each OpenAI upstream request:
+  - max `2048` inputs/request
+  - per-input model token limit (`resolveOpenAiModelTokenLimit`)
+  - max `300000` total estimated tokens/request.
+- Retry behavior uses existing shared retry utility (`runWithRetry`) with OpenAI-specific policy:
+  - retries: runtime-configurable via `OPENAI_INGEST_MAX_RETRIES` (retry attempts after the initial call)
+  - fallback/default retries: `3` (4 total attempts when fallback is used)
+  - base delay `500ms`, max delay `8000ms`
+  - jitter range `[0.75, 1.0]`
+  - wait-hint precedence: `retry-after-ms` -> `retry-after` -> bounded exponential fallback.
+- OpenAI SDK retry ownership is disabled (`maxRetries=0`) and per-call timeout is fixed to `30000ms`.
+- OpenAI errors are normalized into deterministic `OPENAI_*` taxonomy with `retryable`, `upstreamStatus`, and optional `retryAfterMs` metadata, with secret-safe message sanitization.
+- OpenAI adapter observability logs:
+  - `DEV-0000036:T6:openai_embedding_attempt` (`attempt`, `model`, `inputCount`, `tokenEstimate`)
+  - `DEV-0000036:T6:openai_embedding_result_mapped` (`status`, `code`, `retryable`, optional `waitMs`).
+
+```mermaid
+flowchart TD
+  A[Model id selected or locked] --> B[resolveEmbeddingModelSelection]
+  B -->|openai| C[createOpenAiEmbeddingProvider]
+  B -->|lmstudio| D[createLmStudioEmbeddingProvider]
+  C --> E[validateOpenAiEmbeddingGuardrails]
+  E --> F[runOpenAiWithRetry]
+  F --> G[openai.embeddings.create timeout=30000 maxRetries=0]
+  G --> H[validateEmbeddingResponse shape]
+  H --> I[return vectors to ingest/query caller]
+  D --> J[LM Studio model embed path]
+```
+
+```mermaid
+flowchart LR
+  A1[Retryable OpenAI failure] --> B1{retry-after-ms header?}
+  B1 -- yes --> C1[wait = retry-after-ms]
+  B1 -- no --> D1{retry-after header?}
+  D1 -- yes --> E1[wait = parsed retry-after]
+  D1 -- no --> F1[wait = exponential backoff capped at 8000 with jitter 0.75-1.0]
+  C1 --> G1[next attempt]
+  E1 --> G1
+  F1 --> G1
+```
+
+```mermaid
+flowchart TD
+  X[OpenAI error/input] --> Y{status/classification}
+  Y -->|401| Z1[OPENAI_AUTH_FAILED retryable=false]
+  Y -->|403| Z2[OPENAI_PERMISSION_DENIED retryable=false]
+  Y -->|404| Z3[OPENAI_MODEL_UNAVAILABLE retryable=false]
+  Y -->|400 + size/token| Z4[OPENAI_INPUT_TOO_LARGE retryable=false]
+  Y -->|400 other| Z5[OPENAI_BAD_REQUEST retryable=false]
+  Y -->|422| Z6[OPENAI_UNPROCESSABLE retryable=false]
+  Y -->|429 quota| Z7[OPENAI_QUOTA_EXCEEDED retryable=false]
+  Y -->|429 rate| Z8[OPENAI_RATE_LIMITED retryable=true]
+  Y -->|timeout| Z9[OPENAI_TIMEOUT retryable=true]
+  Y -->|connection| Z10[OPENAI_CONNECTION_FAILED retryable=true]
+  Y -->|>=500 or unknown transient| Z11[OPENAI_UNAVAILABLE retryable=true]
+```
+
+## Provider-aware embedding lock lifecycle (Task 0000036-T7)
+
+- Lock identity is now canonical in vector collection metadata as:
+  - `embeddingProvider` (`lmstudio` | `openai`)
+  - `embeddingModel` (provider model id, unqualified)
+  - `embeddingDimensions` (resolved vector length)
+  - compatibility alias `lockedModelId` mirrors `embeddingModel`.
+- Lock read behavior is deterministic:
+  - First try canonical fields (`embeddingProvider` + `embeddingModel` + `embeddingDimensions`).
+  - If canonical fields are absent, fallback to legacy `lockedModelId` and infer `embeddingProvider=lmstudio` with unknown dimensions.
+  - If canonical fields are partially populated, throw deterministic `INVALID_LOCK_METADATA` (no silent inference).
+- Lock write behavior is canonical-only for runtime paths:
+  - first successful embedding write persists provider/model/dimensions and alias.
+- Re-embed provider/model resolution order:
+  - active canonical lock first, then canonical root metadata, then legacy root `model`.
+  - provider/model switching away from lock is rejected with `MODEL_LOCKED`.
+  - invalid terminal root states (`cancelled`, `error`) are rejected with `INVALID_REEMBED_STATE`.
+- Query-time enforcement:
+  - REST `/tools/vector-search` and classic MCP `VectorSearch` share `vectorSearch(...)` and use the locked provider/model path.
+  - query embedding is generated before Chroma query and validated against `embeddingDimensions`.
+  - mismatches return normalized `EMBEDDING_DIMENSION_MISMATCH` before Chroma call.
+- Task 7 lock lifecycle logs:
+  - `DEV-0000036:T7:embedding_lock_written`
+  - `DEV-0000036:T7:embedding_lock_cleared` (with `reason` and cleared id)
+
+```mermaid
+flowchart TD
+  A[Read vectors metadata] --> B{canonical provider/model/dim present?}
+  B -- yes --> C[Use canonical lock]
+  B -- no --> D{legacy lockedModelId present?}
+  D -- yes --> E[Infer provider=lmstudio, model=lockedModelId]
+  D -- no --> F[No lock]
+  B -->|partial canonical| G[INVALID_LOCK_METADATA]
+```
+
+```mermaid
+flowchart LR
+  A[vectorSearch request] --> B[resolve locked provider/model]
+  B --> C[generate query embedding with locked provider/model]
+  C --> D{embedding length == locked embeddingDimensions?}
+  D -- no --> E[EMBEDDING_DIMENSION_MISMATCH]
+  D -- yes --> F[Chroma queryEmbeddings]
+  F --> G[map results]
+```
+
+## `/ingest/models` provider-aware warning envelopes (Task 0000036-T8)
+
+- `GET /ingest/models` now returns deterministic `200` envelopes for partial provider failures.
+- Response contract is canonical:
+  - `models[]` entries include only `id`, `displayName`, and `provider`.
+  - `lock` returns canonical lock identity (`embeddingProvider`, `embeddingModel`, `embeddingDimensions`) or `null`.
+  - `lockedModelId` remains a compatibility alias and mirrors `lock.embeddingModel` when lock exists.
+  - `openai` and `lmstudio` envelopes expose deterministic `status`/`statusCode` plus optional warning metadata.
+- OpenAI status machine:
+  - `OPENAI_DISABLED` when key is missing/blank/whitespace (no OpenAI list call attempted).
+  - `OPENAI_OK` when allowlisted OpenAI models are available.
+  - `OPENAI_ALLOWLIST_NO_MATCH` when list succeeds but `allowlist ∩ list` is empty (`retryable=false`).
+  - `OPENAI_MODELS_LIST_TEMPORARY_FAILURE`, `OPENAI_MODELS_LIST_AUTH_FAILED`, and `OPENAI_MODELS_LIST_UNAVAILABLE` for mapped list failures.
+- LM Studio status machine:
+  - `LMSTUDIO_OK` when embedding model list succeeds.
+  - `LMSTUDIO_MODELS_LIST_TEMPORARY_FAILURE` or `LMSTUDIO_MODELS_LIST_UNAVAILABLE` when listing fails or base URL is invalid/unreachable.
+- Required Task 8 observability logs:
+  - `DEV-0000036:T8:ingest_models_response_summary`
+  - `DEV-0000036:T8:ingest_models_warning_status` (emitted for OpenAI warning states).
+
+```mermaid
+flowchart TD
+  A[GET /ingest/models] --> B[Resolve canonical lock]
+  B --> C{OPENAI_EMBEDDING_KEY usable?}
+  C -- no --> D[openai: OPENAI_DISABLED]
+  C -- yes --> E[List OpenAI models]
+  E -->|mapped failure| F[openai warning statusCode]
+  E -->|success| G[allowlist intersection + deterministic ordering]
+  G -->|empty| H[OPENAI_ALLOWLIST_NO_MATCH]
+  G -->|non-empty| I[OPENAI_OK]
+  B --> J{LMSTUDIO_BASE_URL valid + list ok?}
+  J -- yes --> K[LMSTUDIO_OK + lmstudio models]
+  J -- no --> L[LMSTUDIO warning envelope]
+  D --> M[merge models + lock + envelopes]
+  F --> M
+  H --> M
+  I --> M
+  K --> M
+  L --> M
+  M --> N[HTTP 200 deterministic response]
+```
+
+## Ingest Start/Reembed/Vector-Search Contracts (Task 0000036-T9)
+
+- `POST /ingest/start` accepts canonical `embeddingProvider` + `embeddingModel` while still accepting legacy `model`.
+- Canonical fields are authoritative when canonical + legacy are both sent; legacy-only input continues to map to LM Studio compatibility behavior.
+- Ingest/re-embed OpenAI model validation is deterministic and allowlist-enforced. Non-allowlisted or unavailable models return `OPENAI_MODEL_UNAVAILABLE` with no silent fallback.
+- Lock conflicts return canonical lock payloads plus compatibility alias:
+  - `lock.embeddingProvider`
+  - `lock.embeddingModel`
+  - `lock.embeddingDimensions`
+  - `lockedModelId` mirrors `lock.embeddingModel`
+- Vector-search (REST + classic MCP) now shares one normalized OpenAI error contract:
+  - required: `error`, `message`, `retryable`, `provider`
+  - optional: `upstreamStatus`, `retryAfterMs`
+  - secret-safe message sanitization is enforced before responses/logging.
+- Ingest status and roots surfaces retain legacy `lastError` string compatibility while carrying normalized error object metadata.
+- Task 9 observability logs:
+  - `DEV-0000036:T9:ingest_request_contract_validated`
+  - `DEV-0000036:T9:openai_error_contract_mapped`
+
+```mermaid
+flowchart TD
+  A[POST /ingest/start request] --> B{canonical fields present?}
+  B -- yes --> C[validate embeddingProvider + embeddingModel]
+  B -- no --> D[map legacy model to lmstudio compatibility]
+  C --> E{openai model allowlisted?}
+  E -- no --> F[409 OPENAI_MODEL_UNAVAILABLE]
+  E -- yes --> G[resolve requested provider/model]
+  D --> G
+  G --> H{collection locked to different provider/model?}
+  H -- yes --> I[409 MODEL_LOCKED with canonical lock + lockedModelId alias]
+  H -- no --> J[start ingest with resolved canonical selection]
+```
+
+```mermaid
+flowchart LR
+  A1[OpenAI failure in embedding/query path] --> B1[map via canonical error translator]
+  B1 --> C1[secret-safe normalized payload]
+  C1 --> D1[REST /tools/vector-search error envelope]
+  C1 --> E1[classic MCP VectorSearch error envelope]
+  C1 --> F1[ingest status/roots normalized lastError metadata]
+```
+
+## Startup env loading parity (Task 3)
+
+- Startup now uses deterministic env precedence that matches compose env-file behavior for unset values: `server/.env` first, then `server/.env.local`.
+- Runtime/container-preseeded env vars are preserved and are not clobbered by file loading (for example an externally injected `OPENAI_EMBEDDING_KEY`).
+- Env bootstrap is centralized in `server/src/config/startupEnv.ts` and is loaded before logger config resolution so env-driven logger/runtime settings use the same startup precedence.
+- Missing `server/.env.local` is a valid state and does not fail startup.
+- Startup emits deterministic diagnostic events:
+  - `DEV-0000036:T3:env_load_order_applied` with ordered files and whether local override was applied.
+  - `DEV-0000036:T3:openai_embedding_capability_state` with `enabled=true|false` only.
+- Capability logging is secret-safe: no `OPENAI_EMBEDDING_KEY` value is logged or appended.
+
+```mermaid
+flowchart LR
+  A[Server boot] --> B[load server/.env]
+  B --> C{server/.env.local exists?}
+  C -- yes --> D[load server/.env.local with override]
+  C -- no --> E[skip local override]
+  D --> F[resolve logger/runtime config]
+  E --> F
+  F --> G[log DEV-0000036:T3:env_load_order_applied]
+  G --> H[log DEV-0000036:T3:openai_embedding_capability_state]
+```
+
 ## MCP keepalive lifecycle (shared helper)
 
 - MCP keepalive lifecycle is centralized in `server/src/mcpCommon/keepAlive.ts` and reused by classic `POST /mcp`, MCP v2 (`server/src/mcp2/router.ts`), and Agents MCP (`server/src/mcpAgents/router.ts`).
@@ -187,6 +433,52 @@ sequenceDiagram
 - Core execution supports `llm`, `startLoop`, `break`, and `command` steps; unsupported step types return `400 { error: "invalid_request" }`.
 - `startLoop` executes its nested steps repeatedly, tracking a loop stack with `loopStepPath` and iteration count; `break` exits only the nearest loop.
 - `break` asks the configured agent to answer JSON `{ "answer": "yes" | "no" }` and fails the step (turn_final status `failed`) if the response is invalid.
+- Break parsing uses a strict-first strategy order in `parseBreakAnswer`: direct JSON body parse, then fenced `json` block extraction, then balanced JSON-object scanning.
+- Schema gating remains exact for break answers: only `{ "answer": "yes" | "no" }` is accepted; extra keys or unsupported values are rejected deterministically.
+- Parser observability emits:
+  - `DEV-0000036:T4:break_parse_strategy_attempted` with strategy name and candidate count.
+  - `DEV-0000036:T4:break_parse_result` with accepted state and normalized reason code.
+- Task 0000036-T5 adds shared retry orchestration for flow-step and command-step failures:
+  - Shared budget: `FLOW_AND_COMMAND_RETRIES` (default `5`) where the value is total attempts (initial attempt included).
+  - Retry prompt format (attempts after the first): `Your previous attempt at this task failed with the error "<error information>", please try again:` followed by the original step instruction.
+  - Retry context sanitization uses shared helpers (`getErrorMessage` extraction, secret redaction, deterministic truncation).
+  - Non-retryable stop semantics are preserved (`status=stopped`, abort/cancel paths are not retried).
+  - Intermediate retry attempts suppress persistence/finalization so only terminal step outcomes emit `turn_final` and persisted turns.
+  - Observability logs:
+    - `DEV-0000036:T5:step_retry_attempt` (`surface`, `attempt`, `maxAttempts`, `reason`, `retryPromptInjected`, `sanitizedErrorLength`)
+    - `DEV-0000036:T5:step_retry_exhausted` (same metadata plus terminal status)
+- Flow retry loop semantics for Task 0000036-T5:
+
+```mermaid
+flowchart TD
+  A[Run flow step attempt N] --> B{status == stopped or abort?}
+  B -- yes --> C[Terminal stopped result, no retry]
+  B -- no --> D{status == failed and N < maxAttempts?}
+  D -- yes --> E[Log step_retry_attempt and sanitize error]
+  E --> F[Build retry instruction prefix plus original step text]
+  F --> G[Suppress intermediate persist and finalize]
+  G --> H[Run next attempt N+1]
+  D -- no --> I[Persist terminal outcome]
+  I --> J[Emit one terminal turn_final]
+  J --> K{status == failed and N == maxAttempts?}
+  K -- yes --> L[Log step_retry_exhausted]
+  K -- no --> M[Continue flow progression]
+```
+
+- Command step retry loop semantics for Task 0000036-T5:
+
+```mermaid
+flowchart TD
+  A1[Run command item attempt N] --> B1{AbortError?}
+  B1 -- yes --> C1[Stop immediately, no retry]
+  B1 -- no --> D1{Error and N < maxAttempts?}
+  D1 -- yes --> E1[Log step_retry_attempt with surface=command]
+  E1 --> F1[Inject sanitized retry prefix before original instruction]
+  F1 --> G1[Retry with backoff]
+  D1 -- no --> H1{Error and N == maxAttempts?}
+  H1 -- yes --> I1[Log step_retry_exhausted and fail step]
+  H1 -- no --> J1[Success path]
+```
 - `command` steps load `commands/<commandName>.json` for the specified agent and run each command item as a flow instruction; missing/invalid commands return `invalid_request` and emit a failed `turn_final`.
 - Each `llm` message entry is joined into a single instruction string and streamed via the existing WS protocol (no new event types).
 - Flow turns attach `turn.command` metadata with `{ name: 'flow', stepIndex, totalSteps, loopDepth, agentType, identifier, label }` (label defaults to the step type) and log `flows.turn.metadata_attached`.
@@ -222,6 +514,20 @@ sequenceDiagram
     else continue
   end
 end
+```
+
+```mermaid
+flowchart TD
+  A[Break assistant content] --> B[Strategy 1: strict JSON.parse(content)]
+  B -->|valid + exact schema| C[accept answer]
+  B -->|invalid| D[Strategy 2: fenced json candidates]
+  D -->|first valid candidate| C
+  D -->|none valid| E[Strategy 3: balanced object candidates]
+  E -->|first valid candidate| C
+  E -->|none valid| F[INVALID_BREAK_RESPONSE]
+  C --> G[normalize content to {"answer":"yes|no"}]
+  G --> H[emit turn_final status ok]
+  F --> I[emit turn_final status failed]
 ```
 
 ## Flows (agent transcript persistence)
@@ -627,7 +933,7 @@ flowchart LR
 
 - Codex can emit transient reconnect errors like `Reconnecting... 1/5`.
 - `McpResponder` treats messages matching `/^Reconnecting\.\.\.\s+\d+\/\d+$/` as non-fatal: it tracks/counts them for diagnostics but does not fail `toResult()`.
-- Agent command macros retry per step when the _step call_ fails with a transient reconnect error (fixed defaults): `MAX_ATTEMPTS = 3`, `BASE_DELAY_MS = 500`, exponential backoff (`* 2 ** (attempt - 1)`), AbortSignal-aware sleep.
+- Agent command macros use the same shared retry budget as flows (`FLOW_AND_COMMAND_RETRIES`, default `5`) with exponential backoff (`500ms * 2 ** (attempt - 1)`), AbortSignal-aware sleep, and retry prompt injection on attempts after the first.
 - Retry logs include `conversationId`, `agentName`, `commandName`, `stepIndex`, `attempt`, and `maxAttempts` and avoid logging prompt content.
 
 ```mermaid
@@ -1255,6 +1561,25 @@ sequenceDiagram
 ```
 
 - Flow: client calls server → server lists downloaded models → filters to embedding type/capability → adds lock status → returns JSON; errors bubble as 502 with `{status:"error", message}`.
+
+### Ingest lock resolver unification (Task 0000036-T2)
+
+- Canonical lock reads now come from `server/src/ingest/chromaClient.ts#getLockedModel`.
+- `server/src/ingest/modelLock.ts` has been removed; routes/tools no longer read lock state from a placeholder path.
+- Lock-reporting surfaces (`/ingest/models`, `/ingest/roots`, `/tools/ingested-repos`, classic MCP `ListIngestedRepositories`, and vector-search call paths) all resolve lock values through the same canonical dependency wiring.
+- Task 2 intentionally keeps public payloads unchanged (`lockedModelId` remains the contract in these surfaces) while removing internal divergence.
+
+```mermaid
+flowchart TD
+  A[chromaClient.getLockedModel\ncanonical source] --> B[/ingest/models]
+  A --> C[/ingest/roots]
+  A --> D[/tools/ingested-repos]
+  A --> E[toolService.listIngestedRepositories]
+  E --> F[MCP ListIngestedRepositories]
+  A --> G[getVectorsCollection requireEmbedding]
+  G --> H[toolService.vectorSearch]
+  H --> I[MCP VectorSearch]
+```
 
 ### Ingest directory picker (server-backed)
 
@@ -2324,6 +2649,36 @@ sequenceDiagram
     Logs-->>UI: { items, lastSequence }
   else Assert via stream
     UI->>Logs: GET /logs/stream (SSE)
+
+### Story 0000036 Task 17: ingest provider failure visibility
+
+- Ingest provider failures are now emitted as frontend-visible log entries with message `DEV-0000036:T17:ingest_provider_failure`.
+- OpenAI retry attempts emit `level=warn` with `stage=retry` and include retry context (`attempt`, `waitMs`) while preserving existing retry/backoff behavior.
+- Terminal provider failures emit `level=error` with `stage=terminal`; this includes non-retryable OpenAI first-attempt failures and LM Studio ingest/provider failures.
+- Required context fields are emitted when available: `runId`, `provider`, `code`, `retryable`, `attempt`, `waitMs`, `model`, `path`, `root`, `currentFile`, `message`, and `stage` (plus `upstreamStatus`/`retryAfterMs` when available).
+- Backend diagnostics remain unchanged: `baseLogger` still records stack/cause details, and frontend-visible summary entries are appended in parallel for `/logs` and `/logs/stream` consumption.
+
+### Story 0000036 Task 18: OpenAI ingest retry budget env override
+
+- OpenAI ingest retry budget is now resolved from `OPENAI_INGEST_MAX_RETRIES` at runtime.
+- Semantics are explicit: env value is retry attempts after the initial attempt, and retry execution still uses `maxAttempts = retries + 1`.
+- Invalid, non-numeric, zero, and negative values deterministically fall back to default retry budget `3`.
+- The repository default is committed in `server/.env` as `OPENAI_INGEST_MAX_RETRIES=10`.
+- Existing retry mechanics are unchanged: wait-hint precedence, bounded exponential backoff, jitter range, retryable-code mapping, and SDK retry disablement (`maxRetries=0`) remain in place.
+
+### Story 0000036 Task 19: ingest route catch/log hardening and LM Studio retry parity
+
+- Route catch paths for `/ingest/start`, `/ingest/reembed/:root`, `/ingest/cancel/:runId`, and `/ingest/roots` now classify failures with a shared helper and always append frontend-visible summary entries before returning deterministic error envelopes.
+- Shared classification is implemented in `server/src/ingest/providers/ingestFailureClassifier.ts` and maps failures to `{code, retryable, severity, provider, surface}`, enforcing retryable=>`warn` and non-retryable=>`error`.
+- LM Studio provider path now emits deterministic normalized errors (`LmStudioEmbeddingError`) and applies bounded ingestion retry (`maxAttempts=3`, base delay `350ms`) for transient failures only; retry attempts emit `warn` and terminal exhaustion emits `error`.
+- Silent ingest fallback catches were replaced with observable warnings in discovery/chunker/dimension-probe internals, so fallback behavior is visible in `/logs` and `/logs/stream`.
+- Extended failure context fields now include `surface` and `operation` in addition to existing provider/code/retryability/context identifiers, while preserving backend stack/cause diagnostics through `baseLogger.error`.
+
+### Story 0000036 Task 20: retry env strictness and reembed log-context correction
+
+- `OPENAI_INGEST_MAX_RETRIES` parsing is strict positive-integer only after trimming input (`^[1-9]\d*$`), so mixed/decimal/scientific formats (for example `7abc`, `3.5`, `1e2`) now deterministically fall back to default retry budget `3`.
+- Retry execution semantics are unchanged from Task 18: env value remains retries after the initial attempt, and runtime execution still computes `maxAttempts = retries + 1`.
+- `/ingest/reembed/:root` catch-path logging no longer writes synthetic `runId` values from route params; when unavailable, `runId` is omitted and `root` remains the canonical context field for reembed failure entries.
     Logs-->>UI: events (id = sequence)
   end
 ```
@@ -2345,4 +2700,142 @@ flowchart TD
   D --> E[Capture 0000035-13 screenshots]
   E --> F[Emit manual_acceptance_check_completed]
   F --> G[Record evidence in task implementation notes]
+```
+
+## Server message contract alignment (Task 0000036-T10)
+
+- `/ingest/roots`, `/tools/ingested-repos`, and classic MCP `ListIngestedRepositories` now expose canonical lock identity fields and compatibility aliases together.
+- Canonical fields are first-class:
+  - `embeddingProvider`
+  - `embeddingModel`
+  - `embeddingDimensions`
+- Compatibility aliases remain present and synchronized:
+  - top-level alias: `lockedModelId`
+  - per-record aliases: `modelId` and legacy `model`
+  - all lock-bearing payloads expose `lock.embeddingModel` that matches alias values for the same record.
+- A schema marker (`schemaVersion = 0000036-t10-canonical-alias-v1`) is emitted across these surfaces for docs/runtime parity checks.
+- Required task logs are emitted when payloads are produced:
+  - `DEV-0000036:T10:ingest_repo_payload_emitted`
+  - `DEV-0000036:T10:ingest_repo_schema_version_emitted`
+
+```mermaid
+flowchart LR
+  A[getLockedEmbeddingModel/getLockedModel] --> B[/ingest/roots]
+  A --> C[listIngestedRepositories service]
+  C --> D[/tools/ingested-repos]
+  C --> E[MCP ListIngestedRepositories]
+  B --> F[canonical fields + aliases + lock + schemaVersion]
+  D --> F
+  E --> F
+```
+
+```mermaid
+sequenceDiagram
+  participant Runtime as Chroma metadata + lock resolver
+  participant REST1 as GET /ingest/roots
+  participant REST2 as GET /tools/ingested-repos
+  participant MCP as tools/call ListIngestedRepositories
+  participant Docs as openapi.json
+
+  Runtime->>REST1: root rows + lock
+  Runtime->>REST2: repo rows + lock
+  Runtime->>MCP: repo rows + lock
+  REST1->>Docs: contract parity assertion coverage
+  REST2->>Docs: contract parity assertion coverage
+  MCP->>Docs: parity validated by integration tests
+```
+
+## Transitive consumer canonical-first adoption (Task 0000036-T11)
+
+- Task 11 completes transitive runtime adoption of canonical ingest-repo fields while preserving alias fallback behavior for staged rollouts.
+- Shared canonical resolver contract:
+  - `resolveRepoEmbeddingIdentity(repo)` resolves, in order: canonical fields, lock fields, then aliases (`modelId`, `model`) with provider default fallback to `lmstudio`.
+  - Consumers keep compatibility output/behavior by preserving `modelId` while reading canonical fields first where present.
+- Updated transitive consumers:
+  - AST repository selection path (`server/src/ast/toolService.ts`)
+  - Flow discovery and flow run source selection (`server/src/flows/discovery.ts`, `server/src/flows/service.ts`, `server/src/flows/types.ts`)
+  - Agent command source selection and listing (`server/src/agents/service.ts`)
+  - MCP v2 vector-summary normalization (`server/src/chat/responders/McpResponder.ts`, `server/src/mcp2/tools/codebaseQuestion.ts`)
+- Required compatibility logs are emitted from each transitive consumer path:
+  - `DEV-0000036:T11:transitive_consumer_contract_read`
+  - `DEV-0000036:T11:transitive_consumer_alias_fallback`
+
+```mermaid
+flowchart TD
+  A[ListIngestedRepositories payload] --> B[resolveRepoEmbeddingIdentity]
+  B --> C[AST repository resolver]
+  B --> D[Flows discovery + run source resolver]
+  B --> E[Agents command source resolver]
+  B --> F[MCP2 vector-summary normalization]
+  C --> G[Canonical-first behavior]
+  D --> G
+  E --> G
+  F --> H[Compatibility modelId preserved]
+```
+
+```mermaid
+sequenceDiagram
+  participant Repo as Ingest repo payload
+  participant Resolver as resolveRepoEmbeddingIdentity
+  participant Consumer as Transitive consumer
+  participant Logs as logStore
+
+  Repo->>Resolver: canonical + alias fields
+  Resolver-->>Consumer: embeddingProvider/embeddingModel/dimensions + aliasFallbackUsed
+  Consumer->>Logs: DEV-0000036:T11:transitive_consumer_contract_read
+  Consumer->>Logs: DEV-0000036:T11:transitive_consumer_alias_fallback
+```
+
+## Story 0000036 final architecture + contract summary (Task 0000036-T14)
+
+- Story 0000036 is completed around a single canonical embedding identity contract:
+  - `embeddingProvider`
+  - `embeddingModel`
+  - `embeddingDimensions`
+- Compatibility aliases remain exposed for existing consumers:
+  - `lockedModelId` at lock-bearing top-level surfaces.
+  - `modelId` and legacy `model` on root/repo records.
+- Provider-aware lock semantics are now unified across ingest start/re-embed/query and all reporting surfaces:
+  - `GET /ingest/models`
+  - `POST /ingest/start`
+  - `GET /ingest/roots`
+  - `GET /tools/ingested-repos`
+  - `POST /tools/vector-search`
+  - classic MCP `ListIngestedRepositories` / `VectorSearch`
+- OpenAI enablement and model visibility are runtime-configured by `OPENAI_EMBEDDING_KEY` and server allowlist intersection, with deterministic warning/disabled envelopes for partial failures.
+- Query embedding execution is lock-bound and dimension-validated prior to Chroma queries so mismatch handling is deterministic (`EMBEDDING_DIMENSION_MISMATCH`) rather than raw backend leakage.
+
+```mermaid
+flowchart TD
+  A[OPENAI_EMBEDDING_KEY + provider discovery] --> B[/ingest/models envelopes]
+  B --> C[Ingest UI provider-qualified selection]
+  C --> D[POST /ingest/start canonical request]
+  D --> E[Canonical lock write]
+  E --> F[Re-embed + vector-search reuse lock identity]
+  F --> G[REST/MCP contract surfaces emit canonical + aliases]
+```
+
+```mermaid
+sequenceDiagram
+  participant UI as Ingest UI
+  participant API as Server routes
+  participant Lock as Canonical lock resolver
+  participant VS as Vector search service
+  participant MCP as Classic MCP tools
+
+  UI->>API: GET /ingest/models
+  API->>Lock: resolve canonical lock
+  Lock-->>API: provider/model/dimensions + alias mirror
+  API-->>UI: models + openai/lmstudio status envelopes
+
+  UI->>API: POST /ingest/start (embeddingProvider, embeddingModel)
+  API->>Lock: enforce lock compatibility
+  API-->>UI: 202 started OR 409 MODEL_LOCKED (canonical lock + alias)
+
+  UI->>VS: POST /tools/vector-search
+  VS->>Lock: resolve lock + generate locked query embedding
+  VS-->>UI: results + modelId OR normalized deterministic error
+
+  MCP->>VS: VectorSearch / ListIngestedRepositories
+  VS-->>MCP: canonical + compatibility payload parity
 ```

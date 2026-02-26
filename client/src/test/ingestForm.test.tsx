@@ -30,8 +30,8 @@ describe('IngestForm', () => {
   };
 
   const models = [
-    { id: 'embed-1', displayName: 'Embed One' },
-    { id: 'embed-2', displayName: 'Embed Two' },
+    { id: 'embed-1', displayName: 'Embed One', provider: 'lmstudio' as const },
+    { id: 'embed-2', displayName: 'Embed Two', provider: 'lmstudio' as const },
   ];
 
   it('applies size="small" inputs and button variant rules', () => {
@@ -147,7 +147,7 @@ describe('IngestForm', () => {
       target: { value: 'Repo' },
     });
     fireEvent.change(screen.getByLabelText(/embedding model/i), {
-      target: { value: 'embed-2' },
+      target: { value: 'lmstudio::embed-2' },
     });
 
     fireEvent.click(screen.getByRole('button', { name: /start ingest/i }));
@@ -159,7 +159,295 @@ describe('IngestForm', () => {
       path: '/repo',
       name: 'Repo',
       model: 'embed-2',
+      embeddingProvider: 'lmstudio',
+      embeddingModel: 'embed-2',
       dryRun: false,
+    });
+  });
+
+  it('renders provider-qualified model options and keeps same model ids distinct by provider', () => {
+    render(
+      <IngestForm
+        models={[
+          { id: 'same-id', displayName: 'Shared', provider: 'lmstudio' },
+          { id: 'same-id', displayName: 'Shared', provider: 'openai' },
+        ]}
+        onStarted={jest.fn()}
+        defaultModelId="same-id"
+      />,
+    );
+
+    const select = screen.getByRole('combobox', { name: /embedding model/i });
+    const options = Array.from(select.querySelectorAll('option')).map(
+      (option) => ({
+        value: option.value,
+        label: option.textContent,
+      }),
+    );
+
+    expect(options).toEqual(
+      expect.arrayContaining([
+        { value: 'lmstudio::same-id', label: 'lmstudio / Shared' },
+        { value: 'openai::same-id', label: 'openai / Shared' },
+      ]),
+    );
+  });
+
+  it('clears stale selection when selected option is no longer in refreshed models', async () => {
+    const { rerender } = render(
+      <IngestForm
+        models={[
+          { id: 'embed-a', displayName: 'Embed A', provider: 'lmstudio' },
+          { id: 'embed-b', displayName: 'Embed B', provider: 'lmstudio' },
+        ]}
+        onStarted={jest.fn()}
+        defaultModelId="embed-a"
+      />,
+    );
+
+    const select = screen.getByRole('combobox', { name: /embedding model/i });
+    fireEvent.change(select, { target: { value: 'lmstudio::embed-b' } });
+    expect(select).toHaveValue('lmstudio::embed-b');
+
+    rerender(
+      <IngestForm
+        models={[
+          { id: 'embed-a', displayName: 'Embed A', provider: 'lmstudio' },
+        ]}
+        onStarted={jest.fn()}
+        defaultModelId="embed-a"
+      />,
+    );
+
+    await waitFor(() => expect(select).toHaveValue('lmstudio::embed-a'));
+  });
+
+  it('shows OPENAI_DISABLED info banner copy', () => {
+    render(
+      <IngestForm
+        models={models}
+        onStarted={jest.fn()}
+        defaultModelId="embed-1"
+        openai={{ status: 'disabled', statusCode: 'OPENAI_DISABLED' }}
+      />,
+    );
+
+    expect(
+      screen.getByTestId('ingest-openai-banner-openai-disabled'),
+    ).toHaveTextContent(
+      /OpenAI embedding models are unavailable\. Set OPENAI_EMBEDDING_KEY on the server to enable them\./i,
+    );
+  });
+
+  it('shows OPENAI_MODELS_LIST_TEMPORARY_FAILURE warning and keeps lmstudio options', () => {
+    render(
+      <IngestForm
+        models={models}
+        onStarted={jest.fn()}
+        defaultModelId="embed-1"
+        openai={{
+          status: 'warning',
+          statusCode: 'OPENAI_MODELS_LIST_TEMPORARY_FAILURE',
+        }}
+      />,
+    );
+
+    expect(
+      screen.getByTestId(
+        'ingest-openai-banner-openai-models-list-temporary-failure',
+      ),
+    ).toHaveTextContent(/temporarily unavailable/i);
+    expect(
+      screen.getByRole('option', { name: 'lmstudio / Embed One' }),
+    ).toBeInTheDocument();
+  });
+
+  it('shows OPENAI_MODELS_LIST_AUTH_FAILED warning banner', () => {
+    render(
+      <IngestForm
+        models={models}
+        onStarted={jest.fn()}
+        defaultModelId="embed-1"
+        openai={{
+          status: 'warning',
+          statusCode: 'OPENAI_MODELS_LIST_AUTH_FAILED',
+        }}
+      />,
+    );
+
+    expect(
+      screen.getByTestId('ingest-openai-banner-openai-models-list-auth-failed'),
+    ).toHaveTextContent(/failed authentication/i);
+  });
+
+  it('shows OPENAI_MODELS_LIST_UNAVAILABLE warning banner', () => {
+    render(
+      <IngestForm
+        models={models}
+        onStarted={jest.fn()}
+        defaultModelId="embed-1"
+        openai={{
+          status: 'warning',
+          statusCode: 'OPENAI_MODELS_LIST_UNAVAILABLE',
+        }}
+      />,
+    );
+
+    expect(
+      screen.getByTestId('ingest-openai-banner-openai-models-list-unavailable'),
+    ).toHaveTextContent(/currently unavailable/i);
+  });
+
+  it('shows OPENAI_ALLOWLIST_NO_MATCH banner and no openai options', () => {
+    render(
+      <IngestForm
+        models={models}
+        onStarted={jest.fn()}
+        defaultModelId="embed-1"
+        openai={{ status: 'warning', statusCode: 'OPENAI_ALLOWLIST_NO_MATCH' }}
+      />,
+    );
+
+    expect(
+      screen.getByTestId('ingest-openai-banner-openai-allowlist-no-match'),
+    ).toHaveTextContent(/No allowlisted OpenAI embedding models/i);
+    expect(screen.queryByRole('option', { name: /openai \/ /i })).toBeNull();
+  });
+
+  it('does not render a dimensions input on the ingest form', () => {
+    render(
+      <IngestForm
+        models={models}
+        onStarted={jest.fn()}
+        defaultModelId="embed-1"
+      />,
+    );
+
+    expect(screen.queryByLabelText(/dimension/i)).toBeNull();
+    expect(screen.queryByRole('spinbutton', { name: /dimension/i })).toBeNull();
+  });
+
+  it('submits canonical embedding fields for provider-qualified selection', async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ runId: 'run-200' }),
+    });
+
+    render(
+      <IngestForm
+        models={[
+          { id: 'shared-id', displayName: 'Shared', provider: 'lmstudio' },
+          { id: 'shared-id', displayName: 'Shared', provider: 'openai' },
+        ]}
+        onStarted={jest.fn()}
+        defaultModelId="shared-id"
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText(/folder path/i), {
+      target: { value: '/repo' },
+    });
+    fireEvent.change(screen.getByLabelText(/display name/i), {
+      target: { value: 'Repo' },
+    });
+    fireEvent.change(screen.getByLabelText(/embedding model/i), {
+      target: { value: 'openai::shared-id' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /start ingest/i }));
+
+    await waitFor(() => expect(mockFetch).toHaveBeenCalled());
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body as string);
+    expect(body.embeddingProvider).toBe('openai');
+    expect(body.embeddingModel).toBe('shared-id');
+    expect(body.model).toBe('shared-id');
+  });
+
+  it('keeps provider-qualified selection and payload unambiguous for same model ids', async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ runId: 'run-300' }),
+    });
+    const onStarted = jest.fn();
+
+    render(
+      <IngestForm
+        models={[
+          { id: 'dup-model', displayName: 'Dup', provider: 'lmstudio' },
+          { id: 'dup-model', displayName: 'Dup', provider: 'openai' },
+        ]}
+        onStarted={onStarted}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText(/folder path/i), {
+      target: { value: '/repo' },
+    });
+    fireEvent.change(screen.getByLabelText(/display name/i), {
+      target: { value: 'Repo' },
+    });
+    fireEvent.change(screen.getByLabelText(/embedding model/i), {
+      target: { value: 'openai::dup-model' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /start ingest/i }));
+
+    await waitFor(() => expect(onStarted).toHaveBeenCalledWith('run-300'));
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body as string);
+    expect(body).toMatchObject({
+      embeddingProvider: 'openai',
+      embeddingModel: 'dup-model',
+    });
+  });
+
+  it('keeps locked openai fallback option when fetched models only include lmstudio same-id', async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({ runId: 'run-301' }),
+    });
+    const onStarted = jest.fn();
+
+    render(
+      <IngestForm
+        models={[{ id: 'dup-model', displayName: 'Dup', provider: 'lmstudio' }]}
+        lockedModelId="dup-model"
+        lockedModel={{
+          embeddingProvider: 'openai',
+          embeddingModel: 'dup-model',
+          embeddingDimensions: 1536,
+        }}
+        onStarted={onStarted}
+      />,
+    );
+
+    const select = screen.getByRole('combobox', { name: /embedding model/i });
+    expect(select).toBeDisabled();
+    expect(select).toHaveValue('openai::dup-model');
+
+    const options = Array.from(select.querySelectorAll('option')).map(
+      (option) => option.value,
+    );
+    expect(options).toEqual(
+      expect.arrayContaining(['lmstudio::dup-model', 'openai::dup-model']),
+    );
+
+    fireEvent.change(screen.getByLabelText(/folder path/i), {
+      target: { value: '/repo' },
+    });
+    fireEvent.change(screen.getByLabelText(/display name/i), {
+      target: { value: 'Repo' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /start ingest/i }));
+
+    await waitFor(() => expect(onStarted).toHaveBeenCalledWith('run-301'));
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body as string);
+    expect(body).toMatchObject({
+      embeddingProvider: 'openai',
+      embeddingModel: 'dup-model',
+      model: 'dup-model',
     });
   });
 

@@ -2410,8 +2410,8 @@ Address defects identified during branch-vs-main code review: (1) `OPENAI_INGEST
 
 ### 21. Final re-verification after Task 20 remediation: full acceptance regression and traceability re-audit
 
-- Task Status: **__in_progress__**
-- Git Commits: **to_do**
+- Task Status: **__done__**
+- Git Commits: **eed4752**
 
 #### Overview
 
@@ -2428,7 +2428,7 @@ After Task 20 fixes, execute a full-story regression against Story 0000036 accep
 1. [x] Re-audit Story 0000036 acceptance and edge-case matrix rows after Task 20 changes; confirm no regressions and no uncovered rows.
 2. [x] Verify Task 20 strict retry-env parsing and reembed log-context fixes remain consistent with prior contract expectations.
 3. [x] Update this story plan with final Task 21 implementation notes and verification evidence references.
-4. [ ] Confirm all story tasks (1-21) have complete, traceable evidence and commit metadata.
+4. [x] Confirm all story tasks (1-21) have complete, traceable evidence and commit metadata.
 5. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; resolve issues before marking Task 21 done.
 
 #### Testing
@@ -2452,6 +2452,7 @@ After Task 20 fixes, execute a full-story regression against Story 0000036 accep
 - Subtask 1: Re-audited the Story `0000036` traceability matrix (`AC-01..AC-41`, `EC-01..EC-26`) and confirmed every row remains `Covered` with zero `Uncovered` entries after Task 20 remediation.
 - Subtask 2: Re-verified Task 20 behaviors against current contracts via targeted checks and tests: strict retry parser remains in `server/src/config/openaiIngestRetries.ts`, reembed catch-path keeps run context without synthetic `runId` in `server/src/routes/ingestReembed.ts`, and focused test run `node --import tsx --test server/src/test/unit/openai-ingest-retries-config.test.ts server/src/test/unit/openai-provider-retry.test.ts server/src/test/unit/ingest-reembed.test.ts server/src/test/integration/ingest-failure-logging-coverage.test.ts` passed (`15/15`).
 - Subtask 3: Updated Task 21 implementation notes/evidence references in this section and will append each testing and final traceability verification output as Task 21 execution progresses.
+- Subtask 4: Reconfirmed Tasks `1-21` evidence continuity in this story file and recorded Task 21 commit metadata in the `Git Commits` field.
 - Subtask 5: Ran `npm run lint --workspaces` (passes with existing baseline import-order warnings only, no errors) and `npm run format:check --workspaces` (client/server/common all clean).
 - Testing 1: `npm run build --workspace server` passed (`tsc -b` completed without TypeScript build errors).
 - Testing 2: `npm run build --workspace client` passed (`vite build`) with existing non-blocking chunk-size warnings only.

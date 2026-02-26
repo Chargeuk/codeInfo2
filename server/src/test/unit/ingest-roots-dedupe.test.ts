@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
-import express from 'express';
 import test, { afterEach, beforeEach } from 'node:test';
+import express from 'express';
 import request from 'supertest';
+import { query, resetStore } from '../../logStore.js';
 import { createIngestRootsRouter } from '../../routes/ingestRoots.js';
 import { dedupeRootsByPath } from '../../routes/ingestRoots.js';
 
@@ -27,6 +28,7 @@ function createRootsApp(
 
 beforeEach(() => {
   process.env.HOST_INGEST_DIR = '/host/base';
+  resetStore();
 });
 
 afterEach(() => {
@@ -241,4 +243,33 @@ test('GET /ingest/roots keeps provider-qualified identity when model ids collide
   assert.equal(lmstudioRoot?.embeddingProvider, 'lmstudio');
   assert.equal(lmstudioRoot?.embeddingModel, 'shared-id');
   assert.equal(lmstudioRoot?.modelId, 'shared-id');
+});
+
+test('GET /ingest/roots catch path emits structured failure log entry', async () => {
+  const app = express();
+  app.use(express.json());
+  app.use(
+    createIngestRootsRouter({
+      getLockedModel: async () => null,
+      getRootsCollection: async () => {
+        throw new Error('db read failed');
+      },
+    }),
+  );
+
+  const response = await request(app).get('/ingest/roots');
+  assert.equal(response.status, 502);
+  assert.equal(response.body.code, 'INGEST_ROOTS_LOOKUP_FAILED');
+
+  const entries = query(
+    { text: 'DEV-0000036:T17:ingest_provider_failure' },
+    20,
+  );
+  const errorEntry = entries.find(
+    (entry) =>
+      entry.level === 'error' &&
+      entry.context?.surface === 'ingest/roots' &&
+      entry.context?.code === 'INGEST_ROOTS_LOOKUP_FAILED',
+  );
+  assert.ok(errorEntry, 'expected roots lookup failure log entry');
 });

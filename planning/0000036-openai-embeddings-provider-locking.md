@@ -2249,7 +2249,7 @@ Add a server environment variable, `OPENAI_INGEST_MAX_RETRIES`, to override the 
 
 ### 19. Ingest reliability hardening: close missing catch/log coverage gaps with retry-aware severity semantics
 
-- Task Status: **__to_do__**
+- Task Status: **__done__**
 - Git Commits: **to_do**
 
 #### Overview
@@ -2269,44 +2269,75 @@ Close the remaining ingest failure-handling gaps identified during Story 0000036
 
 #### Subtasks
 
-1. [ ] Add a shared ingest failure-classification helper (server-side) that deterministically maps failures to `{ retryable, severity, code/category, provider/surface }`, where `retryable=true` always resolves to frontend log level `warn` and `retryable=false` always resolves to `error`.
-2. [ ] Add structured catch/log handling to `POST /ingest/cancel/:runId` so cancellation cleanup failures are explicitly caught, classified, appended to frontend-visible logs, and returned with deterministic error payloads without uncaught route rejection.
-3. [ ] Add structured catch/log handling to `POST /ingest/start` catch paths so all handled failures (including generic 500 paths) emit appendable frontend-visible entries with retryability-driven severity and sanitized detail.
-4. [ ] Add structured catch/log handling to `POST /ingest/reembed/:root` catch paths so all handled failures emit appendable frontend-visible entries with retryability-driven severity and consistent contextual fields.
-5. [ ] Add structured catch/log handling to `GET /ingest/roots` catch paths so backend lookup failures always emit appendable frontend-visible entries with retryability-driven severity and clear failure detail.
-6. [ ] Add LM Studio provider failure normalization + logging parity with OpenAI paths so LM Studio ingest/query embedding failures emit deterministic codes/categories and retryability metadata before surfacing through ingest status/routes.
-7. [ ] Add bounded retry mechanics for LM Studio transient failure classes in ingestion-only paths (using shared retry utility), preserving no-retry behavior for deterministic failures; emit `warn` on retry attempts and `error` on terminal exhaustion.
-8. [ ] Replace silent catch/fallback blocks in ingest internals (dimension probing, token/context fallback, file text detection/stat fallback) with observable warning/error log entries that explain fallback reason and resulting behavior.
-9. [ ] Ensure all ingest failure logs include concrete failure detail fields: `code` or failure category, `message`, `retryable`, `provider/surface`, and context identifiers (`runId`, `root/path`, `currentFile`, `operation`, `attempt`, `waitMs`) when available.
-10. [ ] Verify backend diagnostics are preserved (`baseLogger` stack/cause logging retained) while guaranteeing equivalent appendable frontend-visible summary entries for every failure path covered in this task.
-11. [ ] Unit test addition: create/update a dedicated route-level cancel failure test (for example `server/src/test/unit/ingest-cancel.test.ts`) verifying cancel cleanup failures are caught and logged with correct retryability/severity mapping.
-12. [ ] Unit test modification: update `server/src/test/unit/ingest-start.test.ts` to assert catch-path failure logging exists and severity tracks retryability for both retryable and non-retryable failure classes.
-13. [ ] Unit test modification: update `server/src/test/unit/ingest-reembed.test.ts` to assert catch-path failure logging exists and severity tracks retryability for both retryable and non-retryable failure classes.
-14. [ ] Unit test modification: update `server/src/test/unit/ingest-roots-dedupe.test.ts` (or add focused `ingest-roots-errors` unit test) to assert `/ingest/roots` catch-path failures emit structured frontend-visible warning/error entries with detail.
-15. [ ] Unit test addition/modification: add LM Studio provider retry+mapping coverage (for example `server/src/test/unit/lmstudio-provider-retry-logging.test.ts`) to validate transient retry warnings and terminal non-retryable errors.
-16. [ ] Unit test modification: update `server/src/test/unit/openai-provider-retry.test.ts` and/or `server/src/test/unit/openai-provider-errors.test.ts` to confirm retryable=>`warn` and non-retryable=>`error` severity semantics remain consistent after shared-classifier integration.
-17. [ ] Integration test addition: add `server/src/test/integration/ingest-failure-logging-coverage.test.ts` to drive route/provider failure scenarios and assert `/logs` and `/logs/stream` expose expected warning/error entries with exact contextual detail fields.
-18. [ ] Client test modification/addition: update `client/src/test/logsPage.test.tsx` (or split by concern) to assert warning/error ingest failure entries render with provider/surface/code/message detail and remain distinguishable in UI.
-19. [ ] Documentation updates: update `README.md`, `design.md`, and `projectStructure.md` to describe new ingest failure catch/log coverage, retryability-to-severity rules, and any added helper/test modules.
-20. [ ] Lint/format gate: run `npm run lint --workspaces` and `npm run format:check --workspaces`; resolve introduced issues before marking task complete.
+1. [x] Add a shared ingest failure-classification helper (server-side) that deterministically maps failures to `{ retryable, severity, code/category, provider/surface }`, where `retryable=true` always resolves to frontend log level `warn` and `retryable=false` always resolves to `error`.
+2. [x] Add structured catch/log handling to `POST /ingest/cancel/:runId` so cancellation cleanup failures are explicitly caught, classified, appended to frontend-visible logs, and returned with deterministic error payloads without uncaught route rejection.
+3. [x] Add structured catch/log handling to `POST /ingest/start` catch paths so all handled failures (including generic 500 paths) emit appendable frontend-visible entries with retryability-driven severity and sanitized detail.
+4. [x] Add structured catch/log handling to `POST /ingest/reembed/:root` catch paths so all handled failures emit appendable frontend-visible entries with retryability-driven severity and consistent contextual fields.
+5. [x] Add structured catch/log handling to `GET /ingest/roots` catch paths so backend lookup failures always emit appendable frontend-visible entries with retryability-driven severity and clear failure detail.
+6. [x] Add LM Studio provider failure normalization + logging parity with OpenAI paths so LM Studio ingest/query embedding failures emit deterministic codes/categories and retryability metadata before surfacing through ingest status/routes.
+7. [x] Add bounded retry mechanics for LM Studio transient failure classes in ingestion-only paths (using shared retry utility), preserving no-retry behavior for deterministic failures; emit `warn` on retry attempts and `error` on terminal exhaustion.
+8. [x] Replace silent catch/fallback blocks in ingest internals (dimension probing, token/context fallback, file text detection/stat fallback) with observable warning/error log entries that explain fallback reason and resulting behavior.
+9. [x] Ensure all ingest failure logs include concrete failure detail fields: `code` or failure category, `message`, `retryable`, `provider/surface`, and context identifiers (`runId`, `root/path`, `currentFile`, `operation`, `attempt`, `waitMs`) when available.
+10. [x] Verify backend diagnostics are preserved (`baseLogger` stack/cause logging retained) while guaranteeing equivalent appendable frontend-visible summary entries for every failure path covered in this task.
+11. [x] Unit test addition: create/update a dedicated route-level cancel failure test (for example `server/src/test/unit/ingest-cancel.test.ts`) verifying cancel cleanup failures are caught and logged with correct retryability/severity mapping.
+12. [x] Unit test modification: update `server/src/test/unit/ingest-start.test.ts` to assert catch-path failure logging exists and severity tracks retryability for both retryable and non-retryable failure classes.
+13. [x] Unit test modification: update `server/src/test/unit/ingest-reembed.test.ts` to assert catch-path failure logging exists and severity tracks retryability for both retryable and non-retryable failure classes.
+14. [x] Unit test modification: update `server/src/test/unit/ingest-roots-dedupe.test.ts` (or add focused `ingest-roots-errors` unit test) to assert `/ingest/roots` catch-path failures emit structured frontend-visible warning/error entries with detail.
+15. [x] Unit test addition/modification: add LM Studio provider retry+mapping coverage (for example `server/src/test/unit/lmstudio-provider-retry-logging.test.ts`) to validate transient retry warnings and terminal non-retryable errors.
+16. [x] Unit test modification: update `server/src/test/unit/openai-provider-retry.test.ts` and/or `server/src/test/unit/openai-provider-errors.test.ts` to confirm retryable=>`warn` and non-retryable=>`error` severity semantics remain consistent after shared-classifier integration.
+17. [x] Integration test addition: add `server/src/test/integration/ingest-failure-logging-coverage.test.ts` to drive route/provider failure scenarios and assert `/logs` and `/logs/stream` expose expected warning/error entries with exact contextual detail fields.
+18. [x] Client test modification/addition: update `client/src/test/logsPage.test.tsx` (or split by concern) to assert warning/error ingest failure entries render with provider/surface/code/message detail and remain distinguishable in UI.
+19. [x] Documentation updates: update `README.md`, `design.md`, and `projectStructure.md` to describe new ingest failure catch/log coverage, retryability-to-severity rules, and any added helper/test modules.
+20. [x] Lint/format gate: run `npm run lint --workspaces` and `npm run format:check --workspaces`; resolve introduced issues before marking task complete.
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000`)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] `npm run compose:down`
-9. [ ] `npm run compose:build:clean`
-10. [ ] Confirm final server test summary reports all server tests passing.
-11. [ ] Confirm final client test summary reports all client tests passing.
-12. [ ] Confirm e2e summary reports all scenarios passing.
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000`)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] `npm run compose:down`
+9. [x] `npm run compose:build:clean`
+10. [x] Confirm final server test summary reports all server tests passing.
+11. [x] Confirm final client test summary reports all client tests passing.
+12. [x] Confirm e2e summary reports all scenarios passing.
 
 #### Implementation notes
 
-- Pending implementation.
+- Subtask 1: Added shared classifier `server/src/ingest/providers/ingestFailureClassifier.ts` to deterministically map unknown/provider errors into `{code,retryable,severity,provider,surface}` with retryable=>`warn`, non-retryable=>`error`.
+- Subtask 2: Added structured catch handling and frontend-visible appendable logs to `server/src/routes/ingestCancel.ts`, including deterministic error envelopes plus preserved backend diagnostics.
+- Subtask 3: Updated `server/src/routes/ingestStart.ts` catch path to classify failures, append severity-mapped failure entries, and keep stable contract responses for known conflict/busy codes.
+- Subtask 4: Updated `server/src/routes/ingestReembed.ts` catch path to classify/append retry-aware logs with contextual `root`, `surface`, and `operation` fields.
+- Subtask 5: Updated `server/src/routes/ingestRoots.ts` catch path to always append structured failure logs before deterministic `502` response payload emission.
+- Subtask 6: Added LM Studio normalized error class/compat mapping (`LmStudioEmbeddingError`) and provider-level throw normalization in `server/src/ingest/providers/lmstudioEmbeddingProvider.ts` plus `mapLmStudioIngestError` canonical-code passthrough.
+- Subtask 7: Added bounded LM Studio ingest retry behavior (`maxAttempts=3`, exponential base `350ms`) using shared retry utility, with `warn` retry logs and terminal `error` logs for exhaustion.
+- Subtask 8: Replaced silent fallback catches with observable warning logs in `server/src/ingest/discovery.ts`, `server/src/ingest/chunker.ts`, and dimension-probe fallbacks in `server/src/ingest/ingestJob.ts`.
+- Subtask 9: Extended failure log context to include `surface`/`operation` and ensured route/provider emitters include concrete detail fields (`code`, `message`, `retryable`, provider/surface, run/path/root/currentFile/attempt/waitMs when available).
+- Subtask 10: Preserved backend stack diagnostics by adding/retaining `baseLogger.error` calls in each new route catch while guaranteeing equivalent frontend-visible summary entries via appendable logs.
+- Subtask 11: Added `server/src/test/unit/ingest-cancel.test.ts` covering retryable (`BUSY`=>`warn`) and non-retryable (`INVALID_LOCK_METADATA`=>`error`) cancellation failure logging.
+- Subtask 12: Updated `server/src/test/unit/ingest-start.test.ts` to assert generic failure path logs non-retryable `error` entries and retryable `BUSY` emits `warn`.
+- Subtask 13: Added `server/src/test/unit/ingest-reembed.test.ts` asserting retryable/non-retryable severity mapping in catch-path logging.
+- Subtask 14: Updated `server/src/test/unit/ingest-roots-dedupe.test.ts` with explicit `/ingest/roots` catch-path logging coverage.
+- Subtask 15: Added `server/src/test/unit/lmstudio-provider-retry-logging.test.ts` validating LM Studio transient retry warnings and terminal exhaustion logging semantics.
+- Subtask 16: Extended `server/src/test/unit/openai-provider-retry.test.ts` with severity semantics assertions (`retryable` emits warn retries + terminal error; non-retryable emits terminal error only).
+- Subtask 17: Added `server/src/test/integration/ingest-failure-logging-coverage.test.ts` validating route/provider failure logs are visible through both `/logs` and `/logs/stream` with expected detail fields.
+- Subtask 18: Updated `client/src/test/logsPage.test.tsx` to assert rendered ingest failure rows include provider/surface/code/message detail across warn/error entries.
+- Subtask 19: Updated `README.md`, `design.md`, and `projectStructure.md` to document Task 19 route catch hardening, shared retryability-to-severity rules, LM Studio retry parity, and the new helper/test modules added in this task.
+- Subtask 20: Ran `npm run lint --workspaces` and `npm run format:check --workspaces`; lint passed with existing baseline import-order warnings only and format checks pass after writing Prettier updates for new Task 19 files.
+- Testing 1: `npm run build --workspace server` passed (`tsc -b` completed without TypeScript errors).
+- Testing 2: `npm run build --workspace client` passed (`vite build`), with existing non-blocking chunk-size warnings only.
+- Testing 3: `npm run test --workspace server` passed with node summary `745/745` passing and Cucumber summary `67/67` scenarios (`402/402` steps) passing.
+- Testing 4: `npm run test --workspace client` passed (`92/92` suites, `362/362` tests).
+- Testing 5: `timeout 7m npm run e2e` passed (`39` passed, `3` skipped) and completed automatic `e2e:down` teardown.
+- Testing 6: `npm run compose:build` passed and produced refreshed compose images (`codeinfo2-server`, `codeinfo2-client`).
+- Testing 7: `npm run compose:up` passed and started host-mapped verification services (`client` `5001`, `server` `5010-5012`).
+- Testing 8: Manual Playwright-MCP verification on `http://host.docker.internal:5001/ingest` and `/logs` confirmed zero browser `error` console entries and verified route-catch coverage via `POST http://host.docker.internal:5010/ingest/reembed/%2Ftmp%2Fdoes-not-exist` producing `404 {"status":"error","code":"NOT_FOUND"}` with corresponding `/logs` entry containing `DEV-0000036:T17:ingest_provider_failure`, `surface=ingest/reembed`, `operation=reembed`, `code=NOT_FOUND`, `retryable=false`, `level=error`.
+- Testing 9: `npm run compose:down` passed and removed compose services/networks started for manual verification.
+- Testing 10: `npm run compose:build:clean` passed (`docker compose build --pull --no-cache`) and rebuilt both `codeinfo2-server` and `codeinfo2-client` images from clean layers.
+- Testing 11: Final server summary confirmed all server suites passed (`745/745` node tests, `67/67` cucumber scenarios, `402/402` cucumber steps).
+- Testing 12: Final client/e2e summary confirmed all client tests passed (`362/362`) and e2e scenarios passed (`39` passed, `3` skipped, `0` failed).
 
 ---

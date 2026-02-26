@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import test, { beforeEach } from 'node:test';
 import express from 'express';
 import request from 'supertest';
+import { query, resetStore } from '../../logStore.js';
 import { createIngestStartRouter } from '../../routes/ingestStart.js';
 
 function buildApp(options?: {
@@ -39,6 +40,10 @@ function buildApp(options?: {
   );
   return app;
 }
+
+beforeEach(() => {
+  resetStore();
+});
 
 test('ingest-start canonical fields are authoritative when legacy model is also present', async () => {
   let capturedModel = '';
@@ -160,4 +165,49 @@ test('ingest-start sanitizes secret-like values in generic 500 messages', async 
     /authorization:\*\*\*|bearer \*\*\*/i.test(response.body.message),
     true,
   );
+
+  const entries = query(
+    { text: 'DEV-0000036:T17:ingest_provider_failure' },
+    20,
+  );
+  const errorEntry = entries.find(
+    (entry) =>
+      entry.level === 'error' &&
+      entry.context?.surface === 'ingest/start' &&
+      entry.context?.retryable === false,
+  );
+  assert.ok(errorEntry, 'expected non-retryable error log for generic 500');
+});
+
+test('ingest-start catch-path logs retryable failures as warn', async () => {
+  const response = await request(
+    buildApp({
+      startIngest: async () => {
+        const error = new Error('temporarily busy');
+        (error as { code?: string }).code = 'BUSY';
+        throw error;
+      },
+    }),
+  )
+    .post('/ingest/start')
+    .send({
+      path: '/tmp/repo',
+      name: 'repo',
+      model: 'nomic-embed',
+    });
+
+  assert.equal(response.status, 429);
+  assert.equal(response.body.code, 'BUSY');
+
+  const entries = query(
+    { text: 'DEV-0000036:T17:ingest_provider_failure' },
+    20,
+  );
+  const warnEntry = entries.find(
+    (entry) =>
+      entry.level === 'warn' &&
+      entry.context?.surface === 'ingest/start' &&
+      entry.context?.code === 'BUSY',
+  );
+  assert.ok(warnEntry, 'expected retryable warn log for BUSY');
 });

@@ -5,6 +5,7 @@ export type DiscoveredEmbeddingModel = {
 };
 
 export interface ProviderEmbeddingModel {
+  modelKey?: string;
   embedText: (text: string) => Promise<number[]>;
   countTokens: (text: string) => Promise<number>;
   getContextLength: () => Promise<number>;
@@ -24,4 +25,10 @@ export interface LmClientResolver {
 export interface LmProviderDeps {
   lmClientResolver: LmClientResolver;
   baseUrl: string;
+  ingestFailureContext?: () => {
+    runId?: string;
+    path?: string;
+    root?: string;
+    currentFile?: string;
+  };
 }

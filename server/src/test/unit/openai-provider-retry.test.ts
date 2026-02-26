@@ -11,9 +11,11 @@ import {
   resolveRetryAfterMs,
   runOpenAiWithRetry,
 } from '../../ingest/providers/index.js';
+import { query, resetStore } from '../../logStore.js';
 
 test.afterEach(() => {
   mock.restoreAll();
+  resetStore();
 });
 
 test('OpenAI retry defaults match story policy', () => {
@@ -171,4 +173,91 @@ test('retry exhaustion returns normalized terminal metadata without SDK object l
       return true;
     },
   );
+});
+
+test('retryable OpenAI failures emit warn retry logs and terminal error on exhaustion', async () => {
+  const previous = process.env.OPENAI_INGEST_MAX_RETRIES;
+  process.env.OPENAI_INGEST_MAX_RETRIES = String(
+    OPENAI_RETRY_DEFAULT_MAX_RETRIES,
+  );
+  try {
+    await assert.rejects(
+      () =>
+        runOpenAiWithRetry({
+          model: 'text-embedding-3-small',
+          inputCount: 1,
+          tokenEstimate: 12,
+          sleep: async () => {},
+          runStep: async () => {
+            throw {
+              status: 503,
+              message: 'temporary outage',
+            };
+          },
+        }),
+      () => true,
+    );
+
+    const entries = query(
+      { text: 'DEV-0000036:T17:ingest_provider_failure' },
+      30,
+    );
+    const warnEntries = entries.filter(
+      (entry) =>
+        entry.level === 'warn' &&
+        entry.context?.provider === 'openai' &&
+        entry.context?.retryable === true,
+    );
+    const errorEntries = entries.filter(
+      (entry) =>
+        entry.level === 'error' &&
+        entry.context?.provider === 'openai' &&
+        entry.context?.stage === 'terminal',
+    );
+
+    assert.equal(warnEntries.length, OPENAI_RETRY_DEFAULT_MAX_RETRIES);
+    assert.equal(errorEntries.length, 1);
+  } finally {
+    if (previous === undefined) {
+      delete process.env.OPENAI_INGEST_MAX_RETRIES;
+    } else {
+      process.env.OPENAI_INGEST_MAX_RETRIES = previous;
+    }
+  }
+});
+
+test('non-retryable OpenAI failures emit terminal error without warn retries', async () => {
+  await assert.rejects(
+    () =>
+      runOpenAiWithRetry({
+        model: 'text-embedding-3-small',
+        inputCount: 1,
+        tokenEstimate: 12,
+        sleep: async () => {},
+        runStep: async () => {
+          throw {
+            status: 401,
+            message: 'invalid key',
+          };
+        },
+      }),
+    () => true,
+  );
+
+  const entries = query(
+    { text: 'DEV-0000036:T17:ingest_provider_failure' },
+    30,
+  );
+  const warnEntries = entries.filter(
+    (entry) => entry.level === 'warn' && entry.context?.provider === 'openai',
+  );
+  const errorEntries = entries.filter(
+    (entry) =>
+      entry.level === 'error' &&
+      entry.context?.provider === 'openai' &&
+      entry.context?.code === 'OPENAI_AUTH_FAILED',
+  );
+  assert.equal(warnEntries.length, 0);
+  assert.equal(errorEntries.length, 1);
+  assert.equal(errorEntries[0]?.context?.retryable, false);
 });

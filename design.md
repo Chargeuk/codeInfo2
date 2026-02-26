@@ -2665,6 +2665,14 @@ sequenceDiagram
 - Invalid, non-numeric, zero, and negative values deterministically fall back to default retry budget `3`.
 - The repository default is committed in `server/.env` as `OPENAI_INGEST_MAX_RETRIES=10`.
 - Existing retry mechanics are unchanged: wait-hint precedence, bounded exponential backoff, jitter range, retryable-code mapping, and SDK retry disablement (`maxRetries=0`) remain in place.
+
+### Story 0000036 Task 19: ingest route catch/log hardening and LM Studio retry parity
+
+- Route catch paths for `/ingest/start`, `/ingest/reembed/:root`, `/ingest/cancel/:runId`, and `/ingest/roots` now classify failures with a shared helper and always append frontend-visible summary entries before returning deterministic error envelopes.
+- Shared classification is implemented in `server/src/ingest/providers/ingestFailureClassifier.ts` and maps failures to `{code, retryable, severity, provider, surface}`, enforcing retryable=>`warn` and non-retryable=>`error`.
+- LM Studio provider path now emits deterministic normalized errors (`LmStudioEmbeddingError`) and applies bounded ingestion retry (`maxAttempts=3`, base delay `350ms`) for transient failures only; retry attempts emit `warn` and terminal exhaustion emits `error`.
+- Silent ingest fallback catches were replaced with observable warnings in discovery/chunker/dimension-probe internals, so fallback behavior is visible in `/logs` and `/logs/stream`.
+- Extended failure context fields now include `surface` and `operation` in addition to existing provider/code/retryability/context identifiers, while preserving backend stack/cause diagnostics through `baseLogger.error`.
     Logs-->>UI: events (id = sequence)
   end
 ```

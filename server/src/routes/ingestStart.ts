@@ -11,8 +11,13 @@ import {
   startIngest,
   type IngestJobStatus,
 } from '../ingest/ingestJob.js';
-import { append } from '../logStore.js';
+import {
+  appendIngestFailureLog,
+  classifyIngestFailure,
+} from '../ingest/providers/index.js';
 import { resolveRequestEmbeddingSelection } from '../ingest/requestContracts.js';
+import { append } from '../logStore.js';
+import { baseLogger } from '../logger.js';
 import { toWebSocketUrl } from './lmstudioUrl.js';
 
 type Deps = {
@@ -168,6 +173,31 @@ export function createIngestStartRouter({
       );
       return res.status(202).json({ runId });
     } catch (err) {
+      const classified = classifyIngestFailure(err, {
+        surface: 'ingest/start',
+        defaultCode: 'INGEST_START_FAILED',
+      });
+      appendIngestFailureLog(classified.severity, {
+        provider: classified.provider,
+        code: classified.code,
+        retryable: classified.retryable,
+        model: resolvedSelection.selection.modelKey,
+        path,
+        message: classified.message,
+        stage: 'terminal',
+        surface: classified.surface,
+        operation: 'start',
+        ...(typeof classified.upstreamStatus === 'number'
+          ? { upstreamStatus: classified.upstreamStatus }
+          : {}),
+        ...(typeof classified.retryAfterMs === 'number'
+          ? { retryAfterMs: classified.retryAfterMs }
+          : {}),
+      });
+      baseLogger.error(
+        { path, model: resolvedSelection.selection.modelKey, err },
+        'ingest start failed',
+      );
       if (err instanceof InvalidLockMetadataError) {
         return res.status(409).json({ status: 'error', code: err.code });
       }
@@ -183,6 +213,7 @@ export function createIngestStartRouter({
       }
       return res.status(500).json({
         status: 'error',
+        code: classified.code,
         message: sanitizeErrorMessage(
           (err as Error).message ?? 'Unknown error',
         ),

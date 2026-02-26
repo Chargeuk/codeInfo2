@@ -1,5 +1,11 @@
 import type { EmbeddingFunction } from 'chromadb';
+import { runWithRetry } from '../../agents/retry.js';
 import { baseLogger } from '../../logger.js';
+import {
+  appendIngestFailureLog,
+  LmStudioEmbeddingError,
+  mapLmStudioIngestError,
+} from './ingestFailureLogging.js';
 import type {
   EmbeddingProvider,
   LmClientResolver,
@@ -21,6 +27,18 @@ type LmStudioClientLike = {
     };
   };
 };
+
+const LMSTUDIO_RETRY_MAX_ATTEMPTS = 3;
+const LMSTUDIO_RETRY_BASE_DELAY_MS = 350;
+
+function toLmStudioEmbeddingError(error: unknown): LmStudioEmbeddingError {
+  const mapped = mapLmStudioIngestError(error);
+  return new LmStudioEmbeddingError(
+    mapped.error,
+    mapped.message,
+    mapped.retryable,
+  );
+}
 
 function logPathSelected(modelKey: string) {
   baseLogger.info(
@@ -60,27 +78,104 @@ class LmStudioEmbeddingModel implements ProviderEmbeddingModel {
   constructor(
     private readonly modelProvider: () => Promise<LmStudioModelResponse>,
     public readonly modelKey: string,
+    private readonly ingestFailureContext?: () => {
+      runId?: string;
+      path?: string;
+      root?: string;
+      currentFile?: string;
+    },
   ) {}
 
   async getContextLength(): Promise<number> {
-    const model = await this.modelProvider();
-    return model.getContextLength();
+    try {
+      const model = await this.modelProvider();
+      return model.getContextLength();
+    } catch (error) {
+      throw toLmStudioEmbeddingError(error);
+    }
   }
 
   async countTokens(text: string): Promise<number> {
-    const model = await this.modelProvider();
-    return model.countTokens(text);
+    try {
+      const model = await this.modelProvider();
+      return model.countTokens(text);
+    } catch (error) {
+      throw toLmStudioEmbeddingError(error);
+    }
   }
 
   async embedText(text: string): Promise<number[]> {
-    const model = await this.modelProvider();
-    const result = await model.embed(text);
-    logParityVerifiedOnce({
-      source: 'ingest',
-      vectorCount: 1,
-      dimension: result.embedding.length,
-    });
-    return result.embedding;
+    let attemptCounter = 0;
+    let terminalLogged = false;
+
+    try {
+      const result = await runWithRetry({
+        maxAttempts: LMSTUDIO_RETRY_MAX_ATTEMPTS,
+        baseDelayMs: LMSTUDIO_RETRY_BASE_DELAY_MS,
+        runStep: async () => {
+          attemptCounter += 1;
+          const model = await this.modelProvider();
+          return model.embed(text);
+        },
+        isRetryableError: (error) => mapLmStudioIngestError(error).retryable,
+        onRetry: ({ attempt, delayMs, error }) => {
+          const mapped = mapLmStudioIngestError(error);
+          appendIngestFailureLog('warn', {
+            ...this.ingestFailureContext?.(),
+            provider: 'lmstudio',
+            code: mapped.error,
+            retryable: mapped.retryable,
+            attempt,
+            waitMs: delayMs,
+            model: this.modelKey,
+            message: mapped.message,
+            stage: 'retry',
+            surface: 'ingest/embed',
+            operation: 'embed',
+          });
+        },
+        onExhausted: ({ attempt, error }) => {
+          terminalLogged = true;
+          const mapped = mapLmStudioIngestError(error);
+          appendIngestFailureLog('error', {
+            ...this.ingestFailureContext?.(),
+            provider: 'lmstudio',
+            code: mapped.error,
+            retryable: mapped.retryable,
+            attempt,
+            model: this.modelKey,
+            message: mapped.message,
+            stage: 'terminal',
+            surface: 'ingest/embed',
+            operation: 'embed',
+          });
+        },
+      });
+
+      logParityVerifiedOnce({
+        source: 'ingest',
+        vectorCount: 1,
+        dimension: result.embedding.length,
+      });
+      return result.embedding;
+    } catch (error) {
+      const mapped = mapLmStudioIngestError(error);
+      if (!terminalLogged) {
+        appendIngestFailureLog('error', {
+          ...this.ingestFailureContext?.(),
+          provider: 'lmstudio',
+          code: mapped.error,
+          retryable: mapped.retryable,
+          attempt: Math.max(attemptCounter, 1),
+          model: this.modelKey,
+          message: mapped.message,
+          stage: 'terminal',
+          surface: 'ingest/embed',
+          operation: 'embed',
+        });
+      }
+      throw toLmStudioEmbeddingError(error);
+    }
   }
 }
 
@@ -92,23 +187,27 @@ class LmStudioEmbeddingFunction implements EmbeddingFunction {
   ) {}
 
   async generate(texts: string[]): Promise<number[][]> {
-    const model = await (
-      this.lmClientResolver(this.baseUrl) as LmStudioClientLike
-    ).embedding.model(this.modelKey);
+    try {
+      const model = await (
+        this.lmClientResolver(this.baseUrl) as LmStudioClientLike
+      ).embedding.model(this.modelKey);
 
-    const results: number[][] = [];
-    for (const text of texts) {
-      const response = await model.embed(text);
-      results.push(response.embedding);
+      const results: number[][] = [];
+      for (const text of texts) {
+        const response = await model.embed(text);
+        results.push(response.embedding);
+      }
+
+      logParityVerifiedOnce({
+        source: 'query',
+        vectorCount: results.length,
+        dimension: results[0]?.length ?? 0,
+      });
+
+      return results;
+    } catch (error) {
+      throw toLmStudioEmbeddingError(error);
     }
-
-    logParityVerifiedOnce({
-      source: 'query',
-      vectorCount: results.length,
-      dimension: results[0]?.length ?? 0,
-    });
-
-    return results;
   }
 }
 
@@ -131,7 +230,11 @@ export function createLmStudioEmbeddingProvider(
   ): Promise<ProviderEmbeddingModel> => {
     logPathSelected(modelKey);
     const model = await createResolvedModel(modelKey);
-    return new LmStudioEmbeddingModel(async () => model, modelKey);
+    return new LmStudioEmbeddingModel(
+      async () => model,
+      modelKey,
+      deps.ingestFailureContext,
+    );
   };
 
   const createEmbeddingFunction = async (modelKey: string) => {

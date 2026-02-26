@@ -280,6 +280,7 @@ async function getEmbeddingModel(
   const provider = createLmStudioEmbeddingProvider({
     lmClientResolver: d.lmClientFactory,
     baseUrl: d.baseUrl,
+    ingestFailureContext: options?.ingestFailureContext,
   });
 
   return provider.getModel(selection.modelKey);
@@ -308,15 +309,31 @@ async function resolveRootEmbeddingDim(params: {
     ).get({ include: ['embeddings'], limit: 1 });
     const dim = raw.embeddings?.[0]?.length;
     if (dim && dim > 0) return dim;
-  } catch {
-    // ignore
+  } catch (error) {
+    logWarning('ingest root dimension probe fallback', {
+      model: params.modelKey,
+      stage: 'vectors_collection_probe',
+      fallback: 'embedding_probe',
+      reason:
+        error instanceof Error
+          ? error.message.slice(0, 300)
+          : String(error ?? 'unknown').slice(0, 300),
+    });
   }
 
   try {
     const probe = await embedText(params.modelKey, 'dimension probe');
     if (probe.length > 0) return probe.length;
-  } catch {
-    // ignore
+  } catch (error) {
+    logWarning('ingest root dimension probe fallback', {
+      model: params.modelKey,
+      stage: 'embedding_probe',
+      fallback: 'dimension=1',
+      reason:
+        error instanceof Error
+          ? error.message.slice(0, 300)
+          : String(error ?? 'unknown').slice(0, 300),
+    });
   }
 
   return 1;

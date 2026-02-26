@@ -35,7 +35,9 @@ const ingestFailureBody = {
       sequence: 2,
       context: {
         provider: 'openai',
+        surface: 'ingest/start',
         code: 'OPENAI_RATE_LIMITED',
+        message: 'rate limited',
         retryable: true,
         stage: 'retry',
         runId: 'run-1',
@@ -49,7 +51,9 @@ const ingestFailureBody = {
       sequence: 3,
       context: {
         provider: 'lmstudio',
+        surface: 'ingest/reembed',
         code: 'LMSTUDIO_UNAVAILABLE',
+        message: 'connection failed',
         retryable: true,
         stage: 'terminal',
         runId: 'run-2',
@@ -149,8 +153,11 @@ describe('LogsPage', () => {
     expect(screen.getAllByText('WARN').length).toBeGreaterThan(0);
     expect(screen.getAllByText('ERROR').length).toBeGreaterThan(0);
     expect(screen.getByText(/"provider":"openai"/)).toBeVisible();
+    expect(screen.getByText(/"surface":"ingest\/start"/)).toBeVisible();
     expect(screen.getByText(/"code":"OPENAI_RATE_LIMITED"/)).toBeVisible();
+    expect(screen.getByText(/"message":"rate limited"/)).toBeVisible();
     expect(screen.getByText(/"provider":"lmstudio"/)).toBeVisible();
+    expect(screen.getByText(/"surface":"ingest\/reembed"/)).toBeVisible();
     expect(screen.getByText(/"code":"LMSTUDIO_UNAVAILABLE"/)).toBeVisible();
   });
 });

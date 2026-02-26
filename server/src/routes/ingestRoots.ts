@@ -1,11 +1,15 @@
-import { Router } from 'express';
 import { LogEntry } from '@codeinfo2/common';
+import { Router } from 'express';
 import {
   type EmbeddingProviderId,
   getLockedEmbeddingModel,
   getLockedModel,
   getRootsCollection,
 } from '../ingest/chromaClient.js';
+import {
+  appendIngestFailureLog,
+  classifyIngestFailure,
+} from '../ingest/providers/index.js';
 import { INGEST_REPO_SCHEMA_VERSION } from '../lmstudio/toolService.js';
 import { append as appendLog } from '../logStore.js';
 import { baseLogger } from '../logger.js';
@@ -399,9 +403,31 @@ export function createIngestRootsRouter(deps: Partial<Deps> = {}) {
         schemaVersion: INGEST_REPO_SCHEMA_VERSION,
       });
     } catch (err) {
-      res
-        .status(502)
-        .json({ status: 'error', message: (err as Error).message });
+      const classified = classifyIngestFailure(err, {
+        surface: 'ingest/roots',
+        defaultCode: 'INGEST_ROOTS_LOOKUP_FAILED',
+      });
+      appendIngestFailureLog(classified.severity, {
+        provider: classified.provider,
+        code: classified.code,
+        retryable: classified.retryable,
+        message: classified.message,
+        stage: 'terminal',
+        surface: classified.surface,
+        operation: 'roots',
+        ...(typeof classified.upstreamStatus === 'number'
+          ? { upstreamStatus: classified.upstreamStatus }
+          : {}),
+        ...(typeof classified.retryAfterMs === 'number'
+          ? { retryAfterMs: classified.retryAfterMs }
+          : {}),
+      });
+      baseLogger.error({ err }, 'ingest roots failed');
+      res.status(502).json({
+        status: 'error',
+        code: classified.code,
+        message: classified.message,
+      });
     }
   });
 

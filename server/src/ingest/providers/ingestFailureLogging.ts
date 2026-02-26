@@ -6,7 +6,7 @@ export type IngestFailureStage = 'retry' | 'terminal';
 
 export type IngestFailureLogContext = {
   runId?: string;
-  provider: 'openai' | 'lmstudio';
+  provider: 'openai' | 'lmstudio' | 'ingest';
   code: string;
   retryable: boolean;
   attempt?: number;
@@ -17,6 +17,8 @@ export type IngestFailureLogContext = {
   currentFile?: string;
   message: string;
   stage: IngestFailureStage;
+  surface?: string;
+  operation?: string;
   upstreamStatus?: number;
   retryAfterMs?: number;
 };
@@ -30,6 +32,22 @@ export type IngestLmStudioNormalizedError = {
   retryable: boolean;
   provider: 'lmstudio';
 };
+
+export class LmStudioEmbeddingError extends Error {
+  readonly provider = 'lmstudio' as const;
+
+  constructor(
+    public readonly code:
+      | 'LMSTUDIO_UNAVAILABLE'
+      | 'LMSTUDIO_MODEL_UNAVAILABLE'
+      | 'LMSTUDIO_BAD_REQUEST',
+    message: string,
+    public readonly retryable: boolean,
+  ) {
+    super(message);
+    this.name = 'LmStudioEmbeddingError';
+  }
+}
 
 function sanitizeMessage(value: string): string {
   return value
@@ -49,6 +67,33 @@ export function mapLmStudioIngestError(
   );
   const lower = message.toLowerCase();
   const code = (error as { code?: unknown })?.code;
+
+  if (code === 'LMSTUDIO_MODEL_UNAVAILABLE') {
+    return {
+      error: 'LMSTUDIO_MODEL_UNAVAILABLE',
+      message,
+      retryable: false,
+      provider: 'lmstudio',
+    };
+  }
+
+  if (code === 'LMSTUDIO_BAD_REQUEST') {
+    return {
+      error: 'LMSTUDIO_BAD_REQUEST',
+      message,
+      retryable: false,
+      provider: 'lmstudio',
+    };
+  }
+
+  if (code === 'LMSTUDIO_UNAVAILABLE') {
+    return {
+      error: 'LMSTUDIO_UNAVAILABLE',
+      message,
+      retryable: true,
+      provider: 'lmstudio',
+    };
+  }
 
   if (
     code === 'EMBED_MODEL_MISSING' ||
@@ -100,6 +145,8 @@ export function appendIngestFailureLog(
     currentFile: context.currentFile,
     message: sanitizeMessage(context.message),
     stage: context.stage,
+    surface: context.surface,
+    operation: context.operation,
     upstreamStatus: context.upstreamStatus,
     retryAfterMs: context.retryAfterMs,
   };

@@ -27,9 +27,15 @@ export {
 } from './openaiErrorContract.js';
 export {
   appendIngestFailureLog,
+  LmStudioEmbeddingError,
   mapLmStudioIngestError,
   type IngestFailureLogContext,
 } from './ingestFailureLogging.js';
+export {
+  classifyIngestFailure,
+  type IngestFailureClassification,
+  type IngestFailureSeverity,
+} from './ingestFailureClassifier.js';
 export {
   computeExponentialDelayMs,
   resolveRetryAfterMs,

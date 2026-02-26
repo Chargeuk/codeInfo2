@@ -2344,7 +2344,7 @@ Close the remaining ingest failure-handling gaps identified during Story 0000036
 
 ### 20. Post-review remediation: retry-env parsing strictness and reembed failure log context correctness
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: **to_do**
 
 #### Overview

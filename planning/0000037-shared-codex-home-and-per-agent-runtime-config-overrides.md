@@ -616,6 +616,11 @@ Create one server-side config resolution layer that reads shared base config, ch
    - Purpose: guarantee non-destructive behavior in partial/missing source state.
    - Docs: https://nodejs.org/api/fs.html#fspromisescopyfilesrc-dest-mode.
    - Done when: test fails if files are created/changed without base input.
+11. [ ] Update `projectStructure.md` for any files added or removed in this task, after all file-add/remove subtasks are completed.
+   - Files: `projectStructure.md`.
+   - Do: document any new resolver/normalizer modules and any new test files introduced by this task only.
+   - Docs: https://git-scm.com/docs/git-ls-files.
+   - Done when: file-map entries for task-created/removed files are present and accurate.
 
 #### Testing
 
@@ -743,6 +748,11 @@ Implement deterministic merge and validation behavior for runtime config resolut
    - Purpose: keep backward-compatible success path while enforcing canonical output.
    - Docs: https://toml.io/en/v1.0.0, Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if valid legacy input can no longer run.
+16. [ ] Update `projectStructure.md` for any files added or removed in this task, after all file-add/remove subtasks are completed.
+   - Files: `projectStructure.md`.
+   - Do: record any new validator/resolver modules and any newly added test files created by this task.
+   - Docs: https://git-scm.com/docs/git-ls-files.
+   - Done when: `projectStructure.md` accurately lists this task's added/removed files.
 
 #### Testing
 
@@ -1226,6 +1236,11 @@ Add deterministic concurrent request behavior and preserve post-success auth pro
    - Purpose: ensure detection refresh remains aligned with auth completion.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/asynchronous.
    - Done when: test fails if availability state is stale after success.
+6. [ ] Update `projectStructure.md` for any files added or removed in this task, after all file-add/remove subtasks are completed.
+   - Files: `projectStructure.md`.
+   - Do: document any new lock/helper module files and new concurrency test files introduced by this task.
+   - Docs: https://git-scm.com/docs/git-ls-files.
+   - Done when: project file map reflects the final set of files added/removed by this task.
 
 #### Testing
 
@@ -1382,6 +1397,11 @@ Replace static reasoning/model sources with one shared runtime codex capability 
    - Purpose: confirm fallback validation remains strict and deterministic.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if unsupported fallback values are accepted.
+10. [ ] Update `projectStructure.md` for any files added or removed in this task, after all file-add/remove subtasks are completed.
+   - Files: `projectStructure.md`.
+   - Do: document any new shared capability resolver modules and any new supporting test files created by this task.
+   - Docs: https://git-scm.com/docs/git-ls-files.
+   - Done when: `projectStructure.md` includes all files added/removed by this task.
 
 #### Testing
 
@@ -1772,6 +1792,11 @@ Add focused regression coverage for precedence/normalization behavior across RES
    - Do: follow repository test setup helpers.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/getting-started.
    - Done when: no duplicated harness boilerplate is introduced.
+9. [ ] Update `projectStructure.md` for any files added or removed in this task, after all file-add/remove subtasks are completed.
+   - Files: `projectStructure.md`.
+   - Do: add all new cross-surface regression test files created by this task and confirm no removed files are missing from documentation.
+   - Docs: https://git-scm.com/docs/git-ls-files.
+   - Done when: project structure documentation reflects this task's final test-file footprint.
 
 #### Testing
 
@@ -1850,6 +1875,11 @@ Add focused regression coverage for non-destructive file safety, deterministic s
    - Purpose: protect resolver rollout in flow path.
    - Docs: https://toml.io/en/v1.0.0, Context7 `/openai/codex`.
    - Done when: test fails if flow path reverts to regex parsing.
+8. [ ] Update `projectStructure.md` for any files added or removed in this task, after all file-add/remove subtasks are completed.
+   - Files: `projectStructure.md`.
+   - Do: document new compatibility/safety regression test files and any removed migration-era test files.
+   - Docs: https://git-scm.com/docs/git-ls-files.
+   - Done when: `projectStructure.md` contains an accurate file-map update for this task.
 
 #### Testing
 

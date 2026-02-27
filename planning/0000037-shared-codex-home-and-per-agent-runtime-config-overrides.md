@@ -439,8 +439,9 @@ Upgrade `@openai/codex-sdk` to latest stable at implementation start and lock de
 
 #### Documentation Locations
 
-- Codex SDK README (config overrides and thread options): Context7 `/openai/codex`
-- npm semver guidance: https://docs.npmjs.com/about-semantic-versioning
+- `@openai/codex-sdk` runtime overrides and config behavior: Context7 `/openai/codex` (authoritative for `CodexOptions.config` semantics used by this task).
+- npm semver policy: https://docs.npmjs.com/about-semantic-versioning (used to enforce stable/non-prerelease upgrade selection).
+- npm dependency tree verification: https://docs.npmjs.com/cli/v10/commands/npm-ls (used to verify single resolved SDK version in workspace).
 
 #### Subtasks
 
@@ -480,8 +481,10 @@ Remove compatibility-only widened reasoning-effort unions/casts and align code t
 
 #### Documentation Locations
 
-- Codex SDK types/interfaces: Context7 `/openai/codex`
-- TypeScript handbook (type narrowing and unions): https://www.typescriptlang.org/docs/
+- `@openai/codex-sdk` types and runtime capability surfaces: Context7 `/openai/codex` (source of truth for reasoning-effort typing after upgrade).
+- TypeScript type-system references: https://www.typescriptlang.org/docs/ (used for union removal and discriminated typing updates).
+- React Hook behavior (`useMemo`/state derivation): https://react.dev/reference/react/useMemo (used where capability arrays are memoized in UI).
+- Jest assertions and matcher behavior: https://jestjs.io/docs/getting-started (used for deterministic supported/unsupported value tests).
 
 #### Subtasks
 
@@ -528,9 +531,9 @@ Create one server-side config resolution layer that reads shared base config, ch
 
 #### Documentation Locations
 
-- TOML v1.0.0 spec: https://toml.io/en/v1.0.0
-- Codex config layering references: Context7 `/openai/codex`
-- Node fs/path APIs: https://nodejs.org/api/fs.html and https://nodejs.org/api/path.html
+- TOML v1.0.0 spec: https://toml.io/en/v1.0.0 (used to parse and normalize canonical vs legacy key layout correctly).
+- `@openai/codex-sdk` config layering expectations: Context7 `/openai/codex` (used to map normalized keys into runtime config overrides).
+- Node.js filesystem/path APIs: https://nodejs.org/api/fs.html and https://nodejs.org/api/path.html (used for loader reads, path resolution, and chat-config bootstrap copy behavior).
 
 #### Subtasks
 
@@ -581,8 +584,10 @@ Implement deterministic merge and validation behavior for runtime config resolut
 
 #### Documentation Locations
 
-- TOML v1.0.0 spec: https://toml.io/en/v1.0.0
-- Codex config layering references: Context7 `/openai/codex`
+- TOML v1.0.0 spec: https://toml.io/en/v1.0.0 (used to validate key/value typing and parse-failure semantics).
+- `@openai/codex-sdk` config vocabulary: Context7 `/openai/codex` (used to distinguish supported keys from unknown keys).
+- Node.js error model: https://nodejs.org/api/errors.html (used to map missing/unreadable/invalid file failures deterministically).
+- Jest test patterns: https://jestjs.io/docs/mock-functions (used for validator warning/error path assertions).
 
 #### Subtasks
 
@@ -638,8 +643,10 @@ Replace existing model-only config parsing (`readAgentModelId`) so all execution
 
 #### Documentation Locations
 
-- Node fs/path APIs: https://nodejs.org/api/fs.html and https://nodejs.org/api/path.html
-- Codex config references: Context7 `/openai/codex`
+- Node.js filesystem/path APIs: https://nodejs.org/api/fs.html and https://nodejs.org/api/path.html (used while replacing line-based parsing with structured TOML resolution).
+- TOML v1.0.0 spec: https://toml.io/en/v1.0.0 (used to parse complete runtime config instead of regex model extraction).
+- `@openai/codex-sdk` runtime config behavior: Context7 `/openai/codex` (used to ensure resolver output matches runtime option expectations).
+- ripgrep usage guide: https://github.com/BurntSushi/ripgrep/blob/master/GUIDE.md (used to verify old parser call-site removal efficiently).
 
 #### Subtasks
 
@@ -685,8 +692,9 @@ Apply runtime config overrides to chat and primary REST agent execution surfaces
 
 #### Documentation Locations
 
-- Codex SDK config override behavior: Context7 `/openai/codex`
-- Express routing guide: https://expressjs.com/en/guide/routing.html
+- `@openai/codex-sdk` runtime options and defaults: Context7 `/openai/codex` (used for `CodexOptions.config` and `useConfigDefaults: true` handling).
+- Express routing reference: https://expressjs.com/en/guide/routing.html (used for `/agents/:agentName/run` and `/agents/:agentName/commands/run` wiring).
+- TypeScript language docs: https://www.typescriptlang.org/docs/ (used to preserve call-signature compatibility while extending option plumbing).
 
 #### Subtasks
 
@@ -742,8 +750,9 @@ Apply the same runtime config resolution to flow-driven and MCP execution surfac
 
 #### Documentation Locations
 
-- Codex SDK config override behavior: Context7 `/openai/codex`
-- JSON-RPC 2.0 spec (MCP contract parity): https://www.jsonrpc.org/specification
+- `@openai/codex-sdk` runtime options: Context7 `/openai/codex` (used so flow/MCP execution uses the same option contract as REST).
+- JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (used for MCP parity expectations and deterministic request/response behavior).
+- Jest matcher docs: https://jestjs.io/docs/using-matchers (used for cross-surface parity assertions).
 
 #### Subtasks
 
@@ -789,8 +798,8 @@ Move Codex availability and startup checks to shared-home semantics for chat and
 
 #### Documentation Locations
 
-- Node child_process/fs docs: https://nodejs.org/api/child_process.html and https://nodejs.org/api/fs.html
-- Codex runtime/home behavior: Context7 `/openai/codex`
+- Node.js process/filesystem docs: https://nodejs.org/api/child_process.html and https://nodejs.org/api/fs.html (used for detection/startup availability checks).
+- `@openai/codex-sdk` home/runtime behavior: Context7 `/openai/codex` (used to align shared-home availability semantics).
 
 #### Subtasks
 
@@ -830,8 +839,9 @@ Retain existing auth seeding/propagation compatibility behavior without deleting
 
 #### Documentation Locations
 
-- Node fs docs: https://nodejs.org/api/fs.html
-- Codex runtime/home behavior: Context7 `/openai/codex`
+- Node.js filesystem docs: https://nodejs.org/api/fs.html (used to guarantee non-destructive auth propagation behavior).
+- `@openai/codex-sdk` shared-home behavior: Context7 `/openai/codex` (used to retain compatibility-mode auth handling while moving to shared home).
+- Jest assertion docs: https://jestjs.io/docs/expect (used for idempotency and file-presence verification tests).
 
 #### Subtasks
 
@@ -872,9 +882,10 @@ Implement the server-side device-auth message contract change first: request bod
 
 #### Documentation Locations
 
-- OpenAPI 3.0.3 spec: https://spec.openapis.org/oas/v3.0.3.html
-- Express JSON/body handling: https://expressjs.com/en/resources/middleware/body-parser.html
-- JSON response best practices: https://datatracker.ietf.org/doc/html/rfc7807
+- OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (used to define strict `{}` request and `200/400/503` response schemas).
+- Express JSON body parsing docs: https://expressjs.com/en/resources/middleware/body-parser.html (used for strict request-shape enforcement).
+- RFC 7807 problem details: https://datatracker.ietf.org/doc/html/rfc7807 (used for deterministic structured error payload design).
+- TypeScript docs: https://www.typescriptlang.org/docs/ (used for shared discriminated API response typing).
 
 #### Subtasks
 
@@ -938,8 +949,10 @@ Add deterministic concurrent request behavior and preserve post-success auth pro
 
 #### Documentation Locations
 
-- Express request handling: https://expressjs.com/en/guide/routing.html
-- Node async/concurrency behavior: https://nodejs.org/api/
+- Express routing docs: https://expressjs.com/en/guide/routing.html (used for request concurrency handling in route implementation).
+- Node.js async context docs: https://nodejs.org/api/async_context.html (used for deterministic lock/serialization strategy references).
+- Node.js filesystem docs: https://nodejs.org/api/fs.html (used to keep propagation side-effects non-destructive).
+- Jest setup/teardown docs: https://jestjs.io/docs/setup-teardown (used for concurrent integration test structure).
 
 #### Subtasks
 
@@ -980,9 +993,10 @@ Implement backend model-capability payload contract for Codex models so frontend
 
 #### Documentation Locations
 
-- Codex model capability references: Context7 `/openai/codex`
-- OpenAPI 3.0.3 schema docs: https://spec.openapis.org/oas/v3.0.3.html
-- TypeScript JSON schema typing patterns: https://www.typescriptlang.org/docs/
+- `@openai/codex-sdk` model capability surfaces: Context7 `/openai/codex` (used to source supported/default reasoning effort values).
+- OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (used to publish `/chat/models` capability payload contract).
+- TypeScript docs: https://www.typescriptlang.org/docs/ (used to extend shared DTO typing safely).
+- Jest docs: https://jestjs.io/docs/getting-started (used for completeness tests on every returned model entry).
 
 #### Subtasks
 
@@ -1033,7 +1047,10 @@ Replace static reasoning/model sources with one shared runtime codex capability 
 
 #### Documentation Locations
 
-- Codex model capability references: Context7 `/openai/codex`
+- `@openai/codex-sdk` capabilities and model metadata: Context7 `/openai/codex` (used to build one shared runtime resolver for `/chat/models` and `/chat`).
+- OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (used to keep response and validation contracts aligned).
+- RFC 7807 and HTTP semantics: https://datatracker.ietf.org/doc/html/rfc7807 and https://httpwg.org/specs/rfc9110.html (used for deterministic invalid-request errors).
+- TypeScript docs: https://www.typescriptlang.org/docs/ (used for shared resolver output typing).
 
 #### Subtasks
 
@@ -1085,8 +1102,9 @@ After Task 10 is complete, update frontend API request/response types for the si
 
 #### Documentation Locations
 
-- React fetch/error handling patterns: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
-- TypeScript API typing guidance: https://www.typescriptlang.org/docs/
+- Fetch API reference: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API (used for client request/response handling behavior).
+- TypeScript docs: https://www.typescriptlang.org/docs/ (used for strict client API contract typing).
+- OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (used to keep frontend client contract synchronized with server schema).
 
 #### Subtasks
 
@@ -1126,8 +1144,10 @@ After Task 10 and Task 14 are complete, simplify UI usage to one shared device-a
 
 #### Documentation Locations
 
-- MUI docs (Dialog, Button, Alert, TextField): use MUI MCP (`mcp__mui__useMuiDocs`)
-- React hooks/state docs: https://react.dev/reference/react
+- MUI MCP entrypoint: https://llms.mui.com/material-ui/7.2.0/getting-started/mcp.md (used to ensure current-version Material UI guidance via MCP).
+- MUI API docs used by this task: https://llms.mui.com/material-ui/7.2.0/api/dialog.md, https://llms.mui.com/material-ui/7.2.0/api/button.md, https://llms.mui.com/material-ui/7.2.0/api/alert.md, https://llms.mui.com/material-ui/7.2.0/api/text-field.md (used for component prop/state behavior during dialog simplification).
+- React docs: https://react.dev/reference/react and https://react.dev/learn/sharing-state-between-components (used for shared dialog state flow across pages).
+- Testing Library docs: https://testing-library.com/docs/ (used for dialog and page integration tests).
 
 #### Subtasks
 
@@ -1173,8 +1193,9 @@ After Task 12 and Task 13 are complete, update chat model state plumbing to carr
 
 #### Documentation Locations
 
-- React hooks/state docs: https://react.dev/reference/react
-- TypeScript union/array typing guidance: https://www.typescriptlang.org/docs/
+- React hooks and state docs: https://react.dev/reference/react and https://react.dev/learn/choosing-the-state-structure (used for deterministic default/reset state transitions).
+- TypeScript docs: https://www.typescriptlang.org/docs/ (used for capability-field typing in hook state).
+- Jest + Testing Library docs: https://jestjs.io/docs/getting-started and https://testing-library.com/docs/ (used for capability-driven reset behavior tests).
 
 #### Subtasks
 
@@ -1225,8 +1246,10 @@ After Task 16 is complete, switch chat flags UI and chat payload building to run
 
 #### Documentation Locations
 
-- MUI docs (Select/MenuItem/FormControl): use MUI MCP (`mcp__mui__useMuiDocs`)
-- React hooks/state docs: https://react.dev/reference/react
+- MUI MCP entrypoint: https://llms.mui.com/material-ui/7.2.0/getting-started/mcp.md (used for current-version component API accuracy).
+- MUI API docs used by this task: https://llms.mui.com/material-ui/7.2.0/api/select.md, https://llms.mui.com/material-ui/7.2.0/api/menu-item.md, https://llms.mui.com/material-ui/7.2.0/api/form-control.md (used for dynamic option rendering and form-state integration).
+- React docs: https://react.dev/reference/react (used for payload validity and reset-on-change state flow).
+- `@openai/codex-sdk` + OpenAPI contract references: Context7 `/openai/codex` and https://spec.openapis.org/oas/v3.0.3.html (used to match UI payloads to server-validated capability constraints).
 
 #### Subtasks
 
@@ -1272,9 +1295,10 @@ Add focused regression coverage for precedence/normalization behavior across RES
 
 #### Documentation Locations
 
-- Node test runner docs: https://nodejs.org/api/test.html
-- Jest docs: https://jestjs.io/docs/getting-started
-- JSON-RPC 2.0 spec: https://www.jsonrpc.org/specification
+- Node.js test runner docs: https://nodejs.org/api/test.html (used where native test utilities/helpers are referenced).
+- Jest docs: https://jestjs.io/docs/getting-started (used for integration and regression assertion patterns).
+- JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (used for MCP invocation-path parity assertions).
+- TOML + Codex references: https://toml.io/en/v1.0.0 and Context7 `/openai/codex` (used for normalization and canonical runtime config expectations).
 
 #### Subtasks
 
@@ -1320,8 +1344,10 @@ Add focused regression coverage for non-destructive file safety, deterministic s
 
 #### Documentation Locations
 
-- Node test runner docs: https://nodejs.org/api/test.html
-- Jest docs: https://jestjs.io/docs/getting-started
+- Node.js filesystem/test docs: https://nodejs.org/api/fs.html and https://nodejs.org/api/test.html (used for file-safety and fixture validation coverage).
+- Jest docs: https://jestjs.io/docs/getting-started (used for migration safety regression suites).
+- OWASP Logging Cheat Sheet: https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html (used for secret-safe logging assertions).
+- TOML + Codex references: https://toml.io/en/v1.0.0 and Context7 `/openai/codex` (used for fixture normalization and parser-removal guard tests).
 
 #### Subtasks
 
@@ -1367,8 +1393,9 @@ Update architecture and contract documentation after implementation tasks above 
 
 #### Documentation Locations
 
-- Mermaid docs: Context7 `/mermaid-js/mermaid`
-- OpenAPI 3.0.3 spec: https://spec.openapis.org/oas/v3.0.3.html
+- Mermaid docs via Context7: Context7 `/mermaid-js/mermaid` (used to document updated runtime architecture diagrams correctly).
+- OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (used to document exact API contract changes).
+- `@openai/codex-sdk` config references: Context7 `/openai/codex` (used to explain shared-home vs runtime-override behavior accurately).
 
 #### Subtasks
 
@@ -1402,7 +1429,9 @@ Update repository file-map and compatibility alias examples after implementation
 
 #### Documentation Locations
 
-- OpenAPI 3.0.3 spec: https://spec.openapis.org/oas/v3.0.3.html
+- Git file listing reference: https://git-scm.com/docs/git-ls-files (used to verify documented changed file set against actual tracked files).
+- OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (used for documenting updated response/request shapes in file map notes).
+- TOML + Codex references: https://toml.io/en/v1.0.0 and Context7 `/openai/codex` (used for canonical vs alias config examples in compatibility section).
 
 #### Subtasks
 
@@ -1436,8 +1465,9 @@ Perform final shared-base config minimization as an isolated end-of-story step o
 
 #### Documentation Locations
 
-- TOML spec: https://toml.io/en/v1.0.0
-- Codex config references: Context7 `/openai/codex`
+- TOML v1.0.0 specification: https://toml.io/en/v1.0.0 (used to enforce valid final projects-only config shape).
+- `@openai/codex-sdk` config behavior: Context7 `/openai/codex` (used to keep minimized base config aligned with runtime override model).
+- Node.js filesystem copy semantics: https://nodejs.org/api/fs.html#fspromisescopyfilesrc-dest-mode (used for pre-minimization chat-config existence/guard behavior).
 
 #### Subtasks
 

@@ -81,11 +81,20 @@ Additional rollout safety rule: reducing values in `./codex/config.toml` can sto
 - Per-agent auth propagation/seeding behavior is retained in a non-destructive compatibility mode as needed to keep current runtime behavior stable; no plan step may remove agent-folder auth files.
 - Device-auth backend endpoint is changed to a single request contract with no target selector fields, and no legacy dual-shape/backward-compatible parsing remains after migration.
 - Requests that still send legacy selector fields (for example `target` or `agentName`) are rejected with a deterministic client error response rather than silently reinterpreted.
+- Device-auth endpoint behavior is explicitly defined for juniors:
+  - `POST /codex/device-auth` request body must be an empty JSON object `{}`.
+  - `200` success response: `{ "status": "ok", "rawOutput": "<string>" }`.
+  - `400` invalid request response (including any legacy selector fields): `{ "error": "invalid_request", "message": "<reason>" }`.
+  - `503` codex unavailable response: `{ "error": "codex_unavailable", "reason": "<reason>" }`.
 - Frontend re-authentication UI is simplified to one Codex device auth screen and removes chat/agent selector UX and related branch-specific messaging.
 - Chat reasoning-effort options are no longer hard-coded in the frontend; the client renders options exactly from backend capability data sourced from the upgraded SDK/runtime support set.
 - `minimal` is visible/selectable in chat when the selected model capability payload includes it, and selection is validated/passed through end-to-end the same as other supported effort values.
 - Future SDK/runtime reasoning-effort additions appear in chat automatically after dependency upgrade/redeploy, without adding new custom value-injection code.
 - Backend capability payload includes a deterministic field for reasoning effort options (array of supported values), and frontend behavior is deterministic when values change (invalid prior selection is reset to that model’s supported default).
+- Chat model capability payload shape is explicitly defined and shared in `common` types:
+  - each Codex model entry includes `supportedReasoningEfforts: string[]` and `defaultReasoningEffort: string`;
+  - UI must render reasoning choices from those fields only;
+  - if a previously selected effort is no longer supported for the selected model, UI resets to that model’s `defaultReasoningEffort`.
 - Legacy compatibility behaviors are explicitly documented for any remaining read-only agent config fields that cannot be safely translated into runtime overrides.
 - Logs and error payloads remain deterministic and secret-safe after refactor:
   - no auth tokens, auth file contents, full TOML blobs, or raw device-auth secrets in logs;
@@ -103,10 +112,11 @@ This section defines contract/storage changes required by this story so implemen
   - Response: `{ status: string, rawOutput: string, target: string, agentName?: string }`
 - Target contract for this story:
   - Request: `{}` (no selector fields; server determines shared-home auth target internally)
-  - Response success: `{ status: string, rawOutput: string }`
-  - Response error (deterministic): `{ error: string, message?: string, reason?: string }`
+  - Response success (`200`): `{ status: "ok", rawOutput: string }`
+  - Response invalid request (`400`): `{ error: "invalid_request", message: string }`
+  - Response unavailable (`503`): `{ error: "codex_unavailable", reason: string }`
 - Compatibility rule:
-  - Legacy selector fields (`target`, `agentName`) are rejected with deterministic client error response.
+  - Legacy selector fields (`target`, `agentName`) are rejected with `400 invalid_request`.
 - Shared definitions to update:
   - `common`/shared API typing surfaces
   - `openapi.json`
@@ -126,6 +136,16 @@ This section defines contract/storage changes required by this story so implemen
     - per model: `supportedReasoningEfforts: string[]`
     - per model: `defaultReasoningEffort: string`
   - Values come from codex model capabilities (for example `minimal`, `low`, `medium`, `high`, and where present `xhigh`), not a frontend static enum.
+  - Example model payload (shape only):
+    ```json
+    {
+      "key": "gpt-5.3-codex-spark",
+      "displayName": "GPT-5.3 Codex Spark",
+      "type": "codex",
+      "supportedReasoningEfforts": ["minimal", "low", "medium", "high", "xhigh"],
+      "defaultReasoningEffort": "high"
+    }
+    ```
 - Shared definitions to update:
   - `common/src/lmstudio.ts` (canonical shared types)
   - `server/src/routes/chatModels.ts` (payload producer)
@@ -137,9 +157,13 @@ This section defines contract/storage changes required by this story so implemen
 - Shared base config (`./codex/config.toml`):
   - Target role: shared home/auth/session defaults and shared `[projects]` defaults only.
   - Not allowed to define behavior that overrides named-agent runtime behavior.
+  - Canonical keys for this story area:
+    - `tools.view_image` (not `features.view_image_tool`)
+    - top-level `web_search` mode (`live` / `cached` / `disabled`)
 - Chat runtime config (`./codex/chat/config.toml`):
   - New/required shape for chat behavior defaults.
   - Must be copied from existing `./codex/config.toml` before base minimization.
+  - Must exist before base minimization is executed.
 - Agent runtime config (`codex_agents/<agent>/config.toml`):
   - Source of truth for agent behavior keys.
   - Legacy key normalization at read time:
@@ -151,6 +175,7 @@ This section defines contract/storage changes required by this story so implemen
 - Auth files:
   - `./codex/auth.json` and `codex_agents/*/auth.json` must remain on disk.
   - No delete/move/rename under `codex_agents/*`.
+  - Story must not alter auth file contents except normal Codex login refresh behavior.
 
 #### 4. In-Memory Effective Runtime Shape (Server Merge Result)
 

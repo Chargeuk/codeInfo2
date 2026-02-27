@@ -562,12 +562,18 @@ Create one server-side config resolution layer that reads shared base config, ch
    - Do: add fixtures with canonical-only, legacy-only, and mixed key collisions.
    - Docs: https://jestjs.io/docs/expect.
    - Done when: tests explicitly assert canonical-wins behavior.
+6. [ ] Add unit tests for chat-config bootstrap happy path and corner cases.
+   - Files: `server/src/test/**` for config loader/bootstrap.
+   - Do: cover copy-once creation when chat config is missing, no-overwrite behavior when chat config exists, and no-copy behavior when base config is missing.
+   - Docs: https://nodejs.org/api/fs.html#fspromisescopyfilesrc-dest-mode.
+   - Done when: tests fail if bootstrap overwrites existing chat config or mutates files without a base source.
 
 #### Testing
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run test --workspace server -- agents-config-defaults`
 3. [ ] Run new config-loader/normalization unit tests directly and verify pass.
+4. [ ] Run targeted bootstrap copy/no-overwrite tests and verify deterministic outcomes.
 
 #### Implementation notes
 
@@ -621,12 +627,18 @@ Implement deterministic merge and validation behavior for runtime config resolut
    - Do: cover missing file, invalid TOML, unreadable permission cases.
    - Docs: https://nodejs.org/api/fs.html#file-system-flags.
    - Done when: deterministic error payloads/log messages are asserted.
+7. [ ] Add explicit happy-path tests for valid chat and valid agent configs after validation and merge.
+   - Files: resolver/service integration tests under `server/src/test/**`.
+   - Do: assert successful execution with valid canonical config and with valid legacy-alias input that normalizes cleanly.
+   - Docs: https://jestjs.io/docs/expect, https://toml.io/en/v1.0.0.
+   - Done when: tests assert successful resolved config output (not only error paths).
 
 #### Testing
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run test --workspace server -- agents-config-defaults`
 3. [ ] Run targeted config read/parse failure tests directly and verify deterministic error payloads/logs.
+4. [ ] Run targeted valid-config happy-path resolver tests and verify pass.
 
 #### Implementation notes
 
@@ -1025,12 +1037,18 @@ Implement backend model-capability payload contract for Codex models so frontend
    - Do: assert each returned codex model includes non-empty `supportedReasoningEfforts` and valid `defaultReasoningEffort` member.
    - Docs: https://jestjs.io/docs/expect.
    - Done when: tests fail if either field is missing.
+6. [ ] Add tests proving non-codex model payload entries remain unchanged by codex capability-field additions.
+   - Files: `server/src/test/chatModels*` suites.
+   - Do: assert non-codex entries do not regress when codex-only capability fields are added.
+   - Docs: https://jestjs.io/docs/using-matchers.
+   - Done when: tests fail if non-codex payload shape is unintentionally modified.
 
 #### Testing
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run build --workspace common`
 3. [ ] `npm run test --workspace server -- chatModels.codex`
+4. [ ] Run targeted mixed-provider model payload tests (codex + non-codex) and verify pass.
 
 #### Implementation notes
 
@@ -1079,6 +1097,11 @@ Replace static reasoning/model sources with one shared runtime codex capability 
    - Do: assert validator and payload both reflect same resolver fixture.
    - Docs: https://jestjs.io/docs/snapshot-testing.
    - Done when: parity test fails if either route diverges.
+6. [ ] Add tests for resolver fallback behavior when model metadata is temporarily unavailable.
+   - Files: `server/src/test/chatModels.codex*`, `server/src/test/chat*`.
+   - Do: assert deterministic fallback output and consistent `/chat` validation behavior under fallback.
+   - Docs: https://jestjs.io/docs/mock-functions.
+   - Done when: tests fail if fallback behavior diverges between payload and validation paths.
 
 #### Testing
 
@@ -1086,6 +1109,7 @@ Replace static reasoning/model sources with one shared runtime codex capability 
 2. [ ] `npm run test --workspace server -- chatModels.codex`
 3. [ ] Run targeted server chat-validation tests for unsupported reasoning effort and verify deterministic error contract.
 4. [ ] Run targeted parity tests for `/chat/models` and `/chat`.
+5. [ ] Run targeted fallback-capability tests and verify both accepted and rejected effort flows are deterministic.
 
 #### Implementation notes
 
@@ -1171,12 +1195,18 @@ After Task 10 and Task 14 are complete, simplify UI usage to one shared device-a
    - Do: assert no selector rendered and both pages use same flow.
    - Docs: Testing Library guides https://testing-library.com/docs/.
    - Done when: tests fail if selector reappears.
+5. [ ] Add frontend tests for shared auth dialog error and retry states.
+   - Files: `client/src/test/**` for `CodexDeviceAuthDialog` and page integrations.
+   - Do: cover `400 invalid_request`, `503 codex_unavailable`, loading state, and retry action behavior.
+   - Docs: https://testing-library.com/docs/, https://jestjs.io/docs/asynchronous.
+   - Done when: dialog behavior is verified for success, error, and retry paths.
 
 #### Testing
 
 1. [ ] `npm run build --workspace client`
 2. [ ] `npm run test --workspace client -- codexDeviceAuthDialog`
 3. [ ] Run related ChatPage/AgentsPage codex-auth tests and verify pass.
+4. [ ] Run targeted auth-dialog error/retry tests and verify deterministic UI states.
 
 #### Implementation notes
 
@@ -1224,12 +1254,18 @@ After Task 12 and Task 13 are complete, update chat model state plumbing to carr
    - Do: cover model switch and capability change scenarios.
    - Docs: Testing Library + Jest docs.
    - Done when: tests assert reset-to-default semantics.
+6. [ ] Add defensive corner-case tests for malformed capability payloads.
+   - Files: `client/src/test/chatPage.codexDefaults*` and hook tests.
+   - Do: cover empty `supportedReasoningEfforts` and mismatched `defaultReasoningEffort` cases to ensure no UI crash and deterministic fallback behavior.
+   - Docs: https://react.dev/learn/choosing-the-state-structure, https://jestjs.io/docs/expect.
+   - Done when: client remains stable and deterministic under malformed payload fixtures.
 
 #### Testing
 
 1. [ ] `npm run build --workspace client`
 2. [ ] `npm run test --workspace client -- chatPage.codexDefaults`
 3. [ ] Run targeted `useChatModel` capability/default tests directly and verify pass.
+4. [ ] Run malformed-capability payload corner-case tests and verify pass.
 
 #### Implementation notes
 
@@ -1273,12 +1309,18 @@ After Task 16 is complete, switch chat flags UI and chat payload building to run
    - Do: assert rendered options and outgoing payload correctness.
    - Docs: https://testing-library.com/docs/queries/about/.
    - Done when: tests fail if static lists reintroduced.
+5. [ ] Add corner-case tests for minimal option sets.
+   - Files: `client/src/test/chatPage.flags.reasoning*`.
+   - Do: cover models with a single supported reasoning effort option and ensure select/payload behavior remains valid.
+   - Docs: https://testing-library.com/docs/queries/about/, https://react.dev/reference/react.
+   - Done when: UI and payload logic remain deterministic with one-option capability lists.
 
 #### Testing
 
 1. [ ] `npm run build --workspace client`
 2. [ ] `npm run test --workspace client -- chatPage.flags.reasoning`
 3. [ ] Run targeted reasoning payload tests and verify only supported values are sent.
+4. [ ] Run single-option capability-list tests and verify UI/payload behavior remains valid.
 
 #### Implementation notes
 
@@ -1508,6 +1550,9 @@ Perform final shared-base config minimization as an isolated end-of-story step o
 2. [ ] Validate `./codex/chat/config.toml` remains present and unchanged by minimization.
 3. [ ] Verify filesystem checks for `codex_agents/*/auth.json` presence pass.
 4. [ ] Simulate missing chat config precondition and verify minimization step abort behavior is deterministic and non-destructive.
+5. [ ] Verify final implementation notes include both required operational warnings:
+   - `code_info`-dependent checks were completed before minimization;
+   - `code_info` MCP is expected to be unavailable after minimization in this running instance.
 
 #### Implementation notes
 

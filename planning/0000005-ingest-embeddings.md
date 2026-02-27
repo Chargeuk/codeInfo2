@@ -2,7 +2,7 @@
 
 ## Description
 
-Add a new **Ingest** page that lets users point the system at a folder (e.g., a git repo) accessible to the server. The server will walk the tree, chunk files intelligently (prefer boundaries between classes/functions; fall back to size-based chunks), embed the chunks with a selected LM Studio embedding model, and store vectors in a shared Chroma collection. Each chunk must persist rich metadata: repository root path, relative file path, embedding time, file hash, chunk hash, and any flags needed to target later deletes/updates. Users need controls to re-embed incrementally (only changed/added/removed files) and to remove all embeddings associated with a folder using the metadata.
+Add a new **Ingest** page that lets users point the system at a folder (for example a git repo) that is accessible to the server. The server will scan files, chunk text (prefer boundaries between classes/functions, then fall back to size/token slicing), embed chunks with the selected LM Studio embedding model, and store vectors in one shared Chroma collection. Each stored chunk must include metadata required for incremental updates and deletion: `repoRoot` (normalized absolute root path used as folder identity), `relPath`, `embeddedAt`, `fileHash`, `chunkHash`, `model`, and `runId`. Users need controls to run first-time ingest, re-embed incrementally (only changed/added/removed files), cancel an active ingest run, and remove all embeddings for a previously embedded folder by `repoRoot`.
 
 ### Embedding model limits (LM Studio)
 
@@ -12,19 +12,23 @@ Add a new **Ingest** page that lets users point the system at a folder (e.g., a 
 
 ## Acceptance Criteria
 
-- Ingest page reachable from NavBar, showing folder path input and LM Studio model dropdown (models sourced from LM Studio). First model defaulted.
-- Server accepts a folder path, enumerates files, chunks large files at class/function boundaries when possible, otherwise size-based fallback.
-- Each embedded chunk stored in one shared Chroma collection (no per-repo DBs) with metadata: repo root, relative path, file hash, chunk hash, embeddedAt timestamp, and model used.
-- One shared Chroma collection means a single embedding model must be used for all entries; the model is selectable only when the collection is empty (first ingest or after a full purge) and is fixed thereafter unless the collection is cleared.
-- Re-embed workflow reuses metadata/hashes to only embed changed files/chunks; removes vectors for deleted files.
-- Users can remove a previously embedded folder by metadata key (e.g., repo root) without affecting other data.
-- Errors and progress surface to the UI (basic states sufficient for this story).
-- If the target folder is a git repo or within one, only git-tracked files are embedded (untracked/ignored files skipped); `.git` directories are always excluded. Only text files are eligible, and all text files are included unless they are in the exclude list or nested under an excluded directory. Maintain a hardcoded exclude list (initially includes `node_modules`, `.git`, lockfiles like `package-lock.json`, and other obvious vendor/cache dirs) applied even outside git contexts.
-- Exclude list is configurable via env (initial hardcoded defaults still apply); the env-driven list should let operators extend or override exclusions without code changes.
-- Ingest runs are single-flight: server rejects new ingest requests while one is running. In-progress ingest must be abortable (server stops the job and frees the lock; UI surfaces cancellation).
-- Chroma backing store will run via the official Docker image v1.3.5, and the Node client will use `chromadb` npm package v3.1.6.
-- Default include extensions (env-overridable allowlist): ts, tsx, js, jsx, mjs, cjs, json, jsonc, md, mdx, txt, py, java, kt, kts, go, rs, rb, php, cs, cpp, cc, c, h, hpp, swift, scala, clj, cljs, edn, sh, bash, zsh, ps1, yaml, yml, toml, ini, cfg, env (non-secret defaults only), sql. Exclude (hard, even if text or listed in env): lockfiles (package-lock.json, yarn.lock, pnpm-lock.yaml), minified bundles (_.min.js), build/ and dist/ outputs, logs (_.log), vendor directories (node_modules, vendor), VCS/meta (.git), coverage/caches.
-- Server will expose an embedding-models endpoint that filters LM Studio’s downloaded models to embedding-capable ones only (via `listDownloadedModels`), used by the ingest UI; model choice is only allowed when collection is empty.
+- Ingest page is reachable from the NavBar and shows: `Folder path` (required), `Display name` (required), `Description` (optional), `Model` dropdown, and `Start ingest`.
+- Server accepts an ingest request with folder path and model (only when model is not locked), discovers candidate files, chunks text, embeds chunks, and writes to one shared Chroma collection (no per-repo collections).
+- Stored chunk metadata includes at least: `repoRoot`, `relPath`, `embeddedAt`, `fileHash`, `chunkHash`, `model`, `runId`.
+- Folder identity is `repoRoot` (normalized absolute path). Remove and re-embed operations target that key so one folder can be deleted without affecting others.
+- If target path is inside a git repo, only `git ls-files` tracked files are eligible. If target path is not in a git repo, recursive filesystem scan is used. In both modes, `.git` is always excluded.
+- Only text files are eligible for chunking/embedding.
+- Hard excludes are always enforced and cannot be bypassed by env: `.git`, `node_modules`, `vendor`, `dist`, `build`, `coverage`, lockfiles (`package-lock.json`, `yarn.lock`, `pnpm-lock.yaml`), minified bundles (`*.min.js`), and log files (`*.log`).
+- Include extensions default to: `ts, tsx, js, jsx, mjs, cjs, json, jsonc, md, mdx, txt, py, java, kt, kts, go, rs, rb, php, cs, cpp, cc, c, h, hpp, swift, scala, clj, cljs, edn, sh, bash, zsh, ps1, yaml, yml, toml, ini, cfg, env, sql`.
+- `INGEST_INCLUDE` can replace/limit the allowlist at runtime. `INGEST_EXCLUDE` adds extra excludes at runtime. Hard excludes still apply in all cases.
+- Chunking prefers class/function-style boundaries first, then falls back to token-safe slicing. Chunk token count target uses LM Studio context length with safety margin; if unavailable, fallback cap is `2048`.
+- One shared collection means one active embedding model. Model is selectable only when collection is empty; once entries exist, model selection is locked until full purge.
+- Re-embed is incremental: unchanged files/chunks are skipped via hash comparison, changed and new content is embedded, and vectors for deleted files are removed.
+- Ingest runs are single-flight. If a run is active, new ingest/re-embed requests are rejected with a conflict-style response until lock is released.
+- Active run can be cancelled. Cancel stops scheduling new work, attempts to halt in-flight embedding work, then purges vectors written by the cancelled `runId`.
+- UI must show concrete ingest states: `Idle`, `Scanning`, `Embedding`, `Completed`, `Cancelled`, `Failed`. On cancellation, UI must show either `cancelled and cleaned` or `cancelled; cleanup pending`.
+- Server exposes an embedding-models endpoint based on LM Studio `listDownloadedModels`, filtered to embedding-capable models, and includes model lock information used by the UI.
+- Chroma runtime is official Docker image `v1.3.5`, and server dependency is `chromadb` npm package `v3.1.6`.
 
 ## Out Of Scope
 
@@ -35,8 +39,8 @@ Add a new **Ingest** page that lets users point the system at a folder (e.g., a 
 
 ## GUI Notes (current intent)
 
-- New Ingest form: fields for Folder path (required), Display name (required), Description (optional), Model dropdown (selectable only when collection empty), Start ingest button, optional Dry-run toggle, inline status/error text.
-- Active run card: shows current state (“Scanning…/Embedding…/Cancelled/Completed”), counters, soft Cancel button, and a link to view logs filtered by runId.
+- New Ingest form: fields for Folder path (required), Display name (required), Description (optional), Model dropdown (selectable only when collection empty), Start ingest button, inline status/error text.
+- Active run card: shows current state (`Scanning` / `Embedding` / `Cancelled` / `Completed` / `Failed`), counters, Cancel button, and a link to view logs filtered by `runId`.
 - Embedded folders table: columns for Name, Path, Model, Status chip, Last ingest time, counts (files/chunks optional). Actions per row: Re-embed (incremental), Remove (purge), View details. Bulk actions for selected rows.
 - Description display: info/tooltip icon next to Name in the table; description also shown in the Details drawer opened from View details.
 - Details drawer: shows name, description, path, model (locked), run history with timestamps/results, last error, and the include/exclude lists applied for that root.
@@ -45,7 +49,7 @@ Add a new **Ingest** page that lets users point the system at a folder (e.g., a 
 
 ## Questions
 
-- Abort semantics: prefer soft cancel (graceful stop) — cancel flag halts new work, abort in-flight embedding calls, then purge all vectors tagged to the current runId; surface “cancelled and cleaned” or “cancelled; cleanup pending” in UI if purge is partial.
+None. Abort behavior is defined in Acceptance Criteria as soft cancel with run-scoped cleanup reporting.
 
 ## Implementation Plan
 

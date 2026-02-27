@@ -92,6 +92,77 @@ Additional rollout safety rule: reducing values in `./codex/config.toml` can sto
   - diagnostic logs may include sanitized key names/paths and boolean presence flags only.
 - `design.md` and `projectStructure.md` are updated to reflect new Codex home strategy, runtime config override flow, and re-auth UX/API contract changes.
 
+### Message Contracts & Storage Shapes (Upfront Definitions)
+
+This section defines contract/storage changes required by this story so implementation does not guess or duplicate existing shapes.
+
+#### 1. Device Auth API Contract (`POST /codex/device-auth`)
+
+- Existing contract (current code + OpenAPI):
+  - Request: `{ target: 'chat' | 'agent', agentName?: string }`
+  - Response: `{ status: string, rawOutput: string, target: string, agentName?: string }`
+- Target contract for this story:
+  - Request: `{}` (no selector fields; server determines shared-home auth target internally)
+  - Response success: `{ status: string, rawOutput: string }`
+  - Response error (deterministic): `{ error: string, message?: string, reason?: string }`
+- Compatibility rule:
+  - Legacy selector fields (`target`, `agentName`) are rejected with deterministic client error response.
+- Shared definitions to update:
+  - `common`/shared API typing surfaces
+  - `openapi.json`
+  - `server/src/routes/codexDeviceAuth.ts`
+  - `client/src/api/codex.ts`
+  - `client/src/components/codex/CodexDeviceAuthDialog.tsx`
+  - `client/src/pages/ChatPage.tsx`
+  - `client/src/pages/AgentsPage.tsx`
+
+#### 2. Chat Models Capability Contract (`GET /chat/models?provider=codex`)
+
+- Existing contract (current code):
+  - `ChatModelsResponse` includes `models` and `codexDefaults`, but no per-model reasoning capability payload.
+- Target contract for this story:
+  - Add codex capability payload so frontend reasoning options come from backend model capabilities, not hard-coded UI lists.
+  - Required payload shape:
+    - per model: `supportedReasoningEfforts: string[]`
+    - per model: `defaultReasoningEffort: string`
+  - Values come from codex model capabilities (for example `minimal`, `low`, `medium`, `high`, and where present `xhigh`), not a frontend static enum.
+- Shared definitions to update:
+  - `common/src/lmstudio.ts` (canonical shared types)
+  - `server/src/routes/chatModels.ts` (payload producer)
+  - `client/src/hooks/useChatModel.ts` and `client/src/components/chat/CodexFlagsPanel.tsx` (payload consumer)
+  - `openapi.json` (publish contract if `/chat/models` is documented in this story update)
+
+#### 3. Runtime Config Storage Shapes (On Disk)
+
+- Shared base config (`./codex/config.toml`):
+  - Target role: shared home/auth/session defaults and shared `[projects]` defaults only.
+  - Not allowed to define behavior that overrides named-agent runtime behavior.
+- Chat runtime config (`./codex/chat/config.toml`):
+  - New/required shape for chat behavior defaults.
+  - Must be copied from existing `./codex/config.toml` before base minimization.
+- Agent runtime config (`codex_agents/<agent>/config.toml`):
+  - Source of truth for agent behavior keys.
+  - Legacy key normalization at read time:
+    - `features.view_image_tool -> tools.view_image`
+    - legacy web-search flags -> canonical `web_search`
+  - Validation policy:
+    - unknown keys warn+ignore;
+    - invalid type for supported key hard-fails the run.
+- Auth files:
+  - `./codex/auth.json` and `codex_agents/*/auth.json` must remain on disk.
+  - No delete/move/rename under `codex_agents/*`.
+
+#### 4. In-Memory Effective Runtime Shape (Server Merge Result)
+
+- Agent run effective shape:
+  - Behavior keys from `codex_agents/<agent>/config.toml`.
+  - Shared project trust merged as:
+    - `effectiveProjects = { ...baseProjects, ...agentProjects }`
+  - No other shared-base behavior keys may override named-agent behavior.
+- Chat run effective shape:
+  - Behavior keys from `./codex/chat/config.toml`.
+  - Shared `CODEX_HOME` environment still used for auth/session.
+
 ### Out Of Scope
 
 - Redesigning the entire agents UX beyond the required re-auth simplification.

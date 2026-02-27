@@ -23,12 +23,15 @@ Because application chat currently depends on behavior values in `./codex/config
 
 Required migration order: create the chat runtime config as a copy of current `./codex/config.toml` before reducing `./codex/config.toml` to a minimal shared-default set. This prevents chat behavior regressions during migration.
 
-This story also plans upgrading `@openai/codex-sdk` to latest stable and simplifying frontend re-authentication so there is a single `Codex device auth` flow (no chat/agent selector).
+This story also plans upgrading `@openai/codex-sdk` to latest stable, removing legacy app-side reasoning-effort shims that manually widened older SDK typings (for example custom `| 'xhigh'` unions/casts), and simplifying frontend re-authentication so there is a single `Codex device auth` flow (no chat/agent selector).
+
+For chat reasoning effort UX, options must be sourced from a backend capability payload that reflects what the upgraded SDK/runtime supports instead of a hard-coded client option list. This includes showing `minimal` when supported now, and automatically surfacing newly supported values in future SDK upgrades without adding another one-off shim.
 
 ### Acceptance Criteria
 
 - Single shared Codex auth/session home is used for all Codex-backed chat/agent/flow execution paths (`./codex`), with no per-agent login requirement.
 - `@openai/codex-sdk` is upgraded from `0.101.0` to latest stable (`0.106.0` at planning time, or newer latest stable if available during implementation) and all existing Codex integration tests pass against the upgraded version.
+- Local compatibility shims that were introduced to inject/widen reasoning effort support (for example server-side `ModelReasoningEffort | 'xhigh'` unions and related casts) are removed in favor of the SDK-native `ModelReasoningEffort` surface.
 - Agent runtime configuration is sourced from `codex_agents/<agent>/config.toml` and mapped into `CodexOptions.config` for execution-time overrides.
 - Agent and flow runs continue to set `useConfigDefaults: true`, with thread/runtime behavior driven by config defaults and explicit runtime overrides rather than duplicated model/policy flag wiring.
 - Existing per-agent behavior differences (model, approval policy, sandbox mode, reasoning effort, MCP server config, relevant feature toggles, and any other behavior-defining config values) remain preserved after migration to shared `CODEX_HOME`.
@@ -43,6 +46,9 @@ This story also plans upgrading `@openai/codex-sdk` to latest stable and simplif
 - Codex availability detection and startup validation no longer require agent-specific `auth.json` in each agent folder; availability semantics are based on shared Codex home plus required runtime files.
 - Device-auth backend endpoint no longer requires target mode branching for chat vs agent login in normal flow and supports a single Codex login path.
 - Frontend re-authentication UI is simplified to one Codex device auth screen and removes chat/agent selector UX and related branch-specific messaging.
+- Chat reasoning-effort options are no longer hard-coded in the frontend; the client renders options provided by backend capability data sourced from the upgraded SDK/runtime support set.
+- `minimal` is visible/selectable in chat when supported by the upgraded SDK/runtime, and selection is validated/passed through end-to-end the same as other supported effort values.
+- Future SDK/runtime reasoning-effort additions appear in chat automatically after dependency upgrade/redeploy, without adding new custom value-injection code.
 - Legacy compatibility behaviors are explicitly documented for any remaining read-only agent config fields that cannot be safely translated into runtime overrides.
 - Logs and error payloads remain deterministic and secret-safe after refactor (no token/key leakage, no raw confidential config content in logs).
 - `design.md` and `projectStructure.md` are updated to reflect new Codex home strategy, runtime config override flow, and re-auth UX/API contract changes.
@@ -65,6 +71,7 @@ This story also plans upgrading `@openai/codex-sdk` to latest stable and simplif
 ## Resolved Findings (Initial Research)
 
 - Latest stable SDK version at planning time is `@openai/codex-sdk@0.106.0`; runtime `CodexOptions.config` overrides and `env` control remain available and suitable for this design.
+- Current SDK typings already include `xhigh` (and `minimal`) in `ModelReasoningEffort`, so existing app-side compatibility widening for `xhigh` is now redundant and should be removed as part of this story.
 - The proposal is achievable without changing the agent behavior contract, provided runtime precedence is enforced so named-agent config values always win for behavior fields.
 - Chat should use a dedicated runtime config file (copy of current `./codex/config.toml`) while still using the same shared `CODEX_HOME`; this avoids introducing a second auth/session home.
 - Chat config copy must be created before minimizing `./codex/config.toml` so chat behavior remains stable during rollout.
@@ -82,6 +89,9 @@ This story also plans upgrading `@openai/codex-sdk` to latest stable and simplif
 - Add a chat runtime config loader (for example from `./codex/chat/config.toml`) and route application chat execution through that runtime `CodexOptions.config` payload.
 - Implement rollout guardrails: copy current `./codex/config.toml` to chat runtime config path before reducing base config to minimal shared defaults.
 - Refactor Codex invocation callsites in `server/src/agents/service.ts`, `server/src/flows/service.ts`, and `server/src/chat/interfaces/ChatInterfaceCodex.ts` to pass agent runtime config overrides for all agent execution paths while retaining `useConfigDefaults: true` semantics.
+- Remove server compatibility wrappers/casts that manually extend reasoning effort beyond SDK types and use `ModelReasoningEffort` directly across validators, thread option builders, and shared response typing.
+- Add a backend capability field for reasoning-effort options in `GET /chat/models?provider=codex` (or equivalent Codex capabilities response shape), sourced from SDK/runtime-supported values rather than frontend constants.
+- Update chat UI (`CodexFlagsPanel` and related state typing/default wiring) to render reasoning options from backend capability payload so `minimal` and future SDK-supported values appear automatically.
 - Implement explicit precedence rules for agent runs: agent `config.toml` values win for agent behavior, and shared-home config is limited to auth/session and non-agent-specific baseline concerns.
 - Add a normalization layer for known legacy keys before passing runtime overrides (`features.view_image_tool -> tools.view_image`, preserve `features.web_search_request` compatibility behavior), with strict validation for unknown/misplaced keys.
 - Add an explicit config-merging utility that merges only base `[projects]` from `codex/config.toml` into the agent runtime config and does not merge other shared-base behavior fields.

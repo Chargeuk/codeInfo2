@@ -199,6 +199,84 @@ This section defines contract/storage changes required by this story so implemen
   - Behavior keys from `./codex/chat/config.toml`.
   - Shared `CODEX_HOME` environment still used for auth/session.
 
+### Edge Cases and Failure Modes
+
+This section defines non-happy-path conditions that must be handled deterministically during implementation.
+
+1. Migration sequencing and partial rollout hazards
+   - Failure mode: `./codex/config.toml` is minimized before `./codex/chat/config.toml` is created.
+   - Impact: chat behavior defaults disappear/regress immediately in this running instance.
+   - Required handling: enforce copy-first ordering (`config.toml -> chat/config.toml`), and fail migration step with explicit error if chat config file is missing at minimization time.
+
+2. Shared-home availability false negatives
+   - Failure mode: detection logic still checks only legacy per-agent home semantics for chat availability.
+   - Impact: provider status incorrectly reports unavailable even when shared `./codex/auth.json` is valid.
+   - Required handling: availability checks for chat must read shared-home auth/config presence only; agent execution checks may still validate agent-specific config presence.
+
+3. Device-auth request-shape mismatch during frontend/backend rollout
+   - Failure mode: old client still sends `target`/`agentName` after backend moves to `{}` request body contract.
+   - Impact: confusing silent fallback or ambiguous re-auth target behavior.
+   - Required handling: deterministic `400 invalid_request` with a clear message for any selector fields; no reinterpretation or defaulting.
+
+4. Concurrent device-auth operations
+   - Failure mode: multiple `/codex/device-auth` requests run concurrently and race auth propagation/refresh.
+   - Impact: stale availability state or inconsistent auth propagation timing.
+   - Required handling: completion-side effects stay idempotent and deterministic; completion success/failure must not leak secrets and must not corrupt shared auth state.
+
+5. Runtime config read/parse failures
+   - Failure mode: missing file, unreadable file, or invalid TOML in `./codex/chat/config.toml` or `codex_agents/<agent>/config.toml`.
+   - Impact: run path ambiguity (unexpected fallback to shared behavior or wrong agent behavior).
+   - Required handling:
+     - agent runs: hard-fail that agent run with deterministic validation error (no fallback to another config source for behavior keys);
+     - chat runs: deterministic startup/runtime error surfaced to caller/logs; no silent fallback to minimized `./codex/config.toml` behavior keys.
+
+6. Base/agent merge precedence regressions
+   - Failure mode: shared config behavior keys leak into agent runtime behavior when merge logic is incorrect.
+   - Impact: named-agent behavior changes from current user-visible expectations.
+   - Required handling: only `[projects]` entries are inherited from shared base; all other behavior keys are agent-owned for agent runs.
+
+7. Legacy-key normalization collisions
+   - Failure mode: both canonical and legacy keys exist with conflicting values (for example both `tools.view_image` and `features.view_image_tool`).
+   - Impact: non-deterministic behavior between invocation paths.
+   - Required handling: one deterministic normalization order is enforced and documented; canonical key wins when both are present.
+
+8. Unsupported key/type handling drift across paths
+   - Failure mode: REST run, MCP run, and flow-driven execution apply different unknown-key/type validation behavior.
+   - Impact: same agent config behaves differently by invocation path.
+   - Required handling: one shared validation policy implementation is used across all execution surfaces:
+     - unknown key => warning + ignore;
+     - invalid type for supported key => hard validation error.
+
+9. Reasoning-effort capability drift
+   - Failure mode: UI sends stale/unsupported effort for selected model (for example model set changed after refresh).
+   - Impact: avoidable run-time validation errors or hidden downgraded behavior.
+   - Required handling: UI must reset invalid selection to model `defaultReasoningEffort`; backend must validate supported efforts per selected model and reject invalid values deterministically.
+
+10. Capability payload incompleteness
+   - Failure mode: backend returns model list without `supportedReasoningEfforts` or `defaultReasoningEffort`.
+   - Impact: frontend cannot render deterministic reasoning-effort controls.
+   - Required handling: codex model payload contract is strict for every codex model entry; missing fields are treated as server contract bugs and covered by tests.
+
+11. SDK upgrade contract drift
+   - Failure mode: latest stable `@openai/codex-sdk` changes accepted config key/value shapes (including reasoning effort values).
+   - Impact: runtime override mapping or validation becomes stale.
+   - Required handling: record exact upgraded version, lock contract tests around runtime config mapping and effort validation, and remove legacy shims only after tests pass against upgraded SDK.
+
+12. Non-destructive file safety violations
+   - Failure mode: migration scripts or refactors accidentally delete/move/rename `codex_agents/*` files (especially `auth.json`).
+   - Impact: current running instance breaks and cannot recover agent auth continuity.
+   - Required handling: explicit guards and verification checks ensure all existing `codex_agents/*/auth.json` files remain present after migration steps.
+
+13. Sensitive-log leakage during failures
+   - Failure mode: parse or auth errors log full config/auth content or unredacted device-auth output.
+   - Impact: credential/secret exposure in logs.
+   - Required handling: logging remains key-path and presence-flag based; only sanitized output samples allowed; never log raw auth blobs/tokens.
+
+14. Final isolated minimization blast radius
+   - Failure mode: developers continue relying on chat-agent-backed `code_info` after minimized `./codex/config.toml` disables chat agent in this running instance.
+   - Impact: planning/verification flow unexpectedly breaks mid-story.
+   - Required handling: final-step warning is explicit in tasks and handoff notes; all `code_info`-dependent checks must occur before minimization.
+
 ### Out Of Scope
 
 - Redesigning the entire agents UX beyond the required re-auth simplification.

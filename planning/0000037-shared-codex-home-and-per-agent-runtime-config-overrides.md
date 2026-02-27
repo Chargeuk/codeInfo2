@@ -481,22 +481,32 @@ Create one server-side config resolution layer that reads shared base config, ch
    - `./codex/config.toml` (shared base),
    - `./codex/chat/config.toml` (chat runtime),
    - `codex_agents/<agent>/config.toml` (agent runtime).
-2. [ ] Implement canonical normalization rules at read time:
+2. [ ] Add chat runtime config bootstrap behavior:
+   - when `./codex/chat/config.toml` is missing and `./codex/config.toml` exists, copy base config to chat config exactly once,
+   - never overwrite an existing chat config file during bootstrap.
+3. [ ] Implement canonical normalization rules at read time:
    - `features.view_image_tool -> tools.view_image`,
-   - legacy web-search flags -> canonical top-level `web_search`.
-3. [ ] Implement deterministic merge behavior:
+   - `features.web_search_request` remains accepted only as an input alias,
+   - legacy web-search flags -> canonical top-level `web_search`,
+   - when canonical and legacy aliases are both present, canonical key value wins deterministically.
+4. [ ] Implement deterministic merge behavior:
    - agent effective config uses agent behavior values + shared `[projects]` merged as `{ ...baseProjects, ...agentProjects }`.
-4. [ ] Implement fixed validation policy in one shared validator:
+5. [ ] Implement fixed validation policy in one shared validator:
    - unknown keys => warn and ignore,
    - invalid type for supported key => hard validation error.
-5. [ ] Add unit tests for normalization, merge precedence, and validator outcomes (unknown key warning vs invalid type hard-fail).
-6. [ ] Ensure no fallback path allows shared behavior keys to override named-agent behavior keys.
+6. [ ] Implement deterministic config read/parse failure behavior:
+   - missing/unreadable/invalid TOML for agent config hard-fails that run with deterministic validation error,
+   - missing/unreadable/invalid TOML for chat config returns deterministic startup/runtime error without fallback to base behavior keys.
+7. [ ] Add unit tests for normalization, merge precedence, and validator outcomes (unknown key warning vs invalid type hard-fail), including canonical+legacy collision behavior.
+8. [ ] Add unit tests for read/parse failure paths (missing, unreadable, invalid TOML) for both chat and agent config resolution.
+9. [ ] Ensure no fallback path allows shared behavior keys to override named-agent behavior keys.
 
 #### Testing
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run test --workspace server -- agents-config-defaults`
 3. [ ] Run new config-layer unit tests directly and verify pass.
+4. [ ] Run targeted config read/parse failure tests directly and verify deterministic error payloads/logs.
 
 #### Implementation notes
 
@@ -524,13 +534,14 @@ Apply the new runtime config layer to all Codex execution paths so chat uses cha
 3. [ ] Update agent command execution path (`/agents/:agentName/commands/run`) to use the same agent runtime config resolution.
 4. [ ] Update flow-driven agent execution path to use same agent runtime config resolution and precedence.
 5. [ ] Update MCP agent execution surfaces to resolve the same runtime config behavior as REST surfaces.
-6. [ ] Add integration tests proving behavior parity across invocation paths (REST agent run, commands run, flow step, MCP execution).
+6. [ ] Ensure all updated execution paths retain `useConfigDefaults: true` and do not reintroduce duplicated model/policy thread flag wiring.
+7. [ ] Add integration tests proving behavior parity across invocation paths (REST agent run, commands run, flow step, MCP execution) and proving chat behavior is sourced from `./codex/chat/config.toml` rather than shared base behavior keys.
 
 #### Testing
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run test --workspace server`
-3. [ ] Verify targeted agent/flow/MCP runtime-config tests pass.
+3. [ ] Verify targeted chat/agent/flow/MCP runtime-config tests pass.
 
 #### Implementation notes
 
@@ -585,23 +596,27 @@ Implement the server-side device-auth message contract change first: request bod
 #### Subtasks
 
 1. [ ] Update `server/src/routes/codexDeviceAuth.ts` request parsing to accept only empty JSON object and reject selector fields (`target`, `agentName`) with `400 invalid_request`.
-2. [ ] Update success and error response payloads to the defined contract:
+2. [ ] Update shared/common API types for device-auth request/response to the single-shape contract.
+3. [ ] Update success and error response payloads to the defined contract:
    - `200 { status: "ok", rawOutput }`,
    - `400 { error: "invalid_request", message }`,
    - `503 { error: "codex_unavailable", reason }`.
-3. [ ] Remove legacy dual-shape parsing/response behavior from backend route.
-4. [ ] Update `openapi.json` for `/codex/device-auth` request and response schemas.
-5. [ ] Add/update server integration tests for:
+4. [ ] Remove legacy dual-shape parsing/response behavior from backend route.
+5. [ ] Add deterministic concurrent request handling so overlapping device-auth runs remain idempotent and do not corrupt auth propagation state.
+6. [ ] Update `openapi.json` for `/codex/device-auth` request and response schemas.
+7. [ ] Add/update server integration tests for:
    - empty `{}` request success path,
    - selector-field rejection,
    - codex unavailable `503`,
-   - payload too large handling.
+   - payload too large handling,
+   - concurrent request behavior and deterministic response shape.
 
 #### Testing
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run test --workspace server -- codex.device-auth`
 3. [ ] Validate `/codex/device-auth` schema changes in `openapi.json`.
+4. [ ] Run targeted concurrency test(s) for `/codex/device-auth` and verify idempotent outcomes.
 
 #### Implementation notes
 
@@ -629,14 +644,16 @@ Implement backend model-capability payload contract for Codex models so frontend
    - `defaultReasoningEffort: string`.
 2. [ ] Update `server/src/routes/chatModels.ts` to include capability fields for every codex model item.
 3. [ ] Ensure deterministic behavior when capability data changes (model defaults remain explicit and consistent).
-4. [ ] Update `openapi.json` for `/chat/models` codex response schema if documented there.
-5. [ ] Add/update server tests for codex model payload completeness and field presence for each returned model.
+4. [ ] Add server-side chat request validation that rejects unsupported `model_reasoning_effort` values for the selected model with deterministic `invalid_request` errors (no silent downgrade).
+5. [ ] Update `openapi.json` for `/chat/models` codex response schema if documented there.
+6. [ ] Add/update server tests for codex model payload completeness and field presence for each returned model, plus invalid reasoning-effort rejection behavior.
 
 #### Testing
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run build --workspace common`
 3. [ ] `npm run test --workspace server -- chatModels.codex`
+4. [ ] Run targeted server chat-validation tests for unsupported reasoning effort and verify deterministic error contract.
 
 #### Implementation notes
 
@@ -728,10 +745,11 @@ Add focused regression coverage to lock the behavior required by this story acro
 #### Subtasks
 
 1. [ ] Add tests for shared-base + agent precedence (`effectiveProjects` merge and no shared behavior override of named-agent behavior).
-2. [ ] Add tests for legacy-key normalization (`features.view_image_tool`, legacy web-search keys) and canonical output enforcement.
+2. [ ] Add tests for legacy-key normalization (`features.view_image_tool`, legacy web-search keys, `features.web_search_request`) and canonical output enforcement, including canonical-wins collision cases.
 3. [ ] Add tests for fixed validation policy parity across REST/MCP/flow invocation paths.
 4. [ ] Add tests proving `codex_agents/*/auth.json` files remain present through migration-compatible flows.
 5. [ ] Add tests verifying deterministic secret-safe logging behavior for config/device-auth errors.
+6. [ ] Add fixture-driven tests that validate every currently present `codex_agents/*/config.toml` file against normalization/validation rules and assert deterministic outcomes across invocation paths.
 
 #### Testing
 
@@ -767,6 +785,7 @@ Update project documentation only after implementation tasks above are complete 
    - capability-driven reasoning options.
 2. [ ] Update `projectStructure.md` for all files added/removed by this story.
 3. [ ] Ensure examples in docs reflect canonical keys (`tools.view_image`, top-level `web_search`) and new message contracts.
+4. [ ] Document any read-only compatibility keys that remain accepted as input aliases but are not emitted as canonical runtime output, with at least one concrete before/after example.
 
 #### Testing
 
@@ -794,16 +813,18 @@ Perform final shared-base config minimization as an isolated end-of-story step o
 #### Subtasks
 
 1. [ ] Verify prerequisite gate: all prior tasks are marked done and validated.
-2. [ ] Ensure `./codex/chat/config.toml` exists and carries chat behavior defaults before minimizing base config.
-3. [ ] Minimize `./codex/config.toml` to shared defaults + `[projects]` only (remove behavior keys and MCP blocks from this file).
-4. [ ] Re-verify that no `codex_agents/*` files were deleted/moved/renamed and all existing `auth.json` files remain present.
-5. [ ] Add explicit operator note in Implementation notes that `code_info` MCP is expected to be unavailable after this step in this running instance.
+2. [ ] Confirm all `code_info`-dependent verification/inspection steps are complete before minimization and record this checkpoint in Implementation notes.
+3. [ ] Ensure `./codex/chat/config.toml` exists and carries chat behavior defaults before minimizing base config; if missing, abort minimization with deterministic error and no file mutation.
+4. [ ] Minimize `./codex/config.toml` to shared defaults + `[projects]` only (remove behavior keys and MCP blocks from this file).
+5. [ ] Re-verify that no `codex_agents/*` files were deleted/moved/renamed and all existing `auth.json` files remain present.
+6. [ ] Add explicit operator note in Implementation notes that `code_info` MCP is expected to be unavailable after this step in this running instance.
 
 #### Testing
 
 1. [ ] Validate minimized `./codex/config.toml` matches projects-only target shape in this story.
 2. [ ] Validate `./codex/chat/config.toml` remains present and unchanged by minimization.
 3. [ ] Verify filesystem checks for `codex_agents/*/auth.json` presence pass.
+4. [ ] Simulate missing chat config precondition and verify minimization step abort behavior is deterministic and non-destructive.
 
 #### Implementation notes
 

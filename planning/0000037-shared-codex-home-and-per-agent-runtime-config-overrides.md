@@ -412,3 +412,399 @@ The story is ready to be tasked only when all the following are explicit in the 
   - create `./codex/chat/config.toml` before minimizing `./codex/config.toml`;
   - minimize `./codex/config.toml` only in the final isolated implementation step;
   - include the explicit warning that `code_info` MCP is expected to be unavailable after this final step in this running instance.
+
+# Implementation Plan
+
+## Instructions
+
+1. Read all story sections above before coding, especially Acceptance Criteria, Message Contracts, and Edge Cases.
+2. Complete tasks in the exact order below; do not start frontend contract consumers before their server contract tasks are complete.
+3. Keep each task focused to one testable implementation concern.
+4. Keep `codex_agents/*` non-destructive at all times: no delete/move/rename operations.
+5. For all config/contract changes, add deterministic tests in the same task before marking it complete.
+6. Keep the final `./codex/config.toml` minimization as the last isolated task only.
+
+## Tasks
+
+### 1. Server: Upgrade Codex SDK and remove local reasoning-effort widening shims
+
+- Task Status: **__todo__**
+- Git Commits: `None yet`
+
+#### Overview
+
+Upgrade `@openai/codex-sdk` to latest stable at implementation start, then remove local compatibility unions/casts that widened reasoning-effort types beyond SDK-native surfaces.
+
+#### Documentation Locations
+
+- Codex SDK README (config overrides and thread options): Context7 `/openai/codex`
+- TypeScript handbook (narrowing and type cleanup): https://www.typescriptlang.org/docs/
+- npm semver guidance: https://docs.npmjs.com/about-semantic-versioning
+
+#### Subtasks
+
+1. [ ] Upgrade `@openai/codex-sdk` in `server/package.json` to latest stable (no pre-release).
+2. [ ] Update lockfile and ensure only one resolved SDK version is used by server workspace dependency tree.
+3. [ ] Remove local widened reasoning-effort type shims/casts in server runtime code and tests (for example `ModelReasoningEffort | 'xhigh'` compatibility-only types).
+4. [ ] Remove any client/shared compatibility typings that were only present to widen values already supported by upgraded SDK.
+5. [ ] Add/adjust unit tests to prove SDK-native reasoning-effort typing compiles and behavior remains unchanged for supported values.
+6. [ ] Record exact upgraded SDK version in this story file Implementation notes for traceability.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run test --workspace server`
+3. [ ] `npm ls @openai/codex-sdk --workspace server`
+
+#### Implementation notes
+
+- None yet.
+
+### 2. Server: Implement canonical runtime config read/normalize/validate layer
+
+- Task Status: **__todo__**
+- Git Commits: `None yet`
+
+#### Overview
+
+Create one server-side config resolution layer that reads shared base config, chat config, and agent config; normalizes legacy keys to canonical keys; applies fixed validation policy.
+
+#### Documentation Locations
+
+- TOML v1.0.0 spec: https://toml.io/en/v1.0.0
+- Codex config layering references: Context7 `/openai/codex`
+- Node fs/path APIs: https://nodejs.org/api/fs.html and https://nodejs.org/api/path.html
+
+#### Subtasks
+
+1. [ ] Add/extend config loader module(s) to read:
+   - `./codex/config.toml` (shared base),
+   - `./codex/chat/config.toml` (chat runtime),
+   - `codex_agents/<agent>/config.toml` (agent runtime).
+2. [ ] Implement canonical normalization rules at read time:
+   - `features.view_image_tool -> tools.view_image`,
+   - legacy web-search flags -> canonical top-level `web_search`.
+3. [ ] Implement deterministic merge behavior:
+   - agent effective config uses agent behavior values + shared `[projects]` merged as `{ ...baseProjects, ...agentProjects }`.
+4. [ ] Implement fixed validation policy in one shared validator:
+   - unknown keys => warn and ignore,
+   - invalid type for supported key => hard validation error.
+5. [ ] Add unit tests for normalization, merge precedence, and validator outcomes (unknown key warning vs invalid type hard-fail).
+6. [ ] Ensure no fallback path allows shared behavior keys to override named-agent behavior keys.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run test --workspace server -- agents-config-defaults`
+3. [ ] Run new config-layer unit tests directly and verify pass.
+
+#### Implementation notes
+
+- None yet.
+
+### 3. Server: Wire runtime config overrides into chat/agent/flow/MCP execution paths
+
+- Task Status: **__todo__**
+- Git Commits: `None yet`
+
+#### Overview
+
+Apply the new runtime config layer to all Codex execution paths so chat uses chat runtime config and agent-based paths use agent runtime config, while preserving `useConfigDefaults: true` behavior.
+
+#### Documentation Locations
+
+- Codex SDK config override behavior: Context7 `/openai/codex`
+- Express routing guide: https://expressjs.com/en/guide/routing.html
+- JSON-RPC 2.0 spec (MCP contract parity): https://www.jsonrpc.org/specification
+
+#### Subtasks
+
+1. [ ] Update chat Codex execution path to pass chat runtime config via `CodexOptions.config` and shared `CODEX_HOME`.
+2. [ ] Update agent execution path (`/agents/:agentName/run`) to pass agent runtime config via `CodexOptions.config`.
+3. [ ] Update agent command execution path (`/agents/:agentName/commands/run`) to use the same agent runtime config resolution.
+4. [ ] Update flow-driven agent execution path to use same agent runtime config resolution and precedence.
+5. [ ] Update MCP agent execution surfaces to resolve the same runtime config behavior as REST surfaces.
+6. [ ] Add integration tests proving behavior parity across invocation paths (REST agent run, commands run, flow step, MCP execution).
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run test --workspace server`
+3. [ ] Verify targeted agent/flow/MCP runtime-config tests pass.
+
+#### Implementation notes
+
+- None yet.
+
+### 4. Server: Shared-home detection and non-destructive auth compatibility
+
+- Task Status: **__todo__**
+- Git Commits: `None yet`
+
+#### Overview
+
+Move Codex availability and startup checks to shared-home semantics while retaining non-destructive compatibility behavior for existing agent-folder auth files.
+
+#### Documentation Locations
+
+- Node child_process/fs docs: https://nodejs.org/api/child_process.html and https://nodejs.org/api/fs.html
+- Codex runtime/home behavior: Context7 `/openai/codex`
+
+#### Subtasks
+
+1. [ ] Update detection/startup logic to treat shared `./codex` as chat availability source of truth.
+2. [ ] Keep compatibility auth seeding/propagation behavior non-destructive for `codex_agents/*/auth.json`.
+3. [ ] Add guards/tests to ensure no code path deletes, renames, or moves files under `codex_agents/*`.
+4. [ ] Add tests for shared-home availability outcomes and auth propagation idempotency.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run test --workspace server -- codex`
+3. [ ] `npm run test --workspace server -- agents-authSeed`
+
+#### Implementation notes
+
+- None yet.
+
+### 5. Server Message Contract: Simplify `POST /codex/device-auth` to single request shape
+
+- Task Status: **__todo__**
+- Git Commits: `None yet`
+
+#### Overview
+
+Implement the server-side device-auth message contract change first: request body must be `{}` only, with deterministic `200/400/503` responses and legacy selector-field rejection.
+
+#### Documentation Locations
+
+- OpenAPI 3.0.3 spec: https://spec.openapis.org/oas/v3.0.3.html
+- Express JSON/body handling: https://expressjs.com/en/resources/middleware/body-parser.html
+- JSON response best practices: https://datatracker.ietf.org/doc/html/rfc7807
+
+#### Subtasks
+
+1. [ ] Update `server/src/routes/codexDeviceAuth.ts` request parsing to accept only empty JSON object and reject selector fields (`target`, `agentName`) with `400 invalid_request`.
+2. [ ] Update success and error response payloads to the defined contract:
+   - `200 { status: "ok", rawOutput }`,
+   - `400 { error: "invalid_request", message }`,
+   - `503 { error: "codex_unavailable", reason }`.
+3. [ ] Remove legacy dual-shape parsing/response behavior from backend route.
+4. [ ] Update `openapi.json` for `/codex/device-auth` request and response schemas.
+5. [ ] Add/update server integration tests for:
+   - empty `{}` request success path,
+   - selector-field rejection,
+   - codex unavailable `503`,
+   - payload too large handling.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run test --workspace server -- codex.device-auth`
+3. [ ] Validate `/codex/device-auth` schema changes in `openapi.json`.
+
+#### Implementation notes
+
+- None yet.
+
+### 6. Server Message Contract: Add codex model reasoning-capability payload to `/chat/models`
+
+- Task Status: **__todo__**
+- Git Commits: `None yet`
+
+#### Overview
+
+Implement backend model-capability payload contract for Codex models so frontend reasoning options are driven by server data, not hard-coded values.
+
+#### Documentation Locations
+
+- Codex model capability references: Context7 `/openai/codex`
+- OpenAPI 3.0.3 schema docs: https://spec.openapis.org/oas/v3.0.3.html
+- TypeScript JSON schema typing patterns: https://www.typescriptlang.org/docs/
+
+#### Subtasks
+
+1. [ ] Update shared response types in `common/src/lmstudio.ts` to include per-model:
+   - `supportedReasoningEfforts: string[]`,
+   - `defaultReasoningEffort: string`.
+2. [ ] Update `server/src/routes/chatModels.ts` to include capability fields for every codex model item.
+3. [ ] Ensure deterministic behavior when capability data changes (model defaults remain explicit and consistent).
+4. [ ] Update `openapi.json` for `/chat/models` codex response schema if documented there.
+5. [ ] Add/update server tests for codex model payload completeness and field presence for each returned model.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace common`
+3. [ ] `npm run test --workspace server -- chatModels.codex`
+
+#### Implementation notes
+
+- None yet.
+
+### 7. Frontend: Consume simplified device-auth contract and remove target selector UX
+
+- Task Status: **__todo__**
+- Git Commits: `None yet`
+
+#### Overview
+
+After Task 5 server contract is complete, update frontend API and UI to use one shared device-auth flow with no chat/agent selector.
+
+#### Documentation Locations
+
+- MUI docs (Dialog, Button, Alert, TextField): use MUI MCP (`mcp__mui__useMuiDocs`) for current version used in this repo
+- React state/effect docs: https://react.dev/reference/react
+- Fetch API error-handling patterns: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API
+
+#### Subtasks
+
+1. [ ] Update `client/src/api/codex.ts` request type/payload to send `{}` for `POST /codex/device-auth`.
+2. [ ] Update response typing/parsing to match new backend response shape (remove target-specific fields from success type).
+3. [ ] Simplify `client/src/components/codex/CodexDeviceAuthDialog.tsx` by removing target selector controls and branching text.
+4. [ ] Update `client/src/pages/ChatPage.tsx` and `client/src/pages/AgentsPage.tsx` to use shared dialog behavior without selector defaults.
+5. [ ] Update frontend tests covering codex device-auth API helper and dialog/page behavior.
+
+#### Testing
+
+1. [ ] `npm run build --workspace client`
+2. [ ] `npm run test --workspace client -- codexDeviceAuthApi`
+3. [ ] `npm run test --workspace client -- codexDeviceAuthDialog`
+4. [ ] Run related ChatPage/AgentsPage codex-auth tests and verify pass.
+
+#### Implementation notes
+
+- None yet.
+
+### 8. Frontend: Switch reasoning-effort UI to backend capability payload
+
+- Task Status: **__todo__**
+- Git Commits: `None yet`
+
+#### Overview
+
+After Task 6 server contract is complete, replace hard-coded reasoning options in chat UI with options sourced from per-model capability fields from `/chat/models`.
+
+#### Documentation Locations
+
+- MUI docs (Select/MenuItem/FormControl): use MUI MCP (`mcp__mui__useMuiDocs`) for current version used in this repo
+- React hooks/state docs: https://react.dev/reference/react
+- TypeScript union/array typing guidance: https://www.typescriptlang.org/docs/
+
+#### Subtasks
+
+1. [ ] Update `client/src/hooks/useChatModel.ts` to retain and expose codex model capability fields per model.
+2. [ ] Update `client/src/components/chat/CodexFlagsPanel.tsx` to render reasoning options from selected model `supportedReasoningEfforts`.
+3. [ ] Implement deterministic reset behavior: when selected effort is no longer valid for selected model, reset to `defaultReasoningEffort`.
+4. [ ] Update `client/src/hooks/useChatStream.ts` payload builder to send only values valid for selected model capability set.
+5. [ ] Update shared/common typings usage in client to remove hard-coded assumptions about effort lists.
+6. [ ] Add/update frontend tests for dynamic option rendering and invalid-selection reset behavior.
+
+#### Testing
+
+1. [ ] `npm run build --workspace client`
+2. [ ] `npm run test --workspace client -- chatPage.flags.reasoning`
+3. [ ] `npm run test --workspace client -- chatPage.codexDefaults`
+
+#### Implementation notes
+
+- None yet.
+
+### 9. Server: Add cross-surface regression tests for precedence, normalization, and compatibility rules
+
+- Task Status: **__todo__**
+- Git Commits: `None yet`
+
+#### Overview
+
+Add focused regression coverage to lock the behavior required by this story across REST, MCP, and flow/agent execution surfaces.
+
+#### Documentation Locations
+
+- Node test runner docs: https://nodejs.org/api/test.html
+- Jest docs: https://jestjs.io/docs/getting-started
+- JSON-RPC 2.0 spec: https://www.jsonrpc.org/specification
+
+#### Subtasks
+
+1. [ ] Add tests for shared-base + agent precedence (`effectiveProjects` merge and no shared behavior override of named-agent behavior).
+2. [ ] Add tests for legacy-key normalization (`features.view_image_tool`, legacy web-search keys) and canonical output enforcement.
+3. [ ] Add tests for fixed validation policy parity across REST/MCP/flow invocation paths.
+4. [ ] Add tests proving `codex_agents/*/auth.json` files remain present through migration-compatible flows.
+5. [ ] Add tests verifying deterministic secret-safe logging behavior for config/device-auth errors.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run test --workspace server`
+3. [ ] Run new targeted regression suites directly and verify pass.
+
+#### Implementation notes
+
+- None yet.
+
+### 10. Documentation: Update architecture and file-map docs for shared-home runtime and contract changes
+
+- Task Status: **__todo__**
+- Git Commits: `None yet`
+
+#### Overview
+
+Update project documentation only after implementation tasks above are complete and verified.
+
+#### Documentation Locations
+
+- Mermaid docs: Context7 `/mermaid-js/mermaid`
+- OpenAPI 3.0.3 spec: https://spec.openapis.org/oas/v3.0.3.html
+
+#### Subtasks
+
+1. [ ] Update `design.md` with:
+   - shared `CODEX_HOME` strategy,
+   - chat vs agent runtime config ownership,
+   - precedence/normalization rules,
+   - simplified device-auth contract,
+   - capability-driven reasoning options.
+2. [ ] Update `projectStructure.md` for all files added/removed by this story.
+3. [ ] Ensure examples in docs reflect canonical keys (`tools.view_image`, top-level `web_search`) and new message contracts.
+
+#### Testing
+
+1. [ ] Manually verify `design.md` diagrams/flows match implemented behavior.
+2. [ ] Manually verify `projectStructure.md` entries match actual repository tree for changed files.
+
+#### Implementation notes
+
+- None yet.
+
+### 11. Final isolated migration step: Minimize `./codex/config.toml` (projects-only)
+
+- Task Status: **__todo__**
+- Git Commits: `None yet`
+
+#### Overview
+
+Perform final shared-base config minimization as an isolated end-of-story step only, after all prior implementation/testing/docs tasks are complete.
+
+#### Documentation Locations
+
+- TOML spec: https://toml.io/en/v1.0.0
+- Codex config references: Context7 `/openai/codex`
+
+#### Subtasks
+
+1. [ ] Verify prerequisite gate: all prior tasks are marked done and validated.
+2. [ ] Ensure `./codex/chat/config.toml` exists and carries chat behavior defaults before minimizing base config.
+3. [ ] Minimize `./codex/config.toml` to shared defaults + `[projects]` only (remove behavior keys and MCP blocks from this file).
+4. [ ] Re-verify that no `codex_agents/*` files were deleted/moved/renamed and all existing `auth.json` files remain present.
+5. [ ] Add explicit operator note in Implementation notes that `code_info` MCP is expected to be unavailable after this step in this running instance.
+
+#### Testing
+
+1. [ ] Validate minimized `./codex/config.toml` matches projects-only target shape in this story.
+2. [ ] Validate `./codex/chat/config.toml` remains present and unchanged by minimization.
+3. [ ] Verify filesystem checks for `codex_agents/*/auth.json` presence pass.
+
+#### Implementation notes
+
+- None yet.

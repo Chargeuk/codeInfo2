@@ -44,6 +44,7 @@ For chat reasoning effort UX, options must be sourced from a backend capability 
 - Unsupported or misplaced keys discovered in current agent TOMLs (for example `cli_auth_credentials_store` nested under `[projects.\"<path>\"]`) are handled deterministically with explicit validation outcome (error or warning policy defined and tested), and no silent cross-agent fallback is allowed.
 - All existing agent config files under `codex_agents/*/config.toml` are validated in tests against supported runtime mapping rules and produce consistent behavior across all invocation paths.
 - Codex availability detection and startup validation no longer require agent-specific `auth.json` in each agent folder; availability semantics are based on shared Codex home plus required runtime files.
+- Per-agent `auth.json` propagation/seeding code paths are removed in this story (not retained as compatibility no-op behavior), and no runtime path depends on agent-local auth files.
 - Device-auth backend endpoint no longer requires target mode branching for chat vs agent login in normal flow and supports a single Codex login path.
 - Frontend re-authentication UI is simplified to one Codex device auth screen and removes chat/agent selector UX and related branch-specific messaging.
 - Chat reasoning-effort options are no longer hard-coded in the frontend; the client renders options provided by backend capability data sourced from the upgraded SDK/runtime support set.
@@ -65,7 +66,6 @@ For chat reasoning effort UX, options must be sourced from a backend capability 
 
 ### Questions
 
-- Should per-agent `auth.json` propagation/seeding code be removed immediately, or retained temporarily as compatibility no-op behavior during transition?
 - Should the backend device-auth route contract be changed immediately to a single-target request body, or staged with backward-compatible request parsing for one release?
 
 ## Resolved Findings (Initial Research)
@@ -81,6 +81,7 @@ For chat reasoning effort UX, options must be sourced from a backend capability 
   - `cli_auth_credentials_store = \"file\"` is currently nested under a project table in all agent files, not top-level, and therefore should not be treated as a valid project-level behavior field.
 - `codex/config.toml` currently defines shared project trust entries for `/data` and `/app/server`; `coding_agent` additionally defines `/Users/danielstapleton/Documents/dev`.
 - Base-project merge policy required by this story: shared `[projects]` defaults may be inherited, but agent-defined project entries take precedence and no other shared-base behavior keys are allowed to override agent behavior.
+- Product decision: remove per-agent `auth.json` propagation/seeding completely as part of this story at the migration point where shared `CODEX_HOME` auth has already been verified; do not keep temporary compatibility no-op behavior.
 
 ## Implementation Ideas
 
@@ -95,7 +96,7 @@ For chat reasoning effort UX, options must be sourced from a backend capability 
 - Implement explicit precedence rules for agent runs: agent `config.toml` values win for agent behavior, and shared-home config is limited to auth/session and non-agent-specific baseline concerns.
 - Add a normalization layer for known legacy keys before passing runtime overrides (`features.view_image_tool -> tools.view_image`, preserve `features.web_search_request` compatibility behavior), with strict validation for unknown/misplaced keys.
 - Add an explicit config-merging utility that merges only base `[projects]` from `codex/config.toml` into the agent runtime config and does not merge other shared-base behavior fields.
-- Update detection/auth assumptions in `server/src/providers/codexDetection.ts` and auth-seeding paths in `server/src/agents/authSeed.ts` / discovery code to remove per-agent auth dependency.
+- Update detection/auth assumptions in `server/src/providers/codexDetection.ts` and remove auth-seeding paths in `server/src/agents/authSeed.ts` / discovery code so per-agent `auth.json` logic is fully deleted.
 - Simplify `POST /device-auth` contract/handler in `server/src/routes/codexDeviceAuth.ts` and corresponding frontend API typing in `client/src/api/codex.ts`.
 - Simplify `client/src/components/codex/CodexDeviceAuthDialog.tsx` and remove target-selector wiring from `client/src/pages/ChatPage.tsx` and `client/src/pages/AgentsPage.tsx`.
 - Upgrade `@openai/codex-sdk` and validate `CodexOptions`/`ThreadOptions` behavior against latest docs; confirm no regressions in run-stream event handling and thread resume behavior.

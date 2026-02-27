@@ -134,25 +134,71 @@ None. All prior questions are resolved, and non-destructive preservation of file
 
 ## Implementation Ideas
 
-- Introduce a dedicated agent config loader module that parses each agent TOML into runtime overrides for `CodexOptions.config`, with a compatibility-first approach aimed at preserving current behavior.
-- Keep `buildCodexOptions` centered on shared `CODEX_HOME`, and add an optional per-run `config` payload sourced from the selected agent's `config.toml`.
-- Add a chat runtime config loader (for example from `./codex/chat/config.toml`) and route application chat execution through that runtime `CodexOptions.config` payload.
-- Implement rollout guardrails: copy current `./codex/config.toml` to chat runtime config path before reducing base config to minimal shared defaults.
-- Enforce implementation order: complete all code changes/tests/docs first, then run `./codex/config.toml` minimization as a final isolated step.
-- Add a mandatory operator warning in story tasks/runbook that after the final minimization step, this running instance should no longer use `code_info` MCP for further story work.
-- Update Codex config seeding/template logic in `server/src/config/codexConfig.ts` so shared `./codex/config.toml` contains only minimal shared defaults after migration, while chat behavior defaults come from the dedicated chat runtime config copy.
-- Refactor Codex invocation callsites in `server/src/agents/service.ts`, `server/src/flows/service.ts`, and `server/src/chat/interfaces/ChatInterfaceCodex.ts` to pass agent runtime config overrides for all agent execution paths while retaining `useConfigDefaults: true` semantics.
-- Remove server compatibility wrappers/casts that manually extend reasoning effort beyond SDK types and use `ModelReasoningEffort` directly across validators, thread option builders, env-default parsing, and shared response typing.
-- Add a backend capability field for reasoning-effort options in `GET /chat/models?provider=codex` (or equivalent Codex capabilities response shape), sourced from SDK/runtime-supported values rather than frontend constants.
-- Update chat UI (`CodexFlagsPanel` and related state typing/default wiring) to render reasoning options from backend capability payload so `minimal` and future SDK-supported values appear automatically.
-- Update shared API contracts for these changes in `common/src/lmstudio.ts` and `openapi.json`, including the new Codex capability payload and the simplified single-target device-auth request/response schema.
-- Implement explicit precedence rules for agent runs: agent `config.toml` values win for agent behavior, and shared-home config is limited to auth/session and non-agent-specific baseline concerns.
-- Add a normalization layer for known legacy keys before passing runtime overrides (`features.view_image_tool -> tools.view_image`, preserve `features.web_search_request` compatibility behavior), with strict validation for unknown/misplaced keys.
-- Add an explicit config-merging utility that merges only base `[projects]` from `codex/config.toml` into the agent runtime config and does not merge other shared-base behavior fields.
-- Update detection/auth assumptions in `server/src/providers/codexDetection.ts` and related auth paths to use shared-home behavior while preserving compatibility with existing agent-folder auth artifacts; do not remove files from agent folders.
-- Simplify `POST /device-auth` contract/handler in `server/src/routes/codexDeviceAuth.ts` and corresponding frontend API typing in `client/src/api/codex.ts` to a single request shape while retaining any non-destructive compatibility auth synchronization needed to keep this instance stable.
-- Simplify `client/src/components/codex/CodexDeviceAuthDialog.tsx` and remove target-selector wiring from `client/src/pages/ChatPage.tsx` and `client/src/pages/AgentsPage.tsx`, including any API calls that currently pass `target` or `agentName`.
-- Upgrade `@openai/codex-sdk` and validate `CodexOptions`/`ThreadOptions` behavior against latest docs (including SDK-native `ModelReasoningEffort` values such as `minimal`/`xhigh`), confirming no regressions in run-stream event handling and thread resume behavior.
-- Expand unit/integration coverage for: shared home detection, runtime config mapping, strict per-agent behavior parity across all invocation surfaces, device-auth API contract simplification, preservation of agent-folder files/auth artifacts, reasoning-capability payload handling, and simplified frontend auth UX.
-- Add focused regression tests for compatibility of existing agent `config.toml` examples under `codex_agents/*`.
-- Add explicit logging markers for runtime config source selection and sanitized applied override metadata (without sensitive values) to aid diagnosis.
+1. Freeze shared contracts and canonical config vocabulary first.
+   - Update shared types/contracts in `common/src/lmstudio.ts` and `openapi.json` for:
+     - dynamic reasoning-effort capability payload returned to the client;
+     - simplified device-auth request/response shape;
+     - canonical config keys (`tools.view_image`, top-level `web_search`) and legacy alias handling rules.
+   - Keep this phase contract-only so later code wiring has one stable target.
+
+2. Introduce shared `CODEX_HOME` layout and migration guardrails before runtime rewiring.
+   - Update `server/src/config/codexConfig.ts` to support:
+     - shared home `./codex`;
+     - dedicated chat runtime config `./codex/chat/config.toml`;
+     - safe migration copy from existing `./codex/config.toml` to chat config.
+   - Update `server/src/providers/codexDetection.ts` to align startup/availability checks with shared-home behavior.
+   - Do not minimize `./codex/config.toml` in this phase.
+
+3. Add a dedicated runtime config merge/normalization layer.
+   - Build deterministic merge path for agent execution:
+     - base shared config (`./codex/config.toml`) projects only;
+     - agent config (`codex_agents/<agent>/config.toml`) behavior keys;
+     - effective projects merge: `{ ...baseProjects, ...agentProjects }`.
+   - Normalize legacy keys at read time:
+     - `features.view_image_tool -> tools.view_image`;
+     - legacy web-search keys -> canonical `web_search`.
+   - Apply fixed validation policy:
+     - unknown keys warn+ignore;
+     - invalid supported key types hard-fail for that run.
+
+4. Rewire all runtime callers to consume merged runtime config.
+   - Pass runtime `CodexOptions.config` consistently in:
+     - `server/src/chat/interfaces/ChatInterfaceCodex.ts`;
+     - `server/src/agents/service.ts`;
+     - `server/src/flows/service.ts`;
+     - related helper paths in `server/src/agents/config.ts` as needed.
+   - Preserve `useConfigDefaults: true` behavior and current user-visible agent behavior.
+
+5. Simplify device-auth API/backend/frontend flow after runtime config wiring is stable.
+   - Backend: simplify `server/src/routes/codexDeviceAuth.ts` to one request shape and deterministic legacy-field rejection.
+   - Client API: update `client/src/api/codex.ts`.
+   - UI: remove target selector/branching from:
+     - `client/src/components/codex/CodexDeviceAuthDialog.tsx`;
+     - `client/src/pages/ChatPage.tsx`;
+     - `client/src/pages/AgentsPage.tsx`.
+
+6. Shift reasoning-effort UX to backend model capabilities.
+   - Backend capability payload from `server/src/routes/chatModels.ts` should drive allowed values per model.
+   - Client consumes and renders dynamic options in:
+     - `client/src/hooks/useChatModel.ts`;
+     - `client/src/components/chat/CodexFlagsPanel.tsx`;
+     - `client/src/hooks/useChatStream.ts` typing surfaces.
+   - Do not assume static enum parity across surfaces; UI options must follow backend capability payload.
+
+7. Remove compatibility shims and complete SDK alignment.
+   - Upgrade `@openai/codex-sdk` in `server/package.json` from `0.101.0` to latest stable on implementation day (no alpha).
+   - Remove local widened reasoning-effort shim paths in server/client typing where SDK-native types now cover support.
+   - Validate no regressions in thread start/resume and stream event handling.
+
+8. Hardening, tests, and documentation alignment before final config minimization.
+   - Add/update regression coverage for:
+     - precedence + normalization;
+     - shared-home detection and auth behavior;
+     - device-auth simplified contract;
+     - reasoning capability payload-driven UI behavior;
+     - preservation of files under `codex_agents/*`.
+   - Update `design.md` and `projectStructure.md` to match runtime behavior and contract changes.
+
+9. Perform `./codex/config.toml` minimization as isolated final step only.
+   - After all code/tests/docs are complete, reduce shared config to minimal shared defaults.
+   - Keep explicit operator warning that `code_info` MCP is expected to stop working for this running instance after this step.

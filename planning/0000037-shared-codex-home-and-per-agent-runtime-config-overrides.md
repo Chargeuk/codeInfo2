@@ -447,8 +447,9 @@ Upgrade `@openai/codex-sdk` to latest stable at implementation start, then remov
 2. [ ] Update lockfile and ensure only one resolved SDK version is used by server workspace dependency tree.
 3. [ ] Remove local widened reasoning-effort type shims/casts in server runtime code and tests (for example `ModelReasoningEffort | 'xhigh'` compatibility-only types).
 4. [ ] Remove any client/shared compatibility typings that were only present to widen values already supported by upgraded SDK.
-5. [ ] Add/adjust unit tests to prove SDK-native reasoning-effort typing compiles and behavior remains unchanged for supported values.
-6. [ ] Record exact upgraded SDK version in this story file Implementation notes for traceability.
+5. [ ] Update shared/client/server reasoning-effort type usage to SDK-native values (including `minimal`) and remove manual cast-based compatibility types in chat validators/flag payload builders.
+6. [ ] Add/adjust unit tests to prove SDK-native reasoning-effort typing compiles and behavior remains unchanged for supported values.
+7. [ ] Record exact upgraded SDK version in this story file Implementation notes for traceability.
 
 #### Testing
 
@@ -497,9 +498,10 @@ Create one server-side config resolution layer that reads shared base config, ch
 6. [ ] Implement deterministic config read/parse failure behavior:
    - missing/unreadable/invalid TOML for agent config hard-fails that run with deterministic validation error,
    - missing/unreadable/invalid TOML for chat config returns deterministic startup/runtime error without fallback to base behavior keys.
-7. [ ] Add unit tests for normalization, merge precedence, and validator outcomes (unknown key warning vs invalid type hard-fail), including canonical+legacy collision behavior.
-8. [ ] Add unit tests for read/parse failure paths (missing, unreadable, invalid TOML) for both chat and agent config resolution.
-9. [ ] Ensure no fallback path allows shared behavior keys to override named-agent behavior keys.
+7. [ ] Replace existing line-based model-only config parsing (`readAgentModelId`) with the shared TOML-based runtime config resolver so all execution paths consume the same normalized config source.
+8. [ ] Add unit tests for normalization, merge precedence, and validator outcomes (unknown key warning vs invalid type hard-fail), including canonical+legacy collision behavior.
+9. [ ] Add unit tests for read/parse failure paths (missing, unreadable, invalid TOML) for both chat and agent config resolution.
+10. [ ] Ensure no fallback path allows shared behavior keys to override named-agent behavior keys.
 
 #### Testing
 
@@ -534,8 +536,9 @@ Apply the new runtime config layer to all Codex execution paths so chat uses cha
 3. [ ] Update agent command execution path (`/agents/:agentName/commands/run`) to use the same agent runtime config resolution.
 4. [ ] Update flow-driven agent execution path to use same agent runtime config resolution and precedence.
 5. [ ] Update MCP agent execution surfaces to resolve the same runtime config behavior as REST surfaces.
-6. [ ] Ensure all updated execution paths retain `useConfigDefaults: true` and do not reintroduce duplicated model/policy thread flag wiring.
-7. [ ] Add integration tests proving behavior parity across invocation paths (REST agent run, commands run, flow step, MCP execution) and proving chat behavior is sourced from `./codex/chat/config.toml` rather than shared base behavior keys.
+6. [ ] Extend shared chat interface/runtime option plumbing (`ChatInterfaceCodex` + option builders) to accept runtime `CodexOptions.config` payloads without breaking existing call signatures.
+7. [ ] Ensure all updated execution paths retain `useConfigDefaults: true` and do not reintroduce duplicated model/policy thread flag wiring.
+8. [ ] Add integration tests proving behavior parity across invocation paths (REST agent run, commands run, flow step, MCP execution) and proving chat behavior is sourced from `./codex/chat/config.toml` rather than shared base behavior keys.
 
 #### Testing
 
@@ -596,20 +599,24 @@ Implement the server-side device-auth message contract change first: request bod
 #### Subtasks
 
 1. [ ] Update `server/src/routes/codexDeviceAuth.ts` request parsing to accept only empty JSON object and reject selector fields (`target`, `agentName`) with `400 invalid_request`.
-2. [ ] Update shared/common API types for device-auth request/response to the single-shape contract.
-3. [ ] Update success and error response payloads to the defined contract:
+2. [ ] Reject any non-empty request body (not only selector fields) with deterministic `400 invalid_request` so the `{}` contract is strict.
+3. [ ] Update shared/common API types for device-auth request/response to the single-shape contract.
+4. [ ] Update success and error response payloads to the defined contract:
    - `200 { status: "ok", rawOutput }`,
    - `400 { error: "invalid_request", message }`,
    - `503 { error: "codex_unavailable", reason }`.
-4. [ ] Remove legacy dual-shape parsing/response behavior from backend route.
-5. [ ] Add deterministic concurrent request handling so overlapping device-auth runs remain idempotent and do not corrupt auth propagation state.
-6. [ ] Update `openapi.json` for `/codex/device-auth` request and response schemas.
-7. [ ] Add/update server integration tests for:
+5. [ ] Remove legacy dual-shape parsing/response behavior from backend route.
+6. [ ] Add deterministic concurrent request handling so overlapping device-auth runs remain idempotent and do not corrupt auth propagation state.
+7. [ ] Preserve non-destructive post-success auth propagation/availability refresh behavior under the single-shape contract.
+8. [ ] Update `openapi.json` for `/codex/device-auth` request and response schemas.
+9. [ ] Add/update server integration tests for:
    - empty `{}` request success path,
    - selector-field rejection,
+   - non-empty unknown-field rejection,
    - codex unavailable `503`,
    - payload too large handling,
-   - concurrent request behavior and deterministic response shape.
+   - concurrent request behavior and deterministic response shape,
+   - post-success auth propagation/availability refresh behavior.
 
 #### Testing
 
@@ -643,10 +650,11 @@ Implement backend model-capability payload contract for Codex models so frontend
    - `supportedReasoningEfforts: string[]`,
    - `defaultReasoningEffort: string`.
 2. [ ] Update `server/src/routes/chatModels.ts` to include capability fields for every codex model item.
-3. [ ] Ensure deterministic behavior when capability data changes (model defaults remain explicit and consistent).
-4. [ ] Add server-side chat request validation that rejects unsupported `model_reasoning_effort` values for the selected model with deterministic `invalid_request` errors (no silent downgrade).
-5. [ ] Update `openapi.json` for `/chat/models` codex response schema if documented there.
-6. [ ] Add/update server tests for codex model payload completeness and field presence for each returned model, plus invalid reasoning-effort rejection behavior.
+3. [ ] Implement one shared codex capability resolver used by both `/chat/models` payload generation and `/chat` request validation to avoid contract drift.
+4. [ ] Ensure deterministic behavior when capability data changes (model defaults remain explicit and consistent).
+5. [ ] Add server-side chat request validation that rejects unsupported `model_reasoning_effort` values for the selected model with deterministic `invalid_request` errors (no silent downgrade).
+6. [ ] Update `openapi.json` for `/chat/models` codex response schema if documented there.
+7. [ ] Add/update server tests for codex model payload completeness and field presence for each returned model, plus invalid reasoning-effort rejection behavior.
 
 #### Testing
 
@@ -654,6 +662,7 @@ Implement backend model-capability payload contract for Codex models so frontend
 2. [ ] `npm run build --workspace common`
 3. [ ] `npm run test --workspace server -- chatModels.codex`
 4. [ ] Run targeted server chat-validation tests for unsupported reasoning effort and verify deterministic error contract.
+5. [ ] Run targeted tests proving `/chat/models` capability output and `/chat` validation consume the same resolver logic.
 
 #### Implementation notes
 
@@ -750,6 +759,7 @@ Add focused regression coverage to lock the behavior required by this story acro
 4. [ ] Add tests proving `codex_agents/*/auth.json` files remain present through migration-compatible flows.
 5. [ ] Add tests verifying deterministic secret-safe logging behavior for config/device-auth errors.
 6. [ ] Add fixture-driven tests that validate every currently present `codex_agents/*/config.toml` file against normalization/validation rules and assert deterministic outcomes across invocation paths.
+7. [ ] Add regression tests proving no execution path still relies on model-only regex parsing after shared runtime config resolver rollout.
 
 #### Testing
 

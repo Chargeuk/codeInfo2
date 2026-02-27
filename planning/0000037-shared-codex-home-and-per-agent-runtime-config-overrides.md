@@ -47,7 +47,8 @@ Additional rollout safety rule: reducing values in `./codex/config.toml` can sto
   - Legacy chat-vs-agent selector behavior is removed from UI and API payload contracts.
 - Compatibility normalization must be deterministic:
   - `features.view_image_tool` is normalized to `tools.view_image`.
-  - `features.web_search_request` remains accepted via compatibility alias behavior.
+  - Legacy web-search keys are normalized to canonical `web_search` mode (`live` / `cached` / `disabled`).
+  - `features.web_search_request` remains accepted only as an input alias, not as the canonical stored/runtime key.
   - Unsupported/misplaced keys follow one validation policy only (defined below in Acceptance Criteria) so behavior is predictable for all agents.
 - File safety rule is strict:
   - No delete/move/rename operations under `codex_agents/*`.
@@ -56,7 +57,7 @@ Additional rollout safety rule: reducing values in `./codex/config.toml` can sto
 ### Acceptance Criteria
 
 - Single shared Codex auth/session home is used for all Codex-backed chat/agent/flow execution paths (`./codex`), with no per-agent login requirement.
-- `@openai/codex-sdk` is upgraded from `0.101.0` to the latest stable version available on implementation start date, and the exact upgraded version is recorded in story implementation notes.
+- `@openai/codex-sdk` is upgraded from `0.101.0` to the latest **stable** version available on implementation start date (no alpha/pre-release builds), and the exact upgraded version is recorded in story implementation notes.
 - Local compatibility shims that were introduced to inject/widen reasoning effort support (for example server-side `ModelReasoningEffort | 'xhigh'` unions and related casts) are removed in favor of the SDK-native `ModelReasoningEffort` surface.
 - Agent runtime configuration is sourced from `codex_agents/<agent>/config.toml` and mapped into `CodexOptions.config` for execution-time overrides.
 - Agent and flow runs continue to set `useConfigDefaults: true`, with thread/runtime behavior driven by config defaults and explicit runtime overrides rather than duplicated model/policy flag wiring.
@@ -69,6 +70,7 @@ Additional rollout safety rule: reducing values in `./codex/config.toml` can sto
 - Minimizing/removing values from `./codex/config.toml` is executed only as a final isolated task at the end of the story after all other implementation/testing steps are complete.
 - The plan/tasks explicitly warn that once `./codex/config.toml` is minimized for this running instance, the chat agent and `code_info` MCP tool are expected to stop working, and `code_info` must not be used after that point.
 - Current legacy key usage is normalized deterministically before execution: `features.view_image_tool` is translated to `tools.view_image`, and deprecated `features.web_search_request` remains supported through compatibility alias behavior.
+- Canonical runtime storage/output uses `tools.view_image` and top-level `web_search`; legacy keys are accepted only as read-time aliases and are not re-emitted as canonical output.
 - Unsupported or misplaced keys discovered in current agent TOMLs (for example `cli_auth_credentials_store` nested under `[projects.\"<path>\"]`) follow one fixed validation policy:
   - unknown keys: warning log with key path, then ignored;
   - invalid type for a supported key: hard validation error for that agent run;
@@ -81,9 +83,9 @@ Additional rollout safety rule: reducing values in `./codex/config.toml` can sto
 - Requests that still send legacy selector fields (for example `target` or `agentName`) are rejected with a deterministic client error response rather than silently reinterpreted.
 - Frontend re-authentication UI is simplified to one Codex device auth screen and removes chat/agent selector UX and related branch-specific messaging.
 - Chat reasoning-effort options are no longer hard-coded in the frontend; the client renders options exactly from backend capability data sourced from the upgraded SDK/runtime support set.
-- `minimal` is visible/selectable in chat when supported by the upgraded SDK/runtime, and selection is validated/passed through end-to-end the same as other supported effort values.
+- `minimal` is visible/selectable in chat when the selected model capability payload includes it, and selection is validated/passed through end-to-end the same as other supported effort values.
 - Future SDK/runtime reasoning-effort additions appear in chat automatically after dependency upgrade/redeploy, without adding new custom value-injection code.
-- Backend capability payload includes a deterministic field for reasoning effort options (array of supported values), and frontend behavior is deterministic when values change (invalid prior selection is reset to a supported default).
+- Backend capability payload includes a deterministic field for reasoning effort options (array of supported values), and frontend behavior is deterministic when values change (invalid prior selection is reset to that model’s supported default).
 - Legacy compatibility behaviors are explicitly documented for any remaining read-only agent config fields that cannot be safely translated into runtime overrides.
 - Logs and error payloads remain deterministic and secret-safe after refactor:
   - no auth tokens, auth file contents, full TOML blobs, or raw device-auth secrets in logs;
@@ -108,15 +110,19 @@ None. All prior questions are resolved, and non-destructive preservation of file
 
 ## Resolved Findings (Initial Research)
 
-- Latest stable SDK version at planning time is `@openai/codex-sdk@0.106.0`; runtime `CodexOptions.config` overrides and `env` control remain available and suitable for this design.
+- Latest stable SDK version at planning time is `@openai/codex-sdk@0.106.0` (registry checked on 2026-02-27); `0.107.0` is alpha only at this time. Runtime `CodexOptions.config` overrides and `env` control remain available and suitable for this design.
 - Current SDK typings already include `xhigh` (and `minimal`) in `ModelReasoningEffort`, so existing app-side compatibility widening for `xhigh` is now redundant and should be removed as part of this story.
+- Published SDK package confirms runtime `config` overrides are passed as CLI `--config` entries, so per-agent runtime override mapping is feasible without writing files during each run.
 - The proposal is achievable without changing the agent behavior contract, provided runtime precedence is enforced so named-agent config values always win for behavior fields.
 - Chat should use a dedicated runtime config file (copy of current `./codex/config.toml`) while still using the same shared `CODEX_HOME`; this avoids introducing a second auth/session home.
 - Chat config copy must be created before minimizing `./codex/config.toml` so chat behavior remains stable during rollout.
 - All three current agent config files contain supported core behavior keys: `model`, `model_reasoning_effort`, `approval_policy`, `sandbox_mode`, `[mcp_servers.*]`, and `[projects.*].trust_level`.
 - Current compatibility gaps found in agent files:
   - `features.view_image_tool` is not a current schema key and requires compatibility mapping to `tools.view_image`.
+  - Legacy web-search keys should normalize to canonical top-level `web_search` mode to avoid mixed key behavior.
   - `cli_auth_credentials_store = \"file\"` is currently nested under a project table in all agent files, not top-level, and therefore should not be treated as a valid project-level behavior field.
+- Codex upstream config layering behavior validates this story’s precedence model: lower layers are overridden by higher layers, and table/object values are merged while scalar overrides replace prior values.
+- Upstream model capability surfaces can vary by model; reasoning effort options must be derived from backend capability/model listing payloads rather than hard-coded UI enums.
 - `codex/config.toml` currently defines shared project trust entries for `/data` and `/app/server`; `coding_agent` additionally defines `/Users/danielstapleton/Documents/dev`.
 - Base-project merge policy required by this story: shared `[projects]` defaults may be inherited, but agent-defined project entries take precedence and no other shared-base behavior keys are allowed to override agent behavior.
 - Product decision: preserve existing `codex_agents/*` files for this running instance; specifically, do not delete/move/rename `auth.json` or any other file under agent folders during this story.

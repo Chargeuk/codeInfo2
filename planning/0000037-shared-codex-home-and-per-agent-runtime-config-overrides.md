@@ -6,6 +6,7 @@ This is a list of steps that must be followed whilst working on a story. The fir
 Create (or reuse if it already exists) the feature branch for this phase using the established naming convention (for example `feature/<number>-<Title>`).
 The Description, Acceptance Criteria & Out Of Scope sections must be fully documented to the point where a very junior, inexperienced developer who has never seen the product before would be able to read and understand what we want to do and why.
 The Questions sections should be populated by an AI at the start of the planning phase, as soon as the initial description is provided. As these questions get answered, the questions should be removed and relevent information should be added to the other sections. The Questions section must be empty before creating tasks.
+When tasks are created for this story, they must include an explicit ordering/safety note that minimizing `./codex/config.toml` is a final isolated task, and that after that point the `code_info` MCP tool is expected to stop working for this running instance and must not be used.
 
 ### Description
 
@@ -29,6 +30,8 @@ For chat reasoning effort UX, options must be sourced from a backend capability 
 
 Operational safety rule for this story: migration must be non-destructive for `codex_agents/*`. Do not delete, move, or rename `auth.json` (or any other files) inside agent folders because this running CodeInfo2 instance depends on those files remaining present.
 
+Additional rollout safety rule: reducing values in `./codex/config.toml` can stop the chat agent (and therefore `code_info` MCP availability) in this running instance. Because of this, minimizing `./codex/config.toml` must be done only at the very end of implementation as a single isolated step after all other code changes, verification, and documentation updates are complete.
+
 ### Acceptance Criteria
 
 - Single shared Codex auth/session home is used for all Codex-backed chat/agent/flow execution paths (`./codex`), with no per-agent login requirement.
@@ -42,6 +45,8 @@ Operational safety rule for this story: migration must be non-destructive for `c
 - The only shared-base behavior injected into agent runtime config is `[projects]` trust metadata from `codex/config.toml`, merged as `effectiveProjects = { ...baseProjects, ...agentProjects }` so agent-defined project entries override shared defaults.
 - Application chat behavior is sourced from dedicated chat runtime config (for example `./codex/chat/config.toml`) passed through runtime `CodexOptions.config`, not from behavior values left in minimal `./codex/config.toml`.
 - Migration sequencing is enforced: chat runtime config copy is created from existing `./codex/config.toml` before `./codex/config.toml` is minimized.
+- Minimizing/removing values from `./codex/config.toml` is executed only as a final isolated task at the end of the story after all other implementation/testing steps are complete.
+- The plan/tasks explicitly warn that once `./codex/config.toml` is minimized for this running instance, the chat agent and `code_info` MCP tool are expected to stop working, and `code_info` must not be used after that point.
 - Current legacy key usage is normalized deterministically before execution: `features.view_image_tool` is translated to `tools.view_image`, and deprecated `features.web_search_request` remains supported through compatibility alias behavior.
 - Unsupported or misplaced keys discovered in current agent TOMLs (for example `cli_auth_credentials_store` nested under `[projects.\"<path>\"]`) are handled deterministically with explicit validation outcome (error or warning policy defined and tested), and no silent cross-agent fallback is allowed.
 - All existing agent config files under `codex_agents/*/config.toml` are validated in tests against supported runtime mapping rules and produce consistent behavior across all invocation paths.
@@ -67,6 +72,7 @@ Operational safety rule for this story: migration must be non-destructive for `c
 - Changing intended behavior of existing agents (this story preserves existing agent behavior rather than redefining agent policy semantics).
 - Introducing a second Codex home/auth store for chat (chat and agents continue using one shared `CODEX_HOME`).
 - Deleting, moving, or renaming any files inside `codex_agents/*` (including `auth.json`) as part of this story.
+- Performing `./codex/config.toml` minimization before all other story implementation and verification work is complete.
 
 ### Questions
 
@@ -88,6 +94,7 @@ None. All prior questions are resolved, and non-destructive preservation of file
 - Product decision: preserve existing `codex_agents/*` files for this running instance; specifically, do not delete/move/rename `auth.json` or any other file under agent folders during this story.
 - Product decision: keep per-agent auth handling in non-destructive compatibility mode where required for runtime stability rather than removing agent-folder auth artifacts.
 - Product decision: change backend device-auth contract to single-target request body in this story at the point where frontend/backend rollout is aligned; do not stage one-release backward-compatible parsing.
+- Product decision: treat `./codex/config.toml` minimization as a final isolated end-of-story step only; after this step in the running instance, chat-agent-backed `code_info` MCP usage is expected to be unavailable and must stop.
 
 ## Implementation Ideas
 
@@ -95,6 +102,8 @@ None. All prior questions are resolved, and non-destructive preservation of file
 - Keep `buildCodexOptions` centered on shared `CODEX_HOME`, and add an optional per-run `config` payload sourced from the selected agent's `config.toml`.
 - Add a chat runtime config loader (for example from `./codex/chat/config.toml`) and route application chat execution through that runtime `CodexOptions.config` payload.
 - Implement rollout guardrails: copy current `./codex/config.toml` to chat runtime config path before reducing base config to minimal shared defaults.
+- Enforce implementation order: complete all code changes/tests/docs first, then run `./codex/config.toml` minimization as a final isolated step.
+- Add a mandatory operator warning in story tasks/runbook that after the final minimization step, this running instance should no longer use `code_info` MCP for further story work.
 - Update Codex config seeding/template logic in `server/src/config/codexConfig.ts` so shared `./codex/config.toml` contains only minimal shared defaults after migration, while chat behavior defaults come from the dedicated chat runtime config copy.
 - Refactor Codex invocation callsites in `server/src/agents/service.ts`, `server/src/flows/service.ts`, and `server/src/chat/interfaces/ChatInterfaceCodex.ts` to pass agent runtime config overrides for all agent execution paths while retaining `useConfigDefaults: true` semantics.
 - Remove server compatibility wrappers/casts that manually extend reasoning effort beyond SDK types and use `ModelReasoningEffort` directly across validators, thread option builders, env-default parsing, and shared response typing.

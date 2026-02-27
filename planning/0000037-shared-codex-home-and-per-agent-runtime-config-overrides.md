@@ -19,6 +19,10 @@ Hard rule for this story: agent behavior must remain unchanged from user perspec
 
 Feasibility has been validated against latest upstream surfaces: `@openai/codex-sdk` latest stable supports runtime `CodexOptions.config` overrides and shared `CODEX_HOME` environment control, and therefore this behavior model is achievable.
 
+Because application chat currently depends on behavior values in `./codex/config.toml`, this story also introduces a dedicated chat runtime config file (for example `./codex/chat/config.toml`) that is used for application chat behavior via runtime `CodexOptions.config` overrides while still using the same shared `CODEX_HOME` for auth/session state.
+
+Required migration order: create the chat runtime config as a copy of current `./codex/config.toml` before reducing `./codex/config.toml` to a minimal shared-default set. This prevents chat behavior regressions during migration.
+
 This story also plans upgrading `@openai/codex-sdk` to latest stable and simplifying frontend re-authentication so there is a single `Codex device auth` flow (no chat/agent selector).
 
 ### Acceptance Criteria
@@ -31,6 +35,8 @@ This story also plans upgrading `@openai/codex-sdk` to latest stable and simplif
 - For any agent execution path (`/agents/:agentName/run`, `/agents/:agentName/commands/run`, flow-driven agent steps, and MCP agent execution surfaces), behavior is determined only by that agent's `codex_agents/<agent>/config.toml`.
 - Shared `codex/config.toml` must not override agent behavior values when a named agent is running; shared home is for auth/session persistence, not behavior policy for agents.
 - The only shared-base behavior injected into agent runtime config is `[projects]` trust metadata from `codex/config.toml`, merged as `effectiveProjects = { ...baseProjects, ...agentProjects }` so agent-defined project entries override shared defaults.
+- Application chat behavior is sourced from dedicated chat runtime config (for example `./codex/chat/config.toml`) passed through runtime `CodexOptions.config`, not from behavior values left in minimal `./codex/config.toml`.
+- Migration sequencing is enforced: chat runtime config copy is created from existing `./codex/config.toml` before `./codex/config.toml` is minimized.
 - Current legacy key usage is normalized deterministically before execution: `features.view_image_tool` is translated to `tools.view_image`, and deprecated `features.web_search_request` remains supported through compatibility alias behavior.
 - Unsupported or misplaced keys discovered in current agent TOMLs (for example `cli_auth_credentials_store` nested under `[projects.\"<path>\"]`) are handled deterministically with explicit validation outcome (error or warning policy defined and tested), and no silent cross-agent fallback is allowed.
 - All existing agent config files under `codex_agents/*/config.toml` are validated in tests against supported runtime mapping rules and produce consistent behavior across all invocation paths.
@@ -49,6 +55,7 @@ This story also plans upgrading `@openai/codex-sdk` to latest stable and simplif
 - Introducing persistent config editing UI for agent `config.toml` files in this story.
 - Converting all agent configuration to a different file format (for example YAML/JSON) in this story.
 - Changing intended behavior of existing agents (this story preserves existing agent behavior rather than redefining agent policy semantics).
+- Introducing a second Codex home/auth store for chat (chat and agents continue using one shared `CODEX_HOME`).
 
 ### Questions
 
@@ -59,6 +66,8 @@ This story also plans upgrading `@openai/codex-sdk` to latest stable and simplif
 
 - Latest stable SDK version at planning time is `@openai/codex-sdk@0.106.0`; runtime `CodexOptions.config` overrides and `env` control remain available and suitable for this design.
 - The proposal is achievable without changing the agent behavior contract, provided runtime precedence is enforced so named-agent config values always win for behavior fields.
+- Chat should use a dedicated runtime config file (copy of current `./codex/config.toml`) while still using the same shared `CODEX_HOME`; this avoids introducing a second auth/session home.
+- Chat config copy must be created before minimizing `./codex/config.toml` so chat behavior remains stable during rollout.
 - All three current agent config files contain supported core behavior keys: `model`, `model_reasoning_effort`, `approval_policy`, `sandbox_mode`, `[mcp_servers.*]`, and `[projects.*].trust_level`.
 - Current compatibility gaps found in agent files:
   - `features.view_image_tool` is not a current schema key and requires compatibility mapping to `tools.view_image`.
@@ -70,6 +79,8 @@ This story also plans upgrading `@openai/codex-sdk` to latest stable and simplif
 
 - Introduce a dedicated agent config loader module that parses each agent TOML into runtime overrides for `CodexOptions.config`, with a compatibility-first approach aimed at preserving current behavior.
 - Keep `buildCodexOptions` centered on shared `CODEX_HOME`, and add an optional per-run `config` payload sourced from the selected agent's `config.toml`.
+- Add a chat runtime config loader (for example from `./codex/chat/config.toml`) and route application chat execution through that runtime `CodexOptions.config` payload.
+- Implement rollout guardrails: copy current `./codex/config.toml` to chat runtime config path before reducing base config to minimal shared defaults.
 - Refactor Codex invocation callsites in `server/src/agents/service.ts`, `server/src/flows/service.ts`, and `server/src/chat/interfaces/ChatInterfaceCodex.ts` to pass agent runtime config overrides for all agent execution paths while retaining `useConfigDefaults: true` semantics.
 - Implement explicit precedence rules for agent runs: agent `config.toml` values win for agent behavior, and shared-home config is limited to auth/session and non-agent-specific baseline concerns.
 - Add a normalization layer for known legacy keys before passing runtime overrides (`features.view_image_tool -> tools.view_image`, preserve `features.web_search_request` compatibility behavior), with strict validation for unknown/misplaced keys.

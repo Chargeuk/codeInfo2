@@ -307,7 +307,7 @@ None. All prior questions are resolved, and non-destructive preservation of file
   - `features.view_image_tool` is not a current schema key and requires compatibility mapping to `tools.view_image`.
   - Legacy web-search keys should normalize to canonical top-level `web_search` mode to avoid mixed key behavior.
   - `cli_auth_credentials_store = \"file\"` is currently nested under a project table in all agent files, not top-level, and therefore should not be treated as a valid project-level behavior field.
-- Current server model-capability behavior is split across static/env sources (`getCodexModelList`, `getCodexEnvDefaults`, and hard-coded `chatValidators` lists) in multiple surfaces (`/chat/models`, `/chat`, `/chat/providers`, and MCP `codebase_question`); story implementation must consolidate these into one shared runtime capability resolver to prevent contract drift.
+- Current server model-capability behavior is split across static/env sources (`getCodexModelList`, `getCodexEnvDefaults`, and hard-coded `chatValidators` lists) for chat model payload and chat validation (`/chat/models` and `/chat`); story implementation should consolidate these chat-facing paths into one shared runtime capability resolver to reduce drift without widening scope into unrelated surfaces.
 - Codex upstream config layering behavior validates this story’s precedence model: lower layers are overridden by higher layers, and table/object values are merged while scalar overrides replace prior values.
 - Upstream model capability surfaces can vary by model; reasoning effort options must be derived from backend capability/model listing payloads rather than hard-coded UI enums.
 - `codex/config.toml` currently defines shared project trust entries for `/data` and `/app/server`; `coding_agent` additionally defines `/Users/danielstapleton/Documents/dev`.
@@ -834,38 +834,35 @@ Implement backend model-capability payload contract for Codex models so frontend
 
 - None yet.
 
-### 13. Server: Share codex capability resolver across `/chat`, `/chat/providers`, and MCP surfaces
+### 13. Server: Share codex capability resolver across `/chat/models` and `/chat`
 
 - Task Status: **__todo__**
 - Git Commits: `None yet`
 
 #### Overview
 
-Replace static reasoning/model sources with one shared runtime codex capability resolver and use it consistently for response payloads, request validation, provider model selection metadata, and MCP defaults.
+Replace static reasoning/model sources with one shared runtime codex capability resolver and use it consistently for chat response payloads and chat request validation.
 
 #### Documentation Locations
 
 - Codex model capability references: Context7 `/openai/codex`
-- JSON-RPC 2.0 spec (MCP parity): https://www.jsonrpc.org/specification
 
 #### Subtasks
 
-1. [ ] Replace static reasoning/model sources for capability payloads (`getCodexModelList`, `getCodexEnvDefaults`, and `chatValidators` hard-coded effort arrays) with one shared runtime codex capability resolver sourced from runtime model metadata, with deterministic fallback behavior when metadata is unavailable.
+1. [ ] Replace static reasoning/model sources for chat capability payloads and chat validation (`getCodexModelList`, `getCodexEnvDefaults`, and `chatValidators` hard-coded effort arrays) with one shared runtime codex capability resolver sourced from runtime model metadata, with deterministic fallback behavior when metadata is unavailable.
 2. [ ] Implement one shared codex capability resolver module used by:
    - `/chat/models` payload generation,
-   - `/chat` request validation,
-   - `/chat/providers` provider selection model metadata,
-   - MCP `codebase_question` model/effort defaults.
+   - `/chat` request validation.
 3. [ ] Ensure deterministic behavior when capability data changes (model defaults remain explicit and consistent), and ensure capability-normalized effort values are the only values emitted to client payloads.
 4. [ ] Add server-side chat request validation that rejects unsupported `model_reasoning_effort` values for the selected model with deterministic `invalid_request` errors (no silent downgrade), using shared resolver output.
-5. [ ] Add/update parity tests proving `/chat/models`, `/chat`, `/chat/providers`, and MCP `codebase_question` consume the same capability resolver output.
+5. [ ] Add/update parity tests proving `/chat/models` and `/chat` consume the same capability resolver output.
 
 #### Testing
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run test --workspace server -- chatModels.codex`
 3. [ ] Run targeted server chat-validation tests for unsupported reasoning effort and verify deterministic error contract.
-4. [ ] Run targeted parity tests for `/chat/models`, `/chat`, `/chat/providers`, and MCP `codebase_question`.
+4. [ ] Run targeted parity tests for `/chat/models` and `/chat`.
 
 #### Implementation notes
 

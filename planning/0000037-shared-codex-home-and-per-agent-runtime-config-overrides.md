@@ -542,7 +542,7 @@ Create one server-side config resolution layer that reads shared base config, ch
 2. [ ] Reuse existing codex/agent path resolution helpers (`getCodexHome`, `getCodexConfigPathForHome`, `discoverAgents` agent `home/configPath`) instead of introducing new path-discovery logic.
    - Files: `server/src/config/codexConfig.ts`, `server/src/agents/discovery.ts` (or existing helper locations).
    - Do: import and reuse existing helpers; remove duplicate path derivation code.
-   - Docs: internal helper docs in repository + https://nodejs.org/api/path.html.
+   - Docs: https://nodejs.org/api/path.html, https://nodejs.org/api/fs.html, Context7 `/openai/codex`.
    - Done when: no duplicate path-walk logic exists for these config locations.
 3. [ ] Add chat runtime config bootstrap behavior.
    - Files: resolver/loader module from Subtask 1.
@@ -552,7 +552,7 @@ Create one server-side config resolution layer that reads shared base config, ch
 4. [ ] Implement canonical normalization rules at read time.
    - Files: normalization helper in `server/src/agents/config.ts` or dedicated normalizer module.
    - Do: map `features.view_image_tool -> tools.view_image`; accept `features.web_search_request` as input alias only; normalize legacy web-search keys to top-level `web_search`; canonical key wins on conflict.
-   - Docs: Context7 `/openai/codex`, story section "Message Contracts & Storage Shapes".
+   - Docs: Context7 `/openai/codex`, https://toml.io/en/v1.0.0.
    - Done when: normalized output always emits canonical keys only.
 5. [ ] Add unit tests for normalization and canonical+legacy collision behavior.
    - Files: `server/src/test/**` for config loader/normalizer.
@@ -589,7 +589,7 @@ Implement deterministic merge and validation behavior for runtime config resolut
 1. [ ] Implement deterministic merge behavior with `effectiveProjects = { ...baseProjects, ...agentProjects }`.
    - Files: shared resolver module introduced in Task 3, likely `server/src/agents/config.ts` and `server/src/config/codexConfig.ts`.
    - Do: merge only `[projects]` from base into agent; agent entries override same path keys.
-   - Docs: story "Implementation Boundaries" section, https://toml.io/en/v1.0.0.
+   - Docs: Context7 `/openai/codex`, https://toml.io/en/v1.0.0.
    - Done when: merge output preserves agent behavior keys and only inherits base projects.
 2. [ ] Implement fixed validation policy in one shared validator (unknown key warn+ignore, invalid type hard error).
    - Files: shared validator in `server/src/agents/config.ts` or new `server/src/agents/configValidation.ts`.
@@ -604,7 +604,7 @@ Implement deterministic merge and validation behavior for runtime config resolut
 4. [ ] Ensure no fallback path allows shared behavior keys to override named-agent behavior keys.
    - Files: all resolver consumers in `server/src/agents/service.ts`, `server/src/flows/service.ts`, `server/src/mcp/**`.
    - Do: remove any fallback assignment from base behavior fields.
-   - Docs: story Acceptance Criteria (agent behavior ownership).
+   - Docs: Context7 `/openai/codex`, https://toml.io/en/v1.0.0.
    - Done when: code audit and tests show no shared behavior override in agent runs.
 5. [ ] Add unit tests for merge precedence and validator outcomes.
    - Files: `server/src/test/**` config resolver suites.
@@ -646,17 +646,17 @@ Replace existing model-only config parsing (`readAgentModelId`) so all execution
 1. [ ] Replace existing line-based model-only config parsing (`readAgentModelId`) with the shared TOML-based runtime config resolver in all run surfaces.
    - Files: `server/src/agents/config.ts`, `server/src/agents/service.ts`, `server/src/flows/service.ts`.
    - Do: remove regex/line parser usage for runtime behavior decisions.
-   - Docs: Task 3 resolver contract and Context7 `/openai/codex`.
+   - Docs: Context7 `/openai/codex`, https://toml.io/en/v1.0.0.
    - Done when: `readAgentModelId` is deleted or unused for runtime decisions.
 2. [ ] Update agent service and flow service execution entrypoints to consume resolver output instead of regex/line parsing.
    - Files: `server/src/agents/service.ts`, `server/src/flows/service.ts`.
    - Do: inject resolver output into run option builders.
-   - Docs: story "In-Memory Effective Runtime Shape".
+   - Docs: Context7 `/openai/codex`, https://toml.io/en/v1.0.0.
    - Done when: agent and flow runs pull model/policy/tools from same resolver object.
 3. [ ] Ensure no codepath still depends on `readAgentModelId` for runtime behavior decisions.
    - Files: whole server workspace; verify with search.
    - Do: remove old function or keep only for unrelated legacy read with explicit comment.
-   - Docs: none beyond repository search.
+   - Docs: https://github.com/BurntSushi/ripgrep/blob/master/GUIDE.md.
    - Done when: `rg "readAgentModelId" server/src` shows no runtime-path callers.
 4. [ ] Add regression tests proving model-only regex parsing is no longer used by any execution path.
    - Files: `server/src/test/agents/**`, `server/src/test/flows/**`.
@@ -698,7 +698,7 @@ Apply runtime config overrides to chat and primary REST agent execution surfaces
 2. [ ] Update agent execution path (`/agents/:agentName/run`) to pass agent runtime config via `CodexOptions.config`.
    - Files: `server/src/agents/service.ts`, related route/controller file.
    - Do: call shared resolver and inject agent-specific config object.
-   - Docs: story Acceptance Criteria for agent ownership.
+   - Docs: Context7 `/openai/codex`, https://expressjs.com/en/guide/routing.html.
    - Done when: REST agent run never pulls behavior from shared base except projects merge.
 3. [ ] Update agent command execution path (`/agents/:agentName/commands/run`) to use the same agent runtime config resolution.
    - Files: command route/service handler under `server/src/agents`.
@@ -750,7 +750,7 @@ Apply the same runtime config resolution to flow-driven and MCP execution surfac
 1. [ ] Update flow-driven agent execution path to use the same agent runtime config resolution and precedence as REST.
    - Files: `server/src/flows/service.ts` and flow step execution helpers.
    - Do: call the shared resolver used in Task 6 Subtask 2.
-   - Docs: Context7 `/openai/codex`, story precedence rules.
+   - Docs: Context7 `/openai/codex`, https://www.jsonrpc.org/specification.
    - Done when: flow step run options match REST agent run options for same agent.
 2. [ ] Update MCP agent execution surfaces to resolve the same runtime config behavior as REST and flow surfaces.
    - Files: `server/src/mcp/**` agent execution adapters.
@@ -797,12 +797,12 @@ Move Codex availability and startup checks to shared-home semantics for chat and
 1. [ ] Update detection/startup logic to treat shared `./codex` as chat availability source of truth.
    - Files: `server/src/providers/codexDetection.ts`, `server/src/config/codexConfig.ts`.
    - Do: for chat availability, check shared-home auth/config only.
-   - Docs: Context7 `/openai/codex` and story edge case "Shared-home availability false negatives".
+   - Docs: Context7 `/openai/codex`, https://nodejs.org/api/fs.html.
    - Done when: chat availability remains true when shared auth is valid even if agent-local auth differs.
 2. [ ] Reuse existing detection/auth helpers (`detectCodexForHome`, `refreshCodexDetection`, `ensureAgentAuthSeeded`, `propagateAgentAuthFromPrimary`) and avoid parallel duplicate implementations.
    - Files: `server/src/providers/codexDetection.ts`, `server/src/agents/auth*` helper files.
    - Do: compose existing helpers, do not add second implementation path.
-   - Docs: repository helper definitions + Node fs docs.
+   - Docs: https://nodejs.org/api/fs.html, https://nodejs.org/api/child_process.html.
    - Done when: detection/auth behavior routes through existing helper functions.
 3. [ ] Add tests for shared-home availability outcomes and detection refresh behavior.
    - Files: `server/src/test/codex/**`.
@@ -838,7 +838,7 @@ Retain existing auth seeding/propagation compatibility behavior without deleting
 1. [ ] Keep compatibility auth seeding/propagation behavior non-destructive for `codex_agents/*/auth.json`.
    - Files: `server/src/agents/auth*`, `server/src/providers/codexDetection.ts`.
    - Do: preserve copy/seed behavior without deletions or renames.
-   - Docs: story file safety rules, https://nodejs.org/api/fs.html.
+   - Docs: https://nodejs.org/api/fs.html, Context7 `/openai/codex`.
    - Done when: runtime still seeds/propagates as before and no destructive ops exist.
 2. [ ] Add guards/tests to ensure no code path deletes, renames, or moves files under `codex_agents/*`.
    - Files: auth helper modules and related tests under `server/src/test`.
@@ -904,7 +904,7 @@ Implement the server-side device-auth message contract change first: request bod
 5. [ ] Remove legacy dual-shape parsing/response behavior from backend route.
    - Files: `server/src/routes/codexDeviceAuth.ts` and any helper parsing modules.
    - Do: remove target-branch logic and dead types.
-   - Docs: story message contract section.
+   - Docs: https://spec.openapis.org/oas/v3.0.3.html.
    - Done when: no route code references `target` or `agentName` request semantics.
 6. [ ] Update `openapi.json` for `/codex/device-auth` request and response schemas.
    - Files: `openapi.json`.
@@ -946,12 +946,12 @@ Add deterministic concurrent request behavior and preserve post-success auth pro
 1. [ ] Add deterministic concurrent request handling so overlapping device-auth runs remain idempotent and do not corrupt auth propagation state.
    - Files: `server/src/routes/codexDeviceAuth.ts`, shared lock helper module.
    - Do: reuse conversation-lock pattern (`tryAcquireConversationLock` / `releaseConversationLock`) or equivalent shared lock helper.
-   - Docs: internal lock helper implementation and https://nodejs.org/api/async_context.html.
+   - Docs: https://nodejs.org/api/async_context.html, https://nodejs.org/api/fs.html.
    - Done when: concurrent requests do not create inconsistent auth state.
 2. [ ] Preserve non-destructive post-success auth propagation/availability refresh behavior under the single-shape contract.
    - Files: `server/src/routes/codexDeviceAuth.ts`, `server/src/providers/codexDetection.ts`, auth propagation helpers.
    - Do: keep existing refresh/propagation side effects, but only after successful auth.
-   - Docs: story edge case "Concurrent device-auth operations".
+   - Docs: https://nodejs.org/api/async_context.html, https://expressjs.com/en/guide/routing.html.
    - Done when: successful auth still triggers refresh and propagation safely.
 3. [ ] Add/update integration tests for concurrent request behavior and post-success side effects.
    - Files: `server/src/test/codex.device-auth*` suites.
@@ -1004,7 +1004,7 @@ Implement backend model-capability payload contract for Codex models so frontend
 4. [ ] Update shared mock fixtures and contract helpers to include capability fields.
    - Files: `common/src/fixtures/mockModels.ts`, related test helpers.
    - Do: update all codex fixture objects with supported/default effort fields.
-   - Docs: internal fixture patterns.
+   - Docs: https://jestjs.io/docs/setup-teardown, https://www.typescriptlang.org/docs/.
    - Done when: fixture-driven tests do not require ad-hoc overrides.
 5. [ ] Add/update server tests for codex model payload completeness and field presence.
    - Files: `server/src/test/chatModels.codex*` suites.
@@ -1045,17 +1045,17 @@ Replace static reasoning/model sources with one shared runtime codex capability 
 2. [ ] Implement one shared codex capability resolver module used by `/chat/models` payload generation and `/chat` validation.
    - Files: new module under `server/src/codex/` or `server/src/chat/` plus imports in both routes.
    - Do: expose stable API returning supported/default effort per model with deterministic fallback when metadata unavailable.
-   - Docs: story edge case "Reasoning-effort capability drift".
+   - Docs: Context7 `/openai/codex`, https://www.typescriptlang.org/docs/.
    - Done when: one module is imported by both consumers.
 3. [ ] Ensure deterministic behavior when capability data changes and emit only capability-normalized effort values.
    - Files: shared resolver and `chatModels` route mapping.
    - Do: normalize ordering and ensure fallback default is explicit.
-   - Docs: story acceptance criteria for dynamic future support.
+   - Docs: Context7 `/openai/codex`, https://spec.openapis.org/oas/v3.0.3.html.
    - Done when: emitted values are deterministic across repeated calls.
 4. [ ] Add server-side chat request validation that rejects unsupported `model_reasoning_effort` values for selected model with deterministic `invalid_request` errors.
    - Files: `server/src/routes/chat.ts`, validator module.
    - Do: validate effort against selected model capability set; no silent downgrade.
-   - Docs: RFC-style deterministic error behavior in story contract section.
+   - Docs: https://datatracker.ietf.org/doc/html/rfc7807, https://httpwg.org/specs/rfc9110.html.
    - Done when: unsupported effort returns deterministic `invalid_request` response.
 5. [ ] Add/update parity tests proving `/chat/models` and `/chat` consume the same capability resolver output.
    - Files: `server/src/test/chatModels.codex*`, `server/src/test/chat*`.
@@ -1093,7 +1093,7 @@ After Task 10 is complete, update frontend API request/response types for the si
 1. [ ] Update `client/src/api/codex.ts` request type/payload to send `{}` for `POST /codex/device-auth`.
    - Files: `client/src/api/codex.ts`.
    - Do: remove target/agent parameters and always post empty object.
-   - Docs: Task 10 contract and MDN fetch docs.
+   - Docs: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API, https://spec.openapis.org/oas/v3.0.3.html.
    - Done when: request body is always `{}`.
 2. [ ] Update response typing/parsing to match new backend response shape (remove target-specific fields from success type).
    - Files: `client/src/api/codex.ts`, shared type imports from `common/src`.
@@ -1126,7 +1126,7 @@ After Task 10 and Task 14 are complete, simplify UI usage to one shared device-a
 
 #### Documentation Locations
 
-- MUI docs (Dialog, Button, Alert, TextField): use MUI MCP (`mcp__mui__useMuiDocs`) for current version used in this repo
+- MUI docs (Dialog, Button, Alert, TextField): use MUI MCP (`mcp__mui__useMuiDocs`)
 - React hooks/state docs: https://react.dev/reference/react
 
 #### Subtasks
@@ -1181,17 +1181,17 @@ After Task 12 and Task 13 are complete, update chat model state plumbing to carr
 1. [ ] Update `client/src/hooks/useChatModel.ts` to retain and expose codex model capability fields per model.
    - Files: `client/src/hooks/useChatModel.ts`.
    - Do: persist `supportedReasoningEfforts` and `defaultReasoningEffort` in local model state/derived selectors.
-   - Docs: Task 12 response contract and React hook docs.
+   - Docs: https://react.dev/reference/react, https://www.typescriptlang.org/docs/.
    - Done when: hook returns capability fields for selected model.
 2. [ ] Reuse existing codex-default wiring in `useChatModel` / `useChatStream` when applying capability-driven defaults and reset behavior; avoid duplicating default-selection logic.
    - Files: `client/src/hooks/useChatModel.ts`, `client/src/hooks/useChatStream.ts`.
    - Do: route through existing default helpers and extend them for capability payload.
-   - Docs: repository existing hook helpers.
+   - Docs: https://react.dev/learn/reusing-logic-with-custom-hooks.
    - Done when: one default-selection path is used.
 3. [ ] Implement deterministic reset behavior: when selected effort is no longer valid for selected model, reset to `defaultReasoningEffort`.
    - Files: `client/src/hooks/useChatModel.ts`.
    - Do: add validation/reset on model change and capability refresh.
-   - Docs: story acceptance criteria for invalid prior selection reset.
+   - Docs: https://react.dev/learn/choosing-the-state-structure.
    - Done when: stale effort selection self-corrects deterministically.
 4. [ ] Update shared/common typings usage in client to remove hard-coded assumptions about effort lists.
    - Files: `client/src/hooks/useChatModel.ts`, `client/src/hooks/useChatStream.ts`, any local effort enums.
@@ -1225,7 +1225,7 @@ After Task 16 is complete, switch chat flags UI and chat payload building to run
 
 #### Documentation Locations
 
-- MUI docs (Select/MenuItem/FormControl): use MUI MCP (`mcp__mui__useMuiDocs`) for current version used in this repo
+- MUI docs (Select/MenuItem/FormControl): use MUI MCP (`mcp__mui__useMuiDocs`)
 - React hooks/state docs: https://react.dev/reference/react
 
 #### Subtasks
@@ -1238,12 +1238,12 @@ After Task 16 is complete, switch chat flags UI and chat payload building to run
 2. [ ] Update `client/src/hooks/useChatStream.ts` payload builder to send only values valid for selected model capability set.
    - Files: `client/src/hooks/useChatStream.ts`.
    - Do: pre-send validation against selected model capabilities.
-   - Docs: Task 13 server validation behavior.
+   - Docs: https://spec.openapis.org/oas/v3.0.3.html, Context7 `/openai/codex`.
    - Done when: invalid values are never sent.
 3. [ ] Ensure invalid prior selection is replaced by selected model `defaultReasoningEffort` before request send.
    - Files: `client/src/hooks/useChatStream.ts`, optionally shared helper in `useChatModel`.
    - Do: enforce fallback to model default on send path.
-   - Docs: story acceptance criteria (deterministic reset).
+   - Docs: https://react.dev/learn/choosing-the-state-structure.
    - Done when: request payload always carries supported value.
 4. [ ] Add/update frontend tests for dynamic option rendering and invalid-selection reset/payload behavior.
    - Files: `client/src/test/chatPage.flags.reasoning*`.
@@ -1281,12 +1281,12 @@ Add focused regression coverage for precedence/normalization behavior across RES
 1. [ ] Add tests for shared-base + agent precedence (`effectiveProjects` merge and no shared behavior override of named-agent behavior).
    - Files: `server/src/test/agents/**`, `server/src/test/flows/**`, `server/src/test/mcp/**`.
    - Do: assert shared project inheritance and agent override precedence.
-   - Docs: story merge rule and JSON-RPC parity expectations.
+   - Docs: https://www.jsonrpc.org/specification, https://toml.io/en/v1.0.0.
    - Done when: all invocation paths return same precedence result.
 2. [ ] Add tests for legacy-key normalization and canonical output enforcement, including canonical-wins collisions.
    - Files: `server/src/test/agents-config-defaults*` and related normalizer tests.
    - Do: fixtures with `features.view_image_tool`, `features.web_search_request`, and canonical keys together.
-   - Docs: story normalization rules.
+   - Docs: https://toml.io/en/v1.0.0, Context7 `/openai/codex`.
    - Done when: output emits canonical keys only and canonical wins on collisions.
 3. [ ] Add tests for fixed validation policy parity across REST/MCP/flow invocation paths.
    - Files: integration tests under `server/src/test/agents`, `server/src/test/flows`, `server/src/test/mcp`.
@@ -1296,7 +1296,7 @@ Add focused regression coverage for precedence/normalization behavior across RES
 4. [ ] Reuse existing server test patterns (`codex.device-auth`, `chatModels.codex`, and `openapi.contract`) instead of creating one-off harnesses.
    - Files: new tests in existing suite folders, not a parallel harness directory.
    - Do: follow repository test setup helpers.
-   - Docs: repository existing test conventions.
+   - Docs: https://jestjs.io/docs/getting-started.
    - Done when: no duplicated harness boilerplate is introduced.
 
 #### Testing
@@ -1328,22 +1328,22 @@ Add focused regression coverage for non-destructive file safety, deterministic s
 1. [ ] Add tests proving `codex_agents/*/auth.json` files remain present through migration-compatible flows.
    - Files: `server/src/test/agents-authSeed*`, migration-related suites.
    - Do: pre/post checks for each agent auth file.
-   - Docs: story file-safety acceptance criteria.
+   - Docs: https://nodejs.org/api/fs.html.
    - Done when: tests fail if any auth file missing after flow.
 2. [ ] Add tests verifying deterministic secret-safe logging behavior for config/device-auth errors.
    - Files: route and resolver tests that inspect logger calls.
    - Do: assert logs include sanitized key/path only, no token/blob secrets.
-   - Docs: story logging safety acceptance criteria.
+   - Docs: https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html.
    - Done when: tests explicitly reject token/raw TOML leakage in logs.
 3. [ ] Add fixture-driven tests that validate every currently present `codex_agents/*/config.toml` file against normalization/validation rules and assert deterministic outcomes across invocation paths.
    - Files: new fixture sweep test under `server/src/test/agents/**`.
    - Do: enumerate agent config files and run same validation pipeline for REST/MCP/flow.
-   - Docs: story fixed validation policy.
+   - Docs: https://toml.io/en/v1.0.0, Context7 `/openai/codex`.
    - Done when: each existing config file is covered by test assertions.
 4. [ ] Add regression tests proving no execution path still relies on model-only regex parsing after shared runtime config resolver rollout.
    - Files: `server/src/test/agents/**`, `server/src/test/flows/**`.
    - Do: include cases that old regex parser would mis-handle.
-   - Docs: Task 5 objective.
+   - Docs: https://toml.io/en/v1.0.0, Context7 `/openai/codex`.
    - Done when: tests guard against parser regression.
 
 #### Testing
@@ -1375,7 +1375,7 @@ Update architecture and contract documentation after implementation tasks above 
 1. [ ] Update `design.md` with shared home strategy, config ownership, precedence/normalization, device-auth contract, and capability-driven reasoning options.
    - Files: `design.md`.
    - Do: include explicit flow diagrams/sections for chat vs agent runtime ownership and contract payloads.
-   - Docs: Context7 `/mermaid-js/mermaid`, story Message Contracts section.
+   - Docs: Context7 `/mermaid-js/mermaid`, https://spec.openapis.org/oas/v3.0.3.html.
    - Done when: a new engineer can map each runtime path to config source without reading code.
 2. [ ] Ensure examples in docs reflect canonical keys and new message contracts.
    - Files: `design.md`.
@@ -1409,12 +1409,12 @@ Update repository file-map and compatibility alias examples after implementation
 1. [ ] Update `projectStructure.md` for all files added/removed by this story.
    - Files: `projectStructure.md`.
    - Do: add every new/changed path from server/client/common/docs work.
-   - Docs: repository tree + story tasks 1-20.
+   - Docs: https://git-scm.com/docs/git-ls-files.
    - Done when: listed paths align with actual repository state.
 2. [ ] Document read-only compatibility keys accepted as input aliases but not emitted as canonical output, with concrete before/after examples.
    - Files: `projectStructure.md`.
    - Do: include examples for `features.view_image_tool` and web-search alias normalization.
-   - Docs: story normalization acceptance criteria.
+   - Docs: https://toml.io/en/v1.0.0, Context7 `/openai/codex`.
    - Done when: examples make canonical output expectations explicit.
 
 #### Testing
@@ -1444,32 +1444,32 @@ Perform final shared-base config minimization as an isolated end-of-story step o
 1. [ ] Verify prerequisite gate: all prior tasks are marked done and validated.
    - Files: this planning file checkboxes + implementation notes.
    - Do: verify tasks 1-21 are complete before editing `./codex/config.toml`.
-   - Docs: story migration sequencing acceptance criteria.
+   - Docs: https://toml.io/en/v1.0.0, Context7 `/openai/codex`.
    - Done when: all preceding task statuses and testing checkboxes are complete.
 2. [ ] Confirm all `code_info`-dependent verification/inspection steps are complete before minimization and record this checkpoint in Implementation notes.
    - Files: this planning file Task 22 implementation notes.
    - Do: add explicit checkpoint note before file minimization commit.
-   - Docs: story rollout safety rule (code_info expected to stop after minimization).
+   - Docs: Context7 `/openai/codex`, https://toml.io/en/v1.0.0.
    - Done when: note exists before any minimization diff.
 3. [ ] Ensure `./codex/chat/config.toml` exists and carries chat behavior defaults before minimizing base config; if missing, abort minimization with deterministic error and no file mutation.
    - Files: `codex/chat/config.toml`, migration helper in server if scripted.
    - Do: enforce guard that blocks minimization when chat config missing.
-   - Docs: story edge case "Migration sequencing and partial rollout hazards".
+   - Docs: https://nodejs.org/api/fs.html#fspromisescopyfilesrc-dest-mode, https://toml.io/en/v1.0.0.
    - Done when: missing-chat-config case exits safely with no mutation.
 4. [ ] Minimize `./codex/config.toml` to shared defaults + `[projects]` only (remove behavior keys and MCP blocks from this file).
    - Files: `codex/config.toml`.
    - Do: retain shared projects entries only; remove `model`, `model_reasoning_effort`, `approval_policy`, `sandbox_mode`, `[features]`, `[mcp_servers]`.
-   - Docs: TOML spec and story target shape examples.
+   - Docs: https://toml.io/en/v1.0.0, Context7 `/openai/codex`.
    - Done when: file is projects-only plus shared-home defaults.
 5. [ ] Re-verify that no `codex_agents/*` files were deleted/moved/renamed and all existing `auth.json` files remain present.
    - Files: `codex_agents/*`.
    - Do: run file-presence verification and compare against pre-step list.
-   - Docs: story file safety rule.
+   - Docs: https://nodejs.org/api/fs.html.
    - Done when: all agent auth files still exist unchanged in location.
 6. [ ] Add explicit operator note in Implementation notes that `code_info` MCP is expected to be unavailable after this step in this running instance.
    - Files: this planning file Task 22 implementation notes.
    - Do: add final warning note immediately after execution.
-   - Docs: story rollout safety rule.
+   - Docs: Context7 `/openai/codex`, https://toml.io/en/v1.0.0.
    - Done when: note exists and references this expected post-step behavior.
 
 #### Testing

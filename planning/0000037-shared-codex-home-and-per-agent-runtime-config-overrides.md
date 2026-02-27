@@ -42,8 +42,9 @@ Additional rollout safety rule: reducing values in `./codex/config.toml` can sto
   - `effectiveProjects = { ...baseProjects, ...agentProjects }`.
   - Example: base has `/data=trusted`, agent has `/data=untrusted` and `/work=trusted` => effective is `/data=untrusted`, `/work=trusted`.
   - No non-project behavior key from shared `./codex/config.toml` may override a named agent’s behavior.
-- Device-auth must have one runtime target after migration:
+- Device-auth must use one shared auth flow after migration:
   - Backend accepts one request shape only, and frontend sends that one shape only.
+  - Request payload has no caller-selected target fields.
   - Legacy chat-vs-agent selector behavior is removed from UI and API payload contracts.
 - Compatibility normalization must be deterministic:
   - `features.view_image_tool` is normalized to `tools.view_image`.
@@ -223,7 +224,7 @@ None. All prior questions are resolved, and non-destructive preservation of file
 - Base-project merge policy required by this story: shared `[projects]` defaults may be inherited, but agent-defined project entries take precedence and no other shared-base behavior keys are allowed to override agent behavior.
 - Product decision: preserve existing `codex_agents/*` files for this running instance; specifically, do not delete/move/rename `auth.json` or any other file under agent folders during this story.
 - Product decision: keep per-agent auth handling in non-destructive compatibility mode where required for runtime stability rather than removing agent-folder auth artifacts.
-- Product decision: change backend device-auth contract to single-target request body in this story at the point where frontend/backend rollout is aligned; do not stage one-release backward-compatible parsing.
+- Product decision: change backend device-auth contract to a single-shape empty JSON request body (`{}`) in this story at the point where frontend/backend rollout is aligned; do not stage one-release backward-compatible parsing.
 - Product decision: after migration, device-auth uses one request shape only and legacy selector fields are rejected with deterministic client error responses.
 - Product decision: agent TOML validation policy is fixed as unknown-key warning+ignore, supported-key invalid-type hard error, with no silent fallback to shared/other agent behavior.
 - Product decision: treat `./codex/config.toml` minimization as a final isolated end-of-story step only; after this step in the running instance, chat-agent-backed `code_info` MCP usage is expected to be unavailable and must stop.

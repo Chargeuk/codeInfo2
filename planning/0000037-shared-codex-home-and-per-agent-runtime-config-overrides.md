@@ -69,6 +69,7 @@ Additional rollout safety rule: reducing values in `./codex/config.toml` can sto
 - Application chat behavior is sourced from dedicated chat runtime config (for example `./codex/chat/config.toml`) passed through runtime `CodexOptions.config`, not from behavior values left in minimal `./codex/config.toml`.
 - Migration sequencing is enforced: chat runtime config copy is created from existing `./codex/config.toml` before `./codex/config.toml` is minimized.
 - Minimizing/removing values from `./codex/config.toml` is executed only as a final isolated task at the end of the story after all other implementation/testing steps are complete.
+- Final minimized `./codex/config.toml` no longer carries runtime behavior keys (`model`, `model_reasoning_effort`, `approval_policy`, `sandbox_mode`, `[features]`, `[mcp_servers]`) and is limited to shared-home defaults plus shared `[projects]` trust entries.
 - The plan/tasks explicitly warn that once `./codex/config.toml` is minimized for this running instance, the chat agent and `code_info` MCP tool are expected to stop working, and `code_info` must not be used after that point.
 - Current legacy key usage is normalized deterministically before execution: `features.view_image_tool` is translated to `tools.view_image`, and deprecated `features.web_search_request` remains supported through compatibility alias behavior.
 - Canonical runtime storage/output uses `tools.view_image` and top-level `web_search`; legacy keys are accepted only as read-time aliases and are not re-emitted as canonical output.
@@ -158,6 +159,15 @@ This section defines contract/storage changes required by this story so implemen
 - Shared base config (`./codex/config.toml`):
   - Target role: shared home/auth/session defaults and shared `[projects]` defaults only.
   - Not allowed to define behavior that overrides named-agent runtime behavior.
+  - Final minimized shape expectation (example):
+    ```toml
+    [projects]
+    [projects."/data"]
+    trust_level = "trusted"
+    [projects."/app/server"]
+    trust_level = "trusted"
+    ```
+  - Keys such as `model`, `model_reasoning_effort`, `approval_policy`, `sandbox_mode`, `[features]`, and `[mcp_servers]` must be removed from this file in the final isolated minimization step.
   - Canonical keys for this story area:
     - `tools.view_image` (not `features.view_image_tool`)
     - top-level `web_search` mode (`live` / `cached` / `disabled`)
@@ -299,3 +309,28 @@ None. All prior questions are resolved, and non-destructive preservation of file
 9. Perform `./codex/config.toml` minimization as isolated final step only.
    - After all code/tests/docs are complete, reduce shared config to minimal shared defaults.
    - Keep explicit operator warning that `code_info` MCP is expected to stop working for this running instance after this step.
+
+## Tasking Readiness (Junior Handoff)
+
+The story is ready to be tasked only when all the following are explicit in the resulting tasks:
+
+- Scope boundaries are preserved:
+  - no delete/move/rename under `codex_agents/*`;
+  - `codex_agents/*/auth.json` files remain present;
+  - no behavior redesign for existing agents.
+- Contract changes are represented as concrete deliverables:
+  - `POST /codex/device-auth` uses empty-body `{}` input and the exact `200/400/503` response shapes defined above;
+  - legacy selector fields are rejected (not silently translated);
+  - chat model payload includes `supportedReasoningEfforts` and `defaultReasoningEffort`.
+- Runtime precedence outputs are explicit and testable:
+  - agent behavior comes from `codex_agents/<agent>/config.toml`;
+  - chat behavior comes from `./codex/chat/config.toml`;
+  - shared `./codex/config.toml` contributes shared `[projects]` defaults only via `effectiveProjects = { ...baseProjects, ...agentProjects }`.
+- Canonical normalization outcomes are explicit and testable:
+  - `features.view_image_tool` is read as alias input and emitted as `tools.view_image`;
+  - legacy web-search input keys normalize to canonical top-level `web_search`;
+  - unknown-key and invalid-type handling follows one fixed policy (warn+ignore vs hard-fail).
+- Final migration sequencing is explicit and safe:
+  - create `./codex/chat/config.toml` before minimizing `./codex/config.toml`;
+  - minimize `./codex/config.toml` only in the final isolated implementation step;
+  - include the explicit warning that `code_info` MCP is expected to be unavailable after this final step in this running instance.

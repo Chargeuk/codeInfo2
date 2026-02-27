@@ -27,6 +27,8 @@ This story also plans upgrading `@openai/codex-sdk` to latest stable, removing l
 
 For chat reasoning effort UX, options must be sourced from a backend capability payload that reflects what the upgraded SDK/runtime supports instead of a hard-coded client option list. This includes showing `minimal` when supported now, and automatically surfacing newly supported values in future SDK upgrades without adding another one-off shim.
 
+Operational safety rule for this story: migration must be non-destructive for `codex_agents/*`. Do not delete, move, or rename `auth.json` (or any other files) inside agent folders because this running CodeInfo2 instance depends on those files remaining present.
+
 ### Acceptance Criteria
 
 - Single shared Codex auth/session home is used for all Codex-backed chat/agent/flow execution paths (`./codex`), with no per-agent login requirement.
@@ -43,8 +45,9 @@ For chat reasoning effort UX, options must be sourced from a backend capability 
 - Current legacy key usage is normalized deterministically before execution: `features.view_image_tool` is translated to `tools.view_image`, and deprecated `features.web_search_request` remains supported through compatibility alias behavior.
 - Unsupported or misplaced keys discovered in current agent TOMLs (for example `cli_auth_credentials_store` nested under `[projects.\"<path>\"]`) are handled deterministically with explicit validation outcome (error or warning policy defined and tested), and no silent cross-agent fallback is allowed.
 - All existing agent config files under `codex_agents/*/config.toml` are validated in tests against supported runtime mapping rules and produce consistent behavior across all invocation paths.
-- Codex availability detection and startup validation no longer require agent-specific `auth.json` in each agent folder; availability semantics are based on shared Codex home plus required runtime files.
-- Per-agent `auth.json` propagation/seeding code paths are removed in this story (not retained as compatibility no-op behavior), and no runtime path depends on agent-local auth files.
+- No migration step in this story deletes, moves, or renames files under `codex_agents/*`; this explicitly includes preserving each agent folder `auth.json`.
+- Codex availability detection and startup validation move to shared-home semantics while remaining compatible with existing agent-local auth artifacts that must remain on disk for this instance.
+- Per-agent auth propagation/seeding behavior is retained in a non-destructive compatibility mode as needed to keep current runtime behavior stable; no plan step may remove agent-folder auth files.
 - Device-auth backend endpoint is changed within this story to a single-target request body and no legacy dual-shape/backward-compatible request parsing is retained after the migration point.
 - Frontend re-authentication UI is simplified to one Codex device auth screen and removes chat/agent selector UX and related branch-specific messaging.
 - Chat reasoning-effort options are no longer hard-coded in the frontend; the client renders options provided by backend capability data sourced from the upgraded SDK/runtime support set.
@@ -63,10 +66,11 @@ For chat reasoning effort UX, options must be sourced from a backend capability 
 - Converting all agent configuration to a different file format (for example YAML/JSON) in this story.
 - Changing intended behavior of existing agents (this story preserves existing agent behavior rather than redefining agent policy semantics).
 - Introducing a second Codex home/auth store for chat (chat and agents continue using one shared `CODEX_HOME`).
+- Deleting, moving, or renaming any files inside `codex_agents/*` (including `auth.json`) as part of this story.
 
 ### Questions
 
-None.
+None. All prior questions are resolved, and non-destructive preservation of files under `codex_agents/*` is a mandatory constraint for this story.
 
 ## Resolved Findings (Initial Research)
 
@@ -81,7 +85,8 @@ None.
   - `cli_auth_credentials_store = \"file\"` is currently nested under a project table in all agent files, not top-level, and therefore should not be treated as a valid project-level behavior field.
 - `codex/config.toml` currently defines shared project trust entries for `/data` and `/app/server`; `coding_agent` additionally defines `/Users/danielstapleton/Documents/dev`.
 - Base-project merge policy required by this story: shared `[projects]` defaults may be inherited, but agent-defined project entries take precedence and no other shared-base behavior keys are allowed to override agent behavior.
-- Product decision: remove per-agent `auth.json` propagation/seeding completely as part of this story at the migration point where shared `CODEX_HOME` auth has already been verified; do not keep temporary compatibility no-op behavior.
+- Product decision: preserve existing `codex_agents/*` files for this running instance; specifically, do not delete/move/rename `auth.json` or any other file under agent folders during this story.
+- Product decision: keep per-agent auth handling in non-destructive compatibility mode where required for runtime stability rather than removing agent-folder auth artifacts.
 - Product decision: change backend device-auth contract to single-target request body in this story at the point where frontend/backend rollout is aligned; do not stage one-release backward-compatible parsing.
 
 ## Implementation Ideas
@@ -99,10 +104,10 @@ None.
 - Implement explicit precedence rules for agent runs: agent `config.toml` values win for agent behavior, and shared-home config is limited to auth/session and non-agent-specific baseline concerns.
 - Add a normalization layer for known legacy keys before passing runtime overrides (`features.view_image_tool -> tools.view_image`, preserve `features.web_search_request` compatibility behavior), with strict validation for unknown/misplaced keys.
 - Add an explicit config-merging utility that merges only base `[projects]` from `codex/config.toml` into the agent runtime config and does not merge other shared-base behavior fields.
-- Update detection/auth assumptions in `server/src/providers/codexDetection.ts`, remove `server/src/agents/authSeed.ts`, and remove seeding invocations in `server/src/agents/discovery.ts` and `server/src/routes/codexDeviceAuth.ts` so per-agent `auth.json` logic is fully deleted.
-- Simplify `POST /device-auth` contract/handler in `server/src/routes/codexDeviceAuth.ts` and corresponding frontend API typing in `client/src/api/codex.ts` to a single request shape, remove `target/agentName` parsing and response branching, and delete agent-auth propagation code paths.
+- Update detection/auth assumptions in `server/src/providers/codexDetection.ts` and related auth paths to use shared-home behavior while preserving compatibility with existing agent-folder auth artifacts; do not remove files from agent folders.
+- Simplify `POST /device-auth` contract/handler in `server/src/routes/codexDeviceAuth.ts` and corresponding frontend API typing in `client/src/api/codex.ts` to a single request shape while retaining any non-destructive compatibility auth synchronization needed to keep this instance stable.
 - Simplify `client/src/components/codex/CodexDeviceAuthDialog.tsx` and remove target-selector wiring from `client/src/pages/ChatPage.tsx` and `client/src/pages/AgentsPage.tsx`, including any API calls that currently pass `target` or `agentName`.
 - Upgrade `@openai/codex-sdk` and validate `CodexOptions`/`ThreadOptions` behavior against latest docs (including SDK-native `ModelReasoningEffort` values such as `minimal`/`xhigh`), confirming no regressions in run-stream event handling and thread resume behavior.
-- Expand unit/integration coverage for: shared home detection, runtime config mapping, strict per-agent behavior parity across all invocation surfaces, device-auth API contract simplification, removal of auth-seeding behavior/tests, reasoning-capability payload handling, and simplified frontend auth UX.
+- Expand unit/integration coverage for: shared home detection, runtime config mapping, strict per-agent behavior parity across all invocation surfaces, device-auth API contract simplification, preservation of agent-folder files/auth artifacts, reasoning-capability payload handling, and simplified frontend auth UX.
 - Add focused regression tests for compatibility of existing agent `config.toml` examples under `codex_agents/*`.
 - Add explicit logging markers for runtime config source selection and sanitized applied override metadata (without sensitive values) to aid diagnosis.

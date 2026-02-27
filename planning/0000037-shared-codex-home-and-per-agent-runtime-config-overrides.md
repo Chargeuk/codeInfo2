@@ -90,7 +90,7 @@ Additional rollout safety rule: reducing values in `./codex/config.toml` can sto
   - `503` codex unavailable response: `{ "error": "codex_unavailable", "reason": "<reason>" }`.
 - Frontend re-authentication UI is simplified to one Codex device auth screen and removes chat/agent selector UX and related branch-specific messaging.
 - Chat reasoning-effort options are no longer hard-coded in the frontend; the client renders options exactly from backend capability data sourced from the upgraded SDK/runtime support set.
-- `minimal` is visible/selectable in chat when the selected model capability payload includes it, and selection is validated/passed through end-to-end the same as other supported effort values.
+- `minimal` (and any other capability value surfaced by runtime model metadata, including `none`/`xhigh` where provided) is visible/selectable in chat, and selection is validated/passed through end-to-end the same as other supported effort values.
 - Future SDK/runtime reasoning-effort additions appear in chat automatically after dependency upgrade/redeploy, without adding new custom value-injection code.
 - Backend capability payload includes a deterministic field for reasoning effort options (array of supported values), and frontend behavior is deterministic when values change (invalid prior selection is reset to that model’s supported default).
 - Chat model capability payload shape is explicitly defined and shared in `common` types:
@@ -137,14 +137,14 @@ This section defines contract/storage changes required by this story so implemen
   - Required payload shape:
     - per model: `supportedReasoningEfforts: string[]`
     - per model: `defaultReasoningEffort: string`
-  - Values come from codex model capabilities (for example `minimal`, `low`, `medium`, `high`, and where present `xhigh`), not a frontend static enum.
+  - Values come from codex model capabilities (for example `none`, `minimal`, `low`, `medium`, `high`, and where present `xhigh`), not a frontend static enum.
   - Example model payload (shape only):
     ```json
     {
       "key": "gpt-5.3-codex-spark",
       "displayName": "GPT-5.3 Codex Spark",
       "type": "codex",
-      "supportedReasoningEfforts": ["minimal", "low", "medium", "high", "xhigh"],
+      "supportedReasoningEfforts": ["none", "minimal", "low", "medium", "high", "xhigh"],
       "defaultReasoningEffort": "high"
     }
     ```
@@ -298,6 +298,7 @@ None. All prior questions are resolved, and non-destructive preservation of file
 - Latest stable SDK version at planning time is `@openai/codex-sdk@0.106.0` (registry checked on 2026-02-27); `0.107.0` is alpha only at this time. Runtime `CodexOptions.config` overrides and `env` control remain available and suitable for this design.
 - Current SDK typings already include `xhigh` (and `minimal`) in `ModelReasoningEffort`, so existing app-side compatibility widening for `xhigh` is now redundant and should be removed as part of this story.
 - Published SDK package confirms runtime `config` overrides are passed as CLI `--config` entries, so per-agent runtime override mapping is feasible without writing files during each run.
+- Upstream codex model metadata (codex MCP/app-server docs) exposes per-model `supportedReasoningEfforts` and `defaultReasoningEffort`, with values that can include `none|minimal|low|medium|high|xhigh`; story tasking must therefore avoid any static reasoning-effort enum source for capability payloads.
 - The proposal is achievable without changing the agent behavior contract, provided runtime precedence is enforced so named-agent config values always win for behavior fields.
 - Chat should use a dedicated runtime config file (copy of current `./codex/config.toml`) while still using the same shared `CODEX_HOME`; this avoids introducing a second auth/session home.
 - Chat config copy must be created before minimizing `./codex/config.toml` so chat behavior remains stable during rollout.
@@ -306,6 +307,7 @@ None. All prior questions are resolved, and non-destructive preservation of file
   - `features.view_image_tool` is not a current schema key and requires compatibility mapping to `tools.view_image`.
   - Legacy web-search keys should normalize to canonical top-level `web_search` mode to avoid mixed key behavior.
   - `cli_auth_credentials_store = \"file\"` is currently nested under a project table in all agent files, not top-level, and therefore should not be treated as a valid project-level behavior field.
+- Current server model-capability behavior is split across static/env sources (`getCodexModelList`, `getCodexEnvDefaults`, and hard-coded `chatValidators` lists) in multiple surfaces (`/chat/models`, `/chat`, `/chat/providers`, and MCP `codebase_question`); story implementation must consolidate these into one shared runtime capability resolver to prevent contract drift.
 - Codex upstream config layering behavior validates this story’s precedence model: lower layers are overridden by higher layers, and table/object values are merged while scalar overrides replace prior values.
 - Upstream model capability surfaces can vary by model; reasoning effort options must be derived from backend capability/model listing payloads rather than hard-coded UI enums.
 - `codex/config.toml` currently defines shared project trust entries for `/data` and `/app/server`; `coding_agent` additionally defines `/Users/danielstapleton/Documents/dev`.
@@ -447,7 +449,7 @@ Upgrade `@openai/codex-sdk` to latest stable at implementation start, then remov
 2. [ ] Update lockfile and ensure only one resolved SDK version is used by server workspace dependency tree.
 3. [ ] Remove local widened reasoning-effort type shims/casts in server runtime code and tests (for example `ModelReasoningEffort | 'xhigh'` compatibility-only types).
 4. [ ] Remove any client/shared compatibility typings that were only present to widen values already supported by upgraded SDK.
-5. [ ] Update shared/client/server reasoning-effort type usage to SDK-native values (including `minimal`) and remove manual cast-based compatibility types in chat validators/flag payload builders.
+5. [ ] Update shared/client/server reasoning-effort type usage to SDK-native/runtime capability values (including `none`/`minimal` when surfaced) and remove manual cast-based compatibility types in chat validators/flag payload builders.
 6. [ ] Add/adjust unit tests to prove SDK-native reasoning-effort typing compiles and behavior remains unchanged for supported values.
 7. [ ] Record exact upgraded SDK version in this story file Implementation notes for traceability.
 
@@ -653,12 +655,13 @@ Implement backend model-capability payload contract for Codex models so frontend
    - `supportedReasoningEfforts: string[]`,
    - `defaultReasoningEffort: string`.
 2. [ ] Update `server/src/routes/chatModels.ts` to include capability fields for every codex model item.
-3. [ ] Reuse existing codex model/default sources (`getCodexModelList`, `getCodexEnvDefaults`, and `chatValidators` reasoning-effort constants) when building capabilities; avoid creating a second model/default source of truth.
-4. [ ] Implement one shared codex capability resolver used by both `/chat/models` payload generation and `/chat` request validation to avoid contract drift.
-5. [ ] Ensure deterministic behavior when capability data changes (model defaults remain explicit and consistent).
-6. [ ] Add server-side chat request validation that rejects unsupported `model_reasoning_effort` values for the selected model with deterministic `invalid_request` errors (no silent downgrade).
+3. [ ] Replace static reasoning/model sources for capability payloads (`getCodexModelList`, `getCodexEnvDefaults`, and `chatValidators` hard-coded effort arrays) with one shared runtime codex capability resolver sourced from codex runtime model metadata, with deterministic fallback behavior if runtime metadata is unavailable.
+4. [ ] Implement one shared codex capability resolver module used by `/chat/models` payload generation, `/chat` request validation, `/chat/providers` provider selection model list, and MCP `codebase_question` model/effort defaults to avoid cross-surface contract drift.
+5. [ ] Ensure deterministic behavior when capability data changes (model defaults remain explicit and consistent), and ensure capability-normalized effort values are the only values emitted to client payloads.
+6. [ ] Add server-side chat request validation that rejects unsupported `model_reasoning_effort` values for the selected model with deterministic `invalid_request` errors (no silent downgrade), using the shared resolver output rather than a static enum.
 7. [ ] Update `openapi.json` for `/chat/models` codex response schema if documented there.
-8. [ ] Add/update server tests for codex model payload completeness and field presence for each returned model, plus invalid reasoning-effort rejection behavior.
+8. [ ] Update shared mock fixtures (`common/src/fixtures/mockModels.ts`) and any contract helpers to include capability fields so tests remain aligned with the new response shape.
+9. [ ] Add/update server tests for codex model payload completeness and field presence for each returned model, invalid reasoning-effort rejection behavior, and parity assertions that `/chat/models`, `/chat`, `/chat/providers`, and MCP `codebase_question` consume the same resolver output.
 
 #### Testing
 
@@ -666,7 +669,7 @@ Implement backend model-capability payload contract for Codex models so frontend
 2. [ ] `npm run build --workspace common`
 3. [ ] `npm run test --workspace server -- chatModels.codex`
 4. [ ] Run targeted server chat-validation tests for unsupported reasoning effort and verify deterministic error contract.
-5. [ ] Run targeted tests proving `/chat/models` capability output and `/chat` validation consume the same resolver logic.
+5. [ ] Run targeted tests proving `/chat/models`, `/chat`, `/chat/providers`, and MCP `codebase_question` consume the same capability resolver logic.
 
 #### Implementation notes
 

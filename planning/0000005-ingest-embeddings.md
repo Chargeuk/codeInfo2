@@ -1260,7 +1260,7 @@ Prevent dry runs from writing any embeddings/placeholders to `ingest_vectors` (a
 
 ### 18. Observability – Chroma OTel collector & Zipkin
 
-- status: **in_progress**
+- status: **done**
 - Git Commits: **to_do**
 
 #### Overview

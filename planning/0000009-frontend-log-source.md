@@ -110,7 +110,7 @@ Switch chat logging to use the allowed `client` source while preserving chat-spe
 
 ### 2. System context update hook
 
-- status: **in_progress**
+- status: **done**
 - Git Commits: 18cad00, f3e748e
 
 #### Overview

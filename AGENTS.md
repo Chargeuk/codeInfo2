@@ -1,7 +1,7 @@
 # Agent Workflow Guide
 
 ## Required Onboarding
-
+Note the following steps only need performing when first working in this folder structure OR when your history is compacted but not for every question you answer:
 - Before doing anything else, call the code_info mcp tool to give you an overview of the project, and to tell you which plan from the ./planning folder is the next one to be worked on based on it being the lowest index numerically based on the filename (<index>-<title>.md) but still having tasks that are marked as in progress or todo. When calling the code_info mcp tool you MUST provide the full path to this repository when you ask it this question so it knows which repository you are interested in. Then you must view the last 3 commits to the repository and using all of this combined information, provide me with an overview of the project, what was last implemented, and what is to be implemented next.
 - Confirm the git branch we are currently on & check the equivalent planning document, and the latest planning document (if not the same) from the planning folder.
 - Re-read these files at the start of each session; assume they may have changed since your last context window.

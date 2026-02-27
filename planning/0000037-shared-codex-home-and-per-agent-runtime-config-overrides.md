@@ -32,10 +32,31 @@ Operational safety rule for this story: migration must be non-destructive for `c
 
 Additional rollout safety rule: reducing values in `./codex/config.toml` can stop the chat agent (and therefore `code_info` MCP availability) in this running instance. Because of this, minimizing `./codex/config.toml` must be done only at the very end of implementation as a single isolated step after all other code changes, verification, and documentation updates are complete.
 
+### Implementation Boundaries (Junior-Readable)
+
+- Runtime behavior ownership must be explicit:
+  - Agent runs (`/agents/:agentName/run`, `/agents/:agentName/commands/run`, flow-driven steps, and MCP agent execution) get behavior from `codex_agents/<agent>/config.toml`.
+  - App chat runs get behavior from `./codex/chat/config.toml`.
+  - Shared `./codex/config.toml` is for shared auth/session home and shared `[projects]` defaults only.
+- Precedence must be deterministic and documented in code comments/tests:
+  - `effectiveProjects = { ...baseProjects, ...agentProjects }`.
+  - Example: base has `/data=trusted`, agent has `/data=untrusted` and `/work=trusted` => effective is `/data=untrusted`, `/work=trusted`.
+  - No non-project behavior key from shared `./codex/config.toml` may override a named agent’s behavior.
+- Device-auth must have one runtime target after migration:
+  - Backend accepts one request shape only, and frontend sends that one shape only.
+  - Legacy chat-vs-agent selector behavior is removed from UI and API payload contracts.
+- Compatibility normalization must be deterministic:
+  - `features.view_image_tool` is normalized to `tools.view_image`.
+  - `features.web_search_request` remains accepted via compatibility alias behavior.
+  - Unsupported/misplaced keys follow one validation policy only (defined below in Acceptance Criteria) so behavior is predictable for all agents.
+- File safety rule is strict:
+  - No delete/move/rename operations under `codex_agents/*`.
+  - Existing `auth.json` files must remain present after story completion.
+
 ### Acceptance Criteria
 
 - Single shared Codex auth/session home is used for all Codex-backed chat/agent/flow execution paths (`./codex`), with no per-agent login requirement.
-- `@openai/codex-sdk` is upgraded from `0.101.0` to latest stable (`0.106.0` at planning time, or newer latest stable if available during implementation) and all existing Codex integration tests pass against the upgraded version.
+- `@openai/codex-sdk` is upgraded from `0.101.0` to the latest stable version available on implementation start date, and the exact upgraded version is recorded in story implementation notes.
 - Local compatibility shims that were introduced to inject/widen reasoning effort support (for example server-side `ModelReasoningEffort | 'xhigh'` unions and related casts) are removed in favor of the SDK-native `ModelReasoningEffort` surface.
 - Agent runtime configuration is sourced from `codex_agents/<agent>/config.toml` and mapped into `CodexOptions.config` for execution-time overrides.
 - Agent and flow runs continue to set `useConfigDefaults: true`, with thread/runtime behavior driven by config defaults and explicit runtime overrides rather than duplicated model/policy flag wiring.
@@ -48,18 +69,25 @@ Additional rollout safety rule: reducing values in `./codex/config.toml` can sto
 - Minimizing/removing values from `./codex/config.toml` is executed only as a final isolated task at the end of the story after all other implementation/testing steps are complete.
 - The plan/tasks explicitly warn that once `./codex/config.toml` is minimized for this running instance, the chat agent and `code_info` MCP tool are expected to stop working, and `code_info` must not be used after that point.
 - Current legacy key usage is normalized deterministically before execution: `features.view_image_tool` is translated to `tools.view_image`, and deprecated `features.web_search_request` remains supported through compatibility alias behavior.
-- Unsupported or misplaced keys discovered in current agent TOMLs (for example `cli_auth_credentials_store` nested under `[projects.\"<path>\"]`) are handled deterministically with explicit validation outcome (error or warning policy defined and tested), and no silent cross-agent fallback is allowed.
+- Unsupported or misplaced keys discovered in current agent TOMLs (for example `cli_auth_credentials_store` nested under `[projects.\"<path>\"]`) follow one fixed validation policy:
+  - unknown keys: warning log with key path, then ignored;
+  - invalid type for a supported key: hard validation error for that agent run;
+  - no silent fallback to another agent or shared behavior values.
 - All existing agent config files under `codex_agents/*/config.toml` are validated in tests against supported runtime mapping rules and produce consistent behavior across all invocation paths.
 - No migration step in this story deletes, moves, or renames files under `codex_agents/*`; this explicitly includes preserving each agent folder `auth.json`.
 - Codex availability detection and startup validation move to shared-home semantics while remaining compatible with existing agent-local auth artifacts that must remain on disk for this instance.
 - Per-agent auth propagation/seeding behavior is retained in a non-destructive compatibility mode as needed to keep current runtime behavior stable; no plan step may remove agent-folder auth files.
-- Device-auth backend endpoint is changed within this story to a single-target request body and no legacy dual-shape/backward-compatible request parsing is retained after the migration point.
+- Device-auth backend endpoint is changed to a single request contract with no target selector fields, and no legacy dual-shape/backward-compatible parsing remains after migration.
+- Requests that still send legacy selector fields (for example `target` or `agentName`) are rejected with a deterministic client error response rather than silently reinterpreted.
 - Frontend re-authentication UI is simplified to one Codex device auth screen and removes chat/agent selector UX and related branch-specific messaging.
-- Chat reasoning-effort options are no longer hard-coded in the frontend; the client renders options provided by backend capability data sourced from the upgraded SDK/runtime support set.
+- Chat reasoning-effort options are no longer hard-coded in the frontend; the client renders options exactly from backend capability data sourced from the upgraded SDK/runtime support set.
 - `minimal` is visible/selectable in chat when supported by the upgraded SDK/runtime, and selection is validated/passed through end-to-end the same as other supported effort values.
 - Future SDK/runtime reasoning-effort additions appear in chat automatically after dependency upgrade/redeploy, without adding new custom value-injection code.
+- Backend capability payload includes a deterministic field for reasoning effort options (array of supported values), and frontend behavior is deterministic when values change (invalid prior selection is reset to a supported default).
 - Legacy compatibility behaviors are explicitly documented for any remaining read-only agent config fields that cannot be safely translated into runtime overrides.
-- Logs and error payloads remain deterministic and secret-safe after refactor (no token/key leakage, no raw confidential config content in logs).
+- Logs and error payloads remain deterministic and secret-safe after refactor:
+  - no auth tokens, auth file contents, full TOML blobs, or raw device-auth secrets in logs;
+  - diagnostic logs may include sanitized key names/paths and boolean presence flags only.
 - `design.md` and `projectStructure.md` are updated to reflect new Codex home strategy, runtime config override flow, and re-auth UX/API contract changes.
 
 ### Out Of Scope
@@ -94,6 +122,8 @@ None. All prior questions are resolved, and non-destructive preservation of file
 - Product decision: preserve existing `codex_agents/*` files for this running instance; specifically, do not delete/move/rename `auth.json` or any other file under agent folders during this story.
 - Product decision: keep per-agent auth handling in non-destructive compatibility mode where required for runtime stability rather than removing agent-folder auth artifacts.
 - Product decision: change backend device-auth contract to single-target request body in this story at the point where frontend/backend rollout is aligned; do not stage one-release backward-compatible parsing.
+- Product decision: after migration, device-auth uses one request shape only and legacy selector fields are rejected with deterministic client error responses.
+- Product decision: agent TOML validation policy is fixed as unknown-key warning+ignore, supported-key invalid-type hard error, with no silent fallback to shared/other agent behavior.
 - Product decision: treat `./codex/config.toml` minimization as a final isolated end-of-story step only; after this step in the running instance, chat-agent-backed `code_info` MCP usage is expected to be unavailable and must stop.
 
 ## Implementation Ideas

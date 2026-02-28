@@ -3033,7 +3033,7 @@ Perform final shared-base config minimization as an isolated end-of-story step o
 
 ### 23. Post-implementation review fix: restore `codex_agents/*` file-set parity with `main`
 
-- Task Status: **__todo__**
+- Task Status: **__in_progress__**
 - Git Commits: `None yet`
 
 #### Overview
@@ -3048,38 +3048,38 @@ Resolve post-review acceptance drift where branch changes removed files under `c
 
 #### Subtasks
 
-1. [ ] Audit `main...HEAD` for `codex_agents/*` path changes and list all delete/move/rename regressions introduced in this story branch.
+1. [x] Audit `main...HEAD` for `codex_agents/*` path changes and list all delete/move/rename regressions introduced in this story branch.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `codex_agents/*`.
    - Do: run `git diff --name-status main...HEAD -- codex_agents` and capture exact non-compliant paths.
    - Docs: https://git-scm.com/docs/git-diff.
    - Done when: every delete/move/rename under `codex_agents/*` is explicitly identified before applying fixes.
-2. [ ] Restore deleted/moved `codex_agents/*` files to match `main` unless the path is explicitly required by story acceptance criteria.
+2. [x] Restore deleted/moved `codex_agents/*` files to match `main` unless the path is explicitly required by story acceptance criteria.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: all non-compliant `codex_agents/*` paths from Subtask 1.
    - Do: recover files (for example via `git restore --source main -- <path>`) so this story no longer deletes/moves/renames files under `codex_agents/*`.
    - Docs: https://git-scm.com/docs/git-restore.
    - Done when: `git diff --name-status main...HEAD -- codex_agents` shows no `D`/`R` records.
-3. [ ] Re-verify `codex_agents/*/auth.json` presence and unchanged location after parity restoration.
+3. [x] Re-verify `codex_agents/*/auth.json` presence and unchanged location after parity restoration.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `codex_agents/*/auth.json`.
    - Do: verify all expected auth files exist in place and were not moved/renamed.
    - Docs: https://nodejs.org/api/fs.html.
    - Done when: auth files for all agents remain present at existing paths.
-4. [ ] Add deterministic structured log line `[DEV-0000037][T23] event=codex_agents_tree_parity_restored result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
+4. [x] Add deterministic structured log line `[DEV-0000037][T23] event=codex_agents_tree_parity_restored result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: task-local validation helper/tests updated in this task and this planning file.
    - Do: emit this exact log prefix + event name when parity is restored and assert success/error behavior in tests.
    - Expected trigger: after `codex_agents/*` parity check passes with no delete/move/rename drift versus `main`.
    - Docs: https://nodejs.org/api/console.html, Context7 `/jestjs/jest`.
    - Done when: deterministic log assertions verify success and intentional failure-path behavior.
-5. [ ] Update `projectStructure.md` to reflect any file-map corrections caused by this parity restoration task.
+5. [x] Update `projectStructure.md` to reflect any file-map corrections caused by this parity restoration task.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `projectStructure.md`.
    - Do: ensure file-map accurately reflects restored `codex_agents/*` files.
    - Docs: https://git-scm.com/docs/git-ls-files.
    - Done when: documentation and repository tree are synchronized.
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+6. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -3089,7 +3089,12 @@ Resolve post-review acceptance drift where branch changes removed files under `c
 
 #### Implementation Notes
 
-- None yet.
+- 2026-02-28: Subtask 1 complete. Audited `git diff --name-status main...HEAD -- codex_agents` and identified parity regressions under `codex_agents/*`: deleted `planning_agent/commands/kadshow_improve_plan.json` and deleted `tasking_agent/commands/kadshow_task_up.json` (plus non-file-set modifications on `improve_plan.json` and `task_up.json`).
+- 2026-02-28: Subtask 2 complete. Restored deleted parity-regression files from `main`: `codex_agents/planning_agent/commands/kadshow_improve_plan.json` and `codex_agents/tasking_agent/commands/kadshow_task_up.json`; no `codex_agents/*` move/rename operations were introduced.
+- 2026-02-28: Subtask 3 complete. Re-verified auth-file locations remain unchanged: `codex_agents/coding_agent/auth.json`, `codex_agents/planning_agent/auth.json`, and `codex_agents/tasking_agent/auth.json`.
+- 2026-02-28: Subtask 4 complete. Added deterministic T23 parity log assertions in new unit coverage `server/src/test/unit/codex-agents-parity.task23.test.ts` for both success (`result=success`) and intentional failure (`result=error`) paths.
+- 2026-02-28: Subtask 5 complete. Updated `projectStructure.md` with Task 23 parity correction notes listing restored `codex_agents/*` command files and the no-`D`/`R` verification target.
+- 2026-02-28: Subtask 6 complete. Ran `npm run lint --workspaces` (passes with existing baseline import-order warnings) and `npm run format:check --workspaces` (all workspaces passed).
 
 ### 24. Full story re-test after review-driven fixes (acceptance re-validation gate)
 

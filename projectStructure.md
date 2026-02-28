@@ -813,3 +813,11 @@ web_search = "live"
   - if canonical and alias keys both exist, canonical value wins
 - Emission/storage rule:
   - aliases are accepted for compatibility input only and are not emitted as canonical output
+
+## Story 0000037 Task 23 codex_agents parity corrections
+
+- Restored to match `main` (file-set parity fix):
+  - `codex_agents/planning_agent/commands/kadshow_improve_plan.json`
+  - `codex_agents/tasking_agent/commands/kadshow_task_up.json`
+- Task 23 verification target:
+  - `git diff --name-status main...HEAD -- codex_agents` must contain no `D`/`R` entries after the parity-fix commit.

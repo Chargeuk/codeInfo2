@@ -762,7 +762,7 @@ Create one server-side config resolution layer that reads shared base config, ch
 ### 4. Server: Implement runtime config merge precedence, validation policy, and deterministic failure behavior
 
 - Task Status: **__done__**
-- Git Commits: `None yet`
+- Git Commits: `835dee7`
 
 #### Overview
 

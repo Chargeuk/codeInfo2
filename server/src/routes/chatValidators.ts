@@ -3,14 +3,13 @@ import type {
   ModelReasoningEffort,
   SandboxMode,
 } from '@openai/codex-sdk';
+import { CODEX_MODEL_REASONING_EFFORTS } from '@codeinfo2/common';
 import {
   resolveChatDefaults,
   type ChatDefaultProvider,
 } from '../config/chatDefaults.js';
 import { getCodexEnvDefaults } from '../config/codexEnvDefaults.js';
 import { baseLogger } from '../logger.js';
-
-export type AppModelReasoningEffort = ModelReasoningEffort | 'xhigh';
 
 type Provider = 'codex' | 'lmstudio';
 
@@ -41,7 +40,7 @@ export type ValidatedChatRequest = {
     networkAccessEnabled?: boolean;
     webSearchEnabled?: boolean;
     approvalPolicy?: ApprovalMode;
-    modelReasoningEffort?: AppModelReasoningEffort;
+    modelReasoningEffort?: ModelReasoningEffort;
   };
   warnings: string[];
   defaultsResolution: {
@@ -116,12 +115,8 @@ export const approvalPolicies: ApprovalMode[] = [
   'untrusted',
 ] as ApprovalMode[];
 
-export const modelReasoningEfforts: AppModelReasoningEffort[] = [
-  'low',
-  'medium',
-  'high',
-  'xhigh',
-] as AppModelReasoningEffort[];
+export const modelReasoningEfforts =
+  CODEX_MODEL_REASONING_EFFORTS as readonly ModelReasoningEffort[];
 
 export function validateChatRequest(
   body: ChatRequestBody | unknown,
@@ -294,7 +289,7 @@ export function validateChatRequest(
     if (
       typeof modelReasoningEffort !== 'string' ||
       !modelReasoningEfforts.includes(
-        modelReasoningEffort as AppModelReasoningEffort,
+        modelReasoningEffort as ModelReasoningEffort,
       )
     ) {
       throw new ChatValidationError(
@@ -307,7 +302,7 @@ export function validateChatRequest(
       );
     } else {
       codexFlags.modelReasoningEffort =
-        modelReasoningEffort as AppModelReasoningEffort;
+        modelReasoningEffort as ModelReasoningEffort;
     }
   } else if (provider === 'codex') {
     codexFlags.modelReasoningEffort =

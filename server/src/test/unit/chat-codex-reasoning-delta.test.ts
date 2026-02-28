@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import test, { beforeEach } from 'node:test';
 
+import type { ThreadOptions as CodexThreadOptions } from '@openai/codex-sdk';
 import { ChatInterfaceCodex } from '../../chat/interfaces/ChatInterfaceCodex.js';
 import { setCodexDetection } from '../../providers/codexRegistry.js';
+import { modelReasoningEfforts } from '../../routes/chatValidators.js';
 
 type CodexEvent = Record<string, unknown>;
 
@@ -79,4 +81,36 @@ test('Codex reasoning deltas handle multi-item resets without truncation', async
     combined.includes('New block'),
     'should include reasoning from the second item even when it resets',
   );
+});
+
+test('passes every supported reasoning effort through thread options', async () => {
+  let lastOptions: CodexThreadOptions | undefined;
+  const chat = new ChatInterfaceCodex(() => ({
+    startThread: (opts?: CodexThreadOptions) => {
+      lastOptions = opts;
+      return {
+        runStreamed: async () =>
+          ({
+            events: streamEvents([{ type: 'turn.completed' }]),
+          }) as {
+            events: AsyncGenerator<unknown>;
+          },
+      };
+    },
+    resumeThread: () => {
+      throw new Error('resumeThread should not be called in this test');
+    },
+  }));
+
+  for (const reasoningEffort of modelReasoningEfforts) {
+    await chat.execute(
+      'Hello',
+      {
+        codexFlags: { modelReasoningEffort: reasoningEffort },
+      },
+      `conv-${reasoningEffort}`,
+      'gpt-5.2-codex',
+    );
+    assert.equal(lastOptions?.modelReasoningEffort, reasoningEffort);
+  }
 });

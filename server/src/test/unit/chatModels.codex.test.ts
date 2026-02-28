@@ -290,6 +290,27 @@ test('codex runtime warning when web search enabled but tools unavailable', asyn
   }
 });
 
+test('codex defaults include SDK-native minimal reasoning effort when configured', async () => {
+  env.set('Codex_reasoning_effort', 'minimal');
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+  });
+
+  const server = await startServer({ mcpAvailable: true });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/models?provider=codex')
+      .expect(200);
+
+    assert.equal(res.body.codexDefaults?.modelReasoningEffort, 'minimal');
+  } finally {
+    await stopServer(server);
+  }
+});
+
 test('non-codex provider omits codex defaults fields', async () => {
   env.set('LMSTUDIO_BASE_URL', 'http://localhost:1234');
 

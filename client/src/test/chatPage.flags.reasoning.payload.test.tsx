@@ -146,81 +146,103 @@ function mockProvidersWithBodies(chatBodies: Array<Record<string, unknown>>) {
 
 describe('Codex model reasoning effort flag payloads', () => {
   it('omits reasoning effort for LM Studio, forwards selected value for Codex, and resets to default', async () => {
+    const infoSpy = jest.spyOn(console, 'info').mockImplementation(() => {});
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
     const chatBodies: Record<string, unknown>[] = [];
     mockProvidersWithBodies(chatBodies);
 
-    const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
-    render(<RouterProvider router={router} />);
+    try {
+      const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+      render(<RouterProvider router={router} />);
 
-    const input = await screen.findByTestId('chat-input');
-    const sendButton = await screen.findByTestId('chat-send');
+      const input = await screen.findByTestId('chat-input');
+      const sendButton = await screen.findByTestId('chat-send');
 
-    await waitFor(() => expect(input).toBeEnabled());
-    await userEvent.clear(input);
-    await userEvent.type(input, 'Hello LM');
-    await waitFor(() => expect(sendButton).toBeEnabled());
-    await act(async () => {
-      await userEvent.click(sendButton);
-    });
+      await waitFor(() => expect(input).toBeEnabled());
+      await userEvent.clear(input);
+      await userEvent.type(input, 'Hello LM');
+      await waitFor(() => expect(sendButton).toBeEnabled());
+      await act(async () => {
+        await userEvent.click(sendButton);
+      });
 
-    await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(1));
-    const lmBody = chatBodies[0];
-    expect(lmBody.provider).toBe('lmstudio');
-    expect(lmBody).not.toHaveProperty('modelReasoningEffort');
+      await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(1));
+      const lmBody = chatBodies[0];
+      expect(lmBody.provider).toBe('lmstudio');
+      expect(lmBody).not.toHaveProperty('modelReasoningEffort');
 
-    const newConversationButton = screen.getByRole('button', {
-      name: /new conversation/i,
-    });
-    await act(async () => {
-      await userEvent.click(newConversationButton);
-    });
+      const newConversationButton = screen.getByRole('button', {
+        name: /new conversation/i,
+      });
+      await act(async () => {
+        await userEvent.click(newConversationButton);
+      });
 
-    const providerSelect = await screen.findByRole('combobox', {
-      name: /provider/i,
-    });
-    await userEvent.click(providerSelect);
-    const codexOption = await screen.findByRole('option', {
-      name: /openai codex/i,
-    });
-    await userEvent.click(codexOption);
+      const providerSelect = await screen.findByRole('combobox', {
+        name: /provider/i,
+      });
+      await userEvent.click(providerSelect);
+      const codexOption = await screen.findByRole('option', {
+        name: /openai codex/i,
+      });
+      await userEvent.click(codexOption);
 
-    await ensureCodexFlagsPanelExpanded();
+      await ensureCodexFlagsPanelExpanded();
 
-    const modelSelect = await screen.findByRole('combobox', {
-      name: /model/i,
-    });
-    await waitFor(() =>
-      expect(modelSelect).toHaveTextContent('gpt-5.1-codex-max'),
-    );
+      const modelSelect = await screen.findByRole('combobox', {
+        name: /model/i,
+      });
+      await waitFor(() =>
+        expect(modelSelect).toHaveTextContent('gpt-5.1-codex-max'),
+      );
 
-    const reasoningSelect = await screen.findByRole('combobox', {
-      name: /reasoning effort/i,
-    });
-    await waitFor(() => expect(reasoningSelect).toHaveTextContent(/high/i));
-    await userEvent.click(reasoningSelect);
-    const xhighOption = await screen.findByRole('option', {
-      name: /xhigh/i,
-    });
-    await userEvent.click(xhighOption);
+      const reasoningSelect = await screen.findByRole('combobox', {
+        name: /reasoning effort/i,
+      });
+      await waitFor(() => expect(reasoningSelect).toHaveTextContent(/high/i));
+      await userEvent.click(reasoningSelect);
+      const xhighOption = await screen.findByRole('option', {
+        name: /xhigh/i,
+      });
+      await userEvent.click(xhighOption);
 
-    await userEvent.clear(input);
-    await userEvent.type(input, 'Hello Codex');
-    await waitFor(() => expect(sendButton).toBeEnabled());
-    await act(async () => {
-      await userEvent.click(sendButton);
-    });
+      await userEvent.clear(input);
+      await userEvent.type(input, 'Hello Codex');
+      await waitFor(() => expect(sendButton).toBeEnabled());
+      await act(async () => {
+        await userEvent.click(sendButton);
+      });
 
-    await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(2));
-    const codexBody = chatBodies[1];
-    expect(codexBody.provider).toBe('codex');
-    expect(codexBody.modelReasoningEffort).toBe('xhigh');
+      await waitFor(() => expect(chatBodies.length).toBeGreaterThanOrEqual(2));
+      const codexBody = chatBodies[1];
+      expect(codexBody.provider).toBe('codex');
+      expect(codexBody.modelReasoningEffort).toBe('xhigh');
+      expect(
+        infoSpy.mock.calls.some(
+          ([message]) =>
+            message ===
+            '[DEV-0000037][T02] event=reasoning_effort_shims_removed result=success',
+        ),
+      ).toBe(true);
+      expect(
+        errorSpy.mock.calls.some(
+          ([message]) =>
+            typeof message === 'string' &&
+            message.includes('[DEV-0000037][T02]') &&
+            message.includes('result=error'),
+        ),
+      ).toBe(false);
 
-    await act(async () => {
-      await userEvent.click(newConversationButton);
-    });
+      await act(async () => {
+        await userEvent.click(newConversationButton);
+      });
 
-    await ensureCodexFlagsPanelExpanded();
-    const resetSelect = await screen.findByTestId('reasoning-effort-select');
-    await waitFor(() => expect(resetSelect).toHaveTextContent(/high/i));
+      await ensureCodexFlagsPanelExpanded();
+      const resetSelect = await screen.findByTestId('reasoning-effort-select');
+      await waitFor(() => expect(resetSelect).toHaveTextContent(/high/i));
+    } finally {
+      infoSpy.mockRestore();
+      errorSpy.mockRestore();
+    }
   });
 });

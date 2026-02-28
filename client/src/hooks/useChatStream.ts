@@ -1,4 +1,9 @@
-import type { CodexDefaults, LogLevel } from '@codeinfo2/common';
+import {
+  CODEX_MODEL_REASONING_EFFORTS,
+  type CodexDefaults,
+  type CodexModelReasoningEffort,
+  type LogLevel,
+} from '@codeinfo2/common';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getApiBaseUrl } from '../api/baseUrl';
 import { createLogger } from '../logging/logger';
@@ -16,7 +21,7 @@ export type ApprovalPolicy =
   | 'on-failure'
   | 'untrusted';
 
-export type ModelReasoningEffort = 'low' | 'medium' | 'high' | 'xhigh';
+export type ModelReasoningEffort = CodexModelReasoningEffort;
 
 export type CodexFlagState = {
   sandboxMode?: SandboxMode;
@@ -105,6 +110,13 @@ type Status = 'idle' | 'sending';
 const API_BASE = getApiBaseUrl();
 
 const HYDRATION_DEDUPE_WINDOW_MS = 30 * 60 * 1000;
+const DEV_0000037_T02_PREFIX = '[DEV-0000037][T02]';
+
+const isCodexModelReasoningEffort = (
+  value: unknown,
+): value is CodexModelReasoningEffort =>
+  typeof value === 'string' &&
+  CODEX_MODEL_REASONING_EFFORTS.includes(value as CodexModelReasoningEffort);
 
 const parseTimestamp = (value?: string) => {
   if (!value) return null;
@@ -999,13 +1011,26 @@ export function useChatStream(
           provider === 'codex' ? { ...baseCodexPayload } : {};
 
         if (provider === 'codex') {
+          const selectedReasoningEffort = codexFlags?.modelReasoningEffort;
+          if (
+            selectedReasoningEffort !== undefined &&
+            !isCodexModelReasoningEffort(selectedReasoningEffort)
+          ) {
+            console.error(
+              `${DEV_0000037_T02_PREFIX} event=reasoning_effort_shims_removed result=error reason=unsupported_reasoning_effort value=${String(selectedReasoningEffort)}`,
+            );
+            throw new Error(
+              `Unsupported modelReasoningEffort value "${String(selectedReasoningEffort)}"`,
+            );
+          }
+
           const fallbackFlags: Required<CodexFlagState> = {
             sandboxMode:
               codexFlags?.sandboxMode ?? DEFAULT_CODEX_FLAGS.sandboxMode,
             approvalPolicy:
               codexFlags?.approvalPolicy ?? DEFAULT_CODEX_FLAGS.approvalPolicy,
             modelReasoningEffort:
-              codexFlags?.modelReasoningEffort ??
+              selectedReasoningEffort ??
               DEFAULT_CODEX_FLAGS.modelReasoningEffort,
             networkAccessEnabled:
               codexFlags?.networkAccessEnabled ??
@@ -1020,6 +1045,9 @@ export function useChatStream(
             codexPayload.approvalPolicy = fallbackFlags.approvalPolicy;
             codexPayload.modelReasoningEffort =
               fallbackFlags.modelReasoningEffort;
+            console.info(
+              `${DEV_0000037_T02_PREFIX} event=reasoning_effort_shims_removed result=success`,
+            );
             codexPayload.networkAccessEnabled =
               fallbackFlags.networkAccessEnabled;
             codexPayload.webSearchEnabled = fallbackFlags.webSearchEnabled;
@@ -1053,8 +1081,14 @@ export function useChatStream(
               modelReasoningEffort !== codexDefaults.modelReasoningEffort
             ) {
               codexPayload.modelReasoningEffort = modelReasoningEffort;
+              console.info(
+                `${DEV_0000037_T02_PREFIX} event=reasoning_effort_shims_removed result=success`,
+              );
             } else {
               omittedFlags.push('modelReasoningEffort');
+              console.info(
+                `${DEV_0000037_T02_PREFIX} event=reasoning_effort_shims_removed result=success`,
+              );
             }
 
             const networkAccessEnabled = codexFlags?.networkAccessEnabled;

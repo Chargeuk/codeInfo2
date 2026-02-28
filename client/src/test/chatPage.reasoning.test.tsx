@@ -9,6 +9,7 @@ import {
 import userEvent from '@testing-library/user-event';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { setupChatWsHarness } from './support/mockChatWs';
+import { ensureCodexFlagsPanelExpanded } from './support/ensureCodexFlagsPanelExpanded';
 
 const mockFetch = jest.fn();
 
@@ -134,5 +135,68 @@ describe('Chat reasoning rendering (analysis_delta)', () => {
     const content = thinkContent.textContent ?? '';
     expect(content).toContain('Reasoning part A');
     expect(content).toContain('New block');
+  });
+
+  it('logs deterministic error when runtime provides unsupported reasoning effort', async () => {
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const harness = setupChatWsHarness({
+      mockFetch,
+      providers: {
+        providers: [
+          {
+            id: 'codex',
+            label: 'OpenAI Codex',
+            available: true,
+            toolsAvailable: true,
+          },
+        ],
+      },
+      models: {
+        provider: 'codex',
+        available: true,
+        toolsAvailable: true,
+        codexDefaults: {
+          sandboxMode: 'workspace-write',
+          approvalPolicy: 'on-failure',
+          modelReasoningEffort: 'unsupported-runtime-value',
+          networkAccessEnabled: true,
+          webSearchEnabled: true,
+        },
+        codexWarnings: [],
+        models: [
+          { key: 'gpt-5.2-codex', displayName: 'gpt-5.2-codex', type: 'codex' },
+        ],
+      },
+    });
+
+    try {
+      const user = userEvent.setup();
+      const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+      render(<RouterProvider router={router} />);
+
+      await ensureCodexFlagsPanelExpanded();
+      const input = await screen.findByTestId('chat-input');
+      fireEvent.change(input, {
+        target: { value: 'Trigger unsupported effort' },
+      });
+      const sendButton = screen.getByTestId('chat-send');
+      await waitFor(() => expect(sendButton).toBeEnabled());
+      await act(async () => {
+        await user.click(sendButton);
+      });
+
+      await waitFor(() => {
+        expect(
+          errorSpy.mock.calls.some(
+            ([message]) =>
+              message ===
+              '[DEV-0000037][T02] event=reasoning_effort_shims_removed result=error reason=unsupported_reasoning_effort value=unsupported-runtime-value',
+          ),
+        ).toBe(true);
+      });
+      expect(harness.chatBodies.length).toBe(0);
+    } finally {
+      errorSpy.mockRestore();
+    }
   });
 });

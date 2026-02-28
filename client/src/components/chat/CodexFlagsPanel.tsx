@@ -1,3 +1,7 @@
+import {
+  CODEX_MODEL_REASONING_EFFORTS,
+  type CodexModelReasoningEffort,
+} from '@codeinfo2/common';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import {
   Accordion,
@@ -13,19 +17,15 @@ import {
   Switch,
   Typography,
 } from '@mui/material';
-import type {
-  ApprovalPolicy,
-  ModelReasoningEffort,
-  SandboxMode,
-} from '../../hooks/useChatStream';
+import type { ApprovalPolicy, SandboxMode } from '../../hooks/useChatStream';
 
 type Props = {
   sandboxMode: SandboxMode;
   onSandboxModeChange: (value: SandboxMode) => void;
   approvalPolicy: ApprovalPolicy;
   onApprovalPolicyChange: (value: ApprovalPolicy) => void;
-  modelReasoningEffort: ModelReasoningEffort;
-  onModelReasoningEffortChange: (value: ModelReasoningEffort) => void;
+  modelReasoningEffort: CodexModelReasoningEffort;
+  onModelReasoningEffortChange: (value: CodexModelReasoningEffort) => void;
   networkAccessEnabled: boolean;
   onNetworkAccessEnabledChange: (value: boolean) => void;
   webSearchEnabled: boolean;
@@ -46,15 +46,8 @@ const approvalOptions: Array<{ value: ApprovalPolicy; label: string }> = [
   { value: 'untrusted', label: 'Untrusted' },
 ];
 
-const reasoningOptions: Array<{
-  value: ModelReasoningEffort;
-  label: string;
-}> = [
-  { value: 'xhigh', label: 'XHigh' },
-  { value: 'high', label: 'High' },
-  { value: 'medium', label: 'Medium' },
-  { value: 'low', label: 'Low' },
-];
+const reasoningLabel = (value: CodexModelReasoningEffort) =>
+  value.charAt(0).toUpperCase() + value.slice(1);
 
 export default function CodexFlagsPanel({
   sandboxMode,
@@ -127,14 +120,14 @@ export default function CodexFlagsPanel({
               value={modelReasoningEffort}
               onChange={(event) =>
                 onModelReasoningEffortChange(
-                  event.target.value as ModelReasoningEffort,
+                  event.target.value as CodexModelReasoningEffort,
                 )
               }
               data-testid="reasoning-effort-select"
             >
-              {reasoningOptions.map((option) => (
-                <MenuItem key={option.value} value={option.value}>
-                  {option.label}
+              {CODEX_MODEL_REASONING_EFFORTS.map((option) => (
+                <MenuItem key={option} value={option}>
+                  {reasoningLabel(option)}
                 </MenuItem>
               ))}
             </Select>

@@ -496,7 +496,7 @@ Upgrade `@openai/codex-sdk` to latest stable at implementation start and lock de
 
 ### 2. Server: Remove local reasoning-effort widening shims and align shared/client/server typing
 
-- Task Status: **__todo__**
+- Task Status: **__done__**
 - Git Commits: `None yet`
 
 #### Overview
@@ -512,25 +512,25 @@ Remove compatibility-only widened reasoning-effort unions/casts and align code t
 
 #### Subtasks
 
-1. [ ] Remove local widened reasoning-effort type shims/casts in server runtime code and tests (for example `ModelReasoningEffort | 'xhigh'` compatibility-only types).
+1. [x] Remove local widened reasoning-effort type shims/casts in server runtime code and tests (for example `ModelReasoningEffort | 'xhigh'` compatibility-only types).
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `server/src/chat/interfaces/ChatInterfaceCodex.ts`, `server/src/routes/chatValidators.ts`, `server/src/routes/chat.ts`, plus matching `server/src/test/unit/chat-codex-reasoning-delta.test.ts` and chat-validation tests.
    - Do: replace widened unions/casts with SDK-native types.
    - Docs: Context7 `/openai/codex`, https://www.typescriptlang.org/docs/handbook/2/everyday-types.html.
    - Done when: no server type includes manual `| 'xhigh'` compatibility additions.
-2. [ ] Remove any client/shared compatibility typings that were only present to widen values already supported by upgraded SDK.
+2. [x] Remove any client/shared compatibility typings that were only present to widen values already supported by upgraded SDK.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `common/src/lmstudio.ts`, `client/src/hooks/useChatModel.ts`, `client/src/hooks/useChatStream.ts`, `client/src/components/chat/CodexFlagsPanel.tsx`, related client test files.
    - Do: delete widened local aliases and rely on shared/server capability payload types.
    - Docs: https://www.typescriptlang.org/docs/handbook/2/types-from-types.html.
    - Done when: shared/client type surfaces do not carry compatibility-only widening.
-3. [ ] Update shared/client/server reasoning-effort type usage to SDK-native/runtime capability values (including `none`/`minimal` when surfaced) and remove manual cast-based compatibility types in chat validators/flag payload builders.
+3. [x] Update shared/client/server reasoning-effort type usage to SDK-native/runtime capability values (including `none`/`minimal` when surfaced) and remove manual cast-based compatibility types in chat validators/flag payload builders.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `server/src/routes/chat.ts` (or validators file), `server/src/routes/chatModels.ts`, `client/src/components/chat/CodexFlagsPanel.tsx`, `common/src/lmstudio.ts`.
    - Do: use capability-driven value lists and remove cast-based forcing.
    - Docs: Context7 `/openai/codex`, https://react.dev/reference/react/useMemo.
    - Done when: validation and UI both consume typed capability values without manual casts.
-4. [ ] Add server unit test for accepted SDK-native reasoning efforts.
+4. [x] Add server unit test for accepted SDK-native reasoning efforts.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `server/src/test/unit/chat-codex-reasoning-delta.test.ts`, `server/src/test/unit/chatModels.codex.test.ts`.
@@ -538,7 +538,7 @@ Remove compatibility-only widened reasoning-effort unions/casts and align code t
    - Purpose: prevent regressions where supported SDK values are incorrectly rejected.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/getting-started.
    - Done when: test fails if a supported value is rejected.
-5. [ ] Add server unit test for unsupported reasoning-effort rejection.
+5. [x] Add server unit test for unsupported reasoning-effort rejection.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `server/src/test/unit/chat-codex-reasoning-delta.test.ts`, route validator unit tests under `server/src/test/unit`.
@@ -546,7 +546,7 @@ Remove compatibility-only widened reasoning-effort unions/casts and align code t
    - Purpose: ensure strict invalid-value handling after shim removal.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if an unsupported value is silently accepted.
-6. [ ] Add client unit test for capability-driven effort typing usage.
+6. [x] Add client unit test for capability-driven effort typing usage.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `client/src/test/chatPage.reasoning.test.tsx`, `client/src/test/chatPage.models.test.tsx`.
@@ -555,7 +555,7 @@ Remove compatibility-only widened reasoning-effort unions/casts and align code t
    - Docs: https://testing-library.com/docs/, Context7 `/jestjs/jest`, https://jestjs.io/docs/getting-started.
    - Done when: test fails if manual compatibility casts are required again.
 
-7. [ ] Add deterministic structured log line `[DEV-0000037][T02] event=reasoning_effort_shims_removed result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
+7. [x] Add deterministic structured log line `[DEV-0000037][T02] event=reasoning_effort_shims_removed result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: server/client/common files already listed in Task 2 subtasks and their corresponding test files.
    - Do: emit this exact log prefix and event name from the implementation path, then assert in tests that `result=success` is emitted on happy path and `result=error` only appears on intentional failure-path coverage.
@@ -563,24 +563,42 @@ Remove compatibility-only widened reasoning-effort unions/casts and align code t
    - Manual Playwright-MCP check linkage: verify this exact log line during this task's Manual Playwright-MCP check when present, or during Task 22 final regression Manual Playwright-MCP check for backend/docs-only tasks.
    - Docs: https://nodejs.org/api/console.html, Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: deterministic log assertions are present and this task's expected trigger produces the exact `[DEV-0000037][T02] event=reasoning_effort_shims_removed result=success` line.
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+8. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run build --workspace common`
-6. [ ] Run targeted server and client reasoning-effort tests and verify pass.
-7. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
-8. [ ] `npm run compose:build`
-9. [ ] `npm run compose:up`
-10. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: trigger reasoning-effort selection flows, capture screenshot `task-02-reasoning-options.png`, and store it in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped by `docker-compose.local.yml`); verify the agent reviews the screenshot against this task's UI expectations (supported options shown, unsupported options absent), debug console includes `[DEV-0000037][T02] event=reasoning_effort_shims_removed result=success` (expected once per exercised path), includes no `[DEV-0000037][T02] ... result=error`, and has no unrelated console errors.
-11. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run build --workspace common`
+6. [x] Run targeted server and client reasoning-effort tests and verify pass.
+7. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+8. [x] `npm run compose:build`
+9. [x] `npm run compose:up`
+10. [x] Manual Playwright-MCP check at `http://host.docker.internal:5001`: trigger reasoning-effort selection flows, capture screenshot `task-02-reasoning-options.png`, and store it in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped by `docker-compose.local.yml`); verify the agent reviews the screenshot against this task's UI expectations (supported options shown, unsupported options absent), debug console includes `[DEV-0000037][T02] event=reasoning_effort_shims_removed result=success` (expected once per exercised path), includes no `[DEV-0000037][T02] ... result=error`, and has no unrelated console errors.
+11. [x] `npm run compose:down`
 
 #### Implementation Notes
 
-- None yet.
+- 2026-02-28: Subtask 1 complete. Removed server-side compatibility shims by replacing `ModelReasoningEffort | 'xhigh'` unions/casts with SDK-native `ModelReasoningEffort` and `Partial<CodexThreadOptions>`.
+- 2026-02-28: Subtask 2 complete. Added shared `CODEX_MODEL_REASONING_EFFORTS`/`CodexModelReasoningEffort` and removed client/shared compatibility-only local widenings.
+- 2026-02-28: Subtask 3 complete. Switched validator/UI reasoning-effort usage to shared capability-driven values and added `minimal` support in shared/server surfaces.
+- 2026-02-28: Subtask 4 complete. Added server acceptance coverage for every supported reasoning-effort value in `chatValidators` and `chat-codex-reasoning-delta` tests, plus codex model defaults coverage for `minimal`.
+- 2026-02-28: Subtask 5 complete. Added deterministic unsupported reasoning-effort rejection assertion in `chatValidators` tests.
+- 2026-02-28: Subtask 6 complete. Added client tests validating capability-driven reasoning options/defaults and runtime handling via `chatPage.models` and `chatPage.reasoning` tests.
+- 2026-02-28: Subtask 7 complete. Added deterministic browser-console log line `[DEV-0000037][T02] event=reasoning_effort_shims_removed result=success` on reasoning-effort resolution paths and negative-path `result=error` assertion for unsupported runtime values.
+- 2026-02-28: Testing 1 complete. `npm run build --workspace server` succeeded (`tsc -b`).
+- 2026-02-28: Testing 5 complete. `npm run build --workspace common` succeeded (`tsc -b`).
+- 2026-02-28: Testing 6 complete. Targeted server tests passed (`24/24`), and targeted client tests passed (`7/7`) for reasoning-effort flows and deterministic T02 log assertions.
+- 2026-02-28: Subtask 8 complete. `npm run lint --workspaces` passed with existing repo-wide import-order warnings only; `npm run format:check --workspaces` initially failed on touched files, then passed after formatting updates.
+- 2026-02-28: Testing 2 complete. `npm run build --workspace client` succeeded (`vite build`).
+- 2026-02-28: Testing 3 complete. `npm run test --workspace server` passed (`tests 752, pass 752`; cucumber integration `67 scenarios, 402 steps, all passed`).
+- 2026-02-28: Testing 4 complete. `npm run test --workspace client` passed (`Test Suites: 92 passed, Tests: 364 passed`).
+- 2026-02-28: Testing 7 complete. `npm run e2e` passed (`42 passed`), including compose e2e up/down lifecycle.
+- 2026-02-28: Testing 8 complete. `npm run compose:build` succeeded for local stack images (`codeinfo2-server`, `codeinfo2-client`).
+- 2026-02-28: Testing 9 complete. `npm run compose:up` succeeded and local services reported healthy startup.
+- 2026-02-28: Testing 10 complete. Manual check at `http://host.docker.internal:5001/chat` exercised reasoning-effort selection (options shown: `Minimal`, `Low`, `Medium`, `High`, `Xhigh`), saved screenshot to `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/task-02-reasoning-options.png`, and console verification passed (`hasSuccess: true`, `hasErrorLine: false`, `otherErrorCount: 0`).
+- 2026-02-28: Testing 11 complete. `npm run compose:down` stopped and removed local stack containers/network cleanly.
 
 ### 3. Server: Implement canonical runtime config loading, bootstrap, and normalization layer
 

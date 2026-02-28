@@ -63,6 +63,7 @@ const bubbleTimestampFormatter = new Intl.DateTimeFormat(undefined, {
   dateStyle: 'medium',
   timeStyle: 'short',
 });
+const DEV_0000037_T16_PREFIX = '[DEV-0000037][T16]';
 
 const formatBubbleTimestamp = (value?: string) => {
   const candidate = value ? new Date(value) : new Date();
@@ -152,6 +153,7 @@ export default function ChatPage() {
     providerErrorMessage,
     codexDefaults,
     codexWarnings,
+    selectedModelCapabilities,
     isLoading,
     isError,
     isEmpty,
@@ -198,6 +200,7 @@ export default function ChatPage() {
       webSearchEnabled,
     },
     codexDefaults,
+    selectedModelCapabilities,
   );
 
   const {
@@ -459,6 +462,7 @@ export default function ChatPage() {
   );
   const showCodexWarnings = codexWarningList.length > 0;
   const codexDefaultsInitializedRef = useRef(false);
+  const codexCapabilityStateKeyRef = useRef<string | null>(null);
   const codexWarningsRef = useRef('');
   const pendingCodexDefaultsReasonRef = useRef<
     null | 'provider-change' | 'new-conversation'
@@ -637,6 +641,7 @@ export default function ChatPage() {
   useEffect(() => {
     if (providerIsCodex) return;
     codexDefaultsInitializedRef.current = false;
+    codexCapabilityStateKeyRef.current = null;
     pendingCodexDefaultsReasonRef.current = null;
     codexWarningsRef.current = '';
   }, [providerIsCodex]);
@@ -662,6 +667,49 @@ export default function ChatPage() {
       pendingCodexDefaultsReasonRef.current = null;
     }
   }, [applyCodexDefaults, codexDefaults, providerIsCodex]);
+
+  useEffect(() => {
+    if (!providerIsCodex || !selectedModelCapabilities || !selected) return;
+
+    const supportedReasoningEfforts =
+      selectedModelCapabilities.supportedReasoningEfforts;
+    const defaultReasoningEffort =
+      selectedModelCapabilities.defaultReasoningEffort;
+
+    if (
+      supportedReasoningEfforts.length === 0 ||
+      !defaultReasoningEffort ||
+      !supportedReasoningEfforts.includes(defaultReasoningEffort)
+    ) {
+      console.error(
+        `${DEV_0000037_T16_PREFIX} event=chat_model_capability_defaults_applied result=error reason=invalid_model_capabilities model=${selected}`,
+      );
+      return;
+    }
+
+    if (!supportedReasoningEfforts.includes(modelReasoningEffort)) {
+      setModelReasoningEffort(defaultReasoningEffort);
+      console.info(
+        `${DEV_0000037_T16_PREFIX} event=chat_model_capability_defaults_applied result=success`,
+      );
+      codexCapabilityStateKeyRef.current = null;
+      return;
+    }
+
+    const key = `${selected}:${defaultReasoningEffort}:${modelReasoningEffort}:${supportedReasoningEfforts.join('|')}`;
+    if (codexCapabilityStateKeyRef.current === key) {
+      return;
+    }
+    codexCapabilityStateKeyRef.current = key;
+    console.info(
+      `${DEV_0000037_T16_PREFIX} event=chat_model_capability_defaults_applied result=success`,
+    );
+  }, [
+    modelReasoningEffort,
+    providerIsCodex,
+    selected,
+    selectedModelCapabilities,
+  ]);
 
   useEffect(() => {
     if (!selectedConversation?.model) return;

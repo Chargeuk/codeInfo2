@@ -137,8 +137,9 @@ describe('Chat reasoning rendering (analysis_delta)', () => {
     expect(content).toContain('New block');
   });
 
-  it('logs deterministic error when runtime provides unsupported reasoning effort', async () => {
+  it('accepts runtime-provided reasoning effort when model capabilities include it', async () => {
     const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const infoSpy = jest.spyOn(console, 'info').mockImplementation(() => {});
     const harness = setupChatWsHarness({
       mockFetch,
       providers: {
@@ -164,7 +165,13 @@ describe('Chat reasoning rendering (analysis_delta)', () => {
         },
         codexWarnings: [],
         models: [
-          { key: 'gpt-5.2-codex', displayName: 'gpt-5.2-codex', type: 'codex' },
+          {
+            key: 'gpt-5.2-codex',
+            displayName: 'gpt-5.2-codex',
+            type: 'codex',
+            supportedReasoningEfforts: ['unsupported-runtime-value'],
+            defaultReasoningEffort: 'unsupported-runtime-value',
+          },
         ],
       },
     });
@@ -185,18 +192,27 @@ describe('Chat reasoning rendering (analysis_delta)', () => {
         await user.click(sendButton);
       });
 
-      await waitFor(() => {
-        expect(
-          errorSpy.mock.calls.some(
-            ([message]) =>
-              message ===
-              '[DEV-0000037][T02] event=reasoning_effort_shims_removed result=error reason=unsupported_reasoning_effort value=unsupported-runtime-value',
-          ),
-        ).toBe(true);
-      });
-      expect(harness.chatBodies.length).toBe(0);
+      await waitFor(() => expect(harness.chatBodies.length).toBe(1));
+      expect(harness.chatBodies[0]?.provider).toBe('codex');
+      expect(harness.chatBodies[0]).not.toHaveProperty('modelReasoningEffort');
+      expect(
+        errorSpy.mock.calls.some(
+          ([message]) =>
+            typeof message === 'string' &&
+            message.includes('[DEV-0000037][T16]') &&
+            message.includes('result=error'),
+        ),
+      ).toBe(false);
+      expect(
+        infoSpy.mock.calls.some(
+          ([message]) =>
+            message ===
+            '[DEV-0000037][T16] event=chat_model_capability_defaults_applied result=success',
+        ),
+      ).toBe(true);
     } finally {
       errorSpy.mockRestore();
+      infoSpy.mockRestore();
     }
   });
 });

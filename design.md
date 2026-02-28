@@ -3387,3 +3387,47 @@ flowchart TD
   E --> I[Emit T15 error log]
   F --> I
 ```
+
+## Story 0000037 Task 16: chat model capability defaults and deterministic reset state
+
+- `useChatModel` now normalizes per-model capability payload fields (`supportedReasoningEfforts`, `defaultReasoningEffort`) and exposes `selectedModelCapabilities` for the active codex model.
+- `ChatPage` applies deterministic capability-state rules:
+  - if current reasoning selection is not supported by the selected model, reset to that model's default effort;
+  - if capability payload is malformed (empty supported list or invalid default), emit deterministic error log and preserve stable UI behavior.
+- `useChatStream` now resolves outgoing reasoning effort from selected-model capability payload and shared codex defaults instead of static client enum validation.
+- Deterministic Task 16 logs are emitted from the capability-application path:
+  - `[DEV-0000037][T16] event=chat_model_capability_defaults_applied result=success`
+  - `[DEV-0000037][T16] event=chat_model_capability_defaults_applied result=error`
+
+```mermaid
+sequenceDiagram
+  participant Models as GET /chat/models (codex)
+  participant Hook as useChatModel
+  participant Page as ChatPage
+  participant Stream as useChatStream
+
+  Models-->>Hook: models[] + capability fields
+  Hook-->>Page: selectedModelCapabilities
+  Page->>Page: validate current reasoning selection
+  alt selection invalid
+    Page->>Page: reset to defaultReasoningEffort
+    Page->>Page: emit T16 success log
+  else malformed capabilities
+    Page->>Page: emit T16 error log
+  end
+  Page->>Stream: send(provider/model/codexFlags + selectedModelCapabilities)
+  Stream->>Stream: resolve payload reasoning effort deterministically
+```
+
+```mermaid
+flowchart TD
+  A[Selected codex model changes or capabilities refresh] --> B[Read supportedReasoningEfforts + defaultReasoningEffort]
+  B --> C{Capabilities valid?}
+  C -->|No| D[Keep UI stable + emit T16 error]
+  C -->|Yes| E{Current selection in supported list?}
+  E -->|Yes| F[Keep selection + emit T16 success]
+  E -->|No| G[Reset to defaultReasoningEffort + emit T16 success]
+  F --> H[useChatStream resolves outgoing reasoning effort]
+  G --> H
+  D --> H
+```

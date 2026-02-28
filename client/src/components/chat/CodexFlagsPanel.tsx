@@ -1,7 +1,4 @@
-import {
-  CODEX_MODEL_REASONING_EFFORTS,
-  type CodexModelReasoningEffort,
-} from '@codeinfo2/common';
+import { CODEX_MODEL_REASONING_EFFORTS } from '@codeinfo2/common';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import {
   Accordion,
@@ -24,8 +21,8 @@ type Props = {
   onSandboxModeChange: (value: SandboxMode) => void;
   approvalPolicy: ApprovalPolicy;
   onApprovalPolicyChange: (value: ApprovalPolicy) => void;
-  modelReasoningEffort: CodexModelReasoningEffort;
-  onModelReasoningEffortChange: (value: CodexModelReasoningEffort) => void;
+  modelReasoningEffort: string;
+  onModelReasoningEffortChange: (value: string) => void;
   networkAccessEnabled: boolean;
   onNetworkAccessEnabledChange: (value: boolean) => void;
   webSearchEnabled: boolean;
@@ -46,7 +43,7 @@ const approvalOptions: Array<{ value: ApprovalPolicy; label: string }> = [
   { value: 'untrusted', label: 'Untrusted' },
 ];
 
-const reasoningLabel = (value: CodexModelReasoningEffort) =>
+const reasoningLabel = (value: string) =>
   value.charAt(0).toUpperCase() + value.slice(1);
 
 export default function CodexFlagsPanel({
@@ -119,9 +116,7 @@ export default function CodexFlagsPanel({
               label="Reasoning effort"
               value={modelReasoningEffort}
               onChange={(event) =>
-                onModelReasoningEffortChange(
-                  event.target.value as CodexModelReasoningEffort,
-                )
+                onModelReasoningEffortChange(event.target.value as string)
               }
               data-testid="reasoning-effort-select"
             >

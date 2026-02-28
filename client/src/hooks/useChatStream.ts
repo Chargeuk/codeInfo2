@@ -1,9 +1,4 @@
-import {
-  CODEX_MODEL_REASONING_EFFORTS,
-  type CodexDefaults,
-  type CodexModelReasoningEffort,
-  type LogLevel,
-} from '@codeinfo2/common';
+import { type CodexDefaults, type LogLevel } from '@codeinfo2/common';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getApiBaseUrl } from '../api/baseUrl';
 import { createLogger } from '../logging/logger';
@@ -21,7 +16,7 @@ export type ApprovalPolicy =
   | 'on-failure'
   | 'untrusted';
 
-export type ModelReasoningEffort = CodexModelReasoningEffort;
+export type ModelReasoningEffort = string;
 
 export type CodexFlagState = {
   sandboxMode?: SandboxMode;
@@ -112,11 +107,24 @@ const API_BASE = getApiBaseUrl();
 const HYDRATION_DEDUPE_WINDOW_MS = 30 * 60 * 1000;
 const DEV_0000037_T02_PREFIX = '[DEV-0000037][T02]';
 
-const isCodexModelReasoningEffort = (
-  value: unknown,
-): value is CodexModelReasoningEffort =>
-  typeof value === 'string' &&
-  CODEX_MODEL_REASONING_EFFORTS.includes(value as CodexModelReasoningEffort);
+const normalizeReasoningCapabilityStrings = (value: unknown): string[] => {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  const normalized: string[] = [];
+  value.forEach((entry) => {
+    if (typeof entry !== 'string') return;
+    const trimmed = entry.trim();
+    if (!trimmed || seen.has(trimmed)) return;
+    seen.add(trimmed);
+    normalized.push(trimmed);
+  });
+  return normalized;
+};
+
+type SelectedModelReasoningCapabilities = {
+  supportedReasoningEfforts: string[];
+  defaultReasoningEffort: string;
+};
 
 const parseTimestamp = (value?: string) => {
   if (!value) return null;
@@ -251,6 +259,7 @@ export function useChatStream(
   provider?: string,
   codexFlags?: CodexFlagState,
   codexDefaults?: CodexDefaults,
+  selectedModelCapabilities?: SelectedModelReasoningCapabilities,
 ) {
   const log = useRef(createLogger('client')).current;
   const flowLog = useRef(createLogger('client-flows')).current;
@@ -1011,18 +1020,31 @@ export function useChatStream(
           provider === 'codex' ? { ...baseCodexPayload } : {};
 
         if (provider === 'codex') {
-          const selectedReasoningEffort = codexFlags?.modelReasoningEffort;
-          if (
-            selectedReasoningEffort !== undefined &&
-            !isCodexModelReasoningEffort(selectedReasoningEffort)
-          ) {
-            console.error(
-              `${DEV_0000037_T02_PREFIX} event=reasoning_effort_shims_removed result=error reason=unsupported_reasoning_effort value=${String(selectedReasoningEffort)}`,
-            );
-            throw new Error(
-              `Unsupported modelReasoningEffort value "${String(selectedReasoningEffort)}"`,
-            );
-          }
+          const selectedReasoningEffort =
+            typeof codexFlags?.modelReasoningEffort === 'string'
+              ? codexFlags.modelReasoningEffort
+              : undefined;
+          const supportedReasoningEfforts = normalizeReasoningCapabilityStrings(
+            selectedModelCapabilities?.supportedReasoningEfforts,
+          );
+          const defaultReasoningEffort =
+            (typeof selectedModelCapabilities?.defaultReasoningEffort ===
+              'string' &&
+            selectedModelCapabilities.defaultReasoningEffort.trim().length > 0
+              ? selectedModelCapabilities.defaultReasoningEffort.trim()
+              : undefined) ?? codexDefaults?.modelReasoningEffort;
+          const resolvedReasoningEffort =
+            supportedReasoningEfforts.length > 0
+              ? supportedReasoningEfforts.includes(
+                  selectedReasoningEffort ?? '',
+                )
+                ? selectedReasoningEffort
+                : supportedReasoningEfforts.includes(
+                      defaultReasoningEffort ?? '',
+                    )
+                  ? defaultReasoningEffort
+                  : supportedReasoningEfforts[0]
+              : (selectedReasoningEffort ?? defaultReasoningEffort);
 
           const fallbackFlags: Required<CodexFlagState> = {
             sandboxMode:
@@ -1030,7 +1052,7 @@ export function useChatStream(
             approvalPolicy:
               codexFlags?.approvalPolicy ?? DEFAULT_CODEX_FLAGS.approvalPolicy,
             modelReasoningEffort:
-              selectedReasoningEffort ??
+              resolvedReasoningEffort ??
               DEFAULT_CODEX_FLAGS.modelReasoningEffort,
             networkAccessEnabled:
               codexFlags?.networkAccessEnabled ??
@@ -1075,7 +1097,7 @@ export function useChatStream(
               omittedFlags.push('approvalPolicy');
             }
 
-            const modelReasoningEffort = codexFlags?.modelReasoningEffort;
+            const modelReasoningEffort = resolvedReasoningEffort;
             if (
               modelReasoningEffort &&
               modelReasoningEffort !== codexDefaults.modelReasoningEffort
@@ -1195,6 +1217,7 @@ export function useChatStream(
     [
       codexDefaults,
       codexFlags,
+      selectedModelCapabilities,
       ensureAssistantMessage,
       handleErrorBubble,
       logWithChannel,

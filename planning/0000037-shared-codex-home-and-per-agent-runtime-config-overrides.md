@@ -2282,7 +2282,7 @@ After Task 10 and Task 14 are complete, simplify UI usage to one shared device-a
 
 ### 16. Frontend: Expose codex model capabilities in chat model state and enforce deterministic defaults
 
-- Task Status: **__todo__**
+- Task Status: **__done__**
 - Git Commits: `None yet`
 
 #### Overview
@@ -2298,31 +2298,31 @@ After Task 12 and Task 13 are complete, update chat model state plumbing to carr
 
 #### Subtasks
 
-1. [ ] Update `client/src/hooks/useChatModel.ts` to retain and expose codex model capability fields per model.
+1. [x] Update `client/src/hooks/useChatModel.ts` to retain and expose codex model capability fields per model.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `client/src/hooks/useChatModel.ts`.
    - Do: persist `supportedReasoningEfforts` and `defaultReasoningEffort` in local model state/derived selectors.
    - Docs: https://react.dev/reference/react, https://www.typescriptlang.org/docs/.
    - Done when: hook returns capability fields for selected model.
-2. [ ] Reuse existing codex-default wiring in `useChatModel` / `useChatStream` when applying capability-driven defaults and reset behavior; avoid duplicating default-selection logic.
+2. [x] Reuse existing codex-default wiring in `useChatModel` / `useChatStream` when applying capability-driven defaults and reset behavior; avoid duplicating default-selection logic.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `client/src/hooks/useChatModel.ts`, `client/src/hooks/useChatStream.ts`.
    - Do: route through existing default helpers and extend them for capability payload.
    - Docs: https://react.dev/learn/reusing-logic-with-custom-hooks.
    - Done when: one default-selection path is used.
-3. [ ] Implement deterministic reset behavior: when selected effort is no longer valid for selected model, reset to `defaultReasoningEffort`.
+3. [x] Implement deterministic reset behavior: when selected effort is no longer valid for selected model, reset to `defaultReasoningEffort`.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `client/src/hooks/useChatModel.ts`.
    - Do: add validation/reset on model change and capability refresh.
    - Docs: https://react.dev/learn/choosing-the-state-structure.
    - Done when: stale effort selection self-corrects deterministically.
-4. [ ] Update shared/common typings usage in client to remove hard-coded assumptions about effort lists.
+4. [x] Update shared/common typings usage in client to remove hard-coded assumptions about effort lists.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `client/src/hooks/useChatModel.ts`, `client/src/hooks/useChatStream.ts`, any local effort enums.
    - Do: delete static effort arrays if they mirror codex assumptions.
    - Docs: TypeScript literal types docs.
    - Done when: effort options derive from model capability payload only.
-5. [ ] Add frontend hook test for model-switch default/reset behavior.
+5. [x] Add frontend hook test for model-switch default/reset behavior.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `client/src/test/chatPage.codexDefaults*` and `useChatModel` hook suites.
@@ -2330,7 +2330,7 @@ After Task 12 and Task 13 are complete, update chat model state plumbing to carr
    - Purpose: guarantee deterministic reset behavior during normal model changes.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect, https://testing-library.com/docs/.
    - Done when: test fails if stale effort value survives model switch.
-6. [ ] Add frontend hook test for capability-update default/reset behavior.
+6. [x] Add frontend hook test for capability-update default/reset behavior.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `client/src/test/chatPage.codexDefaults*` and `useChatModel` hook suites.
@@ -2338,7 +2338,7 @@ After Task 12 and Task 13 are complete, update chat model state plumbing to carr
    - Purpose: guarantee deterministic reset behavior when capabilities change at runtime.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if invalid selection remains after capability update.
-7. [ ] Add malformed-payload test for empty `supportedReasoningEfforts`.
+7. [x] Add malformed-payload test for empty `supportedReasoningEfforts`.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `client/src/test/chatPage.codexDefaults*` and hook suites.
@@ -2346,7 +2346,7 @@ After Task 12 and Task 13 are complete, update chat model state plumbing to carr
    - Purpose: prevent runtime crashes on malformed capability payload corner case.
    - Docs: https://react.dev/learn/choosing-the-state-structure, Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if empty array causes crash or nondeterministic state.
-8. [ ] Add malformed-payload test for mismatched `defaultReasoningEffort`.
+8. [x] Add malformed-payload test for mismatched `defaultReasoningEffort`.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `client/src/test/chatPage.codexDefaults*` and hook suites.
@@ -2354,7 +2354,7 @@ After Task 12 and Task 13 are complete, update chat model state plumbing to carr
    - Purpose: enforce resilient behavior on inconsistent backend payload data.
    - Docs: https://react.dev/learn/choosing-the-state-structure, Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if mismatched default causes unstable UI state.
-9. [ ] Update `design.md` with chat model capability state flow and Mermaid diagrams after all architecture-flow subtasks are complete.
+9. [x] Update `design.md` with chat model capability state flow and Mermaid diagrams after all architecture-flow subtasks are complete.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `design.md`.
    - Document name: `design.md`.
@@ -2365,7 +2365,7 @@ After Task 12 and Task 13 are complete, update chat model state plumbing to carr
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` diagrams match the implemented state transition behavior in this task.
 
-10. [ ] Add deterministic structured log line `[DEV-0000037][T16] event=chat_model_capability_defaults_applied result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
+10. [x] Add deterministic structured log line `[DEV-0000037][T16] event=chat_model_capability_defaults_applied result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: client implementation files already listed in this task's subtasks and matching `client/src/test/**` suites.
    - Do: emit this exact log prefix and event name from the implementation path, then assert in tests that `result=success` is emitted on happy path and `result=error` only appears on intentional failure-path coverage.
@@ -2373,20 +2373,38 @@ After Task 12 and Task 13 are complete, update chat model state plumbing to carr
    - Manual Playwright-MCP check linkage: verify this exact log line during this task's Manual Playwright-MCP check when present, or during Task 22 final regression Manual Playwright-MCP check for backend/docs-only tasks.
    - Docs: https://nodejs.org/api/console.html, Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: deterministic log assertions are present and this task's expected trigger produces the exact `[DEV-0000037][T16] event=chat_model_capability_defaults_applied result=success` line.
-11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+11. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-1. [ ] `npm run build --workspace client`
-2. [ ] `npm run test --workspace client`
-3. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
-4. [ ] `npm run compose:build`
-5. [ ] `npm run compose:up`
-6. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: execute model-switch default/reset scenarios, capture screenshots `task-16-model-default-state.png` and `task-16-model-reset-state.png`, and store them in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped by `docker-compose.local.yml`); verify the agent reviews both screenshots against this task's UI expectations (default applied on model selection and deterministic reset after capability changes), debug console includes `[DEV-0000037][T16] event=chat_model_capability_defaults_applied result=success`, includes no `[DEV-0000037][T16] ... result=error`, and has no unrelated console errors.
-7. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace client`
+2. [x] `npm run test --workspace client`
+3. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+4. [x] `npm run compose:build`
+5. [x] `npm run compose:up`
+6. [x] Manual Playwright-MCP check at `http://host.docker.internal:5001`: execute model-switch default/reset scenarios, capture screenshots `task-16-model-default-state.png` and `task-16-model-reset-state.png`, and store them in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped by `docker-compose.local.yml`); verify the agent reviews both screenshots against this task's UI expectations (default applied on model selection and deterministic reset after capability changes), debug console includes `[DEV-0000037][T16] event=chat_model_capability_defaults_applied result=success`, includes no `[DEV-0000037][T16] ... result=error`, and has no unrelated console errors.
+7. [x] `npm run compose:down`
 
 #### Implementation Notes
 
-- None yet.
+- 2026-02-28: Subtask 1 complete. Updated `useChatModel` to normalize per-model `supportedReasoningEfforts`/`defaultReasoningEffort` and expose `selectedModelCapabilities` for the active codex model.
+- 2026-02-28: Subtask 2 complete. Wired selected-model capabilities through existing `useChatModel` + `useChatStream` flow so stream payload selection reuses shared default plumbing instead of introducing a separate default path.
+- 2026-02-28: Subtask 3 complete. Added deterministic ChatPage reset logic that enforces selected-model capability validity and resets invalid reasoning selections to model default.
+- 2026-02-28: Subtask 4 complete. Removed hook-path reliance on static reasoning-effort enum typing by switching client hook reasoning state/payload typing to capability-driven strings.
+- 2026-02-28: Subtask 5 complete. Added model-switch reset coverage in `chatPage.codexDefaults.test.tsx` to verify invalid prior effort is reset to selected-model default.
+- 2026-02-28: Subtask 6 complete. Added capability-refresh reset coverage in `chatPage.codexDefaults.test.tsx` by changing codex model capability payload across provider reloads.
+- 2026-02-28: Subtask 7 complete. Added malformed empty-capability test (`supportedReasoningEfforts: []` with missing defaults) to ensure deterministic error logging and stable UI behavior.
+- 2026-02-28: Subtask 8 complete. Added mismatched-default fallback test where `defaultReasoningEffort` is not in supported list and verified deterministic fallback to first supported value.
+- 2026-02-28: Subtask 9 complete. Updated `design.md` with Task 16 capability-state architecture notes and Mermaid diagrams for model-switch/capability-refresh default-reset flow.
+- 2026-02-28: Subtask 10 complete. Added exact T16 success/error log emissions in ChatPage capability-application flow and assertions in `chatPage.codexDefaults.test.tsx` / `chatPage.reasoning.test.tsx`.
+- 2026-02-28: Subtask 11 complete. Ran `npm run lint --workspaces` (passes with existing baseline server import-order warnings) and `npm run format:check --workspaces`; formatted client workspace via `npm run format --workspace client` before final format check passed.
+- 2026-02-28: Testing 1 complete. `npm run build --workspace client` succeeded (`vite build`).
+- 2026-02-28: Testing 2 complete. `npm run test --workspace client` passed (`92` suites, `377` tests).
+- 2026-02-28: Testing 3 complete. `npm run e2e` passed (`42` passed) and completed compose e2e build/up/test/down lifecycle.
+- 2026-02-28: Testing 4 complete. `npm run compose:build` succeeded for local stack images (`codeinfo2-server`, `codeinfo2-client`).
+- 2026-02-28: Testing 5 complete. `npm run compose:up` succeeded and local stack services reached healthy startup.
+- 2026-02-28: Testing 6 complete. Manual Playwright-MCP check at `http://host.docker.internal:5001/chat` verified default and reset scenarios; screenshots saved to `playwright-output-local/task-16-model-default-state.png` and `playwright-output-local/task-16-model-reset-state.png`, and console verification returned `hasT16Success: true`, `hasT16Error: false`, `errorCount: 0`.
+- 2026-02-28: Testing 7 complete. `npm run compose:down` stopped and removed local stack containers/network cleanly.
+- 2026-02-28: Task 16 complete. Marked task status `__done__` after all subtasks and listed testing steps passed.
 
 ### 17. Frontend: Render dynamic reasoning-effort options and enforce payload validity per selected model
 

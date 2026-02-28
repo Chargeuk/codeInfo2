@@ -2538,7 +2538,7 @@ After Task 16 is complete, switch chat flags UI and chat payload building to run
 ### 18. Server: Add cross-surface regression tests for precedence and normalization rules
 
 - Task Status: **__done__**
-- Git Commits: `None yet`
+- Git Commits: `bbe77a3`
 
 #### Overview
 

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import test, { afterEach } from 'node:test';
+import test, { afterEach, mock } from 'node:test';
 import pino from 'pino';
 import { refreshCodexDetection } from '../../providers/codexDetection.js';
 import { ensureCodexAuthFromHost } from '../../utils/codexAuthCopy.js';
@@ -68,4 +68,59 @@ test('shared-home refresh detection transitions to available after host auth cop
   assert.equal(after.available, true);
   assert.equal(after.authPresent, true);
   assert.equal(after.configPresent, true);
+});
+
+test('host auth copy does not execute destructive delete operations', () => {
+  const containerHome = makeTempDir('codex-container-');
+  const hostHome = makeTempDir('codex-host-');
+  fs.writeFileSync(path.join(hostHome, 'auth.json'), '{"token":"host"}');
+  const unlinkCalls: string[] = [];
+  const rmCalls: string[] = [];
+  mock.method(fs, 'unlinkSync', (targetPath: fs.PathLike) => {
+    unlinkCalls.push(String(targetPath));
+  });
+  mock.method(fs, 'rmSync', (targetPath: fs.PathLike) => {
+    rmCalls.push(String(targetPath));
+  });
+
+  try {
+    ensureCodexAuthFromHost({ containerHome, hostHome, logger });
+    assert.equal(unlinkCalls.length, 0);
+    assert.equal(rmCalls.length, 0);
+  } finally {
+    mock.restoreAll();
+  }
+});
+
+test('host auth copy does not execute rename/move operations', () => {
+  const containerHome = makeTempDir('codex-container-');
+  const hostHome = makeTempDir('codex-host-');
+  fs.writeFileSync(path.join(hostHome, 'auth.json'), '{"token":"host"}');
+  const renameCalls: Array<{ from: string; to: string }> = [];
+  mock.method(
+    fs,
+    'renameSync',
+    (oldPath: fs.PathLike, newPath: fs.PathLike) => {
+      renameCalls.push({ from: String(oldPath), to: String(newPath) });
+    },
+  );
+
+  try {
+    ensureCodexAuthFromHost({ containerHome, hostHome, logger });
+    assert.equal(renameCalls.length, 0);
+  } finally {
+    mock.restoreAll();
+  }
+});
+
+test('container auth file remains present across repeated host-copy runs', () => {
+  const containerHome = makeTempDir('codex-container-');
+  const hostHome = makeTempDir('codex-host-');
+  const hostAuth = path.join(hostHome, 'auth.json');
+  fs.writeFileSync(hostAuth, '{"token":"host"}');
+
+  ensureCodexAuthFromHost({ containerHome, hostHome, logger });
+  ensureCodexAuthFromHost({ containerHome, hostHome, logger });
+
+  assert.equal(fs.existsSync(path.join(containerHome, 'auth.json')), true);
 });

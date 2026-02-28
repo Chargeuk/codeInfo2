@@ -1167,6 +1167,38 @@ sequenceDiagram
   API-->>UI: 200 {verificationUrl, userCode, expiresInSec}
 ```
 
+### Auth compatibility and file-safety guards (Task 9)
+
+- Agent auth compatibility keeps seed/propagation behavior non-destructive for `codex_agents/*`.
+- Allowed operations in this flow are read/copy/create-only (`stat`, `mkdir`, `copyFile`).
+- Disallowed operations under agent homes are delete/move primitives (`unlink`, `rm`, `rename`).
+- Propagation emits deterministic Task 9 guard logs:
+  - success: `[DEV-0000037][T09] event=auth_compatibility_guard_passed result=success`
+  - error: `[DEV-0000037][T09] event=auth_compatibility_guard_passed result=error`
+
+```mermaid
+flowchart TD
+  Start[Propagate auth from primary] --> Filter[Select all agents or one target]
+  Filter --> CheckAuth{Primary auth.json exists?}
+  CheckAuth -->|No| Skip[No copy performed]
+  CheckAuth -->|Yes| ForEach[For each selected agent]
+  ForEach --> Exists{Agent auth.json exists and overwrite=false?}
+  Exists -->|Yes| Keep[Keep existing file]
+  Exists -->|No| Copy[mkdir agent home + copyFile auth.json]
+  Keep --> Next[Next agent]
+  Copy --> Next
+  Next --> Done[Propagation completes]
+  Done --> Log[T09 success/error guard log]
+```
+
+```mermaid
+flowchart LR
+  A[Agent auth compatibility path] --> B[Allowed: stat/mkdir/copyFile]
+  A --> C[Forbidden: unlink/rm/rename]
+  B --> D[auth.json preserved in codex_agents/*]
+  C --> E[Test failure]
+```
+
 ### Docker/Compose agent wiring
 
 - In Compose, agent folders are bind-mounted into the server container at `/app/codex_agents` (rw) so auth seeding can write `auth.json` when needed.

@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import fsPromises from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
-import test, { afterEach } from 'node:test';
+import test, { afterEach, mock } from 'node:test';
 
 import pino from 'pino';
 
@@ -138,4 +139,166 @@ test('propagation targets only the selected agent', async () => {
     fs.readFileSync(path.join(agentHomeB, 'auth.json'), 'utf8'),
     '{"token":"b"}',
   );
+});
+
+test('does not use destructive delete operations under agent directories', async () => {
+  const primaryCodexHome = makeTempDir('codex-primary-');
+  const agentHome = makeTempDir('codex-agent-');
+  fs.writeFileSync(path.join(primaryCodexHome, 'auth.json'), '{"token":"p"}');
+  const rmCalls: string[] = [];
+  const unlinkCalls: string[] = [];
+  mock.method(fsPromises, 'rm', async (targetPath: fs.PathLike) => {
+    rmCalls.push(String(targetPath));
+  });
+  mock.method(fsPromises, 'unlink', async (targetPath: fs.PathLike) => {
+    unlinkCalls.push(String(targetPath));
+  });
+
+  try {
+    await ensureAgentAuthSeeded({
+      agentHome,
+      primaryCodexHome,
+      logger,
+    });
+    await propagateAgentAuthFromPrimary({
+      agents: [{ name: 'coding_agent', home: agentHome }],
+      primaryCodexHome,
+      logger,
+    });
+    assert.equal(rmCalls.length, 0);
+    assert.equal(unlinkCalls.length, 0);
+  } finally {
+    mock.restoreAll();
+  }
+});
+
+test('does not use rename/move operations under agent directories', async () => {
+  const primaryCodexHome = makeTempDir('codex-primary-');
+  const agentHome = makeTempDir('codex-agent-');
+  fs.writeFileSync(path.join(primaryCodexHome, 'auth.json'), '{"token":"p"}');
+  const renameCalls: Array<{ from: string; to: string }> = [];
+  mock.method(
+    fsPromises,
+    'rename',
+    async (oldPath: fs.PathLike, newPath: fs.PathLike) => {
+      renameCalls.push({ from: String(oldPath), to: String(newPath) });
+    },
+  );
+
+  try {
+    await ensureAgentAuthSeeded({
+      agentHome,
+      primaryCodexHome,
+      logger,
+    });
+    assert.equal(renameCalls.length, 0);
+  } finally {
+    mock.restoreAll();
+  }
+});
+
+test('propagation is idempotent across repeated runs', async () => {
+  const primaryCodexHome = makeTempDir('codex-primary-');
+  const agentHome = makeTempDir('codex-agent-');
+  fs.writeFileSync(path.join(primaryCodexHome, 'auth.json'), '{"token":"p1"}');
+
+  await propagateAgentAuthFromPrimary({
+    agents: [{ name: 'coding_agent', home: agentHome }],
+    primaryCodexHome,
+    logger,
+  });
+  const authPath = path.join(agentHome, 'auth.json');
+  const afterFirst = fs.readFileSync(authPath, 'utf8');
+
+  fs.writeFileSync(path.join(primaryCodexHome, 'auth.json'), '{"token":"p2"}');
+  await propagateAgentAuthFromPrimary({
+    agents: [{ name: 'coding_agent', home: agentHome }],
+    primaryCodexHome,
+    logger,
+  });
+  const afterSecond = fs.readFileSync(authPath, 'utf8');
+
+  assert.equal(afterFirst, '{"token":"p1"}');
+  assert.equal(afterSecond, '{"token":"p1"}');
+});
+
+test('agent auth files remain present after propagation flow', async () => {
+  const primaryCodexHome = makeTempDir('codex-primary-');
+  const agentHomeA = makeTempDir('codex-agent-a-');
+  const agentHomeB = makeTempDir('codex-agent-b-');
+  fs.writeFileSync(path.join(primaryCodexHome, 'auth.json'), '{"token":"p"}');
+
+  await propagateAgentAuthFromPrimary({
+    agents: [
+      { name: 'agent-a', home: agentHomeA },
+      { name: 'agent-b', home: agentHomeB },
+    ],
+    primaryCodexHome,
+    logger,
+  });
+
+  assert.equal(fs.existsSync(path.join(agentHomeA, 'auth.json')), true);
+  assert.equal(fs.existsSync(path.join(agentHomeB, 'auth.json')), true);
+});
+
+test('emits deterministic T09 success log when auth compatibility checks pass', async () => {
+  const primaryCodexHome = makeTempDir('codex-primary-');
+  const agentHome = makeTempDir('codex-agent-');
+  fs.writeFileSync(path.join(primaryCodexHome, 'auth.json'), '{"token":"p"}');
+  const infoLogs: string[] = [];
+  mock.method(console, 'info', (...args: unknown[]) => {
+    infoLogs.push(args.map(String).join(' '));
+  });
+
+  try {
+    await propagateAgentAuthFromPrimary({
+      agents: [{ name: 'coding_agent', home: agentHome }],
+      primaryCodexHome,
+      logger,
+    });
+    assert(
+      infoLogs.some((line) =>
+        line.includes(
+          '[DEV-0000037][T09] event=auth_compatibility_guard_passed result=success',
+        ),
+      ),
+    );
+  } finally {
+    mock.restoreAll();
+  }
+});
+
+test('emits deterministic T09 error log on intentional auth-copy failure', async () => {
+  const primaryCodexHome = makeTempDir('codex-primary-');
+  const agentHome = makeTempDir('codex-agent-');
+  fs.writeFileSync(path.join(primaryCodexHome, 'auth.json'), '{"token":"p"}');
+  const errorLogs: string[] = [];
+  mock.method(console, 'error', (...args: unknown[]) => {
+    errorLogs.push(args.map(String).join(' '));
+  });
+  mock.method(fsPromises, 'copyFile', async () => {
+    const error = new Error('simulated copy failure') as Error & {
+      code?: string;
+    };
+    error.code = 'EACCES';
+    throw error;
+  });
+
+  try {
+    await propagateAgentAuthFromPrimary({
+      agents: [{ name: 'coding_agent', home: agentHome }],
+      primaryCodexHome,
+      logger,
+      overwrite: true,
+    });
+    assert(
+      errorLogs.some((line) =>
+        line.includes(
+          '[DEV-0000037][T09] event=auth_compatibility_guard_passed result=error',
+        ),
+      ),
+    );
+  } finally {
+    mock.restoreAll();
+  }
 });

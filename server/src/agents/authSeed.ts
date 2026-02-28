@@ -20,6 +20,11 @@ type PropagateParams = {
   overwrite?: boolean;
 };
 
+const T09_SUCCESS_LOG =
+  '[DEV-0000037][T09] event=auth_compatibility_guard_passed result=success';
+const T09_ERROR_LOG =
+  '[DEV-0000037][T09] event=auth_compatibility_guard_passed result=error';
+
 const fileExists = async (filePath: string) => {
   try {
     const stat = await fs.stat(filePath);
@@ -79,6 +84,12 @@ export async function ensureAgentAuthSeeded({
       return { seeded: true };
     });
   } catch (error) {
+    console.error(T09_ERROR_LOG, {
+      operation: 'ensureAgentAuthSeeded',
+      agentHome,
+      primaryCodexHome,
+      code: (error as { code?: string })?.code,
+    });
     const warning = `Failed to seed auth.json for agent home "${agentHome}": ${(error as Error).message}`;
     logger.warn({ agentHome, primaryCodexHome, err: error }, warning);
     return { seeded: false, warning };
@@ -107,6 +118,12 @@ export async function copyAgentAuthFromPrimary({
       return { copied: true };
     });
   } catch (error) {
+    console.error(T09_ERROR_LOG, {
+      operation: 'copyAgentAuthFromPrimary',
+      agentHome,
+      primaryCodexHome,
+      code: (error as { code?: string })?.code,
+    });
     const warning = `Failed to copy auth.json for agent home "${agentHome}": ${(error as Error).message}`;
     logger.warn({ agentHome, primaryCodexHome, err: error }, warning);
     return { copied: false, warning };
@@ -124,12 +141,31 @@ export async function propagateAgentAuthFromPrimary({
     ? agents.filter((agent) => agent.name === targetAgentName)
     : agents;
   const agentCount = filtered.length;
+  const warnings: string[] = [];
 
   for (const agent of filtered) {
-    await copyAgentAuthFromPrimary({
+    const result = await copyAgentAuthFromPrimary({
       agentHome: agent.home,
       primaryCodexHome,
       logger,
+      overwrite,
+    });
+    if (result.warning) warnings.push(result.warning);
+  }
+
+  if (warnings.length > 0) {
+    console.error(T09_ERROR_LOG, {
+      operation: 'propagateAgentAuthFromPrimary',
+      agentCount,
+      warningCount: warnings.length,
+      targetAgentName,
+      overwrite,
+    });
+  } else {
+    console.info(T09_SUCCESS_LOG, {
+      operation: 'propagateAgentAuthFromPrimary',
+      agentCount,
+      targetAgentName,
       overwrite,
     });
   }

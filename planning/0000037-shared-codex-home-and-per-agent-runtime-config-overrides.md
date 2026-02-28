@@ -1385,7 +1385,7 @@ Move Codex availability and startup checks to shared-home semantics for chat and
 
 ### 9. Server: Non-destructive auth compatibility and agent-file safety guards
 
-- Task Status: **__todo__**
+- Task Status: **__done__**
 - Git Commits: `None yet`
 
 #### Overview
@@ -1401,13 +1401,13 @@ Retain existing auth seeding/propagation compatibility behavior without deleting
 
 #### Subtasks
 
-1. [ ] Keep compatibility auth seeding/propagation behavior non-destructive for `codex_agents/*/auth.json`.
+1. [x] Keep compatibility auth seeding/propagation behavior non-destructive for `codex_agents/*/auth.json`.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `server/src/agents/auth*`, `server/src/providers/codexDetection.ts`.
    - Do: preserve copy/seed behavior without deletions or renames.
    - Docs: https://nodejs.org/api/fs.html, Context7 `/openai/codex`.
    - Done when: runtime still seeds/propagates as before and no destructive ops exist.
-2. [ ] Add file-safety guard test for delete operations under `codex_agents/*`.
+2. [x] Add file-safety guard test for delete operations under `codex_agents/*`.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `server/src/test/unit/agents-authSeed.test.ts`, `server/src/test/integration/codexAuthCopy.integration.test.ts`.
@@ -1415,7 +1415,7 @@ Retain existing auth seeding/propagation compatibility behavior without deleting
    - Purpose: enforce non-destructive migration guarantee.
    - Docs: https://nodejs.org/api/fs.html.
    - Done when: test fails on any delete attempt in `codex_agents/*`.
-3. [ ] Add file-safety guard test for rename/move operations under `codex_agents/*`.
+3. [x] Add file-safety guard test for rename/move operations under `codex_agents/*`.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `server/src/test/unit/agents-authSeed.test.ts`, `server/src/test/integration/codexAuthCopy.integration.test.ts`.
@@ -1423,7 +1423,7 @@ Retain existing auth seeding/propagation compatibility behavior without deleting
    - Purpose: preserve agent auth/config file locations.
    - Docs: https://nodejs.org/api/fs.html#fsrenameoldpath-newpath-callback.
    - Done when: test fails on any rename/move attempt in `codex_agents/*`.
-4. [ ] Add auth propagation idempotency test.
+4. [x] Add auth propagation idempotency test.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/unit/agents-authSeed.test.ts`, `server/src/test/integration/codexAuthCopy.integration.test.ts`.
@@ -1431,7 +1431,7 @@ Retain existing auth seeding/propagation compatibility behavior without deleting
    - Purpose: guarantee deterministic repeatability.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if repeated propagation changes result.
-5. [ ] Add post-run agent auth file-presence test.
+5. [x] Add post-run agent auth file-presence test.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/unit/agents-authSeed.test.ts`, `server/src/test/integration/codexAuthCopy.integration.test.ts`.
@@ -1439,7 +1439,7 @@ Retain existing auth seeding/propagation compatibility behavior without deleting
    - Purpose: protect runtime continuity for existing agent auth artifacts.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if any expected auth file is missing.
-6. [ ] Update `design.md` with auth-compatibility propagation flow and Mermaid diagrams after all architecture-flow subtasks are complete.
+6. [x] Update `design.md` with auth-compatibility propagation flow and Mermaid diagrams after all architecture-flow subtasks are complete.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `design.md`.
    - Document name: `design.md`.
@@ -1450,7 +1450,7 @@ Retain existing auth seeding/propagation compatibility behavior without deleting
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` documents final auth compatibility flow and explicit non-destructive guarantees from this task.
 
-7. [ ] Add deterministic structured log line `[DEV-0000037][T09] event=auth_compatibility_guard_passed result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
+7. [x] Add deterministic structured log line `[DEV-0000037][T09] event=auth_compatibility_guard_passed result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: server implementation files already listed in this task's subtasks and matching `server/src/test/**` suites.
    - Do: emit this exact log prefix and event name from the implementation path, then assert in tests that `result=success` is emitted on happy path and `result=error` only appears on intentional failure-path coverage.
@@ -1458,17 +1458,29 @@ Retain existing auth seeding/propagation compatibility behavior without deleting
    - Manual Playwright-MCP check linkage: verify this exact log line during this task's Manual Playwright-MCP check when present, or during Task 22 final regression Manual Playwright-MCP check for backend/docs-only tasks.
    - Docs: https://nodejs.org/api/console.html, Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: deterministic log assertions are present and this task's expected trigger produces the exact `[DEV-0000037][T09] event=auth_compatibility_guard_passed result=success` line.
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+8. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test --workspace server`
-3. [ ] `npm run test --workspace server -- agents-authSeed`
-4. [ ] Run file-safety guard tests directly and verify pass.
+1. [x] `npm run build --workspace server`
+2. [x] `npm run test --workspace server`
+3. [x] `npm run test --workspace server -- agents-authSeed`
+4. [x] Run file-safety guard tests directly and verify pass.
 
 #### Implementation Notes
 
-- None yet.
+- 2026-02-28: Set Task 9 status to `__in_progress__` before implementation.
+- 2026-02-28: Subtask 1 complete. Preserved non-destructive auth compatibility behavior by keeping seed/propagation logic on copy/create-only operations and avoiding delete/move semantics.
+- 2026-02-28: Subtask 2 complete. Added delete-operation safety guards in unit/integration coverage to assert auth flows never call unlink/rm paths under agent-compatible auth handling.
+- 2026-02-28: Subtask 3 complete. Added rename/move safety coverage asserting no rename-based file moves are used in auth compatibility flows.
+- 2026-02-28: Subtask 4 complete. Added propagation idempotency coverage proving repeated propagation does not drift auth state on second run.
+- 2026-02-28: Subtask 5 complete. Added post-run auth file-presence coverage confirming expected auth artifacts remain present after compatibility flows.
+- 2026-02-28: Subtask 6 complete. Updated `design.md` with Task 9 auth compatibility and file-safety flow narrative plus Mermaid diagrams.
+- 2026-02-28: Subtask 7 complete. Added deterministic T09 success/error logs in auth compatibility propagation path and added success/error assertions in tests.
+- 2026-02-28: Subtask 8 complete. Ran `npm run lint --workspaces` (passed with existing import-order warnings only, no errors) and `npm run format:check --workspaces` (all workspaces matched Prettier).
+- 2026-02-28: Testing 1 complete. `npm run build --workspace server` succeeded (`tsc -b`).
+- 2026-02-28: Testing 2 complete. `npm run test --workspace server` passed with unit summary `tests 792, pass 792` and cucumber summary `67 scenarios, 402 steps` all passed.
+- 2026-02-28: Testing 3 complete. Ran `npm run test --workspace server -- agents-authSeed`; command completed cleanly with unit summary `tests 798, pass 798` and cucumber summary `67 scenarios, 402 steps` all passed.
+- 2026-02-28: Testing 4 complete. Ran direct file-safety suite (`node --test ... agents-authSeed.test.ts codexAuthCopy.integration.test.ts`) and verified all targeted guards passed (`tests 16, pass 16`).
 
 ### 10. Server Message Contract: Simplify `POST /codex/device-auth` to single request shape
 

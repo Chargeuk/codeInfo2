@@ -551,6 +551,7 @@ Create one server-side config resolution layer that reads shared base config, ch
 - `@openai/codex-sdk` config layering expectations: Context7 `/openai/codex` (used to map normalized keys into runtime config overrides).
 - Node.js filesystem/path APIs: https://nodejs.org/api/fs.html and https://nodejs.org/api/path.html (used for loader reads, path resolution, and chat-config bootstrap copy behavior).
 - Jest testing framework references: Context7 `/jestjs/jest` and https://jestjs.io/docs/getting-started (used for this task's resolver and normalization test updates).
+- Mermaid specification references: Context7 `/mermaid-js/mermaid` and https://mermaid.js.org/intro/ (used for required architecture-flow diagram updates in `design.md` for this task).
 
 #### Subtasks
 
@@ -621,6 +622,11 @@ Create one server-side config resolution layer that reads shared base config, ch
    - Do: document any new resolver/normalizer modules and any new test files introduced by this task only.
    - Docs: https://git-scm.com/docs/git-ls-files.
    - Done when: file-map entries for task-created/removed files are present and accurate.
+12. [ ] Update `design.md` with the runtime config loader/bootstrap/normalization architecture and Mermaid diagrams after all architecture-flow subtasks are complete.
+   - Files: `design.md`.
+   - Do: add/update narrative and Mermaid flowchart/sequence diagrams covering shared base/chat/agent config loading, copy-once chat bootstrap, and canonical normalization behavior.
+   - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
+   - Done when: `design.md` diagrams and descriptions match final implementation in this task.
 
 #### Testing
 
@@ -648,6 +654,7 @@ Implement deterministic merge and validation behavior for runtime config resolut
 - `@openai/codex-sdk` config vocabulary: Context7 `/openai/codex` (used to distinguish supported keys from unknown keys).
 - Node.js error model: https://nodejs.org/api/errors.html (used to map missing/unreadable/invalid file failures deterministically).
 - Jest test patterns: Context7 `/jestjs/jest`, https://jestjs.io/docs/mock-functions (used for validator warning/error path assertions).
+- Mermaid specification references: Context7 `/mermaid-js/mermaid` and https://mermaid.js.org/intro/ (used for required precedence/validation flow diagram updates in `design.md` for this task).
 
 #### Subtasks
 
@@ -753,6 +760,11 @@ Implement deterministic merge and validation behavior for runtime config resolut
    - Do: record any new validator/resolver modules and any newly added test files created by this task.
    - Docs: https://git-scm.com/docs/git-ls-files.
    - Done when: `projectStructure.md` accurately lists this task's added/removed files.
+17. [ ] Update `design.md` with precedence/validation architecture details and Mermaid diagrams after all architecture-flow subtasks are complete.
+   - Files: `design.md`.
+   - Do: add/update diagrams and notes for `effectiveProjects` precedence, unknown-key warn-and-ignore path, invalid-type hard-fail path, and deterministic failure handling.
+   - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
+   - Done when: `design.md` includes accurate precedence and validation diagrams matching this task's final behavior.
 
 #### Testing
 
@@ -781,6 +793,7 @@ Replace existing model-only config parsing (`readAgentModelId`) so all execution
 - `@openai/codex-sdk` runtime config behavior: Context7 `/openai/codex` (used to ensure resolver output matches runtime option expectations).
 - ripgrep usage guide: https://github.com/BurntSushi/ripgrep/blob/master/GUIDE.md (used to verify old parser call-site removal efficiently).
 - Jest testing framework references: Context7 `/jestjs/jest` and https://jestjs.io/docs/getting-started (used for parser-removal regression tests in this task).
+- Mermaid specification references: Context7 `/mermaid-js/mermaid` and https://mermaid.js.org/intro/ (used for required parser-to-resolver flow updates in `design.md` for this task).
 
 #### Subtasks
 
@@ -813,6 +826,11 @@ Replace existing model-only config parsing (`readAgentModelId`) so all execution
    - Purpose: guarantee flow path remains aligned with resolver migration.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if flow path reverts to model-only parsing.
+6. [ ] Update `design.md` with parser-removal architecture changes and Mermaid diagrams after all architecture-flow subtasks are complete.
+   - Files: `design.md`.
+   - Do: document and diagram the shared resolver path replacing `readAgentModelId` in agent and flow execution entrypoints.
+   - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
+   - Done when: `design.md` clearly shows no model-only parsing path remains for runtime behavior decisions.
 
 #### Testing
 
@@ -839,6 +857,7 @@ Apply runtime config overrides to chat and primary REST agent execution surfaces
 - Express routing reference: https://expressjs.com/en/guide/routing.html (used for `/agents/:agentName/run` and `/agents/:agentName/commands/run` wiring).
 - TypeScript language docs: https://www.typescriptlang.org/docs/ (used to preserve call-signature compatibility while extending option plumbing).
 - Jest testing framework references: Context7 `/jestjs/jest` and https://jestjs.io/docs/getting-started (used for chat/run/commands integration test updates in this task).
+- Mermaid specification references: Context7 `/mermaid-js/mermaid` and https://mermaid.js.org/intro/ (used for required chat/run/commands flow diagram updates in `design.md` for this task).
 
 #### Subtasks
 
@@ -888,6 +907,11 @@ Apply runtime config overrides to chat and primary REST agent execution surfaces
    - Purpose: prevent run/command behavior drift.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/getting-started.
    - Done when: test fails if commands path diverges from run path.
+9. [ ] Update `design.md` with chat/run/commands runtime flow changes and Mermaid diagrams after all architecture-flow subtasks are complete.
+   - Files: `design.md`.
+   - Do: document and diagram how chat uses `./codex/chat/config.toml`, how run/commands use agent config plus projects merge, and where `useConfigDefaults: true` is applied.
+   - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
+   - Done when: `design.md` has accurate flow diagrams for chat, run, and command execution.
 
 #### Testing
 
@@ -913,6 +937,7 @@ Apply the same runtime config resolution to flow-driven and MCP execution surfac
 - `@openai/codex-sdk` runtime options: Context7 `/openai/codex` (used so flow/MCP execution uses the same option contract as REST).
 - JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (used for MCP parity expectations and deterministic request/response behavior).
 - Jest matcher docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/using-matchers (used for cross-surface parity assertions).
+- Mermaid specification references: Context7 `/mermaid-js/mermaid` and https://mermaid.js.org/intro/ (used for required flow/MCP architecture diagrams in `design.md` for this task).
 
 #### Subtasks
 
@@ -959,6 +984,11 @@ Apply the same runtime config resolution to flow-driven and MCP execution surfac
    - Purpose: guarantee MCP execution parity with REST/flow paths.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/using-matchers.
    - Done when: MCP assertions fail on parity mismatch.
+8. [ ] Update `design.md` with flow/MCP execution architecture and Mermaid diagrams after all architecture-flow subtasks are complete.
+   - Files: `design.md`.
+   - Do: document and diagram flow-step and MCP execution paths consuming the shared runtime config resolver with parity to REST run.
+   - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
+   - Done when: `design.md` shows consistent run/flow/MCP behavior and config source ownership.
 
 #### Testing
 
@@ -984,6 +1014,7 @@ Move Codex availability and startup checks to shared-home semantics for chat and
 - Node.js process/filesystem docs: https://nodejs.org/api/child_process.html and https://nodejs.org/api/fs.html (used for detection/startup availability checks).
 - `@openai/codex-sdk` home/runtime behavior: Context7 `/openai/codex` (used to align shared-home availability semantics).
 - Jest testing framework references: Context7 `/jestjs/jest` and https://jestjs.io/docs/getting-started (used for shared-home availability test updates in this task).
+- Mermaid specification references: Context7 `/mermaid-js/mermaid` and https://mermaid.js.org/intro/ (used for required shared-home detection flow diagrams in `design.md` for this task).
 
 #### Subtasks
 
@@ -1018,6 +1049,11 @@ Move Codex availability and startup checks to shared-home semantics for chat and
    - Purpose: guarantee refresh path correctness after login/propagation changes.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/timer-mocks.
    - Done when: test fails if refresh leaves stale availability state.
+6. [ ] Update `design.md` with shared-home detection architecture and Mermaid diagrams after all architecture-flow subtasks are complete.
+   - Files: `design.md`.
+   - Do: add/update diagrams and narrative for startup detection, refresh path, and shared-home availability decision points.
+   - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
+   - Done when: `design.md` captures the final shared-home detection flow implemented by this task.
 
 #### Testing
 
@@ -1042,6 +1078,7 @@ Retain existing auth seeding/propagation compatibility behavior without deleting
 - Node.js filesystem docs: https://nodejs.org/api/fs.html (used to guarantee non-destructive auth propagation behavior).
 - `@openai/codex-sdk` shared-home behavior: Context7 `/openai/codex` (used to retain compatibility-mode auth handling while moving to shared home).
 - Jest assertion docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect (used for idempotency and file-presence verification tests).
+- Mermaid specification references: Context7 `/mermaid-js/mermaid` and https://mermaid.js.org/intro/ (used for required auth-propagation flow diagrams in `design.md` for this task).
 
 #### Subtasks
 
@@ -1078,6 +1115,11 @@ Retain existing auth seeding/propagation compatibility behavior without deleting
    - Purpose: protect runtime continuity for existing agent auth artifacts.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if any expected auth file is missing.
+6. [ ] Update `design.md` with auth-compatibility propagation flow and Mermaid diagrams after all architecture-flow subtasks are complete.
+   - Files: `design.md`.
+   - Do: add/update diagrams showing non-destructive auth seeding/propagation behavior and agent-file safety constraints.
+   - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
+   - Done when: `design.md` documents final auth compatibility flow and explicit non-destructive guarantees from this task.
 
 #### Testing
 
@@ -1105,6 +1147,7 @@ Implement the server-side device-auth message contract change first: request bod
 - RFC 7807 problem details: https://datatracker.ietf.org/doc/html/rfc7807 (used for deterministic structured error payload design).
 - TypeScript docs: https://www.typescriptlang.org/docs/ (used for shared discriminated API response typing).
 - Jest testing framework references: Context7 `/jestjs/jest` and https://jestjs.io/docs/getting-started (used for device-auth contract test updates in this task).
+- Mermaid specification references: Context7 `/mermaid-js/mermaid` and https://mermaid.js.org/intro/ (used for required device-auth contract flow diagrams in `design.md` for this task).
 
 #### Subtasks
 
@@ -1176,6 +1219,11 @@ Implement the server-side device-auth message contract change first: request bod
    - Purpose: cover request-size corner case explicitly.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/asynchronous.
    - Done when: test fails if payload-size failure behavior becomes nondeterministic.
+12. [ ] Update `design.md` with simplified device-auth contract flow and Mermaid diagrams after all architecture-flow subtasks are complete.
+   - Files: `design.md`.
+   - Do: document and diagram strict `{}` request validation and deterministic `200/400/503` response paths with legacy selector rejection.
+   - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
+   - Done when: `design.md` diagrams match final backend device-auth contract behavior.
 
 #### Testing
 
@@ -1202,6 +1250,7 @@ Add deterministic concurrent request behavior and preserve post-success auth pro
 - Node.js async context docs: https://nodejs.org/api/async_context.html (used for deterministic lock/serialization strategy references).
 - Node.js filesystem docs: https://nodejs.org/api/fs.html (used to keep propagation side-effects non-destructive).
 - Jest setup/teardown docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/setup-teardown (used for concurrent integration test structure).
+- Mermaid specification references: Context7 `/mermaid-js/mermaid` and https://mermaid.js.org/intro/ (used for required device-auth concurrency flow diagrams in `design.md` for this task).
 
 #### Subtasks
 
@@ -1241,6 +1290,11 @@ Add deterministic concurrent request behavior and preserve post-success auth pro
    - Do: document any new lock/helper module files and new concurrency test files introduced by this task.
    - Docs: https://git-scm.com/docs/git-ls-files.
    - Done when: project file map reflects the final set of files added/removed by this task.
+7. [ ] Update `design.md` with device-auth concurrency and side-effect flows plus Mermaid diagrams after all architecture-flow subtasks are complete.
+   - Files: `design.md`.
+   - Do: add/update diagrams for lock acquisition/release, auth success side effects, availability refresh, and propagation sequencing.
+   - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
+   - Done when: `design.md` diagrams and text describe the final concurrency and side-effect behavior implemented in this task.
 
 #### Testing
 
@@ -1267,6 +1321,7 @@ Implement backend model-capability payload contract for Codex models so frontend
 - OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (used to publish `/chat/models` capability payload contract).
 - TypeScript docs: https://www.typescriptlang.org/docs/ (used to extend shared DTO typing safely).
 - Jest docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/getting-started (used for completeness tests on every returned model entry).
+- Mermaid specification references: Context7 `/mermaid-js/mermaid` and https://mermaid.js.org/intro/ (used for required chat-model capability contract diagrams in `design.md` for this task).
 
 #### Subtasks
 
@@ -1311,6 +1366,11 @@ Implement backend model-capability payload contract for Codex models so frontend
    - Purpose: prevent cross-provider schema regressions.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/using-matchers.
    - Done when: test fails if non-codex payload shape is unintentionally modified.
+8. [ ] Update `design.md` with `/chat/models` capability contract details and Mermaid diagrams after all architecture-flow subtasks are complete.
+   - Files: `design.md`.
+   - Do: add/update diagrams and examples for per-model `supportedReasoningEfforts` and `defaultReasoningEffort` payload flow from server to client.
+   - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
+   - Done when: `design.md` reflects the final capability payload contract and data flow implemented in this task.
 
 #### Testing
 
@@ -1339,6 +1399,7 @@ Replace static reasoning/model sources with one shared runtime codex capability 
 - RFC 7807 and HTTP semantics: https://datatracker.ietf.org/doc/html/rfc7807 and https://httpwg.org/specs/rfc9110.html (used for deterministic invalid-request errors).
 - TypeScript docs: https://www.typescriptlang.org/docs/ (used for shared resolver output typing).
 - Jest testing framework references: Context7 `/jestjs/jest` and https://jestjs.io/docs/getting-started (used for capability resolver and validation test updates in this task).
+- Mermaid specification references: Context7 `/mermaid-js/mermaid` and https://mermaid.js.org/intro/ (used for required shared capability-resolver architecture diagrams in `design.md` for this task).
 
 #### Subtasks
 
@@ -1402,6 +1463,11 @@ Replace static reasoning/model sources with one shared runtime codex capability 
    - Do: document any new shared capability resolver modules and any new supporting test files created by this task.
    - Docs: https://git-scm.com/docs/git-ls-files.
    - Done when: `projectStructure.md` includes all files added/removed by this task.
+11. [ ] Update `design.md` with shared capability-resolver architecture and Mermaid diagrams after all architecture-flow subtasks are complete.
+   - Files: `design.md`.
+   - Do: document and diagram one resolver feeding both `/chat/models` and `/chat` validation, including deterministic fallback paths.
+   - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
+   - Done when: `design.md` clearly shows shared capability resolution and validation flow with no duplicate logic paths.
 
 #### Testing
 
@@ -1430,6 +1496,7 @@ After Task 10 is complete, update frontend API request/response types for the si
 - TypeScript docs: https://www.typescriptlang.org/docs/ (used for strict client API contract typing).
 - OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (used to keep frontend client contract synchronized with server schema).
 - Jest testing framework references: Context7 `/jestjs/jest` and https://jestjs.io/docs/getting-started (used for frontend API contract test updates in this task).
+- Mermaid specification references: Context7 `/mermaid-js/mermaid` and https://mermaid.js.org/intro/ (used for required frontend contract-consumption flow diagrams in `design.md` for this task).
 
 #### Subtasks
 
@@ -1471,6 +1538,11 @@ After Task 10 is complete, update frontend API request/response types for the si
    - Purpose: guarantee deterministic unavailable-path handling in client API layer.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if `503` parsing is inconsistent.
+7. [ ] Update `design.md` with frontend device-auth API consumption flow and Mermaid diagrams after all architecture-flow subtasks are complete.
+   - Files: `design.md`.
+   - Do: document and diagram request/response handling for the simplified `{}` device-auth contract in client API code.
+   - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
+   - Done when: `design.md` reflects final frontend API consumption flow and error-state handling from this task.
 
 #### Testing
 
@@ -1497,6 +1569,7 @@ After Task 10 and Task 14 are complete, simplify UI usage to one shared device-a
 - React docs: https://react.dev/reference/react and https://react.dev/learn/sharing-state-between-components (used for shared dialog state flow across pages).
 - Testing Library docs: https://testing-library.com/docs/ (used for dialog and page integration tests).
 - Jest testing framework references: Context7 `/jestjs/jest` and https://jestjs.io/docs/getting-started (used for dialog and page integration test updates in this task).
+- Mermaid specification references: Context7 `/mermaid-js/mermaid` and https://mermaid.js.org/intro/ (used for required frontend auth-flow diagrams in `design.md` for this task).
 
 #### Subtasks
 
@@ -1557,6 +1630,11 @@ After Task 10 and Task 14 are complete, simplify UI usage to one shared device-a
    - Purpose: ensure robust recovery flow from auth errors.
    - Docs: https://testing-library.com/docs/, Context7 `/jestjs/jest`, https://jestjs.io/docs/asynchronous.
    - Done when: test fails if retry does not clear error and proceed deterministically.
+10. [ ] Update `design.md` with unified frontend device-auth UX flow and Mermaid diagrams after all architecture-flow subtasks are complete.
+   - Files: `design.md`.
+   - Do: add/update diagrams for one shared auth dialog flow across ChatPage and AgentsPage including error and retry states.
+   - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
+   - Done when: `design.md` shows the final single-path frontend auth UX flow implemented in this task.
 
 #### Testing
 
@@ -1583,6 +1661,7 @@ After Task 12 and Task 13 are complete, update chat model state plumbing to carr
 - React hooks and state docs: https://react.dev/reference/react and https://react.dev/learn/choosing-the-state-structure (used for deterministic default/reset state transitions).
 - TypeScript docs: https://www.typescriptlang.org/docs/ (used for capability-field typing in hook state).
 - Jest + Testing Library docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/getting-started and https://testing-library.com/docs/ (used for capability-driven reset behavior tests).
+- Mermaid specification references: Context7 `/mermaid-js/mermaid` and https://mermaid.js.org/intro/ (used for required model-capability state-flow diagrams in `design.md` for this task).
 
 #### Subtasks
 
@@ -1634,6 +1713,11 @@ After Task 12 and Task 13 are complete, update chat model state plumbing to carr
    - Purpose: enforce resilient behavior on inconsistent backend payload data.
    - Docs: https://react.dev/learn/choosing-the-state-structure, Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if mismatched default causes unstable UI state.
+9. [ ] Update `design.md` with chat model capability state flow and Mermaid diagrams after all architecture-flow subtasks are complete.
+   - Files: `design.md`.
+   - Do: document and diagram capability propagation into hook state and deterministic reset-to-default behavior on model/capability changes.
+   - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
+   - Done when: `design.md` diagrams match the implemented state transition behavior in this task.
 
 #### Testing
 
@@ -1662,6 +1746,7 @@ After Task 16 is complete, switch chat flags UI and chat payload building to run
 - React docs: https://react.dev/reference/react (used for payload validity and reset-on-change state flow).
 - `@openai/codex-sdk` + OpenAPI contract references: Context7 `/openai/codex` and https://spec.openapis.org/oas/v3.0.3.html (used to match UI payloads to server-validated capability constraints).
 - Jest testing framework references: Context7 `/jestjs/jest` and https://jestjs.io/docs/getting-started (used for reasoning-options rendering and payload validation tests in this task).
+- Mermaid specification references: Context7 `/mermaid-js/mermaid` and https://mermaid.js.org/intro/ (used for required reasoning-option UI/payload flow diagrams in `design.md` for this task).
 
 #### Subtasks
 
@@ -1708,6 +1793,11 @@ After Task 16 is complete, switch chat flags UI and chat payload building to run
    - Purpose: validate minimal-option-set corner case behavior.
    - Docs: https://testing-library.com/docs/queries/about/, https://react.dev/reference/react.
    - Done when: test fails if one-option models produce invalid UI or payload behavior.
+8. [ ] Update `design.md` with dynamic reasoning-option UI/payload flow and Mermaid diagrams after all architecture-flow subtasks are complete.
+   - Files: `design.md`.
+   - Do: add/update diagrams for capability-driven option rendering, invalid-selection correction, and request payload validation before send.
+   - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
+   - Done when: `design.md` captures the final end-to-end reasoning-option flow implemented by this task.
 
 #### Testing
 
@@ -1977,6 +2067,7 @@ Perform final shared-base config minimization as an isolated end-of-story step o
 - TOML v1.0.0 specification: https://toml.io/en/v1.0.0 (used to enforce valid final projects-only config shape).
 - `@openai/codex-sdk` config behavior: Context7 `/openai/codex` (used to keep minimized base config aligned with runtime override model).
 - Node.js filesystem copy semantics: https://nodejs.org/api/fs.html#fspromisescopyfilesrc-dest-mode (used for pre-minimization chat-config existence/guard behavior).
+- Mermaid specification references: Context7 `/mermaid-js/mermaid` and https://mermaid.js.org/intro/ (used for required final migration-flow diagram updates in `design.md` for this task).
 
 #### Subtasks
 
@@ -2010,6 +2101,11 @@ Perform final shared-base config minimization as an isolated end-of-story step o
    - Do: add final warning note immediately after execution.
    - Docs: Context7 `/openai/codex`, https://toml.io/en/v1.0.0.
    - Done when: note exists and references this expected post-step behavior.
+7. [ ] Update `design.md` with final minimized-base migration architecture and Mermaid diagrams after all architecture-flow subtasks are complete.
+   - Files: `design.md`.
+   - Do: document and diagram final shared `./codex/config.toml` role, `./codex/chat/config.toml` dependency, and post-minimization operational behavior notes.
+   - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
+   - Done when: `design.md` reflects the final post-migration architecture and expected operational state.
 
 #### Testing
 

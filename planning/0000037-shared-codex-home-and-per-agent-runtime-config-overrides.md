@@ -2854,7 +2854,7 @@ Update architecture and contract documentation after implementation tasks above 
 ### 21. Documentation: Update file map and compatibility examples in `projectStructure.md`
 
 - Task Status: **__done__**
-- Git Commits: `None yet`
+- Git Commits: `741594c`
 
 #### Overview
 
@@ -2909,6 +2909,7 @@ Update repository file-map and compatibility alias examples after implementation
 - 2026-02-28: Subtask 3 complete. Added deterministic T21 success/error log markers in `projectStructure.md` and new unit coverage in `server/src/test/unit/project-structure-docs.task21.test.ts` for success and intentional failure-path assertions.
 - 2026-02-28: Subtask 4 complete. Ran `npm run lint --workspaces` (passed with existing repo import-order warnings only) and `npm run format:check --workspaces` (passed in client/server/common).
 - 2026-02-28: Testing 1 complete. Manually verified Task 21 rollup paths against `git log --grep '^DEV-0000037 -' --name-status` output and executed `npm run test:unit --workspace server -- src/test/unit/project-structure-docs.task21.test.ts`; workspace summary passed (`tests 836, pass 836, fail 0`).
+- 2026-02-28: Recorded Task 21 implementation commit hash `741594c` in the task Git Commits field.
 
 ### 22. Final isolated migration step: Minimize `./codex/config.toml` (projects-only)
 

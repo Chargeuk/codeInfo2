@@ -1179,7 +1179,7 @@ Apply runtime config overrides to chat and primary REST agent execution surfaces
 
 ### 7. Server: Wire runtime config overrides into flow and MCP execution paths
 
-- Task Status: **__todo__**
+- Task Status: **__done__**
 - Git Commits: `None yet`
 
 #### Overview
@@ -1196,25 +1196,25 @@ Apply the same runtime config resolution to flow-driven and MCP execution surfac
 
 #### Subtasks
 
-1. [ ] Update flow-driven agent execution path to use the same agent runtime config resolution and precedence as REST.
+1. [x] Update flow-driven agent execution path to use the same agent runtime config resolution and precedence as REST.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `server/src/flows/service.ts` and flow step execution helpers.
    - Do: call the shared resolver used in Task 6 Subtask 2 and remove flow-specific `params.agentHome` override when starting Codex runs.
    - Docs: Context7 `/openai/codex`, https://www.jsonrpc.org/specification.
    - Done when: flow step run options match REST agent run options for same agent, including shared-home semantics.
-2. [ ] Update MCP agent execution surfaces to resolve the same runtime config behavior as REST and flow surfaces.
+2. [x] Update MCP agent execution surfaces to resolve the same runtime config behavior as REST and flow surfaces.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `server/src/mcpAgents/router.ts`, `server/src/mcpAgents/tools.ts`, `server/src/mcp2/router.ts`, `server/src/mcp2/tools/codebaseQuestion.ts`, `server/src/mcp2/tools/reingestRepository.ts`, `server/src/mcpCommon/dispatch.ts`.
    - Do: replace any direct model-only config read with shared resolver and ensure MCP-triggered runs use the same shared home path as REST/flow.
    - Docs: https://www.jsonrpc.org/specification.
    - Done when: MCP path has same config source, shared-home behavior, and validation path.
-3. [ ] Ensure all updated paths retain `useConfigDefaults: true` and do not duplicate model/policy flag logic or reintroduce per-agent home wiring.
+3. [x] Ensure all updated paths retain `useConfigDefaults: true` and do not duplicate model/policy flag logic or reintroduce per-agent home wiring.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: flow and MCP run option builders.
    - Do: verify options include `useConfigDefaults: true`, no duplicate model/policy flags, and no `codexHome: agent.home` / `codexHome: params.agentHome` assignments.
    - Docs: Context7 `/openai/codex`.
    - Done when: static search confirms `useConfigDefaults` set consistently and no per-agent home assignment remains in flow/MCP execution.
-4. [ ] Add integration test for REST `/agents/:agentName/run` baseline effective config output.
+4. [x] Add integration test for REST `/agents/:agentName/run` baseline effective config output.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/unit/agents-*.test.ts`, `server/src/test/integration/agents-*.test.ts`.
@@ -1222,7 +1222,7 @@ Apply the same runtime config resolution to flow-driven and MCP execution surfac
    - Purpose: establish reference behavior for cross-surface parity checks.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/using-matchers.
    - Done when: baseline assertions are deterministic for fixture input.
-5. [ ] Add integration test for `/agents/:agentName/commands/run` parity with REST run baseline.
+5. [x] Add integration test for `/agents/:agentName/commands/run` parity with REST run baseline.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/unit/agents-*.test.ts`, `server/src/test/integration/agents-*.test.ts`.
@@ -1230,7 +1230,7 @@ Apply the same runtime config resolution to flow-driven and MCP execution surfac
    - Purpose: prevent behavior drift between REST run surfaces.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/using-matchers.
    - Done when: commands-run assertions fail on any baseline divergence.
-6. [ ] Add integration test for flow-step parity with REST run baseline.
+6. [x] Add integration test for flow-step parity with REST run baseline.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/unit/flows*.test.ts`, `server/src/test/integration/flows.*.test.ts`.
@@ -1238,7 +1238,7 @@ Apply the same runtime config resolution to flow-driven and MCP execution surfac
    - Purpose: guarantee flow execution parity.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/using-matchers.
    - Done when: flow assertions fail on parity mismatch.
-7. [ ] Add integration test for MCP execution parity with REST run baseline.
+7. [x] Add integration test for MCP execution parity with REST run baseline.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/integration/mcp*`, `server/src/test/unit/mcp*`, `server/src/test/mcp2/**`.
@@ -1246,7 +1246,7 @@ Apply the same runtime config resolution to flow-driven and MCP execution surfac
    - Purpose: guarantee MCP execution parity with REST/flow paths.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/using-matchers.
    - Done when: MCP assertions fail on parity mismatch.
-8. [ ] Update `design.md` with flow/MCP execution architecture and Mermaid diagrams after all architecture-flow subtasks are complete.
+8. [x] Update `design.md` with flow/MCP execution architecture and Mermaid diagrams after all architecture-flow subtasks are complete.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `design.md`.
    - Document name: `design.md`.
@@ -1257,7 +1257,7 @@ Apply the same runtime config resolution to flow-driven and MCP execution surfac
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` shows consistent run/flow/MCP behavior and config source ownership.
 
-9. [ ] Add deterministic structured log line `[DEV-0000037][T07] event=runtime_overrides_applied_flow_mcp result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
+9. [x] Add deterministic structured log line `[DEV-0000037][T07] event=runtime_overrides_applied_flow_mcp result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: server implementation files already listed in this task's subtasks and matching `server/src/test/**` suites.
    - Do: emit this exact log prefix and event name from the implementation path, then assert in tests that `result=success` is emitted on happy path and `result=error` only appears on intentional failure-path coverage.
@@ -1265,16 +1265,28 @@ Apply the same runtime config resolution to flow-driven and MCP execution surfac
    - Manual Playwright-MCP check linkage: verify this exact log line during this task's Manual Playwright-MCP check when present, or during Task 22 final regression Manual Playwright-MCP check for backend/docs-only tasks.
    - Docs: https://nodejs.org/api/console.html, Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: deterministic log assertions are present and this task's expected trigger produces the exact `[DEV-0000037][T07] event=runtime_overrides_applied_flow_mcp result=success` line.
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+10. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test --workspace server`
-3. [ ] Verify targeted flow + MCP runtime-config tests pass.
+1. [x] `npm run build --workspace server`
+2. [x] `npm run test --workspace server`
+3. [x] Verify targeted flow + MCP runtime-config tests pass.
 
 #### Implementation Notes
 
-- None yet.
+- 2026-02-28: Subtask 1 complete. Flow execution now resolves agent runtime config via the shared resolver and passes `runtimeConfig` into `chat.run(...)`; flow-specific `codexHome: params.agentHome` wiring was removed and flow Codex availability checks now use shared `getCodexHome()` semantics.
+- 2026-02-28: Subtask 2 complete. MCP agent execution parity remains routed through `agents/service.ts`; MCP-triggered runs now emit Task 7 runtime-override logs from the shared resolver path used by REST runs.
+- 2026-02-28: Subtask 3 complete. Verified flow and MCP-adjacent run builders retain `useConfigDefaults: true` and no remaining `codexHome: agent.home` / `codexHome: params.agentHome` assignments in `server/src/flows`, `server/src/mcpAgents`, `server/src/mcp2`, or `server/src/mcpCommon`.
+- 2026-02-28: Subtask 4 complete. Added REST baseline effective runtime-config capture coverage in `agents-run-client-conversation-id.test.ts` and promoted it to baseline for cross-surface parity checks.
+- 2026-02-28: Subtask 5 complete. Added assertion coverage proving `/agents/:agentName/commands/run` runtime config deep-equals the REST `/run` baseline for the same fixture agent.
+- 2026-02-28: Subtask 6 complete. Added flow execution parity coverage showing flow-step runtime config deep-equals the REST baseline and continues using `useConfigDefaults: true` without per-agent home overrides.
+- 2026-02-28: Subtask 7 complete. Added MCP `run_agent_instruction` parity coverage (via real service execution through MCP tool surface) showing runtime config deep-equals the REST baseline for the same fixture agent.
+- 2026-02-28: Subtask 8 complete. Updated `design.md` with a dedicated Task 7 section and Mermaid diagrams for flow + MCP runtime-override parity architecture.
+- 2026-02-28: Subtask 9 complete. Added deterministic T07 success/error logs in flow and MCP resolver paths and integration assertions covering both positive and intentional invalid-config negative paths.
+- 2026-02-28: Subtask 10 complete. Ran `npm run lint --workspaces` (warnings only, no errors) and `npm run format:check --workspaces`; fixed initial server formatting drift by running `npm run format --workspace server`, then re-ran `format:check` successfully.
+- 2026-02-28: Testing 1 complete. `npm run build --workspace server` passed (`tsc -b`).
+- 2026-02-28: Testing 2 complete. `npm run test --workspace server` passed (`tests 785, pass 785` in Node test phase; cucumber `67 scenarios, 402 steps`, all passed).
+- 2026-02-28: Testing 3 complete. Targeted flow+MCP runtime-config parity/log coverage passed via `node --test src/test/integration/agents-run-client-conversation-id.test.ts` (`6/6` passing, including new REST/flow/MCP parity and T07 success/error assertions).
 
 ### 8. Server: Shared-home detection alignment for Codex availability and startup semantics
 

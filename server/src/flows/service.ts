@@ -2,6 +2,8 @@ import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
+import type { CodexOptions } from '@openai/codex-sdk';
+
 import { loadAgentCommandFile } from '../agents/commandsLoader.js';
 import { resolveAgentRuntimeExecutionConfig } from '../agents/config.js';
 import { discoverAgents } from '../agents/discovery.js';
@@ -49,6 +51,7 @@ import {
   updateConversationThreadId,
 } from '../mongo/repo.js';
 import { getFlowAndCommandRetries } from '../config/flowAndCommandRetries.js';
+import { getCodexHome } from '../config/codexConfig.js';
 import type {
   TurnCommandMetadata,
   Turn,
@@ -81,6 +84,10 @@ import type {
 
 const FALLBACK_MODEL_ID = 'gpt-5.1-codex-max';
 const FLOW_STEP_BASE_DELAY_MS = 500;
+const T07_SUCCESS_LOG =
+  '[DEV-0000037][T07] event=runtime_overrides_applied_flow_mcp result=success';
+const T07_ERROR_LOG =
+  '[DEV-0000037][T07] event=runtime_overrides_applied_flow_mcp result=error';
 const agentConversationState = new Map<string, FlowAgentState>();
 
 const toFlowRunError = (code: FlowRunErrorCode, reason?: string) =>
@@ -430,11 +437,44 @@ const ensureAgentState = async (params: {
 };
 
 const getAgentModelId = async (configPath: string): Promise<string> => {
-  const { modelId } = await resolveAgentRuntimeExecutionConfig({
-    configPath,
-    entrypoint: 'flows.service',
-  });
-  return modelId ?? FALLBACK_MODEL_ID;
+  const { modelId } = await resolveFlowAgentRuntimeExecution({ configPath });
+  return modelId;
+};
+
+const resolveFlowAgentRuntimeExecution = async (params: {
+  configPath: string;
+  source?: 'REST' | 'MCP';
+}) => {
+  try {
+    const resolved = await resolveAgentRuntimeExecutionConfig({
+      configPath: params.configPath,
+      entrypoint: 'flows.service',
+    });
+    if (params.source) {
+      console.info(T07_SUCCESS_LOG, {
+        surface: 'flow.run',
+        source: params.source,
+        hasModel: Boolean(resolved.modelId),
+      });
+    }
+    return {
+      modelId: resolved.modelId ?? FALLBACK_MODEL_ID,
+      runtimeConfig: resolved.runtimeConfig as CodexOptions['config'],
+    };
+  } catch (error) {
+    if (params.source) {
+      const code =
+        error &&
+        typeof error === 'object' &&
+        typeof (error as { code?: unknown }).code === 'string'
+          ? String((error as { code?: string }).code)
+          : 'UNKNOWN_ERROR';
+      console.error(
+        `${T07_ERROR_LOG} surface=flow.run source=${params.source} code=${code}`,
+      );
+    }
+    throw error;
+  }
 };
 
 const hydrateFlowAgentState = (resumeState: FlowResumeState | null) => {
@@ -633,8 +673,8 @@ const runFlowInstruction = async (params: {
   agentType: string;
   identifier: string;
   agentConversationId: string;
-  agentHome: string;
   modelId: string;
+  runtimeConfig: CodexOptions['config'];
   threadId?: string;
   systemPrompt?: string;
   workingDirectoryOverride?: string;
@@ -738,7 +778,7 @@ const runFlowInstruction = async (params: {
         inflightId: params.inflightId,
         threadId: params.threadId,
         useConfigDefaults: true,
-        codexHome: params.agentHome,
+        runtimeConfig: params.runtimeConfig,
         ...(params.workingDirectoryOverride !== undefined
           ? { workingDirectoryOverride: params.workingDirectoryOverride }
           : {}),
@@ -1497,12 +1537,16 @@ async function runFlowUnlocked(params: {
       );
     }
 
-    const detection = detectCodexForHome(agent.home);
+    const detection = detectCodexForHome(getCodexHome());
     if (!detection.available) {
       throw toFlowRunError('CODEX_UNAVAILABLE', detection.reason);
     }
 
-    const modelId = await getAgentModelId(agent.configPath);
+    const runtime = await resolveFlowAgentRuntimeExecution({
+      configPath: agent.configPath,
+      source: params.source,
+    });
+    const modelId = runtime.modelId;
 
     const { state: agentState, isNew } = await ensureAgentState({
       agentType: instructionParams.agentType,
@@ -1553,8 +1597,8 @@ async function runFlowUnlocked(params: {
         agentType: instructionParams.agentType,
         identifier: instructionParams.identifier,
         agentConversationId: agentState.conversationId,
-        agentHome: agent.home,
         modelId,
+        runtimeConfig: runtime.runtimeConfig,
         threadId: agentState.threadId,
         systemPrompt,
         workingDirectoryOverride: params.workingDirectoryOverride,
@@ -2186,7 +2230,7 @@ export async function startFlowRun(
       );
     }
 
-    const detection = detectCodexForHome(agent.home);
+    const detection = detectCodexForHome(getCodexHome());
     if (!detection.available) {
       throw toFlowRunError('CODEX_UNAVAILABLE', detection.reason);
     }

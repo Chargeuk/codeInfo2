@@ -104,6 +104,10 @@ const T06_SUCCESS_LOG =
   '[DEV-0000037][T06] event=runtime_overrides_applied_rest_paths result=success';
 const T06_ERROR_LOG =
   '[DEV-0000037][T06] event=runtime_overrides_applied_rest_paths result=error';
+const T07_SUCCESS_LOG =
+  '[DEV-0000037][T07] event=runtime_overrides_applied_flow_mcp result=success';
+const T07_ERROR_LOG =
+  '[DEV-0000037][T07] event=runtime_overrides_applied_flow_mcp result=error';
 
 function logTransitiveContractRead(params: {
   consumer: string;
@@ -728,6 +732,14 @@ export async function runAgentInstructionUnlocked(params: {
       isCommandRun: Boolean(params.command),
       hasModel: Boolean(configuredModelId),
     });
+    if (params.source === 'MCP') {
+      console.info(T07_SUCCESS_LOG, {
+        surface: 'mcp.agents.run',
+        source: params.source,
+        isCommandRun: Boolean(params.command),
+        hasModel: Boolean(configuredModelId),
+      });
+    }
   } catch (error) {
     const code =
       error instanceof RuntimeConfigResolutionError
@@ -736,6 +748,11 @@ export async function runAgentInstructionUnlocked(params: {
     console.error(
       `${T06_ERROR_LOG} surface=agents.run source=${params.source} code=${code}`,
     );
+    if (params.source === 'MCP') {
+      console.error(
+        `${T07_ERROR_LOG} surface=mcp.agents.run source=${params.source} code=${code}`,
+      );
+    }
     throw error;
   }
   const modelId =

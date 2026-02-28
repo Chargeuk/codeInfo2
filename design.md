@@ -509,6 +509,45 @@ sequenceDiagram
   CodexSDK-->>AgentSvc: run stream
 ```
 
+## Flow + MCP runtime overrides parity (Story 0000037 Task 7)
+
+- Flow and MCP execution paths now consume the same runtime-config resolver semantics as REST run surfaces:
+  - Flow step execution resolves the named agent runtime config and passes it to `chat.run(..., { runtimeConfig, useConfigDefaults: true })`.
+  - Flow no longer passes per-agent `codexHome` overrides; shared `CODEX_HOME` semantics apply via shared Codex options.
+  - Flow Codex availability checks now use shared-home detection (`detectCodexForHome(getCodexHome())`) instead of agent-home checks.
+  - Agents MCP tool execution already delegates to `agents/service.ts`; MCP-triggered runs therefore share the same runtime resolver, `useConfigDefaults: true`, and shared-home behavior as REST run.
+- Deterministic Task 7 logs are emitted when flow/MCP runtime overrides are applied:
+  - success: `[DEV-0000037][T07] event=runtime_overrides_applied_flow_mcp result=success`
+  - error: `[DEV-0000037][T07] event=runtime_overrides_applied_flow_mcp result=error ...`
+
+```mermaid
+flowchart TD
+  A[Invocation surface] --> B{Surface}
+  B -- REST /agents/run --> C[agents/service resolveAgentRuntimeExecutionConfig]
+  B -- REST /agents/commands/run --> C
+  B -- Agents MCP run_agent_instruction/run_command --> C
+  B -- Flow step execution --> D[flows/service resolveAgentRuntimeExecutionConfig]
+  C --> E[chat.run with runtimeConfig + useConfigDefaults=true]
+  D --> E
+  E --> F[shared CODEX_HOME execution semantics]
+```
+
+```mermaid
+sequenceDiagram
+  participant FlowSvc as flows/service.ts
+  participant AgentSvc as agents/service.ts
+  participant Resolver as resolveAgentRuntimeExecutionConfig
+  participant ChatIface as ChatInterfaceCodex
+
+  FlowSvc->>Resolver: resolve(agentConfigPath)
+  Resolver-->>FlowSvc: runtimeConfig/modelId or deterministic error
+  FlowSvc->>ChatIface: run(..., runtimeConfig, useConfigDefaults=true)
+
+  AgentSvc->>Resolver: resolve(agentConfigPath)
+  Resolver-->>AgentSvc: runtimeConfig/modelId or deterministic error
+  AgentSvc->>ChatIface: run(..., runtimeConfig, useConfigDefaults=true, source='MCP'|'REST')
+```
+
 - MCP keepalive lifecycle is centralized in `server/src/mcpCommon/keepAlive.ts` and reused by classic `POST /mcp`, MCP v2 (`server/src/mcp2/router.ts`), and Agents MCP (`server/src/mcpAgents/router.ts`).
 - Keepalive is scoped to long-running `tools/call` only. Non-tool requests (`initialize`, `tools/list`, parse/invalid request) return normal JSON-RPC payloads without keepalive preamble bytes.
 - Helper behavior is deterministic: `start` writes initial whitespace and heartbeat whitespace bytes, then `stop` clears timers on `sendJson`, response `finish`/`close`, or write failure to avoid write-after-close errors.

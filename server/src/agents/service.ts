@@ -2,6 +2,8 @@ import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
+import type { CodexOptions } from '@openai/codex-sdk';
+
 import { attachChatStreamBridge } from '../chat/chatStreamBridge.js';
 import { UnsupportedProviderError, getChatInterface } from '../chat/factory.js';
 import {
@@ -20,6 +22,8 @@ import {
 } from '../chat/memoryPersistence.js';
 import { McpResponder } from '../chat/responders/McpResponder.js';
 import { mapHostWorkingFolderToWorkdir } from '../ingest/pathMap.js';
+import { getCodexHome } from '../config/codexConfig.js';
+import { RuntimeConfigResolutionError } from '../config/runtimeConfig.js';
 import {
   listIngestedRepositories,
   resolveRepoEmbeddingIdentity,
@@ -95,6 +99,11 @@ type RunAgentError = {
 
 const toRunAgentError = (code: RunAgentErrorCode, reason?: string) =>
   ({ code, reason }) satisfies RunAgentError;
+
+const T06_SUCCESS_LOG =
+  '[DEV-0000037][T06] event=runtime_overrides_applied_rest_paths result=success';
+const T06_ERROR_LOG =
+  '[DEV-0000037][T06] event=runtime_overrides_applied_rest_paths result=error';
 
 function logTransitiveContractRead(params: {
   consumer: string;
@@ -275,7 +284,7 @@ export async function startAgentInstruction(
       throw toRunAgentError('AGENT_NOT_FOUND');
     }
 
-    const detection = detectCodexForHome(agent.home);
+    const detection = detectCodexForHome(getCodexHome());
     if (!detection.available) {
       throw toRunAgentError('CODEX_UNAVAILABLE', detection.reason);
     }
@@ -433,7 +442,7 @@ export async function startAgentCommand(params: {
   let modelId = 'gpt-5.1-codex-max';
 
   try {
-    const detection = detectCodexForHome(agent.home);
+    const detection = detectCodexForHome(getCodexHome());
     if (!detection.available) {
       throw toRunAgentError('CODEX_UNAVAILABLE', detection.reason);
     }
@@ -656,7 +665,11 @@ export async function runAgentCommand(params: {
     working_folder: params.working_folder,
     signal: params.signal,
     source: params.source,
-    runAgentInstructionUnlocked,
+    runAgentInstructionUnlocked: (runParams) =>
+      runAgentInstructionUnlocked({
+        ...runParams,
+        chatFactory: params.chatFactory,
+      }),
   });
 }
 
@@ -680,7 +693,7 @@ export async function runAgentInstructionUnlocked(params: {
     throw toRunAgentError('AGENT_NOT_FOUND');
   }
 
-  const detection = detectCodexForHome(agent.home);
+  const detection = detectCodexForHome(getCodexHome());
   if (!detection.available) {
     throw toRunAgentError('CODEX_UNAVAILABLE', detection.reason);
   }
@@ -700,11 +713,31 @@ export async function runAgentInstructionUnlocked(params: {
     throw toRunAgentError('AGENT_MISMATCH');
   }
 
-  const { modelId: configuredModelId } =
-    await resolveAgentRuntimeExecutionConfig({
+  let runtimeConfig: CodexOptions['config'];
+  let configuredModelId: string | undefined;
+  try {
+    const resolved = await resolveAgentRuntimeExecutionConfig({
       configPath: agent.configPath,
       entrypoint: 'agents.service',
     });
+    runtimeConfig = resolved.runtimeConfig as CodexOptions['config'];
+    configuredModelId = resolved.modelId;
+    console.info(T06_SUCCESS_LOG, {
+      surface: 'agents.run',
+      source: params.source,
+      isCommandRun: Boolean(params.command),
+      hasModel: Boolean(configuredModelId),
+    });
+  } catch (error) {
+    const code =
+      error instanceof RuntimeConfigResolutionError
+        ? error.code
+        : 'UNKNOWN_ERROR';
+    console.error(
+      `${T06_ERROR_LOG} surface=agents.run source=${params.source} code=${code}`,
+    );
+    throw error;
+  }
   const modelId =
     configuredModelId ?? existingConversation?.model ?? fallbackModelId;
 
@@ -842,7 +875,7 @@ export async function runAgentInstructionUnlocked(params: {
         inflightId,
         threadId,
         useConfigDefaults: true,
-        codexHome: agent.home,
+        runtimeConfig,
         ...(workingDirectoryOverride !== undefined
           ? { workingDirectoryOverride }
           : {}),

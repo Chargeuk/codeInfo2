@@ -1062,7 +1062,7 @@ Replace existing model-only config parsing (`readAgentModelId`) so all execution
 
 ### 6. Server: Wire runtime config overrides into chat, agent run, and agent command execution paths
 
-- Task Status: **__todo__**
+- Task Status: **__done__**
 - Git Commits: `None yet`
 
 #### Overview
@@ -1080,37 +1080,37 @@ Apply runtime config overrides to chat and primary REST agent execution surfaces
 
 #### Subtasks
 
-1. [ ] Update chat Codex execution path to pass chat runtime config via `CodexOptions.config` and shared `CODEX_HOME`.
+1. [x] Update chat Codex execution path to pass chat runtime config via `CodexOptions.config` and shared `CODEX_HOME`.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `server/src/chat/interfaces/ChatInterfaceCodex.ts`, supporting option-builder files.
    - Do: resolve `./codex/chat/config.toml` and pass normalized config in runtime options.
    - Docs: Context7 `/openai/codex` (`CodexOptions.config`).
    - Done when: chat run config source is chat config file only.
-2. [ ] Update agent execution path (`/agents/:agentName/run`) to pass agent runtime config via `CodexOptions.config` while forcing shared `CODEX_HOME`.
+2. [x] Update agent execution path (`/agents/:agentName/run`) to pass agent runtime config via `CodexOptions.config` while forcing shared `CODEX_HOME`.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `server/src/agents/service.ts`, related route/controller file.
    - Do: call shared resolver and inject agent-specific config object; stop passing `agent.home` as per-agent `codexHome` and use shared home helpers only.
    - Docs: Context7 `/openai/codex`, https://expressjs.com/en/guide/routing.html.
    - Done when: REST agent run never pulls behavior from shared base except projects merge and no per-agent `codexHome` override remains.
-3. [ ] Update agent command execution path (`/agents/:agentName/commands/run`) to use the same agent runtime config resolution and shared `CODEX_HOME`.
+3. [x] Update agent command execution path (`/agents/:agentName/commands/run`) to use the same agent runtime config resolution and shared `CODEX_HOME`.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: command route/service handler under `server/src/agents`.
    - Do: reuse exact resolver invocation from Subtask 2 and remove any command-path per-agent home override.
    - Docs: Express route docs https://expressjs.com/en/guide/routing.html.
    - Done when: command path and run path use shared helper and both use the same shared home path.
-4. [ ] Extend shared chat interface/runtime option plumbing (`ChatInterfaceCodex` + option builders) to accept runtime `CodexOptions.config` payloads without breaking existing call signatures.
+4. [x] Extend shared chat interface/runtime option plumbing (`ChatInterfaceCodex` + option builders) to accept runtime `CodexOptions.config` payloads without breaking existing call signatures.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `server/src/chat/interfaces/ChatInterfaceCodex.ts`, `server/src/chat/**` option builder modules.
    - Do: thread optional config parameter through wrappers with backward-compatible defaults.
    - Docs: Context7 `/openai/codex`.
    - Done when: TypeScript compile confirms no caller breakage.
-5. [ ] Ensure updated execution paths retain `useConfigDefaults: true` and do not reintroduce duplicated model/policy thread flag wiring or per-agent home overrides.
+5. [x] Ensure updated execution paths retain `useConfigDefaults: true` and do not reintroduce duplicated model/policy thread flag wiring or per-agent home overrides.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: all touched run option builders.
    - Do: keep `useConfigDefaults: true` literal in all run starts and verify `codexHome` values resolve to shared `getCodexHome()` semantics only.
    - Docs: Context7 `/openai/codex` thread start options.
    - Done when: no path sets duplicate thread model/policy flags when config defaults are active and no path passes `agent.home` as `codexHome`.
-6. [ ] Add chat integration test for chat-config source enforcement.
+6. [x] Add chat integration test for chat-config source enforcement.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/unit/chat-interface-codex.test.ts`, `server/src/test/integration/chat-codex.test.ts`.
@@ -1118,7 +1118,7 @@ Apply runtime config overrides to chat and primary REST agent execution surfaces
    - Purpose: lock chat runtime ownership boundary.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/getting-started.
    - Done when: test fails if chat path reads base/agent behavior config.
-7. [ ] Add REST agent-run integration test for agent-config source enforcement.
+7. [x] Add REST agent-run integration test for agent-config source enforcement.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/integration/agents-run-*.test.ts`, `server/src/test/unit/agents-router-run.test.ts`.
@@ -1126,7 +1126,7 @@ Apply runtime config overrides to chat and primary REST agent execution surfaces
    - Purpose: lock agent behavior ownership for run endpoint.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/getting-started.
    - Done when: test fails if run endpoint reads shared behavior keys or switches to per-agent home.
-8. [ ] Add REST agent-command integration test for agent-config source enforcement.
+8. [x] Add REST agent-command integration test for agent-config source enforcement.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/unit/agents-commands-router-run.test.ts`, `server/src/test/integration/agents-run-*.test.ts`.
@@ -1134,7 +1134,7 @@ Apply runtime config overrides to chat and primary REST agent execution surfaces
    - Purpose: prevent run/command behavior drift.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/getting-started.
    - Done when: test fails if commands path diverges from run path or uses per-agent home.
-9. [ ] Update `design.md` with chat/run/commands runtime flow changes and Mermaid diagrams after all architecture-flow subtasks are complete.
+9. [x] Update `design.md` with chat/run/commands runtime flow changes and Mermaid diagrams after all architecture-flow subtasks are complete.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `design.md`.
    - Document name: `design.md`.
@@ -1145,7 +1145,7 @@ Apply runtime config overrides to chat and primary REST agent execution surfaces
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` has accurate flow diagrams for chat, run, and command execution.
 
-10. [ ] Add deterministic structured log line `[DEV-0000037][T06] event=runtime_overrides_applied_rest_paths result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
+10. [x] Add deterministic structured log line `[DEV-0000037][T06] event=runtime_overrides_applied_rest_paths result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: server implementation files already listed in this task's subtasks and matching `server/src/test/**` suites.
    - Do: emit this exact log prefix and event name from the implementation path, then assert in tests that `result=success` is emitted on happy path and `result=error` only appears on intentional failure-path coverage.
@@ -1153,16 +1153,29 @@ Apply runtime config overrides to chat and primary REST agent execution surfaces
    - Manual Playwright-MCP check linkage: verify this exact log line during this task's Manual Playwright-MCP check when present, or during Task 22 final regression Manual Playwright-MCP check for backend/docs-only tasks.
    - Docs: https://nodejs.org/api/console.html, Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: deterministic log assertions are present and this task's expected trigger produces the exact `[DEV-0000037][T06] event=runtime_overrides_applied_rest_paths result=success` line.
-11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+11. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test --workspace server`
-3. [ ] Verify targeted chat + agent run/command runtime-config tests pass.
+1. [x] `npm run build --workspace server`
+2. [x] `npm run test --workspace server`
+3. [x] Verify targeted chat + agent run/command runtime-config tests pass.
 
 #### Implementation Notes
 
-- None yet.
+- 2026-02-28: Subtask 1 complete. Updated `/chat` Codex path to resolve chat runtime config and thread it into Codex construction via `CodexOptions.config` while keeping shared `CODEX_HOME`.
+- 2026-02-28: Subtask 2 complete. Updated agent run execution to use shared-home detection and to pass resolved agent runtime config into Codex options instead of per-agent `codexHome`.
+- 2026-02-28: Subtask 3 complete. Command-run execution now reuses the same run-unlocked runtime config path and shared-home semantics as `/agents/:agentName/run`.
+- 2026-02-28: Subtask 4 complete. Extended `buildCodexOptions`, `ChatInterfaceCodex`, and chat factory codex-factory signatures to support optional runtime config payload plumbing without breaking existing callers.
+- 2026-02-28: Subtask 5 complete. Preserved `useConfigDefaults: true` on agent run/command execution and removed per-agent `codexHome` override wiring from those paths.
+- 2026-02-28: Subtask 6 complete. Added integration coverage in `chat-codex.test.ts` proving `/chat` uses `./codex/chat/config.toml` behavior values and not shared base behavior keys, with merged-project assertions.
+- 2026-02-28: Subtask 7 complete. Added integration coverage in `agents-run-client-conversation-id.test.ts` asserting `/agents/:agentName/run` injects agent runtime config plus project merge semantics while using shared-home Codex options.
+- 2026-02-28: Subtask 8 complete. Added integration coverage in `agents-run-client-conversation-id.test.ts` asserting `/agents/:agentName/commands/run` uses the same resolver/runtime source and shared-home behavior as `/run`.
+- 2026-02-28: Subtask 9 complete. Updated `design.md` with a Task 6 section and Mermaid diagrams documenting runtime override flow for `/chat`, `/agents/:agentName/run`, and `/agents/:agentName/commands/run`.
+- 2026-02-28: Subtask 10 complete. Added deterministic T06 success/error assertions across `/chat` and agent run/command integration tests, including explicit `/chat` missing-config error coverage.
+- 2026-02-28: Subtask 11 complete. Ran `npm run lint --workspaces` (warnings only, no errors) and `npm run format:check --workspaces`; resolved initial formatting drift in two server integration tests via `npm run format --workspace server`.
+- 2026-02-28: Testing 1 complete. `npm run build --workspace server` passed (`tsc -b`).
+- 2026-02-28: Testing 2 complete. `npm run test --workspace server` passed after cucumber codex chat setup update (unit summary: `tests 783, pass 783`; cucumber summary: `67 scenarios, 402 steps, all passed`).
+- 2026-02-28: Testing 3 complete. Targeted runtime override regressions passed via ts-node test invocation (`chat-codex`, `agents-run-client-conversation-id`, `agents-run-ws-cancel`): `19/19` tests passed with T06 success/error assertions.
 
 ### 7. Server: Wire runtime config overrides into flow and MCP execution paths
 

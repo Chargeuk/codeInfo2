@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 
 import type { LMStudioClient } from '@lmstudio/sdk';
+import type { CodexOptions } from '@openai/codex-sdk';
 import { Router, json } from 'express';
 
 import {
@@ -14,6 +15,10 @@ import {
   resolveRuntimeProviderSelection,
   type ChatDefaultProvider,
 } from '../config/chatDefaults.js';
+import {
+  RuntimeConfigResolutionError,
+  resolveChatRuntimeConfig,
+} from '../config/runtimeConfig.js';
 import {
   cleanupInflight,
   createInflight,
@@ -41,7 +46,12 @@ type ClientFactory = (baseUrl: string) => LMStudioClient;
 type ToolFactory = (opts: Record<string, unknown>) => {
   tools: ReadonlyArray<unknown>;
 };
-type CodexFactory = () => CodexLike;
+type CodexFactory = (options?: CodexOptions) => CodexLike;
+
+const T06_SUCCESS_LOG =
+  '[DEV-0000037][T06] event=runtime_overrides_applied_rest_paths result=success';
+const T06_ERROR_LOG =
+  '[DEV-0000037][T06] event=runtime_overrides_applied_rest_paths result=error';
 
 type LMContentItem =
   | { type: 'text'; text: string }
@@ -243,6 +253,33 @@ export function createChatRouter({
     const executionProvider = runtimeSelection.executionProvider;
     const executionModel = runtimeSelection.executionModel;
     const effectiveCodexFlags = executionProvider === 'codex' ? codexFlags : {};
+    let chatRuntimeConfig: CodexOptions['config'];
+
+    if (executionProvider === 'codex') {
+      try {
+        const { config } = await resolveChatRuntimeConfig();
+        chatRuntimeConfig = config as CodexOptions['config'];
+        console.info(T06_SUCCESS_LOG, {
+          surface: '/chat',
+          provider: 'codex',
+          hasModel: typeof config.model === 'string',
+        });
+      } catch (error) {
+        const code =
+          error instanceof RuntimeConfigResolutionError
+            ? error.code
+            : 'UNKNOWN_ERROR';
+        console.error(`${T06_ERROR_LOG} surface=/chat code=${code}`);
+        return res.status(500).json({
+          status: 'error',
+          code,
+          message:
+            error instanceof Error
+              ? error.message
+              : 'chat runtime config resolution failed',
+        });
+      }
+    }
 
     const fallbackLogContext = {
       requestId,
@@ -509,6 +546,7 @@ export function createChatRouter({
             {
               provider: 'codex',
               threadId: activeThreadId,
+              runtimeConfig: chatRuntimeConfig,
               codexFlags: effectiveCodexFlags,
               requestId,
               inflightId,

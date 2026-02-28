@@ -1,8 +1,12 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
 import http from 'node:http';
+import os from 'node:os';
+import path from 'node:path';
 import test, { afterEach, beforeEach } from 'node:test';
 import type { LMStudioClient } from '@lmstudio/sdk';
 import type {
+  CodexOptions,
   ThreadEvent,
   ThreadOptions as CodexThreadOptions,
   TurnOptions as CodexTurnOptions,
@@ -104,10 +108,22 @@ const lmstudioAvailableClientFactory = () =>
 
 const ORIGINAL_CODEX_WORKDIR = process.env.CODEX_WORKDIR;
 const ORIGINAL_CODEINFO_CODEX_WORKDIR = process.env.CODEINFO_CODEX_WORKDIR;
+const ORIGINAL_CODEINFO_CODEX_HOME = process.env.CODEINFO_CODEX_HOME;
+let tempCodexHomeForTest: string | undefined;
 
-beforeEach(() => {
+beforeEach(async () => {
   delete process.env.CODEX_WORKDIR;
   delete process.env.CODEINFO_CODEX_WORKDIR;
+  tempCodexHomeForTest = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'chat-codex-home-'),
+  );
+  await fs.mkdir(path.join(tempCodexHomeForTest, 'chat'), { recursive: true });
+  await fs.writeFile(
+    path.join(tempCodexHomeForTest, 'chat', 'config.toml'),
+    'model = "gpt-5.1-codex-max"\n',
+    'utf8',
+  );
+  process.env.CODEINFO_CODEX_HOME = tempCodexHomeForTest;
   memoryConversations.clear();
   memoryTurns.clear();
   setCodexDetection({
@@ -119,7 +135,7 @@ beforeEach(() => {
   conversationSeq = 0;
 });
 
-afterEach(() => {
+afterEach(async () => {
   if (ORIGINAL_CODEX_WORKDIR === undefined) {
     delete process.env.CODEX_WORKDIR;
   } else {
@@ -130,6 +146,17 @@ afterEach(() => {
     delete process.env.CODEINFO_CODEX_WORKDIR;
   } else {
     process.env.CODEINFO_CODEX_WORKDIR = ORIGINAL_CODEINFO_CODEX_WORKDIR;
+  }
+
+  if (ORIGINAL_CODEINFO_CODEX_HOME === undefined) {
+    delete process.env.CODEINFO_CODEX_HOME;
+  } else {
+    process.env.CODEINFO_CODEX_HOME = ORIGINAL_CODEINFO_CODEX_HOME;
+  }
+
+  if (tempCodexHomeForTest) {
+    await fs.rm(tempCodexHomeForTest, { recursive: true, force: true });
+    tempCodexHomeForTest = undefined;
   }
 });
 
@@ -325,6 +352,196 @@ test('codex chat streams token/final/complete with thread id', async () => {
     await closeWs(ws);
     await wsHandle.close();
     await new Promise<void>((resolve) => httpServer.close(() => resolve()));
+  }
+});
+
+test('codex chat uses chat runtime config file (not base behavior keys)', async () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const tempCodexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+  const chatDir = path.join(tempCodexHome, 'chat');
+  await fs.mkdir(chatDir, { recursive: true });
+
+  await fs.writeFile(
+    path.join(tempCodexHome, 'config.toml'),
+    [
+      'model = "base-should-not-win"',
+      '[projects]',
+      '[projects."/base-only"]',
+      'trust_level = "trusted"',
+      '[projects."/shared"]',
+      'trust_level = "trusted"',
+    ].join('\n'),
+    'utf8',
+  );
+  await fs.writeFile(
+    path.join(chatDir, 'config.toml'),
+    [
+      'model = "chat-should-win"',
+      'approval_policy = "never"',
+      '[projects]',
+      '[projects."/shared"]',
+      'trust_level = "untrusted"',
+      '[projects."/chat-only"]',
+      'trust_level = "trusted"',
+    ].join('\n'),
+    'utf8',
+  );
+  await fs.writeFile(path.join(tempCodexHome, 'auth.json'), '{}', 'utf8');
+  process.env.CODEINFO_CODEX_HOME = tempCodexHome;
+
+  let capturedOptions: CodexOptions | undefined;
+  const codexFactory = (options?: CodexOptions) => {
+    capturedOptions = options;
+    return new MockCodex('thread-chat-config');
+  };
+
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({ clientFactory: dummyClientFactory, codexFactory }),
+  );
+  const originalInfo = console.info;
+  const originalError = console.error;
+  const infoLogs: string[] = [];
+  const errorLogs: string[] = [];
+  console.info = (...args: unknown[]) => {
+    infoLogs.push(args.map(String).join(' '));
+  };
+  console.error = (...args: unknown[]) => {
+    errorLogs.push(args.map(String).join(' '));
+  };
+
+  try {
+    const response = await request(app)
+      .post('/chat')
+      .send(
+        buildCodexBody({
+          conversationId: 'conv-codex-chat-config',
+          message: 'Use runtime config',
+        }),
+      );
+    assert.equal(response.status, 202);
+
+    const deadline = Date.now() + 3000;
+    while (!capturedOptions && Date.now() < deadline) {
+      await sleep(25);
+    }
+    assert(capturedOptions, 'expected codex options to be captured');
+    assert.equal(capturedOptions.env?.CODEX_HOME, tempCodexHome);
+    assert.equal(
+      (capturedOptions.config as Record<string, unknown>)?.model,
+      'chat-should-win',
+    );
+
+    const projects =
+      (capturedOptions.config as { projects?: Record<string, unknown> })
+        ?.projects ?? {};
+    assert.equal(
+      (projects['/base-only'] as { trust_level?: string } | undefined)
+        ?.trust_level,
+      'trusted',
+    );
+    assert.equal(
+      (projects['/shared'] as { trust_level?: string } | undefined)
+        ?.trust_level,
+      'untrusted',
+    );
+    assert.equal(
+      (projects['/chat-only'] as { trust_level?: string } | undefined)
+        ?.trust_level,
+      'trusted',
+    );
+    assert(
+      infoLogs.some((line) =>
+        line.includes(
+          '[DEV-0000037][T06] event=runtime_overrides_applied_rest_paths result=success',
+        ),
+      ),
+      'expected T06 success log for /chat runtime override application',
+    );
+    assert.equal(
+      errorLogs.some((line) =>
+        line.includes(
+          '[DEV-0000037][T06] event=runtime_overrides_applied_rest_paths result=error',
+        ),
+      ),
+      false,
+      'did not expect T06 error log in /chat success path',
+    );
+  } finally {
+    console.info = originalInfo;
+    console.error = originalError;
+    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    await fs.rm(tempCodexHome, { recursive: true, force: true });
+  }
+});
+
+test('codex chat emits deterministic T06 error when chat runtime config is missing', async () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const tempCodexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+  await fs.mkdir(tempCodexHome, { recursive: true });
+  await fs.writeFile(
+    path.join(tempCodexHome, 'config.toml'),
+    'model = "base"\n',
+  );
+  process.env.CODEINFO_CODEX_HOME = tempCodexHome;
+
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({
+      clientFactory: dummyClientFactory,
+      codexFactory: () => new MockCodex('thread-missing-chat-config'),
+    }),
+  );
+
+  const originalError = console.error;
+  const errorLogs: string[] = [];
+  console.error = (...args: unknown[]) => {
+    errorLogs.push(args.map(String).join(' '));
+  };
+
+  try {
+    const response = await request(app)
+      .post('/chat')
+      .send(
+        buildCodexBody({
+          conversationId: 'conv-codex-chat-config-missing',
+          message: 'Should fail due to missing chat config',
+        }),
+      )
+      .expect(500);
+
+    assert.equal(response.body.status, 'error');
+    assert.equal(response.body.code, 'RUNTIME_CONFIG_MISSING');
+    assert(
+      errorLogs.some((line) =>
+        line.includes(
+          '[DEV-0000037][T06] event=runtime_overrides_applied_rest_paths result=error',
+        ),
+      ),
+      'expected T06 error log for missing chat runtime config',
+    );
+  } finally {
+    console.error = originalError;
+    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    await fs.rm(tempCodexHome, { recursive: true, force: true });
   }
 });
 

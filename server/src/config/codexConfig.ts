@@ -197,9 +197,11 @@ export async function ensureCodexAuthFileStore(configPath: string): Promise<{
 
 export function buildCodexOptions(params?: {
   codexHome?: string;
+  runtimeConfig?: CodexOptions['config'];
 }): CodexOptions | undefined {
   const home = resolveCodexHome(params?.codexHome);
   return {
+    ...(params?.runtimeConfig ? { config: params.runtimeConfig } : {}),
     env: {
       // ensure we give the full environment so MCP servers work
       ...process.env,

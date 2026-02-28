@@ -459,6 +459,56 @@ sequenceDiagram
   EntryHelper-->>FlowSvc: modelId/runtimeConfig + T05 success OR throw + T05 error
 ```
 
+## REST runtime overrides on chat/run/commands (Story 0000037 Task 6)
+
+- REST execution surfaces now pass resolver-owned runtime config through `CodexOptions.config` while keeping shared-home semantics:
+  - `/chat` resolves chat runtime config (`./codex/chat/config.toml`) and passes merged runtime payload into Codex construction.
+  - `/agents/:agentName/run` resolves named-agent runtime config and passes it into run flags as `runtimeConfig` (no per-agent `codexHome` override).
+  - `/agents/:agentName/commands/run` reuses the same unlocked run path and runtime-config source as `/run`.
+- `ChatInterfaceCodex` and related option plumbing accept optional runtime config payloads without breaking previous call signatures.
+- All updated run starts keep `useConfigDefaults: true`; runtime config now owns behavior keys while only project inheritance comes from shared base merge rules.
+- Deterministic Task 6 logs are emitted when runtime overrides are applied to REST paths:
+  - success: `[DEV-0000037][T06] event=runtime_overrides_applied_rest_paths result=success`
+  - error: `[DEV-0000037][T06] event=runtime_overrides_applied_rest_paths result=error ...`
+
+```mermaid
+flowchart TD
+  A[REST request] --> B{Surface}
+  B -- /chat --> C[resolveChatRuntimeConfig]
+  B -- /agents/:agentName/run --> D[resolveAgentRuntimeExecutionConfig]
+  B -- /agents/:agentName/commands/run --> E[runAgentInstructionUnlocked -> resolveAgentRuntimeExecutionConfig]
+  C --> F[buildCodexOptions CODEX_HOME + config]
+  D --> G[chat.run flags: runtimeConfig + useConfigDefaults=true]
+  E --> G
+  F --> H[Emit T06 success log]
+  G --> H
+  C --> I[Resolver failure -> T06 error + deterministic response]
+  D --> I
+  E --> I
+```
+
+```mermaid
+sequenceDiagram
+  participant ChatRoute as routes/chat.ts
+  participant AgentSvc as agents/service.ts
+  participant ChatIface as ChatInterfaceCodex
+  participant Resolver as runtimeConfig resolver
+  participant CodexSDK as Codex SDK
+
+  ChatRoute->>Resolver: resolveChatRuntimeConfig()
+  Resolver-->>ChatRoute: runtimeConfig or deterministic error
+  ChatRoute->>ChatIface: chat.run(..., runtimeConfig)
+  ChatIface->>CodexSDK: new Codex(buildCodexOptions({config}))
+  CodexSDK-->>ChatIface: run stream
+  ChatIface-->>ChatRoute: events
+
+  AgentSvc->>Resolver: resolveAgentRuntimeExecutionConfig(agentConfigPath)
+  Resolver-->>AgentSvc: runtimeConfig/modelId or deterministic error
+  AgentSvc->>ChatIface: chat.run(..., runtimeConfig, useConfigDefaults=true)
+  ChatIface->>CodexSDK: thread start/resume with shared CODEX_HOME
+  CodexSDK-->>AgentSvc: run stream
+```
+
 - MCP keepalive lifecycle is centralized in `server/src/mcpCommon/keepAlive.ts` and reused by classic `POST /mcp`, MCP v2 (`server/src/mcp2/router.ts`), and Agents MCP (`server/src/mcpAgents/router.ts`).
 - Keepalive is scoped to long-running `tools/call` only. Non-tool requests (`initialize`, `tools/list`, parse/invalid request) return normal JSON-RPC payloads without keepalive preamble bytes.
 - Helper behavior is deterministic: `start` writes initial whitespace and heartbeat whitespace bytes, then `stop` clears timers on `sendJson`, response `finish`/`close`, or write failure to avoid write-after-close errors.

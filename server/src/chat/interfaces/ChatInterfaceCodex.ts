@@ -1,6 +1,7 @@
 import { SYSTEM_CONTEXT } from '@codeinfo2/common';
 import { Codex } from '@openai/codex-sdk';
 import type {
+  CodexOptions,
   ThreadOptions as CodexThreadOptions,
   TurnOptions as CodexTurnOptions,
 } from '@openai/codex-sdk';
@@ -21,6 +22,7 @@ type CodexRunFlags = {
   disableSystemContext?: boolean;
   systemPrompt?: string;
   useConfigDefaults?: boolean;
+  runtimeConfig?: CodexOptions['config'];
   requestId?: string;
   signal?: AbortSignal;
   skipPersistence?: boolean;
@@ -99,8 +101,9 @@ export interface CodexLike {
 
 export class ChatInterfaceCodex extends ChatInterface {
   constructor(
-    private readonly codexFactory: () => CodexLike = () =>
-      new Codex(buildCodexOptions()) as unknown as CodexLike,
+    private readonly codexFactory: (options?: CodexOptions) => CodexLike = (
+      options?: CodexOptions,
+    ) => new Codex(options ?? buildCodexOptions()) as unknown as CodexLike,
   ) {
     super();
   }
@@ -121,6 +124,7 @@ export class ChatInterfaceCodex extends ChatInterface {
       systemPrompt,
       useConfigDefaults,
       workingDirectoryOverride,
+      runtimeConfig,
     } = (flags ?? {}) as CodexRunFlags;
     const detection = codexHome
       ? detectCodexForHome(codexHome)
@@ -174,9 +178,9 @@ export class ChatInterfaceCodex extends ChatInterface {
       '[codex-thread-options] prepared',
     );
 
-    const codex = codexHome
-      ? (new Codex(buildCodexOptions({ codexHome })) as unknown as CodexLike)
-      : this.codexFactory();
+    const codex = this.codexFactory(
+      buildCodexOptions({ codexHome, runtimeConfig }),
+    );
 
     const systemContext = disableSystemContext ? '' : SYSTEM_CONTEXT.trim();
     const agentSystemPrompt = (systemPrompt ?? '').trim();

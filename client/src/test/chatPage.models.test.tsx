@@ -202,6 +202,94 @@ describe('Chat page models list', () => {
     expect(
       await screen.findByRole('option', { name: /minimal/i }),
     ).toBeVisible();
-    expect(await screen.findByRole('option', { name: /xhigh/i })).toBeVisible();
+    expect(screen.queryByRole('option', { name: /xhigh/i })).toBeNull();
+  });
+
+  it('renders non-standard runtime reasoning values from model capabilities', async () => {
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const target = typeof url === 'string' ? url : url.toString();
+      if (target.includes('/health')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ mongoConnected: true }),
+        }) as unknown as Response;
+      }
+      if (target.includes('/conversations')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ items: [], nextCursor: null }),
+        }) as unknown as Response;
+      }
+      if (target.includes('/chat/providers')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            providers: [
+              {
+                id: 'codex',
+                label: 'OpenAI Codex',
+                available: true,
+                toolsAvailable: true,
+              },
+            ],
+          }),
+        });
+      }
+      if (target.includes('/chat/models')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            provider: 'codex',
+            available: true,
+            toolsAvailable: true,
+            codexDefaults: {
+              sandboxMode: 'workspace-write',
+              approvalPolicy: 'on-failure',
+              modelReasoningEffort: 'turbo-max',
+              networkAccessEnabled: true,
+              webSearchEnabled: true,
+            },
+            codexWarnings: [],
+            models: [
+              {
+                key: 'gpt-5.3-experimental',
+                displayName: 'gpt-5.3-experimental',
+                type: 'codex',
+                supportedReasoningEfforts: ['turbo-max'],
+                defaultReasoningEffort: 'turbo-max',
+              },
+            ],
+          }),
+        });
+      }
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({}),
+      }) as unknown as Response;
+    });
+
+    const router = createMemoryRouter(routes, {
+      initialEntries: ['/chat'],
+    });
+    render(<RouterProvider router={router} />);
+
+    await ensureCodexFlagsPanelExpanded();
+    const reasoningSelect = await screen.findByRole('combobox', {
+      name: /reasoning effort/i,
+    });
+    await waitFor(() =>
+      expect(reasoningSelect).toHaveTextContent(/turbo-max/i),
+    );
+    await act(async () => {
+      await userEvent.click(reasoningSelect);
+    });
+    expect(
+      await screen.findByRole('option', { name: /turbo-max/i }),
+    ).toBeVisible();
   });
 });

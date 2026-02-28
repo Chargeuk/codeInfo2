@@ -3431,3 +3431,52 @@ flowchart TD
   G --> H
   D --> H
 ```
+
+## Story 0000037 Task 17: dynamic reasoning-option rendering and send-path validity
+
+- `CodexFlagsPanel` reasoning options now render only from selected model capability payload (`supportedReasoningEfforts`) and no longer rely on static client option arrays.
+- `useChatStream` send-path validation now includes capability gating for codex reasoning effort:
+  - only values from selected-model `supportedReasoningEfforts` may be sent;
+  - stale invalid selections are corrected to selected-model default/first-supported value before payload evaluation;
+  - if capability payload is malformed (no supported values), `modelReasoningEffort` is omitted and deterministic error logging is emitted.
+- Deterministic Task 17 logs:
+  - success: `[DEV-0000037][T17] event=dynamic_reasoning_options_rendered result=success`
+  - error: `[DEV-0000037][T17] event=dynamic_reasoning_options_rendered result=error`
+
+```mermaid
+sequenceDiagram
+  participant Models as GET /chat/models (codex)
+  participant Page as ChatPage + CodexFlagsPanel
+  participant Stream as useChatStream
+  participant Chat as POST /chat
+
+  Models-->>Page: selected model supportedReasoningEfforts/defaultReasoningEffort
+  Page->>Page: render reasoning select options from supportedReasoningEfforts
+  Page->>Page: emit T17 success (valid capability render)
+  Page->>Stream: send(codexFlags + selectedModelCapabilities)
+  Stream->>Stream: validate selected effort against supportedReasoningEfforts
+  alt stale/invalid selected effort
+    Stream->>Stream: replace with defaultReasoningEffort/first supported
+  end
+  alt malformed capabilities
+    Stream->>Stream: omit modelReasoningEffort, emit T17 error
+  else valid
+    Stream->>Chat: include supported modelReasoningEffort only
+    Stream->>Stream: emit T17 success
+  end
+```
+
+```mermaid
+flowchart TD
+  A[Codex model selected] --> B[Read supportedReasoningEfforts]
+  B --> C[Render reasoning selector options]
+  C --> D{User/State reasoning value supported?}
+  D -->|Yes| E[Use value for payload comparison]
+  D -->|No| F[Resolve fallback: default or first supported]
+  E --> G{Capabilities malformed?}
+  F --> G
+  G -->|No| H[Send supported value or omit if equals codexDefaults]
+  G -->|Yes| I[Omit reasoning from payload]
+  H --> J[Emit T17 success]
+  I --> K[Emit T17 error]
+```

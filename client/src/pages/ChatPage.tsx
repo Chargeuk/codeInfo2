@@ -64,6 +64,7 @@ const bubbleTimestampFormatter = new Intl.DateTimeFormat(undefined, {
   timeStyle: 'short',
 });
 const DEV_0000037_T16_PREFIX = '[DEV-0000037][T16]';
+const DEV_0000037_T17_PREFIX = '[DEV-0000037][T17]';
 
 const formatBubbleTimestamp = (value?: string) => {
   const candidate = value ? new Date(value) : new Date();
@@ -235,6 +236,7 @@ export default function ChatPage() {
   const stopRef = useRef(stop);
   const lastSentRef = useRef('');
   const codexDocsLoggedRef = useRef(false);
+  const codexDynamicReasoningStateKeyRef = useRef<string | null>(null);
   const [input, setInput] = useState('');
   const [thinkOpen, setThinkOpen] = useState<Record<string, boolean>>({});
   const [toolOpen, setToolOpen] = useState<Record<string, boolean>>({});
@@ -703,6 +705,41 @@ export default function ChatPage() {
     codexCapabilityStateKeyRef.current = key;
     console.info(
       `${DEV_0000037_T16_PREFIX} event=chat_model_capability_defaults_applied result=success`,
+    );
+  }, [
+    modelReasoningEffort,
+    providerIsCodex,
+    selected,
+    selectedModelCapabilities,
+  ]);
+
+  useEffect(() => {
+    if (!providerIsCodex || !selectedModelCapabilities || !selected) return;
+
+    const supportedReasoningEfforts =
+      selectedModelCapabilities.supportedReasoningEfforts;
+    const defaultReasoningEffort =
+      selectedModelCapabilities.defaultReasoningEffort;
+
+    if (
+      supportedReasoningEfforts.length === 0 ||
+      !defaultReasoningEffort ||
+      !supportedReasoningEfforts.includes(defaultReasoningEffort)
+    ) {
+      console.error(
+        `${DEV_0000037_T17_PREFIX} event=dynamic_reasoning_options_rendered result=error reason=invalid_model_capabilities model=${selected}`,
+      );
+      codexDynamicReasoningStateKeyRef.current = null;
+      return;
+    }
+
+    const key = `${selected}:${modelReasoningEffort}:${supportedReasoningEfforts.join('|')}`;
+    if (codexDynamicReasoningStateKeyRef.current === key) {
+      return;
+    }
+    codexDynamicReasoningStateKeyRef.current = key;
+    console.info(
+      `${DEV_0000037_T17_PREFIX} event=dynamic_reasoning_options_rendered result=success`,
     );
   }, [
     modelReasoningEffort,
@@ -1690,6 +1727,10 @@ export default function ChatPage() {
                           onApprovalPolicyChange={setApprovalPolicy}
                           modelReasoningEffort={modelReasoningEffort}
                           onModelReasoningEffortChange={setModelReasoningEffort}
+                          reasoningEffortOptions={
+                            selectedModelCapabilities?.supportedReasoningEfforts ??
+                            []
+                          }
                           networkAccessEnabled={networkAccessEnabled}
                           onNetworkAccessEnabledChange={setNetworkAccessEnabled}
                           webSearchEnabled={webSearchEnabled}

@@ -1,4 +1,3 @@
-import { CODEX_MODEL_REASONING_EFFORTS } from '@codeinfo2/common';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import {
   Accordion,
@@ -23,6 +22,7 @@ type Props = {
   onApprovalPolicyChange: (value: ApprovalPolicy) => void;
   modelReasoningEffort: string;
   onModelReasoningEffortChange: (value: string) => void;
+  reasoningEffortOptions: string[];
   networkAccessEnabled: boolean;
   onNetworkAccessEnabledChange: (value: boolean) => void;
   webSearchEnabled: boolean;
@@ -53,6 +53,7 @@ export default function CodexFlagsPanel({
   onApprovalPolicyChange,
   modelReasoningEffort,
   onModelReasoningEffortChange,
+  reasoningEffortOptions,
   networkAccessEnabled,
   onNetworkAccessEnabledChange,
   webSearchEnabled,
@@ -114,13 +115,17 @@ export default function CodexFlagsPanel({
               labelId="codex-reasoning-effort-label"
               id="codex-reasoning-effort-select"
               label="Reasoning effort"
-              value={modelReasoningEffort}
+              value={
+                reasoningEffortOptions.includes(modelReasoningEffort)
+                  ? modelReasoningEffort
+                  : ''
+              }
               onChange={(event) =>
                 onModelReasoningEffortChange(event.target.value as string)
               }
               data-testid="reasoning-effort-select"
             >
-              {CODEX_MODEL_REASONING_EFFORTS.map((option) => (
+              {reasoningEffortOptions.map((option) => (
                 <MenuItem key={option} value={option}>
                   {reasoningLabel(option)}
                 </MenuItem>

@@ -106,6 +106,7 @@ const API_BASE = getApiBaseUrl();
 
 const HYDRATION_DEDUPE_WINDOW_MS = 30 * 60 * 1000;
 const DEV_0000037_T02_PREFIX = '[DEV-0000037][T02]';
+const DEV_0000037_T17_PREFIX = '[DEV-0000037][T17]';
 
 const normalizeReasoningCapabilityStrings = (value: unknown): string[] => {
   if (!Array.isArray(value)) return [];
@@ -1033,7 +1034,7 @@ export function useChatStream(
             selectedModelCapabilities.defaultReasoningEffort.trim().length > 0
               ? selectedModelCapabilities.defaultReasoningEffort.trim()
               : undefined) ?? codexDefaults?.modelReasoningEffort;
-          const resolvedReasoningEffort =
+          const resolvedReasoningEffortCandidate =
             supportedReasoningEfforts.length > 0
               ? supportedReasoningEfforts.includes(
                   selectedReasoningEffort ?? '',
@@ -1044,7 +1045,18 @@ export function useChatStream(
                     )
                   ? defaultReasoningEffort
                   : supportedReasoningEfforts[0]
-              : (selectedReasoningEffort ?? defaultReasoningEffort);
+              : undefined;
+          const resolvedReasoningEffort =
+            resolvedReasoningEffortCandidate &&
+            supportedReasoningEfforts.includes(resolvedReasoningEffortCandidate)
+              ? resolvedReasoningEffortCandidate
+              : undefined;
+
+          if (supportedReasoningEfforts.length === 0) {
+            console.error(
+              `${DEV_0000037_T17_PREFIX} event=dynamic_reasoning_options_rendered result=error reason=no_supported_reasoning_efforts`,
+            );
+          }
 
           const fallbackFlags: Required<CodexFlagState> = {
             sandboxMode:
@@ -1065,11 +1077,17 @@ export function useChatStream(
           if (!codexDefaults) {
             codexPayload.sandboxMode = fallbackFlags.sandboxMode;
             codexPayload.approvalPolicy = fallbackFlags.approvalPolicy;
-            codexPayload.modelReasoningEffort =
-              fallbackFlags.modelReasoningEffort;
-            console.info(
-              `${DEV_0000037_T02_PREFIX} event=reasoning_effort_shims_removed result=success`,
-            );
+            if (resolvedReasoningEffort) {
+              codexPayload.modelReasoningEffort = resolvedReasoningEffort;
+              console.info(
+                `${DEV_0000037_T02_PREFIX} event=reasoning_effort_shims_removed result=success`,
+              );
+              console.info(
+                `${DEV_0000037_T17_PREFIX} event=dynamic_reasoning_options_rendered result=success`,
+              );
+            } else {
+              omittedFlags.push('modelReasoningEffort');
+            }
             codexPayload.networkAccessEnabled =
               fallbackFlags.networkAccessEnabled;
             codexPayload.webSearchEnabled = fallbackFlags.webSearchEnabled;
@@ -1106,11 +1124,19 @@ export function useChatStream(
               console.info(
                 `${DEV_0000037_T02_PREFIX} event=reasoning_effort_shims_removed result=success`,
               );
+              console.info(
+                `${DEV_0000037_T17_PREFIX} event=dynamic_reasoning_options_rendered result=success`,
+              );
             } else {
               omittedFlags.push('modelReasoningEffort');
-              console.info(
-                `${DEV_0000037_T02_PREFIX} event=reasoning_effort_shims_removed result=success`,
-              );
+              if (modelReasoningEffort) {
+                console.info(
+                  `${DEV_0000037_T02_PREFIX} event=reasoning_effort_shims_removed result=success`,
+                );
+                console.info(
+                  `${DEV_0000037_T17_PREFIX} event=dynamic_reasoning_options_rendered result=success`,
+                );
+              }
             }
 
             const networkAccessEnabled = codexFlags?.networkAccessEnabled;

@@ -2408,7 +2408,7 @@ After Task 12 and Task 13 are complete, update chat model state plumbing to carr
 
 ### 17. Frontend: Render dynamic reasoning-effort options and enforce payload validity per selected model
 
-- Task Status: **__todo__**
+- Task Status: **__done__**
 - Git Commits: `None yet`
 
 #### Overview
@@ -2426,25 +2426,25 @@ After Task 16 is complete, switch chat flags UI and chat payload building to run
 
 #### Subtasks
 
-1. [ ] Update `client/src/components/chat/CodexFlagsPanel.tsx` to render reasoning options from selected model `supportedReasoningEfforts`.
+1. [x] Update `client/src/components/chat/CodexFlagsPanel.tsx` to render reasoning options from selected model `supportedReasoningEfforts`.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `client/src/components/chat/CodexFlagsPanel.tsx`.
    - Do: remove hard-coded effort option list and map from selected model capabilities.
    - Docs: MUI Select/MenuItem docs via MCP.
    - Done when: options in UI exactly match payload values.
-2. [ ] Update `client/src/hooks/useChatStream.ts` payload builder to send only values valid for selected model capability set.
+2. [x] Update `client/src/hooks/useChatStream.ts` payload builder to send only values valid for selected model capability set.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `client/src/hooks/useChatStream.ts`.
    - Do: pre-send validation against selected model capabilities.
    - Docs: https://spec.openapis.org/oas/v3.0.3.html, Context7 `/openai/codex`.
    - Done when: invalid values are never sent.
-3. [ ] Ensure invalid prior selection is replaced by selected model `defaultReasoningEffort` before request send.
+3. [x] Ensure invalid prior selection is replaced by selected model `defaultReasoningEffort` before request send.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `client/src/hooks/useChatStream.ts`, optionally shared helper in `useChatModel`.
    - Do: enforce fallback to model default on send path.
    - Docs: https://react.dev/learn/choosing-the-state-structure.
    - Done when: request payload always carries supported value.
-4. [ ] Add frontend render test for dynamic reasoning options list.
+4. [x] Add frontend render test for dynamic reasoning options list.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `client/src/test/chatPage.flags.reasoning*`.
@@ -2452,7 +2452,7 @@ After Task 16 is complete, switch chat flags UI and chat payload building to run
    - Purpose: prevent reintroduction of hard-coded/static effort lists.
    - Docs: https://testing-library.com/docs/queries/about/.
    - Done when: test fails if rendered options do not match capability payload.
-5. [ ] Add frontend payload test for invalid-selection reset before request send.
+5. [x] Add frontend payload test for invalid-selection reset before request send.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `client/src/test/chatPage.flags.reasoning*`.
@@ -2460,7 +2460,7 @@ After Task 16 is complete, switch chat flags UI and chat payload building to run
    - Purpose: enforce deterministic request validity behavior.
    - Docs: https://testing-library.com/docs/queries/about/.
    - Done when: test fails if invalid values reach payload builder.
-6. [ ] Add frontend payload test for supported-values-only request output.
+6. [x] Add frontend payload test for supported-values-only request output.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `client/src/test/chatPage.flags.reasoning*`.
@@ -2468,7 +2468,7 @@ After Task 16 is complete, switch chat flags UI and chat payload building to run
    - Purpose: ensure client never sends server-invalid reasoning values.
    - Docs: https://testing-library.com/docs/queries/about/.
    - Done when: test fails if unsupported values are emitted.
-7. [ ] Add corner-case integration test for single-option capability list.
+7. [x] Add corner-case integration test for single-option capability list.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `client/src/test/chatPage.flags.reasoning*`.
@@ -2476,7 +2476,7 @@ After Task 16 is complete, switch chat flags UI and chat payload building to run
    - Purpose: validate minimal-option-set corner case behavior.
    - Docs: https://testing-library.com/docs/queries/about/, https://react.dev/reference/react.
    - Done when: test fails if one-option models produce invalid UI or payload behavior.
-8. [ ] Add corner-case integration test for non-standard/new reasoning-effort capability values.
+8. [x] Add corner-case integration test for non-standard/new reasoning-effort capability values.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `client/src/test/chatPage.flags.reasoning*`, `client/src/test/chatPage.models.test.tsx`.
@@ -2484,7 +2484,7 @@ After Task 16 is complete, switch chat flags UI and chat payload building to run
    - Purpose: guarantee frontend remains future-compatible with newly surfaced SDK/runtime effort values.
    - Docs: https://testing-library.com/docs/queries/about/, Context7 `/openai/codex`, Context7 `/jestjs/jest`.
    - Done when: test fails if a model-supported non-standard value is hidden or blocked.
-9. [ ] Update `design.md` with dynamic reasoning-option UI/payload flow and Mermaid diagrams after all architecture-flow subtasks are complete.
+9. [x] Update `design.md` with dynamic reasoning-option UI/payload flow and Mermaid diagrams after all architecture-flow subtasks are complete.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `design.md`.
    - Document name: `design.md`.
@@ -2495,7 +2495,7 @@ After Task 16 is complete, switch chat flags UI and chat payload building to run
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` captures the final end-to-end reasoning-option flow implemented by this task.
 
-10. [ ] Add deterministic structured log line `[DEV-0000037][T17] event=dynamic_reasoning_options_rendered result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
+10. [x] Add deterministic structured log line `[DEV-0000037][T17] event=dynamic_reasoning_options_rendered result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: client implementation files already listed in this task's subtasks and matching `client/src/test/**` suites.
    - Do: emit this exact log prefix and event name from the implementation path, then assert in tests that `result=success` is emitted on happy path and `result=error` only appears on intentional failure-path coverage.
@@ -2503,20 +2503,37 @@ After Task 16 is complete, switch chat flags UI and chat payload building to run
    - Manual Playwright-MCP check linkage: verify this exact log line during this task's Manual Playwright-MCP check when present, or during Task 22 final regression Manual Playwright-MCP check for backend/docs-only tasks.
    - Docs: https://nodejs.org/api/console.html, Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: deterministic log assertions are present and this task's expected trigger produces the exact `[DEV-0000037][T17] event=dynamic_reasoning_options_rendered result=success` line.
-11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+11. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-1. [ ] `npm run build --workspace client`
-2. [ ] `npm run test --workspace client`
-3. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
-4. [ ] `npm run compose:build`
-5. [ ] `npm run compose:up`
-6. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: execute dynamic reasoning-option render + send flow, capture screenshot `task-17-dynamic-reasoning-options.png`, and store it in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped by `docker-compose.local.yml`); verify the agent reviews the screenshot against this task's UI expectations (options exactly match runtime capability payload and selection state is valid), debug console includes `[DEV-0000037][T17] event=dynamic_reasoning_options_rendered result=success`, includes no `[DEV-0000037][T17] ... result=error`, and has no unrelated console errors.
-7. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace client`
+2. [x] `npm run test --workspace client`
+3. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+4. [x] `npm run compose:build`
+5. [x] `npm run compose:up`
+6. [x] Manual Playwright-MCP check at `http://host.docker.internal:5001`: execute dynamic reasoning-option render + send flow, capture screenshot `task-17-dynamic-reasoning-options.png`, and store it in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped by `docker-compose.local.yml`); verify the agent reviews the screenshot against this task's UI expectations (options exactly match runtime capability payload and selection state is valid), debug console includes `[DEV-0000037][T17] event=dynamic_reasoning_options_rendered result=success`, includes no `[DEV-0000037][T17] ... result=error`, and has no unrelated console errors.
+7. [x] `npm run compose:down`
 
 #### Implementation Notes
 
-- None yet.
+- 2026-02-28: Subtask 1 complete. Removed hard-coded reasoning effort list from `CodexFlagsPanel` and wired option rendering to `selectedModelCapabilities.supportedReasoningEfforts` passed from `ChatPage`.
+- 2026-02-28: Subtask 2 complete. Updated `useChatStream` send payload builder to gate `modelReasoningEffort` on selected-model capability values and omit unsupported values.
+- 2026-02-28: Subtask 3 complete. Enforced pre-send fallback to selected model `defaultReasoningEffort` (or first supported value) when prior reasoning selection is invalid.
+- 2026-02-28: Subtask 4 complete. Added integration coverage that reasoning selector options render exactly from the selected model `supportedReasoningEfforts` list.
+- 2026-02-28: Subtask 5 complete. Added payload test proving stale invalid reasoning selections are corrected to selected-model defaults before request send.
+- 2026-02-28: Subtask 6 complete. Added payload guard coverage that unsupported reasoning values are omitted and only supported values are emitted in codex requests.
+- 2026-02-28: Subtask 7 complete. Added single-option capability integration test to verify selector and payload remain valid with one supported reasoning value.
+- 2026-02-28: Subtask 8 complete. Added non-standard capability integration tests (`turbo-max`) for both selector rendering and payload send behavior.
+- 2026-02-28: Subtask 9 complete. Updated `design.md` with Task 17 capability-driven selector rendering, pre-send validation flow, and Mermaid diagrams for success/error branches.
+- 2026-02-28: Subtask 10 complete. Added deterministic T17 success/error log emissions in render/send validation paths and asserted both branches in reasoning payload integration tests.
+- 2026-02-28: Subtask 11 complete. Ran `npm run lint --workspaces` (passes with existing baseline server import-order warnings) and `npm run format:check --workspaces`; ran `npm run format --workspace client` and rechecked formatting to green.
+- 2026-02-28: Testing 1 complete. `npm run build --workspace client` succeeded (`vite build`).
+- 2026-02-28: Testing 2 complete. `npm run test --workspace client` passed (`92` suites, `383` tests). While running this step, I fixed two stale test expectations (`chatPage.flags.sandbox.payload.test.tsx` and `chatPage.flags.reasoning.payload.test.tsx`) so Task 17’s supported-values-only reasoning behavior and T17 error-path fixture setup are correctly asserted.
+- 2026-02-28: Testing 3 complete. `timeout 420s npm run e2e` passed (`39` passed, `3` skipped) and completed compose e2e up/test/down lifecycle.
+- 2026-02-28: Testing 4 complete. `npm run compose:build` succeeded for local stack images (`codeinfo2-server`, `codeinfo2-client`).
+- 2026-02-28: Testing 5 complete. `npm run compose:up` succeeded and local stack services reported healthy startup.
+- 2026-02-28: Testing 6 complete. Manual Playwright-MCP checks at `http://host.docker.internal:5001/chat` validated dynamic reasoning options (`Minimal`, `Low`, `Medium`, `High`, `Xhigh`) and successful codex send with valid selection (`High`). Captured screenshot at `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/task-17-dynamic-reasoning-options.png`. Verified console output includes `[DEV-0000037][T17] event=dynamic_reasoning_options_rendered result=success`, includes no `result=error`, and `browser_console_messages(level=error)` returned no entries. During this step I fixed a local runtime blocker by adding missing `/app/codex/chat/config.toml` via `codex/chat/config.toml`.
+- 2026-02-28: Testing 7 complete. `npm run compose:down` stopped and removed local stack containers/network cleanly.
 
 ### 18. Server: Add cross-surface regression tests for precedence and normalization rules
 

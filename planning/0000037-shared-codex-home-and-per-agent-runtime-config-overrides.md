@@ -3102,7 +3102,7 @@ Resolve post-review acceptance drift where branch changes removed files under `c
 ### 24. Full story re-test after review-driven fixes (acceptance re-validation gate)
 
 - Task Status: **__done__**
-- Git Commits: `None yet`
+- Git Commits: `5bb60b6`
 
 #### Overview
 
@@ -3159,3 +3159,4 @@ Re-run full Story 0000037 validation after Task 23 fixes to ensure all acceptanc
 - 2026-02-28: Testing 7 complete. `npm run compose:up` succeeded and local stack services reached healthy startup.
 - 2026-02-28: Testing 8 complete. Manual Playwright-MCP smoke check at `http://host.docker.internal:5001/chat` and `/agents` succeeded; emitted console marker `[DEV-0000037][T24] event=story_regression_revalidated result=success`, observed no `result=error` T24 line, `browser_console_messages(level=error)` returned empty, and screenshot captured at `/tmp/playwright-output/playwright-output-local/task-24-story-regression-smoke.png`.
 - 2026-02-28: Testing 9 complete. `npm run compose:down` stopped and removed local stack containers/network cleanly.
+- 2026-02-28: Recorded Task 24 implementation commit hash `5bb60b6` in the task Git Commits field.

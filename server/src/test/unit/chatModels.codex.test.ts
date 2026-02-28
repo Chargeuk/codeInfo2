@@ -6,6 +6,7 @@ import type { LMStudioClient } from '@lmstudio/sdk';
 import express from 'express';
 import request from 'supertest';
 
+import type { CodexCapabilityResolution } from '../../codex/capabilityResolver.js';
 import { baseLogger } from '../../logger.js';
 import { setCodexDetection } from '../../providers/codexRegistry.js';
 import { resetMcpStatusCache } from '../../providers/mcpStatus.js';
@@ -61,6 +62,9 @@ function createClient(
 async function startServer(params: {
   mcpAvailable: boolean;
   clientFactory?: () => LMStudioClient;
+  codexCapabilityResolver?: (options: {
+    consumer: 'chat_models' | 'chat_validation';
+  }) => CodexCapabilityResolution;
 }) {
   const app = express();
   app.use(express.json());
@@ -79,6 +83,7 @@ async function startServer(params: {
       clientFactory:
         params.clientFactory ??
         (() => createClient([{ modelKey: 'm', displayName: 'm' }])),
+      codexCapabilityResolver: params.codexCapabilityResolver,
     }),
   );
 
@@ -189,6 +194,66 @@ test('codex models include defaultReasoningEffort present in supportedReasoningE
   }
 });
 
+test('chat models payload is derived from shared capability resolver fixture', async () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+  });
+
+  const fixture: CodexCapabilityResolution = {
+    defaults: {
+      sandboxMode: 'danger-full-access',
+      approvalPolicy: 'on-failure',
+      modelReasoningEffort: 'minimal',
+      networkAccessEnabled: true,
+      webSearchEnabled: true,
+    },
+    models: [
+      {
+        model: 'fixture-model',
+        supportedReasoningEfforts: ['minimal', 'high'],
+        defaultReasoningEffort: 'minimal',
+      },
+    ],
+    byModel: new Map([
+      [
+        'fixture-model',
+        {
+          model: 'fixture-model',
+          supportedReasoningEfforts: ['minimal', 'high'],
+          defaultReasoningEffort: 'minimal',
+        },
+      ],
+    ]),
+    warnings: ['fixture warning'],
+    fallbackUsed: false,
+  };
+
+  const server = await startServer({
+    mcpAvailable: true,
+    codexCapabilityResolver: () => fixture,
+  });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/models?provider=codex')
+      .expect(200);
+
+    assert.deepEqual(res.body.models, [
+      {
+        key: 'fixture-model',
+        displayName: 'fixture-model',
+        type: 'codex',
+        supportedReasoningEfforts: ['minimal', 'high'],
+        defaultReasoningEffort: 'minimal',
+      },
+    ]);
+  } finally {
+    await stopServer(server);
+  }
+});
+
 test('codex response includes defaults and warnings when unavailable', async () => {
   setCodexDetection({
     available: false,
@@ -208,6 +273,37 @@ test('codex response includes defaults and warnings when unavailable', async () 
     assert.deepEqual(res.body.models, []);
     assert.ok(res.body.codexDefaults);
     assert.ok(Array.isArray(res.body.codexWarnings));
+  } finally {
+    await stopServer(server);
+  }
+});
+
+test('codex capability resolver fallback is deterministic when metadata resolution fails', async () => {
+  env.set('Codex_reasoning_efforts_metadata', '__throw__');
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+  });
+
+  const server = await startServer({ mcpAvailable: true });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/models?provider=codex')
+      .expect(200);
+
+    assert.ok(res.body.models.length > 0);
+    for (const model of res.body.models as Array<Record<string, unknown>>) {
+      assert.ok(Array.isArray(model.supportedReasoningEfforts));
+      assert.ok((model.supportedReasoningEfforts as string[]).length > 0);
+      assert.equal(typeof model.defaultReasoningEffort, 'string');
+    }
+    assert.ok(
+      res.body.codexWarnings.some((warning: string) =>
+        warning.includes('fallback capabilities'),
+      ),
+    );
   } finally {
     await stopServer(server);
   }
@@ -456,6 +552,40 @@ test('emits deterministic T12 success log when codex capabilities are returned',
   }
 });
 
+test('emits deterministic T13 success log when shared resolver is consumed by /chat/models', async (t) => {
+  env.set('Codex_model_list', 'alpha,beta');
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+  });
+
+  const infoLines: string[] = [];
+  t.mock.method(baseLogger, 'info', (...args: unknown[]) => {
+    const message = args.find((arg) => typeof arg === 'string') as
+      | string
+      | undefined;
+    if (message) infoLines.push(message);
+  });
+
+  const server = await startServer({ mcpAvailable: true });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+  try {
+    await request(server.httpServer)
+      .get('/chat/models?provider=codex')
+      .expect(200);
+    assert.ok(
+      infoLines.some((line) =>
+        line.includes(
+          '[DEV-0000037][T13] event=shared_capability_resolver_parity_enforced result=success',
+        ),
+      ),
+    );
+  } finally {
+    await stopServer(server);
+  }
+});
+
 test('emits deterministic T12 error log when codex is unavailable', async (t) => {
   setCodexDetection({
     available: false,
@@ -485,6 +615,96 @@ test('emits deterministic T12 error log when codex is unavailable', async (t) =>
         ),
       ),
     );
+  } finally {
+    await stopServer(server);
+  }
+});
+
+test('emits deterministic T13 error log when shared resolver metadata path fails intentionally', async (t) => {
+  env.set('Codex_reasoning_efforts_metadata', '__throw__');
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+  });
+
+  const errorLines: string[] = [];
+  t.mock.method(baseLogger, 'error', (...args: unknown[]) => {
+    const message = args.find((arg) => typeof arg === 'string') as
+      | string
+      | undefined;
+    if (message) errorLines.push(message);
+  });
+
+  const server = await startServer({ mcpAvailable: true });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+  try {
+    await request(server.httpServer)
+      .get('/chat/models?provider=codex')
+      .expect(200);
+    assert.ok(
+      errorLines.some((line) =>
+        line.includes(
+          '[DEV-0000037][T13] event=shared_capability_resolver_parity_enforced result=error',
+        ),
+      ),
+    );
+  } finally {
+    await stopServer(server);
+  }
+});
+
+test('codex payload includes non-standard reasoning effort values from shared capability resolver', async () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+  });
+
+  const fixture: CodexCapabilityResolution = {
+    defaults: {
+      sandboxMode: 'danger-full-access',
+      approvalPolicy: 'on-failure',
+      modelReasoningEffort: 'high',
+      networkAccessEnabled: true,
+      webSearchEnabled: true,
+    },
+    models: [
+      {
+        model: 'future-model',
+        supportedReasoningEfforts: ['minimal', 'turbo'],
+        defaultReasoningEffort: 'turbo',
+      },
+    ],
+    byModel: new Map([
+      [
+        'future-model',
+        {
+          model: 'future-model',
+          supportedReasoningEfforts: ['minimal', 'turbo'],
+          defaultReasoningEffort: 'turbo',
+        },
+      ],
+    ]),
+    warnings: [],
+    fallbackUsed: false,
+  };
+
+  const server = await startServer({
+    mcpAvailable: true,
+    codexCapabilityResolver: () => fixture,
+  });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/models?provider=codex')
+      .expect(200);
+
+    assert.deepEqual(res.body.models[0].supportedReasoningEfforts, [
+      'minimal',
+      'turbo',
+    ]);
+    assert.equal(res.body.models[0].defaultReasoningEffort, 'turbo');
   } finally {
     await stopServer(server);
   }

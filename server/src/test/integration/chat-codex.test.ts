@@ -13,6 +13,7 @@ import type {
 } from '@openai/codex-sdk';
 import express from 'express';
 import request from 'supertest';
+import type { CodexCapabilityResolution } from '../../codex/capabilityResolver.js';
 import {
   getMemoryTurns,
   memoryConversations,
@@ -354,6 +355,136 @@ test('codex chat streams token/final/complete with thread id', async () => {
     await wsHandle.close();
     await new Promise<void>((resolve) => httpServer.close(() => resolve()));
   }
+});
+
+test('codex chat accepts non-standard reasoning effort when provided by shared capability resolver', async () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+
+  const fixture: CodexCapabilityResolution = {
+    defaults: {
+      sandboxMode: 'danger-full-access',
+      approvalPolicy: 'on-failure',
+      modelReasoningEffort: 'high',
+      networkAccessEnabled: true,
+      webSearchEnabled: true,
+    },
+    models: [
+      {
+        model: 'future-model',
+        supportedReasoningEfforts: ['minimal', 'turbo'],
+        defaultReasoningEffort: 'turbo',
+      },
+    ],
+    byModel: new Map([
+      [
+        'future-model',
+        {
+          model: 'future-model',
+          supportedReasoningEfforts: ['minimal', 'turbo'],
+          defaultReasoningEffort: 'turbo',
+        },
+      ],
+    ]),
+    warnings: [],
+    fallbackUsed: false,
+  };
+
+  const mockCodex = new MockCodex();
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({
+      clientFactory: dummyClientFactory,
+      codexFactory: () => mockCodex,
+      codexCapabilityResolver: () => fixture,
+    }),
+  );
+
+  const res = await request(app)
+    .post('/chat')
+    .send(
+      buildCodexBody({
+        model: 'future-model',
+        modelReasoningEffort: 'turbo',
+        conversationId: 'future-model-conv',
+      }),
+    );
+
+  assert.equal(res.status, 202);
+  assert.equal(mockCodex.lastStartOptions?.modelReasoningEffort, 'turbo');
+});
+
+test('codex chat rejects reasoning effort not supported by shared capability resolver for selected model', async () => {
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+    cliPath: '/usr/bin/codex',
+  });
+
+  const fixture: CodexCapabilityResolution = {
+    defaults: {
+      sandboxMode: 'danger-full-access',
+      approvalPolicy: 'on-failure',
+      modelReasoningEffort: 'minimal',
+      networkAccessEnabled: true,
+      webSearchEnabled: true,
+    },
+    models: [
+      {
+        model: 'strict-model',
+        supportedReasoningEfforts: ['minimal'],
+        defaultReasoningEffort: 'minimal',
+      },
+    ],
+    byModel: new Map([
+      [
+        'strict-model',
+        {
+          model: 'strict-model',
+          supportedReasoningEfforts: ['minimal'],
+          defaultReasoningEffort: 'minimal',
+        },
+      ],
+    ]),
+    warnings: [],
+    fallbackUsed: false,
+  };
+
+  const mockCodex = new MockCodex();
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/chat',
+    createChatRouter({
+      clientFactory: dummyClientFactory,
+      codexFactory: () => mockCodex,
+      codexCapabilityResolver: () => fixture,
+    }),
+  );
+
+  const res = await request(app)
+    .post('/chat')
+    .send(
+      buildCodexBody({
+        model: 'strict-model',
+        modelReasoningEffort: 'high',
+        conversationId: 'strict-model-conv',
+      }),
+    );
+
+  assert.equal(res.status, 400);
+  assert.match(
+    String(res.body?.message ?? ''),
+    /modelReasoningEffort must be one of: minimal/,
+  );
+  assert.equal(mockCodex.lastStartOptions, undefined);
 });
 
 test('shared-home device-auth success unlocks chat without extra target selection', async () => {

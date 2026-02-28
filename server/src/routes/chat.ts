@@ -10,7 +10,10 @@ import {
 } from '../agents/runLock.js';
 import { attachChatStreamBridge } from '../chat/chatStreamBridge.js';
 import { UnsupportedProviderError, getChatInterface } from '../chat/factory.js';
-import { getCodexModelList } from '../config/codexEnvDefaults.js';
+import {
+  resolveCodexCapabilities,
+  type CodexCapabilityResolution,
+} from '../codex/capabilityResolver.js';
 import {
   resolveRuntimeProviderSelection,
   type ChatDefaultProvider,
@@ -115,11 +118,15 @@ export function createChatRouter({
   codexFactory,
   toolFactory,
   chatFactory = getChatInterface,
+  codexCapabilityResolver = resolveCodexCapabilities,
 }: {
   clientFactory: ClientFactory;
   codexFactory?: CodexFactory;
   toolFactory?: ToolFactory;
   chatFactory?: typeof getChatInterface;
+  codexCapabilityResolver?: (options: {
+    consumer: 'chat_models' | 'chat_validation';
+  }) => CodexCapabilityResolution;
 }) {
   const router = Router();
   const { maxClientBytes } = resolveLogConfig();
@@ -139,7 +146,7 @@ export function createChatRouter({
 
     let validatedBody;
     try {
-      validatedBody = validateChatRequest(rawBody);
+      validatedBody = validateChatRequest(rawBody, { codexCapabilityResolver });
     } catch (err) {
       if (err instanceof ChatValidationError) {
         return res.status(400).json({
@@ -211,9 +218,12 @@ export function createChatRouter({
     const safeBase = scrubBaseUrl(baseUrl);
 
     const codexDetection = getCodexDetection();
+    const codexCapabilities = codexCapabilityResolver({
+      consumer: 'chat_validation',
+    });
     const codexState = {
       available: codexDetection.available,
-      models: getCodexModelList().models,
+      models: codexCapabilities.models.map((entry) => entry.model),
       reason: codexDetection.reason ?? 'codex unavailable',
     };
 

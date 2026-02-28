@@ -3277,3 +3277,38 @@ sequenceDiagram
   Route-->>Client: provider/available/toolsAvailable/models(+capabilities)
   Route->>Route: emit deterministic T12 success/error log
 ```
+
+## Story 0000037 Task 13: shared codex capability resolver parity for `/chat/models` and `/chat`
+
+- One shared resolver module now owns codex capability resolution for both payload generation and request validation:
+  - `server/src/codex/capabilityResolver.ts`
+- `/chat/models?provider=codex` and `/chat` validation consume the same resolver output to prevent capability drift.
+- Resolver output is deterministic:
+  - ordered/deduplicated `supportedReasoningEfforts`
+  - explicit `defaultReasoningEffort` per model
+  - deterministic fallback model capabilities when metadata is unavailable.
+- Deterministic Task 13 parity log markers are emitted from shared resolver execution:
+  - `[DEV-0000037][T13] event=shared_capability_resolver_parity_enforced result=success`
+  - `[DEV-0000037][T13] event=shared_capability_resolver_parity_enforced result=error`
+
+```mermaid
+flowchart TD
+  A[Shared resolver: resolveCodexCapabilities] --> B[/chat/models mapping]
+  A --> C[/chat validation]
+  B --> D[Emit codex model payload with supportedReasoningEfforts + defaultReasoningEffort]
+  C --> E[Validate modelReasoningEffort against selected model support]
+  E --> F{supported?}
+  F -->|Yes| G[Accept request]
+  F -->|No| H[400 invalid_request deterministic error]
+```
+
+```mermaid
+flowchart TD
+  A[resolveCodexCapabilities] --> B{metadata available and valid?}
+  B -->|Yes| C[Normalize + order + dedupe efforts]
+  B -->|No| D[Deterministic fallback from env defaults/model list]
+  C --> E[Return shared capability map]
+  D --> E
+  E --> F[Emit T13 success log]
+  D --> G[Emit T13 error log when metadata resolution fails]
+```

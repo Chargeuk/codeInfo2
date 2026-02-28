@@ -1893,7 +1893,7 @@ Implement backend model-capability payload contract for Codex models so frontend
 
 ### 13. Server: Share codex capability resolver across `/chat/models` and `/chat`
 
-- Task Status: **__todo__**
+- Task Status: **__done__**
 - Git Commits: `None yet`
 
 #### Overview
@@ -1911,31 +1911,31 @@ Replace static reasoning/model sources with one shared runtime codex capability 
 
 #### Subtasks
 
-1. [ ] Replace static reasoning/model sources for chat capability payloads and chat validation with one shared runtime codex capability resolver sourced from model metadata.
+1. [x] Replace static reasoning/model sources for chat capability payloads and chat validation with one shared runtime codex capability resolver sourced from model metadata.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `server/src/routes/chatModels.ts`, `server/src/routes/chat.ts`, `server/src/routes/chatValidators.ts`, shared helper files under `server/src/config`.
    - Do: remove hard-coded effort arrays and `getCodexModelList`/`getCodexEnvDefaults` static assumptions where applicable.
    - Docs: Context7 `/openai/codex`.
    - Done when: both routes read capabilities from same resolver output.
-2. [ ] Implement one shared codex capability resolver module used by `/chat/models` payload generation and `/chat` validation.
+2. [x] Implement one shared codex capability resolver module used by `/chat/models` payload generation and `/chat` validation.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: new module under `server/src/codex/` or `server/src/chat/` plus imports in both routes.
    - Do: expose stable API returning supported/default effort per model with deterministic fallback when metadata unavailable.
    - Docs: Context7 `/openai/codex`, https://www.typescriptlang.org/docs/.
    - Done when: one module is imported by both consumers.
-3. [ ] Ensure deterministic behavior when capability data changes and emit only capability-normalized effort values.
+3. [x] Ensure deterministic behavior when capability data changes and emit only capability-normalized effort values.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: shared resolver and `chatModels` route mapping.
    - Do: normalize ordering and ensure fallback default is explicit.
    - Docs: Context7 `/openai/codex`, https://spec.openapis.org/oas/v3.0.3.html.
    - Done when: emitted values are deterministic across repeated calls.
-4. [ ] Add server-side chat request validation that rejects unsupported `model_reasoning_effort` values for selected model with deterministic `invalid_request` errors.
+4. [x] Add server-side chat request validation that rejects unsupported `model_reasoning_effort` values for selected model with deterministic `invalid_request` errors.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `server/src/routes/chat.ts`, validator module.
    - Do: validate effort against selected model capability set; no silent downgrade.
    - Docs: https://datatracker.ietf.org/doc/html/rfc7807, https://httpwg.org/specs/rfc9110.html.
    - Done when: unsupported effort returns deterministic `invalid_request` response.
-5. [ ] Add parity test for `/chat/models` payload using shared capability resolver fixture.
+5. [x] Add parity test for `/chat/models` payload using shared capability resolver fixture.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/unit/chatModels.codex.test.ts`.
@@ -1943,7 +1943,7 @@ Replace static reasoning/model sources with one shared runtime codex capability 
    - Purpose: lock payload producer to shared resolver contract.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/snapshot-testing.
    - Done when: test fails if `/chat/models` diverges from resolver output.
-6. [ ] Add parity test for `/chat` validation using shared capability resolver fixture.
+6. [x] Add parity test for `/chat` validation using shared capability resolver fixture.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/unit/chat-codex-reasoning-delta.test.ts`, `server/src/test/integration/chat-codex.test.ts`.
@@ -1951,7 +1951,7 @@ Replace static reasoning/model sources with one shared runtime codex capability 
    - Purpose: prevent payload/validation capability drift.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if `/chat` accepts/rejects values inconsistent with resolver output.
-7. [ ] Add fallback test for deterministic `/chat/models` payload when metadata is unavailable.
+7. [x] Add fallback test for deterministic `/chat/models` payload when metadata is unavailable.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/unit/chatModels.codex.test.ts`.
@@ -1959,7 +1959,7 @@ Replace static reasoning/model sources with one shared runtime codex capability 
    - Purpose: guarantee stable API behavior in degraded metadata conditions.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/mock-functions.
    - Done when: test fails if fallback payload changes nondeterministically.
-8. [ ] Add fallback validation test for accepted reasoning-effort values.
+8. [x] Add fallback validation test for accepted reasoning-effort values.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/unit/chat-codex-reasoning-delta.test.ts`, `server/src/test/integration/chat-codex.test.ts`.
@@ -1967,7 +1967,7 @@ Replace static reasoning/model sources with one shared runtime codex capability 
    - Purpose: confirm fallback validation still supports intended requests.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if valid fallback values are rejected.
-9. [ ] Add fallback validation test for rejected reasoning-effort values.
+9. [x] Add fallback validation test for rejected reasoning-effort values.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/unit/chat-codex-reasoning-delta.test.ts`, `server/src/test/integration/chat-codex.test.ts`.
@@ -1975,7 +1975,7 @@ Replace static reasoning/model sources with one shared runtime codex capability 
    - Purpose: confirm fallback validation remains strict and deterministic.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if unsupported fallback values are accepted.
-10. [ ] Add forward-compatibility test for non-standard reasoning-effort capability values.
+10. [x] Add forward-compatibility test for non-standard reasoning-effort capability values.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/unit/chatModels.codex.test.ts`, `server/src/test/unit/chat-codex-reasoning-delta.test.ts`.
@@ -1983,7 +1983,7 @@ Replace static reasoning/model sources with one shared runtime codex capability 
    - Purpose: guarantee future SDK/runtime reasoning additions do not require new one-off server code.
    - Docs: Context7 `/openai/codex`, Context7 `/jestjs/jest`.
    - Done when: test fails if unseen capability values are dropped or rejected despite resolver support.
-11. [ ] Update `projectStructure.md` for any files added or removed in this task, after all file-add/remove subtasks are completed.
+11. [x] Update `projectStructure.md` for any files added or removed in this task, after all file-add/remove subtasks are completed.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `projectStructure.md`.
    - Document name: `projectStructure.md`.
@@ -1993,7 +1993,7 @@ Replace static reasoning/model sources with one shared runtime codex capability 
    - Do: list every file added and removed by this task (shared capability resolver modules, supporting tests, and any deleted/renamed paths).
    - Docs: https://git-scm.com/docs/git-ls-files.
    - Done when: `projectStructure.md` includes the complete set of files added/removed by this task.
-12. [ ] Update `design.md` with shared capability-resolver architecture and Mermaid diagrams after all architecture-flow subtasks are complete.
+12. [x] Update `design.md` with shared capability-resolver architecture and Mermaid diagrams after all architecture-flow subtasks are complete.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `design.md`.
    - Document name: `design.md`.
@@ -2004,7 +2004,7 @@ Replace static reasoning/model sources with one shared runtime codex capability 
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` clearly shows shared capability resolution and validation flow with no duplicate logic paths.
 
-13. [ ] Add deterministic structured log line `[DEV-0000037][T13] event=shared_capability_resolver_parity_enforced result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
+13. [x] Add deterministic structured log line `[DEV-0000037][T13] event=shared_capability_resolver_parity_enforced result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: server implementation files already listed in this task's subtasks and matching `server/src/test/**` suites.
    - Do: emit this exact log prefix and event name from the implementation path, then assert in tests that `result=success` is emitted on happy path and `result=error` only appears on intentional failure-path coverage.
@@ -2012,15 +2012,25 @@ Replace static reasoning/model sources with one shared runtime codex capability 
    - Manual Playwright-MCP check linkage: verify this exact log line during this task's Manual Playwright-MCP check when present, or during Task 22 final regression Manual Playwright-MCP check for backend/docs-only tasks.
    - Docs: https://nodejs.org/api/console.html, Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: deterministic log assertions are present and this task's expected trigger produces the exact `[DEV-0000037][T13] event=shared_capability_resolver_parity_enforced result=success` line.
-14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+14. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test --workspace server`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run test --workspace server`
 
 #### Implementation Notes
 
-- None yet.
+- 2026-02-28: Set Task 13 status to `__in_progress__` before implementation.
+- 2026-02-28: Subtasks 1-3 complete. Added shared `server/src/codex/capabilityResolver.ts` and rewired `/chat/models` + `/chat` paths to consume one normalized capability source with deterministic fallback ordering/default behavior.
+- 2026-02-28: Subtask 4 complete. Updated `validateChatRequest` to validate codex `modelReasoningEffort` against selected-model capability support and default from the shared resolver output.
+- 2026-02-28: Subtasks 5,7,10 complete. Added `/chat/models` unit coverage for shared-resolver parity, deterministic fallback payload behavior, and forward-compatible non-standard effort values.
+- 2026-02-28: Subtasks 6,8,9 complete. Added validation parity/fallback coverage in `chat-codex-reasoning-delta` and integration coverage in `chat-codex` for accepted/rejected per-model reasoning values.
+- 2026-02-28: Subtask 13 complete. Added deterministic T13 success/error logging in shared resolver paths with dedicated assertions in `/chat/models` tests.
+- 2026-02-28: Subtask 11 complete. Updated `projectStructure.md` with the Task 0000037-T13 file add/remove ledger and full in-place update list for shared resolver integration files/tests.
+- 2026-02-28: Subtask 12 complete. Updated `design.md` with Task 13 shared resolver architecture details and Mermaid flows for dual-consumer parity plus deterministic fallback behavior.
+- 2026-02-28: Subtask 14 complete. Ran `npm run lint --workspaces` (passed with existing baseline import-order warnings) and `npm run format:check --workspaces`; server format check initially failed, then passed after `npm run format --workspace server`.
+- 2026-02-28: Testing 1 complete. `npm run build --workspace server` passed after typing fixes for forward-compatible resolver fixtures/default assignments.
+- 2026-02-28: Testing 2 complete. `npm run test --workspace server` passed (`node --test` summary: `tests 819, pass 819`; cucumber summary: `67 scenarios, 402 steps`, all passed, using `http://host.docker.internal:8100` for compose-backed chroma checks).
 
 ### 14. Frontend: Consume simplified device-auth API contract
 

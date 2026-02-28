@@ -1,14 +1,11 @@
-import {
-  CODEX_MODEL_REASONING_EFFORTS,
-  type ChatModelsResponse,
-} from '@codeinfo2/common';
+import { type ChatModelsResponse } from '@codeinfo2/common';
 import type { LMStudioClient } from '@lmstudio/sdk';
 import { Router } from 'express';
 import { resolveChatDefaults } from '../config/chatDefaults.js';
 import {
-  getCodexEnvDefaults,
-  getCodexModelList,
-} from '../config/codexEnvDefaults.js';
+  resolveCodexCapabilities,
+  type CodexCapabilityResolution,
+} from '../codex/capabilityResolver.js';
 import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
 import { getCodexDetection } from '../providers/codexRegistry.js';
@@ -48,20 +45,14 @@ const prioritizeModel = <T extends { key: string }>(
   return clone;
 };
 
-const buildCodexModelCapabilities = (defaultReasoningEffort: string) => {
-  const supportedReasoningEfforts = Array.from(
-    new Set([...CODEX_MODEL_REASONING_EFFORTS, defaultReasoningEffort]),
-  );
-  return {
-    supportedReasoningEfforts,
-    defaultReasoningEffort,
-  };
-};
-
 export function createChatModelsRouter({
   clientFactory,
+  codexCapabilityResolver = resolveCodexCapabilities,
 }: {
   clientFactory: ClientFactory;
+  codexCapabilityResolver?: (options: {
+    consumer: 'chat_models' | 'chat_validation';
+  }) => CodexCapabilityResolution;
 }) {
   const router = Router();
   const isChatModel = (model: { type?: string; architecture?: string }) => {
@@ -76,34 +67,26 @@ export function createChatModelsRouter({
     if (provider === 'codex') {
       const detection = getCodexDetection();
       const mcp = await getMcpStatus();
-      const codexEnv = getCodexEnvDefaults();
-      const modelList = getCodexModelList();
+      const capabilities = codexCapabilityResolver({ consumer: 'chat_models' });
       const toolsAvailable = detection.available && mcp.available;
       const runtimeWarnings: string[] = [];
 
-      if (codexEnv.defaults.webSearchEnabled && !toolsAvailable) {
+      if (capabilities.defaults.webSearchEnabled && !toolsAvailable) {
         runtimeWarnings.push(
           'Codex web search is enabled, but tools are unavailable; web search will be ignored.',
         );
       }
 
-      const codexWarnings = [
-        ...modelList.warnings,
-        ...codexEnv.warnings,
-        ...runtimeWarnings,
-      ];
+      const codexWarnings = [...capabilities.warnings, ...runtimeWarnings];
       const preferredDefaults = resolveChatDefaults({});
       const codexModels = prioritizeModel(
-        modelList.models.map((model) => {
-          const capabilities = buildCodexModelCapabilities(
-            codexEnv.defaults.modelReasoningEffort,
-          );
+        capabilities.models.map((capability) => {
           return {
-            key: model,
-            displayName: model,
+            key: capability.model,
+            displayName: capability.model,
             type: 'codex',
-            supportedReasoningEfforts: capabilities.supportedReasoningEfforts,
-            defaultReasoningEffort: capabilities.defaultReasoningEffort,
+            supportedReasoningEfforts: capability.supportedReasoningEfforts,
+            defaultReasoningEffort: capability.defaultReasoningEffort,
           };
         }),
         preferredDefaults.provider === 'codex'
@@ -113,9 +96,9 @@ export function createChatModelsRouter({
 
       baseLogger.info(
         {
-          modelCount: modelList.models.length,
-          fallbackUsed: modelList.fallbackUsed,
-          warningsCount: modelList.warnings.length,
+          modelCount: capabilities.models.length,
+          fallbackUsed: capabilities.fallbackUsed,
+          warningsCount: capabilities.warnings.length,
         },
         '[codex-model-list] using env list',
       );
@@ -133,7 +116,7 @@ export function createChatModelsRouter({
         toolsAvailable,
         reason: detection.reason ?? (mcp.available ? undefined : mcp.reason),
         models: detection.available ? codexModels : [],
-        codexDefaults: codexEnv.defaults,
+        codexDefaults: capabilities.defaults,
         codexWarnings,
       };
 

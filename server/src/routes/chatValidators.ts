@@ -3,12 +3,16 @@ import type {
   ModelReasoningEffort,
   SandboxMode,
 } from '@openai/codex-sdk';
-import { CODEX_MODEL_REASONING_EFFORTS } from '@codeinfo2/common';
 import {
   resolveChatDefaults,
   type ChatDefaultProvider,
 } from '../config/chatDefaults.js';
 import { getCodexEnvDefaults } from '../config/codexEnvDefaults.js';
+import {
+  getCodexCapabilityForModel,
+  resolveCodexCapabilities,
+  type CodexCapabilityResolution,
+} from '../codex/capabilityResolver.js';
 import { baseLogger } from '../logger.js';
 
 type Provider = 'codex' | 'lmstudio';
@@ -115,11 +119,21 @@ export const approvalPolicies: ApprovalMode[] = [
   'untrusted',
 ] as ApprovalMode[];
 
-export const modelReasoningEfforts =
-  CODEX_MODEL_REASONING_EFFORTS as readonly ModelReasoningEffort[];
+export const modelReasoningEfforts = [
+  'minimal',
+  'low',
+  'medium',
+  'high',
+  'xhigh',
+] as const satisfies readonly ModelReasoningEffort[];
 
 export function validateChatRequest(
   body: ChatRequestBody | unknown,
+  options?: {
+    codexCapabilityResolver?: (options: {
+      consumer: 'chat_models' | 'chat_validation';
+    }) => CodexCapabilityResolution;
+  },
 ): ValidatedChatRequest {
   if (!isPlainObject(body)) {
     throw new ChatValidationError('request body must be an object');
@@ -197,8 +211,21 @@ export function validateChatRequest(
   const defaultedFlags: Array<keyof ValidatedChatRequest['codexFlags']> = [];
   const codexEnvDefaults =
     provider === 'codex' ? getCodexEnvDefaults() : undefined;
+  const codexCapabilities =
+    provider === 'codex'
+      ? (options?.codexCapabilityResolver ?? resolveCodexCapabilities)({
+          consumer: 'chat_validation',
+        })
+      : undefined;
+  const selectedModelCapability =
+    provider === 'codex' && codexCapabilities
+      ? getCodexCapabilityForModel(codexCapabilities, model)
+      : undefined;
   if (codexEnvDefaults?.warnings.length) {
     warnings.push(...codexEnvDefaults.warnings);
+  }
+  if (codexCapabilities?.warnings.length) {
+    warnings.push(...codexCapabilities.warnings);
   }
 
   // Example payloads for juniors:
@@ -286,14 +313,17 @@ export function validateChatRequest(
 
   const modelReasoningEffort = body.modelReasoningEffort;
   if (modelReasoningEffort !== undefined) {
+    const supportedReasoningEfforts =
+      selectedModelCapability?.supportedReasoningEfforts ??
+      modelReasoningEfforts;
     if (
       typeof modelReasoningEffort !== 'string' ||
-      !modelReasoningEfforts.includes(
+      !supportedReasoningEfforts.includes(
         modelReasoningEffort as ModelReasoningEffort,
       )
     ) {
       throw new ChatValidationError(
-        `modelReasoningEffort must be one of: ${modelReasoningEfforts.join(', ')}`,
+        `modelReasoningEffort must be one of: ${supportedReasoningEfforts.join(', ')}`,
       );
     }
     if (provider !== 'codex') {
@@ -305,8 +335,10 @@ export function validateChatRequest(
         modelReasoningEffort as ModelReasoningEffort;
     }
   } else if (provider === 'codex') {
-    codexFlags.modelReasoningEffort =
-      codexEnvDefaults?.defaults.modelReasoningEffort;
+    codexFlags.modelReasoningEffort = (
+      selectedModelCapability?.defaultReasoningEffort ??
+      codexEnvDefaults?.defaults.modelReasoningEffort
+    ) as ModelReasoningEffort;
     defaultedFlags.push('modelReasoningEffort');
   }
 

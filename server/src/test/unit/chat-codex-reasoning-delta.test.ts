@@ -2,9 +2,13 @@ import assert from 'node:assert/strict';
 import test, { beforeEach } from 'node:test';
 
 import type { ThreadOptions as CodexThreadOptions } from '@openai/codex-sdk';
+import type { CodexCapabilityResolution } from '../../codex/capabilityResolver.js';
 import { ChatInterfaceCodex } from '../../chat/interfaces/ChatInterfaceCodex.js';
 import { setCodexDetection } from '../../providers/codexRegistry.js';
-import { modelReasoningEfforts } from '../../routes/chatValidators.js';
+import {
+  modelReasoningEfforts,
+  validateChatRequest,
+} from '../../routes/chatValidators.js';
 
 type CodexEvent = Record<string, unknown>;
 
@@ -113,4 +117,98 @@ test('passes every supported reasoning effort through thread options', async () 
     );
     assert.equal(lastOptions?.modelReasoningEffort, reasoningEffort);
   }
+});
+
+test('chat validation uses shared capability resolver fixture for accepted effort values', () => {
+  const fixture: CodexCapabilityResolution = {
+    defaults: {
+      sandboxMode: 'danger-full-access',
+      approvalPolicy: 'on-failure',
+      modelReasoningEffort: 'high',
+      networkAccessEnabled: true,
+      webSearchEnabled: true,
+    },
+    models: [
+      {
+        model: 'future-model',
+        supportedReasoningEfforts: ['minimal', 'turbo'],
+        defaultReasoningEffort: 'turbo',
+      },
+    ],
+    byModel: new Map([
+      [
+        'future-model',
+        {
+          model: 'future-model',
+          supportedReasoningEfforts: ['minimal', 'turbo'],
+          defaultReasoningEffort: 'turbo',
+        },
+      ],
+    ]),
+    warnings: [],
+    fallbackUsed: false,
+  };
+
+  const result = validateChatRequest(
+    {
+      model: 'future-model',
+      message: 'hello',
+      conversationId: 'future-accept',
+      provider: 'codex',
+      modelReasoningEffort: 'turbo',
+    },
+    {
+      codexCapabilityResolver: () => fixture,
+    },
+  );
+
+  assert.equal(result.codexFlags.modelReasoningEffort, 'turbo');
+});
+
+test('chat validation rejects effort values outside shared capability resolver support', () => {
+  const fixture: CodexCapabilityResolution = {
+    defaults: {
+      sandboxMode: 'danger-full-access',
+      approvalPolicy: 'on-failure',
+      modelReasoningEffort: 'minimal',
+      networkAccessEnabled: true,
+      webSearchEnabled: true,
+    },
+    models: [
+      {
+        model: 'strict-model',
+        supportedReasoningEfforts: ['minimal'],
+        defaultReasoningEffort: 'minimal',
+      },
+    ],
+    byModel: new Map([
+      [
+        'strict-model',
+        {
+          model: 'strict-model',
+          supportedReasoningEfforts: ['minimal'],
+          defaultReasoningEffort: 'minimal',
+        },
+      ],
+    ]),
+    warnings: [],
+    fallbackUsed: false,
+  };
+
+  assert.throws(
+    () =>
+      validateChatRequest(
+        {
+          model: 'strict-model',
+          message: 'hello',
+          conversationId: 'strict-reject',
+          provider: 'codex',
+          modelReasoningEffort: 'high',
+        },
+        {
+          codexCapabilityResolver: () => fixture,
+        },
+      ),
+    /modelReasoningEffort must be one of: minimal/,
+  );
 });

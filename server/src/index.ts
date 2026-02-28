@@ -16,6 +16,7 @@ import {
   ensureStartupEnvLoaded,
   resolveOpenAiEmbeddingCapabilityState,
 } from './config/startupEnv.js';
+import { validateAndLogCodexSdkUpgrade } from './config/codexSdkUpgrade.js';
 import { getFlowAndCommandRetries } from './config/flowAndCommandRetries.js';
 import { baseLogger, createRequestLogger } from './logger.js';
 import { createMcpRouter } from './mcp/server.js';
@@ -61,6 +62,10 @@ import { attachWs, type WsServerHandle } from './ws/server.js';
 
 const startupEnvLoad = ensureStartupEnvLoaded();
 ensureCodexConfigSeeded();
+validateAndLogCodexSdkUpgrade(pkg.dependencies?.['@openai/codex-sdk'], {
+  logger: (message) => baseLogger.info(message),
+  errorLogger: (message) => baseLogger.error(message),
+});
 ensureCodexAuthFromHost({
   containerHome: getCodexHome(),
   hostHome: path.resolve('/host/codex'),

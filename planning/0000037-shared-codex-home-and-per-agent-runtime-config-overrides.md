@@ -430,7 +430,7 @@ The story is ready to be tasked only when all the following are explicit in the 
 
 ### 1. Server: Upgrade Codex SDK to latest stable
 
-- Task Status: **__todo__**
+- Task Status: **__done__**
 - Git Commits: `None yet`
 
 #### Overview
@@ -445,19 +445,19 @@ Upgrade `@openai/codex-sdk` to latest stable at implementation start and lock de
 
 #### Subtasks
 
-1. [ ] Upgrade `@openai/codex-sdk` in `server/package.json` to latest stable (no pre-release).
+1. [x] Upgrade `@openai/codex-sdk` in `server/package.json` to latest stable (no pre-release).
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `server/package.json`.
    - Do: replace `@openai/codex-sdk` version with latest stable (no `-alpha`, `-beta`, `-rc`).
    - Docs: Context7 `/openai/codex`, https://docs.npmjs.com/about-semantic-versioning.
    - Done when: `server/package.json` references a stable version only.
-2. [ ] Update lockfile and ensure only one resolved SDK version is used by server workspace dependency tree.
+2. [x] Update lockfile and ensure only one resolved SDK version is used by server workspace dependency tree.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: root `package-lock.json`.
    - Do: run workspace install/update and confirm a single resolved `@openai/codex-sdk` entry for server path.
    - Docs: https://docs.npmjs.com/cli/v10/commands/npm-ls.
    - Done when: `npm ls @openai/codex-sdk --workspace server` shows one version.
-3. [ ] Record exact upgraded SDK version in this story file Implementation notes for traceability.
+3. [x] Record exact upgraded SDK version in this story file Implementation notes for traceability.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `planning/0000037-shared-codex-home-and-per-agent-runtime-config-overrides.md`.
    - Document name: `0000037-shared-codex-home-and-per-agent-runtime-config-overrides.md`.
@@ -468,7 +468,7 @@ Upgrade `@openai/codex-sdk` to latest stable at implementation start and lock de
    - Docs: https://keepachangelog.com/en/1.0.0/.
    - Done when: Task 1 notes explicitly state the final upgraded version.
 
-4. [ ] Add deterministic structured log line `[DEV-0000037][T01] event=codex_sdk_upgraded result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
+4. [x] Add deterministic structured log line `[DEV-0000037][T01] event=codex_sdk_upgraded result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `server/package.json`, `package-lock.json`, and this task's server test files.
    - Do: emit this exact log prefix and event name from the implementation path, then assert in tests that `result=success` is emitted on happy path and `result=error` only appears on intentional failure-path coverage.
@@ -476,16 +476,23 @@ Upgrade `@openai/codex-sdk` to latest stable at implementation start and lock de
    - Manual Playwright-MCP check linkage: verify this exact log line during this task's Manual Playwright-MCP check when present, or during Task 22 final regression Manual Playwright-MCP check for backend/docs-only tasks.
    - Docs: https://nodejs.org/api/console.html, Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: deterministic log assertions are present and this task's expected trigger produces the exact `[DEV-0000037][T01] event=codex_sdk_upgraded result=success` line.
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+5. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test --workspace server`
-3. [ ] `npm ls @openai/codex-sdk --workspace server`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run test --workspace server`
+3. [x] `npm ls @openai/codex-sdk --workspace server`
 
-#### Implementation notes
+#### Implementation Notes
 
-- None yet.
+- 2026-02-28: Subtask 1 complete. Updated `server/package.json` `@openai/codex-sdk` from `0.101.0` to stable `0.106.0` (no pre-release tag).
+- 2026-02-28: Subtask 2 complete. Reconciled lockfile/workspace install state and verified `npm ls @openai/codex-sdk --workspace server` resolves exactly one version.
+- 2026-02-28: Subtask 3 complete. Recorded final upgraded SDK version as `0.106.0` for traceability.
+- 2026-02-28: Subtask 4 complete. Added `validateAndLogCodexSdkUpgrade` startup check and unit coverage asserting exact `[DEV-0000037][T01] ... result=success` and `result=error` log lines.
+- 2026-02-28: Subtask 5 complete. `npm run lint --workspaces` passed; `npm run format:check --workspaces` initially flagged `src/config/codexSdkUpgrade.ts`, then passed after `npm run format --workspace server`.
+- 2026-02-28: Testing 1 complete. `npm run build --workspace server` succeeded (`tsc -b`).
+- 2026-02-28: Testing 2 complete. `npm run test --workspace server` passed (unit summary: `tests 748, pass 748`; integration summary: `67 scenarios, 402 steps, all passed`).
+- 2026-02-28: Testing 3 complete. `npm ls @openai/codex-sdk --workspace server` reports a single resolved version `0.106.0`.
 
 ### 2. Server: Remove local reasoning-effort widening shims and align shared/client/server typing
 
@@ -571,7 +578,7 @@ Remove compatibility-only widened reasoning-effort unions/casts and align code t
 10. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: trigger reasoning-effort selection flows, capture screenshot `task-02-reasoning-options.png`, and store it in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped by `docker-compose.local.yml`); verify the agent reviews the screenshot against this task's UI expectations (supported options shown, unsupported options absent), debug console includes `[DEV-0000037][T02] event=reasoning_effort_shims_removed result=success` (expected once per exercised path), includes no `[DEV-0000037][T02] ... result=error`, and has no unrelated console errors.
 11. [ ] `npm run compose:down`
 
-#### Implementation notes
+#### Implementation Notes
 
 - None yet.
 
@@ -711,7 +718,7 @@ Create one server-side config resolution layer that reads shared base config, ch
 4. [ ] Run new config-loader/normalization unit tests directly and verify pass.
 5. [ ] Run targeted bootstrap copy/no-overwrite tests and verify deterministic outcomes.
 
-#### Implementation notes
+#### Implementation Notes
 
 - None yet.
 
@@ -774,7 +781,15 @@ Implement deterministic merge and validation behavior for runtime config resolut
    - Purpose: enforce fixed unknown-key handling policy across paths.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/mock-functions.
    - Done when: test fails if unknown keys start failing runs.
-7. [ ] Add validator unit test for invalid-type hard-fail behavior.
+7. [ ] Add validator unit test for misplaced key under project-table path (`[projects.\"<path>\"].cli_auth_credentials_store`) to ensure warn+ignore behavior.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
+   - Test type: Unit.
+   - Test location: `server/src/test/**` config validator suites.
+   - Description: assert misplaced `cli_auth_credentials_store` under project table is treated as unsupported key path (warning + ignore), not hard-fail and not promoted to runtime behavior.
+   - Purpose: lock the exact acceptance-rule example for misplaced keys.
+   - Docs: Context7 `/jestjs/jest`, https://toml.io/en/v1.0.0.
+   - Done when: test fails if misplaced key is accepted as valid project behavior or converted into supported runtime config.
+8. [ ] Add validator unit test for invalid-type hard-fail behavior.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `server/src/test/**` config validator suites.
@@ -782,7 +797,7 @@ Implement deterministic merge and validation behavior for runtime config resolut
    - Purpose: enforce strict type validation policy.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if invalid types are accepted or downgraded.
-8. [ ] Add agent-config failure unit test for missing file.
+9. [ ] Add agent-config failure unit test for missing file.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `server/src/test/**` resolver/service failure suites.
@@ -790,7 +805,7 @@ Implement deterministic merge and validation behavior for runtime config resolut
    - Purpose: prevent fallback leakage when agent config is absent.
    - Docs: https://nodejs.org/api/fs.html#file-system-flags.
    - Done when: test fails if run silently falls back.
-9. [ ] Add agent-config failure unit test for invalid TOML.
+10. [ ] Add agent-config failure unit test for invalid TOML.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `server/src/test/**` resolver/service failure suites.
@@ -798,7 +813,7 @@ Implement deterministic merge and validation behavior for runtime config resolut
    - Purpose: guarantee deterministic agent failure semantics.
    - Docs: https://toml.io/en/v1.0.0.
    - Done when: test fails if invalid TOML falls back or produces nondeterministic errors.
-10. [ ] Add agent-config failure unit test for unreadable file permissions.
+11. [ ] Add agent-config failure unit test for unreadable file permissions.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `server/src/test/**` resolver/service failure suites.
@@ -806,7 +821,7 @@ Implement deterministic merge and validation behavior for runtime config resolut
    - Purpose: prevent ambiguous behavior on filesystem permission errors.
    - Docs: https://nodejs.org/api/fs.html#file-system-flags.
    - Done when: test fails if unreadable files are treated as soft warnings.
-11. [ ] Add chat-config failure unit test for missing file.
+12. [ ] Add chat-config failure unit test for missing file.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `server/src/test/**` chat resolver/service failure suites.
@@ -814,7 +829,7 @@ Implement deterministic merge and validation behavior for runtime config resolut
    - Purpose: enforce no-fallback rule for chat runtime behavior.
    - Docs: https://nodejs.org/api/errors.html.
    - Done when: test fails if missing chat config falls back to base behavior.
-12. [ ] Add chat-config failure unit test for invalid TOML.
+13. [ ] Add chat-config failure unit test for invalid TOML.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `server/src/test/**` chat resolver/service failure suites.
@@ -822,7 +837,7 @@ Implement deterministic merge and validation behavior for runtime config resolut
    - Purpose: guarantee deterministic chat parse-error semantics.
    - Docs: https://toml.io/en/v1.0.0.
    - Done when: test fails if invalid chat TOML is tolerated.
-13. [ ] Add chat-config failure unit test for unreadable file permissions.
+14. [ ] Add chat-config failure unit test for unreadable file permissions.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `server/src/test/**` chat resolver/service failure suites.
@@ -830,7 +845,7 @@ Implement deterministic merge and validation behavior for runtime config resolut
    - Purpose: prevent hidden behavior changes on permission failures.
    - Docs: https://nodejs.org/api/fs.html#file-system-flags.
    - Done when: test fails if unreadable chat config still allows chat execution.
-14. [ ] Add happy-path unit test for valid canonical agent/chat config resolution.
+15. [ ] Add happy-path unit test for valid canonical agent/chat config resolution.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `server/src/test/**` resolver happy-path suites.
@@ -838,7 +853,7 @@ Implement deterministic merge and validation behavior for runtime config resolut
    - Purpose: ensure success-path behavior remains correct while tightening error handling.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if valid canonical config no longer resolves.
-15. [ ] Add happy-path unit test for valid legacy-alias input normalization.
+16. [ ] Add happy-path unit test for valid legacy-alias input normalization.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `server/src/test/**` resolver happy-path suites.
@@ -846,7 +861,7 @@ Implement deterministic merge and validation behavior for runtime config resolut
    - Purpose: keep backward-compatible success path while enforcing canonical output.
    - Docs: https://toml.io/en/v1.0.0, Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if valid legacy input can no longer run.
-16. [ ] Update `projectStructure.md` for any files added or removed in this task, after all file-add/remove subtasks are completed.
+17. [ ] Update `projectStructure.md` for any files added or removed in this task, after all file-add/remove subtasks are completed.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `projectStructure.md`.
    - Document name: `projectStructure.md`.
@@ -856,7 +871,7 @@ Implement deterministic merge and validation behavior for runtime config resolut
    - Do: list every file added and removed by this task (validator/resolver modules, tests, and any deleted/renamed paths) after implementation subtasks are complete.
    - Docs: https://git-scm.com/docs/git-ls-files.
    - Done when: `projectStructure.md` accurately and completely lists all added/removed files for this task.
-17. [ ] Update `design.md` with precedence/validation architecture details and Mermaid diagrams after all architecture-flow subtasks are complete.
+18. [ ] Update `design.md` with precedence/validation architecture details and Mermaid diagrams after all architecture-flow subtasks are complete.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `design.md`.
    - Document name: `design.md`.
@@ -867,7 +882,7 @@ Implement deterministic merge and validation behavior for runtime config resolut
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` includes accurate precedence and validation diagrams matching this task's final behavior.
 
-18. [ ] Add deterministic structured log line `[DEV-0000037][T04] event=runtime_config_merged_and_validated result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
+19. [ ] Add deterministic structured log line `[DEV-0000037][T04] event=runtime_config_merged_and_validated result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: server implementation files already listed in this task's subtasks and matching `server/src/test/**` suites.
    - Do: emit this exact log prefix and event name from the implementation path, then assert in tests that `result=success` is emitted on happy path and `result=error` only appears on intentional failure-path coverage.
@@ -875,7 +890,7 @@ Implement deterministic merge and validation behavior for runtime config resolut
    - Manual Playwright-MCP check linkage: verify this exact log line during this task's Manual Playwright-MCP check when present, or during Task 22 final regression Manual Playwright-MCP check for backend/docs-only tasks.
    - Docs: https://nodejs.org/api/console.html, Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: deterministic log assertions are present and this task's expected trigger produces the exact `[DEV-0000037][T04] event=runtime_config_merged_and_validated result=success` line.
-19. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+20. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -884,7 +899,7 @@ Implement deterministic merge and validation behavior for runtime config resolut
 4. [ ] Run targeted config read/parse failure tests directly and verify deterministic error payloads/logs.
 5. [ ] Run targeted valid-config happy-path resolver tests and verify pass.
 
-#### Implementation notes
+#### Implementation Notes
 
 - None yet.
 
@@ -969,7 +984,7 @@ Replace existing model-only config parsing (`readAgentModelId`) so all execution
 3. [ ] `npm run test --workspace server -- agents-config-defaults`
 4. [ ] Run targeted regression tests proving resolver usage across agents + flows.
 
-#### Implementation notes
+#### Implementation Notes
 
 - None yet.
 
@@ -1073,7 +1088,7 @@ Apply runtime config overrides to chat and primary REST agent execution surfaces
 2. [ ] `npm run test --workspace server`
 3. [ ] Verify targeted chat + agent run/command runtime-config tests pass.
 
-#### Implementation notes
+#### Implementation Notes
 
 - None yet.
 
@@ -1172,7 +1187,7 @@ Apply the same runtime config resolution to flow-driven and MCP execution surfac
 2. [ ] `npm run test --workspace server`
 3. [ ] Verify targeted flow + MCP runtime-config tests pass.
 
-#### Implementation notes
+#### Implementation Notes
 
 - None yet.
 
@@ -1256,7 +1271,7 @@ Move Codex availability and startup checks to shared-home semantics for chat and
 2. [ ] `npm run test --workspace server`
 3. [ ] `npm run test --workspace server -- codex`
 
-#### Implementation notes
+#### Implementation Notes
 
 - None yet.
 
@@ -1343,7 +1358,7 @@ Retain existing auth seeding/propagation compatibility behavior without deleting
 3. [ ] `npm run test --workspace server -- agents-authSeed`
 4. [ ] Run file-safety guard tests directly and verify pass.
 
-#### Implementation notes
+#### Implementation Notes
 
 - None yet.
 
@@ -1436,7 +1451,15 @@ Implement the server-side device-auth message contract change first: request bod
    - Purpose: enforce strict `{}` request-shape contract.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/asynchronous.
    - Done when: test fails if unknown fields are ignored.
-11. [ ] Add device-auth integration test for codex unavailable response.
+11. [ ] Add device-auth integration test for non-object body rejection (`null`, array, primitive JSON).
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
+   - Test type: Integration.
+   - Test location: `server/src/test/integration/codex.device-auth.test.ts`.
+   - Description: assert `null`, `[]`, and JSON string/number payloads return deterministic `400 { error: "invalid_request", message }`.
+   - Purpose: make strict `{}` request contract fully explicit beyond non-empty object cases.
+   - Docs: Context7 `/jestjs/jest`, https://spec.openapis.org/oas/v3.0.3.html.
+   - Done when: test fails if any non-object body is accepted or returns non-deterministic error shape.
+12. [ ] Add device-auth integration test for codex unavailable response.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/integration/codex.device-auth.test.ts`.
@@ -1444,7 +1467,7 @@ Implement the server-side device-auth message contract change first: request bod
    - Purpose: guarantee deterministic unavailable-path contract.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/asynchronous.
    - Done when: test fails if status/error payload differs.
-12. [ ] Add device-auth integration test for payload-too-large handling.
+13. [ ] Add device-auth integration test for payload-too-large handling.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/integration/codex.device-auth.test.ts`.
@@ -1452,7 +1475,7 @@ Implement the server-side device-auth message contract change first: request bod
    - Purpose: cover request-size corner case explicitly.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/asynchronous.
    - Done when: test fails if payload-size failure behavior returns anything other than deterministic `invalid_request`.
-13. [ ] Update `design.md` with simplified device-auth contract flow and Mermaid diagrams after all architecture-flow subtasks are complete.
+14. [ ] Update `design.md` with simplified device-auth contract flow and Mermaid diagrams after all architecture-flow subtasks are complete.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `design.md`.
    - Document name: `design.md`.
@@ -1463,7 +1486,7 @@ Implement the server-side device-auth message contract change first: request bod
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` diagrams match final backend device-auth contract behavior.
 
-14. [ ] Add deterministic structured log line `[DEV-0000037][T10] event=device_auth_contract_validated result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
+15. [ ] Add deterministic structured log line `[DEV-0000037][T10] event=device_auth_contract_validated result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: server implementation files already listed in this task's subtasks and matching `server/src/test/**` suites.
    - Do: emit this exact log prefix and event name from the implementation path, then assert in tests that `result=success` is emitted on happy path and `result=error` only appears on intentional failure-path coverage.
@@ -1471,7 +1494,7 @@ Implement the server-side device-auth message contract change first: request bod
    - Manual Playwright-MCP check linkage: verify this exact log line during this task's Manual Playwright-MCP check when present, or during Task 22 final regression Manual Playwright-MCP check for backend/docs-only tasks.
    - Docs: https://nodejs.org/api/console.html, Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: deterministic log assertions are present and this task's expected trigger produces the exact `[DEV-0000037][T10] event=device_auth_contract_validated result=success` line.
-15. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+16. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -1479,7 +1502,7 @@ Implement the server-side device-auth message contract change first: request bod
 3. [ ] `npm run test --workspace server -- codex.device-auth`
 4. [ ] Validate `/codex/device-auth` schema changes in `openapi.json`.
 
-#### Implementation notes
+#### Implementation Notes
 
 - None yet.
 
@@ -1584,7 +1607,7 @@ Add deterministic concurrent request behavior and preserve post-success auth pro
 4. [ ] Run targeted concurrency test(s) for `/codex/device-auth` and verify idempotent outcomes.
 5. [ ] Run shared-auth reuse integration tests across chat/agent/flow surfaces and verify no per-agent re-login is required.
 
-#### Implementation notes
+#### Implementation Notes
 
 - None yet.
 
@@ -1698,7 +1721,7 @@ Implement backend model-capability payload contract for Codex models so frontend
 5. [ ] Run targeted mixed-provider model payload tests (codex + non-codex) and verify pass.
 6. [ ] Run codex-unavailable payload contract tests and verify deterministic response shape.
 
-#### Implementation notes
+#### Implementation Notes
 
 - None yet.
 
@@ -1834,7 +1857,7 @@ Replace static reasoning/model sources with one shared runtime codex capability 
 6. [ ] Run targeted fallback-capability tests and verify both accepted and rejected effort flows are deterministic.
 7. [ ] Run forward-compatibility capability tests using non-standard effort values and verify `/chat/models` + `/chat` parity.
 
-#### Implementation notes
+#### Implementation Notes
 
 - None yet.
 
@@ -1932,7 +1955,7 @@ After Task 10 is complete, update frontend API request/response types for the si
 7. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: execute device-auth flow, capture screenshot `task-14-device-auth-contract.png`, and store it in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped by `docker-compose.local.yml`); verify the agent reviews the screenshot against this task's UI expectations (single shared auth request path and deterministic UI state), debug console includes `[DEV-0000037][T14] event=client_device_auth_contract_consumed result=success`, includes no `[DEV-0000037][T14] ... result=error`, and has no unrelated console errors.
 8. [ ] `npm run compose:down`
 
-#### Implementation notes
+#### Implementation Notes
 
 - None yet.
 
@@ -2055,7 +2078,7 @@ After Task 10 and Task 14 are complete, simplify UI usage to one shared device-a
 9. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: execute auth dialog submit/retry from ChatPage and AgentsPage, capture screenshots `task-15-chat-auth-dialog.png` and `task-15-agents-auth-dialog.png`, and store them in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped by `docker-compose.local.yml`); verify the agent reviews both screenshots against this task's UI expectations (single shared dialog flow, consistent error/retry presentation across pages), debug console includes `[DEV-0000037][T15] event=shared_auth_dialog_flow_executed result=success`, includes no `[DEV-0000037][T15] ... result=error`, and has no unrelated console errors.
 10. [ ] `npm run compose:down`
 
-#### Implementation notes
+#### Implementation Notes
 
 - None yet.
 
@@ -2166,7 +2189,7 @@ After Task 12 and Task 13 are complete, update chat model state plumbing to carr
 9. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: execute model-switch default/reset scenarios, capture screenshots `task-16-model-default-state.png` and `task-16-model-reset-state.png`, and store them in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped by `docker-compose.local.yml`); verify the agent reviews both screenshots against this task's UI expectations (default applied on model selection and deterministic reset after capability changes), debug console includes `[DEV-0000037][T16] event=chat_model_capability_defaults_applied result=success`, includes no `[DEV-0000037][T16] ... result=error`, and has no unrelated console errors.
 10. [ ] `npm run compose:down`
 
-#### Implementation notes
+#### Implementation Notes
 
 - None yet.
 
@@ -2282,7 +2305,7 @@ After Task 16 is complete, switch chat flags UI and chat payload building to run
 10. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: execute dynamic reasoning-option render + send flow, capture screenshot `task-17-dynamic-reasoning-options.png`, and store it in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped by `docker-compose.local.yml`); verify the agent reviews the screenshot against this task's UI expectations (options exactly match runtime capability payload and selection state is valid), debug console includes `[DEV-0000037][T17] event=dynamic_reasoning_options_rendered result=success`, includes no `[DEV-0000037][T17] ... result=error`, and has no unrelated console errors.
 11. [ ] `npm run compose:down`
 
-#### Implementation notes
+#### Implementation Notes
 
 - None yet.
 
@@ -2393,7 +2416,7 @@ Add focused regression coverage for precedence/normalization behavior across RES
 2. [ ] `npm run test --workspace server`
 3. [ ] Run new targeted precedence/normalization regression suites directly and verify pass.
 
-#### Implementation notes
+#### Implementation Notes
 
 - None yet.
 
@@ -2498,7 +2521,7 @@ Add focused regression coverage for non-destructive file safety, deterministic s
 2. [ ] `npm run test --workspace server`
 3. [ ] Run targeted compatibility/safety regression suites directly and verify pass.
 
-#### Implementation notes
+#### Implementation Notes
 
 - None yet.
 
@@ -2553,7 +2576,7 @@ Update architecture and contract documentation after implementation tasks above 
 
 1. [ ] Manually verify `design.md` diagrams/flows match implemented behavior.
 
-#### Implementation notes
+#### Implementation Notes
 
 - None yet.
 
@@ -2608,7 +2631,7 @@ Update repository file-map and compatibility alias examples after implementation
 
 1. [ ] Manually verify `projectStructure.md` entries match actual repository tree for changed files.
 
-#### Implementation notes
+#### Implementation Notes
 
 - None yet.
 
@@ -2650,25 +2673,31 @@ Perform final shared-base config minimization as an isolated end-of-story step o
    - Do: add explicit checkpoint note before file minimization commit.
    - Docs: Context7 `/openai/codex`, https://toml.io/en/v1.0.0.
    - Done when: note exists before any minimization diff.
-3. [ ] Ensure `./codex/chat/config.toml` exists and carries chat behavior defaults before minimizing base config; if missing, abort minimization with deterministic error and no file mutation.
+3. [ ] Confirm pre-minimization full regression gate is already complete (from Tasks 1-21 evidence) before editing `./codex/config.toml`.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
+   - Files: this story plan, prior task testing evidence references, and relevant CI/local logs.
+   - Do: explicitly record that full build/test/e2e/compose verification was completed before minimization; do not introduce new feature work after this checkpoint.
+   - Docs: Context7 `/openai/codex`, https://toml.io/en/v1.0.0.
+   - Done when: Implementation Notes include a pre-minimization gate entry referencing completed validation from earlier tasks.
+4. [ ] Ensure `./codex/chat/config.toml` exists and carries chat behavior defaults before minimizing base config; if missing, abort minimization with deterministic error and no file mutation.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `codex/chat/config.toml`, migration helper in server if scripted.
    - Do: enforce guard that blocks minimization when chat config missing.
    - Docs: https://nodejs.org/api/fs.html#fspromisescopyfilesrc-dest-mode, https://toml.io/en/v1.0.0.
    - Done when: missing-chat-config case exits safely with no mutation.
-4. [ ] Minimize `./codex/config.toml` to shared defaults + `[projects]` only (remove behavior keys and MCP blocks from this file).
+5. [ ] Minimize `./codex/config.toml` to shared defaults + `[projects]` only (remove behavior keys and MCP blocks from this file).
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `codex/config.toml`.
    - Do: retain shared projects entries only; remove `model`, `model_reasoning_effort`, `approval_policy`, `sandbox_mode`, `[features]`, `[mcp_servers]`.
    - Docs: https://toml.io/en/v1.0.0, Context7 `/openai/codex`.
    - Done when: file is projects-only plus shared-home defaults.
-5. [ ] Re-verify that no `codex_agents/*` files were deleted/moved/renamed and all existing `auth.json` files remain present.
+6. [ ] Re-verify that no `codex_agents/*` files were deleted/moved/renamed and all existing `auth.json` files remain present.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `codex_agents/*`.
    - Do: run file-presence verification and compare against pre-step list.
    - Docs: https://nodejs.org/api/fs.html.
    - Done when: all agent auth files still exist unchanged in location.
-6. [ ] Add explicit operator note in Implementation notes that `code_info` MCP is expected to be unavailable after this step in this running instance.
+7. [ ] Add explicit operator note in Implementation notes that `code_info` MCP is expected to be unavailable after this step in this running instance.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `planning/0000037-shared-codex-home-and-per-agent-runtime-config-overrides.md`.
    - Document name: `0000037-shared-codex-home-and-per-agent-runtime-config-overrides.md`.
@@ -2678,7 +2707,7 @@ Perform final shared-base config minimization as an isolated end-of-story step o
    - Do: add final warning note immediately after execution.
    - Docs: Context7 `/openai/codex`, https://toml.io/en/v1.0.0.
    - Done when: note exists and references this expected post-step behavior.
-7. [ ] Update `design.md` with final minimized-base migration architecture and Mermaid diagrams after all architecture-flow subtasks are complete.
+8. [ ] Update `design.md` with final minimized-base migration architecture and Mermaid diagrams after all architecture-flow subtasks are complete.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `design.md`.
    - Document name: `design.md`.
@@ -2689,7 +2718,7 @@ Perform final shared-base config minimization as an isolated end-of-story step o
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` reflects the final post-migration architecture and expected operational state.
 
-8. [ ] Add deterministic structured log line `[DEV-0000037][T22] event=final_config_minimization_completed result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
+9. [ ] Add deterministic structured log line `[DEV-0000037][T22] event=final_config_minimization_completed result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `codex/config.toml`, `codex/chat/config.toml`, migration helper files, and verification tests/scripts listed in this task.
    - Do: emit this exact log prefix and event name from the implementation path, then assert in tests that `result=success` is emitted on happy path and `result=error` only appears on intentional failure-path coverage.
@@ -2697,24 +2726,16 @@ Perform final shared-base config minimization as an isolated end-of-story step o
    - Manual Playwright-MCP check linkage: verify this exact log line during this task's Manual Playwright-MCP check when present, or during Task 22 final regression Manual Playwright-MCP check for backend/docs-only tasks.
    - Docs: https://nodejs.org/api/console.html, Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: deterministic log assertions are present and this task's expected trigger produces the exact `[DEV-0000037][T22] event=final_config_minimization_completed result=success` line.
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: execute full story regression flows and capture at least these GUI acceptance screenshots: `task-22-chat-auth-dialog.png`, `task-22-agents-auth-dialog.png`, `task-22-model-default-reset.png`, `task-22-reasoning-options.png`, and `task-22-chat-send-state.png`; store all screenshots in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped by `docker-compose.local.yml`), verify the agent reviews each screenshot against the corresponding story acceptance expectations, verify debug console/log stream contains `result=success` lines for `[DEV-0000037][T01]` through `[DEV-0000037][T22]` for triggered scenarios, contains no matching `result=error` lines on happy paths, and contains no unrelated console errors.
-9. [ ] `npm run compose:down`
-10. [ ] Validate minimized `./codex/config.toml` matches projects-only target shape in this story.
-11. [ ] Validate `./codex/chat/config.toml` remains present and unchanged by minimization.
-12. [ ] Verify filesystem checks for `codex_agents/*/auth.json` presence pass.
-13. [ ] Simulate missing chat config precondition and verify minimization step abort behavior is deterministic and non-destructive.
-14. [ ] Verify final implementation notes include both required operational warnings: `code_info`-dependent checks were completed before minimization, and `code_info` MCP is expected to be unavailable after minimization in this running instance.
+1. [ ] Verify pre-minimization full regression gate is complete by referencing Tasks 1-21 testing evidence (`build`, `test`, `e2e`, `compose`, and required manual checks).
+2. [ ] Validate minimized `./codex/config.toml` matches projects-only target shape in this story.
+3. [ ] Validate `./codex/chat/config.toml` remains present and unchanged by minimization.
+4. [ ] Verify filesystem checks for `codex_agents/*/auth.json` presence pass.
+5. [ ] Simulate missing chat config precondition and verify minimization step abort behavior is deterministic and non-destructive.
+6. [ ] Verify final Implementation Notes include both required operational warnings: `code_info`-dependent checks were completed before minimization, and `code_info` MCP is expected to be unavailable after minimization in this running instance.
 
-#### Implementation notes
+#### Implementation Notes
 
 - None yet.

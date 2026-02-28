@@ -3,6 +3,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { describe, it } from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 import type { ThreadOptions as CodexThreadOptions } from '@openai/codex-sdk';
 
@@ -137,6 +138,37 @@ describe('Agent config defaults', () => {
       ),
       true,
     );
+  });
+
+  it('validates every codex_agents/*/config.toml fixture through deterministic normalization pipeline', async () => {
+    const repoRoot = path.resolve(
+      path.dirname(fileURLToPath(import.meta.url)),
+      '../../../../',
+    );
+    const agentsRoot = path.join(repoRoot, 'codex_agents');
+    const entries = await fs.readdir(agentsRoot, { withFileTypes: true });
+    const configPaths = entries
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => path.join(agentsRoot, entry.name, 'config.toml'))
+      .sort();
+
+    assert.equal(configPaths.length > 0, true);
+
+    for (const configPath of configPaths) {
+      const first = await resolveAgentRuntimeExecutionConfig({
+        configPath,
+        entrypoint: 'agents.service',
+      });
+      const second = await resolveAgentRuntimeExecutionConfig({
+        configPath,
+        entrypoint: 'agents.service',
+      });
+
+      assert.equal(typeof first.modelId, 'string');
+      assert.equal((first.modelId ?? '').length > 0, true);
+      assert.deepEqual(first.runtimeConfig, second.runtimeConfig);
+      assert.equal(first.modelId, second.modelId);
+    }
   });
 
   it('omits config-owned ThreadOptions when useConfigDefaults is enabled', async () => {

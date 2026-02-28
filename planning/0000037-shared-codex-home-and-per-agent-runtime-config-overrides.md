@@ -2669,7 +2669,7 @@ Add focused regression coverage for precedence/normalization behavior across RES
 
 ### 19. Server: Add compatibility and safety regression tests for migration behavior
 
-- Task Status: **__todo__**
+- Task Status: **__done__**
 - Git Commits: `None yet`
 
 #### Overview
@@ -2686,7 +2686,7 @@ Add focused regression coverage for non-destructive file safety, deterministic s
 
 #### Subtasks
 
-1. [ ] Add auth-file presence test across migration-compatible flows.
+1. [x] Add auth-file presence test across migration-compatible flows.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/unit/agents-authSeed.test.ts`, `server/src/test/integration/codexAuthCopy.integration.test.ts`, migration-related suites.
@@ -2694,7 +2694,7 @@ Add focused regression coverage for non-destructive file safety, deterministic s
    - Purpose: guarantee non-destructive auth-file preservation.
    - Docs: https://nodejs.org/api/fs.html.
    - Done when: test fails if any expected auth file is missing post-flow.
-2. [ ] Add log-safety test for config-parse error logging.
+2. [x] Add log-safety test for config-parse error logging.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: route/resolver logging tests under `server/src/test/**`.
@@ -2702,7 +2702,7 @@ Add focused regression coverage for non-destructive file safety, deterministic s
    - Purpose: enforce secret-safe logging for config error paths.
    - Docs: https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html.
    - Done when: test fails if raw TOML/token-like content appears in logs.
-3. [ ] Add log-safety test for device-auth error logging.
+3. [x] Add log-safety test for device-auth error logging.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `server/src/test/integration/codex.device-auth.test.ts`, `server/src/test/unit/codexDeviceAuth.test.ts` logging assertions.
@@ -2710,7 +2710,7 @@ Add focused regression coverage for non-destructive file safety, deterministic s
    - Purpose: enforce secret-safe logging for auth error paths.
    - Docs: https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html.
    - Done when: test fails if sensitive auth material appears in logs.
-4. [ ] Add fixture-sweep validation test for all `codex_agents/*/config.toml` files.
+4. [x] Add fixture-sweep validation test for all `codex_agents/*/config.toml` files.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: fixture sweep suite under `server/src/test/unit/agents-*.test.ts`, `server/src/test/integration/agents-*.test.ts`.
@@ -2718,7 +2718,7 @@ Add focused regression coverage for non-destructive file safety, deterministic s
    - Purpose: ensure existing in-repo configs are all covered by deterministic validation.
    - Docs: https://toml.io/en/v1.0.0, Context7 `/openai/codex`.
    - Done when: test fails if any agent config is unvalidated or produces nondeterministic output.
-5. [ ] Add fixture-sweep parity test across REST/MCP/flow for validated configs.
+5. [x] Add fixture-sweep parity test across REST/MCP/flow for validated configs.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/unit/agents-*.test.ts`, `server/src/test/integration/agents-*.test.ts`, `server/src/test/unit/flows*.test.ts`, `server/src/test/integration/flows.*.test.ts`, `server/src/test/integration/mcp*`, `server/src/test/unit/mcp*`, `server/src/test/mcp2/**`.
@@ -2726,7 +2726,7 @@ Add focused regression coverage for non-destructive file safety, deterministic s
    - Purpose: prevent path-dependent behavior drift for existing agents.
    - Docs: https://www.jsonrpc.org/specification, Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if any invocation path diverges.
-6. [ ] Add parser-removal regression test for agent execution path.
+6. [x] Add parser-removal regression test for agent execution path.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Regression.
    - Test location: `server/src/test/unit/agents-*.test.ts`, `server/src/test/integration/agents-*.test.ts`.
@@ -2734,7 +2734,7 @@ Add focused regression coverage for non-destructive file safety, deterministic s
    - Purpose: protect resolver rollout in agent path.
    - Docs: https://toml.io/en/v1.0.0, Context7 `/openai/codex`.
    - Done when: test fails if agent path reverts to regex parsing.
-7. [ ] Add parser-removal regression test for flow execution path.
+7. [x] Add parser-removal regression test for flow execution path.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Regression.
    - Test location: `server/src/test/unit/flows*.test.ts`, `server/src/test/integration/flows.*.test.ts`.
@@ -2742,7 +2742,7 @@ Add focused regression coverage for non-destructive file safety, deterministic s
    - Purpose: protect resolver rollout in flow path.
    - Docs: https://toml.io/en/v1.0.0, Context7 `/openai/codex`.
    - Done when: test fails if flow path reverts to regex parsing.
-8. [ ] Update `projectStructure.md` for any files added or removed in this task, after all file-add/remove subtasks are completed.
+8. [x] Update `projectStructure.md` for any files added or removed in this task, after all file-add/remove subtasks are completed.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `projectStructure.md`.
    - Document name: `projectStructure.md`.
@@ -2753,7 +2753,7 @@ Add focused regression coverage for non-destructive file safety, deterministic s
    - Docs: https://git-scm.com/docs/git-ls-files.
    - Done when: `projectStructure.md` contains an accurate file-map update for this task.
 
-9. [ ] Add deterministic structured log line `[DEV-0000037][T19] event=migration_safety_regressions_executed result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
+9. [x] Add deterministic structured log line `[DEV-0000037][T19] event=migration_safety_regressions_executed result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: regression suites and helper files listed in this task's subtasks under `server/src/test/**`.
    - Do: emit this exact log prefix and event name from the implementation path, then assert in tests that `result=success` is emitted on happy path and `result=error` only appears on intentional failure-path coverage.
@@ -2761,20 +2761,34 @@ Add focused regression coverage for non-destructive file safety, deterministic s
    - Manual Playwright-MCP check linkage: verify this exact log line during this task's Manual Playwright-MCP check when present, or during Task 22 final regression Manual Playwright-MCP check for backend/docs-only tasks.
    - Docs: https://nodejs.org/api/console.html, Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: deterministic log assertions are present and this task's expected trigger produces the exact `[DEV-0000037][T19] event=migration_safety_regressions_executed result=success` line.
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+10. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test --workspace server`
-3. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
-4. [ ] `npm run compose:build`
-5. [ ] `npm run compose:up`
-6. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: execute checks for tasks implemented in this story.
-7. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run test --workspace server`
+3. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+4. [x] `npm run compose:build`
+5. [x] `npm run compose:up`
+6. [x] Manual Playwright-MCP check at `http://host.docker.internal:5001`: execute checks for tasks implemented in this story.
+7. [x] `npm run compose:down`
 
 #### Implementation Notes
 
-- None yet.
+- 2026-02-28: Subtask 1 complete. Added migration-compatible auth-presence regression in `agents-authSeed.test.ts` that verifies expected auth files remain present across seed + propagation operations for coding/planning/tasking agent homes.
+- 2026-02-28: Subtask 2 complete. Added `runtimeConfig.test.ts` parse-failure log-safety assertion that rejects raw token-like config content and path leakage while still requiring deterministic `T03` error log emission.
+- 2026-02-28: Subtask 3 complete. Added secret-safe device-auth logging assertions in both `codexDeviceAuth.test.ts` (sanitized diagnostic sample redaction) and `codex.device-auth.test.ts` (route-level `T10` error logs exclude token-like values).
+- 2026-02-28: Subtask 4 complete. Added fixture-sweep validation in `agents-config-defaults.test.ts` that enumerates all `codex_agents/*/config.toml` fixtures and verifies deterministic resolver output across repeated normalization/validation runs.
+- 2026-02-28: Subtasks 5-7 complete. Added `T19` cross-surface parity + parser-removal regression guards in `agents-run-client-conversation-id.test.ts`, asserting validated fixtures produce matching runtime config across REST/flow/MCP and invalid supported-key types hard-fail in both agent + flow execution paths.
+- 2026-02-28: Subtask 8 complete. No files were added/removed for Task 19, so `projectStructure.md` required no changes.
+- 2026-02-28: Subtask 9 complete. Added deterministic `T19` success/error log emission + assertions in Task 19 regression suites.
+- 2026-02-28: Subtask 10 complete. `npm run lint --workspaces` passed (warnings only); `npm run format:check --workspaces` initially failed on one updated server test file, then passed after `npm run format --workspaces`.
+- 2026-02-28: Testing 1 complete. `npm run build --workspace server` passed (`tsc -b`) after tightening `modelId` optional-type assertions in the new fixture-sweep test.
+- 2026-02-28: Testing 2 complete. `npm run test --workspace server` validation passed with unit summary `tests 832, pass 832, fail 0` and cucumber summary `67 scenarios, 402 steps` all passed; an intermediate rerun exposed two over-strict new assertions, fixed in `runtimeConfig.test.ts` and `codexDeviceAuth.test.ts` before final green run.
+- 2026-02-28: Testing 3 complete. `timeout 420s npm run e2e` passed with `39 passed` and `3 skipped` before clean e2e compose teardown.
+- 2026-02-28: Testing 4 complete. `npm run compose:build` succeeded for local stack images (`codeinfo2-server`, `codeinfo2-client`).
+- 2026-02-28: Testing 5 complete. `npm run compose:up` succeeded and local stack services reached healthy startup.
+- 2026-02-28: Testing 6 complete. Manual Playwright-MCP check at `http://host.docker.internal:5001/chat` loaded successfully, screenshot captured at `/tmp/playwright-output/playwright-output-local/task-19-manual-chat-check.png`, and `browser_console_messages(level=error)` returned no errors.
+- 2026-02-28: Testing 7 complete. `npm run compose:down` stopped and removed local stack containers/network cleanly.
 
 ### 20. Documentation: Update shared-home runtime architecture and API contract docs in `design.md`
 

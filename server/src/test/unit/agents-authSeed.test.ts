@@ -241,6 +241,43 @@ test('agent auth files remain present after propagation flow', async () => {
   assert.equal(fs.existsSync(path.join(agentHomeB, 'auth.json')), true);
 });
 
+test('migration-compatible auth files remain present before and after seed+propagation operations', async () => {
+  const primaryCodexHome = makeTempDir('codex-primary-');
+  const codingAgentHome = makeTempDir('codex-agent-coding-');
+  const planningAgentHome = makeTempDir('codex-agent-planning-');
+  const taskingAgentHome = makeTempDir('codex-agent-tasking-');
+
+  fs.writeFileSync(path.join(primaryCodexHome, 'auth.json'), '{"token":"p"}');
+  fs.writeFileSync(path.join(codingAgentHome, 'auth.json'), '{"token":"c"}');
+  fs.writeFileSync(path.join(planningAgentHome, 'auth.json'), '{"token":"p"}');
+
+  const expectedAuthPaths = [
+    path.join(codingAgentHome, 'auth.json'),
+    path.join(planningAgentHome, 'auth.json'),
+    path.join(taskingAgentHome, 'auth.json'),
+  ];
+
+  await ensureAgentAuthSeeded({
+    agentHome: taskingAgentHome,
+    primaryCodexHome,
+    logger,
+  });
+
+  await propagateAgentAuthFromPrimary({
+    agents: [
+      { name: 'coding_agent', home: codingAgentHome },
+      { name: 'planning_agent', home: planningAgentHome },
+      { name: 'tasking_agent', home: taskingAgentHome },
+    ],
+    primaryCodexHome,
+    logger,
+  });
+
+  for (const authPath of expectedAuthPaths) {
+    assert.equal(fs.existsSync(authPath), true, `${authPath} should exist`);
+  }
+});
+
 test('emits deterministic T09 success log when auth compatibility checks pass', async () => {
   const primaryCodexHome = makeTempDir('codex-primary-');
   const agentHome = makeTempDir('codex-agent-');

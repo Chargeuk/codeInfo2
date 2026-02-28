@@ -338,6 +338,40 @@ describe('POST /codex/device-auth', () => {
     }
   });
 
+  test('device-auth error logs remain secret-safe and exclude raw token-like output', async () => {
+    const secretLikeToken = 'sk-test-secret-token-should-not-leak';
+    const errorMock = mock.method(console, 'error', () => {});
+    try {
+      const res = await supertest(
+        buildApp(
+          withDeps({
+            runCodexDeviceAuth: async () =>
+              buildDeviceAuthResult({
+                ok: false,
+                message: `${secretLikeToken} device auth command failed`,
+              }),
+          }),
+        ),
+      )
+        .post('/codex/device-auth')
+        .send({});
+
+      assert.equal(res.status, 503);
+      const loggedLines = errorMock.mock.calls
+        .map((call) => call.arguments.map(String).join(' '))
+        .join('\n');
+      assert.equal(loggedLines.includes(secretLikeToken), false);
+      assert.equal(
+        loggedLines.includes(
+          '[DEV-0000037][T10] event=device_auth_contract_validated result=error',
+        ),
+        true,
+      );
+    } finally {
+      errorMock.mock.restore();
+    }
+  });
+
   test('emits deterministic T11 success log after completion side effects', async () => {
     let resolveCompletion!: (value: CodexDeviceAuthCompletion) => void;
     const completion = new Promise<CodexDeviceAuthCompletion>((resolve) => {

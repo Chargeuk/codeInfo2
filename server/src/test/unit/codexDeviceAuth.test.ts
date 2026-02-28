@@ -2,8 +2,9 @@ import assert from 'node:assert/strict';
 import type { ChildProcess } from 'node:child_process';
 import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
-import { describe, it } from 'node:test';
+import { describe, it, mock } from 'node:test';
 
+import { baseLogger } from '../../logger.js';
 import {
   parseCodexDeviceAuthOutput,
   resolveCodexDeviceAuthResult,
@@ -131,5 +132,40 @@ describe('codexDeviceAuth', () => {
     const completion = await completionPromise;
     assert.equal(completion.exitCode, 0);
     assert.equal(completion.result.ok, true);
+  });
+
+  it('logs sanitized diagnostics only on device-auth parse failure', async () => {
+    const child = new EventEmitter() as ChildProcess & {
+      stdout: PassThrough;
+      stderr: PassThrough;
+    };
+    child.stdout = new PassThrough();
+    child.stderr = new PassThrough();
+    const spawnFn = (() => child as ChildProcess) as SpawnFn;
+    const warnEntries: Array<Record<string, unknown>> = [];
+    const warnMock = mock.method(baseLogger, 'warn', (entry: unknown) => {
+      warnEntries.push((entry ?? {}) as Record<string, unknown>);
+    });
+
+    try {
+      const runPromise = runCodexDeviceAuth({ spawnFn });
+      child.stdout.write('User code: ABCD-EFGH\n');
+      child.stdout.write('device auth output not recognized\n');
+      child.emit('close', 1);
+
+      const result = await runPromise;
+      assert.equal(result.ok, false);
+      if (!result.ok) {
+        assert.equal(result.message, 'device auth command failed');
+      }
+
+      const warning = warnEntries.find((entry) => 'stdoutSample' in entry);
+      assert.ok(warning);
+      const stdoutSample = String(warning?.stdoutSample ?? '');
+      assert.equal(stdoutSample.includes('ABCD-EFGH'), false);
+      assert.equal(stdoutSample.includes('<redacted-code>'), true);
+    } finally {
+      warnMock.mock.restore();
+    }
   });
 });

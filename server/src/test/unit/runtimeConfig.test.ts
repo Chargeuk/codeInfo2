@@ -193,6 +193,48 @@ describe('runtimeConfig resolver logging', () => {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
   });
+
+  it('keeps parse-failure logs secret-safe by excluding raw token-like config content', async () => {
+    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+    const baseConfigPath = path.join(codexHome, 'config.toml');
+    const secretLikeValue = 'sk-test-secret-token-should-not-leak';
+    const errorLogs: string[] = [];
+    mock.method(console, 'error', (...args: unknown[]) => {
+      errorLogs.push(args.map(String).join(' '));
+    });
+
+    try {
+      await fs.writeFile(
+        baseConfigPath,
+        `model = "broken\napi_key = "${secretLikeValue}"\n`,
+        'utf8',
+      );
+
+      await assert.rejects(
+        async () =>
+          loadRuntimeConfigSnapshot({
+            codexHome,
+            bootstrapChatConfig: false,
+          }),
+        /Invalid TOML/u,
+      );
+
+      assert.equal(
+        errorLogs.some((line) => line.includes(secretLikeValue)),
+        false,
+      );
+      assert(
+        errorLogs.some((line) =>
+          line.includes(
+            '[DEV-0000037][T03] event=runtime_config_loaded_and_normalized result=error',
+          ),
+        ),
+      );
+    } finally {
+      mock.restoreAll();
+      await fs.rm(codexHome, { recursive: true, force: true });
+    }
+  });
 });
 
 describe('runtimeConfig parser', () => {

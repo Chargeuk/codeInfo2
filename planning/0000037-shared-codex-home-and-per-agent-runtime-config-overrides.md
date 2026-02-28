@@ -468,6 +468,7 @@ Upgrade `@openai/codex-sdk` to latest stable at implementation start and lock de
    - Docs: https://keepachangelog.com/en/1.0.0/.
    - Done when: Task 1 notes explicitly state the final upgraded version.
 
+4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -538,6 +539,7 @@ Remove compatibility-only widened reasoning-effort unions/casts and align code t
    - Docs: https://testing-library.com/docs/, Context7 `/jestjs/jest`, https://jestjs.io/docs/getting-started.
    - Done when: test fails if manual compatibility casts are required again.
 
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -668,6 +670,7 @@ Create one server-side config resolution layer that reads shared base config, ch
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` diagrams and descriptions match final implementation in this task.
 
+14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -831,6 +834,7 @@ Implement deterministic merge and validation behavior for runtime config resolut
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` includes accurate precedence and validation diagrams matching this task's final behavior.
 
+18. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -907,6 +911,7 @@ Replace existing model-only config parsing (`readAgentModelId`) so all execution
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` clearly shows no model-only parsing path remains for runtime behavior decisions.
 
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -1002,6 +1007,7 @@ Apply runtime config overrides to chat and primary REST agent execution surfaces
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` has accurate flow diagrams for chat, run, and command execution.
 
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -1092,6 +1098,7 @@ Apply the same runtime config resolution to flow-driven and MCP execution surfac
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` shows consistent run/flow/MCP behavior and config source ownership.
 
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -1167,6 +1174,7 @@ Move Codex availability and startup checks to shared-home semantics for chat and
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` captures the final shared-home detection flow implemented by this task.
 
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -1243,6 +1251,7 @@ Retain existing auth seeding/propagation compatibility behavior without deleting
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` documents final auth compatibility flow and explicit non-destructive guarantees from this task.
 
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -1369,6 +1378,7 @@ Implement the server-side device-auth message contract change first: request bod
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` diagrams match final backend device-auth contract behavior.
 
+14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -1463,6 +1473,7 @@ Add deterministic concurrent request behavior and preserve post-success auth pro
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` diagrams and text describe the final concurrency and side-effect behavior implemented in this task.
 
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -1566,6 +1577,7 @@ Implement backend model-capability payload contract for Codex models so frontend
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` reflects the final capability payload contract and data flow implemented in this task.
 
+11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -1691,6 +1703,7 @@ Replace static reasoning/model sources with one shared runtime codex capability 
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` clearly shows shared capability resolution and validation flow with no duplicate logic paths.
 
+13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -1778,6 +1791,7 @@ After Task 10 is complete, update frontend API request/response types for the si
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` reflects final frontend API consumption flow and error-state handling from this task.
 
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace client`
@@ -1884,6 +1898,7 @@ After Task 10 and Task 14 are complete, simplify UI usage to one shared device-a
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` shows the final single-path frontend auth UX flow implemented in this task.
 
+11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace client`
@@ -1980,6 +1995,7 @@ After Task 12 and Task 13 are complete, update chat model state plumbing to carr
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` diagrams match the implemented state transition behavior in this task.
 
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace client`
@@ -2080,6 +2096,7 @@ After Task 16 is complete, switch chat flags UI and chat payload building to run
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` captures the final end-to-end reasoning-option flow implemented by this task.
 
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace client`
@@ -2184,6 +2201,7 @@ Add focused regression coverage for precedence/normalization behavior across RES
    - Docs: https://git-scm.com/docs/git-ls-files.
    - Done when: project structure documentation reflects this task's final test-file footprint.
 
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -2280,6 +2298,7 @@ Add focused regression coverage for non-destructive file safety, deterministic s
    - Docs: https://git-scm.com/docs/git-ls-files.
    - Done when: `projectStructure.md` contains an accurate file-map update for this task.
 
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -2328,6 +2347,7 @@ Update architecture and contract documentation after implementation tasks above 
    - Docs: https://spec.openapis.org/oas/v3.0.3.html.
    - Done when: examples match implemented payloads and key names exactly.
 
+3. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] Manually verify `design.md` diagrams/flows match implemented behavior.
@@ -2374,6 +2394,7 @@ Update repository file-map and compatibility alias examples after implementation
    - Docs: https://toml.io/en/v1.0.0, Context7 `/openai/codex`.
    - Done when: examples make canonical output expectations explicit.
 
+3. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] Manually verify `projectStructure.md` entries match actual repository tree for changed files.
@@ -2459,6 +2480,7 @@ Perform final shared-base config minimization as an isolated end-of-story step o
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` reflects the final post-migration architecture and expected operational state.
 
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] Validate minimized `./codex/config.toml` matches projects-only target shape in this story.

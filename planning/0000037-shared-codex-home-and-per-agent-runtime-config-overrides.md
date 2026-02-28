@@ -3160,3 +3160,46 @@ Re-run full Story 0000037 validation after Task 23 fixes to ensure all acceptanc
 - 2026-02-28: Testing 8 complete. Manual Playwright-MCP smoke check at `http://host.docker.internal:5001/chat` and `/agents` succeeded; emitted console marker `[DEV-0000037][T24] event=story_regression_revalidated result=success`, observed no `result=error` T24 line, `browser_console_messages(level=error)` returned empty, and screenshot captured at `/tmp/playwright-output/playwright-output-local/task-24-story-regression-smoke.png`.
 - 2026-02-28: Testing 9 complete. `npm run compose:down` stopped and removed local stack containers/network cleanly.
 - 2026-02-28: Recorded Task 24 implementation commit hash `5bb60b6` in the task Git Commits field.
+
+## Post-Implementation Code Review (2026-02-28)
+
+### Scope Reviewed
+
+- Compared full branch delta against `main` (`git diff main...HEAD`) across server, client, common contracts, OpenAPI, and documentation updates introduced by Story 0000037.
+- Reviewed high-risk runtime/control-plane paths in detail:
+  - shared-home/runtime config loading + merge/validation (`server/src/config/runtimeConfig.ts`)
+  - shared capability resolution + `/chat/models` contract (`server/src/codex/capabilityResolver.ts`, `server/src/routes/chatModels.ts`)
+  - `/codex/device-auth` request/response + concurrency flow (`server/src/routes/codexDeviceAuth.ts`, `server/src/utils/singleFlight.ts`)
+  - chat and agent/flow execution runtime override wiring (`server/src/routes/chat.ts`, `server/src/agents/service.ts`, `server/src/flows/service.ts`, `server/src/agents/config.ts`)
+  - frontend contract consumption for reasoning capabilities and unified device-auth (`client/src/hooks/useChatModel.ts`, `client/src/hooks/useChatStream.ts`, `client/src/components/codex/CodexDeviceAuthDialog.tsx`, `client/src/api/codex.ts`, `client/src/pages/ChatPage.tsx`)
+
+### Acceptance Criteria Re-Check
+
+- Re-validated acceptance coverage against implementation + tests/doc contracts:
+  - shared `CODEX_HOME` semantics and per-agent runtime override behavior
+  - runtime config precedence/normalization/validation policy
+  - single-shape device-auth API contract (`{}` request; deterministic `200/400/503`)
+  - codex model capability payload fields (`supportedReasoningEfforts`, `defaultReasoningEffort`)
+  - chat reasoning options sourced from backend capability payloads
+  - non-destructive `codex_agents/*` migration safety and parity guarantees
+  - docs sync in `design.md` and `projectStructure.md`
+
+### Verification Commands Executed During Review
+
+- `npm run build --workspace server` (pass)
+- Targeted server regression/unit checks (pass):
+  - `runtimeConfig.test.ts`
+  - `codexDeviceAuth.test.ts`
+  - `chatModels.codex.test.ts`
+  - `openapi.contract.test.ts`
+  - `story-regression.task24.test.ts`
+- Targeted client contract/UI checks (pass):
+  - `chatPage.flags.reasoning.payload.test.tsx`
+  - `chatPage.models.test.tsx`
+  - `codexDeviceAuthApi.test.ts`
+  - `codexDeviceAuthDialog.test.tsx`
+
+### Findings
+
+- No blocking code-quality, maintainability, performance, security, or acceptance-criteria regressions were identified in this branch review.
+- Noted test-runtime noise only (non-blocking): existing React `act(...)` environment warnings in some client tests; tests still pass and this does not alter story acceptance behavior.

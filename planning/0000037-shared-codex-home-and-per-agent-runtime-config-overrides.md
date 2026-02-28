@@ -2853,7 +2853,7 @@ Update architecture and contract documentation after implementation tasks above 
 
 ### 21. Documentation: Update file map and compatibility examples in `projectStructure.md`
 
-- Task Status: **__todo__**
+- Task Status: **__done__**
 - Git Commits: `None yet`
 
 #### Overview
@@ -2868,7 +2868,7 @@ Update repository file-map and compatibility alias examples after implementation
 
 #### Subtasks
 
-1. [ ] Update `projectStructure.md` for all files added/removed by this story.
+1. [x] Update `projectStructure.md` for all files added/removed by this story.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `projectStructure.md`.
    - Document name: `projectStructure.md`.
@@ -2878,7 +2878,7 @@ Update repository file-map and compatibility alias examples after implementation
    - Do: add every new/changed path from server/client/common/docs work.
    - Docs: https://git-scm.com/docs/git-ls-files.
    - Done when: listed paths align with actual repository state.
-2. [ ] Document read-only compatibility keys accepted as input aliases but not emitted as canonical output, with concrete before/after examples.
+2. [x] Document read-only compatibility keys accepted as input aliases but not emitted as canonical output, with concrete before/after examples.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `projectStructure.md`.
    - Document name: `projectStructure.md`.
@@ -2889,7 +2889,7 @@ Update repository file-map and compatibility alias examples after implementation
    - Docs: https://toml.io/en/v1.0.0, Context7 `/openai/codex`.
    - Done when: examples make canonical output expectations explicit.
 
-3. [ ] Add deterministic structured log line `[DEV-0000037][T21] event=project_structure_documentation_synced result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
+3. [x] Add deterministic structured log line `[DEV-0000037][T21] event=project_structure_documentation_synced result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `projectStructure.md` and any task-local documentation validation helper updated in this task.
    - Do: emit this exact log prefix and event name from the implementation path, then assert in tests that `result=success` is emitted on happy path and `result=error` only appears on intentional failure-path coverage.
@@ -2897,14 +2897,18 @@ Update repository file-map and compatibility alias examples after implementation
    - Manual Playwright-MCP check linkage: verify this exact log line during this task's Manual Playwright-MCP check when present, or during Task 22 final regression Manual Playwright-MCP check for backend/docs-only tasks.
    - Docs: https://nodejs.org/api/console.html, Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: deterministic log assertions are present and this task's expected trigger produces the exact `[DEV-0000037][T21] event=project_structure_documentation_synced result=success` line.
-4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+4. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-1. [ ] Manually verify `projectStructure.md` entries match actual repository tree for changed files.
+1. [x] Manually verify `projectStructure.md` entries match actual repository tree for changed files.
 
 #### Implementation Notes
 
-- None yet.
+- 2026-02-28: Subtask 1 complete. Added a story-wide Task 21 file-map rollup to `projectStructure.md` (added/removed/modified sections) derived from `git log --grep '^DEV-0000037 -' --name-status` so documented paths align with the implementation history.
+- 2026-02-28: Subtask 2 complete. Added explicit alias before/after compatibility examples and canonical-output-only rules for `features.view_image_tool` and web-search alias keys.
+- 2026-02-28: Subtask 3 complete. Added deterministic T21 success/error log markers in `projectStructure.md` and new unit coverage in `server/src/test/unit/project-structure-docs.task21.test.ts` for success and intentional failure-path assertions.
+- 2026-02-28: Subtask 4 complete. Ran `npm run lint --workspaces` (passed with existing repo import-order warnings only) and `npm run format:check --workspaces` (passed in client/server/common).
+- 2026-02-28: Testing 1 complete. Manually verified Task 21 rollup paths against `git log --grep '^DEV-0000037 -' --name-status` output and executed `npm run test:unit --workspace server -- src/test/unit/project-structure-docs.task21.test.ts`; workspace summary passed (`tests 836, pass 836, fail 0`).
 
 ### 22. Final isolated migration step: Minimize `./codex/config.toml` (projects-only)
 

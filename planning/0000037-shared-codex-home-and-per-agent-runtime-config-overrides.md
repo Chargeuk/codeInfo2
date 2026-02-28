@@ -3033,8 +3033,8 @@ Perform final shared-base config minimization as an isolated end-of-story step o
 
 ### 23. Post-implementation review fix: restore `codex_agents/*` file-set parity with `main`
 
-- Task Status: **__in_progress__**
-- Git Commits: `None yet`
+- Task Status: **__done__**
+- Git Commits: `4590736`
 
 #### Overview
 
@@ -3083,9 +3083,9 @@ Resolve post-review acceptance drift where branch changes removed files under `c
 
 #### Testing
 
-1. [ ] Verify `git diff --name-status main...HEAD -- codex_agents` has no delete (`D`) or rename (`R`) entries.
-2. [ ] Verify all expected `codex_agents/*/auth.json` files are present at original paths.
-3. [ ] Run targeted command/agent discovery tests affected by restored files and confirm pass.
+1. [x] Verify `git diff --name-status main...HEAD -- codex_agents` has no delete (`D`) or rename (`R`) entries.
+2. [x] Verify all expected `codex_agents/*/auth.json` files are present at original paths.
+3. [x] Run targeted command/agent discovery tests affected by restored files and confirm pass.
 
 #### Implementation Notes
 
@@ -3095,6 +3095,9 @@ Resolve post-review acceptance drift where branch changes removed files under `c
 - 2026-02-28: Subtask 4 complete. Added deterministic T23 parity log assertions in new unit coverage `server/src/test/unit/codex-agents-parity.task23.test.ts` for both success (`result=success`) and intentional failure (`result=error`) paths.
 - 2026-02-28: Subtask 5 complete. Updated `projectStructure.md` with Task 23 parity correction notes listing restored `codex_agents/*` command files and the no-`D`/`R` verification target.
 - 2026-02-28: Subtask 6 complete. Ran `npm run lint --workspaces` (passes with existing baseline import-order warnings) and `npm run format:check --workspaces` (all workspaces passed).
+- 2026-02-28: Testing 1 complete. Verified `git diff --name-status main...HEAD -- codex_agents` now reports only `M` entries (`improve_plan.json`, `task_up.json`) and no `D`/`R` parity violations.
+- 2026-02-28: Testing 2 complete. Re-verified expected auth files exist at original paths: `coding_agent/auth.json`, `planning_agent/auth.json`, and `tasking_agent/auth.json`.
+- 2026-02-28: Testing 3 complete. Ran targeted command/discovery/parity tests via `npx cross-env ... node --test ... agent-commands-list.test.ts agents-discovery.test.ts codex-agents-parity.task23.test.ts`; summary passed (`tests 22, pass 22, fail 0`).
 
 ### 24. Full story re-test after review-driven fixes (acceptance re-validation gate)
 

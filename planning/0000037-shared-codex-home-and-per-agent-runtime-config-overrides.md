@@ -1894,7 +1894,7 @@ Implement backend model-capability payload contract for Codex models so frontend
 ### 13. Server: Share codex capability resolver across `/chat/models` and `/chat`
 
 - Task Status: **__done__**
-- Git Commits: `None yet`
+- Git Commits: `e53305f`
 
 #### Overview
 

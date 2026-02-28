@@ -446,16 +446,19 @@ Upgrade `@openai/codex-sdk` to latest stable at implementation start and lock de
 #### Subtasks
 
 1. [ ] Upgrade `@openai/codex-sdk` in `server/package.json` to latest stable (no pre-release).
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `server/package.json`.
    - Do: replace `@openai/codex-sdk` version with latest stable (no `-alpha`, `-beta`, `-rc`).
    - Docs: Context7 `/openai/codex`, https://docs.npmjs.com/about-semantic-versioning.
    - Done when: `server/package.json` references a stable version only.
 2. [ ] Update lockfile and ensure only one resolved SDK version is used by server workspace dependency tree.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: root `package-lock.json`.
    - Do: run workspace install/update and confirm a single resolved `@openai/codex-sdk` entry for server path.
    - Docs: https://docs.npmjs.com/cli/v10/commands/npm-ls.
    - Done when: `npm ls @openai/codex-sdk --workspace server` shows one version.
 3. [ ] Record exact upgraded SDK version in this story file Implementation notes for traceability.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `planning/0000037-shared-codex-home-and-per-agent-runtime-config-overrides.md`.
    - Document name: `0000037-shared-codex-home-and-per-agent-runtime-config-overrides.md`.
    - Document location: `planning/0000037-shared-codex-home-and-per-agent-runtime-config-overrides.md`.
@@ -493,21 +496,25 @@ Remove compatibility-only widened reasoning-effort unions/casts and align code t
 #### Subtasks
 
 1. [ ] Remove local widened reasoning-effort type shims/casts in server runtime code and tests (for example `ModelReasoningEffort | 'xhigh'` compatibility-only types).
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `server/src/chat/interfaces/ChatInterfaceCodex.ts`, `server/src/routes/chatValidators.ts`, `server/src/routes/chat.ts`, plus matching `server/src/test/unit/chat-codex-reasoning-delta.test.ts` and chat-validation tests.
    - Do: replace widened unions/casts with SDK-native types.
    - Docs: Context7 `/openai/codex`, https://www.typescriptlang.org/docs/handbook/2/everyday-types.html.
    - Done when: no server type includes manual `| 'xhigh'` compatibility additions.
 2. [ ] Remove any client/shared compatibility typings that were only present to widen values already supported by upgraded SDK.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `common/src/lmstudio.ts`, `client/src/hooks/useChatModel.ts`, `client/src/hooks/useChatStream.ts`, `client/src/components/chat/CodexFlagsPanel.tsx`, related client test files.
    - Do: delete widened local aliases and rely on shared/server capability payload types.
    - Docs: https://www.typescriptlang.org/docs/handbook/2/types-from-types.html.
    - Done when: shared/client type surfaces do not carry compatibility-only widening.
 3. [ ] Update shared/client/server reasoning-effort type usage to SDK-native/runtime capability values (including `none`/`minimal` when surfaced) and remove manual cast-based compatibility types in chat validators/flag payload builders.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `server/src/routes/chat.ts` (or validators file), `server/src/routes/chatModels.ts`, `client/src/components/chat/CodexFlagsPanel.tsx`, `common/src/lmstudio.ts`.
    - Do: use capability-driven value lists and remove cast-based forcing.
    - Docs: Context7 `/openai/codex`, https://react.dev/reference/react/useMemo.
    - Done when: validation and UI both consume typed capability values without manual casts.
 4. [ ] Add server unit test for accepted SDK-native reasoning efforts.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `server/src/test/unit/chat-codex-reasoning-delta.test.ts`, `server/src/test/unit/chatModels.codex.test.ts`.
    - Description: assert every supported `ModelReasoningEffort` value accepted by updated server typing/validation paths.
@@ -515,6 +522,7 @@ Remove compatibility-only widened reasoning-effort unions/casts and align code t
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/getting-started.
    - Done when: test fails if a supported value is rejected.
 5. [ ] Add server unit test for unsupported reasoning-effort rejection.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `server/src/test/unit/chat-codex-reasoning-delta.test.ts`, route validator unit tests under `server/src/test/unit`.
    - Description: assert unsupported effort values are rejected with deterministic error output.
@@ -522,6 +530,7 @@ Remove compatibility-only widened reasoning-effort unions/casts and align code t
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if an unsupported value is silently accepted.
 6. [ ] Add client unit test for capability-driven effort typing usage.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `client/src/test/chatPage.reasoning.test.tsx`, `client/src/test/chatPage.models.test.tsx`.
    - Description: assert client state and payload paths accept SDK-native capability values without compatibility casts.
@@ -561,31 +570,37 @@ Create one server-side config resolution layer that reads shared base config, ch
 #### Subtasks
 
 1. [ ] Add/extend config loader module(s) to read `./codex/config.toml`, `./codex/chat/config.toml`, and `codex_agents/<agent>/config.toml`.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `server/src/config/codexConfig.ts`, `server/src/agents/config.ts` (or shared resolver file), plus new helper module if needed under `server/src/config`.
    - Do: centralize file reads in one resolver API used by all callers.
    - Docs: https://toml.io/en/v1.0.0, https://nodejs.org/api/fs.html.
    - Done when: one resolver can return base/chat/agent parsed config objects.
 2. [ ] Add explicit TOML parser dependency and parse helper before resolver rollout.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `server/package.json`, `server/src/agents/config.ts` (or shared parser helper under `server/src/config`).
    - Do: add a stable TOML parser dependency (`toml`) and parse via one helper that returns deterministic parse errors (remove regex-only parsing assumptions).
    - Docs: https://www.npmjs.com/package/toml, https://toml.io/en/v1.0.0.
    - Done when: resolver and services no longer depend on line/regex parsing for runtime config keys.
 3. [ ] Reuse existing codex/agent path resolution helpers (`getCodexHome`, `getCodexConfigPathForHome`, `discoverAgents` agent `home/configPath`) instead of introducing new path-discovery logic.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `server/src/config/codexConfig.ts`, `server/src/agents/discovery.ts` (or existing helper locations).
    - Do: import and reuse existing helpers; remove duplicate path derivation code.
    - Docs: https://nodejs.org/api/path.html, https://nodejs.org/api/fs.html, Context7 `/openai/codex`.
    - Done when: no duplicate path-walk logic exists for these config locations.
 4. [ ] Add chat runtime config bootstrap behavior.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: resolver/loader module from Subtask 1.
    - Do: if `./codex/chat/config.toml` missing and `./codex/config.toml` exists, copy once; never overwrite existing chat config.
    - Docs: https://nodejs.org/api/fs.html#fspromisescopyfilesrc-dest-mode.
    - Done when: first run creates chat config once and subsequent runs preserve it.
 5. [ ] Implement canonical normalization rules at read time.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: normalization helper in `server/src/agents/config.ts` or dedicated normalizer module.
    - Do: map `features.view_image_tool -> tools.view_image`; accept `features.web_search_request` as input alias only; normalize legacy web-search keys to top-level `web_search`; canonical key wins on conflict.
    - Docs: Context7 `/openai/codex`, https://toml.io/en/v1.0.0.
    - Done when: normalized output always emits canonical keys only.
 6. [ ] Add normalization unit test for legacy `features.view_image_tool` alias mapping.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `server/src/test/**` config normalization suites.
    - Description: assert legacy `features.view_image_tool` input normalizes to canonical `tools.view_image`.
@@ -593,6 +608,7 @@ Create one server-side config resolution layer that reads shared base config, ch
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if canonical output is not produced.
 7. [ ] Add normalization unit test for legacy web-search alias mapping.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `server/src/test/**` config normalization suites.
    - Description: assert supported legacy web-search aliases normalize to top-level canonical `web_search`.
@@ -600,6 +616,7 @@ Create one server-side config resolution layer that reads shared base config, ch
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if canonical `web_search` is missing.
 8. [ ] Add normalization collision unit test for canonical-wins precedence.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `server/src/test/**` config normalization suites.
    - Description: assert canonical key value wins when canonical and legacy aliases are both present.
@@ -607,6 +624,7 @@ Create one server-side config resolution layer that reads shared base config, ch
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if alias value overrides canonical value.
 9. [ ] Add bootstrap unit test for copy-once chat-config creation.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `server/src/test/**` config bootstrap suites.
    - Description: assert missing `./codex/chat/config.toml` is created exactly once from base config when base exists.
@@ -614,6 +632,7 @@ Create one server-side config resolution layer that reads shared base config, ch
    - Docs: https://nodejs.org/api/fs.html#fspromisescopyfilesrc-dest-mode.
    - Done when: test fails if initial copy does not occur.
 10. [ ] Add bootstrap unit test for no-overwrite behavior.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `server/src/test/**` config bootstrap suites.
    - Description: assert existing `./codex/chat/config.toml` is never overwritten during bootstrap.
@@ -621,6 +640,7 @@ Create one server-side config resolution layer that reads shared base config, ch
    - Docs: https://nodejs.org/api/fs.html#fspromisescopyfilesrc-dest-mode.
    - Done when: test fails if existing chat config contents are mutated.
 11. [ ] Add bootstrap unit test for missing-base no-copy behavior.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `server/src/test/**` config bootstrap suites.
    - Description: assert bootstrap does not create/mutate chat config when base config source is missing.
@@ -628,6 +648,7 @@ Create one server-side config resolution layer that reads shared base config, ch
    - Docs: https://nodejs.org/api/fs.html#fspromisescopyfilesrc-dest-mode.
    - Done when: test fails if files are created/changed without base input.
 12. [ ] Update `projectStructure.md` for any files added or removed in this task, after all file-add/remove subtasks are completed.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `projectStructure.md`.
    - Document name: `projectStructure.md`.
    - Document location: repository root `projectStructure.md`.
@@ -637,6 +658,7 @@ Create one server-side config resolution layer that reads shared base config, ch
    - Docs: https://git-scm.com/docs/git-ls-files.
    - Done when: `projectStructure.md` contains a complete added/removed file list for this task with no omissions.
 13. [ ] Update `design.md` with the runtime config loader/bootstrap/normalization architecture and Mermaid diagrams after all architecture-flow subtasks are complete.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `design.md`.
    - Document name: `design.md`.
    - Document location: repository root `design.md`.
@@ -677,26 +699,31 @@ Implement deterministic merge and validation behavior for runtime config resolut
 #### Subtasks
 
 1. [ ] Implement deterministic merge behavior with `effectiveProjects = { ...baseProjects, ...agentProjects }`.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: shared resolver module introduced in Task 3, likely `server/src/agents/config.ts` and `server/src/config/codexConfig.ts`.
    - Do: merge only `[projects]` from base into agent; agent entries override same path keys.
    - Docs: Context7 `/openai/codex`, https://toml.io/en/v1.0.0.
    - Done when: merge output preserves agent behavior keys and only inherits base projects.
 2. [ ] Implement fixed validation policy in one shared validator (unknown key warn+ignore, invalid type hard error).
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: shared validator in `server/src/agents/config.ts` or new `server/src/agents/configValidation.ts`.
    - Do: centralize rules and return structured diagnostics.
    - Docs: Context7 `/openai/codex` for valid config keys.
    - Done when: all run paths call the same validator function.
 3. [ ] Implement deterministic config read/parse failure behavior for agent/chat.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: resolver and route/service error mapping (`server/src/agents/service.ts`, `server/src/chat/interfaces/ChatInterfaceCodex.ts`).
    - Do: hard-fail agent on missing/unreadable/invalid config; deterministic chat error with no fallback to base behavior keys.
    - Docs: Node fs errors https://nodejs.org/api/errors.html.
    - Done when: failures return stable error codes/messages across retries.
 4. [ ] Ensure no fallback path allows shared behavior keys to override named-agent behavior keys.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: all resolver consumers in `server/src/agents/service.ts`, `server/src/flows/service.ts`, `server/src/mcpAgents/**`, `server/src/mcp2/**`, `server/src/mcpCommon/**`.
    - Do: remove any fallback assignment from base behavior fields.
    - Docs: Context7 `/openai/codex`, https://toml.io/en/v1.0.0.
    - Done when: code audit and tests show no shared behavior override in agent runs.
 5. [ ] Add merge-precedence unit test for `effectiveProjects` override behavior.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `server/src/test/**` config resolver suites.
    - Description: assert `{ ...baseProjects, ...agentProjects }` behavior where agent project values override base entries.
@@ -704,6 +731,7 @@ Implement deterministic merge and validation behavior for runtime config resolut
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if base projects override agent project entries.
 6. [ ] Add validator unit test for unknown-key warning-and-ignore behavior.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `server/src/test/**` config validator suites.
    - Description: assert unknown keys emit warnings and are ignored without run failure.
@@ -711,6 +739,7 @@ Implement deterministic merge and validation behavior for runtime config resolut
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/mock-functions.
    - Done when: test fails if unknown keys start failing runs.
 7. [ ] Add validator unit test for invalid-type hard-fail behavior.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `server/src/test/**` config validator suites.
    - Description: assert supported keys with invalid value types fail deterministically.
@@ -718,6 +747,7 @@ Implement deterministic merge and validation behavior for runtime config resolut
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if invalid types are accepted or downgraded.
 8. [ ] Add agent-config failure unit test for missing file.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `server/src/test/**` resolver/service failure suites.
    - Description: assert missing `codex_agents/<agent>/config.toml` hard-fails agent run deterministically.
@@ -725,6 +755,7 @@ Implement deterministic merge and validation behavior for runtime config resolut
    - Docs: https://nodejs.org/api/fs.html#file-system-flags.
    - Done when: test fails if run silently falls back.
 9. [ ] Add agent-config failure unit test for invalid TOML.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `server/src/test/**` resolver/service failure suites.
    - Description: assert invalid agent TOML parse errors hard-fail run with deterministic error payload/logging.
@@ -732,6 +763,7 @@ Implement deterministic merge and validation behavior for runtime config resolut
    - Docs: https://toml.io/en/v1.0.0.
    - Done when: test fails if invalid TOML falls back or produces nondeterministic errors.
 10. [ ] Add agent-config failure unit test for unreadable file permissions.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `server/src/test/**` resolver/service failure suites.
    - Description: assert unreadable agent config file hard-fails run deterministically.
@@ -739,6 +771,7 @@ Implement deterministic merge and validation behavior for runtime config resolut
    - Docs: https://nodejs.org/api/fs.html#file-system-flags.
    - Done when: test fails if unreadable files are treated as soft warnings.
 11. [ ] Add chat-config failure unit test for missing file.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `server/src/test/**` chat resolver/service failure suites.
    - Description: assert missing `./codex/chat/config.toml` produces deterministic chat error without fallback to base behavior keys.
@@ -746,6 +779,7 @@ Implement deterministic merge and validation behavior for runtime config resolut
    - Docs: https://nodejs.org/api/errors.html.
    - Done when: test fails if missing chat config falls back to base behavior.
 12. [ ] Add chat-config failure unit test for invalid TOML.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `server/src/test/**` chat resolver/service failure suites.
    - Description: assert invalid chat TOML returns deterministic error and no behavior fallback.
@@ -753,6 +787,7 @@ Implement deterministic merge and validation behavior for runtime config resolut
    - Docs: https://toml.io/en/v1.0.0.
    - Done when: test fails if invalid chat TOML is tolerated.
 13. [ ] Add chat-config failure unit test for unreadable file permissions.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `server/src/test/**` chat resolver/service failure suites.
    - Description: assert unreadable chat config returns deterministic error and no fallback.
@@ -760,6 +795,7 @@ Implement deterministic merge and validation behavior for runtime config resolut
    - Docs: https://nodejs.org/api/fs.html#file-system-flags.
    - Done when: test fails if unreadable chat config still allows chat execution.
 14. [ ] Add happy-path unit test for valid canonical agent/chat config resolution.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `server/src/test/**` resolver happy-path suites.
    - Description: assert valid canonical configs resolve successfully with expected merged output.
@@ -767,6 +803,7 @@ Implement deterministic merge and validation behavior for runtime config resolut
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if valid canonical config no longer resolves.
 15. [ ] Add happy-path unit test for valid legacy-alias input normalization.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `server/src/test/**` resolver happy-path suites.
    - Description: assert valid legacy alias inputs normalize successfully and still execute.
@@ -774,6 +811,7 @@ Implement deterministic merge and validation behavior for runtime config resolut
    - Docs: https://toml.io/en/v1.0.0, Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if valid legacy input can no longer run.
 16. [ ] Update `projectStructure.md` for any files added or removed in this task, after all file-add/remove subtasks are completed.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `projectStructure.md`.
    - Document name: `projectStructure.md`.
    - Document location: repository root `projectStructure.md`.
@@ -783,6 +821,7 @@ Implement deterministic merge and validation behavior for runtime config resolut
    - Docs: https://git-scm.com/docs/git-ls-files.
    - Done when: `projectStructure.md` accurately and completely lists all added/removed files for this task.
 17. [ ] Update `design.md` with precedence/validation architecture details and Mermaid diagrams after all architecture-flow subtasks are complete.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `design.md`.
    - Document name: `design.md`.
    - Document location: repository root `design.md`.
@@ -824,21 +863,25 @@ Replace existing model-only config parsing (`readAgentModelId`) so all execution
 #### Subtasks
 
 1. [ ] Replace existing line-based model-only config parsing (`readAgentModelId`) with the shared TOML-based runtime config resolver in all run surfaces.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `server/src/agents/config.ts`, `server/src/agents/service.ts`, `server/src/flows/service.ts`.
    - Do: remove regex/line parser usage for runtime behavior decisions.
    - Docs: Context7 `/openai/codex`, https://toml.io/en/v1.0.0.
    - Done when: `readAgentModelId` is deleted or unused for runtime decisions.
 2. [ ] Update agent service and flow service execution entrypoints to consume resolver output instead of regex/line parsing.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `server/src/agents/service.ts`, `server/src/flows/service.ts`.
    - Do: inject resolver output into run option builders.
    - Docs: Context7 `/openai/codex`, https://toml.io/en/v1.0.0.
    - Done when: agent and flow runs pull model/policy/tools from same resolver object.
 3. [ ] Ensure no codepath still depends on `readAgentModelId` for runtime behavior decisions.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: whole server workspace; verify with search.
    - Do: remove old function or keep only for unrelated legacy read with explicit comment.
    - Docs: https://github.com/BurntSushi/ripgrep/blob/master/GUIDE.md.
    - Done when: `rg "readAgentModelId" server/src` shows no runtime-path callers.
 4. [ ] Add agent execution regression test proving resolver replaces regex parsing.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Regression.
    - Test location: `server/src/test/unit/agents-*.test.ts`, `server/src/test/integration/agents-*.test.ts`.
    - Description: use a TOML fixture that old line/regex parsing would mis-handle but resolver handles correctly.
@@ -846,6 +889,7 @@ Replace existing model-only config parsing (`readAgentModelId`) so all execution
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if agent path returns to regex parsing behavior.
 5. [ ] Add flow execution regression test proving resolver replaces regex parsing.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Regression.
    - Test location: `server/src/test/unit/flows*.test.ts`, `server/src/test/integration/flows.*.test.ts`.
    - Description: assert flow-run config resolution uses full TOML resolver behavior, not legacy model-only parsing.
@@ -853,6 +897,7 @@ Replace existing model-only config parsing (`readAgentModelId`) so all execution
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if flow path reverts to model-only parsing.
 6. [ ] Update `design.md` with parser-removal architecture changes and Mermaid diagrams after all architecture-flow subtasks are complete.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `design.md`.
    - Document name: `design.md`.
    - Document location: repository root `design.md`.
@@ -893,31 +938,37 @@ Apply runtime config overrides to chat and primary REST agent execution surfaces
 #### Subtasks
 
 1. [ ] Update chat Codex execution path to pass chat runtime config via `CodexOptions.config` and shared `CODEX_HOME`.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `server/src/chat/interfaces/ChatInterfaceCodex.ts`, supporting option-builder files.
    - Do: resolve `./codex/chat/config.toml` and pass normalized config in runtime options.
    - Docs: Context7 `/openai/codex` (`CodexOptions.config`).
    - Done when: chat run config source is chat config file only.
 2. [ ] Update agent execution path (`/agents/:agentName/run`) to pass agent runtime config via `CodexOptions.config` while forcing shared `CODEX_HOME`.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `server/src/agents/service.ts`, related route/controller file.
    - Do: call shared resolver and inject agent-specific config object; stop passing `agent.home` as per-agent `codexHome` and use shared home helpers only.
    - Docs: Context7 `/openai/codex`, https://expressjs.com/en/guide/routing.html.
    - Done when: REST agent run never pulls behavior from shared base except projects merge and no per-agent `codexHome` override remains.
 3. [ ] Update agent command execution path (`/agents/:agentName/commands/run`) to use the same agent runtime config resolution and shared `CODEX_HOME`.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: command route/service handler under `server/src/agents`.
    - Do: reuse exact resolver invocation from Subtask 2 and remove any command-path per-agent home override.
    - Docs: Express route docs https://expressjs.com/en/guide/routing.html.
    - Done when: command path and run path use shared helper and both use the same shared home path.
 4. [ ] Extend shared chat interface/runtime option plumbing (`ChatInterfaceCodex` + option builders) to accept runtime `CodexOptions.config` payloads without breaking existing call signatures.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `server/src/chat/interfaces/ChatInterfaceCodex.ts`, `server/src/chat/**` option builder modules.
    - Do: thread optional config parameter through wrappers with backward-compatible defaults.
    - Docs: Context7 `/openai/codex`.
    - Done when: TypeScript compile confirms no caller breakage.
 5. [ ] Ensure updated execution paths retain `useConfigDefaults: true` and do not reintroduce duplicated model/policy thread flag wiring or per-agent home overrides.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: all touched run option builders.
    - Do: keep `useConfigDefaults: true` literal in all run starts and verify `codexHome` values resolve to shared `getCodexHome()` semantics only.
    - Docs: Context7 `/openai/codex` thread start options.
    - Done when: no path sets duplicate thread model/policy flags when config defaults are active and no path passes `agent.home` as `codexHome`.
 6. [ ] Add chat integration test for chat-config source enforcement.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/unit/chat-interface-codex.test.ts`, `server/src/test/integration/chat-codex.test.ts`.
    - Description: assert chat execution reads `./codex/chat/config.toml` behavior values and not agent/base behavior keys.
@@ -925,6 +976,7 @@ Apply runtime config overrides to chat and primary REST agent execution surfaces
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/getting-started.
    - Done when: test fails if chat path reads base/agent behavior config.
 7. [ ] Add REST agent-run integration test for agent-config source enforcement.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/integration/agents-run-*.test.ts`, `server/src/test/unit/agents-router-run.test.ts`.
    - Description: assert `/agents/:agentName/run` uses named-agent config behavior with only projects merged from base and still executes with shared `CODEX_HOME`.
@@ -932,6 +984,7 @@ Apply runtime config overrides to chat and primary REST agent execution surfaces
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/getting-started.
    - Done when: test fails if run endpoint reads shared behavior keys or switches to per-agent home.
 8. [ ] Add REST agent-command integration test for agent-config source enforcement.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/unit/agents-commands-router-run.test.ts`, `server/src/test/integration/agents-run-*.test.ts`.
    - Description: assert `/agents/:agentName/commands/run` uses same resolver and behavior source as `/run`, with shared `CODEX_HOME`.
@@ -939,6 +992,7 @@ Apply runtime config overrides to chat and primary REST agent execution surfaces
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/getting-started.
    - Done when: test fails if commands path diverges from run path or uses per-agent home.
 9. [ ] Update `design.md` with chat/run/commands runtime flow changes and Mermaid diagrams after all architecture-flow subtasks are complete.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `design.md`.
    - Document name: `design.md`.
    - Document location: repository root `design.md`.
@@ -978,21 +1032,25 @@ Apply the same runtime config resolution to flow-driven and MCP execution surfac
 #### Subtasks
 
 1. [ ] Update flow-driven agent execution path to use the same agent runtime config resolution and precedence as REST.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `server/src/flows/service.ts` and flow step execution helpers.
    - Do: call the shared resolver used in Task 6 Subtask 2 and remove flow-specific `params.agentHome` override when starting Codex runs.
    - Docs: Context7 `/openai/codex`, https://www.jsonrpc.org/specification.
    - Done when: flow step run options match REST agent run options for same agent, including shared-home semantics.
 2. [ ] Update MCP agent execution surfaces to resolve the same runtime config behavior as REST and flow surfaces.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `server/src/mcpAgents/router.ts`, `server/src/mcpAgents/tools.ts`, `server/src/mcp2/router.ts`, `server/src/mcp2/tools/codebaseQuestion.ts`, `server/src/mcp2/tools/reingestRepository.ts`, `server/src/mcpCommon/dispatch.ts`.
    - Do: replace any direct model-only config read with shared resolver and ensure MCP-triggered runs use the same shared home path as REST/flow.
    - Docs: https://www.jsonrpc.org/specification.
    - Done when: MCP path has same config source, shared-home behavior, and validation path.
 3. [ ] Ensure all updated paths retain `useConfigDefaults: true` and do not duplicate model/policy flag logic or reintroduce per-agent home wiring.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: flow and MCP run option builders.
    - Do: verify options include `useConfigDefaults: true`, no duplicate model/policy flags, and no `codexHome: agent.home` / `codexHome: params.agentHome` assignments.
    - Docs: Context7 `/openai/codex`.
    - Done when: static search confirms `useConfigDefaults` set consistently and no per-agent home assignment remains in flow/MCP execution.
 4. [ ] Add integration test for REST `/agents/:agentName/run` baseline effective config output.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/unit/agents-*.test.ts`, `server/src/test/integration/agents-*.test.ts`.
    - Description: capture baseline effective runtime config produced by REST run surface.
@@ -1000,6 +1058,7 @@ Apply the same runtime config resolution to flow-driven and MCP execution surfac
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/using-matchers.
    - Done when: baseline assertions are deterministic for fixture input.
 5. [ ] Add integration test for `/agents/:agentName/commands/run` parity with REST run baseline.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/unit/agents-*.test.ts`, `server/src/test/integration/agents-*.test.ts`.
    - Description: assert commands-run effective config matches REST run baseline for same agent fixture.
@@ -1007,6 +1066,7 @@ Apply the same runtime config resolution to flow-driven and MCP execution surfac
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/using-matchers.
    - Done when: commands-run assertions fail on any baseline divergence.
 6. [ ] Add integration test for flow-step parity with REST run baseline.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/unit/flows*.test.ts`, `server/src/test/integration/flows.*.test.ts`.
    - Description: assert flow-driven execution effective config matches REST run baseline for same agent fixture.
@@ -1014,6 +1074,7 @@ Apply the same runtime config resolution to flow-driven and MCP execution surfac
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/using-matchers.
    - Done when: flow assertions fail on parity mismatch.
 7. [ ] Add integration test for MCP execution parity with REST run baseline.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/integration/mcp*`, `server/src/test/unit/mcp*`, `server/src/test/mcp2/**`.
    - Description: assert MCP execution effective config matches REST run baseline for same agent fixture.
@@ -1021,6 +1082,7 @@ Apply the same runtime config resolution to flow-driven and MCP execution surfac
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/using-matchers.
    - Done when: MCP assertions fail on parity mismatch.
 8. [ ] Update `design.md` with flow/MCP execution architecture and Mermaid diagrams after all architecture-flow subtasks are complete.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `design.md`.
    - Document name: `design.md`.
    - Document location: repository root `design.md`.
@@ -1059,16 +1121,19 @@ Move Codex availability and startup checks to shared-home semantics for chat and
 #### Subtasks
 
 1. [ ] Update detection/startup logic to treat shared `./codex` as chat availability source of truth.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `server/src/providers/codexDetection.ts`, `server/src/config/codexConfig.ts`.
    - Do: for chat availability, check shared-home auth/config only.
    - Docs: Context7 `/openai/codex`, https://nodejs.org/api/fs.html.
    - Done when: chat availability remains true when shared auth is valid even if agent-local auth differs.
 2. [ ] Reuse existing detection/auth helpers (`detectCodexForHome`, `refreshCodexDetection`, `ensureAgentAuthSeeded`, `propagateAgentAuthFromPrimary`) and avoid parallel duplicate implementations.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `server/src/providers/codexDetection.ts`, `server/src/agents/auth*` helper files.
    - Do: compose existing helpers, do not add second implementation path.
    - Docs: https://nodejs.org/api/fs.html, https://nodejs.org/api/child_process.html.
    - Done when: detection/auth behavior routes through existing helper functions.
 3. [ ] Add availability test for shared-home auth present at startup.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/unit/codexConfig.test.ts`, `server/src/test/unit/codexConfig.device-auth.test.ts`.
    - Description: assert chat availability is `available` when shared `./codex` auth/config prerequisites are present.
@@ -1076,6 +1141,7 @@ Move Codex availability and startup checks to shared-home semantics for chat and
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if valid shared-home state reports unavailable.
 4. [ ] Add availability test for shared-home auth missing at startup.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/unit/codexConfig.test.ts`, `server/src/test/unit/codexConfig.device-auth.test.ts`.
    - Description: assert chat availability is `unavailable` when shared-home prerequisites are absent.
@@ -1083,6 +1149,7 @@ Move Codex availability and startup checks to shared-home semantics for chat and
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if missing prerequisites still report available.
 5. [ ] Add detection refresh test for availability state transition.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/unit/codexConfig.device-auth.test.ts`, `server/src/test/integration/codexAuthCopy.integration.test.ts`.
    - Description: assert `refreshCodexDetection` updates status deterministically after auth state changes.
@@ -1090,6 +1157,7 @@ Move Codex availability and startup checks to shared-home semantics for chat and
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/timer-mocks.
    - Done when: test fails if refresh leaves stale availability state.
 6. [ ] Update `design.md` with shared-home detection architecture and Mermaid diagrams after all architecture-flow subtasks are complete.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `design.md`.
    - Document name: `design.md`.
    - Document location: repository root `design.md`.
@@ -1127,11 +1195,13 @@ Retain existing auth seeding/propagation compatibility behavior without deleting
 #### Subtasks
 
 1. [ ] Keep compatibility auth seeding/propagation behavior non-destructive for `codex_agents/*/auth.json`.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `server/src/agents/auth*`, `server/src/providers/codexDetection.ts`.
    - Do: preserve copy/seed behavior without deletions or renames.
    - Docs: https://nodejs.org/api/fs.html, Context7 `/openai/codex`.
    - Done when: runtime still seeds/propagates as before and no destructive ops exist.
 2. [ ] Add file-safety guard test for delete operations under `codex_agents/*`.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `server/src/test/unit/agents-authSeed.test.ts`, `server/src/test/integration/codexAuthCopy.integration.test.ts`.
    - Description: assert no `unlink`/`rm` destructive file deletion is executed against agent directories.
@@ -1139,6 +1209,7 @@ Retain existing auth seeding/propagation compatibility behavior without deleting
    - Docs: https://nodejs.org/api/fs.html.
    - Done when: test fails on any delete attempt in `codex_agents/*`.
 3. [ ] Add file-safety guard test for rename/move operations under `codex_agents/*`.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `server/src/test/unit/agents-authSeed.test.ts`, `server/src/test/integration/codexAuthCopy.integration.test.ts`.
    - Description: assert no `rename`-based move operations target agent directory files.
@@ -1146,6 +1217,7 @@ Retain existing auth seeding/propagation compatibility behavior without deleting
    - Docs: https://nodejs.org/api/fs.html#fsrenameoldpath-newpath-callback.
    - Done when: test fails on any rename/move attempt in `codex_agents/*`.
 4. [ ] Add auth propagation idempotency test.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/unit/agents-authSeed.test.ts`, `server/src/test/integration/codexAuthCopy.integration.test.ts`.
    - Description: run propagation twice and assert second run produces no state drift.
@@ -1153,6 +1225,7 @@ Retain existing auth seeding/propagation compatibility behavior without deleting
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if repeated propagation changes result.
 5. [ ] Add post-run agent auth file-presence test.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/unit/agents-authSeed.test.ts`, `server/src/test/integration/codexAuthCopy.integration.test.ts`.
    - Description: assert all expected `codex_agents/*/auth.json` files remain present after propagation/run flow.
@@ -1160,6 +1233,7 @@ Retain existing auth seeding/propagation compatibility behavior without deleting
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if any expected auth file is missing.
 6. [ ] Update `design.md` with auth-compatibility propagation flow and Mermaid diagrams after all architecture-flow subtasks are complete.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `design.md`.
    - Document name: `design.md`.
    - Document location: repository root `design.md`.
@@ -1200,21 +1274,25 @@ Implement the server-side device-auth message contract change first: request bod
 #### Subtasks
 
 1. [ ] Update `server/src/routes/codexDeviceAuth.ts` request parsing to accept only empty JSON object and reject selector fields (`target`, `agentName`) with `400 invalid_request`.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `server/src/routes/codexDeviceAuth.ts`.
    - Do: add strict request body validation at route start.
    - Docs: https://expressjs.com/en/resources/middleware/body-parser.html.
    - Done when: `{ "target": "chat" }` and `{ "agentName": "x" }` return `400 invalid_request`.
 2. [ ] Reject any non-empty request body (not only selector fields) with deterministic `400 invalid_request` so the `{}` contract is strict.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `server/src/routes/codexDeviceAuth.ts`.
    - Do: enforce `Object.keys(body).length === 0` contract and normalize oversize parser errors (`entity.too.large`) to the same `400 { error: "invalid_request", message }` shape.
    - Docs: OpenAPI object schema rules https://spec.openapis.org/oas/v3.0.3.html.
    - Done when: `{ "foo": "bar" }` and oversized bodies both return `400 invalid_request` with deterministic `message`.
 3. [ ] Update shared/common API types for device-auth request/response to the single-shape contract.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `common/src/**` API contract types, `client/src/api/codex.ts` types if shared import not used.
    - Do: define request `{}` and response union for `200/400/503`.
    - Docs: TypeScript discriminated unions https://www.typescriptlang.org/docs/.
    - Done when: client and server compile against same type contract.
 4. [ ] Update success and error response payloads to the defined contract.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `server/src/routes/codexDeviceAuth.ts`.
    - Do: return exactly:
      - `200 { status: "ok", rawOutput }`
@@ -1223,21 +1301,25 @@ Implement the server-side device-auth message contract change first: request bod
    - Docs: RFC 7807 guidance https://datatracker.ietf.org/doc/html/rfc7807.
    - Done when: integration tests assert exact JSON shapes.
 5. [ ] Remove legacy dual-shape parsing/response behavior from backend route.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `server/src/routes/codexDeviceAuth.ts` and any helper parsing modules.
    - Do: remove target-branch logic and dead types.
    - Docs: https://spec.openapis.org/oas/v3.0.3.html.
    - Done when: no route code references `target` or `agentName` request semantics.
 6. [ ] Update `openapi.json` for `/codex/device-auth` request and response schemas.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `openapi.json`.
    - Do: reflect strict `{}` request and `200/400/503` response bodies.
    - Docs: https://spec.openapis.org/oas/v3.0.3.html.
    - Done when: schema validation and route tests align.
 7. [ ] Update the OpenAPI contract unit test to assert the new `/codex/device-auth` schemas.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `server/src/test/unit/openapi.contract.test.ts`.
    - Do: add/adjust assertions for strict `{}` request body and exact `200/400/503` response schema shapes.
    - Docs: https://spec.openapis.org/oas/v3.0.3.html, Context7 `/jestjs/jest`.
    - Done when: contract test fails if schema reintroduces selector fields or misses required error shapes.
 8. [ ] Add device-auth integration test for empty `{}` success response.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/integration/codex.device-auth.test.ts`.
    - Description: assert empty JSON request returns `200` with `{ status: \"ok\", rawOutput }`.
@@ -1245,6 +1327,7 @@ Implement the server-side device-auth message contract change first: request bod
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/asynchronous.
    - Done when: test fails if response status/body diverges from contract.
 9. [ ] Add device-auth integration test for legacy selector-field rejection.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/integration/codex.device-auth.test.ts`.
    - Description: assert requests with `target`/`agentName` return `400 invalid_request`.
@@ -1252,6 +1335,7 @@ Implement the server-side device-auth message contract change first: request bod
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/asynchronous.
    - Done when: test fails if selector payload is accepted.
 10. [ ] Add device-auth integration test for unknown non-empty field rejection.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/integration/codex.device-auth.test.ts`.
    - Description: assert non-empty body with unknown fields returns `400 invalid_request`.
@@ -1259,6 +1343,7 @@ Implement the server-side device-auth message contract change first: request bod
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/asynchronous.
    - Done when: test fails if unknown fields are ignored.
 11. [ ] Add device-auth integration test for codex unavailable response.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/integration/codex.device-auth.test.ts`.
    - Description: assert unavailable codex path returns `503` with `{ error: \"codex_unavailable\", reason }`.
@@ -1266,6 +1351,7 @@ Implement the server-side device-auth message contract change first: request bod
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/asynchronous.
    - Done when: test fails if status/error payload differs.
 12. [ ] Add device-auth integration test for payload-too-large handling.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/integration/codex.device-auth.test.ts`.
    - Description: assert oversized payload returns `400` with `{ error: \"invalid_request\", message }` and does not emit legacy/non-contract error shapes.
@@ -1273,6 +1359,7 @@ Implement the server-side device-auth message contract change first: request bod
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/asynchronous.
    - Done when: test fails if payload-size failure behavior returns anything other than deterministic `invalid_request`.
 13. [ ] Update `design.md` with simplified device-auth contract flow and Mermaid diagrams after all architecture-flow subtasks are complete.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `design.md`.
    - Document name: `design.md`.
    - Document location: repository root `design.md`.
@@ -1312,16 +1399,19 @@ Add deterministic concurrent request behavior and preserve post-success auth pro
 #### Subtasks
 
 1. [ ] Add deterministic concurrent request handling so overlapping device-auth runs remain idempotent and do not corrupt auth propagation state.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `server/src/routes/codexDeviceAuth.ts`, shared lock helper module.
    - Do: reuse conversation-lock pattern (`tryAcquireConversationLock` / `releaseConversationLock`) or equivalent shared lock helper.
    - Docs: https://nodejs.org/api/async_context.html, https://nodejs.org/api/fs.html.
    - Done when: concurrent requests do not create inconsistent auth state.
 2. [ ] Preserve non-destructive post-success auth propagation/availability refresh behavior under the single-shape contract.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `server/src/routes/codexDeviceAuth.ts`, `server/src/providers/codexDetection.ts`, auth propagation helpers.
    - Do: keep existing refresh/propagation side effects, but only after successful auth.
    - Docs: https://nodejs.org/api/async_context.html, https://expressjs.com/en/guide/routing.html.
    - Done when: successful auth still triggers refresh and propagation safely.
 3. [ ] Add concurrent device-auth integration test for overlapping request idempotency.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/integration/codex.device-auth.test.ts`.
    - Description: assert overlapping auth requests produce deterministic, idempotent response behavior.
@@ -1329,6 +1419,7 @@ Add deterministic concurrent request behavior and preserve post-success auth pro
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/setup-teardown.
    - Done when: test fails if concurrent calls produce inconsistent outcomes.
 4. [ ] Add post-success integration test for auth propagation side effects.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/integration/codex.device-auth.test.ts`, `server/src/test/unit/codexAuthCopy.test.ts`.
    - Description: assert successful auth triggers non-destructive propagation path exactly as defined.
@@ -1336,6 +1427,7 @@ Add deterministic concurrent request behavior and preserve post-success auth pro
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/asynchronous.
    - Done when: test fails if propagation side effects are skipped or duplicated.
 5. [ ] Add post-success integration test for availability refresh side effects.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/integration/codex.device-auth.test.ts`, `server/src/test/unit/codexConfig.device-auth.test.ts`.
    - Description: assert successful auth updates codex availability state deterministically.
@@ -1343,6 +1435,7 @@ Add deterministic concurrent request behavior and preserve post-success auth pro
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/asynchronous.
    - Done when: test fails if availability state is stale after success.
 6. [ ] Add shared-auth reuse integration test across execution surfaces after one successful device-auth flow.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/integration/codex.device-auth.test.ts`, `server/src/test/integration/chat-codex.test.ts`, `server/src/test/integration/agents-run-*.test.ts`, `server/src/test/integration/flows.run.*.test.ts`.
    - Description: assert one successful shared-home device-auth flow enables chat, agent run, and flow-driven execution without requiring additional per-agent login.
@@ -1350,6 +1443,7 @@ Add deterministic concurrent request behavior and preserve post-success auth pro
    - Docs: Context7 `/jestjs/jest`, Context7 `/openai/codex`.
    - Done when: test fails if any surface still requires separate per-agent auth after shared auth success.
 7. [ ] Update `projectStructure.md` for any files added or removed in this task, after all file-add/remove subtasks are completed.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `projectStructure.md`.
    - Document name: `projectStructure.md`.
    - Document location: repository root `projectStructure.md`.
@@ -1359,6 +1453,7 @@ Add deterministic concurrent request behavior and preserve post-success auth pro
    - Docs: https://git-scm.com/docs/git-ls-files.
    - Done when: project file map reflects the complete final set of files added/removed by this task.
 8. [ ] Update `design.md` with device-auth concurrency and side-effect flows plus Mermaid diagrams after all architecture-flow subtasks are complete.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `design.md`.
    - Document name: `design.md`.
    - Document location: repository root `design.md`.
@@ -1399,31 +1494,37 @@ Implement backend model-capability payload contract for Codex models so frontend
 #### Subtasks
 
 1. [ ] Update shared response types in `common/src/lmstudio.ts` to include per-model capability fields.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `common/src/lmstudio.ts`.
    - Do: add `supportedReasoningEfforts: string[]` and `defaultReasoningEffort: string` on codex model DTOs.
    - Docs: Context7 `/openai/codex`, TypeScript docs.
    - Done when: shared types compile and are consumed by server/client.
 2. [ ] Update `server/src/routes/chatModels.ts` to include capability fields for every codex model item.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `server/src/routes/chatModels.ts`.
    - Do: populate both capability fields from resolver/model metadata for each codex entry.
    - Docs: Context7 `/openai/codex`.
    - Done when: API response includes fields on all codex models.
 3. [ ] Update `openapi.json` for `/chat/models` codex response schema if documented there.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `openapi.json`.
    - Do: add both new fields as required for codex model schema entries.
    - Docs: https://spec.openapis.org/oas/v3.0.3.html.
    - Done when: schema reflects runtime payload and matches runtime route response fields.
 4. [ ] Update OpenAPI contract tests for `/chat/models` codex capability fields.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `server/src/test/unit/openapi.contract.test.ts`.
    - Do: add assertions for `supportedReasoningEfforts` and `defaultReasoningEffort` presence/requirements in codex model schema.
    - Docs: https://spec.openapis.org/oas/v3.0.3.html, Context7 `/jestjs/jest`.
    - Done when: contract test fails if either field is missing from the documented codex model shape.
 5. [ ] Update shared mock fixtures and contract helpers to include capability fields.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `common/src/fixtures/mockModels.ts`, related test helpers.
    - Do: update all codex fixture objects with supported/default effort fields.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/setup-teardown, https://www.typescriptlang.org/docs/.
    - Done when: fixture-driven tests do not require ad-hoc overrides.
 6. [ ] Add codex model payload test for `supportedReasoningEfforts` presence and non-empty values.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/unit/chatModels.codex.test.ts`.
    - Description: assert every codex model response item includes a non-empty `supportedReasoningEfforts` array.
@@ -1431,6 +1532,7 @@ Implement backend model-capability payload contract for Codex models so frontend
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if any codex model omits or empties the array.
 7. [ ] Add codex model payload test for `defaultReasoningEffort` validity.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/unit/chatModels.codex.test.ts`.
    - Description: assert every codex model `defaultReasoningEffort` exists and is a member of `supportedReasoningEfforts`.
@@ -1438,6 +1540,7 @@ Implement backend model-capability payload contract for Codex models so frontend
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if default is missing or invalid.
 8. [ ] Add mixed-provider payload regression test for non-codex model shape stability.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Regression.
    - Test location: `server/src/test/unit/chatModels.codex.test.ts`.
    - Description: assert non-codex model entries remain unchanged when codex capability fields are introduced.
@@ -1445,6 +1548,7 @@ Implement backend model-capability payload contract for Codex models so frontend
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/using-matchers.
    - Done when: test fails if non-codex payload shape is unintentionally modified.
 9. [ ] Add codex-unavailable payload contract test for `/chat/models`.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/unit/chatModels.codex.test.ts`.
    - Description: assert unavailable codex path returns deterministic contract-safe payload (`available: false`, `models: []`) without malformed capability fields.
@@ -1452,6 +1556,7 @@ Implement backend model-capability payload contract for Codex models so frontend
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if unavailable path response shape diverges from documented contract.
 10. [ ] Update `design.md` with `/chat/models` capability contract details and Mermaid diagrams after all architecture-flow subtasks are complete.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `design.md`.
    - Document name: `design.md`.
    - Document location: repository root `design.md`.
@@ -1494,26 +1599,31 @@ Replace static reasoning/model sources with one shared runtime codex capability 
 #### Subtasks
 
 1. [ ] Replace static reasoning/model sources for chat capability payloads and chat validation with one shared runtime codex capability resolver sourced from model metadata.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `server/src/routes/chatModels.ts`, `server/src/routes/chat.ts`, `server/src/routes/chatValidators.ts`, shared helper files under `server/src/config`.
    - Do: remove hard-coded effort arrays and `getCodexModelList`/`getCodexEnvDefaults` static assumptions where applicable.
    - Docs: Context7 `/openai/codex`.
    - Done when: both routes read capabilities from same resolver output.
 2. [ ] Implement one shared codex capability resolver module used by `/chat/models` payload generation and `/chat` validation.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: new module under `server/src/codex/` or `server/src/chat/` plus imports in both routes.
    - Do: expose stable API returning supported/default effort per model with deterministic fallback when metadata unavailable.
    - Docs: Context7 `/openai/codex`, https://www.typescriptlang.org/docs/.
    - Done when: one module is imported by both consumers.
 3. [ ] Ensure deterministic behavior when capability data changes and emit only capability-normalized effort values.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: shared resolver and `chatModels` route mapping.
    - Do: normalize ordering and ensure fallback default is explicit.
    - Docs: Context7 `/openai/codex`, https://spec.openapis.org/oas/v3.0.3.html.
    - Done when: emitted values are deterministic across repeated calls.
 4. [ ] Add server-side chat request validation that rejects unsupported `model_reasoning_effort` values for selected model with deterministic `invalid_request` errors.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `server/src/routes/chat.ts`, validator module.
    - Do: validate effort against selected model capability set; no silent downgrade.
    - Docs: https://datatracker.ietf.org/doc/html/rfc7807, https://httpwg.org/specs/rfc9110.html.
    - Done when: unsupported effort returns deterministic `invalid_request` response.
 5. [ ] Add parity test for `/chat/models` payload using shared capability resolver fixture.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/unit/chatModels.codex.test.ts`.
    - Description: assert `/chat/models` response is derived from shared resolver output fixture.
@@ -1521,6 +1631,7 @@ Replace static reasoning/model sources with one shared runtime codex capability 
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/snapshot-testing.
    - Done when: test fails if `/chat/models` diverges from resolver output.
 6. [ ] Add parity test for `/chat` validation using shared capability resolver fixture.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/unit/chat-codex-reasoning-delta.test.ts`, `server/src/test/integration/chat-codex.test.ts`.
    - Description: assert `/chat` request validation uses same resolver fixture as `/chat/models`.
@@ -1528,6 +1639,7 @@ Replace static reasoning/model sources with one shared runtime codex capability 
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if `/chat` accepts/rejects values inconsistent with resolver output.
 7. [ ] Add fallback test for deterministic `/chat/models` payload when metadata is unavailable.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/unit/chatModels.codex.test.ts`.
    - Description: assert fallback payload shape and defaults remain deterministic when metadata fetch fails.
@@ -1535,6 +1647,7 @@ Replace static reasoning/model sources with one shared runtime codex capability 
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/mock-functions.
    - Done when: test fails if fallback payload changes nondeterministically.
 8. [ ] Add fallback validation test for accepted reasoning-effort values.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/unit/chat-codex-reasoning-delta.test.ts`, `server/src/test/integration/chat-codex.test.ts`.
    - Description: assert valid fallback-supported effort values are accepted by `/chat` validation.
@@ -1542,6 +1655,7 @@ Replace static reasoning/model sources with one shared runtime codex capability 
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if valid fallback values are rejected.
 9. [ ] Add fallback validation test for rejected reasoning-effort values.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/unit/chat-codex-reasoning-delta.test.ts`, `server/src/test/integration/chat-codex.test.ts`.
    - Description: assert unsupported fallback effort values are rejected with deterministic `invalid_request`.
@@ -1549,6 +1663,7 @@ Replace static reasoning/model sources with one shared runtime codex capability 
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if unsupported fallback values are accepted.
 10. [ ] Add forward-compatibility test for non-standard reasoning-effort capability values.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/unit/chatModels.codex.test.ts`, `server/src/test/unit/chat-codex-reasoning-delta.test.ts`.
    - Description: inject a capability fixture containing a non-standard/new effort value (outside current static list) and assert `/chat/models` surfaces it while `/chat` validation accepts it for that model.
@@ -1556,6 +1671,7 @@ Replace static reasoning/model sources with one shared runtime codex capability 
    - Docs: Context7 `/openai/codex`, Context7 `/jestjs/jest`.
    - Done when: test fails if unseen capability values are dropped or rejected despite resolver support.
 11. [ ] Update `projectStructure.md` for any files added or removed in this task, after all file-add/remove subtasks are completed.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `projectStructure.md`.
    - Document name: `projectStructure.md`.
    - Document location: repository root `projectStructure.md`.
@@ -1565,6 +1681,7 @@ Replace static reasoning/model sources with one shared runtime codex capability 
    - Docs: https://git-scm.com/docs/git-ls-files.
    - Done when: `projectStructure.md` includes the complete set of files added/removed by this task.
 12. [ ] Update `design.md` with shared capability-resolver architecture and Mermaid diagrams after all architecture-flow subtasks are complete.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `design.md`.
    - Document name: `design.md`.
    - Document location: repository root `design.md`.
@@ -1607,16 +1724,19 @@ After Task 10 is complete, update frontend API request/response types for the si
 #### Subtasks
 
 1. [ ] Update `client/src/api/codex.ts` request type/payload to send `{}` for `POST /codex/device-auth`.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `client/src/api/codex.ts`.
    - Do: remove target/agent parameters and always post empty object.
    - Docs: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API, https://spec.openapis.org/oas/v3.0.3.html.
    - Done when: request body is always `{}`.
 2. [ ] Update response typing/parsing to match new backend response shape (remove target-specific fields from success type).
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `client/src/api/codex.ts`, shared type imports from `common/src`.
    - Do: parse success `{ status, rawOutput }` and error unions `{ error, ... }`.
    - Docs: TypeScript union docs.
    - Done when: no client type references response `target`/`agentName`.
 3. [ ] Add frontend API unit test for strict `{}` request payload serialization.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `client/src/test/**` codex API helper suites.
    - Description: assert device-auth client always sends empty JSON object request body.
@@ -1624,6 +1744,7 @@ After Task 10 is complete, update frontend API request/response types for the si
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/asynchronous.
    - Done when: test fails if request body includes target/agent fields.
 4. [ ] Add frontend API unit test for `200` success response parsing.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `client/src/test/**` codex API helper suites.
    - Description: assert success payload parses to `{ status, rawOutput }` shape.
@@ -1631,6 +1752,7 @@ After Task 10 is complete, update frontend API request/response types for the si
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if success payload parsing drifts.
 5. [ ] Add frontend API unit test for `400 invalid_request` response parsing.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `client/src/test/**` codex API helper suites.
    - Description: assert invalid request payload parses deterministically to error type.
@@ -1638,6 +1760,7 @@ After Task 10 is complete, update frontend API request/response types for the si
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if `400` parsing loses error details.
 6. [ ] Add frontend API unit test for `503 codex_unavailable` response parsing.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `client/src/test/**` codex API helper suites.
    - Description: assert unavailable response maps to expected error type with reason.
@@ -1645,6 +1768,7 @@ After Task 10 is complete, update frontend API request/response types for the si
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if `503` parsing is inconsistent.
 7. [ ] Update `design.md` with frontend device-auth API consumption flow and Mermaid diagrams after all architecture-flow subtasks are complete.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `design.md`.
    - Document name: `design.md`.
    - Document location: repository root `design.md`.
@@ -1684,21 +1808,25 @@ After Task 10 and Task 14 are complete, simplify UI usage to one shared device-a
 #### Subtasks
 
 1. [ ] Reuse the existing `CodexDeviceAuthDialog` component and simplify it in place (no replacement component unless strictly necessary).
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `client/src/components/codex/CodexDeviceAuthDialog.tsx`.
    - Do: keep component identity and simplify props/state instead of creating new dialog component.
    - Docs: MUI Dialog docs via MCP, React component ref docs.
    - Done when: same component file handles the new single auth flow.
 2. [ ] Remove target selector behavior from the dialog and update copy/state handling for one shared flow.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `client/src/components/codex/CodexDeviceAuthDialog.tsx`.
    - Do: remove selector control and any target-specific text branches.
    - Docs: MUI FormControl/Alert docs via MCP.
    - Done when: dialog has one path and no target-specific UI states.
 3. [ ] Update `client/src/pages/ChatPage.tsx` and `client/src/pages/AgentsPage.tsx` to use shared dialog behavior without selector defaults.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `client/src/pages/ChatPage.tsx`, `client/src/pages/AgentsPage.tsx`.
    - Do: remove page-level target defaults and pass unified dialog props only.
    - Docs: React state lifting docs https://react.dev/learn/sharing-state-between-components.
    - Done when: both pages trigger same dialog API without selector props.
 4. [ ] Add frontend integration test for dialog selector removal.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `client/src/test/**` `CodexDeviceAuthDialog` suites.
    - Description: assert target selector UI is absent and dialog renders one unified auth flow.
@@ -1706,6 +1834,7 @@ After Task 10 and Task 14 are complete, simplify UI usage to one shared device-a
    - Docs: https://testing-library.com/docs/.
    - Done when: test fails if selector controls reappear.
 5. [ ] Add frontend integration test for ChatPage shared auth dialog wiring.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `client/src/test/**` ChatPage suites.
    - Description: assert ChatPage opens and uses unified auth dialog without target defaults.
@@ -1713,6 +1842,7 @@ After Task 10 and Task 14 are complete, simplify UI usage to one shared device-a
    - Docs: https://testing-library.com/docs/.
    - Done when: test fails if chat page still passes selector-specific behavior.
 6. [ ] Add frontend integration test for AgentsPage shared auth dialog wiring.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `client/src/test/**` AgentsPage suites.
    - Description: assert AgentsPage opens and uses same unified auth dialog contract as ChatPage.
@@ -1720,6 +1850,7 @@ After Task 10 and Task 14 are complete, simplify UI usage to one shared device-a
    - Docs: https://testing-library.com/docs/.
    - Done when: test fails if agents page diverges from shared dialog flow.
 7. [ ] Add frontend integration test for `400 invalid_request` dialog error state.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `client/src/test/**` `CodexDeviceAuthDialog` suites.
    - Description: assert dialog shows deterministic error state on `400 invalid_request`.
@@ -1727,6 +1858,7 @@ After Task 10 and Task 14 are complete, simplify UI usage to one shared device-a
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/asynchronous.
    - Done when: test fails if `400` errors are hidden or malformed.
 8. [ ] Add frontend integration test for `503 codex_unavailable` dialog error state.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `client/src/test/**` `CodexDeviceAuthDialog` suites.
    - Description: assert dialog shows deterministic unavailable state on `503 codex_unavailable`.
@@ -1734,6 +1866,7 @@ After Task 10 and Task 14 are complete, simplify UI usage to one shared device-a
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/asynchronous.
    - Done when: test fails if `503` state is not rendered as expected.
 9. [ ] Add frontend integration test for dialog retry behavior after error.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `client/src/test/**` `CodexDeviceAuthDialog` suites.
    - Description: assert retry action transitions from error/loading back to successful completion state.
@@ -1741,6 +1874,7 @@ After Task 10 and Task 14 are complete, simplify UI usage to one shared device-a
    - Docs: https://testing-library.com/docs/, Context7 `/jestjs/jest`, https://jestjs.io/docs/asynchronous.
    - Done when: test fails if retry does not clear error and proceed deterministically.
 10. [ ] Update `design.md` with unified frontend device-auth UX flow and Mermaid diagrams after all architecture-flow subtasks are complete.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `design.md`.
    - Document name: `design.md`.
    - Document location: repository root `design.md`.
@@ -1780,26 +1914,31 @@ After Task 12 and Task 13 are complete, update chat model state plumbing to carr
 #### Subtasks
 
 1. [ ] Update `client/src/hooks/useChatModel.ts` to retain and expose codex model capability fields per model.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `client/src/hooks/useChatModel.ts`.
    - Do: persist `supportedReasoningEfforts` and `defaultReasoningEffort` in local model state/derived selectors.
    - Docs: https://react.dev/reference/react, https://www.typescriptlang.org/docs/.
    - Done when: hook returns capability fields for selected model.
 2. [ ] Reuse existing codex-default wiring in `useChatModel` / `useChatStream` when applying capability-driven defaults and reset behavior; avoid duplicating default-selection logic.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `client/src/hooks/useChatModel.ts`, `client/src/hooks/useChatStream.ts`.
    - Do: route through existing default helpers and extend them for capability payload.
    - Docs: https://react.dev/learn/reusing-logic-with-custom-hooks.
    - Done when: one default-selection path is used.
 3. [ ] Implement deterministic reset behavior: when selected effort is no longer valid for selected model, reset to `defaultReasoningEffort`.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `client/src/hooks/useChatModel.ts`.
    - Do: add validation/reset on model change and capability refresh.
    - Docs: https://react.dev/learn/choosing-the-state-structure.
    - Done when: stale effort selection self-corrects deterministically.
 4. [ ] Update shared/common typings usage in client to remove hard-coded assumptions about effort lists.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `client/src/hooks/useChatModel.ts`, `client/src/hooks/useChatStream.ts`, any local effort enums.
    - Do: delete static effort arrays if they mirror codex assumptions.
    - Docs: TypeScript literal types docs.
    - Done when: effort options derive from model capability payload only.
 5. [ ] Add frontend hook test for model-switch default/reset behavior.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `client/src/test/chatPage.codexDefaults*` and `useChatModel` hook suites.
    - Description: assert switching models resets invalid effort selection to selected model default.
@@ -1807,6 +1946,7 @@ After Task 12 and Task 13 are complete, update chat model state plumbing to carr
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect, https://testing-library.com/docs/.
    - Done when: test fails if stale effort value survives model switch.
 6. [ ] Add frontend hook test for capability-update default/reset behavior.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `client/src/test/chatPage.codexDefaults*` and `useChatModel` hook suites.
    - Description: assert capability payload refresh invalidating current effort forces reset to `defaultReasoningEffort`.
@@ -1814,6 +1954,7 @@ After Task 12 and Task 13 are complete, update chat model state plumbing to carr
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if invalid selection remains after capability update.
 7. [ ] Add malformed-payload test for empty `supportedReasoningEfforts`.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `client/src/test/chatPage.codexDefaults*` and hook suites.
    - Description: assert UI/hook behavior remains stable with empty supported effort arrays.
@@ -1821,6 +1962,7 @@ After Task 12 and Task 13 are complete, update chat model state plumbing to carr
    - Docs: https://react.dev/learn/choosing-the-state-structure, Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if empty array causes crash or nondeterministic state.
 8. [ ] Add malformed-payload test for mismatched `defaultReasoningEffort`.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `client/src/test/chatPage.codexDefaults*` and hook suites.
    - Description: assert deterministic fallback behavior when default effort is not included in supported list.
@@ -1828,6 +1970,7 @@ After Task 12 and Task 13 are complete, update chat model state plumbing to carr
    - Docs: https://react.dev/learn/choosing-the-state-structure, Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if mismatched default causes unstable UI state.
 9. [ ] Update `design.md` with chat model capability state flow and Mermaid diagrams after all architecture-flow subtasks are complete.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `design.md`.
    - Document name: `design.md`.
    - Document location: repository root `design.md`.
@@ -1869,21 +2012,25 @@ After Task 16 is complete, switch chat flags UI and chat payload building to run
 #### Subtasks
 
 1. [ ] Update `client/src/components/chat/CodexFlagsPanel.tsx` to render reasoning options from selected model `supportedReasoningEfforts`.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `client/src/components/chat/CodexFlagsPanel.tsx`.
    - Do: remove hard-coded effort option list and map from selected model capabilities.
    - Docs: MUI Select/MenuItem docs via MCP.
    - Done when: options in UI exactly match payload values.
 2. [ ] Update `client/src/hooks/useChatStream.ts` payload builder to send only values valid for selected model capability set.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `client/src/hooks/useChatStream.ts`.
    - Do: pre-send validation against selected model capabilities.
    - Docs: https://spec.openapis.org/oas/v3.0.3.html, Context7 `/openai/codex`.
    - Done when: invalid values are never sent.
 3. [ ] Ensure invalid prior selection is replaced by selected model `defaultReasoningEffort` before request send.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `client/src/hooks/useChatStream.ts`, optionally shared helper in `useChatModel`.
    - Do: enforce fallback to model default on send path.
    - Docs: https://react.dev/learn/choosing-the-state-structure.
    - Done when: request payload always carries supported value.
 4. [ ] Add frontend render test for dynamic reasoning options list.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `client/src/test/chatPage.flags.reasoning*`.
    - Description: assert select options render exactly from `supportedReasoningEfforts` for selected model.
@@ -1891,6 +2038,7 @@ After Task 16 is complete, switch chat flags UI and chat payload building to run
    - Docs: https://testing-library.com/docs/queries/about/.
    - Done when: test fails if rendered options do not match capability payload.
 5. [ ] Add frontend payload test for invalid-selection reset before request send.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `client/src/test/chatPage.flags.reasoning*`.
    - Description: assert invalid prior effort selection is reset to `defaultReasoningEffort` before payload generation.
@@ -1898,6 +2046,7 @@ After Task 16 is complete, switch chat flags UI and chat payload building to run
    - Docs: https://testing-library.com/docs/queries/about/.
    - Done when: test fails if invalid values reach payload builder.
 6. [ ] Add frontend payload test for supported-values-only request output.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `client/src/test/chatPage.flags.reasoning*`.
    - Description: assert outgoing payload includes only values present in selected model capability set.
@@ -1905,6 +2054,7 @@ After Task 16 is complete, switch chat flags UI and chat payload building to run
    - Docs: https://testing-library.com/docs/queries/about/.
    - Done when: test fails if unsupported values are emitted.
 7. [ ] Add corner-case integration test for single-option capability list.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `client/src/test/chatPage.flags.reasoning*`.
    - Description: assert UI selection and payload flow remain valid when only one reasoning effort is supported.
@@ -1912,6 +2062,7 @@ After Task 16 is complete, switch chat flags UI and chat payload building to run
    - Docs: https://testing-library.com/docs/queries/about/, https://react.dev/reference/react.
    - Done when: test fails if one-option models produce invalid UI or payload behavior.
 8. [ ] Add corner-case integration test for non-standard/new reasoning-effort capability values.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `client/src/test/chatPage.flags.reasoning*`, `client/src/test/chatPage.models.test.tsx`.
    - Description: assert a non-standard capability value from backend payload is rendered in the selector and can be sent without client-side rejection when it is model-supported.
@@ -1919,6 +2070,7 @@ After Task 16 is complete, switch chat flags UI and chat payload building to run
    - Docs: https://testing-library.com/docs/queries/about/, Context7 `/openai/codex`, Context7 `/jestjs/jest`.
    - Done when: test fails if a model-supported non-standard value is hidden or blocked.
 9. [ ] Update `design.md` with dynamic reasoning-option UI/payload flow and Mermaid diagrams after all architecture-flow subtasks are complete.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `design.md`.
    - Document name: `design.md`.
    - Document location: repository root `design.md`.
@@ -1960,6 +2112,7 @@ Add focused regression coverage for precedence/normalization behavior across RES
 #### Subtasks
 
 1. [ ] Add cross-surface precedence test for shared project inheritance.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/unit/agents-*.test.ts`, `server/src/test/integration/agents-*.test.ts`, `server/src/test/unit/flows*.test.ts`, `server/src/test/integration/flows.*.test.ts`, `server/src/test/integration/mcp*`, `server/src/test/unit/mcp*`, `server/src/test/mcp2/**`.
    - Description: assert shared base `[projects]` entries are inherited across REST/flow/MCP surfaces.
@@ -1967,6 +2120,7 @@ Add focused regression coverage for precedence/normalization behavior across RES
    - Docs: https://www.jsonrpc.org/specification, https://toml.io/en/v1.0.0.
    - Done when: all surfaces show identical inherited shared project entries.
 2. [ ] Add cross-surface precedence test for agent project override behavior.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/unit/agents-*.test.ts`, `server/src/test/integration/agents-*.test.ts`, `server/src/test/unit/flows*.test.ts`, `server/src/test/integration/flows.*.test.ts`, `server/src/test/integration/mcp*`, `server/src/test/unit/mcp*`, `server/src/test/mcp2/**`.
    - Description: assert agent project entries override same-path base project entries across all invocation paths.
@@ -1974,6 +2128,7 @@ Add focused regression coverage for precedence/normalization behavior across RES
    - Docs: https://www.jsonrpc.org/specification, https://toml.io/en/v1.0.0.
    - Done when: all surfaces agree on agent-over-base project values.
 3. [ ] Add normalization test for `features.view_image_tool` to canonical output.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `server/src/test/unit/agents-config-defaults.test.ts` and normalizer suites.
    - Description: assert alias input produces canonical `tools.view_image` output only.
@@ -1981,6 +2136,7 @@ Add focused regression coverage for precedence/normalization behavior across RES
    - Docs: https://toml.io/en/v1.0.0, Context7 `/openai/codex`.
    - Done when: test fails if legacy key is re-emitted as output.
 4. [ ] Add normalization test for `features.web_search_request` to canonical output.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `server/src/test/unit/agents-config-defaults.test.ts` and normalizer suites.
    - Description: assert web-search legacy alias input normalizes to canonical top-level `web_search`.
@@ -1988,6 +2144,7 @@ Add focused regression coverage for precedence/normalization behavior across RES
    - Docs: https://toml.io/en/v1.0.0, Context7 `/openai/codex`.
    - Done when: test fails if canonical `web_search` is not emitted.
 5. [ ] Add normalization collision test for canonical-key precedence.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `server/src/test/unit/agents-config-defaults.test.ts` and normalizer suites.
    - Description: assert canonical key value wins when canonical and legacy alias keys conflict.
@@ -1995,6 +2152,7 @@ Add focused regression coverage for precedence/normalization behavior across RES
    - Docs: https://toml.io/en/v1.0.0, Context7 `/openai/codex`.
    - Done when: test fails if alias value overrides canonical value.
 6. [ ] Add validation-parity test for unknown-key handling across REST/MCP/flow.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/unit/agents-*.test.ts`, `server/src/test/integration/agents-*.test.ts`, `server/src/test/unit/flows*.test.ts`, `server/src/test/integration/flows.*.test.ts`, `server/src/test/integration/mcp*`, `server/src/test/unit/mcp*`, `server/src/test/mcp2/**`.
    - Description: assert unknown keys produce warning+ignore behavior consistently on all invocation paths.
@@ -2002,6 +2160,7 @@ Add focused regression coverage for precedence/normalization behavior across RES
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/getting-started.
    - Done when: test fails if any surface hard-fails unknown keys.
 7. [ ] Add validation-parity test for invalid-type handling across REST/MCP/flow.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/unit/agents-*.test.ts`, `server/src/test/integration/agents-*.test.ts`, `server/src/test/unit/flows*.test.ts`, `server/src/test/integration/flows.*.test.ts`, `server/src/test/integration/mcp*`, `server/src/test/unit/mcp*`, `server/src/test/mcp2/**`.
    - Description: assert invalid supported-key types hard-fail consistently on all invocation paths.
@@ -2009,11 +2168,13 @@ Add focused regression coverage for precedence/normalization behavior across RES
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/getting-started.
    - Done when: test fails if any surface downgrades invalid type errors.
 8. [ ] Reuse existing server test patterns (`codex.device-auth`, `chatModels.codex`, and `openapi.contract`) instead of creating one-off harnesses.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: new tests in existing suite folders, not a parallel harness directory.
    - Do: follow repository test setup helpers.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/getting-started.
    - Done when: no duplicated harness boilerplate is introduced.
 9. [ ] Update `projectStructure.md` for any files added or removed in this task, after all file-add/remove subtasks are completed.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `projectStructure.md`.
    - Document name: `projectStructure.md`.
    - Document location: repository root `projectStructure.md`.
@@ -2053,6 +2214,7 @@ Add focused regression coverage for non-destructive file safety, deterministic s
 #### Subtasks
 
 1. [ ] Add auth-file presence test across migration-compatible flows.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/unit/agents-authSeed.test.ts`, `server/src/test/integration/codexAuthCopy.integration.test.ts`, migration-related suites.
    - Description: assert every expected `codex_agents/*/auth.json` exists before and after migration-compatible operations.
@@ -2060,6 +2222,7 @@ Add focused regression coverage for non-destructive file safety, deterministic s
    - Docs: https://nodejs.org/api/fs.html.
    - Done when: test fails if any expected auth file is missing post-flow.
 2. [ ] Add log-safety test for config-parse error logging.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: route/resolver logging tests under `server/src/test/**`.
    - Description: assert config parse failures log only sanitized key/path context and no raw secrets.
@@ -2067,6 +2230,7 @@ Add focused regression coverage for non-destructive file safety, deterministic s
    - Docs: https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html.
    - Done when: test fails if raw TOML/token-like content appears in logs.
 3. [ ] Add log-safety test for device-auth error logging.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `server/src/test/integration/codex.device-auth.test.ts`, `server/src/test/unit/codexDeviceAuth.test.ts` logging assertions.
    - Description: assert device-auth failures never log raw auth output/tokens and only log sanitized diagnostics.
@@ -2074,6 +2238,7 @@ Add focused regression coverage for non-destructive file safety, deterministic s
    - Docs: https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html.
    - Done when: test fails if sensitive auth material appears in logs.
 4. [ ] Add fixture-sweep validation test for all `codex_agents/*/config.toml` files.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: fixture sweep suite under `server/src/test/unit/agents-*.test.ts`, `server/src/test/integration/agents-*.test.ts`.
    - Description: enumerate all current agent config files and validate each against normalization/validation pipeline.
@@ -2081,6 +2246,7 @@ Add focused regression coverage for non-destructive file safety, deterministic s
    - Docs: https://toml.io/en/v1.0.0, Context7 `/openai/codex`.
    - Done when: test fails if any agent config is unvalidated or produces nondeterministic output.
 5. [ ] Add fixture-sweep parity test across REST/MCP/flow for validated configs.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/unit/agents-*.test.ts`, `server/src/test/integration/agents-*.test.ts`, `server/src/test/unit/flows*.test.ts`, `server/src/test/integration/flows.*.test.ts`, `server/src/test/integration/mcp*`, `server/src/test/unit/mcp*`, `server/src/test/mcp2/**`.
    - Description: assert each validated config yields consistent behavior across invocation paths.
@@ -2088,6 +2254,7 @@ Add focused regression coverage for non-destructive file safety, deterministic s
    - Docs: https://www.jsonrpc.org/specification, Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if any invocation path diverges.
 6. [ ] Add parser-removal regression test for agent execution path.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Regression.
    - Test location: `server/src/test/unit/agents-*.test.ts`, `server/src/test/integration/agents-*.test.ts`.
    - Description: assert agent execution no longer relies on model-only regex parsing behavior.
@@ -2095,6 +2262,7 @@ Add focused regression coverage for non-destructive file safety, deterministic s
    - Docs: https://toml.io/en/v1.0.0, Context7 `/openai/codex`.
    - Done when: test fails if agent path reverts to regex parsing.
 7. [ ] Add parser-removal regression test for flow execution path.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Regression.
    - Test location: `server/src/test/unit/flows*.test.ts`, `server/src/test/integration/flows.*.test.ts`.
    - Description: assert flow execution no longer relies on model-only regex parsing behavior.
@@ -2102,6 +2270,7 @@ Add focused regression coverage for non-destructive file safety, deterministic s
    - Docs: https://toml.io/en/v1.0.0, Context7 `/openai/codex`.
    - Done when: test fails if flow path reverts to regex parsing.
 8. [ ] Update `projectStructure.md` for any files added or removed in this task, after all file-add/remove subtasks are completed.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `projectStructure.md`.
    - Document name: `projectStructure.md`.
    - Document location: repository root `projectStructure.md`.
@@ -2139,6 +2308,7 @@ Update architecture and contract documentation after implementation tasks above 
 #### Subtasks
 
 1. [ ] Update `design.md` with shared home strategy, config ownership, precedence/normalization, device-auth contract, and capability-driven reasoning options.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `design.md`.
    - Document name: `design.md`.
    - Document location: repository root `design.md`.
@@ -2148,6 +2318,7 @@ Update architecture and contract documentation after implementation tasks above 
    - Docs: Context7 `/mermaid-js/mermaid`, https://spec.openapis.org/oas/v3.0.3.html.
    - Done when: a new engineer can map each runtime path to config source without reading code.
 2. [ ] Ensure examples in docs reflect canonical keys and new message contracts.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `design.md`.
    - Document name: `design.md`.
    - Document location: repository root `design.md`.
@@ -2183,6 +2354,7 @@ Update repository file-map and compatibility alias examples after implementation
 #### Subtasks
 
 1. [ ] Update `projectStructure.md` for all files added/removed by this story.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `projectStructure.md`.
    - Document name: `projectStructure.md`.
    - Document location: repository root `projectStructure.md`.
@@ -2192,6 +2364,7 @@ Update repository file-map and compatibility alias examples after implementation
    - Docs: https://git-scm.com/docs/git-ls-files.
    - Done when: listed paths align with actual repository state.
 2. [ ] Document read-only compatibility keys accepted as input aliases but not emitted as canonical output, with concrete before/after examples.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `projectStructure.md`.
    - Document name: `projectStructure.md`.
    - Document location: repository root `projectStructure.md`.
@@ -2228,6 +2401,7 @@ Perform final shared-base config minimization as an isolated end-of-story step o
 #### Subtasks
 
 1. [ ] Verify prerequisite gate: all prior tasks are marked done and validated.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `planning/0000037-shared-codex-home-and-per-agent-runtime-config-overrides.md`.
    - Document name: `0000037-shared-codex-home-and-per-agent-runtime-config-overrides.md`.
    - Document location: `planning/0000037-shared-codex-home-and-per-agent-runtime-config-overrides.md`.
@@ -2237,6 +2411,7 @@ Perform final shared-base config minimization as an isolated end-of-story step o
    - Docs: https://toml.io/en/v1.0.0, Context7 `/openai/codex`.
    - Done when: all preceding task statuses and testing checkboxes are complete.
 2. [ ] Confirm all `code_info`-dependent verification/inspection steps are complete before minimization and record this checkpoint in Implementation notes.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `planning/0000037-shared-codex-home-and-per-agent-runtime-config-overrides.md`.
    - Document name: `0000037-shared-codex-home-and-per-agent-runtime-config-overrides.md`.
    - Document location: `planning/0000037-shared-codex-home-and-per-agent-runtime-config-overrides.md`.
@@ -2246,21 +2421,25 @@ Perform final shared-base config minimization as an isolated end-of-story step o
    - Docs: Context7 `/openai/codex`, https://toml.io/en/v1.0.0.
    - Done when: note exists before any minimization diff.
 3. [ ] Ensure `./codex/chat/config.toml` exists and carries chat behavior defaults before minimizing base config; if missing, abort minimization with deterministic error and no file mutation.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `codex/chat/config.toml`, migration helper in server if scripted.
    - Do: enforce guard that blocks minimization when chat config missing.
    - Docs: https://nodejs.org/api/fs.html#fspromisescopyfilesrc-dest-mode, https://toml.io/en/v1.0.0.
    - Done when: missing-chat-config case exits safely with no mutation.
 4. [ ] Minimize `./codex/config.toml` to shared defaults + `[projects]` only (remove behavior keys and MCP blocks from this file).
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `codex/config.toml`.
    - Do: retain shared projects entries only; remove `model`, `model_reasoning_effort`, `approval_policy`, `sandbox_mode`, `[features]`, `[mcp_servers]`.
    - Docs: https://toml.io/en/v1.0.0, Context7 `/openai/codex`.
    - Done when: file is projects-only plus shared-home defaults.
 5. [ ] Re-verify that no `codex_agents/*` files were deleted/moved/renamed and all existing `auth.json` files remain present.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `codex_agents/*`.
    - Do: run file-presence verification and compare against pre-step list.
    - Docs: https://nodejs.org/api/fs.html.
    - Done when: all agent auth files still exist unchanged in location.
 6. [ ] Add explicit operator note in Implementation notes that `code_info` MCP is expected to be unavailable after this step in this running instance.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `planning/0000037-shared-codex-home-and-per-agent-runtime-config-overrides.md`.
    - Document name: `0000037-shared-codex-home-and-per-agent-runtime-config-overrides.md`.
    - Document location: `planning/0000037-shared-codex-home-and-per-agent-runtime-config-overrides.md`.
@@ -2270,6 +2449,7 @@ Perform final shared-base config minimization as an isolated end-of-story step o
    - Docs: Context7 `/openai/codex`, https://toml.io/en/v1.0.0.
    - Done when: note exists and references this expected post-step behavior.
 7. [ ] Update `design.md` with final minimized-base migration architecture and Mermaid diagrams after all architecture-flow subtasks are complete.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `design.md`.
    - Document name: `design.md`.
    - Document location: repository root `design.md`.

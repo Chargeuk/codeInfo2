@@ -1769,7 +1769,7 @@ Add deterministic concurrent request behavior and preserve post-success auth pro
 ### 12. Server Message Contract: Add codex model reasoning-capability payload to `/chat/models`
 
 - Task Status: **__done__**
-- Git Commits: `None yet`
+- Git Commits: `b668154`
 
 #### Overview
 

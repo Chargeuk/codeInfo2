@@ -2793,7 +2793,7 @@ Add focused regression coverage for non-destructive file safety, deterministic s
 
 ### 20. Documentation: Update shared-home runtime architecture and API contract docs in `design.md`
 
-- Task Status: **__todo__**
+- Task Status: **__done__**
 - Git Commits: `None yet`
 
 #### Overview
@@ -2808,7 +2808,7 @@ Update architecture and contract documentation after implementation tasks above 
 
 #### Subtasks
 
-1. [ ] Update `design.md` with shared home strategy, config ownership, precedence/normalization, device-auth contract, and capability-driven reasoning options.
+1. [x] Update `design.md` with shared home strategy, config ownership, precedence/normalization, device-auth contract, and capability-driven reasoning options.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `design.md`.
    - Document name: `design.md`.
@@ -2818,7 +2818,7 @@ Update architecture and contract documentation after implementation tasks above 
    - Do: include explicit flow diagrams/sections for chat vs agent runtime ownership and contract payloads.
    - Docs: Context7 `/mermaid-js/mermaid`, https://spec.openapis.org/oas/v3.0.3.html.
    - Done when: a new engineer can map each runtime path to config source without reading code.
-2. [ ] Ensure examples in docs reflect canonical keys and new message contracts.
+2. [x] Ensure examples in docs reflect canonical keys and new message contracts.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `design.md`.
    - Document name: `design.md`.
@@ -2829,7 +2829,7 @@ Update architecture and contract documentation after implementation tasks above 
    - Docs: https://spec.openapis.org/oas/v3.0.3.html.
    - Done when: examples match implemented payloads and key names exactly.
 
-3. [ ] Add deterministic structured log line `[DEV-0000037][T20] event=design_documentation_synced result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
+3. [x] Add deterministic structured log line `[DEV-0000037][T20] event=design_documentation_synced result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `design.md` and any task-local documentation validation helper updated in this task.
    - Do: emit this exact log prefix and event name from the implementation path, then assert in tests that `result=success` is emitted on happy path and `result=error` only appears on intentional failure-path coverage.
@@ -2837,14 +2837,18 @@ Update architecture and contract documentation after implementation tasks above 
    - Manual Playwright-MCP check linkage: verify this exact log line during this task's Manual Playwright-MCP check when present, or during Task 22 final regression Manual Playwright-MCP check for backend/docs-only tasks.
    - Docs: https://nodejs.org/api/console.html, Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: deterministic log assertions are present and this task's expected trigger produces the exact `[DEV-0000037][T20] event=design_documentation_synced result=success` line.
-4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+4. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-1. [ ] Manually verify `design.md` diagrams/flows match implemented behavior.
+1. [x] Manually verify `design.md` diagrams/flows match implemented behavior.
 
 #### Implementation Notes
 
-- None yet.
+- 2026-02-28: Subtask 1 complete. Updated `design.md` to document canonical shared-home runtime ownership (`./codex` auth home, `./codex/chat/config.toml` for chat behavior, `codex_agents/<agent>/config.toml` for agent behavior), explicit precedence rules, and updated device-auth/runtime flow diagrams.
+- 2026-02-28: Subtask 2 complete. Added explicit before/after examples for alias normalization (`features.view_image_tool` -> `tools.view_image`, alias web-search keys -> canonical `web_search`) and strict `{}` device-auth request contract.
+- 2026-02-28: Subtask 3 complete. Added deterministic T20 success/error log markers in `design.md` and new test coverage in `server/src/test/unit/design-docs.task20.test.ts` asserting success-path and intentional failure-path logging.
+- 2026-02-28: Subtask 4 complete. Ran `npm run lint --workspaces` (passed with existing repo import-order warnings only) and `npm run format:check --workspaces` (passed in client/server/common).
+- 2026-02-28: Testing 1 complete. Manually verified updated `design.md` flow/contract sections align with implemented shared-home behavior and strict device-auth payload contract; additionally ran `npm run test:unit --workspace server -- src/test/unit/design-docs.task20.test.ts` (workspace script executed full unit suite) with final summary `tests 834, pass 834, fail 0`.
 
 ### 21. Documentation: Update file map and compatibility examples in `projectStructure.md`
 

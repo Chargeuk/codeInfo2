@@ -1143,28 +1143,25 @@ sequenceDiagram
 
 ### Codex device-auth flow
 
-- The client calls `POST /codex/device-auth` with `target=chat` or `target=agent` (plus `agentName` for agent targets).
-- The server validates the target, checks the Codex CLI presence, and resolves the target Codex home before running the CLI.
-- `codex login --device-auth` is executed with `CODEX_HOME` set to the chosen home so `auth.json` is written to the correct location.
-- The API returns `verificationUrl`, `userCode`, and optional `expiresInSec`; the UI then prompts the user to complete device auth manually.
-- After the CLI completes, the server propagates auth to agents and refreshes Codex availability in the background when targeting chat.
+- Canonical contract (Task 10+): the client calls `POST /codex/device-auth` with a strict empty JSON object body (`{}`).
+- Selector fields are rejected deterministically: any `target`/`agentName` fields return `400 invalid_request`.
+- `codex login --device-auth` executes once per shared-home key using single-flight dedupe and shared `CODEX_HOME` semantics.
+- Successful completion returns `200 { status: "ok", rawOutput }`; failures normalize to `400 invalid_request` or `503 codex_unavailable`.
+- Post-success side effects are deterministic and non-destructive: discover agents, propagate auth copy compatibility, refresh codex detection.
 
 ```mermaid
 sequenceDiagram
   participant UI as Client UI
   participant API as Server (/codex/device-auth)
   participant CLI as Codex CLI
-  participant Home as CODEX_HOME
-  UI->>API: POST device-auth {target, agentName?}
-  API->>API: validate target + agent
-  alt target=chat
-    API->>Home: use CODEINFO_CODEX_HOME
-  else target=agent
-    API->>Home: use agent home
-  end
-  API->>CLI: codex login --device-auth (CODEX_HOME=Home)
-  CLI-->>API: verification URL + user code
-  API-->>UI: 200 {verificationUrl, userCode, expiresInSec}
+  participant SF as SingleFlight
+  participant Home as Shared CODEX_HOME
+  UI->>API: POST {}
+  API->>API: validate strict empty object
+  API->>SF: getOrCreate(shared-home key)
+  SF->>CLI: codex login --device-auth (CODEX_HOME=Home)
+  CLI-->>API: completion output
+  API-->>UI: 200 {status:"ok", rawOutput}
 ```
 
 ### Auth compatibility and file-safety guards (Task 9)
@@ -1239,7 +1236,7 @@ flowchart LR
   MCP --> Tools[Tool registry\\n(list_agents/list_commands/run_agent_instruction/run_command)]
   Tools --> Svc[Agents service\\nlistAgents()/listAgentCommands()/runAgentInstruction()/runAgentCommand()]
   Svc --> Disc[discoverAgents()\\n+ auth seeding]
-  Svc --> Codex[Codex run\\n(per-agent CODEX_HOME)]
+  Svc --> Codex[Codex run\\n(shared CODEX_HOME + runtime config overrides)]
 ```
 
 - `run_agent_instruction` accepts an optional `working_folder` (absolute path string). It is resolved by the shared agents service using the same rules as REST (host-path mapping when possible, literal fallback).
@@ -1251,7 +1248,7 @@ sequenceDiagram
   participant MCP as Agents MCP\\n:5012
   participant Tools as Tool registry\\ncallTool()
   participant Svc as Agents service\\nrunAgentInstruction()
-  participant Codex as Codex (per-agent CODEX_HOME)
+  participant Codex as Codex (shared CODEX_HOME + runtime config overrides)
 
   Client->>MCP: tools/call run_agent_instruction\\n{ agentName, instruction, conversationId?, working_folder? }
   MCP->>Tools: callTool('run_agent_instruction', args)
@@ -1275,7 +1272,7 @@ sequenceDiagram
   participant MCP as Agents MCP\n:5012
   participant Tools as Tool registry\ncallTool()
   participant Svc as Agents service\nrunAgentCommand()
-  participant Codex as Codex (per-agent CODEX_HOME)
+  participant Codex as Codex (shared CODEX_HOME + runtime config overrides)
 
   Client->>MCP: tools/call run_command\n{ agentName, commandName, conversationId?, working_folder? }
   MCP->>Tools: callTool('run_command', args)
@@ -1448,7 +1445,7 @@ sequenceDiagram
   participant Server as Server
   participant Svc as Agents service\\nrunAgentInstruction()
   participant Mongo as MongoDB
-  participant Codex as Codex (per-agent CODEX_HOME)
+  participant Codex as Codex (shared CODEX_HOME + runtime config overrides)
 
   Client->>Server: Run instruction\\n(agentName, instruction, conversationId?)
   Server->>Svc: runAgentInstruction(...)
@@ -3479,4 +3476,86 @@ flowchart TD
   G -->|Yes| I[Omit reasoning from payload]
   H --> J[Emit T17 success]
   I --> K[Emit T17 error]
+```
+
+## Story 0000037 Task 20: shared-home runtime architecture and API contract sync
+
+- Canonical runtime ownership for this story:
+  - shared auth/session home: `./codex` via shared `CODEX_HOME`.
+  - chat behavior source: `./codex/chat/config.toml`.
+  - agent behavior source: `codex_agents/<agent>/config.toml`.
+- Agent behavior precedence remains deterministic:
+  - only `[projects]` may inherit from shared base.
+  - merge rule: `effectiveProjects = { ...baseProjects, ...agentProjects }`.
+  - non-project behavior keys from shared `./codex/config.toml` must not override named-agent behavior.
+- Normalization rules are canonical and read-time only:
+  - input alias `features.view_image_tool` normalizes to canonical `tools.view_image`.
+  - input aliases `features.web_search_request` and top-level `web_search_request` normalize to canonical top-level `web_search`.
+  - canonical keys win when canonical and alias keys are both present.
+- Device-auth contract remains strict and shared-home based:
+  - request: `POST /codex/device-auth` with `{}` only.
+  - success: `200 { status: "ok", rawOutput }`.
+  - invalid request: `400 { error: "invalid_request", message }`.
+  - unavailable: `503 { error: "codex_unavailable", reason }`.
+- Reasoning-effort options are capability-driven:
+  - model payload includes `supportedReasoningEfforts` and `defaultReasoningEffort`.
+  - UI renders from those fields only and resets stale/invalid selections to the model default.
+- Deterministic Task 20 documentation-sync log markers:
+  - success: `[DEV-0000037][T20] event=design_documentation_synced result=success`
+  - error: `[DEV-0000037][T20] event=design_documentation_synced result=error`
+
+### Task 20 contract examples
+
+Before (legacy alias + selector contract):
+
+```toml
+[features]
+view_image_tool = true
+web_search_request = true
+```
+
+```json
+{ "target": "agent", "agentName": "coding_agent" }
+```
+
+After (canonical keys + strict shared auth contract):
+
+```toml
+[tools]
+view_image = true
+web_search = "live"
+```
+
+```json
+{}
+```
+
+### Task 20 runtime ownership flow
+
+```mermaid
+flowchart TD
+  A[Incoming run request] --> B{Surface}
+  B -->|Chat| C[Load ./codex/chat/config.toml]
+  B -->|Agent/Flow/MCP| D[Load codex_agents/<agent>/config.toml]
+  C --> E[Apply shared CODEX_HOME ./codex]
+  D --> F[Merge projects with base: { ...baseProjects, ...agentProjects }]
+  F --> G[Apply shared CODEX_HOME ./codex]
+  E --> H[Build CodexOptions.config runtime overrides]
+  G --> H
+  H --> I[Execute with useConfigDefaults=true]
+```
+
+```mermaid
+sequenceDiagram
+  participant UI as Client
+  participant API as /codex/device-auth
+  participant CLI as codex login --device-auth
+  participant SE as Side effects
+
+  UI->>API: POST {}
+  API->>API: validate strict empty body
+  API->>CLI: run with shared CODEX_HOME
+  CLI-->>API: rawOutput
+  API-->>UI: 200 {status:"ok", rawOutput}
+  API->>SE: discover agents + propagate auth copy + refresh shared-home detection
 ```

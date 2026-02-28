@@ -371,6 +371,56 @@ sequenceDiagram
   Note over Resolver,Caller: Any read/parse failure emits deterministic T03 error log and rethrows
 ```
 
+## Runtime config merge precedence + validation policy (Story 0000037 Task 4)
+
+- Runtime config resolution now performs a deterministic shared-project merge before validation:
+  - `effectiveProjects = { ...baseProjects, ...runtimeProjects }`
+  - only `[projects]` are inherited from shared base config; behavior keys (`model`, `approval_policy`, `sandbox_mode`, `tools`, etc.) remain runtime-owned.
+- Validation is centralized in `server/src/config/runtimeConfig.ts`:
+  - unknown keys: warning + ignored (non-fatal)
+  - supported keys with invalid types: deterministic hard failure
+  - misplaced `cli_auth_credentials_store` under `[projects."<path>"]`: warning + ignored (never promoted)
+- Deterministic failure handling is normalized for both agent and chat resolver surfaces via `RuntimeConfigResolutionError`:
+  - `RUNTIME_CONFIG_MISSING`
+  - `RUNTIME_CONFIG_UNREADABLE`
+  - `RUNTIME_CONFIG_INVALID`
+  - `RUNTIME_CONFIG_VALIDATION_FAILED`
+- Task 4 structured logs are emitted at merge+validate boundaries:
+  - success: `[DEV-0000037][T04] event=runtime_config_merged_and_validated result=success`
+  - error: `[DEV-0000037][T04] event=runtime_config_merged_and_validated result=error ...`
+
+```mermaid
+flowchart TD
+  A[Resolve runtime config for agent/chat] --> B[Read shared base config (optional)]
+  B --> C[Read runtime config (required)]
+  C --> D[Merge projects only: effectiveProjects = base -> runtime precedence]
+  D --> E[Validate merged config]
+  E --> F{supported key invalid type?}
+  F -- yes --> G[Throw deterministic validation failure]
+  F -- no --> H{unknown/misplaced key?}
+  H -- yes --> I[Warn and ignore key]
+  H -- no --> J[Keep canonical key/value]
+  I --> K[Emit T04 success log]
+  J --> K
+  G --> L[Emit T04 error log + throw RuntimeConfigResolutionError]
+```
+
+```mermaid
+sequenceDiagram
+  participant Caller as Agent/Chat config consumer
+  participant Resolver as runtimeConfig.ts
+  participant Merge as mergeProjectsFromBaseIntoRuntime
+  participant Validate as validateRuntimeConfig
+  Caller->>Resolver: resolveMergedAndValidatedRuntimeConfig(surface, runtimeConfigPath)
+  Resolver->>Resolver: read base(optional) + runtime(required)
+  Resolver->>Merge: apply base projects + runtime projects
+  Merge-->>Resolver: merged config (behavior keys runtime-owned)
+  Resolver->>Validate: validate merged config
+  Validate-->>Resolver: sanitized config + warnings OR validation error
+  Resolver-->>Caller: success -> config + warnings + T04 success log
+  Resolver-->>Caller: failure -> RuntimeConfigResolutionError + T04 error log
+```
+
 - MCP keepalive lifecycle is centralized in `server/src/mcpCommon/keepAlive.ts` and reused by classic `POST /mcp`, MCP v2 (`server/src/mcp2/router.ts`), and Agents MCP (`server/src/mcpAgents/router.ts`).
 - Keepalive is scoped to long-running `tools/call` only. Non-tool requests (`initialize`, `tools/list`, parse/invalid request) return normal JSON-RPC payloads without keepalive preamble bytes.
 - Helper behavior is deterministic: `start` writes initial whitespace and heartbeat whitespace bytes, then `stop` clears timers on `sendJson`, response `finish`/`close`, or write failure to avoid write-after-close errors.

@@ -761,7 +761,7 @@ Create one server-side config resolution layer that reads shared base config, ch
 
 ### 4. Server: Implement runtime config merge precedence, validation policy, and deterministic failure behavior
 
-- Task Status: **__todo__**
+- Task Status: **__done__**
 - Git Commits: `None yet`
 
 #### Overview
@@ -778,31 +778,31 @@ Implement deterministic merge and validation behavior for runtime config resolut
 
 #### Subtasks
 
-1. [ ] Implement deterministic merge behavior with `effectiveProjects = { ...baseProjects, ...agentProjects }`.
+1. [x] Implement deterministic merge behavior with `effectiveProjects = { ...baseProjects, ...agentProjects }`.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: shared resolver module introduced in Task 3, likely `server/src/agents/config.ts` and `server/src/config/codexConfig.ts`.
    - Do: merge only `[projects]` from base into agent; agent entries override same path keys.
    - Docs: Context7 `/openai/codex`, https://toml.io/en/v1.0.0.
    - Done when: merge output preserves agent behavior keys and only inherits base projects.
-2. [ ] Implement fixed validation policy in one shared validator (unknown key warn+ignore, invalid type hard error).
+2. [x] Implement fixed validation policy in one shared validator (unknown key warn+ignore, invalid type hard error).
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: shared validator in `server/src/agents/config.ts` or new `server/src/agents/configValidation.ts`.
    - Do: centralize rules and return structured diagnostics.
    - Docs: Context7 `/openai/codex` for valid config keys.
    - Done when: all run paths call the same validator function.
-3. [ ] Implement deterministic config read/parse failure behavior for agent/chat.
+3. [x] Implement deterministic config read/parse failure behavior for agent/chat.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: resolver and route/service error mapping (`server/src/agents/service.ts`, `server/src/chat/interfaces/ChatInterfaceCodex.ts`).
    - Do: hard-fail agent on missing/unreadable/invalid config; deterministic chat error with no fallback to base behavior keys.
    - Docs: Node fs errors https://nodejs.org/api/errors.html.
    - Done when: failures return stable error codes/messages across retries.
-4. [ ] Ensure no fallback path allows shared behavior keys to override named-agent behavior keys.
+4. [x] Ensure no fallback path allows shared behavior keys to override named-agent behavior keys.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: all resolver consumers in `server/src/agents/service.ts`, `server/src/flows/service.ts`, `server/src/mcpAgents/**`, `server/src/mcp2/**`, `server/src/mcpCommon/**`.
    - Do: remove any fallback assignment from base behavior fields.
    - Docs: Context7 `/openai/codex`, https://toml.io/en/v1.0.0.
    - Done when: code audit and tests show no shared behavior override in agent runs.
-5. [ ] Add merge-precedence unit test for `effectiveProjects` override behavior.
+5. [x] Add merge-precedence unit test for `effectiveProjects` override behavior.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `server/src/test/**` config resolver suites.
@@ -810,7 +810,7 @@ Implement deterministic merge and validation behavior for runtime config resolut
    - Purpose: lock deterministic merge precedence required by the story.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if base projects override agent project entries.
-6. [ ] Add validator unit test for unknown-key warning-and-ignore behavior.
+6. [x] Add validator unit test for unknown-key warning-and-ignore behavior.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `server/src/test/**` config validator suites.
@@ -818,7 +818,7 @@ Implement deterministic merge and validation behavior for runtime config resolut
    - Purpose: enforce fixed unknown-key handling policy across paths.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/mock-functions.
    - Done when: test fails if unknown keys start failing runs.
-7. [ ] Add validator unit test for misplaced key under project-table path (`[projects.\"<path>\"].cli_auth_credentials_store`) to ensure warn+ignore behavior.
+7. [x] Add validator unit test for misplaced key under project-table path (`[projects.\"<path>\"].cli_auth_credentials_store`) to ensure warn+ignore behavior.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `server/src/test/**` config validator suites.
@@ -826,7 +826,7 @@ Implement deterministic merge and validation behavior for runtime config resolut
    - Purpose: lock the exact acceptance-rule example for misplaced keys.
    - Docs: Context7 `/jestjs/jest`, https://toml.io/en/v1.0.0.
    - Done when: test fails if misplaced key is accepted as valid project behavior or converted into supported runtime config.
-8. [ ] Add validator unit test for invalid-type hard-fail behavior.
+8. [x] Add validator unit test for invalid-type hard-fail behavior.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `server/src/test/**` config validator suites.
@@ -834,7 +834,7 @@ Implement deterministic merge and validation behavior for runtime config resolut
    - Purpose: enforce strict type validation policy.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if invalid types are accepted or downgraded.
-9. [ ] Add agent-config failure unit test for missing file.
+9. [x] Add agent-config failure unit test for missing file.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `server/src/test/**` resolver/service failure suites.
@@ -842,7 +842,7 @@ Implement deterministic merge and validation behavior for runtime config resolut
    - Purpose: prevent fallback leakage when agent config is absent.
    - Docs: https://nodejs.org/api/fs.html#file-system-flags.
    - Done when: test fails if run silently falls back.
-10. [ ] Add agent-config failure unit test for invalid TOML.
+10. [x] Add agent-config failure unit test for invalid TOML.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `server/src/test/**` resolver/service failure suites.
@@ -850,7 +850,7 @@ Implement deterministic merge and validation behavior for runtime config resolut
    - Purpose: guarantee deterministic agent failure semantics.
    - Docs: https://toml.io/en/v1.0.0.
    - Done when: test fails if invalid TOML falls back or produces nondeterministic errors.
-11. [ ] Add agent-config failure unit test for unreadable file permissions.
+11. [x] Add agent-config failure unit test for unreadable file permissions.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `server/src/test/**` resolver/service failure suites.
@@ -858,7 +858,7 @@ Implement deterministic merge and validation behavior for runtime config resolut
    - Purpose: prevent ambiguous behavior on filesystem permission errors.
    - Docs: https://nodejs.org/api/fs.html#file-system-flags.
    - Done when: test fails if unreadable files are treated as soft warnings.
-12. [ ] Add chat-config failure unit test for missing file.
+12. [x] Add chat-config failure unit test for missing file.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `server/src/test/**` chat resolver/service failure suites.
@@ -866,7 +866,7 @@ Implement deterministic merge and validation behavior for runtime config resolut
    - Purpose: enforce no-fallback rule for chat runtime behavior.
    - Docs: https://nodejs.org/api/errors.html.
    - Done when: test fails if missing chat config falls back to base behavior.
-13. [ ] Add chat-config failure unit test for invalid TOML.
+13. [x] Add chat-config failure unit test for invalid TOML.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `server/src/test/**` chat resolver/service failure suites.
@@ -874,7 +874,7 @@ Implement deterministic merge and validation behavior for runtime config resolut
    - Purpose: guarantee deterministic chat parse-error semantics.
    - Docs: https://toml.io/en/v1.0.0.
    - Done when: test fails if invalid chat TOML is tolerated.
-14. [ ] Add chat-config failure unit test for unreadable file permissions.
+14. [x] Add chat-config failure unit test for unreadable file permissions.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `server/src/test/**` chat resolver/service failure suites.
@@ -882,7 +882,7 @@ Implement deterministic merge and validation behavior for runtime config resolut
    - Purpose: prevent hidden behavior changes on permission failures.
    - Docs: https://nodejs.org/api/fs.html#file-system-flags.
    - Done when: test fails if unreadable chat config still allows chat execution.
-15. [ ] Add happy-path unit test for valid canonical agent/chat config resolution.
+15. [x] Add happy-path unit test for valid canonical agent/chat config resolution.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `server/src/test/**` resolver happy-path suites.
@@ -890,7 +890,7 @@ Implement deterministic merge and validation behavior for runtime config resolut
    - Purpose: ensure success-path behavior remains correct while tightening error handling.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if valid canonical config no longer resolves.
-16. [ ] Add happy-path unit test for valid legacy-alias input normalization.
+16. [x] Add happy-path unit test for valid legacy-alias input normalization.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `server/src/test/**` resolver happy-path suites.
@@ -898,7 +898,7 @@ Implement deterministic merge and validation behavior for runtime config resolut
    - Purpose: keep backward-compatible success path while enforcing canonical output.
    - Docs: https://toml.io/en/v1.0.0, Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if valid legacy input can no longer run.
-17. [ ] Update `projectStructure.md` for any files added or removed in this task, after all file-add/remove subtasks are completed.
+17. [x] Update `projectStructure.md` for any files added or removed in this task, after all file-add/remove subtasks are completed.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `projectStructure.md`.
    - Document name: `projectStructure.md`.
@@ -908,7 +908,7 @@ Implement deterministic merge and validation behavior for runtime config resolut
    - Do: list every file added and removed by this task (validator/resolver modules, tests, and any deleted/renamed paths) after implementation subtasks are complete.
    - Docs: https://git-scm.com/docs/git-ls-files.
    - Done when: `projectStructure.md` accurately and completely lists all added/removed files for this task.
-18. [ ] Update `design.md` with precedence/validation architecture details and Mermaid diagrams after all architecture-flow subtasks are complete.
+18. [x] Update `design.md` with precedence/validation architecture details and Mermaid diagrams after all architecture-flow subtasks are complete.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `design.md`.
    - Document name: `design.md`.
@@ -919,7 +919,7 @@ Implement deterministic merge and validation behavior for runtime config resolut
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` includes accurate precedence and validation diagrams matching this task's final behavior.
 
-19. [ ] Add deterministic structured log line `[DEV-0000037][T04] event=runtime_config_merged_and_validated result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
+19. [x] Add deterministic structured log line `[DEV-0000037][T04] event=runtime_config_merged_and_validated result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: server implementation files already listed in this task's subtasks and matching `server/src/test/**` suites.
    - Do: emit this exact log prefix and event name from the implementation path, then assert in tests that `result=success` is emitted on happy path and `result=error` only appears on intentional failure-path coverage.
@@ -927,18 +927,42 @@ Implement deterministic merge and validation behavior for runtime config resolut
    - Manual Playwright-MCP check linkage: verify this exact log line during this task's Manual Playwright-MCP check when present, or during Task 22 final regression Manual Playwright-MCP check for backend/docs-only tasks.
    - Docs: https://nodejs.org/api/console.html, Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: deterministic log assertions are present and this task's expected trigger produces the exact `[DEV-0000037][T04] event=runtime_config_merged_and_validated result=success` line.
-20. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+20. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test --workspace server`
-3. [ ] `npm run test --workspace server -- agents-config-defaults`
-4. [ ] Run targeted config read/parse failure tests directly and verify deterministic error payloads/logs.
-5. [ ] Run targeted valid-config happy-path resolver tests and verify pass.
+1. [x] `npm run build --workspace server`
+2. [x] `npm run test --workspace server`
+3. [x] `npm run test --workspace server -- agents-config-defaults`
+4. [x] Run targeted config read/parse failure tests directly and verify deterministic error payloads/logs.
+5. [x] Run targeted valid-config happy-path resolver tests and verify pass.
 
 #### Implementation Notes
 
-- None yet.
+- 2026-02-28: Subtask 1 complete. Added `mergeProjectsFromBaseIntoRuntime` in `server/src/config/runtimeConfig.ts` with deterministic merge order `{ ...baseProjects, ...runtimeProjects }`.
+- 2026-02-28: Subtask 2 complete. Added shared `validateRuntimeConfig` with structured diagnostics: unknown keys warn+ignore; invalid supported key types hard-fail.
+- 2026-02-28: Subtask 3 complete. Added deterministic resolver failure mapping via `RuntimeConfigResolutionError` codes for missing/unreadable/invalid/validation-failed agent/chat configs.
+- 2026-02-28: Subtask 4 complete. Enforced project-only inheritance from shared base config so behavior keys remain runtime-owned; agent model resolution now uses merged+validated runtime config.
+- 2026-02-28: Subtask 5 complete. Added unit coverage for merge precedence (`effectiveProjects`) ensuring runtime project entries override shared-base entries.
+- 2026-02-28: Subtask 6 complete. Added unit coverage for unknown-key warn+ignore behavior.
+- 2026-02-28: Subtask 7 complete. Added unit coverage for misplaced `[projects."<path>"].cli_auth_credentials_store` warn+ignore behavior.
+- 2026-02-28: Subtask 8 complete. Added unit coverage for invalid-type hard-fail policy.
+- 2026-02-28: Subtask 9 complete. Added deterministic missing-agent-config failure test (`RUNTIME_CONFIG_MISSING`).
+- 2026-02-28: Subtask 10 complete. Added deterministic invalid-agent-TOML failure test (`RUNTIME_CONFIG_INVALID`).
+- 2026-02-28: Subtask 11 complete. Added deterministic unreadable-agent-config failure test (`RUNTIME_CONFIG_UNREADABLE`) using mocked `EACCES`.
+- 2026-02-28: Subtask 12 complete. Added deterministic missing-chat-config failure test (`RUNTIME_CONFIG_MISSING`).
+- 2026-02-28: Subtask 13 complete. Added deterministic invalid-chat-TOML failure test (`RUNTIME_CONFIG_INVALID`).
+- 2026-02-28: Subtask 14 complete. Added deterministic unreadable-chat-config failure test (`RUNTIME_CONFIG_UNREADABLE`) using mocked `EACCES`.
+- 2026-02-28: Subtask 15 complete. Added canonical happy-path resolver test covering merged output behavior.
+- 2026-02-28: Subtask 16 complete. Added legacy-alias happy-path normalization test proving canonical output.
+- 2026-02-28: Subtask 17 complete. Updated `projectStructure.md` with a Task 0000037-T4 file-map ledger entry.
+- 2026-02-28: Subtask 18 complete. Updated `design.md` with precedence/validation architecture notes and Mermaid diagrams for merge and deterministic failure paths.
+- 2026-02-28: Subtask 19 complete. Added deterministic T04 success/error logging in runtime resolver and assertions in unit tests.
+- 2026-02-28: Testing 1 complete. `npm run build --workspace server` passed (`tsc -b`).
+- 2026-02-28: Subtask 20 complete. Ran `npm run lint --workspaces` (warnings only, no errors) and `npm run format:check --workspaces` (all workspaces matched Prettier).
+- 2026-02-28: Testing 2 complete. `npm run test --workspace server` passed with unit summary `775 pass, 0 fail` and cucumber summary `67 scenarios, 402 steps` all passed.
+- 2026-02-28: Testing 3 complete. Executed targeted `agents-config-defaults` coverage via `node --test --test-name-pattern "Agent config defaults" server/dist/test/unit/agents-config-defaults.test.js` (2/2 passed).
+- 2026-02-28: Testing 4 complete. Ran `node --test --test-name-pattern "runtimeConfig deterministic resolver failures" server/dist/test/unit/runtimeConfig.test.js` (6/6 passed) with deterministic `RUNTIME_CONFIG_*` codes and T04 error logs.
+- 2026-02-28: Testing 5 complete. Ran `node --test --test-name-pattern "runtimeConfig merged happy paths and T04 logs" server/dist/test/unit/runtimeConfig.test.js` (4/4 passed).
 
 ### 5. Server: Replace model-only parsing with shared runtime config resolver across execution entrypoints
 

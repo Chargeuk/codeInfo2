@@ -1340,7 +1340,14 @@ Add deterministic concurrent request behavior and preserve post-success auth pro
    - Purpose: ensure detection refresh remains aligned with auth completion.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/asynchronous.
    - Done when: test fails if availability state is stale after success.
-6. [ ] Update `projectStructure.md` for any files added or removed in this task, after all file-add/remove subtasks are completed.
+6. [ ] Add shared-auth reuse integration test across execution surfaces after one successful device-auth flow.
+   - Test type: Integration.
+   - Test location: `server/src/test/integration/codex.device-auth.test.ts`, `server/src/test/integration/chat-codex.test.ts`, `server/src/test/integration/agents-run-*.test.ts`, `server/src/test/integration/flows.run.*.test.ts`.
+   - Description: assert one successful shared-home device-auth flow enables chat, agent run, and flow-driven execution without requiring additional per-agent login.
+   - Purpose: validate the core story guarantee of one shared auth/session home across invocation paths.
+   - Docs: Context7 `/jestjs/jest`, Context7 `/openai/codex`.
+   - Done when: test fails if any surface still requires separate per-agent auth after shared auth success.
+7. [ ] Update `projectStructure.md` for any files added or removed in this task, after all file-add/remove subtasks are completed.
    - Files: `projectStructure.md`.
    - Document name: `projectStructure.md`.
    - Document location: repository root `projectStructure.md`.
@@ -1349,7 +1356,7 @@ Add deterministic concurrent request behavior and preserve post-success auth pro
    - Do: document any new lock/helper module files and new concurrency test files introduced by this task.
    - Docs: https://git-scm.com/docs/git-ls-files.
    - Done when: project file map reflects the final set of files added/removed by this task.
-7. [ ] Update `design.md` with device-auth concurrency and side-effect flows plus Mermaid diagrams after all architecture-flow subtasks are complete.
+8. [ ] Update `design.md` with device-auth concurrency and side-effect flows plus Mermaid diagrams after all architecture-flow subtasks are complete.
    - Files: `design.md`.
    - Document name: `design.md`.
    - Document location: repository root `design.md`.
@@ -1364,6 +1371,7 @@ Add deterministic concurrent request behavior and preserve post-success auth pro
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run test --workspace server -- codex.device-auth`
 3. [ ] Run targeted concurrency test(s) for `/codex/device-auth` and verify idempotent outcomes.
+4. [ ] Run shared-auth reuse integration tests across chat/agent/flow surfaces and verify no per-agent re-login is required.
 
 #### Implementation notes
 
@@ -1434,7 +1442,14 @@ Implement backend model-capability payload contract for Codex models so frontend
    - Purpose: prevent cross-provider schema regressions.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/using-matchers.
    - Done when: test fails if non-codex payload shape is unintentionally modified.
-9. [ ] Update `design.md` with `/chat/models` capability contract details and Mermaid diagrams after all architecture-flow subtasks are complete.
+9. [ ] Add codex-unavailable payload contract test for `/chat/models`.
+   - Test type: Integration.
+   - Test location: `server/src/test/unit/chatModels.codex.test.ts`.
+   - Description: assert unavailable codex path returns deterministic contract-safe payload (`available: false`, `models: []`) without malformed capability fields.
+   - Purpose: cover degraded/error-path contract behavior for frontend consumers.
+   - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
+   - Done when: test fails if unavailable path response shape diverges from documented contract.
+10. [ ] Update `design.md` with `/chat/models` capability contract details and Mermaid diagrams after all architecture-flow subtasks are complete.
    - Files: `design.md`.
    - Document name: `design.md`.
    - Document location: repository root `design.md`.
@@ -1450,6 +1465,7 @@ Implement backend model-capability payload contract for Codex models so frontend
 2. [ ] `npm run build --workspace common`
 3. [ ] `npm run test --workspace server -- chatModels.codex`
 4. [ ] Run targeted mixed-provider model payload tests (codex + non-codex) and verify pass.
+5. [ ] Run codex-unavailable payload contract tests and verify deterministic response shape.
 
 #### Implementation notes
 
@@ -1530,7 +1546,14 @@ Replace static reasoning/model sources with one shared runtime codex capability 
    - Purpose: confirm fallback validation remains strict and deterministic.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if unsupported fallback values are accepted.
-10. [ ] Update `projectStructure.md` for any files added or removed in this task, after all file-add/remove subtasks are completed.
+10. [ ] Add forward-compatibility test for non-standard reasoning-effort capability values.
+   - Test type: Integration.
+   - Test location: `server/src/test/unit/chatModels.codex.test.ts`, `server/src/test/unit/chat-codex-reasoning-delta.test.ts`.
+   - Description: inject a capability fixture containing a non-standard/new effort value (outside current static list) and assert `/chat/models` surfaces it while `/chat` validation accepts it for that model.
+   - Purpose: guarantee future SDK/runtime reasoning additions do not require new one-off server code.
+   - Docs: Context7 `/openai/codex`, Context7 `/jestjs/jest`.
+   - Done when: test fails if unseen capability values are dropped or rejected despite resolver support.
+11. [ ] Update `projectStructure.md` for any files added or removed in this task, after all file-add/remove subtasks are completed.
    - Files: `projectStructure.md`.
    - Document name: `projectStructure.md`.
    - Document location: repository root `projectStructure.md`.
@@ -1539,7 +1562,7 @@ Replace static reasoning/model sources with one shared runtime codex capability 
    - Do: document any new shared capability resolver modules and any new supporting test files created by this task.
    - Docs: https://git-scm.com/docs/git-ls-files.
    - Done when: `projectStructure.md` includes all files added/removed by this task.
-11. [ ] Update `design.md` with shared capability-resolver architecture and Mermaid diagrams after all architecture-flow subtasks are complete.
+12. [ ] Update `design.md` with shared capability-resolver architecture and Mermaid diagrams after all architecture-flow subtasks are complete.
    - Files: `design.md`.
    - Document name: `design.md`.
    - Document location: repository root `design.md`.
@@ -1556,6 +1579,7 @@ Replace static reasoning/model sources with one shared runtime codex capability 
 3. [ ] Run targeted server chat-validation tests for unsupported reasoning effort and verify deterministic error contract.
 4. [ ] Run targeted parity tests for `/chat/models` and `/chat`.
 5. [ ] Run targeted fallback-capability tests and verify both accepted and rejected effort flows are deterministic.
+6. [ ] Run forward-compatibility capability tests using non-standard effort values and verify `/chat/models` + `/chat` parity.
 
 #### Implementation notes
 
@@ -1885,7 +1909,14 @@ After Task 16 is complete, switch chat flags UI and chat payload building to run
    - Purpose: validate minimal-option-set corner case behavior.
    - Docs: https://testing-library.com/docs/queries/about/, https://react.dev/reference/react.
    - Done when: test fails if one-option models produce invalid UI or payload behavior.
-8. [ ] Update `design.md` with dynamic reasoning-option UI/payload flow and Mermaid diagrams after all architecture-flow subtasks are complete.
+8. [ ] Add corner-case integration test for non-standard/new reasoning-effort capability values.
+   - Test type: Integration.
+   - Test location: `client/src/test/chatPage.flags.reasoning*`, `client/src/test/chatPage.models.test.tsx`.
+   - Description: assert a non-standard capability value from backend payload is rendered in the selector and can be sent without client-side rejection when it is model-supported.
+   - Purpose: guarantee frontend remains future-compatible with newly surfaced SDK/runtime effort values.
+   - Docs: https://testing-library.com/docs/queries/about/, Context7 `/openai/codex`, Context7 `/jestjs/jest`.
+   - Done when: test fails if a model-supported non-standard value is hidden or blocked.
+9. [ ] Update `design.md` with dynamic reasoning-option UI/payload flow and Mermaid diagrams after all architecture-flow subtasks are complete.
    - Files: `design.md`.
    - Document name: `design.md`.
    - Document location: repository root `design.md`.
@@ -1901,6 +1932,7 @@ After Task 16 is complete, switch chat flags UI and chat payload building to run
 2. [ ] `npm run test --workspace client -- chatPage.flags.reasoning`
 3. [ ] Run targeted reasoning payload tests and verify only supported values are sent.
 4. [ ] Run single-option capability-list tests and verify UI/payload behavior remains valid.
+5. [ ] Run non-standard capability-value tests and verify rendered options + payload passthrough remain deterministic.
 
 #### Implementation notes
 

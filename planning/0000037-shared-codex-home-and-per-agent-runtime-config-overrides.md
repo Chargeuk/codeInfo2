@@ -1386,7 +1386,7 @@ Move Codex availability and startup checks to shared-home semantics for chat and
 ### 9. Server: Non-destructive auth compatibility and agent-file safety guards
 
 - Task Status: **__done__**
-- Git Commits: `None yet`
+- Git Commits: `3f30728`
 
 #### Overview
 

@@ -2670,7 +2670,7 @@ Add focused regression coverage for precedence/normalization behavior across RES
 ### 19. Server: Add compatibility and safety regression tests for migration behavior
 
 - Task Status: **__done__**
-- Git Commits: `None yet`
+- Git Commits: `5aa82fd`
 
 #### Overview
 
@@ -2789,6 +2789,7 @@ Add focused regression coverage for non-destructive file safety, deterministic s
 - 2026-02-28: Testing 5 complete. `npm run compose:up` succeeded and local stack services reached healthy startup.
 - 2026-02-28: Testing 6 complete. Manual Playwright-MCP check at `http://host.docker.internal:5001/chat` loaded successfully, screenshot captured at `/tmp/playwright-output/playwright-output-local/task-19-manual-chat-check.png`, and `browser_console_messages(level=error)` returned no errors.
 - 2026-02-28: Testing 7 complete. `npm run compose:down` stopped and removed local stack containers/network cleanly.
+- 2026-02-28: Recorded Task 19 implementation commit hash `5aa82fd` in the task Git Commits field.
 
 ### 20. Documentation: Update shared-home runtime architecture and API contract docs in `design.md`
 

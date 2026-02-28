@@ -887,6 +887,7 @@ Apply runtime config overrides to chat and primary REST agent execution surfaces
 - Express routing reference: https://expressjs.com/en/guide/routing.html (used for `/agents/:agentName/run` and `/agents/:agentName/commands/run` wiring).
 - TypeScript language docs: https://www.typescriptlang.org/docs/ (used to preserve call-signature compatibility while extending option plumbing).
 - Jest testing framework references: Context7 `/jestjs/jest` and https://jestjs.io/docs/getting-started (used for chat/run/commands integration test updates in this task).
+- Cucumber guides: https://cucumber.io/docs/guides/ (required because task-level verification runs `npm run test --workspace server`, which executes cucumber integration tests).
 - Mermaid specification references: Context7 `/mermaid-js/mermaid` and https://mermaid.js.org/intro/ (used for required chat/run/commands flow diagram updates in `design.md` for this task).
 
 #### Subtasks
@@ -971,6 +972,7 @@ Apply the same runtime config resolution to flow-driven and MCP execution surfac
 - `@openai/codex-sdk` runtime options: Context7 `/openai/codex` (used so flow/MCP execution uses the same option contract as REST).
 - JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (used for MCP parity expectations and deterministic request/response behavior).
 - Jest matcher docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/using-matchers (used for cross-surface parity assertions).
+- Cucumber guides: https://cucumber.io/docs/guides/ (required because task-level verification runs `npm run test --workspace server`, which executes cucumber integration tests).
 - Mermaid specification references: Context7 `/mermaid-js/mermaid` and https://mermaid.js.org/intro/ (used for required flow/MCP architecture diagrams in `design.md` for this task).
 
 #### Subtasks
@@ -1953,6 +1955,7 @@ Add focused regression coverage for precedence/normalization behavior across RES
 - Jest docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/getting-started (used for integration and regression assertion patterns).
 - JSON-RPC 2.0 specification: https://www.jsonrpc.org/specification (used for MCP invocation-path parity assertions).
 - TOML + Codex references: https://toml.io/en/v1.0.0 and Context7 `/openai/codex` (used for normalization and canonical runtime config expectations).
+- Cucumber guides: https://cucumber.io/docs/guides/ (required because task-level verification runs `npm run test --workspace server`, which executes cucumber integration tests).
 
 #### Subtasks
 
@@ -2045,6 +2048,7 @@ Add focused regression coverage for non-destructive file safety, deterministic s
 - Jest docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/getting-started (used for migration safety regression suites).
 - OWASP Logging Cheat Sheet: https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html (used for secret-safe logging assertions).
 - TOML + Codex references: https://toml.io/en/v1.0.0 and Context7 `/openai/codex` (used for fixture normalization and parser-removal guard tests).
+- Cucumber guides: https://cucumber.io/docs/guides/ (required because task-level verification runs `npm run test --workspace server`, which executes cucumber integration tests).
 
 #### Subtasks
 

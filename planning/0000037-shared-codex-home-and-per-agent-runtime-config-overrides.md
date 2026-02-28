@@ -2794,7 +2794,7 @@ Add focused regression coverage for non-destructive file safety, deterministic s
 ### 20. Documentation: Update shared-home runtime architecture and API contract docs in `design.md`
 
 - Task Status: **__done__**
-- Git Commits: `None yet`
+- Git Commits: `052ffda`
 
 #### Overview
 
@@ -2849,6 +2849,7 @@ Update architecture and contract documentation after implementation tasks above 
 - 2026-02-28: Subtask 3 complete. Added deterministic T20 success/error log markers in `design.md` and new test coverage in `server/src/test/unit/design-docs.task20.test.ts` asserting success-path and intentional failure-path logging.
 - 2026-02-28: Subtask 4 complete. Ran `npm run lint --workspaces` (passed with existing repo import-order warnings only) and `npm run format:check --workspaces` (passed in client/server/common).
 - 2026-02-28: Testing 1 complete. Manually verified updated `design.md` flow/contract sections align with implemented shared-home behavior and strict device-auth payload contract; additionally ran `npm run test:unit --workspace server -- src/test/unit/design-docs.task20.test.ts` (workspace script executed full unit suite) with final summary `tests 834, pass 834, fail 0`.
+- 2026-02-28: Recorded Task 20 implementation commit hash `052ffda` in the task Git Commits field.
 
 ### 21. Documentation: Update file map and compatibility examples in `projectStructure.md`
 

@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 
 import { loadAgentCommandFile } from '../agents/commandsLoader.js';
-import { readAgentModelId } from '../agents/config.js';
+import { resolveAgentRuntimeExecutionConfig } from '../agents/config.js';
 import { discoverAgents } from '../agents/discovery.js';
 import {
   releaseConversationLock,
@@ -429,8 +429,13 @@ const ensureAgentState = async (params: {
   return { state, isNew: true };
 };
 
-const getAgentModelId = async (configPath: string): Promise<string> =>
-  (await readAgentModelId(configPath)) ?? FALLBACK_MODEL_ID;
+const getAgentModelId = async (configPath: string): Promise<string> => {
+  const { modelId } = await resolveAgentRuntimeExecutionConfig({
+    configPath,
+    entrypoint: 'flows.service',
+  });
+  return modelId ?? FALLBACK_MODEL_ID;
+};
 
 const hydrateFlowAgentState = (resumeState: FlowResumeState | null) => {
   if (!resumeState) return;

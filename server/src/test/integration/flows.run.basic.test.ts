@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import http from 'node:http';
+import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
@@ -326,6 +327,60 @@ test('POST /flows/:flowName/run returns 404 for unknown sourceId', async () => {
       delete process.env.FLOWS_DIR;
     }
     await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('POST /flows/:flowName/run fails on invalid agent config supported key types (resolver regression guard)', async () => {
+  const prevAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const prevFlowsDir = process.env.FLOWS_DIR;
+  const tmpAgentsHome = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'agents-home-'),
+  );
+  const tmpFlowsDir = await fs.mkdtemp(
+    path.join(process.cwd(), 'tmp-flows-run-invalid-config-'),
+  );
+  const agentHome = path.join(tmpAgentsHome, 'coding_agent');
+  await fs.mkdir(agentHome, { recursive: true });
+  await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(
+    path.join(agentHome, 'config.toml'),
+    ['model = "gpt-5.1-codex-max"', 'approval_policy = 42'].join('\n'),
+    'utf8',
+  );
+  await fs.cp(fixturesDir, tmpFlowsDir, { recursive: true });
+
+  process.env.CODEINFO_CODEX_AGENT_HOME = tmpAgentsHome;
+  process.env.FLOWS_DIR = tmpFlowsDir;
+
+  const app = express();
+  app.use(
+    createFlowsRunRouter({
+      startFlowRun: (params) =>
+        startFlowRun({
+          ...params,
+          chatFactory: () => new InstantChat(),
+        }),
+    }),
+  );
+
+  try {
+    const res = await supertest(app)
+      .post('/flows/llm-basic/run')
+      .send({ conversationId: 'flow-invalid-config-regression' });
+
+    assert.equal(res.status, 400);
+    assert.equal(res.body.error, 'invalid_request');
+    assert.equal(typeof res.body.message, 'string');
+    assert.equal(res.body.message.length > 0, true);
+  } finally {
+    process.env.CODEINFO_CODEX_AGENT_HOME = prevAgentsHome;
+    if (prevFlowsDir) {
+      process.env.FLOWS_DIR = prevFlowsDir;
+    } else {
+      delete process.env.FLOWS_DIR;
+    }
+    await fs.rm(tmpFlowsDir, { recursive: true, force: true });
+    await fs.rm(tmpAgentsHome, { recursive: true, force: true });
   }
 });
 

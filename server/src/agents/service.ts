@@ -39,7 +39,7 @@ import {
   loadAgentCommandSummary,
 } from './commandsLoader.js';
 import { runAgentCommandRunner } from './commandsRunner.js';
-import { readAgentModelId } from './config.js';
+import { resolveAgentRuntimeExecutionConfig } from './config.js';
 import { discoverAgents } from './discovery.js';
 import {
   releaseConversationLock,
@@ -295,7 +295,11 @@ export async function startAgentInstruction(
       throw toRunAgentError('AGENT_MISMATCH');
     }
 
-    const configuredModelId = await readAgentModelId(agent.configPath);
+    const { modelId: configuredModelId } =
+      await resolveAgentRuntimeExecutionConfig({
+        configPath: agent.configPath,
+        entrypoint: 'agents.service',
+      });
     modelId =
       configuredModelId ?? existingConversation?.model ?? 'gpt-5.1-codex-max';
 
@@ -507,7 +511,11 @@ export async function startAgentCommand(params: {
       throw toRunAgentError('AGENT_MISMATCH');
     }
 
-    const configuredModelId = await readAgentModelId(agent.configPath);
+    const { modelId: configuredModelId } =
+      await resolveAgentRuntimeExecutionConfig({
+        configPath: agent.configPath,
+        entrypoint: 'agents.service',
+      });
     modelId =
       configuredModelId ?? existingConversation?.model ?? 'gpt-5.1-codex-max';
 
@@ -692,7 +700,11 @@ export async function runAgentInstructionUnlocked(params: {
     throw toRunAgentError('AGENT_MISMATCH');
   }
 
-  const configuredModelId = await readAgentModelId(agent.configPath);
+  const { modelId: configuredModelId } =
+    await resolveAgentRuntimeExecutionConfig({
+      configPath: agent.configPath,
+      entrypoint: 'agents.service',
+    });
   const modelId =
     configuredModelId ?? existingConversation?.model ?? fallbackModelId;
 

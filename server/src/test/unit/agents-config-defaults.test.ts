@@ -6,12 +6,12 @@ import { describe, it } from 'node:test';
 
 import type { ThreadOptions as CodexThreadOptions } from '@openai/codex-sdk';
 
-import { readAgentModelId } from '../../agents/config.js';
+import { resolveAgentRuntimeExecutionConfig } from '../../agents/config.js';
 import { ChatInterfaceCodex } from '../../chat/interfaces/ChatInterfaceCodex.js';
 import { setCodexDetection } from '../../providers/codexRegistry.js';
 
 describe('Agent config defaults', () => {
-  it('parses model from config.toml', async () => {
+  it('resolves model from shared runtime config resolver', async () => {
     const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-config-'));
     const configPath = path.join(tmp, 'config.toml');
 
@@ -21,7 +21,76 @@ describe('Agent config defaults', () => {
       'utf8',
     );
 
-    assert.equal(await readAgentModelId(configPath), 'gpt-5.2');
+    const resolved = await resolveAgentRuntimeExecutionConfig({
+      configPath,
+      entrypoint: 'agents.service',
+    });
+
+    assert.equal(resolved.modelId, 'gpt-5.2');
+  });
+
+  it('emits deterministic T05 success log when runtime execution config resolves', async () => {
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-config-'));
+    const configPath = path.join(tmp, 'config.toml');
+
+    await fs.writeFile(configPath, 'model = "gpt-5.2"\n', 'utf8');
+
+    const originalInfo = console.info;
+    const logs: string[] = [];
+    console.info = (...args: unknown[]) => {
+      logs.push(String(args[0] ?? ''));
+    };
+
+    try {
+      await resolveAgentRuntimeExecutionConfig({
+        configPath,
+        entrypoint: 'agents.service',
+      });
+    } finally {
+      console.info = originalInfo;
+    }
+
+    assert.equal(
+      logs.some((line) =>
+        line.includes(
+          '[DEV-0000037][T05] event=shared_runtime_resolver_used_by_entrypoints result=success',
+        ),
+      ),
+      true,
+    );
+  });
+
+  it('emits deterministic T05 error log when runtime execution config resolution fails', async () => {
+    const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-config-'));
+    const configPath = path.join(tmp, 'config.toml');
+
+    await fs.writeFile(configPath, 'approval_policy = 1\n', 'utf8');
+
+    const originalError = console.error;
+    const logs: string[] = [];
+    console.error = (...args: unknown[]) => {
+      logs.push(String(args[0] ?? ''));
+    };
+
+    try {
+      await assert.rejects(async () => {
+        await resolveAgentRuntimeExecutionConfig({
+          configPath,
+          entrypoint: 'flows.service',
+        });
+      });
+    } finally {
+      console.error = originalError;
+    }
+
+    assert.equal(
+      logs.some((line) =>
+        line.includes(
+          '[DEV-0000037][T05] event=shared_runtime_resolver_used_by_entrypoints result=error',
+        ),
+      ),
+      true,
+    );
   });
 
   it('omits config-owned ThreadOptions when useConfigDefaults is enabled', async () => {

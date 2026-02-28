@@ -966,7 +966,7 @@ Implement deterministic merge and validation behavior for runtime config resolut
 
 ### 5. Server: Replace model-only parsing with shared runtime config resolver across execution entrypoints
 
-- Task Status: **__todo__**
+- Task Status: **__done__**
 - Git Commits: `None yet`
 
 #### Overview
@@ -984,25 +984,25 @@ Replace existing model-only config parsing (`readAgentModelId`) so all execution
 
 #### Subtasks
 
-1. [ ] Replace existing line-based model-only config parsing (`readAgentModelId`) with the shared TOML-based runtime config resolver in all run surfaces.
+1. [x] Replace existing line-based model-only config parsing (`readAgentModelId`) with the shared TOML-based runtime config resolver in all run surfaces.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `server/src/agents/config.ts`, `server/src/agents/service.ts`, `server/src/flows/service.ts`.
    - Do: remove regex/line parser usage for runtime behavior decisions.
    - Docs: Context7 `/openai/codex`, https://toml.io/en/v1.0.0.
    - Done when: `readAgentModelId` is deleted or unused for runtime decisions.
-2. [ ] Update agent service and flow service execution entrypoints to consume resolver output instead of regex/line parsing.
+2. [x] Update agent service and flow service execution entrypoints to consume resolver output instead of regex/line parsing.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `server/src/agents/service.ts`, `server/src/flows/service.ts`.
    - Do: inject resolver output into run option builders.
    - Docs: Context7 `/openai/codex`, https://toml.io/en/v1.0.0.
    - Done when: agent and flow runs pull model/policy/tools from same resolver object.
-3. [ ] Ensure no codepath still depends on `readAgentModelId` for runtime behavior decisions.
+3. [x] Ensure no codepath still depends on `readAgentModelId` for runtime behavior decisions.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: whole server workspace; verify with search.
    - Do: remove old function or keep only for unrelated legacy read with explicit comment.
    - Docs: https://github.com/BurntSushi/ripgrep/blob/master/GUIDE.md.
    - Done when: `rg "readAgentModelId" server/src` shows no runtime-path callers.
-4. [ ] Add agent execution regression test proving resolver replaces regex parsing.
+4. [x] Add agent execution regression test proving resolver replaces regex parsing.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Regression.
    - Test location: `server/src/test/unit/agents-*.test.ts`, `server/src/test/integration/agents-*.test.ts`.
@@ -1010,7 +1010,7 @@ Replace existing model-only config parsing (`readAgentModelId`) so all execution
    - Purpose: prevent reintroduction of model-only parser in agent run path.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if agent path returns to regex parsing behavior.
-5. [ ] Add flow execution regression test proving resolver replaces regex parsing.
+5. [x] Add flow execution regression test proving resolver replaces regex parsing.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Regression.
    - Test location: `server/src/test/unit/flows*.test.ts`, `server/src/test/integration/flows.*.test.ts`.
@@ -1018,7 +1018,7 @@ Replace existing model-only config parsing (`readAgentModelId`) so all execution
    - Purpose: guarantee flow path remains aligned with resolver migration.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if flow path reverts to model-only parsing.
-6. [ ] Update `design.md` with parser-removal architecture changes and Mermaid diagrams after all architecture-flow subtasks are complete.
+6. [x] Update `design.md` with parser-removal architecture changes and Mermaid diagrams after all architecture-flow subtasks are complete.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `design.md`.
    - Document name: `design.md`.
@@ -1029,7 +1029,7 @@ Replace existing model-only config parsing (`readAgentModelId`) so all execution
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` clearly shows no model-only parsing path remains for runtime behavior decisions.
 
-7. [ ] Add deterministic structured log line `[DEV-0000037][T05] event=shared_runtime_resolver_used_by_entrypoints result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
+7. [x] Add deterministic structured log line `[DEV-0000037][T05] event=shared_runtime_resolver_used_by_entrypoints result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: server implementation files already listed in this task's subtasks and matching `server/src/test/**` suites.
    - Do: emit this exact log prefix and event name from the implementation path, then assert in tests that `result=success` is emitted on happy path and `result=error` only appears on intentional failure-path coverage.
@@ -1037,17 +1037,28 @@ Replace existing model-only config parsing (`readAgentModelId`) so all execution
    - Manual Playwright-MCP check linkage: verify this exact log line during this task's Manual Playwright-MCP check when present, or during Task 22 final regression Manual Playwright-MCP check for backend/docs-only tasks.
    - Docs: https://nodejs.org/api/console.html, Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: deterministic log assertions are present and this task's expected trigger produces the exact `[DEV-0000037][T05] event=shared_runtime_resolver_used_by_entrypoints result=success` line.
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+8. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test --workspace server`
-3. [ ] `npm run test --workspace server -- agents-config-defaults`
-4. [ ] Run targeted regression tests proving resolver usage across agents + flows.
+1. [x] `npm run build --workspace server`
+2. [x] `npm run test --workspace server`
+3. [x] `npm run test --workspace server -- agents-config-defaults`
+4. [x] Run targeted regression tests proving resolver usage across agents + flows.
 
 #### Implementation Notes
 
-- None yet.
+- 2026-02-28: Subtask 1 complete. Replaced runtime call-site usage of `readAgentModelId` with shared `resolveAgentRuntimeExecutionConfig` resolver plumbing.
+- 2026-02-28: Subtask 2 complete. Updated `agents/service.ts` and `flows/service.ts` entrypoints to resolve runtime config via shared resolver helper before deriving effective model defaults.
+- 2026-02-28: Subtask 3 complete. Verified no runtime-path callers remain for `readAgentModelId` (`rg "readAgentModelId" server/src` only returns unit test references).
+- 2026-02-28: Subtask 4 complete. Added agent regression coverage (`agents-run-client-conversation-id.test.ts`) asserting invalid supported-key types in agent TOML hard-fail with deterministic resolver validation error.
+- 2026-02-28: Subtask 5 complete. Added flow regression coverage (`flows.run.basic.test.ts`) asserting flow run fails deterministically when agent TOML contains invalid supported-key types.
+- 2026-02-28: Subtask 6 complete. Updated `design.md` with Task 5 shared-resolver entrypoint architecture notes and Mermaid flow/sequence diagrams.
+- 2026-02-28: Subtask 7 complete. Added deterministic T05 success/error logs in shared entrypoint resolver helper and log assertions in `agents-config-defaults.test.ts`.
+- 2026-02-28: Subtask 8 complete. Ran `npm run lint --workspaces` (warnings only, no errors) and resolved initial server formatting drift before re-running `npm run format:check --workspaces` successfully.
+- 2026-02-28: Testing 1 complete. `npm run build --workspace server` passed (`tsc -b`).
+- 2026-02-28: Testing 2 complete. `npm run test --workspace server` passed (unit summary: `tests 779, pass 779`; integration summary: `67 scenarios, 402 steps, all passed`).
+- 2026-02-28: Testing 3 complete. Executed `npm run test --workspace server -- agents-config-defaults`; this workspace script re-ran the full server suite and passed (unit `tests 779, pass 779`; cucumber `67 scenarios, 402 steps, all passed`).
+- 2026-02-28: Testing 4 complete. Ran targeted regression checks for both paths via source tests with ts-node loader: `node --test --test-name-pattern "invalid supported key types" src/test/integration/agents-run-client-conversation-id.test.ts` and `node --test --test-name-pattern "invalid agent config supported key types" src/test/integration/flows.run.basic.test.ts`; both passed (`1/1` each) and emitted deterministic T05 error logs on intentional failure-path guards.
 
 ### 6. Server: Wire runtime config overrides into chat, agent run, and agent command execution paths
 

@@ -421,6 +421,44 @@ sequenceDiagram
   Resolver-->>Caller: failure -> RuntimeConfigResolutionError + T04 error log
 ```
 
+## Shared runtime resolver entrypoints (Story 0000037 Task 5)
+
+- Runtime entrypoints no longer use model-only parsing helpers for behavior decisions; they resolve execution defaults through one shared helper in `server/src/agents/config.ts`.
+- `resolveAgentRuntimeExecutionConfig(...)` wraps `resolveAgentRuntimeConfig(...)` and returns normalized execution data (`runtimeConfig`, optional `modelId`) for both:
+  - `agents/service.ts` entrypoints (`startAgentInstruction`, `startAgentCommand`, `runAgentInstructionUnlocked`)
+  - `flows/service.ts` entrypoints (`getAgentModelId` path used by flow startup and per-step execution)
+- Deterministic Task 5 logs are emitted whenever entrypoints request runtime options via shared resolver:
+  - success: `[DEV-0000037][T05] event=shared_runtime_resolver_used_by_entrypoints result=success`
+  - error: `[DEV-0000037][T05] event=shared_runtime_resolver_used_by_entrypoints result=error ...`
+- Regression safety:
+  - agent run path now fails deterministically on invalid supported-key types in agent TOML (instead of silently continuing with model-only parsing);
+  - flow run path has the same deterministic failure behavior, ensuring parser-removal parity across surfaces.
+
+```mermaid
+flowchart TD
+  A[Agent/Flow entrypoint] --> B[resolveAgentRuntimeExecutionConfig]
+  B --> C[resolveAgentRuntimeConfig from runtimeConfig.ts]
+  C --> D[merge+validate runtime config]
+  D --> E{valid?}
+  E -- yes --> F[return modelId/runtimeConfig + emit T05 success log]
+  E -- no --> G[throw deterministic runtime config error + emit T05 error log]
+```
+
+```mermaid
+sequenceDiagram
+  participant AgentSvc as agents/service.ts
+  participant FlowSvc as flows/service.ts
+  participant EntryHelper as agents/config.ts helper
+  participant Runtime as runtimeConfig.ts
+
+  AgentSvc->>EntryHelper: resolveAgentRuntimeExecutionConfig(configPath)
+  FlowSvc->>EntryHelper: resolveAgentRuntimeExecutionConfig(configPath)
+  EntryHelper->>Runtime: resolveAgentRuntimeConfig(agentConfigPath)
+  Runtime-->>EntryHelper: config OR RuntimeConfigResolutionError
+  EntryHelper-->>AgentSvc: modelId/runtimeConfig + T05 success OR throw + T05 error
+  EntryHelper-->>FlowSvc: modelId/runtimeConfig + T05 success OR throw + T05 error
+```
+
 - MCP keepalive lifecycle is centralized in `server/src/mcpCommon/keepAlive.ts` and reused by classic `POST /mcp`, MCP v2 (`server/src/mcp2/router.ts`), and Agents MCP (`server/src/mcpAgents/router.ts`).
 - Keepalive is scoped to long-running `tools/call` only. Non-tool requests (`initialize`, `tools/list`, parse/invalid request) return normal JSON-RPC payloads without keepalive preamble bytes.
 - Helper behavior is deterministic: `start` writes initial whitespace and heartbeat whitespace bytes, then `stop` clears timers on `sendJson`, response `finish`/`close`, or write failure to avoid write-after-close errors.

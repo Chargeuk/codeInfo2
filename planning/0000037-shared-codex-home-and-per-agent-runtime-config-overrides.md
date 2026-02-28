@@ -468,7 +468,15 @@ Upgrade `@openai/codex-sdk` to latest stable at implementation start and lock de
    - Docs: https://keepachangelog.com/en/1.0.0/.
    - Done when: Task 1 notes explicitly state the final upgraded version.
 
-4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+4. [ ] Add deterministic structured log line `[DEV-0000037][T01] event=codex_sdk_upgraded result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
+   - Files: `server/package.json`, `package-lock.json`, and this task's server test files.
+   - Do: emit this exact log prefix and event name from the implementation path, then assert in tests that `result=success` is emitted on happy path and `result=error` only appears on intentional failure-path coverage.
+   - Expected trigger: trigger when server workspace resolves the upgraded SDK version and startup/test path confirms it.
+   - Manual Playwright-MCP check linkage: verify this exact log line during this task's Manual Playwright-MCP check when present, or during Task 22 final regression Manual Playwright-MCP check for backend/docs-only tasks.
+   - Docs: https://nodejs.org/api/console.html, Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
+   - Done when: deterministic log assertions are present and this task's expected trigger produces the exact `[DEV-0000037][T01] event=codex_sdk_upgraded result=success` line.
+5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -540,7 +548,15 @@ Remove compatibility-only widened reasoning-effort unions/casts and align code t
    - Docs: https://testing-library.com/docs/, Context7 `/jestjs/jest`, https://jestjs.io/docs/getting-started.
    - Done when: test fails if manual compatibility casts are required again.
 
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+7. [ ] Add deterministic structured log line `[DEV-0000037][T02] event=reasoning_effort_shims_removed result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
+   - Files: server/client/common files already listed in Task 2 subtasks and their corresponding test files.
+   - Do: emit this exact log prefix and event name from the implementation path, then assert in tests that `result=success` is emitted on happy path and `result=error` only appears on intentional failure-path coverage.
+   - Expected trigger: trigger when chat reasoning capability values are resolved without compatibility-only casts.
+   - Manual Playwright-MCP check linkage: verify this exact log line during this task's Manual Playwright-MCP check when present, or during Task 22 final regression Manual Playwright-MCP check for backend/docs-only tasks.
+   - Docs: https://nodejs.org/api/console.html, Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
+   - Done when: deterministic log assertions are present and this task's expected trigger produces the exact `[DEV-0000037][T02] event=reasoning_effort_shims_removed result=success` line.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -552,7 +568,7 @@ Remove compatibility-only widened reasoning-effort unions/casts and align code t
 7. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
 8. [ ] `npm run compose:build`
 9. [ ] `npm run compose:up`
-10. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001` to validate reasoning-effort UI behavior and confirm no debug-console errors.
+10. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: trigger reasoning-effort selection flows and verify debug console includes `[DEV-0000037][T02] event=reasoning_effort_shims_removed result=success` (expected once per exercised path), includes no `[DEV-0000037][T02] ... result=error`, and has no unrelated console errors.
 11. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -678,7 +694,15 @@ Create one server-side config resolution layer that reads shared base config, ch
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` diagrams and descriptions match final implementation in this task.
 
-14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+14. [ ] Add deterministic structured log line `[DEV-0000037][T03] event=runtime_config_loaded_and_normalized result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
+   - Files: server implementation files already listed in this task's subtasks and matching `server/src/test/**` suites.
+   - Do: emit this exact log prefix and event name from the implementation path, then assert in tests that `result=success` is emitted on happy path and `result=error` only appears on intentional failure-path coverage.
+   - Expected trigger: trigger when base/chat/agent TOML files are loaded and emitted as canonical normalized config.
+   - Manual Playwright-MCP check linkage: verify this exact log line during this task's Manual Playwright-MCP check when present, or during Task 22 final regression Manual Playwright-MCP check for backend/docs-only tasks.
+   - Docs: https://nodejs.org/api/console.html, Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
+   - Done when: deterministic log assertions are present and this task's expected trigger produces the exact `[DEV-0000037][T03] event=runtime_config_loaded_and_normalized result=success` line.
+15. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -843,7 +867,15 @@ Implement deterministic merge and validation behavior for runtime config resolut
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` includes accurate precedence and validation diagrams matching this task's final behavior.
 
-18. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+18. [ ] Add deterministic structured log line `[DEV-0000037][T04] event=runtime_config_merged_and_validated result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
+   - Files: server implementation files already listed in this task's subtasks and matching `server/src/test/**` suites.
+   - Do: emit this exact log prefix and event name from the implementation path, then assert in tests that `result=success` is emitted on happy path and `result=error` only appears on intentional failure-path coverage.
+   - Expected trigger: trigger when merged runtime config passes validation and deterministic precedence is applied.
+   - Manual Playwright-MCP check linkage: verify this exact log line during this task's Manual Playwright-MCP check when present, or during Task 22 final regression Manual Playwright-MCP check for backend/docs-only tasks.
+   - Docs: https://nodejs.org/api/console.html, Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
+   - Done when: deterministic log assertions are present and this task's expected trigger produces the exact `[DEV-0000037][T04] event=runtime_config_merged_and_validated result=success` line.
+19. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -921,7 +953,15 @@ Replace existing model-only config parsing (`readAgentModelId`) so all execution
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` clearly shows no model-only parsing path remains for runtime behavior decisions.
 
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+7. [ ] Add deterministic structured log line `[DEV-0000037][T05] event=shared_runtime_resolver_used_by_entrypoints result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
+   - Files: server implementation files already listed in this task's subtasks and matching `server/src/test/**` suites.
+   - Do: emit this exact log prefix and event name from the implementation path, then assert in tests that `result=success` is emitted on happy path and `result=error` only appears on intentional failure-path coverage.
+   - Expected trigger: trigger when agent and flow entrypoints request runtime options through the shared resolver.
+   - Manual Playwright-MCP check linkage: verify this exact log line during this task's Manual Playwright-MCP check when present, or during Task 22 final regression Manual Playwright-MCP check for backend/docs-only tasks.
+   - Docs: https://nodejs.org/api/console.html, Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
+   - Done when: deterministic log assertions are present and this task's expected trigger produces the exact `[DEV-0000037][T05] event=shared_runtime_resolver_used_by_entrypoints result=success` line.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -1018,7 +1058,15 @@ Apply runtime config overrides to chat and primary REST agent execution surfaces
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` has accurate flow diagrams for chat, run, and command execution.
 
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+10. [ ] Add deterministic structured log line `[DEV-0000037][T06] event=runtime_overrides_applied_rest_paths result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
+   - Files: server implementation files already listed in this task's subtasks and matching `server/src/test/**` suites.
+   - Do: emit this exact log prefix and event name from the implementation path, then assert in tests that `result=success` is emitted on happy path and `result=error` only appears on intentional failure-path coverage.
+   - Expected trigger: trigger when `/chat`, `/agents/:agentName/run`, and `/agents/:agentName/commands/run` build Codex options from runtime config.
+   - Manual Playwright-MCP check linkage: verify this exact log line during this task's Manual Playwright-MCP check when present, or during Task 22 final regression Manual Playwright-MCP check for backend/docs-only tasks.
+   - Docs: https://nodejs.org/api/console.html, Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
+   - Done when: deterministic log assertions are present and this task's expected trigger produces the exact `[DEV-0000037][T06] event=runtime_overrides_applied_rest_paths result=success` line.
+11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -1109,7 +1157,15 @@ Apply the same runtime config resolution to flow-driven and MCP execution surfac
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` shows consistent run/flow/MCP behavior and config source ownership.
 
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+9. [ ] Add deterministic structured log line `[DEV-0000037][T07] event=runtime_overrides_applied_flow_mcp result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
+   - Files: server implementation files already listed in this task's subtasks and matching `server/src/test/**` suites.
+   - Do: emit this exact log prefix and event name from the implementation path, then assert in tests that `result=success` is emitted on happy path and `result=error` only appears on intentional failure-path coverage.
+   - Expected trigger: trigger when flow and MCP execution paths build runtime options from the shared resolver.
+   - Manual Playwright-MCP check linkage: verify this exact log line during this task's Manual Playwright-MCP check when present, or during Task 22 final regression Manual Playwright-MCP check for backend/docs-only tasks.
+   - Docs: https://nodejs.org/api/console.html, Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
+   - Done when: deterministic log assertions are present and this task's expected trigger produces the exact `[DEV-0000037][T07] event=runtime_overrides_applied_flow_mcp result=success` line.
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -1185,7 +1241,15 @@ Move Codex availability and startup checks to shared-home semantics for chat and
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` captures the final shared-home detection flow implemented by this task.
 
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+7. [ ] Add deterministic structured log line `[DEV-0000037][T08] event=shared_home_detection_completed result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
+   - Files: server implementation files already listed in this task's subtasks and matching `server/src/test/**` suites.
+   - Do: emit this exact log prefix and event name from the implementation path, then assert in tests that `result=success` is emitted on happy path and `result=error` only appears on intentional failure-path coverage.
+   - Expected trigger: trigger when shared-home Codex availability check completes for startup/refresh paths.
+   - Manual Playwright-MCP check linkage: verify this exact log line during this task's Manual Playwright-MCP check when present, or during Task 22 final regression Manual Playwright-MCP check for backend/docs-only tasks.
+   - Docs: https://nodejs.org/api/console.html, Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
+   - Done when: deterministic log assertions are present and this task's expected trigger produces the exact `[DEV-0000037][T08] event=shared_home_detection_completed result=success` line.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -1263,7 +1327,15 @@ Retain existing auth seeding/propagation compatibility behavior without deleting
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` documents final auth compatibility flow and explicit non-destructive guarantees from this task.
 
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+7. [ ] Add deterministic structured log line `[DEV-0000037][T09] event=auth_compatibility_guard_passed result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
+   - Files: server implementation files already listed in this task's subtasks and matching `server/src/test/**` suites.
+   - Do: emit this exact log prefix and event name from the implementation path, then assert in tests that `result=success` is emitted on happy path and `result=error` only appears on intentional failure-path coverage.
+   - Expected trigger: trigger when auth propagation safety checks complete with no destructive file operations.
+   - Manual Playwright-MCP check linkage: verify this exact log line during this task's Manual Playwright-MCP check when present, or during Task 22 final regression Manual Playwright-MCP check for backend/docs-only tasks.
+   - Docs: https://nodejs.org/api/console.html, Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
+   - Done when: deterministic log assertions are present and this task's expected trigger produces the exact `[DEV-0000037][T09] event=auth_compatibility_guard_passed result=success` line.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -1391,7 +1463,15 @@ Implement the server-side device-auth message contract change first: request bod
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` diagrams match final backend device-auth contract behavior.
 
-14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+14. [ ] Add deterministic structured log line `[DEV-0000037][T10] event=device_auth_contract_validated result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
+   - Files: server implementation files already listed in this task's subtasks and matching `server/src/test/**` suites.
+   - Do: emit this exact log prefix and event name from the implementation path, then assert in tests that `result=success` is emitted on happy path and `result=error` only appears on intentional failure-path coverage.
+   - Expected trigger: trigger when `POST /codex/device-auth` accepts strict `{}` request shape and resolves response.
+   - Manual Playwright-MCP check linkage: verify this exact log line during this task's Manual Playwright-MCP check when present, or during Task 22 final regression Manual Playwright-MCP check for backend/docs-only tasks.
+   - Docs: https://nodejs.org/api/console.html, Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
+   - Done when: deterministic log assertions are present and this task's expected trigger produces the exact `[DEV-0000037][T10] event=device_auth_contract_validated result=success` line.
+15. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -1487,7 +1567,15 @@ Add deterministic concurrent request behavior and preserve post-success auth pro
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` diagrams and text describe the final concurrency and side-effect behavior implemented in this task.
 
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+9. [ ] Add deterministic structured log line `[DEV-0000037][T11] event=device_auth_concurrency_and_side_effects_completed result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
+   - Files: server implementation files already listed in this task's subtasks and matching `server/src/test/**` suites.
+   - Do: emit this exact log prefix and event name from the implementation path, then assert in tests that `result=success` is emitted on happy path and `result=error` only appears on intentional failure-path coverage.
+   - Expected trigger: trigger when concurrent `POST /codex/device-auth` requests are serialized/deduplicated and side effects complete.
+   - Manual Playwright-MCP check linkage: verify this exact log line during this task's Manual Playwright-MCP check when present, or during Task 22 final regression Manual Playwright-MCP check for backend/docs-only tasks.
+   - Docs: https://nodejs.org/api/console.html, Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
+   - Done when: deterministic log assertions are present and this task's expected trigger produces the exact `[DEV-0000037][T11] event=device_auth_concurrency_and_side_effects_completed result=success` line.
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -1592,7 +1680,15 @@ Implement backend model-capability payload contract for Codex models so frontend
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` reflects the final capability payload contract and data flow implemented in this task.
 
-11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+11. [ ] Add deterministic structured log line `[DEV-0000037][T12] event=chat_models_codex_capabilities_returned result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
+   - Files: server implementation files already listed in this task's subtasks and matching `server/src/test/**` suites.
+   - Do: emit this exact log prefix and event name from the implementation path, then assert in tests that `result=success` is emitted on happy path and `result=error` only appears on intentional failure-path coverage.
+   - Expected trigger: trigger when `/chat/models` returns Codex model capability payload fields.
+   - Manual Playwright-MCP check linkage: verify this exact log line during this task's Manual Playwright-MCP check when present, or during Task 22 final regression Manual Playwright-MCP check for backend/docs-only tasks.
+   - Docs: https://nodejs.org/api/console.html, Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
+   - Done when: deterministic log assertions are present and this task's expected trigger produces the exact `[DEV-0000037][T12] event=chat_models_codex_capabilities_returned result=success` line.
+12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -1719,7 +1815,15 @@ Replace static reasoning/model sources with one shared runtime codex capability 
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` clearly shows shared capability resolution and validation flow with no duplicate logic paths.
 
-13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+13. [ ] Add deterministic structured log line `[DEV-0000037][T13] event=shared_capability_resolver_parity_enforced result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
+   - Files: server implementation files already listed in this task's subtasks and matching `server/src/test/**` suites.
+   - Do: emit this exact log prefix and event name from the implementation path, then assert in tests that `result=success` is emitted on happy path and `result=error` only appears on intentional failure-path coverage.
+   - Expected trigger: trigger when `/chat/models` and `/chat` both consume the same capability resolver output.
+   - Manual Playwright-MCP check linkage: verify this exact log line during this task's Manual Playwright-MCP check when present, or during Task 22 final regression Manual Playwright-MCP check for backend/docs-only tasks.
+   - Docs: https://nodejs.org/api/console.html, Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
+   - Done when: deterministic log assertions are present and this task's expected trigger produces the exact `[DEV-0000037][T13] event=shared_capability_resolver_parity_enforced result=success` line.
+14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -1808,7 +1912,15 @@ After Task 10 is complete, update frontend API request/response types for the si
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` reflects final frontend API consumption flow and error-state handling from this task.
 
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+8. [ ] Add deterministic structured log line `[DEV-0000037][T14] event=client_device_auth_contract_consumed result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
+   - Files: client implementation files already listed in this task's subtasks and matching `client/src/test/**` suites.
+   - Do: emit this exact log prefix and event name from the implementation path, then assert in tests that `result=success` is emitted on happy path and `result=error` only appears on intentional failure-path coverage.
+   - Expected trigger: trigger when frontend device-auth API sends `{}` and consumes deterministic response shape.
+   - Manual Playwright-MCP check linkage: verify this exact log line during this task's Manual Playwright-MCP check when present, or during Task 22 final regression Manual Playwright-MCP check for backend/docs-only tasks.
+   - Docs: https://nodejs.org/api/console.html, Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
+   - Done when: deterministic log assertions are present and this task's expected trigger produces the exact `[DEV-0000037][T14] event=client_device_auth_contract_consumed result=success` line.
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace client`
@@ -1817,7 +1929,7 @@ After Task 10 is complete, update frontend API request/response types for the si
 4. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
 5. [ ] `npm run compose:build`
 6. [ ] `npm run compose:up`
-7. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001` for simplified device-auth request/response behavior and no debug-console errors.
+7. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: execute device-auth flow and verify debug console includes `[DEV-0000037][T14] event=client_device_auth_contract_consumed result=success`, includes no `[DEV-0000037][T14] ... result=error`, and has no unrelated console errors.
 8. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -1921,7 +2033,15 @@ After Task 10 and Task 14 are complete, simplify UI usage to one shared device-a
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` shows the final single-path frontend auth UX flow implemented in this task.
 
-11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+11. [ ] Add deterministic structured log line `[DEV-0000037][T15] event=shared_auth_dialog_flow_executed result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
+   - Files: client implementation files already listed in this task's subtasks and matching `client/src/test/**` suites.
+   - Do: emit this exact log prefix and event name from the implementation path, then assert in tests that `result=success` is emitted on happy path and `result=error` only appears on intentional failure-path coverage.
+   - Expected trigger: trigger when shared auth dialog submit/retry path completes on ChatPage and AgentsPage.
+   - Manual Playwright-MCP check linkage: verify this exact log line during this task's Manual Playwright-MCP check when present, or during Task 22 final regression Manual Playwright-MCP check for backend/docs-only tasks.
+   - Docs: https://nodejs.org/api/console.html, Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
+   - Done when: deterministic log assertions are present and this task's expected trigger produces the exact `[DEV-0000037][T15] event=shared_auth_dialog_flow_executed result=success` line.
+12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace client`
@@ -1932,7 +2052,7 @@ After Task 10 and Task 14 are complete, simplify UI usage to one shared device-a
 6. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
 7. [ ] `npm run compose:build`
 8. [ ] `npm run compose:up`
-9. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001` for shared dialog behavior on ChatPage/AgentsPage and no debug-console errors.
+9. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: execute auth dialog submit/retry from ChatPage and AgentsPage and verify debug console includes `[DEV-0000037][T15] event=shared_auth_dialog_flow_executed result=success`, includes no `[DEV-0000037][T15] ... result=error`, and has no unrelated console errors.
 10. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -2024,7 +2144,15 @@ After Task 12 and Task 13 are complete, update chat model state plumbing to carr
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` diagrams match the implemented state transition behavior in this task.
 
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+10. [ ] Add deterministic structured log line `[DEV-0000037][T16] event=chat_model_capability_defaults_applied result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
+   - Files: client implementation files already listed in this task's subtasks and matching `client/src/test/**` suites.
+   - Do: emit this exact log prefix and event name from the implementation path, then assert in tests that `result=success` is emitted on happy path and `result=error` only appears on intentional failure-path coverage.
+   - Expected trigger: trigger when chat model state applies server-provided capability defaults and reset rules.
+   - Manual Playwright-MCP check linkage: verify this exact log line during this task's Manual Playwright-MCP check when present, or during Task 22 final regression Manual Playwright-MCP check for backend/docs-only tasks.
+   - Docs: https://nodejs.org/api/console.html, Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
+   - Done when: deterministic log assertions are present and this task's expected trigger produces the exact `[DEV-0000037][T16] event=chat_model_capability_defaults_applied result=success` line.
+11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace client`
@@ -2035,7 +2163,7 @@ After Task 12 and Task 13 are complete, update chat model state plumbing to carr
 6. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
 7. [ ] `npm run compose:build`
 8. [ ] `npm run compose:up`
-9. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001` for model-switch default/reset behavior and no debug-console errors.
+9. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: execute model-switch default/reset scenarios and verify debug console includes `[DEV-0000037][T16] event=chat_model_capability_defaults_applied result=success`, includes no `[DEV-0000037][T16] ... result=error`, and has no unrelated console errors.
 10. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -2131,7 +2259,15 @@ After Task 16 is complete, switch chat flags UI and chat payload building to run
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` captures the final end-to-end reasoning-option flow implemented by this task.
 
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+10. [ ] Add deterministic structured log line `[DEV-0000037][T17] event=dynamic_reasoning_options_rendered result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
+   - Files: client implementation files already listed in this task's subtasks and matching `client/src/test/**` suites.
+   - Do: emit this exact log prefix and event name from the implementation path, then assert in tests that `result=success` is emitted on happy path and `result=error` only appears on intentional failure-path coverage.
+   - Expected trigger: trigger when reasoning-effort UI options render from runtime capability payload and request payload is validated.
+   - Manual Playwright-MCP check linkage: verify this exact log line during this task's Manual Playwright-MCP check when present, or during Task 22 final regression Manual Playwright-MCP check for backend/docs-only tasks.
+   - Docs: https://nodejs.org/api/console.html, Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
+   - Done when: deterministic log assertions are present and this task's expected trigger produces the exact `[DEV-0000037][T17] event=dynamic_reasoning_options_rendered result=success` line.
+11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace client`
@@ -2143,7 +2279,7 @@ After Task 16 is complete, switch chat flags UI and chat payload building to run
 7. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
 8. [ ] `npm run compose:build`
 9. [ ] `npm run compose:up`
-10. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001` for dynamic reasoning options and no debug-console errors.
+10. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: execute dynamic reasoning-option render + send flow and verify debug console includes `[DEV-0000037][T17] event=dynamic_reasoning_options_rendered result=success`, includes no `[DEV-0000037][T17] ... result=error`, and has no unrelated console errors.
 11. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -2242,7 +2378,15 @@ Add focused regression coverage for precedence/normalization behavior across RES
    - Docs: https://git-scm.com/docs/git-ls-files.
    - Done when: project structure documentation reflects this task's final test-file footprint.
 
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+10. [ ] Add deterministic structured log line `[DEV-0000037][T18] event=precedence_normalization_regressions_executed result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
+   - Files: regression suites and helper files listed in this task's subtasks under `server/src/test/**`.
+   - Do: emit this exact log prefix and event name from the implementation path, then assert in tests that `result=success` is emitted on happy path and `result=error` only appears on intentional failure-path coverage.
+   - Expected trigger: trigger when precedence/normalization regression suites execute across REST, flow, and MCP surfaces.
+   - Manual Playwright-MCP check linkage: verify this exact log line during this task's Manual Playwright-MCP check when present, or during Task 22 final regression Manual Playwright-MCP check for backend/docs-only tasks.
+   - Docs: https://nodejs.org/api/console.html, Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
+   - Done when: deterministic log assertions are present and this task's expected trigger produces the exact `[DEV-0000037][T18] event=precedence_normalization_regressions_executed result=success` line.
+11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -2339,7 +2483,15 @@ Add focused regression coverage for non-destructive file safety, deterministic s
    - Docs: https://git-scm.com/docs/git-ls-files.
    - Done when: `projectStructure.md` contains an accurate file-map update for this task.
 
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+9. [ ] Add deterministic structured log line `[DEV-0000037][T19] event=migration_safety_regressions_executed result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
+   - Files: regression suites and helper files listed in this task's subtasks under `server/src/test/**`.
+   - Do: emit this exact log prefix and event name from the implementation path, then assert in tests that `result=success` is emitted on happy path and `result=error` only appears on intentional failure-path coverage.
+   - Expected trigger: trigger when compatibility/safety regression suites execute and file/log safety checks pass.
+   - Manual Playwright-MCP check linkage: verify this exact log line during this task's Manual Playwright-MCP check when present, or during Task 22 final regression Manual Playwright-MCP check for backend/docs-only tasks.
+   - Docs: https://nodejs.org/api/console.html, Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
+   - Done when: deterministic log assertions are present and this task's expected trigger produces the exact `[DEV-0000037][T19] event=migration_safety_regressions_executed result=success` line.
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -2388,7 +2540,15 @@ Update architecture and contract documentation after implementation tasks above 
    - Docs: https://spec.openapis.org/oas/v3.0.3.html.
    - Done when: examples match implemented payloads and key names exactly.
 
-3. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+3. [ ] Add deterministic structured log line `[DEV-0000037][T20] event=design_documentation_synced result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
+   - Files: `design.md` and any task-local documentation validation helper updated in this task.
+   - Do: emit this exact log prefix and event name from the implementation path, then assert in tests that `result=success` is emitted on happy path and `result=error` only appears on intentional failure-path coverage.
+   - Expected trigger: trigger when `design.md` architecture/contract sections are updated to match implemented behavior.
+   - Manual Playwright-MCP check linkage: verify this exact log line during this task's Manual Playwright-MCP check when present, or during Task 22 final regression Manual Playwright-MCP check for backend/docs-only tasks.
+   - Docs: https://nodejs.org/api/console.html, Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
+   - Done when: deterministic log assertions are present and this task's expected trigger produces the exact `[DEV-0000037][T20] event=design_documentation_synced result=success` line.
+4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] Manually verify `design.md` diagrams/flows match implemented behavior.
@@ -2435,7 +2595,15 @@ Update repository file-map and compatibility alias examples after implementation
    - Docs: https://toml.io/en/v1.0.0, Context7 `/openai/codex`.
    - Done when: examples make canonical output expectations explicit.
 
-3. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+3. [ ] Add deterministic structured log line `[DEV-0000037][T21] event=project_structure_documentation_synced result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
+   - Files: `projectStructure.md` and any task-local documentation validation helper updated in this task.
+   - Do: emit this exact log prefix and event name from the implementation path, then assert in tests that `result=success` is emitted on happy path and `result=error` only appears on intentional failure-path coverage.
+   - Expected trigger: trigger when `projectStructure.md` file-map and compatibility examples are updated and validated.
+   - Manual Playwright-MCP check linkage: verify this exact log line during this task's Manual Playwright-MCP check when present, or during Task 22 final regression Manual Playwright-MCP check for backend/docs-only tasks.
+   - Docs: https://nodejs.org/api/console.html, Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
+   - Done when: deterministic log assertions are present and this task's expected trigger produces the exact `[DEV-0000037][T21] event=project_structure_documentation_synced result=success` line.
+4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] Manually verify `projectStructure.md` entries match actual repository tree for changed files.
@@ -2521,7 +2689,15 @@ Perform final shared-base config minimization as an isolated end-of-story step o
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` reflects the final post-migration architecture and expected operational state.
 
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+8. [ ] Add deterministic structured log line `[DEV-0000037][T22] event=final_config_minimization_completed result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
+   - Files: `codex/config.toml`, `codex/chat/config.toml`, migration helper files, and verification tests/scripts listed in this task.
+   - Do: emit this exact log prefix and event name from the implementation path, then assert in tests that `result=success` is emitted on happy path and `result=error` only appears on intentional failure-path coverage.
+   - Expected trigger: trigger when final config minimization succeeds after prerequisite and guard checks.
+   - Manual Playwright-MCP check linkage: verify this exact log line during this task's Manual Playwright-MCP check when present, or during Task 22 final regression Manual Playwright-MCP check for backend/docs-only tasks.
+   - Docs: https://nodejs.org/api/console.html, Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
+   - Done when: deterministic log assertions are present and this task's expected trigger produces the exact `[DEV-0000037][T22] event=final_config_minimization_completed result=success` line.
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
 1. [ ] `npm run build --workspace server`
@@ -2531,7 +2707,7 @@ Perform final shared-base config minimization as an isolated end-of-story step o
 5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001` to confirm story behavior/regressions and no debug-console errors.
+8. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: execute story regression flows and verify debug console/log stream contains `result=success` lines for `[DEV-0000037][T01]` through `[DEV-0000037][T22]` for triggered scenarios, contains no matching `result=error` lines on happy paths, and contains no unrelated console errors.
 9. [ ] `npm run compose:down`
 10. [ ] Validate minimized `./codex/config.toml` matches projects-only target shape in this story.
 11. [ ] Validate `./codex/chat/config.toml` remains present and unchanged by minimization.

@@ -472,7 +472,8 @@ Upgrade `@openai/codex-sdk` to latest stable at implementation start and lock de
 #### Testing
 
 1. [ ] `npm run build --workspace server`
-2. [ ] `npm ls @openai/codex-sdk --workspace server`
+2. [ ] `npm run test --workspace server`
+3. [ ] `npm ls @openai/codex-sdk --workspace server`
 
 #### Implementation notes
 
@@ -544,8 +545,15 @@ Remove compatibility-only widened reasoning-effort unions/casts and align code t
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run build --workspace client`
-3. [ ] `npm run build --workspace common`
-4. [ ] Run targeted server and client reasoning-effort tests and verify pass.
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run build --workspace common`
+6. [ ] Run targeted server and client reasoning-effort tests and verify pass.
+7. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+8. [ ] `npm run compose:build`
+9. [ ] `npm run compose:up`
+10. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001` to validate reasoning-effort UI behavior and confirm no debug-console errors.
+11. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -674,9 +682,10 @@ Create one server-side config resolution layer that reads shared base config, ch
 #### Testing
 
 1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test --workspace server -- agents-config-defaults`
-3. [ ] Run new config-loader/normalization unit tests directly and verify pass.
-4. [ ] Run targeted bootstrap copy/no-overwrite tests and verify deterministic outcomes.
+2. [ ] `npm run test --workspace server`
+3. [ ] `npm run test --workspace server -- agents-config-defaults`
+4. [ ] Run new config-loader/normalization unit tests directly and verify pass.
+5. [ ] Run targeted bootstrap copy/no-overwrite tests and verify deterministic outcomes.
 
 #### Implementation notes
 
@@ -838,9 +847,10 @@ Implement deterministic merge and validation behavior for runtime config resolut
 #### Testing
 
 1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test --workspace server -- agents-config-defaults`
-3. [ ] Run targeted config read/parse failure tests directly and verify deterministic error payloads/logs.
-4. [ ] Run targeted valid-config happy-path resolver tests and verify pass.
+2. [ ] `npm run test --workspace server`
+3. [ ] `npm run test --workspace server -- agents-config-defaults`
+4. [ ] Run targeted config read/parse failure tests directly and verify deterministic error payloads/logs.
+5. [ ] Run targeted valid-config happy-path resolver tests and verify pass.
 
 #### Implementation notes
 
@@ -915,8 +925,9 @@ Replace existing model-only config parsing (`readAgentModelId`) so all execution
 #### Testing
 
 1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test --workspace server -- agents-config-defaults`
-3. [ ] Run targeted regression tests proving resolver usage across agents + flows.
+2. [ ] `npm run test --workspace server`
+3. [ ] `npm run test --workspace server -- agents-config-defaults`
+4. [ ] Run targeted regression tests proving resolver usage across agents + flows.
 
 #### Implementation notes
 
@@ -1178,7 +1189,8 @@ Move Codex availability and startup checks to shared-home semantics for chat and
 #### Testing
 
 1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test --workspace server -- codex`
+2. [ ] `npm run test --workspace server`
+3. [ ] `npm run test --workspace server -- codex`
 
 #### Implementation notes
 
@@ -1255,8 +1267,9 @@ Retain existing auth seeding/propagation compatibility behavior without deleting
 #### Testing
 
 1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test --workspace server -- agents-authSeed`
-3. [ ] Run file-safety guard tests directly and verify pass.
+2. [ ] `npm run test --workspace server`
+3. [ ] `npm run test --workspace server -- agents-authSeed`
+4. [ ] Run file-safety guard tests directly and verify pass.
 
 #### Implementation notes
 
@@ -1382,8 +1395,9 @@ Implement the server-side device-auth message contract change first: request bod
 #### Testing
 
 1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test --workspace server -- codex.device-auth`
-3. [ ] Validate `/codex/device-auth` schema changes in `openapi.json`.
+2. [ ] `npm run test --workspace server`
+3. [ ] `npm run test --workspace server -- codex.device-auth`
+4. [ ] Validate `/codex/device-auth` schema changes in `openapi.json`.
 
 #### Implementation notes
 
@@ -1477,9 +1491,10 @@ Add deterministic concurrent request behavior and preserve post-success auth pro
 #### Testing
 
 1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test --workspace server -- codex.device-auth`
-3. [ ] Run targeted concurrency test(s) for `/codex/device-auth` and verify idempotent outcomes.
-4. [ ] Run shared-auth reuse integration tests across chat/agent/flow surfaces and verify no per-agent re-login is required.
+2. [ ] `npm run test --workspace server`
+3. [ ] `npm run test --workspace server -- codex.device-auth`
+4. [ ] Run targeted concurrency test(s) for `/codex/device-auth` and verify idempotent outcomes.
+5. [ ] Run shared-auth reuse integration tests across chat/agent/flow surfaces and verify no per-agent re-login is required.
 
 #### Implementation notes
 
@@ -1581,10 +1596,11 @@ Implement backend model-capability payload contract for Codex models so frontend
 #### Testing
 
 1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace common`
-3. [ ] `npm run test --workspace server -- chatModels.codex`
-4. [ ] Run targeted mixed-provider model payload tests (codex + non-codex) and verify pass.
-5. [ ] Run codex-unavailable payload contract tests and verify deterministic response shape.
+2. [ ] `npm run test --workspace server`
+3. [ ] `npm run build --workspace common`
+4. [ ] `npm run test --workspace server -- chatModels.codex`
+5. [ ] Run targeted mixed-provider model payload tests (codex + non-codex) and verify pass.
+6. [ ] Run codex-unavailable payload contract tests and verify deterministic response shape.
 
 #### Implementation notes
 
@@ -1707,11 +1723,12 @@ Replace static reasoning/model sources with one shared runtime codex capability 
 #### Testing
 
 1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test --workspace server -- chatModels.codex`
-3. [ ] Run targeted server chat-validation tests for unsupported reasoning effort and verify deterministic error contract.
-4. [ ] Run targeted parity tests for `/chat/models` and `/chat`.
-5. [ ] Run targeted fallback-capability tests and verify both accepted and rejected effort flows are deterministic.
-6. [ ] Run forward-compatibility capability tests using non-standard effort values and verify `/chat/models` + `/chat` parity.
+2. [ ] `npm run test --workspace server`
+3. [ ] `npm run test --workspace server -- chatModels.codex`
+4. [ ] Run targeted server chat-validation tests for unsupported reasoning effort and verify deterministic error contract.
+5. [ ] Run targeted parity tests for `/chat/models` and `/chat`.
+6. [ ] Run targeted fallback-capability tests and verify both accepted and rejected effort flows are deterministic.
+7. [ ] Run forward-compatibility capability tests using non-standard effort values and verify `/chat/models` + `/chat` parity.
 
 #### Implementation notes
 
@@ -1795,7 +1812,13 @@ After Task 10 is complete, update frontend API request/response types for the si
 #### Testing
 
 1. [ ] `npm run build --workspace client`
-2. [ ] `npm run test --workspace client -- codexDeviceAuthApi`
+2. [ ] `npm run test --workspace client`
+3. [ ] `npm run test --workspace client -- codexDeviceAuthApi`
+4. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+5. [ ] `npm run compose:build`
+6. [ ] `npm run compose:up`
+7. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001` for simplified device-auth request/response behavior and no debug-console errors.
+8. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1902,9 +1925,15 @@ After Task 10 and Task 14 are complete, simplify UI usage to one shared device-a
 #### Testing
 
 1. [ ] `npm run build --workspace client`
-2. [ ] `npm run test --workspace client -- codexDeviceAuthDialog`
-3. [ ] Run related ChatPage/AgentsPage codex-auth tests and verify pass.
-4. [ ] Run targeted auth-dialog error/retry tests and verify deterministic UI states.
+2. [ ] `npm run test --workspace client`
+3. [ ] `npm run test --workspace client -- codexDeviceAuthDialog`
+4. [ ] Run related ChatPage/AgentsPage codex-auth tests and verify pass.
+5. [ ] Run targeted auth-dialog error/retry tests and verify deterministic UI states.
+6. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+7. [ ] `npm run compose:build`
+8. [ ] `npm run compose:up`
+9. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001` for shared dialog behavior on ChatPage/AgentsPage and no debug-console errors.
+10. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -1999,9 +2028,15 @@ After Task 12 and Task 13 are complete, update chat model state plumbing to carr
 #### Testing
 
 1. [ ] `npm run build --workspace client`
-2. [ ] `npm run test --workspace client -- chatPage.codexDefaults`
-3. [ ] Run targeted `useChatModel` capability/default tests directly and verify pass.
-4. [ ] Run malformed-capability payload corner-case tests and verify pass.
+2. [ ] `npm run test --workspace client`
+3. [ ] `npm run test --workspace client -- chatPage.codexDefaults`
+4. [ ] Run targeted `useChatModel` capability/default tests directly and verify pass.
+5. [ ] Run malformed-capability payload corner-case tests and verify pass.
+6. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+7. [ ] `npm run compose:build`
+8. [ ] `npm run compose:up`
+9. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001` for model-switch default/reset behavior and no debug-console errors.
+10. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -2100,10 +2135,16 @@ After Task 16 is complete, switch chat flags UI and chat payload building to run
 #### Testing
 
 1. [ ] `npm run build --workspace client`
-2. [ ] `npm run test --workspace client -- chatPage.flags.reasoning`
-3. [ ] Run targeted reasoning payload tests and verify only supported values are sent.
-4. [ ] Run single-option capability-list tests and verify UI/payload behavior remains valid.
-5. [ ] Run non-standard capability-value tests and verify rendered options + payload passthrough remain deterministic.
+2. [ ] `npm run test --workspace client`
+3. [ ] `npm run test --workspace client -- chatPage.flags.reasoning`
+4. [ ] Run targeted reasoning payload tests and verify only supported values are sent.
+5. [ ] Run single-option capability-list tests and verify UI/payload behavior remains valid.
+6. [ ] Run non-standard capability-value tests and verify rendered options + payload passthrough remain deterministic.
+7. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+8. [ ] `npm run compose:build`
+9. [ ] `npm run compose:up`
+10. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001` for dynamic reasoning options and no debug-console errors.
+11. [ ] `npm run compose:down`
 
 #### Implementation notes
 
@@ -2483,13 +2524,20 @@ Perform final shared-base config minimization as an isolated end-of-story step o
 8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-1. [ ] Validate minimized `./codex/config.toml` matches projects-only target shape in this story.
-2. [ ] Validate `./codex/chat/config.toml` remains present and unchanged by minimization.
-3. [ ] Verify filesystem checks for `codex_agents/*/auth.json` presence pass.
-4. [ ] Simulate missing chat config precondition and verify minimization step abort behavior is deterministic and non-destructive.
-5. [ ] Verify final implementation notes include both required operational warnings:
-   - `code_info`-dependent checks were completed before minimization;
-   - `code_info` MCP is expected to be unavailable after minimization in this running instance.
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001` to confirm story behavior/regressions and no debug-console errors.
+9. [ ] `npm run compose:down`
+10. [ ] Validate minimized `./codex/config.toml` matches projects-only target shape in this story.
+11. [ ] Validate `./codex/chat/config.toml` remains present and unchanged by minimization.
+12. [ ] Verify filesystem checks for `codex_agents/*/auth.json` presence pass.
+13. [ ] Simulate missing chat config precondition and verify minimization step abort behavior is deterministic and non-destructive.
+14. [ ] Verify final implementation notes include both required operational warnings: `code_info`-dependent checks were completed before minimization, and `code_info` MCP is expected to be unavailable after minimization in this running instance.
 
 #### Implementation notes
 

@@ -1485,7 +1485,7 @@ Retain existing auth seeding/propagation compatibility behavior without deleting
 ### 10. Server Message Contract: Simplify `POST /codex/device-auth` to single request shape
 
 - Task Status: **__done__**
-- Git Commits: `None yet`
+- Git Commits: `21d981e`
 
 #### Overview
 

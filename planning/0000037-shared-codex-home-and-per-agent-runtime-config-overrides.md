@@ -1180,7 +1180,7 @@ Apply runtime config overrides to chat and primary REST agent execution surfaces
 ### 7. Server: Wire runtime config overrides into flow and MCP execution paths
 
 - Task Status: **__done__**
-- Git Commits: `None yet`
+- Git Commits: `a38b768`
 
 #### Overview
 

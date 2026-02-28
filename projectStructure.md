@@ -678,6 +678,11 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 - client/src/test/useConversationTurns.commandMetadata.test.ts — unit coverage that turns preserve optional `command` metadata for UI rendering
 - client/src/test/chatPage.inflightNavigate.test.tsx — RTL coverage that navigating away/back during inflight keeps full history + inflight text
 - e2e/support/mockChatWs.ts — Playwright `routeWebSocket` helper for mocking chat WS protocol in end-to-end tests
+
+- Task 0000037-T3 file add/remove ledger:
+  - Added: `server/src/config/runtimeConfig.ts` — centralized runtime TOML loader/normalizer/bootstrap resolver for base/chat/agent config.
+  - Added: `server/src/test/unit/runtimeConfig.test.ts` — unit coverage for alias normalization, bootstrap copy/no-overwrite/no-base behavior, and deterministic T03 logs.
+  - Removed: none.
 - e2e/agents.spec.ts — e2e coverage for Agents raw outbound payload preservation, whitespace-only submit blocking, and hydrated markdown parity/fallback behavior
 - e2e/chat-ws-logs.spec.ts — e2e asserting Logs UI shows client-forwarded chat WS log lines after mocked transcript events
 - Task 0000036-T8 file-map update — no file paths were added/removed; existing files updated in place: `server/src/routes/ingestModels.ts`, `server/src/test/unit/ingest-models.test.ts`, `server/src/test/features/ingest-models.feature`, `server/src/test/steps/ingest-models.steps.ts`, `server/src/ingest/providers/index.ts`, and `design.md`.

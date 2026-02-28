@@ -319,6 +319,58 @@ flowchart LR
 
 ## MCP keepalive lifecycle (shared helper)
 
+## Shared runtime config loader/bootstrap normalization (Story 0000037 Task 3)
+
+- Added `server/src/config/runtimeConfig.ts` as the canonical read path for Codex runtime TOML across:
+  - shared base config: `./codex/config.toml`
+  - chat runtime config: `./codex/chat/config.toml`
+  - agent runtime config: `codex_agents/<agent>/config.toml` (resolved via `discoverAgents` metadata when `agentName` is provided)
+- Read-time normalization is deterministic and canonical-output only:
+  - `features.view_image_tool` is accepted as legacy input alias and normalized to `tools.view_image`
+  - `features.web_search_request` (and top-level `web_search_request`) are accepted as input aliases and normalized to top-level `web_search` mode
+  - canonical keys (`tools.view_image`, `web_search`) win if both canonical and alias keys are present
+- Chat runtime bootstrap is copy-once and non-destructive:
+  - if `./codex/chat/config.toml` is missing and `./codex/config.toml` exists, copy base to chat once
+  - existing chat config is never overwritten
+  - no copy occurs when base config is missing
+- Deterministic Task 3 logging is emitted from resolver load:
+  - success: `[DEV-0000037][T03] event=runtime_config_loaded_and_normalized result=success`
+  - error: `[DEV-0000037][T03] event=runtime_config_loaded_and_normalized result=error ...`
+
+```mermaid
+flowchart TD
+  A[loadRuntimeConfigSnapshot] --> B[Resolve CODEX_HOME via resolveCodexHome]
+  B --> C{bootstrapChatConfig enabled?}
+  C -- yes --> D[ensureChatRuntimeConfigBootstrapped]
+  D --> E{chat missing and base exists?}
+  E -- yes --> F[copy base config -> chat config once]
+  E -- no --> G[skip copy/no-overwrite]
+  C -- no --> H[skip bootstrap]
+  F --> I[Read + parse base/chat/agent TOML]
+  G --> I
+  H --> I
+  I --> J[normalize legacy aliases to canonical keys]
+  J --> K[emit T03 success log and return snapshot]
+  I --> L[emit T03 error log and throw on read/parse failure]
+```
+
+```mermaid
+sequenceDiagram
+  participant Caller as Server caller
+  participant Resolver as runtimeConfig.ts
+  participant FS as Filesystem
+  participant Norm as Normalizer
+  Caller->>Resolver: loadRuntimeConfigSnapshot({ agentName|agentConfigPath })
+  Resolver->>FS: ensure chat config bootstrap (copy-once)
+  FS-->>Resolver: copied | skipped
+  Resolver->>FS: read base/chat/agent TOML
+  FS-->>Resolver: file contents / ENOENT / parse data
+  Resolver->>Norm: normalize aliases (view_image, web_search)
+  Norm-->>Resolver: canonical config objects
+  Resolver-->>Caller: RuntimeConfigSnapshot + T03 success log
+  Note over Resolver,Caller: Any read/parse failure emits deterministic T03 error log and rethrows
+```
+
 - MCP keepalive lifecycle is centralized in `server/src/mcpCommon/keepAlive.ts` and reused by classic `POST /mcp`, MCP v2 (`server/src/mcp2/router.ts`), and Agents MCP (`server/src/mcpAgents/router.ts`).
 - Keepalive is scoped to long-running `tools/call` only. Non-tool requests (`initialize`, `tools/list`, parse/invalid request) return normal JSON-RPC payloads without keepalive preamble bytes.
 - Helper behavior is deterministic: `start` writes initial whitespace and heartbeat whitespace bytes, then `stop` clears timers on `sendJson`, response `finish`/`close`, or write failure to avoid write-after-close errors.

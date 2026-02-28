@@ -602,7 +602,7 @@ Remove compatibility-only widened reasoning-effort unions/casts and align code t
 
 ### 3. Server: Implement canonical runtime config loading, bootstrap, and normalization layer
 
-- Task Status: **__todo__**
+- Task Status: **__done__**
 - Git Commits: `None yet`
 
 #### Overview
@@ -620,37 +620,37 @@ Create one server-side config resolution layer that reads shared base config, ch
 
 #### Subtasks
 
-1. [ ] Add/extend config loader module(s) to read `./codex/config.toml`, `./codex/chat/config.toml`, and `codex_agents/<agent>/config.toml`.
+1. [x] Add/extend config loader module(s) to read `./codex/config.toml`, `./codex/chat/config.toml`, and `codex_agents/<agent>/config.toml`.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `server/src/config/codexConfig.ts`, `server/src/agents/config.ts` (or shared resolver file), plus new helper module if needed under `server/src/config`.
    - Do: centralize file reads in one resolver API used by all callers.
    - Docs: https://toml.io/en/v1.0.0, https://nodejs.org/api/fs.html.
    - Done when: one resolver can return base/chat/agent parsed config objects.
-2. [ ] Add explicit TOML parser dependency and parse helper before resolver rollout.
+2. [x] Add explicit TOML parser dependency and parse helper before resolver rollout.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `server/package.json`, `server/src/agents/config.ts` (or shared parser helper under `server/src/config`).
    - Do: add a stable TOML parser dependency (`toml`) and parse via one helper that returns deterministic parse errors (remove regex-only parsing assumptions).
    - Docs: https://www.npmjs.com/package/toml, https://toml.io/en/v1.0.0.
    - Done when: resolver and services no longer depend on line/regex parsing for runtime config keys.
-3. [ ] Reuse existing codex/agent path resolution helpers (`getCodexHome`, `getCodexConfigPathForHome`, `discoverAgents` agent `home/configPath`) instead of introducing new path-discovery logic.
+3. [x] Reuse existing codex/agent path resolution helpers (`getCodexHome`, `getCodexConfigPathForHome`, `discoverAgents` agent `home/configPath`) instead of introducing new path-discovery logic.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `server/src/config/codexConfig.ts`, `server/src/agents/discovery.ts` (or existing helper locations).
    - Do: import and reuse existing helpers; remove duplicate path derivation code.
    - Docs: https://nodejs.org/api/path.html, https://nodejs.org/api/fs.html, Context7 `/openai/codex`.
    - Done when: no duplicate path-walk logic exists for these config locations.
-4. [ ] Add chat runtime config bootstrap behavior.
+4. [x] Add chat runtime config bootstrap behavior.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: resolver/loader module from Subtask 1.
    - Do: if `./codex/chat/config.toml` missing and `./codex/config.toml` exists, copy once; never overwrite existing chat config.
    - Docs: https://nodejs.org/api/fs.html#fspromisescopyfilesrc-dest-mode.
    - Done when: first run creates chat config once and subsequent runs preserve it.
-5. [ ] Implement canonical normalization rules at read time.
+5. [x] Implement canonical normalization rules at read time.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: normalization helper in `server/src/agents/config.ts` or dedicated normalizer module.
    - Do: map `features.view_image_tool -> tools.view_image`; accept `features.web_search_request` as input alias only; normalize legacy web-search keys to top-level `web_search`; canonical key wins on conflict.
    - Docs: Context7 `/openai/codex`, https://toml.io/en/v1.0.0.
    - Done when: normalized output always emits canonical keys only.
-6. [ ] Add normalization unit test for legacy `features.view_image_tool` alias mapping.
+6. [x] Add normalization unit test for legacy `features.view_image_tool` alias mapping.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `server/src/test/**` config normalization suites.
@@ -658,7 +658,7 @@ Create one server-side config resolution layer that reads shared base config, ch
    - Purpose: preserve deterministic legacy-key compatibility behavior.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if canonical output is not produced.
-7. [ ] Add normalization unit test for legacy web-search alias mapping.
+7. [x] Add normalization unit test for legacy web-search alias mapping.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `server/src/test/**` config normalization suites.
@@ -666,7 +666,7 @@ Create one server-side config resolution layer that reads shared base config, ch
    - Purpose: prevent mixed legacy/canonical key behavior.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if canonical `web_search` is missing.
-8. [ ] Add normalization collision unit test for canonical-wins precedence.
+8. [x] Add normalization collision unit test for canonical-wins precedence.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `server/src/test/**` config normalization suites.
@@ -674,7 +674,7 @@ Create one server-side config resolution layer that reads shared base config, ch
    - Purpose: enforce deterministic precedence for conflicting inputs.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if alias value overrides canonical value.
-9. [ ] Add bootstrap unit test for copy-once chat-config creation.
+9. [x] Add bootstrap unit test for copy-once chat-config creation.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `server/src/test/**` config bootstrap suites.
@@ -682,7 +682,7 @@ Create one server-side config resolution layer that reads shared base config, ch
    - Purpose: verify migration-safe bootstrap happy path.
    - Docs: https://nodejs.org/api/fs.html#fspromisescopyfilesrc-dest-mode.
    - Done when: test fails if initial copy does not occur.
-10. [ ] Add bootstrap unit test for no-overwrite behavior.
+10. [x] Add bootstrap unit test for no-overwrite behavior.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `server/src/test/**` config bootstrap suites.
@@ -690,7 +690,7 @@ Create one server-side config resolution layer that reads shared base config, ch
    - Purpose: protect previously migrated/customized chat runtime config.
    - Docs: https://nodejs.org/api/fs.html#fspromisescopyfilesrc-dest-mode.
    - Done when: test fails if existing chat config contents are mutated.
-11. [ ] Add bootstrap unit test for missing-base no-copy behavior.
+11. [x] Add bootstrap unit test for missing-base no-copy behavior.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `server/src/test/**` config bootstrap suites.
@@ -698,7 +698,7 @@ Create one server-side config resolution layer that reads shared base config, ch
    - Purpose: guarantee non-destructive behavior in partial/missing source state.
    - Docs: https://nodejs.org/api/fs.html#fspromisescopyfilesrc-dest-mode.
    - Done when: test fails if files are created/changed without base input.
-12. [ ] Update `projectStructure.md` for any files added or removed in this task, after all file-add/remove subtasks are completed.
+12. [x] Update `projectStructure.md` for any files added or removed in this task, after all file-add/remove subtasks are completed.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `projectStructure.md`.
    - Document name: `projectStructure.md`.
@@ -708,7 +708,7 @@ Create one server-side config resolution layer that reads shared base config, ch
    - Do: list every file added and removed by this task (including resolver/normalizer modules, test files, and any deleted/renamed paths), not just representative examples.
    - Docs: https://git-scm.com/docs/git-ls-files.
    - Done when: `projectStructure.md` contains a complete added/removed file list for this task with no omissions.
-13. [ ] Update `design.md` with the runtime config loader/bootstrap/normalization architecture and Mermaid diagrams after all architecture-flow subtasks are complete.
+13. [x] Update `design.md` with the runtime config loader/bootstrap/normalization architecture and Mermaid diagrams after all architecture-flow subtasks are complete.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `design.md`.
    - Document name: `design.md`.
@@ -719,7 +719,7 @@ Create one server-side config resolution layer that reads shared base config, ch
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` diagrams and descriptions match final implementation in this task.
 
-14. [ ] Add deterministic structured log line `[DEV-0000037][T03] event=runtime_config_loaded_and_normalized result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
+14. [x] Add deterministic structured log line `[DEV-0000037][T03] event=runtime_config_loaded_and_normalized result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: server implementation files already listed in this task's subtasks and matching `server/src/test/**` suites.
    - Do: emit this exact log prefix and event name from the implementation path, then assert in tests that `result=success` is emitted on happy path and `result=error` only appears on intentional failure-path coverage.
@@ -727,18 +727,37 @@ Create one server-side config resolution layer that reads shared base config, ch
    - Manual Playwright-MCP check linkage: verify this exact log line during this task's Manual Playwright-MCP check when present, or during Task 22 final regression Manual Playwright-MCP check for backend/docs-only tasks.
    - Docs: https://nodejs.org/api/console.html, Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: deterministic log assertions are present and this task's expected trigger produces the exact `[DEV-0000037][T03] event=runtime_config_loaded_and_normalized result=success` line.
-15. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+15. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test --workspace server`
-3. [ ] `npm run test --workspace server -- agents-config-defaults`
-4. [ ] Run new config-loader/normalization unit tests directly and verify pass.
-5. [ ] Run targeted bootstrap copy/no-overwrite tests and verify deterministic outcomes.
+1. [x] `npm run build --workspace server`
+2. [x] `npm run test --workspace server`
+3. [x] `npm run test --workspace server -- agents-config-defaults`
+4. [x] Run new config-loader/normalization unit tests directly and verify pass.
+5. [x] Run targeted bootstrap copy/no-overwrite tests and verify deterministic outcomes.
 
 #### Implementation Notes
 
-- None yet.
+- 2026-02-28: Subtask 1 complete. Added centralized runtime resolver in `server/src/config/runtimeConfig.ts` that loads base/chat/agent config TOML into one snapshot API.
+- 2026-02-28: Subtask 2 complete. Added `toml@3.0.0` dependency and switched parser flow to deterministic TOML parse/read errors instead of line-regex parsing.
+- 2026-02-28: Subtask 3 complete. Reused existing codex/agent path helpers (`resolveCodexHome`, `getCodexConfigPathForHome`, `discoverAgents`) for runtime path resolution.
+- 2026-02-28: Subtask 4 complete. Implemented copy-once bootstrap for `./codex/chat/config.toml` from base config with explicit no-overwrite semantics.
+- 2026-02-28: Subtask 5 complete. Added canonical normalization for `features.view_image_tool` and web-search aliases with canonical-key precedence.
+- 2026-02-28: Subtask 6 complete. Added unit coverage asserting legacy `features.view_image_tool` normalizes to `tools.view_image`.
+- 2026-02-28: Subtask 7 complete. Added unit coverage asserting legacy web-search alias normalization to canonical top-level `web_search`.
+- 2026-02-28: Subtask 8 complete. Added unit coverage that canonical keys win over legacy aliases on collisions.
+- 2026-02-28: Subtask 9 complete. Added bootstrap test proving missing chat config is copied once from base config.
+- 2026-02-28: Subtask 10 complete. Added bootstrap test proving existing chat config is never overwritten.
+- 2026-02-28: Subtask 11 complete. Added bootstrap test proving no chat config is created when base config is missing.
+- 2026-02-28: Subtask 12 complete. Updated `projectStructure.md` with an explicit Task 0000037-T3 added/removed file ledger (including both newly added files).
+- 2026-02-28: Subtask 13 complete. Updated `design.md` with Task 3 runtime config loader/bootstrap/normalization narrative plus Mermaid flowchart and sequence diagrams.
+- 2026-02-28: Subtask 14 complete. Added deterministic T03 success/error log emission in runtime resolver and test assertions for both paths.
+- 2026-02-28: Testing 1 complete. `npm run build --workspace server` passed (`tsc -b`).
+- 2026-02-28: Testing 2 complete. `npm run test --workspace server` passed (unit summary: `tests 761, pass 761`; integration summary: `67 scenarios, 402 steps, all passed`).
+- 2026-02-28: Testing 3 complete. Executed `npm run test --workspace server -- agents-config-defaults` (workspace script re-runs the full server suite), and confirmed focused `agents-config-defaults` coverage via direct unit invocation (`2/2` passed).
+- 2026-02-28: Testing 4 complete. Ran `node --test server/dist/test/unit/runtimeConfig.test.js`; runtime config loader/normalization suite passed (`9/9`).
+- 2026-02-28: Testing 5 complete. Ran `node --test --test-name-pattern "runtimeConfig bootstrap" server/dist/test/unit/runtimeConfig.test.js`; bootstrap copy/no-overwrite/no-base checks passed (`3/3`).
+- 2026-02-28: Subtask 15 complete. `npm run lint --workspaces` passed with existing repo import-order warnings only; `npm run format:check --workspaces` initially failed on two Task 3 files, then passed after `npm run format --workspace server`.
 
 ### 4. Server: Implement runtime config merge precedence, validation policy, and deterministic failure behavior
 

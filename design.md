@@ -3312,3 +3312,41 @@ flowchart TD
   E --> F[Emit T13 success log]
   D --> G[Emit T13 error log when metadata resolution fails]
 ```
+
+## Story 0000037 Task 14: frontend consumption of simplified device-auth API contract
+
+- Client-side device-auth API consumption now assumes one strict request/response contract:
+  - request body: `{}`
+  - success (`200`): `{ status: 'ok', rawOutput: string }`
+  - invalid request (`400`): `{ error: 'invalid_request', message: string }`
+  - unavailable (`503`): `{ error: 'codex_unavailable', reason: string }`
+- Target-specific client response handling was removed from the API helper path, and request serialization remains strict even when legacy UI target controls are still visible.
+- Deterministic Task 14 client log markers are emitted from API consumption:
+  - `[DEV-0000037][T14] event=client_device_auth_contract_consumed result=success`
+  - `[DEV-0000037][T14] event=client_device_auth_contract_consumed result=error`
+
+```mermaid
+sequenceDiagram
+  participant UI as DeviceAuthDialog
+  participant API as postCodexDeviceAuth
+  participant Route as POST /codex/device-auth
+
+  UI->>API: call with {}
+  API->>Route: POST {} (application/json)
+  Route-->>API: 200 {status:"ok", rawOutput}
+  API-->>UI: success {status:"ok", rawOutput}
+  API->>API: emit T14 success log
+```
+
+```mermaid
+flowchart TD
+  A[postCodexDeviceAuth] --> B[POST {}]
+  B --> C{HTTP ok?}
+  C -->|Yes| D{status == 'ok' and rawOutput is non-empty string?}
+  D -->|Yes| E[Return success payload]
+  D -->|No| F[Throw invalid success shape error + T14 error log]
+  C -->|No| G[Parse error payload]
+  G --> H[Prefer message then reason fallback]
+  H --> I[Throw CodexDeviceAuthApiError + T14 error log]
+  E --> J[T14 success log]
+```

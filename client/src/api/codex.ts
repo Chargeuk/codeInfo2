@@ -1,5 +1,6 @@
 import type {
   CodexDeviceAuthRequest,
+  CodexDeviceAuthResponse as SharedCodexDeviceAuthResponse,
   CodexDeviceAuthSuccessResponse,
 } from '@codeinfo2/common';
 
@@ -69,6 +70,10 @@ async function parseCodexDeviceAuthErrorResponse(res: Response): Promise<{
 
 const serverBase = getApiBaseUrl();
 const log = createLogger('codex-device-auth-api');
+const T14_SUCCESS_LOG =
+  '[DEV-0000037][T14] event=client_device_auth_contract_consumed result=success';
+const T14_ERROR_LOG =
+  '[DEV-0000037][T14] event=client_device_auth_contract_consumed result=error';
 
 async function throwCodexDeviceAuthError(
   res: Response,
@@ -81,6 +86,10 @@ async function throwCodexDeviceAuthError(
     `${baseMessage}${parsed.text ? `: ${parsed.text}` : ''}`;
 
   log('error', 'DEV-0000031:T5:codex_device_auth_api_error', {
+    status: res.status,
+    error: parsed.error ?? parsed.reason ?? parsed.message ?? baseMessage,
+  });
+  log('error', T14_ERROR_LOG, {
     status: res.status,
     error: parsed.error ?? parsed.reason ?? parsed.message ?? baseMessage,
   });
@@ -119,15 +128,32 @@ export async function postCodexDeviceAuth(
   });
 
   const data = (await res.json()) as Record<string, unknown>;
-  const status = typeof data.status === 'string' ? data.status : '';
-  const rawOutput = typeof data.rawOutput === 'string' ? data.rawOutput : '';
+  const status = data.status;
+  const rawOutput = data.rawOutput;
 
-  if (status !== 'ok' || !rawOutput) {
+  if (
+    status !== 'ok' ||
+    typeof rawOutput !== 'string' ||
+    rawOutput.length < 1
+  ) {
+    log('error', T14_ERROR_LOG, {
+      status: res.status,
+      error: 'invalid_success_response_shape',
+    });
     throw new Error('Invalid codex device auth response');
   }
 
-  return {
+  log('info', T14_SUCCESS_LOG, {
+    status: res.status,
+    responseStatus: status,
+  });
+
+  const response: SharedCodexDeviceAuthResponse = {
     status: 'ok',
     rawOutput,
+  };
+  return {
+    status: response.status,
+    rawOutput: response.rawOutput,
   };
 }

@@ -2034,7 +2034,7 @@ Replace static reasoning/model sources with one shared runtime codex capability 
 
 ### 14. Frontend: Consume simplified device-auth API contract
 
-- Task Status: **__in_progress__**
+- Task Status: **__done__**
 - Git Commits: `None yet`
 
 #### Overview
@@ -2057,13 +2057,13 @@ After Task 10 is complete, update frontend API request/response types for the si
    - Do: remove target/agent parameters and always post empty object.
    - Docs: https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API, https://spec.openapis.org/oas/v3.0.3.html.
    - Done when: request body is always `{}`.
-2. [ ] Update response typing/parsing to match new backend response shape (remove target-specific fields from success type).
+2. [x] Update response typing/parsing to match new backend response shape (remove target-specific fields from success type).
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `client/src/api/codex.ts`, shared type imports from `common/src`.
    - Do: parse success `{ status, rawOutput }` and error unions `{ error, ... }`.
    - Docs: TypeScript union docs.
    - Done when: no client type references response `target`/`agentName`.
-3. [ ] Add frontend API unit test for strict `{}` request payload serialization.
+3. [x] Add frontend API unit test for strict `{}` request payload serialization.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `client/src/test/**` codex API helper suites.
@@ -2071,7 +2071,7 @@ After Task 10 is complete, update frontend API request/response types for the si
    - Purpose: enforce strict request contract on client side.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/asynchronous.
    - Done when: test fails if request body includes target/agent fields.
-4. [ ] Add frontend API unit test for `200` success response parsing.
+4. [x] Add frontend API unit test for `200` success response parsing.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `client/src/test/**` codex API helper suites.
@@ -2079,7 +2079,7 @@ After Task 10 is complete, update frontend API request/response types for the si
    - Purpose: ensure happy-path response contract handling remains correct.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if success payload parsing drifts.
-5. [ ] Add frontend API unit test for `400 invalid_request` response parsing.
+5. [x] Add frontend API unit test for `400 invalid_request` response parsing.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `client/src/test/**` codex API helper suites.
@@ -2087,7 +2087,7 @@ After Task 10 is complete, update frontend API request/response types for the si
    - Purpose: guarantee deterministic client handling of request-shape errors.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if `400` parsing loses error details.
-6. [ ] Add frontend API unit test for `503 codex_unavailable` response parsing.
+6. [x] Add frontend API unit test for `503 codex_unavailable` response parsing.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Unit.
    - Test location: `client/src/test/**` codex API helper suites.
@@ -2095,7 +2095,7 @@ After Task 10 is complete, update frontend API request/response types for the si
    - Purpose: guarantee deterministic unavailable-path handling in client API layer.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if `503` parsing is inconsistent.
-7. [ ] Update `design.md` with frontend device-auth API consumption flow and Mermaid diagrams after all architecture-flow subtasks are complete.
+7. [x] Update `design.md` with frontend device-auth API consumption flow and Mermaid diagrams after all architecture-flow subtasks are complete.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `design.md`.
    - Document name: `design.md`.
@@ -2106,7 +2106,7 @@ After Task 10 is complete, update frontend API request/response types for the si
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` reflects final frontend API consumption flow and error-state handling from this task.
 
-8. [ ] Add deterministic structured log line `[DEV-0000037][T14] event=client_device_auth_contract_consumed result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
+8. [x] Add deterministic structured log line `[DEV-0000037][T14] event=client_device_auth_contract_consumed result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: client implementation files already listed in this task's subtasks and matching `client/src/test/**` suites.
    - Do: emit this exact log prefix and event name from the implementation path, then assert in tests that `result=success` is emitted on happy path and `result=error` only appears on intentional failure-path coverage.
@@ -2114,20 +2114,32 @@ After Task 10 is complete, update frontend API request/response types for the si
    - Manual Playwright-MCP check linkage: verify this exact log line during this task's Manual Playwright-MCP check when present, or during Task 22 final regression Manual Playwright-MCP check for backend/docs-only tasks.
    - Docs: https://nodejs.org/api/console.html, Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: deterministic log assertions are present and this task's expected trigger produces the exact `[DEV-0000037][T14] event=client_device_auth_contract_consumed result=success` line.
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+9. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-1. [ ] `npm run build --workspace client`
-2. [ ] `npm run test --workspace client`
-3. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
-4. [ ] `npm run compose:build`
-5. [ ] `npm run compose:up`
-6. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: execute device-auth flow, capture screenshot `task-14-device-auth-contract.png`, and store it in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped by `docker-compose.local.yml`); verify the agent reviews the screenshot against this task's UI expectations (single shared auth request path and deterministic UI state), debug console includes `[DEV-0000037][T14] event=client_device_auth_contract_consumed result=success`, includes no `[DEV-0000037][T14] ... result=error`, and has no unrelated console errors.
-7. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace client`
+2. [x] `npm run test --workspace client`
+3. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+4. [x] `npm run compose:build`
+5. [x] `npm run compose:up`
+6. [x] Manual Playwright-MCP check at `http://host.docker.internal:5001`: execute device-auth flow, capture screenshot `task-14-device-auth-contract.png`, and store it in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped by `docker-compose.local.yml`); verify the agent reviews the screenshot against this task's UI expectations (single shared auth request path and deterministic UI state), debug console includes `[DEV-0000037][T14] event=client_device_auth_contract_consumed result=success`, includes no `[DEV-0000037][T14] ... result=error`, and has no unrelated console errors.
+7. [x] `npm run compose:down`
 
 #### Implementation Notes
 
 - 2026-02-28: Subtask 1 complete from existing implementation evidence in `client/src/api/codex.ts` (introduced in `21d981e`): `postCodexDeviceAuth` posts `JSON.stringify({})` and ignores caller-provided target fields.
+- 2026-02-28: Subtask 2 complete. Updated `client/src/api/codex.ts` parsing/typing around strict `{ status: 'ok', rawOutput }` success shape and removed target-specific response assumptions from active client call sites.
+- 2026-02-28: Subtasks 3-6 complete. Rewrote `client/src/test/codexDeviceAuthApi.test.ts` to assert strict `{}` request serialization and deterministic parsing for 200/400/503 response contracts.
+- 2026-02-28: Subtask 8 complete. Added exact T14 success/error structured log emission in `client/src/api/codex.ts` and corresponding assertions in the codex API helper test suite.
+- 2026-02-28: Subtask 7 complete. Updated `design.md` with Task 14 frontend API contract flow details and Mermaid diagrams for strict `{}` request handling plus deterministic success/error parsing paths.
+- 2026-02-28: Subtask 9 complete. Ran `npm run lint --workspaces` (passed with existing baseline import-order warnings) and `npm run format:check --workspaces`; applied `npm run format --workspace client` + `npm run format --workspace server` before re-running format check successfully.
+- 2026-02-28: Testing 1 complete. `npm run build --workspace client` succeeded (`vite build`).
+- 2026-02-28: Testing 2 complete. `npm run test --workspace client` passed (`92` suites, `367` tests, all green).
+- 2026-02-28: Testing 3 complete. `npm run e2e` passed (`39` passed, `3` skipped) and completed compose e2e up/test/down lifecycle.
+- 2026-02-28: Testing 4 complete. `npm run compose:build` succeeded for local stack images (`codeinfo2-server`, `codeinfo2-client`).
+- 2026-02-28: Testing 5 complete. `npm run compose:up` succeeded and local stack services reached healthy startup.
+- 2026-02-28: Testing 6 complete. Manual Playwright-MCP run at `http://host.docker.internal:5001/chat` executed device-auth flow and saved screenshot to `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local/task-14-device-auth-contract.png`; console contained `[DEV-0000037][T14] event=client_device_auth_contract_consumed result=success`, contained no `[DEV-0000037][T14] ... result=error`, and `browser_console_messages(level=error)` returned no entries.
+- 2026-02-28: Testing 7 complete. `npm run compose:down` stopped and removed local stack containers/network cleanly.
 
 ### 15. Frontend: Remove device-auth target selector UX and wire one shared auth dialog flow
 

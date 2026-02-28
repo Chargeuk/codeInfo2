@@ -73,8 +73,7 @@ describe('CodexDeviceAuthDialog', () => {
   it('renders raw output with linkified URLs on success', async () => {
     const user = userEvent.setup();
     postCodexDeviceAuth.mockResolvedValue({
-      status: 'completed',
-      target: 'chat',
+      status: 'ok',
       rawOutput: 'Open https://example.com/device and enter code ABCD-EFGH.',
     });
 
@@ -99,8 +98,7 @@ describe('CodexDeviceAuthDialog', () => {
   it('renders raw output inside a read-only block', async () => {
     const user = userEvent.setup();
     postCodexDeviceAuth.mockResolvedValue({
-      status: 'completed',
-      target: 'chat',
+      status: 'ok',
       rawOutput: 'Open https://example.com/device and enter code ABCD-EFGH.',
     });
 
@@ -151,12 +149,10 @@ describe('CodexDeviceAuthDialog', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it('sends selected agent target in the request payload', async () => {
+  it('sends strict empty request payload regardless of selected target UI', async () => {
     const user = userEvent.setup();
     postCodexDeviceAuth.mockResolvedValue({
-      status: 'completed',
-      target: 'agent',
-      agentName: 'alpha',
+      status: 'ok',
       rawOutput: 'Open https://example.com/device and enter code ABCD-EFGH.',
     });
 
@@ -169,11 +165,6 @@ describe('CodexDeviceAuthDialog', () => {
       screen.getByRole('button', { name: /start device auth/i }),
     );
 
-    await waitFor(() =>
-      expect(postCodexDeviceAuth).toHaveBeenCalledWith({
-        target: 'agent',
-        agentName: 'alpha',
-      }),
-    );
+    await waitFor(() => expect(postCodexDeviceAuth).toHaveBeenCalledWith({}));
   });
 });

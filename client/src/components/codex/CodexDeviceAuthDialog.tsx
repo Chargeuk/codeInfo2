@@ -21,11 +21,7 @@ import {
   useRef,
   useState,
 } from 'react';
-import {
-  CodexDeviceAuthResponse,
-  CodexDeviceAuthTarget,
-  postCodexDeviceAuth,
-} from '../../api/codex';
+import { CodexDeviceAuthResponse, postCodexDeviceAuth } from '../../api/codex';
 import { createLogger } from '../../logging/logger';
 
 export type CodexDeviceAuthDialogTarget =
@@ -47,7 +43,7 @@ export type CodexDeviceAuthDialogProps = {
 type TargetOption = {
   value: string;
   label: string;
-  target: CodexDeviceAuthTarget;
+  target: 'chat' | 'agent';
   agentName?: string;
 };
 
@@ -168,17 +164,13 @@ export default function CodexDeviceAuthDialog({
     setErrorMessage(undefined);
     setResult(undefined);
 
-    const parsed = parseTargetValue(selectedTarget);
     try {
-      const response = await postCodexDeviceAuth({
-        target: parsed.target,
-        ...(parsed.target === 'agent' && parsed.agentName
-          ? { agentName: parsed.agentName }
-          : {}),
-      });
+      const parsed = parseTargetValue(selectedTarget);
+      const response = await postCodexDeviceAuth({});
       setResult(response);
       log('info', 'DEV-0000031:T6:codex_device_auth_dialog_success', {
-        target: response.target,
+        selectedTarget: parsed.target,
+        selectedAgentName: parsed.agentName,
       });
       onSuccess?.(response);
     } catch (error) {

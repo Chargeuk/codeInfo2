@@ -3030,3 +3030,112 @@ Perform final shared-base config minimization as an isolated end-of-story step o
 - 2026-02-28: Testing 4 complete. Verified auth-file presence check passes for `codex_agents/coding_agent/auth.json`, `codex_agents/planning_agent/auth.json`, and `codex_agents/tasking_agent/auth.json`.
 - 2026-02-28: Testing 5 complete. Simulated missing-chat-config guard via targeted unit run (`npx cross-env ... node --test src/test/unit/runtimeConfig.test.ts`) and confirmed `aborts minimization without mutation when chat config is missing` passed with deterministic T22 error logging.
 - 2026-02-28: Testing 6 complete. Verified final Task 22 Implementation Notes include both operational warnings: pre-minimization `code_info`-dependent checks completed and post-minimization `code_info` unavailability expectation.
+
+### 23. Post-implementation review fix: restore `codex_agents/*` file-set parity with `main`
+
+- Task Status: **__todo__**
+- Git Commits: `None yet`
+
+#### Overview
+
+Resolve post-review acceptance drift where branch changes removed files under `codex_agents/*`, which violates the story rule that no migration step may delete/move/rename files in that tree.
+
+#### Documentation Locations
+
+- Story acceptance criteria in this plan (`No migration step in this story deletes, moves, or renames files under codex_agents/*`).
+- Git diff tooling reference: https://git-scm.com/docs/git-diff (used to prove parity against `main` for `codex_agents/*` paths).
+- Git restore reference: https://git-scm.com/docs/git-restore (used to restore any deleted/moved story-regression files under `codex_agents/*`).
+
+#### Subtasks
+
+1. [ ] Audit `main...HEAD` for `codex_agents/*` path changes and list all delete/move/rename regressions introduced in this story branch.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
+   - Files: `codex_agents/*`.
+   - Do: run `git diff --name-status main...HEAD -- codex_agents` and capture exact non-compliant paths.
+   - Docs: https://git-scm.com/docs/git-diff.
+   - Done when: every delete/move/rename under `codex_agents/*` is explicitly identified before applying fixes.
+2. [ ] Restore deleted/moved `codex_agents/*` files to match `main` unless the path is explicitly required by story acceptance criteria.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
+   - Files: all non-compliant `codex_agents/*` paths from Subtask 1.
+   - Do: recover files (for example via `git restore --source main -- <path>`) so this story no longer deletes/moves/renames files under `codex_agents/*`.
+   - Docs: https://git-scm.com/docs/git-restore.
+   - Done when: `git diff --name-status main...HEAD -- codex_agents` shows no `D`/`R` records.
+3. [ ] Re-verify `codex_agents/*/auth.json` presence and unchanged location after parity restoration.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
+   - Files: `codex_agents/*/auth.json`.
+   - Do: verify all expected auth files exist in place and were not moved/renamed.
+   - Docs: https://nodejs.org/api/fs.html.
+   - Done when: auth files for all agents remain present at existing paths.
+4. [ ] Add deterministic structured log line `[DEV-0000037][T23] event=codex_agents_tree_parity_restored result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
+   - Files: task-local validation helper/tests updated in this task and this planning file.
+   - Do: emit this exact log prefix + event name when parity is restored and assert success/error behavior in tests.
+   - Expected trigger: after `codex_agents/*` parity check passes with no delete/move/rename drift versus `main`.
+   - Docs: https://nodejs.org/api/console.html, Context7 `/jestjs/jest`.
+   - Done when: deterministic log assertions verify success and intentional failure-path behavior.
+5. [ ] Update `projectStructure.md` to reflect any file-map corrections caused by this parity restoration task.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
+   - Files: `projectStructure.md`.
+   - Do: ensure file-map accurately reflects restored `codex_agents/*` files.
+   - Docs: https://git-scm.com/docs/git-ls-files.
+   - Done when: documentation and repository tree are synchronized.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
+#### Testing
+
+1. [ ] Verify `git diff --name-status main...HEAD -- codex_agents` has no delete (`D`) or rename (`R`) entries.
+2. [ ] Verify all expected `codex_agents/*/auth.json` files are present at original paths.
+3. [ ] Run targeted command/agent discovery tests affected by restored files and confirm pass.
+
+#### Implementation Notes
+
+- None yet.
+
+### 24. Full story re-test after review-driven fixes (acceptance re-validation gate)
+
+- Task Status: **__todo__**
+- Git Commits: `None yet`
+
+#### Overview
+
+Re-run full Story 0000037 validation after Task 23 fixes to ensure all acceptance criteria remain fully satisfied end-to-end.
+
+#### Documentation Locations
+
+- Story acceptance criteria in this plan.
+- OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (for re-checking contract behavior against documented payloads).
+- Context7 `/openai/codex` and `/jestjs/jest` (for runtime behavior and deterministic test/log assertions).
+
+#### Subtasks
+
+1. [ ] Re-verify acceptance-criteria matrix for Story 0000037 against the final branch state, including shared-home semantics, runtime override precedence, device-auth contract, reasoning capability payloads, and migration safety rules.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
+   - Files: this story plan, `design.md`, `projectStructure.md`, `openapi.json`, and touched server/client runtime paths.
+   - Done when: each acceptance criterion is explicitly reconfirmed with implementation/test evidence.
+2. [ ] Execute full regression command suite and capture pass/fail outcomes in Implementation Notes.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
+   - Do: run complete build/test/e2e/compose/manual checks listed below and record outcomes.
+   - Done when: every required verification command/manual check passes or has documented deterministic justification.
+3. [ ] Add deterministic structured log line `[DEV-0000037][T24] event=story_regression_revalidated result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
+   - Files: task-local regression validation helpers/tests and this planning file.
+   - Do: emit exact T24 log marker on happy-path re-validation and assert error-path emission for intentional failure coverage.
+   - Docs: https://nodejs.org/api/console.html, Context7 `/jestjs/jest`.
+   - Done when: deterministic T24 success/error assertions are covered by tests.
+4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: execute Story 0000037 smoke verification across chat/agents flows and ensure console contains `[DEV-0000037][T24] event=story_regression_revalidated result=success`, contains no `[DEV-0000037][T24] ... result=error`, and has no unrelated console errors.
+9. [ ] `npm run compose:down`
+
+#### Implementation Notes
+
+- None yet.

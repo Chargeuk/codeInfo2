@@ -457,6 +457,10 @@ Upgrade `@openai/codex-sdk` to latest stable at implementation start and lock de
    - Done when: `npm ls @openai/codex-sdk --workspace server` shows one version.
 3. [ ] Record exact upgraded SDK version in this story file Implementation notes for traceability.
    - Files: `planning/0000037-shared-codex-home-and-per-agent-runtime-config-overrides.md`.
+   - Document name: `0000037-shared-codex-home-and-per-agent-runtime-config-overrides.md`.
+   - Document location: `planning/0000037-shared-codex-home-and-per-agent-runtime-config-overrides.md`.
+   - Description: update this story planning document with the exact implementation detail required by the subtask.
+   - Purpose: preserve an auditable, junior-readable implementation record tied to the story.
    - Do: add a dated note under Task 1 implementation notes with exact version string.
    - Docs: https://keepachangelog.com/en/1.0.0/.
    - Done when: Task 1 notes explicitly state the final upgraded version.
@@ -619,11 +623,19 @@ Create one server-side config resolution layer that reads shared base config, ch
    - Done when: test fails if files are created/changed without base input.
 11. [ ] Update `projectStructure.md` for any files added or removed in this task, after all file-add/remove subtasks are completed.
    - Files: `projectStructure.md`.
+   - Document name: `projectStructure.md`.
+   - Document location: repository root `projectStructure.md`.
+   - Description: update file-map and compatibility documentation content required by this subtask.
+   - Purpose: keep repository-structure documentation synchronized with delivered code changes.
    - Do: document any new resolver/normalizer modules and any new test files introduced by this task only.
    - Docs: https://git-scm.com/docs/git-ls-files.
    - Done when: file-map entries for task-created/removed files are present and accurate.
 12. [ ] Update `design.md` with the runtime config loader/bootstrap/normalization architecture and Mermaid diagrams after all architecture-flow subtasks are complete.
    - Files: `design.md`.
+   - Document name: `design.md`.
+   - Document location: repository root `design.md`.
+   - Description: update architecture/flow documentation content for the behavior specified in this subtask, including Mermaid diagrams when required.
+   - Purpose: keep implementation and architecture documentation synchronized for junior developers.
    - Do: add/update narrative and Mermaid flowchart/sequence diagrams covering shared base/chat/agent config loading, copy-once chat bootstrap, and canonical normalization behavior.
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` diagrams and descriptions match final implementation in this task.
@@ -757,11 +769,19 @@ Implement deterministic merge and validation behavior for runtime config resolut
    - Done when: test fails if valid legacy input can no longer run.
 16. [ ] Update `projectStructure.md` for any files added or removed in this task, after all file-add/remove subtasks are completed.
    - Files: `projectStructure.md`.
+   - Document name: `projectStructure.md`.
+   - Document location: repository root `projectStructure.md`.
+   - Description: update file-map and compatibility documentation content required by this subtask.
+   - Purpose: keep repository-structure documentation synchronized with delivered code changes.
    - Do: record any new validator/resolver modules and any newly added test files created by this task.
    - Docs: https://git-scm.com/docs/git-ls-files.
    - Done when: `projectStructure.md` accurately lists this task's added/removed files.
 17. [ ] Update `design.md` with precedence/validation architecture details and Mermaid diagrams after all architecture-flow subtasks are complete.
    - Files: `design.md`.
+   - Document name: `design.md`.
+   - Document location: repository root `design.md`.
+   - Description: update architecture/flow documentation content for the behavior specified in this subtask, including Mermaid diagrams when required.
+   - Purpose: keep implementation and architecture documentation synchronized for junior developers.
    - Do: add/update diagrams and notes for `effectiveProjects` precedence, unknown-key warn-and-ignore path, invalid-type hard-fail path, and deterministic failure handling.
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` includes accurate precedence and validation diagrams matching this task's final behavior.
@@ -828,6 +848,10 @@ Replace existing model-only config parsing (`readAgentModelId`) so all execution
    - Done when: test fails if flow path reverts to model-only parsing.
 6. [ ] Update `design.md` with parser-removal architecture changes and Mermaid diagrams after all architecture-flow subtasks are complete.
    - Files: `design.md`.
+   - Document name: `design.md`.
+   - Document location: repository root `design.md`.
+   - Description: update architecture/flow documentation content for the behavior specified in this subtask, including Mermaid diagrams when required.
+   - Purpose: keep implementation and architecture documentation synchronized for junior developers.
    - Do: document and diagram the shared resolver path replacing `readAgentModelId` in agent and flow execution entrypoints.
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` clearly shows no model-only parsing path remains for runtime behavior decisions.
@@ -909,6 +933,10 @@ Apply runtime config overrides to chat and primary REST agent execution surfaces
    - Done when: test fails if commands path diverges from run path.
 9. [ ] Update `design.md` with chat/run/commands runtime flow changes and Mermaid diagrams after all architecture-flow subtasks are complete.
    - Files: `design.md`.
+   - Document name: `design.md`.
+   - Document location: repository root `design.md`.
+   - Description: update architecture/flow documentation content for the behavior specified in this subtask, including Mermaid diagrams when required.
+   - Purpose: keep implementation and architecture documentation synchronized for junior developers.
    - Do: document and diagram how chat uses `./codex/chat/config.toml`, how run/commands use agent config plus projects merge, and where `useConfigDefaults: true` is applied.
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` has accurate flow diagrams for chat, run, and command execution.
@@ -986,6 +1014,10 @@ Apply the same runtime config resolution to flow-driven and MCP execution surfac
    - Done when: MCP assertions fail on parity mismatch.
 8. [ ] Update `design.md` with flow/MCP execution architecture and Mermaid diagrams after all architecture-flow subtasks are complete.
    - Files: `design.md`.
+   - Document name: `design.md`.
+   - Document location: repository root `design.md`.
+   - Description: update architecture/flow documentation content for the behavior specified in this subtask, including Mermaid diagrams when required.
+   - Purpose: keep implementation and architecture documentation synchronized for junior developers.
    - Do: document and diagram flow-step and MCP execution paths consuming the shared runtime config resolver with parity to REST run.
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` shows consistent run/flow/MCP behavior and config source ownership.
@@ -1051,6 +1083,10 @@ Move Codex availability and startup checks to shared-home semantics for chat and
    - Done when: test fails if refresh leaves stale availability state.
 6. [ ] Update `design.md` with shared-home detection architecture and Mermaid diagrams after all architecture-flow subtasks are complete.
    - Files: `design.md`.
+   - Document name: `design.md`.
+   - Document location: repository root `design.md`.
+   - Description: update architecture/flow documentation content for the behavior specified in this subtask, including Mermaid diagrams when required.
+   - Purpose: keep implementation and architecture documentation synchronized for junior developers.
    - Do: add/update diagrams and narrative for startup detection, refresh path, and shared-home availability decision points.
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` captures the final shared-home detection flow implemented by this task.
@@ -1117,6 +1153,10 @@ Retain existing auth seeding/propagation compatibility behavior without deleting
    - Done when: test fails if any expected auth file is missing.
 6. [ ] Update `design.md` with auth-compatibility propagation flow and Mermaid diagrams after all architecture-flow subtasks are complete.
    - Files: `design.md`.
+   - Document name: `design.md`.
+   - Document location: repository root `design.md`.
+   - Description: update architecture/flow documentation content for the behavior specified in this subtask, including Mermaid diagrams when required.
+   - Purpose: keep implementation and architecture documentation synchronized for junior developers.
    - Do: add/update diagrams showing non-destructive auth seeding/propagation behavior and agent-file safety constraints.
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` documents final auth compatibility flow and explicit non-destructive guarantees from this task.
@@ -1221,6 +1261,10 @@ Implement the server-side device-auth message contract change first: request bod
    - Done when: test fails if payload-size failure behavior becomes nondeterministic.
 12. [ ] Update `design.md` with simplified device-auth contract flow and Mermaid diagrams after all architecture-flow subtasks are complete.
    - Files: `design.md`.
+   - Document name: `design.md`.
+   - Document location: repository root `design.md`.
+   - Description: update architecture/flow documentation content for the behavior specified in this subtask, including Mermaid diagrams when required.
+   - Purpose: keep implementation and architecture documentation synchronized for junior developers.
    - Do: document and diagram strict `{}` request validation and deterministic `200/400/503` response paths with legacy selector rejection.
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` diagrams match final backend device-auth contract behavior.
@@ -1287,11 +1331,19 @@ Add deterministic concurrent request behavior and preserve post-success auth pro
    - Done when: test fails if availability state is stale after success.
 6. [ ] Update `projectStructure.md` for any files added or removed in this task, after all file-add/remove subtasks are completed.
    - Files: `projectStructure.md`.
+   - Document name: `projectStructure.md`.
+   - Document location: repository root `projectStructure.md`.
+   - Description: update file-map and compatibility documentation content required by this subtask.
+   - Purpose: keep repository-structure documentation synchronized with delivered code changes.
    - Do: document any new lock/helper module files and new concurrency test files introduced by this task.
    - Docs: https://git-scm.com/docs/git-ls-files.
    - Done when: project file map reflects the final set of files added/removed by this task.
 7. [ ] Update `design.md` with device-auth concurrency and side-effect flows plus Mermaid diagrams after all architecture-flow subtasks are complete.
    - Files: `design.md`.
+   - Document name: `design.md`.
+   - Document location: repository root `design.md`.
+   - Description: update architecture/flow documentation content for the behavior specified in this subtask, including Mermaid diagrams when required.
+   - Purpose: keep implementation and architecture documentation synchronized for junior developers.
    - Do: add/update diagrams for lock acquisition/release, auth success side effects, availability refresh, and propagation sequencing.
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` diagrams and text describe the final concurrency and side-effect behavior implemented in this task.
@@ -1368,6 +1420,10 @@ Implement backend model-capability payload contract for Codex models so frontend
    - Done when: test fails if non-codex payload shape is unintentionally modified.
 8. [ ] Update `design.md` with `/chat/models` capability contract details and Mermaid diagrams after all architecture-flow subtasks are complete.
    - Files: `design.md`.
+   - Document name: `design.md`.
+   - Document location: repository root `design.md`.
+   - Description: update architecture/flow documentation content for the behavior specified in this subtask, including Mermaid diagrams when required.
+   - Purpose: keep implementation and architecture documentation synchronized for junior developers.
    - Do: add/update diagrams and examples for per-model `supportedReasoningEfforts` and `defaultReasoningEffort` payload flow from server to client.
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` reflects the final capability payload contract and data flow implemented in this task.
@@ -1460,11 +1516,19 @@ Replace static reasoning/model sources with one shared runtime codex capability 
    - Done when: test fails if unsupported fallback values are accepted.
 10. [ ] Update `projectStructure.md` for any files added or removed in this task, after all file-add/remove subtasks are completed.
    - Files: `projectStructure.md`.
+   - Document name: `projectStructure.md`.
+   - Document location: repository root `projectStructure.md`.
+   - Description: update file-map and compatibility documentation content required by this subtask.
+   - Purpose: keep repository-structure documentation synchronized with delivered code changes.
    - Do: document any new shared capability resolver modules and any new supporting test files created by this task.
    - Docs: https://git-scm.com/docs/git-ls-files.
    - Done when: `projectStructure.md` includes all files added/removed by this task.
 11. [ ] Update `design.md` with shared capability-resolver architecture and Mermaid diagrams after all architecture-flow subtasks are complete.
    - Files: `design.md`.
+   - Document name: `design.md`.
+   - Document location: repository root `design.md`.
+   - Description: update architecture/flow documentation content for the behavior specified in this subtask, including Mermaid diagrams when required.
+   - Purpose: keep implementation and architecture documentation synchronized for junior developers.
    - Do: document and diagram one resolver feeding both `/chat/models` and `/chat` validation, including deterministic fallback paths.
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` clearly shows shared capability resolution and validation flow with no duplicate logic paths.
@@ -1540,6 +1604,10 @@ After Task 10 is complete, update frontend API request/response types for the si
    - Done when: test fails if `503` parsing is inconsistent.
 7. [ ] Update `design.md` with frontend device-auth API consumption flow and Mermaid diagrams after all architecture-flow subtasks are complete.
    - Files: `design.md`.
+   - Document name: `design.md`.
+   - Document location: repository root `design.md`.
+   - Description: update architecture/flow documentation content for the behavior specified in this subtask, including Mermaid diagrams when required.
+   - Purpose: keep implementation and architecture documentation synchronized for junior developers.
    - Do: document and diagram request/response handling for the simplified `{}` device-auth contract in client API code.
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` reflects final frontend API consumption flow and error-state handling from this task.
@@ -1632,6 +1700,10 @@ After Task 10 and Task 14 are complete, simplify UI usage to one shared device-a
    - Done when: test fails if retry does not clear error and proceed deterministically.
 10. [ ] Update `design.md` with unified frontend device-auth UX flow and Mermaid diagrams after all architecture-flow subtasks are complete.
    - Files: `design.md`.
+   - Document name: `design.md`.
+   - Document location: repository root `design.md`.
+   - Description: update architecture/flow documentation content for the behavior specified in this subtask, including Mermaid diagrams when required.
+   - Purpose: keep implementation and architecture documentation synchronized for junior developers.
    - Do: add/update diagrams for one shared auth dialog flow across ChatPage and AgentsPage including error and retry states.
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` shows the final single-path frontend auth UX flow implemented in this task.
@@ -1715,6 +1787,10 @@ After Task 12 and Task 13 are complete, update chat model state plumbing to carr
    - Done when: test fails if mismatched default causes unstable UI state.
 9. [ ] Update `design.md` with chat model capability state flow and Mermaid diagrams after all architecture-flow subtasks are complete.
    - Files: `design.md`.
+   - Document name: `design.md`.
+   - Document location: repository root `design.md`.
+   - Description: update architecture/flow documentation content for the behavior specified in this subtask, including Mermaid diagrams when required.
+   - Purpose: keep implementation and architecture documentation synchronized for junior developers.
    - Do: document and diagram capability propagation into hook state and deterministic reset-to-default behavior on model/capability changes.
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` diagrams match the implemented state transition behavior in this task.
@@ -1795,6 +1871,10 @@ After Task 16 is complete, switch chat flags UI and chat payload building to run
    - Done when: test fails if one-option models produce invalid UI or payload behavior.
 8. [ ] Update `design.md` with dynamic reasoning-option UI/payload flow and Mermaid diagrams after all architecture-flow subtasks are complete.
    - Files: `design.md`.
+   - Document name: `design.md`.
+   - Document location: repository root `design.md`.
+   - Description: update architecture/flow documentation content for the behavior specified in this subtask, including Mermaid diagrams when required.
+   - Purpose: keep implementation and architecture documentation synchronized for junior developers.
    - Do: add/update diagrams for capability-driven option rendering, invalid-selection correction, and request payload validation before send.
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` captures the final end-to-end reasoning-option flow implemented by this task.
@@ -1884,6 +1964,10 @@ Add focused regression coverage for precedence/normalization behavior across RES
    - Done when: no duplicated harness boilerplate is introduced.
 9. [ ] Update `projectStructure.md` for any files added or removed in this task, after all file-add/remove subtasks are completed.
    - Files: `projectStructure.md`.
+   - Document name: `projectStructure.md`.
+   - Document location: repository root `projectStructure.md`.
+   - Description: update file-map and compatibility documentation content required by this subtask.
+   - Purpose: keep repository-structure documentation synchronized with delivered code changes.
    - Do: add all new cross-surface regression test files created by this task and confirm no removed files are missing from documentation.
    - Docs: https://git-scm.com/docs/git-ls-files.
    - Done when: project structure documentation reflects this task's final test-file footprint.
@@ -1967,6 +2051,10 @@ Add focused regression coverage for non-destructive file safety, deterministic s
    - Done when: test fails if flow path reverts to regex parsing.
 8. [ ] Update `projectStructure.md` for any files added or removed in this task, after all file-add/remove subtasks are completed.
    - Files: `projectStructure.md`.
+   - Document name: `projectStructure.md`.
+   - Document location: repository root `projectStructure.md`.
+   - Description: update file-map and compatibility documentation content required by this subtask.
+   - Purpose: keep repository-structure documentation synchronized with delivered code changes.
    - Do: document new compatibility/safety regression test files and any removed migration-era test files.
    - Docs: https://git-scm.com/docs/git-ls-files.
    - Done when: `projectStructure.md` contains an accurate file-map update for this task.
@@ -2000,11 +2088,19 @@ Update architecture and contract documentation after implementation tasks above 
 
 1. [ ] Update `design.md` with shared home strategy, config ownership, precedence/normalization, device-auth contract, and capability-driven reasoning options.
    - Files: `design.md`.
+   - Document name: `design.md`.
+   - Document location: repository root `design.md`.
+   - Description: update architecture/flow documentation content for the behavior specified in this subtask, including Mermaid diagrams when required.
+   - Purpose: keep implementation and architecture documentation synchronized for junior developers.
    - Do: include explicit flow diagrams/sections for chat vs agent runtime ownership and contract payloads.
    - Docs: Context7 `/mermaid-js/mermaid`, https://spec.openapis.org/oas/v3.0.3.html.
    - Done when: a new engineer can map each runtime path to config source without reading code.
 2. [ ] Ensure examples in docs reflect canonical keys and new message contracts.
    - Files: `design.md`.
+   - Document name: `design.md`.
+   - Document location: repository root `design.md`.
+   - Description: update architecture/flow documentation content for the behavior specified in this subtask, including Mermaid diagrams when required.
+   - Purpose: keep implementation and architecture documentation synchronized for junior developers.
    - Do: include before/after examples for `features.view_image_tool -> tools.view_image` and `{}` device-auth request.
    - Docs: https://spec.openapis.org/oas/v3.0.3.html.
    - Done when: examples match implemented payloads and key names exactly.
@@ -2036,11 +2132,19 @@ Update repository file-map and compatibility alias examples after implementation
 
 1. [ ] Update `projectStructure.md` for all files added/removed by this story.
    - Files: `projectStructure.md`.
+   - Document name: `projectStructure.md`.
+   - Document location: repository root `projectStructure.md`.
+   - Description: update file-map and compatibility documentation content required by this subtask.
+   - Purpose: keep repository-structure documentation synchronized with delivered code changes.
    - Do: add every new/changed path from server/client/common/docs work.
    - Docs: https://git-scm.com/docs/git-ls-files.
    - Done when: listed paths align with actual repository state.
 2. [ ] Document read-only compatibility keys accepted as input aliases but not emitted as canonical output, with concrete before/after examples.
    - Files: `projectStructure.md`.
+   - Document name: `projectStructure.md`.
+   - Document location: repository root `projectStructure.md`.
+   - Description: update file-map and compatibility documentation content required by this subtask.
+   - Purpose: keep repository-structure documentation synchronized with delivered code changes.
    - Do: include examples for `features.view_image_tool` and web-search alias normalization.
    - Docs: https://toml.io/en/v1.0.0, Context7 `/openai/codex`.
    - Done when: examples make canonical output expectations explicit.
@@ -2072,12 +2176,20 @@ Perform final shared-base config minimization as an isolated end-of-story step o
 #### Subtasks
 
 1. [ ] Verify prerequisite gate: all prior tasks are marked done and validated.
-   - Files: this planning file checkboxes + implementation notes.
-   - Do: verify tasks 1-21 are complete before editing `./codex/config.toml`.
+   - Files: `planning/0000037-shared-codex-home-and-per-agent-runtime-config-overrides.md`.
+   - Document name: `0000037-shared-codex-home-and-per-agent-runtime-config-overrides.md`.
+   - Document location: `planning/0000037-shared-codex-home-and-per-agent-runtime-config-overrides.md`.
+   - Description: update prerequisite-completion checkboxes and gating markers in this story plan before starting minimization.
+   - Purpose: enforce safe sequencing and make minimization preconditions auditable for junior developers.
+   - Do: verify tasks 1-21 are complete before editing `./codex/config.toml`, then mark Task 22 gating checklist state in this planning document.
    - Docs: https://toml.io/en/v1.0.0, Context7 `/openai/codex`.
    - Done when: all preceding task statuses and testing checkboxes are complete.
 2. [ ] Confirm all `code_info`-dependent verification/inspection steps are complete before minimization and record this checkpoint in Implementation notes.
-   - Files: this planning file Task 22 implementation notes.
+   - Files: `planning/0000037-shared-codex-home-and-per-agent-runtime-config-overrides.md`.
+   - Document name: `0000037-shared-codex-home-and-per-agent-runtime-config-overrides.md`.
+   - Document location: `planning/0000037-shared-codex-home-and-per-agent-runtime-config-overrides.md`.
+   - Description: add a pre-minimization Implementation Notes entry confirming all required `code_info`-dependent checks were completed earlier.
+   - Purpose: preserve operational traceability for when `code_info` is expected to become unavailable after final minimization.
    - Do: add explicit checkpoint note before file minimization commit.
    - Docs: Context7 `/openai/codex`, https://toml.io/en/v1.0.0.
    - Done when: note exists before any minimization diff.
@@ -2097,12 +2209,20 @@ Perform final shared-base config minimization as an isolated end-of-story step o
    - Docs: https://nodejs.org/api/fs.html.
    - Done when: all agent auth files still exist unchanged in location.
 6. [ ] Add explicit operator note in Implementation notes that `code_info` MCP is expected to be unavailable after this step in this running instance.
-   - Files: this planning file Task 22 implementation notes.
+   - Files: `planning/0000037-shared-codex-home-and-per-agent-runtime-config-overrides.md`.
+   - Document name: `0000037-shared-codex-home-and-per-agent-runtime-config-overrides.md`.
+   - Document location: `planning/0000037-shared-codex-home-and-per-agent-runtime-config-overrides.md`.
+   - Description: add a post-minimization Implementation Notes entry describing expected `code_info` unavailability in this running instance.
+   - Purpose: provide clear operator guidance and prevent follow-up work from assuming `code_info` availability.
    - Do: add final warning note immediately after execution.
    - Docs: Context7 `/openai/codex`, https://toml.io/en/v1.0.0.
    - Done when: note exists and references this expected post-step behavior.
 7. [ ] Update `design.md` with final minimized-base migration architecture and Mermaid diagrams after all architecture-flow subtasks are complete.
    - Files: `design.md`.
+   - Document name: `design.md`.
+   - Document location: repository root `design.md`.
+   - Description: update architecture/flow documentation content for the behavior specified in this subtask, including Mermaid diagrams when required.
+   - Purpose: keep implementation and architecture documentation synchronized for junior developers.
    - Do: document and diagram final shared `./codex/config.toml` role, `./codex/chat/config.toml` dependency, and post-minimization operational behavior notes.
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` reflects the final post-migration architecture and expected operational state.

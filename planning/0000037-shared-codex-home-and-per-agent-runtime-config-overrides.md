@@ -633,9 +633,9 @@ Create one server-side config resolution layer that reads shared base config, ch
    - Document location: repository root `projectStructure.md`.
    - Description: update file-map and compatibility documentation content required by this subtask.
    - Purpose: keep repository-structure documentation synchronized with delivered code changes.
-   - Do: document any new resolver/normalizer modules and any new test files introduced by this task only.
+   - Do: list every file added and removed by this task (including resolver/normalizer modules, test files, and any deleted/renamed paths), not just representative examples.
    - Docs: https://git-scm.com/docs/git-ls-files.
-   - Done when: file-map entries for task-created/removed files are present and accurate.
+   - Done when: `projectStructure.md` contains a complete added/removed file list for this task with no omissions.
 13. [ ] Update `design.md` with the runtime config loader/bootstrap/normalization architecture and Mermaid diagrams after all architecture-flow subtasks are complete.
    - Files: `design.md`.
    - Document name: `design.md`.
@@ -779,9 +779,9 @@ Implement deterministic merge and validation behavior for runtime config resolut
    - Document location: repository root `projectStructure.md`.
    - Description: update file-map and compatibility documentation content required by this subtask.
    - Purpose: keep repository-structure documentation synchronized with delivered code changes.
-   - Do: record any new validator/resolver modules and any newly added test files created by this task.
+   - Do: list every file added and removed by this task (validator/resolver modules, tests, and any deleted/renamed paths) after implementation subtasks are complete.
    - Docs: https://git-scm.com/docs/git-ls-files.
-   - Done when: `projectStructure.md` accurately lists this task's added/removed files.
+   - Done when: `projectStructure.md` accurately and completely lists all added/removed files for this task.
 17. [ ] Update `design.md` with precedence/validation architecture details and Mermaid diagrams after all architecture-flow subtasks are complete.
    - Files: `design.md`.
    - Document name: `design.md`.
@@ -1355,9 +1355,9 @@ Add deterministic concurrent request behavior and preserve post-success auth pro
    - Document location: repository root `projectStructure.md`.
    - Description: update file-map and compatibility documentation content required by this subtask.
    - Purpose: keep repository-structure documentation synchronized with delivered code changes.
-   - Do: document any new lock/helper module files and new concurrency test files introduced by this task.
+   - Do: list every file added and removed by this task (lock/helper modules, concurrency tests, and any deleted/renamed paths) after all file-changing subtasks complete.
    - Docs: https://git-scm.com/docs/git-ls-files.
-   - Done when: project file map reflects the final set of files added/removed by this task.
+   - Done when: project file map reflects the complete final set of files added/removed by this task.
 8. [ ] Update `design.md` with device-auth concurrency and side-effect flows plus Mermaid diagrams after all architecture-flow subtasks are complete.
    - Files: `design.md`.
    - Document name: `design.md`.
@@ -1561,9 +1561,9 @@ Replace static reasoning/model sources with one shared runtime codex capability 
    - Document location: repository root `projectStructure.md`.
    - Description: update file-map and compatibility documentation content required by this subtask.
    - Purpose: keep repository-structure documentation synchronized with delivered code changes.
-   - Do: document any new shared capability resolver modules and any new supporting test files created by this task.
+   - Do: list every file added and removed by this task (shared capability resolver modules, supporting tests, and any deleted/renamed paths).
    - Docs: https://git-scm.com/docs/git-ls-files.
-   - Done when: `projectStructure.md` includes all files added/removed by this task.
+   - Done when: `projectStructure.md` includes the complete set of files added/removed by this task.
 12. [ ] Update `design.md` with shared capability-resolver architecture and Mermaid diagrams after all architecture-flow subtasks are complete.
    - Files: `design.md`.
    - Document name: `design.md`.

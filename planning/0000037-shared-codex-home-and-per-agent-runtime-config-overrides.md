@@ -2283,7 +2283,7 @@ After Task 10 and Task 14 are complete, simplify UI usage to one shared device-a
 ### 16. Frontend: Expose codex model capabilities in chat model state and enforce deterministic defaults
 
 - Task Status: **__done__**
-- Git Commits: `None yet`
+- Git Commits: `270e2c6`
 
 #### Overview
 

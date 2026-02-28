@@ -2143,7 +2143,7 @@ After Task 10 is complete, update frontend API request/response types for the si
 
 ### 15. Frontend: Remove device-auth target selector UX and wire one shared auth dialog flow
 
-- Task Status: **__todo__**
+- Task Status: **__done__**
 - Git Commits: `None yet`
 
 #### Overview
@@ -2161,25 +2161,25 @@ After Task 10 and Task 14 are complete, simplify UI usage to one shared device-a
 
 #### Subtasks
 
-1. [ ] Reuse the existing `CodexDeviceAuthDialog` component and simplify it in place (no replacement component unless strictly necessary).
+1. [x] Reuse the existing `CodexDeviceAuthDialog` component and simplify it in place (no replacement component unless strictly necessary).
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `client/src/components/codex/CodexDeviceAuthDialog.tsx`.
    - Do: keep component identity and simplify props/state instead of creating new dialog component.
    - Docs: MUI Dialog docs via MCP, React component ref docs.
    - Done when: same component file handles the new single auth flow.
-2. [ ] Remove target selector behavior from the dialog and update copy/state handling for one shared flow.
+2. [x] Remove target selector behavior from the dialog and update copy/state handling for one shared flow.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `client/src/components/codex/CodexDeviceAuthDialog.tsx`.
    - Do: remove selector control and any target-specific text branches.
    - Docs: MUI FormControl/Alert docs via MCP.
    - Done when: dialog has one path and no target-specific UI states.
-3. [ ] Update `client/src/pages/ChatPage.tsx` and `client/src/pages/AgentsPage.tsx` to use shared dialog behavior without selector defaults.
+3. [x] Update `client/src/pages/ChatPage.tsx` and `client/src/pages/AgentsPage.tsx` to use shared dialog behavior without selector defaults.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `client/src/pages/ChatPage.tsx`, `client/src/pages/AgentsPage.tsx`.
    - Do: remove page-level target defaults and pass unified dialog props only.
    - Docs: React state lifting docs https://react.dev/learn/sharing-state-between-components.
    - Done when: both pages trigger same dialog API without selector props.
-4. [ ] Add frontend integration test for dialog selector removal.
+4. [x] Add frontend integration test for dialog selector removal.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `client/src/test/**` `CodexDeviceAuthDialog` suites.
@@ -2187,7 +2187,7 @@ After Task 10 and Task 14 are complete, simplify UI usage to one shared device-a
    - Purpose: prevent reintroduction of chat-vs-agent branching UX.
    - Docs: https://testing-library.com/docs/.
    - Done when: test fails if selector controls reappear.
-5. [ ] Add frontend integration test for ChatPage shared auth dialog wiring.
+5. [x] Add frontend integration test for ChatPage shared auth dialog wiring.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `client/src/test/**` ChatPage suites.
@@ -2195,7 +2195,7 @@ After Task 10 and Task 14 are complete, simplify UI usage to one shared device-a
    - Purpose: guarantee chat page integration uses simplified API flow.
    - Docs: https://testing-library.com/docs/.
    - Done when: test fails if chat page still passes selector-specific behavior.
-6. [ ] Add frontend integration test for AgentsPage shared auth dialog wiring.
+6. [x] Add frontend integration test for AgentsPage shared auth dialog wiring.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `client/src/test/**` AgentsPage suites.
@@ -2203,7 +2203,7 @@ After Task 10 and Task 14 are complete, simplify UI usage to one shared device-a
    - Purpose: guarantee consistent auth UX across pages.
    - Docs: https://testing-library.com/docs/.
    - Done when: test fails if agents page diverges from shared dialog flow.
-7. [ ] Add frontend integration test for `400 invalid_request` dialog error state.
+7. [x] Add frontend integration test for `400 invalid_request` dialog error state.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `client/src/test/**` `CodexDeviceAuthDialog` suites.
@@ -2211,7 +2211,7 @@ After Task 10 and Task 14 are complete, simplify UI usage to one shared device-a
    - Purpose: verify request-validation failures are surfaced correctly to users.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/asynchronous.
    - Done when: test fails if `400` errors are hidden or malformed.
-8. [ ] Add frontend integration test for `503 codex_unavailable` dialog error state.
+8. [x] Add frontend integration test for `503 codex_unavailable` dialog error state.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `client/src/test/**` `CodexDeviceAuthDialog` suites.
@@ -2219,7 +2219,7 @@ After Task 10 and Task 14 are complete, simplify UI usage to one shared device-a
    - Purpose: verify unavailable-path UX behavior.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/asynchronous.
    - Done when: test fails if `503` state is not rendered as expected.
-9. [ ] Add frontend integration test for dialog retry behavior after error.
+9. [x] Add frontend integration test for dialog retry behavior after error.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `client/src/test/**` `CodexDeviceAuthDialog` suites.
@@ -2227,7 +2227,7 @@ After Task 10 and Task 14 are complete, simplify UI usage to one shared device-a
    - Purpose: ensure robust recovery flow from auth errors.
    - Docs: https://testing-library.com/docs/, Context7 `/jestjs/jest`, https://jestjs.io/docs/asynchronous.
    - Done when: test fails if retry does not clear error and proceed deterministically.
-10. [ ] Update `design.md` with unified frontend device-auth UX flow and Mermaid diagrams after all architecture-flow subtasks are complete.
+10. [x] Update `design.md` with unified frontend device-auth UX flow and Mermaid diagrams after all architecture-flow subtasks are complete.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `design.md`.
    - Document name: `design.md`.
@@ -2238,7 +2238,7 @@ After Task 10 and Task 14 are complete, simplify UI usage to one shared device-a
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` shows the final single-path frontend auth UX flow implemented in this task.
 
-11. [ ] Add deterministic structured log line `[DEV-0000037][T15] event=shared_auth_dialog_flow_executed result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
+11. [x] Add deterministic structured log line `[DEV-0000037][T15] event=shared_auth_dialog_flow_executed result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: client implementation files already listed in this task's subtasks and matching `client/src/test/**` suites.
    - Do: emit this exact log prefix and event name from the implementation path, then assert in tests that `result=success` is emitted on happy path and `result=error` only appears on intentional failure-path coverage.
@@ -2246,20 +2246,39 @@ After Task 10 and Task 14 are complete, simplify UI usage to one shared device-a
    - Manual Playwright-MCP check linkage: verify this exact log line during this task's Manual Playwright-MCP check when present, or during Task 22 final regression Manual Playwright-MCP check for backend/docs-only tasks.
    - Docs: https://nodejs.org/api/console.html, Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: deterministic log assertions are present and this task's expected trigger produces the exact `[DEV-0000037][T15] event=shared_auth_dialog_flow_executed result=success` line.
-12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+12. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-1. [ ] `npm run build --workspace client`
-2. [ ] `npm run test --workspace client`
-3. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
-4. [ ] `npm run compose:build`
-5. [ ] `npm run compose:up`
-6. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: execute auth dialog submit/retry from ChatPage and AgentsPage, capture screenshots `task-15-chat-auth-dialog.png` and `task-15-agents-auth-dialog.png`, and store them in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped by `docker-compose.local.yml`); verify the agent reviews both screenshots against this task's UI expectations (single shared dialog flow, consistent error/retry presentation across pages), debug console includes `[DEV-0000037][T15] event=shared_auth_dialog_flow_executed result=success`, includes no `[DEV-0000037][T15] ... result=error`, and has no unrelated console errors.
-7. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace client`
+2. [x] `npm run test --workspace client`
+3. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+4. [x] `npm run compose:build`
+5. [x] `npm run compose:up`
+6. [x] Manual Playwright-MCP check at `http://host.docker.internal:5001`: execute auth dialog submit/retry from ChatPage and AgentsPage, capture screenshots `task-15-chat-auth-dialog.png` and `task-15-agents-auth-dialog.png`, and store them in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped by `docker-compose.local.yml`); verify the agent reviews both screenshots against this task's UI expectations (single shared dialog flow, consistent error/retry presentation across pages), debug console includes `[DEV-0000037][T15] event=shared_auth_dialog_flow_executed result=success`, includes no `[DEV-0000037][T15] ... result=error`, and has no unrelated console errors.
+7. [x] `npm run compose:down`
 
 #### Implementation Notes
 
-- None yet.
+- 2026-02-28: Subtask 1 complete. Kept `client/src/components/codex/CodexDeviceAuthDialog.tsx` as the same component and simplified it in place for the unified flow.
+- 2026-02-28: Subtask 2 complete. Removed target selector UI/state/branching from `CodexDeviceAuthDialog`; submit path is now single-flow only.
+- 2026-02-28: Subtask 3 complete. Updated `ChatPage` and `AgentsPage` to pass unified dialog props (`source`) and removed selector-default wiring from page-level state.
+- 2026-02-28: Subtask 4 complete. Added dialog integration assertion that no target selector is rendered in shared auth flow.
+- 2026-02-28: Subtask 5 complete. Updated ChatPage integration coverage to assert device-auth dialog opens without target selector.
+- 2026-02-28: Subtask 6 complete. Updated AgentsPage integration coverage to assert shared device-auth dialog opens without target selector.
+- 2026-02-28: Subtask 7 complete. Added dialog integration coverage for deterministic `400 invalid_request` error rendering.
+- 2026-02-28: Subtask 8 complete. Added dialog integration coverage for deterministic `503 codex_unavailable` error rendering.
+- 2026-02-28: Subtask 9 complete. Added retry-path integration coverage to verify error-to-success recovery in the same dialog session.
+- 2026-02-28: Subtask 10 complete. Updated `design.md` with Task 15 unified auth UX architecture and Mermaid flows (success/error/retry and cross-page usage).
+- 2026-02-28: Subtask 11 complete. Added exact T15 success/error structured logs in shared dialog submit handling and log assertions in dialog tests.
+- 2026-02-28: Subtask 12 complete. Ran `npm run lint --workspaces` (passes with existing baseline server import-order warnings) and `npm run format:check --workspaces`; client format check required `npm run format --workspace client` before re-check passed.
+- 2026-02-28: Testing 1 complete. `npm run build --workspace client` succeeded (`vite build`).
+- 2026-02-28: Testing 2 complete. `npm run test --workspace client` passed (`92` suites, `373` tests).
+- 2026-02-28: Testing 3 complete. `npm run e2e` passed (`39` passed, `3` skipped) and completed compose e2e build/up/test/down lifecycle.
+- 2026-02-28: Testing 4 complete. `npm run compose:build` succeeded for local stack images (`codeinfo2-server`, `codeinfo2-client`).
+- 2026-02-28: Testing 5 complete. `npm run compose:up` succeeded and local stack services reached healthy startup.
+- 2026-02-28: Testing 6 complete. Manual Playwright-MCP checks at `http://host.docker.internal:5001/chat` and `/agents` executed shared auth dialog submit flow (with repeat submit retry on AgentsPage), screenshots saved at `playwright-output-local/task-15-chat-auth-dialog.png` and `playwright-output-local/task-15-agents-auth-dialog.png`; console logs included `[DEV-0000037][T15] event=shared_auth_dialog_flow_executed result=success`, included no `[DEV-0000037][T15] ... result=error`, and `browser_console_messages(level=error)` returned no entries.
+- 2026-02-28: Testing 7 complete. `npm run compose:down` stopped and removed local stack containers and internal network cleanly.
+- 2026-02-28: Task 15 complete. Marked task status `__done__` after all subtasks and listed testing steps passed.
 
 ### 16. Frontend: Expose codex model capabilities in chat model state and enforce deterministic defaults
 

@@ -3350,3 +3350,40 @@ flowchart TD
   H --> I[Throw CodexDeviceAuthApiError + T14 error log]
   E --> J[T14 success log]
 ```
+
+## Story 0000037 Task 15: unified frontend device-auth dialog flow
+
+- The frontend now uses one shared `CodexDeviceAuthDialog` flow for both `ChatPage` and `AgentsPage`.
+- Target-selection UI/state has been removed from the dialog; submit always calls the strict Task 14 API helper contract.
+- Both pages wire the same dialog behavior and only pass source context (`chat` or `agents`) for deterministic logging and callback handling.
+- Deterministic Task 15 log markers are emitted by dialog submit handling:
+  - `[DEV-0000037][T15] event=shared_auth_dialog_flow_executed result=success`
+  - `[DEV-0000037][T15] event=shared_auth_dialog_flow_executed result=error`
+
+```mermaid
+sequenceDiagram
+  participant Page as ChatPage or AgentsPage
+  participant Dialog as CodexDeviceAuthDialog
+  participant API as postCodexDeviceAuth
+
+  Page->>Dialog: open shared dialog
+  Dialog->>API: POST /codex/device-auth {}
+  API-->>Dialog: 200 { status: "ok", rawOutput }
+  Dialog->>Dialog: emit T15 success log
+  Dialog-->>Page: onSuccess callback
+```
+
+```mermaid
+flowchart TD
+  A[Open shared dialog] --> B[Submit Start device auth]
+  B --> C{API result}
+  C -->|200| D[Render output block]
+  C -->|400 invalid_request| E[Render deterministic error alert]
+  C -->|503 codex_unavailable| F[Render deterministic unavailable alert]
+  E --> G[Retry]
+  F --> G
+  G --> B
+  D --> H[Emit T15 success log]
+  E --> I[Emit T15 error log]
+  F --> I
+```

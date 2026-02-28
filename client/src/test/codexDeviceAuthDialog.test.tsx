@@ -19,19 +19,16 @@ const { default: CodexDeviceAuthDialog } = await import(
   '../components/codex/CodexDeviceAuthDialog'
 );
 
-const defaultAgents = [{ name: 'alpha' }, { name: 'bravo' }];
-
 function renderDialog(props?: {
   open?: boolean;
   onClose?: () => void;
-  defaultTarget?: { target: 'chat' } | { target: 'agent'; agentName: string };
+  source?: 'chat' | 'agents';
 }) {
   return render(
     <CodexDeviceAuthDialog
       open={props?.open ?? true}
       onClose={props?.onClose ?? jest.fn()}
-      defaultTarget={props?.defaultTarget ?? { target: 'chat' }}
-      agents={defaultAgents}
+      source={props?.source ?? 'chat'}
     />,
   );
 }
@@ -149,7 +146,7 @@ describe('CodexDeviceAuthDialog', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it('sends strict empty request payload regardless of selected target UI', async () => {
+  it('sends strict empty request payload for shared auth flow', async () => {
     const user = userEvent.setup();
     postCodexDeviceAuth.mockResolvedValue({
       status: 'ok',
@@ -158,13 +155,108 @@ describe('CodexDeviceAuthDialog', () => {
 
     renderDialog();
 
-    await user.click(screen.getByRole('combobox', { name: /target/i }));
-    await user.click(screen.getByRole('option', { name: /agent: alpha/i }));
-
     await user.click(
       screen.getByRole('button', { name: /start device auth/i }),
     );
 
     await waitFor(() => expect(postCodexDeviceAuth).toHaveBeenCalledWith({}));
+  });
+
+  it('does not render a target selector', () => {
+    renderDialog();
+    expect(screen.queryByRole('combobox', { name: /target/i })).toBeNull();
+  });
+
+  it('renders deterministic invalid_request error state for 400 path', async () => {
+    const user = userEvent.setup();
+    postCodexDeviceAuth.mockRejectedValue(
+      new Error('invalid_request: request body must be {}'),
+    );
+
+    renderDialog();
+    await user.click(
+      screen.getByRole('button', { name: /start device auth/i }),
+    );
+
+    expect(
+      await screen.findByText(/invalid_request: request body must be \{\}/i),
+    ).toBeInTheDocument();
+  });
+
+  it('renders deterministic codex_unavailable error state for 503 path', async () => {
+    const user = userEvent.setup();
+    postCodexDeviceAuth.mockRejectedValue(
+      new Error('codex_unavailable: Codex CLI unavailable'),
+    );
+
+    renderDialog();
+    await user.click(
+      screen.getByRole('button', { name: /start device auth/i }),
+    );
+
+    expect(
+      await screen.findByText(/codex_unavailable: Codex CLI unavailable/i),
+    ).toBeInTheDocument();
+  });
+
+  it('retries successfully after an error state', async () => {
+    const user = userEvent.setup();
+    postCodexDeviceAuth
+      .mockRejectedValueOnce(
+        new Error('invalid_request: request body must be {}'),
+      )
+      .mockResolvedValueOnce({
+        status: 'ok',
+        rawOutput: 'Open https://example.com/device and enter code RETRY-CODE.',
+      });
+
+    renderDialog();
+    const start = screen.getByRole('button', { name: /start device auth/i });
+
+    await user.click(start);
+    expect(await screen.findByText(/invalid_request/i)).toBeInTheDocument();
+
+    await user.click(start);
+    expect(await screen.findByText(/RETRY-CODE/i)).toBeInTheDocument();
+    expect(screen.queryByText(/invalid_request/i)).toBeNull();
+  });
+
+  it('emits T15 success log on successful shared auth flow', async () => {
+    const user = userEvent.setup();
+    postCodexDeviceAuth.mockResolvedValue({
+      status: 'ok',
+      rawOutput: 'Open https://example.com/device and enter code ABCD-EFGH.',
+    });
+
+    renderDialog({ source: 'agents' });
+    await user.click(
+      screen.getByRole('button', { name: /start device auth/i }),
+    );
+
+    await waitFor(() =>
+      expect(logSpy).toHaveBeenCalledWith(
+        'info',
+        '[DEV-0000037][T15] event=shared_auth_dialog_flow_executed result=success',
+        { source: 'agents' },
+      ),
+    );
+  });
+
+  it('emits T15 error log on failure path', async () => {
+    const user = userEvent.setup();
+    postCodexDeviceAuth.mockRejectedValue(new Error('codex_unavailable: down'));
+
+    renderDialog({ source: 'chat' });
+    await user.click(
+      screen.getByRole('button', { name: /start device auth/i }),
+    );
+
+    await waitFor(() =>
+      expect(logSpy).toHaveBeenCalledWith(
+        'error',
+        '[DEV-0000037][T15] event=shared_auth_dialog_flow_executed result=error',
+        { message: 'codex_unavailable: down', source: 'chat' },
+      ),
+    );
   });
 });

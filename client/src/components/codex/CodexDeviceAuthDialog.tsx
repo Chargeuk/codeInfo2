@@ -8,70 +8,24 @@ import {
   DialogContent,
   DialogTitle,
   Link,
-  MenuItem,
   Stack,
-  TextField,
   Typography,
 } from '@mui/material';
-import {
-  type ChangeEvent,
-  type ReactNode,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from 'react';
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { CodexDeviceAuthResponse, postCodexDeviceAuth } from '../../api/codex';
 import { createLogger } from '../../logging/logger';
-
-export type CodexDeviceAuthDialogTarget =
-  | { target: 'chat' }
-  | { target: 'agent'; agentName: string };
-
-export type CodexDeviceAuthAgent = {
-  name: string;
-};
 
 export type CodexDeviceAuthDialogProps = {
   open: boolean;
   onClose: () => void;
-  defaultTarget: CodexDeviceAuthDialogTarget;
-  agents: CodexDeviceAuthAgent[];
+  source: 'chat' | 'agents';
   onSuccess?: (response: CodexDeviceAuthResponse) => void;
 };
-
-type TargetOption = {
-  value: string;
-  label: string;
-  target: 'chat' | 'agent';
-  agentName?: string;
-};
-
-const CHAT_TARGET_VALUE = 'chat';
 const rawOutputUrlRegex = /https?:\/\/\S+/g;
-
-function resolveTargetValue(
-  target: CodexDeviceAuthDialogTarget,
-  agents: CodexDeviceAuthAgent[],
-) {
-  if (target.target === 'agent') {
-    const match = agents.find((agent) => agent.name === target.agentName);
-    if (match) {
-      return `agent:${match.name}`;
-    }
-  }
-  return CHAT_TARGET_VALUE;
-}
-
-function parseTargetValue(value: string) {
-  if (value === CHAT_TARGET_VALUE) {
-    return { target: 'chat' as const };
-  }
-  if (value.startsWith('agent:')) {
-    return { target: 'agent' as const, agentName: value.slice(6) };
-  }
-  return { target: 'chat' as const };
-}
+const T15_SUCCESS_LOG =
+  '[DEV-0000037][T15] event=shared_auth_dialog_flow_executed result=success';
+const T15_ERROR_LOG =
+  '[DEV-0000037][T15] event=shared_auth_dialog_flow_executed result=error';
 
 function linkifyRawOutput(value: string): ReactNode[] {
   const nodes: ReactNode[] = [];
@@ -108,30 +62,15 @@ function linkifyRawOutput(value: string): ReactNode[] {
 export default function CodexDeviceAuthDialog({
   open,
   onClose,
-  defaultTarget,
-  agents,
+  source,
   onSuccess,
 }: CodexDeviceAuthDialogProps) {
-  const [selectedTarget, setSelectedTarget] = useState(CHAT_TARGET_VALUE);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | undefined>();
   const [result, setResult] = useState<CodexDeviceAuthResponse | undefined>();
   const prevOpenRef = useRef(false);
 
   const log = useMemo(() => createLogger('codex-device-auth-dialog'), []);
-
-  const options = useMemo<TargetOption[]>(
-    () => [
-      { value: CHAT_TARGET_VALUE, label: 'Chat', target: 'chat' },
-      ...agents.map((agent) => ({
-        value: `agent:${agent.name}`,
-        label: `Agent: ${agent.name}`,
-        target: 'agent' as const,
-        agentName: agent.name,
-      })),
-    ],
-    [agents],
-  );
 
   useEffect(() => {
     if (!open) {
@@ -144,20 +83,13 @@ export default function CodexDeviceAuthDialog({
 
     if (!prevOpenRef.current) {
       log('info', 'DEV-0000031:T6:codex_device_auth_dialog_open');
-      setSelectedTarget(resolveTargetValue(defaultTarget, agents));
       setLoading(false);
       setErrorMessage(undefined);
       setResult(undefined);
     }
 
     prevOpenRef.current = true;
-  }, [open, defaultTarget, agents, log]);
-
-  const handleTargetChange = (event: ChangeEvent<HTMLInputElement>) => {
-    setSelectedTarget(event.target.value);
-    setErrorMessage(undefined);
-    setResult(undefined);
-  };
+  }, [open, log]);
 
   const handleStart = async () => {
     setLoading(true);
@@ -165,13 +97,12 @@ export default function CodexDeviceAuthDialog({
     setResult(undefined);
 
     try {
-      const parsed = parseTargetValue(selectedTarget);
       const response = await postCodexDeviceAuth({});
       setResult(response);
       log('info', 'DEV-0000031:T6:codex_device_auth_dialog_success', {
-        selectedTarget: parsed.target,
-        selectedAgentName: parsed.agentName,
+        source,
       });
+      log('info', T15_SUCCESS_LOG, { source });
       onSuccess?.(response);
     } catch (error) {
       const message =
@@ -179,7 +110,9 @@ export default function CodexDeviceAuthDialog({
       setErrorMessage(message);
       log('error', 'DEV-0000031:T6:codex_device_auth_dialog_error', {
         message,
+        source,
       });
+      log('error', T15_ERROR_LOG, { message, source });
     } finally {
       setLoading(false);
     }
@@ -194,23 +127,6 @@ export default function CodexDeviceAuthDialog({
       <DialogTitle>Codex device auth</DialogTitle>
       <DialogContent dividers>
         <Stack spacing={2}>
-          <TextField
-            select
-            label="Target"
-            value={selectedTarget}
-            onChange={handleTargetChange}
-            size="small"
-            fullWidth
-            disabled={loading}
-            inputProps={{ 'data-testid': 'codex-device-auth-target' }}
-          >
-            {options.map((option) => (
-              <MenuItem key={option.value} value={option.value}>
-                {option.label}
-              </MenuItem>
-            ))}
-          </TextField>
-
           {loading ? (
             <Stack direction="row" spacing={1} alignItems="center">
               <CircularProgress size={18} />

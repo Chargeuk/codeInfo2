@@ -37,7 +37,6 @@ import {
   useRef,
   useState,
 } from 'react';
-import { listAgents } from '../api/agents';
 import Markdown from '../components/Markdown';
 import CodexFlagsPanel from '../components/chat/CodexFlagsPanel';
 import ConversationList from '../components/chat/ConversationList';
@@ -240,10 +239,6 @@ export default function ChatPage() {
     {},
   );
   const [deviceAuthOpen, setDeviceAuthOpen] = useState(false);
-  const [deviceAuthLoading, setDeviceAuthLoading] = useState(false);
-  const [deviceAuthAgents, setDeviceAuthAgents] = useState<
-    Array<{ name: string }>
-  >([]);
   const metadataLoggedRef = useRef(new Set<string>());
   const stepLoggedRef = useRef(new Set<string>());
   const toolDistanceLoggedRef = useRef(new Set<string>());
@@ -766,21 +761,9 @@ export default function ChatPage() {
     handleNewConversation({ reason: 'provider-change', nextProvider });
   };
 
-  const handleDeviceAuthOpen = async () => {
+  const handleDeviceAuthOpen = () => {
     deviceAuthLog('info', 'DEV-0000031:T7:codex_device_auth_chat_button_click');
     setDeviceAuthOpen(true);
-    setDeviceAuthLoading(true);
-    try {
-      const response = await listAgents();
-      const agents = Array.isArray(response.agents)
-        ? response.agents.map((agent) => ({ name: agent.name }))
-        : [];
-      setDeviceAuthAgents(agents);
-    } catch {
-      setDeviceAuthAgents([]);
-    } finally {
-      setDeviceAuthLoading(false);
-    }
   };
 
   const handleDeviceAuthClose = () => {
@@ -1617,8 +1600,8 @@ export default function ChatPage() {
                                 type="button"
                                 variant="outlined"
                                 size="small"
-                                onClick={() => void handleDeviceAuthOpen()}
-                                disabled={isLoading || deviceAuthLoading}
+                                onClick={handleDeviceAuthOpen}
+                                disabled={isLoading}
                                 fullWidth
                               >
                                 Re-authenticate (device auth)
@@ -1630,8 +1613,7 @@ export default function ChatPage() {
                       <CodexDeviceAuthDialog
                         open={deviceAuthOpen}
                         onClose={handleDeviceAuthClose}
-                        defaultTarget={{ target: 'chat' }}
-                        agents={deviceAuthAgents}
+                        source="chat"
                         onSuccess={handleDeviceAuthSuccess}
                       />
 

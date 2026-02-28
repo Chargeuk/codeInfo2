@@ -30,6 +30,10 @@ export type ChatModelInfo = {
   key: string;
   displayName: string;
   type: string;
+  // Required for Codex model entries in /chat/models payloads.
+  supportedReasoningEfforts?: string[];
+  // Required for Codex model entries in /chat/models payloads.
+  defaultReasoningEffort?: string;
 };
 
 export const CODEX_MODEL_REASONING_EFFORTS = [

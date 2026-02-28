@@ -1768,7 +1768,7 @@ Add deterministic concurrent request behavior and preserve post-success auth pro
 
 ### 12. Server Message Contract: Add codex model reasoning-capability payload to `/chat/models`
 
-- Task Status: **__in_progress__**
+- Task Status: **__done__**
 - Git Commits: `None yet`
 
 #### Overview
@@ -1889,6 +1889,7 @@ Implement backend model-capability payload contract for Codex models so frontend
 - 2026-02-28: Subtask 12 complete. Ran workspace lint and format checks; lint passed with existing baseline warnings and format check passed after running `npm run format --workspace server`.
 - 2026-02-28: Testing 1 complete. `npm run build --workspace server` succeeded (`tsc -b`).
 - 2026-02-28: Testing 2 complete. `npm run test --workspace server` passed (unit summary: `tests 810, pass 810`; cucumber summary: `67 scenarios, 402 steps`, all passed).
+- 2026-02-28: Task 12 complete. Marked task status `__done__` after all subtasks and listed testing steps passed.
 
 ### 13. Server: Share codex capability resolver across `/chat/models` and `/chat`
 

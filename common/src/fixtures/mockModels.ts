@@ -8,6 +8,16 @@ export const mockModels: ChatModelInfo[] = [
   },
 ];
 
+export const mockCodexModels: ChatModelInfo[] = [
+  {
+    key: 'gpt-5.2-codex',
+    displayName: 'gpt-5.2-codex',
+    type: 'codex',
+    supportedReasoningEfforts: ['minimal', 'low', 'medium', 'high', 'xhigh'],
+    defaultReasoningEffort: 'high',
+  },
+];
+
 export const mockModelsResponse: ChatModelsResponse = {
   provider: 'lmstudio',
   available: true,
@@ -15,4 +25,19 @@ export const mockModelsResponse: ChatModelsResponse = {
   models: mockModels,
   codexDefaults: undefined,
   codexWarnings: undefined,
+};
+
+export const mockCodexModelsResponse: ChatModelsResponse = {
+  provider: 'codex',
+  available: true,
+  toolsAvailable: true,
+  models: mockCodexModels,
+  codexDefaults: {
+    sandboxMode: 'danger-full-access',
+    approvalPolicy: 'on-failure',
+    modelReasoningEffort: 'high',
+    networkAccessEnabled: true,
+    webSearchEnabled: true,
+  },
+  codexWarnings: [],
 };

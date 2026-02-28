@@ -3233,3 +3233,47 @@ sequenceDiagram
   Side->>Side: discover agents, propagate auth, refresh detection
   Side-->>Route: T11 success log
 ```
+
+## Story 0000037 Task 12: `/chat/models` codex capability payload contract
+
+- `GET /chat/models?provider=codex` now returns codex model entries with explicit per-model capability fields:
+  - `supportedReasoningEfforts: string[]`
+  - `defaultReasoningEffort: string`
+- Capability fields are emitted on every codex model payload entry and remain absent on non-codex entries (mixed-provider payload stability).
+- Codex unavailable path remains deterministic and contract-safe:
+  - `available: false`
+  - `models: []`
+- OpenAPI now documents `/chat/models` with codex model entry requirements and codex capability fields.
+- Deterministic Task 12 log markers are emitted by `/chat/models` codex responses:
+  - `[DEV-0000037][T12] event=chat_models_codex_capabilities_returned result=success`
+  - `[DEV-0000037][T12] event=chat_models_codex_capabilities_returned result=error`
+
+```mermaid
+flowchart TD
+  A[GET /chat/models?provider=codex] --> B[Resolve codex detection + MCP status + env defaults]
+  B --> C[Resolve codex model list]
+  C --> D[Map each codex model]
+  D --> E[Attach supportedReasoningEfforts + defaultReasoningEffort]
+  E --> F{Codex available?}
+  F -->|Yes| G[Return models with capability fields]
+  F -->|No| H[Return available false + empty models]
+  G --> I[Emit T12 success log]
+  H --> J[Emit T12 error log]
+```
+
+```mermaid
+sequenceDiagram
+  participant Client
+  participant Route as /chat/models
+  participant Detect as codex detection + mcp status
+  participant Env as codex env defaults
+  participant List as codex model list
+
+  Client->>Route: GET /chat/models?provider=codex
+  Route->>Detect: read availability/tool status
+  Route->>Env: read codex defaults
+  Route->>List: read configured model ids
+  Route->>Route: attach capability fields per codex model
+  Route-->>Client: provider/available/toolsAvailable/models(+capabilities)
+  Route->>Route: emit deterministic T12 success/error log
+```

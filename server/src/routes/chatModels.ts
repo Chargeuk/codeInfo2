@@ -1,4 +1,7 @@
-import type { ChatModelsResponse } from '@codeinfo2/common';
+import {
+  CODEX_MODEL_REASONING_EFFORTS,
+  type ChatModelsResponse,
+} from '@codeinfo2/common';
 import type { LMStudioClient } from '@lmstudio/sdk';
 import { Router } from 'express';
 import { resolveChatDefaults } from '../config/chatDefaults.js';
@@ -13,6 +16,10 @@ import { getMcpStatus } from '../providers/mcpStatus.js';
 
 type ClientFactory = (baseUrl: string) => LMStudioClient;
 const BASE_URL_REGEX = /^(https?|wss?):\/\//i;
+const TASK12_LOG_SUCCESS =
+  '[DEV-0000037][T12] event=chat_models_codex_capabilities_returned result=success';
+const TASK12_LOG_ERROR =
+  '[DEV-0000037][T12] event=chat_models_codex_capabilities_returned result=error';
 
 const scrubBaseUrl = (value: string) => {
   try {
@@ -39,6 +46,16 @@ const prioritizeModel = <T extends { key: string }>(
   const [preferred] = clone.splice(index, 1);
   clone.unshift(preferred);
   return clone;
+};
+
+const buildCodexModelCapabilities = (defaultReasoningEffort: string) => {
+  const supportedReasoningEfforts = Array.from(
+    new Set([...CODEX_MODEL_REASONING_EFFORTS, defaultReasoningEffort]),
+  );
+  return {
+    supportedReasoningEfforts,
+    defaultReasoningEffort,
+  };
 };
 
 export function createChatModelsRouter({
@@ -77,11 +94,18 @@ export function createChatModelsRouter({
       ];
       const preferredDefaults = resolveChatDefaults({});
       const codexModels = prioritizeModel(
-        modelList.models.map((model) => ({
-          key: model,
-          displayName: model,
-          type: 'codex',
-        })),
+        modelList.models.map((model) => {
+          const capabilities = buildCodexModelCapabilities(
+            codexEnv.defaults.modelReasoningEffort,
+          );
+          return {
+            key: model,
+            displayName: model,
+            type: 'codex',
+            supportedReasoningEfforts: capabilities.supportedReasoningEfforts,
+            defaultReasoningEffort: capabilities.defaultReasoningEffort,
+          };
+        }),
         preferredDefaults.provider === 'codex'
           ? preferredDefaults.model
           : undefined,
@@ -112,6 +136,27 @@ export function createChatModelsRouter({
         codexDefaults: codexEnv.defaults,
         codexWarnings,
       };
+
+      if (detection.available) {
+        baseLogger.info(
+          {
+            requestId,
+            modelCount: response.models.length,
+            toolsAvailable: response.toolsAvailable,
+          },
+          TASK12_LOG_SUCCESS,
+        );
+      } else {
+        baseLogger.error(
+          {
+            requestId,
+            code: 'codex_unavailable',
+            reason: response.reason,
+            modelCount: response.models.length,
+          },
+          TASK12_LOG_ERROR,
+        );
+      }
 
       return res.json(response);
     }

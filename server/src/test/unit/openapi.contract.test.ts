@@ -160,3 +160,54 @@ test('OpenAPI /codex/device-auth schema enforces empty request and deterministic
     { type: 'string', enum: ['codex_unavailable'] },
   );
 });
+
+test('OpenAPI /chat/models schema includes codex capability fields', () => {
+  const openapi = readOpenApi();
+  const schema = (openapi.paths as Record<string, Record<string, unknown>>)?.[
+    '/chat/models'
+  ] as Record<string, unknown> | undefined;
+  assert.ok(schema, 'missing /chat/models schema');
+
+  const success = (
+    ((schema?.get as Record<string, unknown>)?.responses ?? {}) as Record<
+      string,
+      Record<string, unknown>
+    >
+  )['200'];
+  const bodySchema = ((
+    ((success?.content as Record<string, unknown>) ?? {})[
+      'application/json'
+    ] as Record<string, unknown>
+  )?.schema ?? null) as Record<string, unknown> | null;
+  assert.ok(bodySchema, 'missing /chat/models 200 schema');
+
+  const modelItems = ((
+    ((bodySchema?.properties as Record<string, unknown>)?.models ??
+      {}) as Record<string, unknown>
+  ).items ?? null) as Record<string, unknown> | null;
+  assert.ok(modelItems, 'missing /chat/models models.items schema');
+
+  const oneOf = (modelItems?.oneOf ?? null) as Record<string, unknown>[] | null;
+  assert.ok(
+    oneOf && oneOf.length >= 1,
+    'missing /chat/models model oneOf schema',
+  );
+
+  const codexEntry = oneOf.find((entry) => {
+    const typeSchema = ((entry.properties ?? {}) as Record<string, unknown>)
+      .type as Record<string, unknown> | undefined;
+    const typeEnum = (typeSchema?.enum ?? []) as unknown[];
+    return typeEnum.includes('codex');
+  });
+
+  assert.ok(codexEntry, 'missing codex model schema entry');
+  const codexRequired = (codexEntry?.required ?? []) as string[];
+  assert.ok(
+    codexRequired.includes('supportedReasoningEfforts'),
+    'codex model schema missing required supportedReasoningEfforts',
+  );
+  assert.ok(
+    codexRequired.includes('defaultReasoningEffort'),
+    'codex model schema missing required defaultReasoningEffort',
+  );
+});

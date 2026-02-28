@@ -6,6 +6,7 @@ import type { LMStudioClient } from '@lmstudio/sdk';
 import express from 'express';
 import request from 'supertest';
 
+import { baseLogger } from '../../logger.js';
 import { setCodexDetection } from '../../providers/codexRegistry.js';
 import { resetMcpStatusCache } from '../../providers/mcpStatus.js';
 import { createChatModelsRouter } from '../../routes/chatModels.js';
@@ -132,6 +133,62 @@ test('codex env model list parsing surfaces defaults and warnings', async () => 
   }
 });
 
+test('codex models include non-empty supportedReasoningEfforts arrays', async () => {
+  env.set('Codex_model_list', 'alpha,beta');
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+  });
+
+  const server = await startServer({ mcpAvailable: true });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/models?provider=codex')
+      .expect(200);
+
+    for (const model of res.body.models as Array<Record<string, unknown>>) {
+      assert.equal(model.type, 'codex');
+      assert.ok(Array.isArray(model.supportedReasoningEfforts));
+      assert.ok(model.supportedReasoningEfforts.length > 0);
+      for (const effort of model.supportedReasoningEfforts) {
+        assert.equal(typeof effort, 'string');
+        assert.ok(effort.length > 0);
+      }
+    }
+  } finally {
+    await stopServer(server);
+  }
+});
+
+test('codex models include defaultReasoningEffort present in supportedReasoningEfforts', async () => {
+  env.set('Codex_model_list', 'alpha,beta');
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+  });
+
+  const server = await startServer({ mcpAvailable: true });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+  try {
+    const res = await request(server.httpServer)
+      .get('/chat/models?provider=codex')
+      .expect(200);
+
+    for (const model of res.body.models as Array<Record<string, unknown>>) {
+      const supported = model.supportedReasoningEfforts as string[];
+      const defaultEffort = model.defaultReasoningEffort as string;
+      assert.equal(typeof defaultEffort, 'string');
+      assert.ok(defaultEffort.length > 0);
+      assert.ok(supported.includes(defaultEffort));
+    }
+  } finally {
+    await stopServer(server);
+  }
+});
+
 test('codex response includes defaults and warnings when unavailable', async () => {
   setCodexDetection({
     available: false,
@@ -148,7 +205,7 @@ test('codex response includes defaults and warnings when unavailable', async () 
       .expect(200);
 
     assert.equal(res.body.available, false);
-    assert.equal(res.body.models.length, 0);
+    assert.deepEqual(res.body.models, []);
     assert.ok(res.body.codexDefaults);
     assert.ok(Array.isArray(res.body.codexWarnings));
   } finally {
@@ -335,6 +392,99 @@ test('non-codex provider omits codex defaults fields', async () => {
     assert.equal(res.body.models.length, 1);
     assert.equal('codexDefaults' in res.body, false);
     assert.equal('codexWarnings' in res.body, false);
+    assert.equal(
+      'supportedReasoningEfforts' in
+        (res.body.models[0] as Record<string, unknown>),
+      false,
+    );
+    assert.equal(
+      'defaultReasoningEffort' in
+        (res.body.models[0] as Record<string, unknown>),
+      false,
+    );
+  } finally {
+    await stopServer(server);
+  }
+});
+
+test('emits deterministic T12 success log when codex capabilities are returned', async (t) => {
+  env.set('Codex_model_list', 'alpha,beta');
+  setCodexDetection({
+    available: true,
+    authPresent: true,
+    configPresent: true,
+  });
+
+  const infoLines: string[] = [];
+  const errorLines: string[] = [];
+  t.mock.method(baseLogger, 'info', (...args: unknown[]) => {
+    const message = args.find((arg) => typeof arg === 'string') as
+      | string
+      | undefined;
+    if (message) infoLines.push(message);
+  });
+  t.mock.method(baseLogger, 'error', (...args: unknown[]) => {
+    const message = args.find((arg) => typeof arg === 'string') as
+      | string
+      | undefined;
+    if (message) errorLines.push(message);
+  });
+
+  const server = await startServer({ mcpAvailable: true });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+  try {
+    await request(server.httpServer)
+      .get('/chat/models?provider=codex')
+      .expect(200);
+    assert.ok(
+      infoLines.some((line) =>
+        line.includes(
+          '[DEV-0000037][T12] event=chat_models_codex_capabilities_returned result=success',
+        ),
+      ),
+    );
+    assert.equal(
+      errorLines.some((line) =>
+        line.includes(
+          '[DEV-0000037][T12] event=chat_models_codex_capabilities_returned result=error',
+        ),
+      ),
+      false,
+    );
+  } finally {
+    await stopServer(server);
+  }
+});
+
+test('emits deterministic T12 error log when codex is unavailable', async (t) => {
+  setCodexDetection({
+    available: false,
+    authPresent: false,
+    configPresent: false,
+    reason: 'missing-cli',
+  });
+
+  const errorLines: string[] = [];
+  t.mock.method(baseLogger, 'error', (...args: unknown[]) => {
+    const message = args.find((arg) => typeof arg === 'string') as
+      | string
+      | undefined;
+    if (message) errorLines.push(message);
+  });
+
+  const server = await startServer({ mcpAvailable: true });
+  env.set('MCP_URL', `${server.baseUrl}/mcp`);
+  try {
+    await request(server.httpServer)
+      .get('/chat/models?provider=codex')
+      .expect(200);
+    assert.ok(
+      errorLines.some((line) =>
+        line.includes(
+          '[DEV-0000037][T12] event=chat_models_codex_capabilities_returned result=error',
+        ),
+      ),
+    );
   } finally {
     await stopServer(server);
   }

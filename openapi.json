@@ -1741,6 +1741,153 @@
           }
         }
       }
+    },
+    "/chat/models": {
+      "get": {
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "codex",
+                "lmstudio"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Chat model listing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "provider": {
+                      "type": "string"
+                    },
+                    "available": {
+                      "type": "boolean"
+                    },
+                    "toolsAvailable": {
+                      "type": "boolean"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "models": {
+                      "type": "array",
+                      "items": {
+                        "oneOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "key": {
+                                "type": "string"
+                              },
+                              "displayName": {
+                                "type": "string"
+                              },
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "codex"
+                                ]
+                              },
+                              "supportedReasoningEfforts": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                },
+                                "minItems": 1
+                              },
+                              "defaultReasoningEffort": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "key",
+                              "displayName",
+                              "type",
+                              "supportedReasoningEfforts",
+                              "defaultReasoningEffort"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "key": {
+                                "type": "string"
+                              },
+                              "displayName": {
+                                "type": "string"
+                              },
+                              "type": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "key",
+                              "displayName",
+                              "type"
+                            ],
+                            "additionalProperties": false
+                          }
+                        ]
+                      }
+                    },
+                    "codexDefaults": {
+                      "type": "object",
+                      "properties": {
+                        "sandboxMode": {
+                          "type": "string"
+                        },
+                        "approvalPolicy": {
+                          "type": "string"
+                        },
+                        "modelReasoningEffort": {
+                          "type": "string"
+                        },
+                        "networkAccessEnabled": {
+                          "type": "boolean"
+                        },
+                        "webSearchEnabled": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "sandboxMode",
+                        "approvalPolicy",
+                        "modelReasoningEffort",
+                        "networkAccessEnabled",
+                        "webSearchEnabled"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "codexWarnings": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "provider",
+                    "available",
+                    "toolsAvailable",
+                    "models"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
     }
   }
 }

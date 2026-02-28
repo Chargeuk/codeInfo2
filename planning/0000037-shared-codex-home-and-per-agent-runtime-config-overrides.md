@@ -493,12 +493,12 @@ Remove compatibility-only widened reasoning-effort unions/casts and align code t
 #### Subtasks
 
 1. [ ] Remove local widened reasoning-effort type shims/casts in server runtime code and tests (for example `ModelReasoningEffort | 'xhigh'` compatibility-only types).
-   - Files: `server/src/chat`, `server/src/routes`, `server/src/codex` (all files currently widening effort unions), plus matching `server/src/test` files.
+   - Files: `server/src/chat/interfaces/ChatInterfaceCodex.ts`, `server/src/routes/chatValidators.ts`, `server/src/routes/chat.ts`, plus matching `server/src/test/unit/chat-codex-reasoning-delta.test.ts` and chat-validation tests.
    - Do: replace widened unions/casts with SDK-native types.
    - Docs: Context7 `/openai/codex`, https://www.typescriptlang.org/docs/handbook/2/everyday-types.html.
    - Done when: no server type includes manual `| 'xhigh'` compatibility additions.
 2. [ ] Remove any client/shared compatibility typings that were only present to widen values already supported by upgraded SDK.
-   - Files: `common/src/lmstudio.ts`, `client/src/hooks/useChatModel.ts`, `client/src/hooks/useChatStream.ts`, related client test files.
+   - Files: `common/src/lmstudio.ts`, `client/src/hooks/useChatModel.ts`, `client/src/hooks/useChatStream.ts`, `client/src/components/chat/CodexFlagsPanel.tsx`, related client test files.
    - Do: delete widened local aliases and rely on shared/server capability payload types.
    - Docs: https://www.typescriptlang.org/docs/handbook/2/types-from-types.html.
    - Done when: shared/client type surfaces do not carry compatibility-only widening.
@@ -509,21 +509,21 @@ Remove compatibility-only widened reasoning-effort unions/casts and align code t
    - Done when: validation and UI both consume typed capability values without manual casts.
 4. [ ] Add server unit test for accepted SDK-native reasoning efforts.
    - Test type: Unit.
-   - Test location: `server/src/test/**` reasoning-effort validator suites.
+   - Test location: `server/src/test/unit/chat-codex-reasoning-delta.test.ts`, `server/src/test/unit/chatModels.codex.test.ts`.
    - Description: assert every supported `ModelReasoningEffort` value accepted by updated server typing/validation paths.
    - Purpose: prevent regressions where supported SDK values are incorrectly rejected.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/getting-started.
    - Done when: test fails if a supported value is rejected.
 5. [ ] Add server unit test for unsupported reasoning-effort rejection.
    - Test type: Unit.
-   - Test location: `server/src/test/**` reasoning-effort validator suites.
+   - Test location: `server/src/test/unit/chat-codex-reasoning-delta.test.ts`, route validator unit tests under `server/src/test/unit`.
    - Description: assert unsupported effort values are rejected with deterministic error output.
    - Purpose: ensure strict invalid-value handling after shim removal.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if an unsupported value is silently accepted.
 6. [ ] Add client unit test for capability-driven effort typing usage.
    - Test type: Unit.
-   - Test location: `client/src/test/**` flags/chat model hook suites.
+   - Test location: `client/src/test/chatPage.reasoning.test.tsx`, `client/src/test/chatPage.models.test.tsx`.
    - Description: assert client state and payload paths accept SDK-native capability values without compatibility casts.
    - Purpose: ensure UI logic remains aligned to SDK-native effort semantics.
    - Docs: https://testing-library.com/docs/, Context7 `/jestjs/jest`, https://jestjs.io/docs/getting-started.
@@ -552,6 +552,7 @@ Create one server-side config resolution layer that reads shared base config, ch
 #### Documentation Locations
 
 - TOML v1.0.0 spec: https://toml.io/en/v1.0.0 (used to parse and normalize canonical vs legacy key layout correctly).
+- TOML parser package docs (`toml`): https://www.npmjs.com/package/toml (used for concrete parser API/error behavior and version pinning).
 - `@openai/codex-sdk` config layering expectations: Context7 `/openai/codex` (used to map normalized keys into runtime config overrides).
 - Node.js filesystem/path APIs: https://nodejs.org/api/fs.html and https://nodejs.org/api/path.html (used for loader reads, path resolution, and chat-config bootstrap copy behavior).
 - Jest testing framework references: Context7 `/jestjs/jest` and https://jestjs.io/docs/getting-started (used for this task's resolver and normalization test updates).
@@ -564,64 +565,69 @@ Create one server-side config resolution layer that reads shared base config, ch
    - Do: centralize file reads in one resolver API used by all callers.
    - Docs: https://toml.io/en/v1.0.0, https://nodejs.org/api/fs.html.
    - Done when: one resolver can return base/chat/agent parsed config objects.
-2. [ ] Reuse existing codex/agent path resolution helpers (`getCodexHome`, `getCodexConfigPathForHome`, `discoverAgents` agent `home/configPath`) instead of introducing new path-discovery logic.
+2. [ ] Add explicit TOML parser dependency and parse helper before resolver rollout.
+   - Files: `server/package.json`, `server/src/agents/config.ts` (or shared parser helper under `server/src/config`).
+   - Do: add a stable TOML parser dependency (`toml`) and parse via one helper that returns deterministic parse errors (remove regex-only parsing assumptions).
+   - Docs: https://www.npmjs.com/package/toml, https://toml.io/en/v1.0.0.
+   - Done when: resolver and services no longer depend on line/regex parsing for runtime config keys.
+3. [ ] Reuse existing codex/agent path resolution helpers (`getCodexHome`, `getCodexConfigPathForHome`, `discoverAgents` agent `home/configPath`) instead of introducing new path-discovery logic.
    - Files: `server/src/config/codexConfig.ts`, `server/src/agents/discovery.ts` (or existing helper locations).
    - Do: import and reuse existing helpers; remove duplicate path derivation code.
    - Docs: https://nodejs.org/api/path.html, https://nodejs.org/api/fs.html, Context7 `/openai/codex`.
    - Done when: no duplicate path-walk logic exists for these config locations.
-3. [ ] Add chat runtime config bootstrap behavior.
+4. [ ] Add chat runtime config bootstrap behavior.
    - Files: resolver/loader module from Subtask 1.
    - Do: if `./codex/chat/config.toml` missing and `./codex/config.toml` exists, copy once; never overwrite existing chat config.
    - Docs: https://nodejs.org/api/fs.html#fspromisescopyfilesrc-dest-mode.
    - Done when: first run creates chat config once and subsequent runs preserve it.
-4. [ ] Implement canonical normalization rules at read time.
+5. [ ] Implement canonical normalization rules at read time.
    - Files: normalization helper in `server/src/agents/config.ts` or dedicated normalizer module.
    - Do: map `features.view_image_tool -> tools.view_image`; accept `features.web_search_request` as input alias only; normalize legacy web-search keys to top-level `web_search`; canonical key wins on conflict.
    - Docs: Context7 `/openai/codex`, https://toml.io/en/v1.0.0.
    - Done when: normalized output always emits canonical keys only.
-5. [ ] Add normalization unit test for legacy `features.view_image_tool` alias mapping.
+6. [ ] Add normalization unit test for legacy `features.view_image_tool` alias mapping.
    - Test type: Unit.
    - Test location: `server/src/test/**` config normalization suites.
    - Description: assert legacy `features.view_image_tool` input normalizes to canonical `tools.view_image`.
    - Purpose: preserve deterministic legacy-key compatibility behavior.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if canonical output is not produced.
-6. [ ] Add normalization unit test for legacy web-search alias mapping.
+7. [ ] Add normalization unit test for legacy web-search alias mapping.
    - Test type: Unit.
    - Test location: `server/src/test/**` config normalization suites.
    - Description: assert supported legacy web-search aliases normalize to top-level canonical `web_search`.
    - Purpose: prevent mixed legacy/canonical key behavior.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if canonical `web_search` is missing.
-7. [ ] Add normalization collision unit test for canonical-wins precedence.
+8. [ ] Add normalization collision unit test for canonical-wins precedence.
    - Test type: Unit.
    - Test location: `server/src/test/**` config normalization suites.
    - Description: assert canonical key value wins when canonical and legacy aliases are both present.
    - Purpose: enforce deterministic precedence for conflicting inputs.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if alias value overrides canonical value.
-8. [ ] Add bootstrap unit test for copy-once chat-config creation.
+9. [ ] Add bootstrap unit test for copy-once chat-config creation.
    - Test type: Unit.
    - Test location: `server/src/test/**` config bootstrap suites.
    - Description: assert missing `./codex/chat/config.toml` is created exactly once from base config when base exists.
    - Purpose: verify migration-safe bootstrap happy path.
    - Docs: https://nodejs.org/api/fs.html#fspromisescopyfilesrc-dest-mode.
    - Done when: test fails if initial copy does not occur.
-9. [ ] Add bootstrap unit test for no-overwrite behavior.
+10. [ ] Add bootstrap unit test for no-overwrite behavior.
    - Test type: Unit.
    - Test location: `server/src/test/**` config bootstrap suites.
    - Description: assert existing `./codex/chat/config.toml` is never overwritten during bootstrap.
    - Purpose: protect previously migrated/customized chat runtime config.
    - Docs: https://nodejs.org/api/fs.html#fspromisescopyfilesrc-dest-mode.
    - Done when: test fails if existing chat config contents are mutated.
-10. [ ] Add bootstrap unit test for missing-base no-copy behavior.
+11. [ ] Add bootstrap unit test for missing-base no-copy behavior.
    - Test type: Unit.
    - Test location: `server/src/test/**` config bootstrap suites.
    - Description: assert bootstrap does not create/mutate chat config when base config source is missing.
    - Purpose: guarantee non-destructive behavior in partial/missing source state.
    - Docs: https://nodejs.org/api/fs.html#fspromisescopyfilesrc-dest-mode.
    - Done when: test fails if files are created/changed without base input.
-11. [ ] Update `projectStructure.md` for any files added or removed in this task, after all file-add/remove subtasks are completed.
+12. [ ] Update `projectStructure.md` for any files added or removed in this task, after all file-add/remove subtasks are completed.
    - Files: `projectStructure.md`.
    - Document name: `projectStructure.md`.
    - Document location: repository root `projectStructure.md`.
@@ -630,7 +636,7 @@ Create one server-side config resolution layer that reads shared base config, ch
    - Do: document any new resolver/normalizer modules and any new test files introduced by this task only.
    - Docs: https://git-scm.com/docs/git-ls-files.
    - Done when: file-map entries for task-created/removed files are present and accurate.
-12. [ ] Update `design.md` with the runtime config loader/bootstrap/normalization architecture and Mermaid diagrams after all architecture-flow subtasks are complete.
+13. [ ] Update `design.md` with the runtime config loader/bootstrap/normalization architecture and Mermaid diagrams after all architecture-flow subtasks are complete.
    - Files: `design.md`.
    - Document name: `design.md`.
    - Document location: repository root `design.md`.
@@ -686,7 +692,7 @@ Implement deterministic merge and validation behavior for runtime config resolut
    - Docs: Node fs errors https://nodejs.org/api/errors.html.
    - Done when: failures return stable error codes/messages across retries.
 4. [ ] Ensure no fallback path allows shared behavior keys to override named-agent behavior keys.
-   - Files: all resolver consumers in `server/src/agents/service.ts`, `server/src/flows/service.ts`, `server/src/mcp/**`.
+   - Files: all resolver consumers in `server/src/agents/service.ts`, `server/src/flows/service.ts`, `server/src/mcpAgents/**`, `server/src/mcp2/**`, `server/src/mcpCommon/**`.
    - Do: remove any fallback assignment from base behavior fields.
    - Docs: Context7 `/openai/codex`, https://toml.io/en/v1.0.0.
    - Done when: code audit and tests show no shared behavior override in agent runs.
@@ -834,14 +840,14 @@ Replace existing model-only config parsing (`readAgentModelId`) so all execution
    - Done when: `rg "readAgentModelId" server/src` shows no runtime-path callers.
 4. [ ] Add agent execution regression test proving resolver replaces regex parsing.
    - Test type: Regression.
-   - Test location: `server/src/test/agents/**`.
+   - Test location: `server/src/test/unit/agents-*.test.ts`, `server/src/test/integration/agents-*.test.ts`.
    - Description: use a TOML fixture that old line/regex parsing would mis-handle but resolver handles correctly.
    - Purpose: prevent reintroduction of model-only parser in agent run path.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if agent path returns to regex parsing behavior.
 5. [ ] Add flow execution regression test proving resolver replaces regex parsing.
    - Test type: Regression.
-   - Test location: `server/src/test/flows/**`.
+   - Test location: `server/src/test/unit/flows*.test.ts`, `server/src/test/integration/flows.*.test.ts`.
    - Description: assert flow-run config resolution uses full TOML resolver behavior, not legacy model-only parsing.
    - Purpose: guarantee flow path remains aligned with resolver migration.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
@@ -890,47 +896,47 @@ Apply runtime config overrides to chat and primary REST agent execution surfaces
    - Do: resolve `./codex/chat/config.toml` and pass normalized config in runtime options.
    - Docs: Context7 `/openai/codex` (`CodexOptions.config`).
    - Done when: chat run config source is chat config file only.
-2. [ ] Update agent execution path (`/agents/:agentName/run`) to pass agent runtime config via `CodexOptions.config`.
+2. [ ] Update agent execution path (`/agents/:agentName/run`) to pass agent runtime config via `CodexOptions.config` while forcing shared `CODEX_HOME`.
    - Files: `server/src/agents/service.ts`, related route/controller file.
-   - Do: call shared resolver and inject agent-specific config object.
+   - Do: call shared resolver and inject agent-specific config object; stop passing `agent.home` as per-agent `codexHome` and use shared home helpers only.
    - Docs: Context7 `/openai/codex`, https://expressjs.com/en/guide/routing.html.
-   - Done when: REST agent run never pulls behavior from shared base except projects merge.
-3. [ ] Update agent command execution path (`/agents/:agentName/commands/run`) to use the same agent runtime config resolution.
+   - Done when: REST agent run never pulls behavior from shared base except projects merge and no per-agent `codexHome` override remains.
+3. [ ] Update agent command execution path (`/agents/:agentName/commands/run`) to use the same agent runtime config resolution and shared `CODEX_HOME`.
    - Files: command route/service handler under `server/src/agents`.
-   - Do: reuse exact resolver invocation from Subtask 2.
+   - Do: reuse exact resolver invocation from Subtask 2 and remove any command-path per-agent home override.
    - Docs: Express route docs https://expressjs.com/en/guide/routing.html.
-   - Done when: command path and run path use shared helper.
+   - Done when: command path and run path use shared helper and both use the same shared home path.
 4. [ ] Extend shared chat interface/runtime option plumbing (`ChatInterfaceCodex` + option builders) to accept runtime `CodexOptions.config` payloads without breaking existing call signatures.
    - Files: `server/src/chat/interfaces/ChatInterfaceCodex.ts`, `server/src/chat/**` option builder modules.
    - Do: thread optional config parameter through wrappers with backward-compatible defaults.
    - Docs: Context7 `/openai/codex`.
    - Done when: TypeScript compile confirms no caller breakage.
-5. [ ] Ensure updated execution paths retain `useConfigDefaults: true` and do not reintroduce duplicated model/policy thread flag wiring.
+5. [ ] Ensure updated execution paths retain `useConfigDefaults: true` and do not reintroduce duplicated model/policy thread flag wiring or per-agent home overrides.
    - Files: all touched run option builders.
-   - Do: keep `useConfigDefaults: true` literal in all run starts.
+   - Do: keep `useConfigDefaults: true` literal in all run starts and verify `codexHome` values resolve to shared `getCodexHome()` semantics only.
    - Docs: Context7 `/openai/codex` thread start options.
-   - Done when: no path sets duplicate thread model/policy flags when config defaults are active.
+   - Done when: no path sets duplicate thread model/policy flags when config defaults are active and no path passes `agent.home` as `codexHome`.
 6. [ ] Add chat integration test for chat-config source enforcement.
    - Test type: Integration.
-   - Test location: `server/src/test/chat/**`.
+   - Test location: `server/src/test/unit/chat-interface-codex.test.ts`, `server/src/test/integration/chat-codex.test.ts`.
    - Description: assert chat execution reads `./codex/chat/config.toml` behavior values and not agent/base behavior keys.
    - Purpose: lock chat runtime ownership boundary.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/getting-started.
    - Done when: test fails if chat path reads base/agent behavior config.
 7. [ ] Add REST agent-run integration test for agent-config source enforcement.
    - Test type: Integration.
-   - Test location: `server/src/test/agents/**`.
-   - Description: assert `/agents/:agentName/run` uses named-agent config behavior with only projects merged from base.
+   - Test location: `server/src/test/integration/agents-run-*.test.ts`, `server/src/test/unit/agents-router-run.test.ts`.
+   - Description: assert `/agents/:agentName/run` uses named-agent config behavior with only projects merged from base and still executes with shared `CODEX_HOME`.
    - Purpose: lock agent behavior ownership for run endpoint.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/getting-started.
-   - Done when: test fails if run endpoint reads shared behavior keys.
+   - Done when: test fails if run endpoint reads shared behavior keys or switches to per-agent home.
 8. [ ] Add REST agent-command integration test for agent-config source enforcement.
    - Test type: Integration.
-   - Test location: `server/src/test/agents/**`.
-   - Description: assert `/agents/:agentName/commands/run` uses same resolver and behavior source as `/run`.
+   - Test location: `server/src/test/unit/agents-commands-router-run.test.ts`, `server/src/test/integration/agents-run-*.test.ts`.
+   - Description: assert `/agents/:agentName/commands/run` uses same resolver and behavior source as `/run`, with shared `CODEX_HOME`.
    - Purpose: prevent run/command behavior drift.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/getting-started.
-   - Done when: test fails if commands path diverges from run path.
+   - Done when: test fails if commands path diverges from run path or uses per-agent home.
 9. [ ] Update `design.md` with chat/run/commands runtime flow changes and Mermaid diagrams after all architecture-flow subtasks are complete.
    - Files: `design.md`.
    - Document name: `design.md`.
@@ -971,43 +977,43 @@ Apply the same runtime config resolution to flow-driven and MCP execution surfac
 
 1. [ ] Update flow-driven agent execution path to use the same agent runtime config resolution and precedence as REST.
    - Files: `server/src/flows/service.ts` and flow step execution helpers.
-   - Do: call the shared resolver used in Task 6 Subtask 2.
+   - Do: call the shared resolver used in Task 6 Subtask 2 and remove flow-specific `params.agentHome` override when starting Codex runs.
    - Docs: Context7 `/openai/codex`, https://www.jsonrpc.org/specification.
-   - Done when: flow step run options match REST agent run options for same agent.
+   - Done when: flow step run options match REST agent run options for same agent, including shared-home semantics.
 2. [ ] Update MCP agent execution surfaces to resolve the same runtime config behavior as REST and flow surfaces.
-   - Files: `server/src/mcp/**` agent execution adapters.
-   - Do: replace any direct model-only config read with shared resolver.
+   - Files: `server/src/mcpAgents/router.ts`, `server/src/mcpAgents/tools.ts`, `server/src/mcp2/router.ts`, `server/src/mcp2/tools/codebaseQuestion.ts`, `server/src/mcp2/tools/reingestRepository.ts`, `server/src/mcpCommon/dispatch.ts`.
+   - Do: replace any direct model-only config read with shared resolver and ensure MCP-triggered runs use the same shared home path as REST/flow.
    - Docs: https://www.jsonrpc.org/specification.
-   - Done when: MCP path has same config source and validation path.
-3. [ ] Ensure all updated paths retain `useConfigDefaults: true` and do not duplicate model/policy flag logic.
+   - Done when: MCP path has same config source, shared-home behavior, and validation path.
+3. [ ] Ensure all updated paths retain `useConfigDefaults: true` and do not duplicate model/policy flag logic or reintroduce per-agent home wiring.
    - Files: flow and MCP run option builders.
-   - Do: verify options include `useConfigDefaults: true` and no duplicate model/policy flags.
+   - Do: verify options include `useConfigDefaults: true`, no duplicate model/policy flags, and no `codexHome: agent.home` / `codexHome: params.agentHome` assignments.
    - Docs: Context7 `/openai/codex`.
-   - Done when: static search confirms `useConfigDefaults` set consistently.
+   - Done when: static search confirms `useConfigDefaults` set consistently and no per-agent home assignment remains in flow/MCP execution.
 4. [ ] Add integration test for REST `/agents/:agentName/run` baseline effective config output.
    - Test type: Integration.
-   - Test location: `server/src/test/agents/**`.
+   - Test location: `server/src/test/unit/agents-*.test.ts`, `server/src/test/integration/agents-*.test.ts`.
    - Description: capture baseline effective runtime config produced by REST run surface.
    - Purpose: establish reference behavior for cross-surface parity checks.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/using-matchers.
    - Done when: baseline assertions are deterministic for fixture input.
 5. [ ] Add integration test for `/agents/:agentName/commands/run` parity with REST run baseline.
    - Test type: Integration.
-   - Test location: `server/src/test/agents/**`.
+   - Test location: `server/src/test/unit/agents-*.test.ts`, `server/src/test/integration/agents-*.test.ts`.
    - Description: assert commands-run effective config matches REST run baseline for same agent fixture.
    - Purpose: prevent behavior drift between REST run surfaces.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/using-matchers.
    - Done when: commands-run assertions fail on any baseline divergence.
 6. [ ] Add integration test for flow-step parity with REST run baseline.
    - Test type: Integration.
-   - Test location: `server/src/test/flows/**`.
+   - Test location: `server/src/test/unit/flows*.test.ts`, `server/src/test/integration/flows.*.test.ts`.
    - Description: assert flow-driven execution effective config matches REST run baseline for same agent fixture.
    - Purpose: guarantee flow execution parity.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/using-matchers.
    - Done when: flow assertions fail on parity mismatch.
 7. [ ] Add integration test for MCP execution parity with REST run baseline.
    - Test type: Integration.
-   - Test location: `server/src/test/mcp/**`.
+   - Test location: `server/src/test/integration/mcp*`, `server/src/test/unit/mcp*`, `server/src/test/mcp2/**`.
    - Description: assert MCP execution effective config matches REST run baseline for same agent fixture.
    - Purpose: guarantee MCP execution parity with REST/flow paths.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/using-matchers.
@@ -1062,21 +1068,21 @@ Move Codex availability and startup checks to shared-home semantics for chat and
    - Done when: detection/auth behavior routes through existing helper functions.
 3. [ ] Add availability test for shared-home auth present at startup.
    - Test type: Integration.
-   - Test location: `server/src/test/codex/**`.
+   - Test location: `server/src/test/unit/codexConfig.test.ts`, `server/src/test/unit/codexConfig.device-auth.test.ts`.
    - Description: assert chat availability is `available` when shared `./codex` auth/config prerequisites are present.
    - Purpose: prevent shared-home false negatives on startup.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if valid shared-home state reports unavailable.
 4. [ ] Add availability test for shared-home auth missing at startup.
    - Test type: Integration.
-   - Test location: `server/src/test/codex/**`.
+   - Test location: `server/src/test/unit/codexConfig.test.ts`, `server/src/test/unit/codexConfig.device-auth.test.ts`.
    - Description: assert chat availability is `unavailable` when shared-home prerequisites are absent.
    - Purpose: validate deterministic negative-path availability behavior.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if missing prerequisites still report available.
 5. [ ] Add detection refresh test for availability state transition.
    - Test type: Integration.
-   - Test location: `server/src/test/codex/**`.
+   - Test location: `server/src/test/unit/codexConfig.device-auth.test.ts`, `server/src/test/integration/codexAuthCopy.integration.test.ts`.
    - Description: assert `refreshCodexDetection` updates status deterministically after auth state changes.
    - Purpose: guarantee refresh path correctness after login/propagation changes.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/timer-mocks.
@@ -1125,28 +1131,28 @@ Retain existing auth seeding/propagation compatibility behavior without deleting
    - Done when: runtime still seeds/propagates as before and no destructive ops exist.
 2. [ ] Add file-safety guard test for delete operations under `codex_agents/*`.
    - Test type: Unit.
-   - Test location: `server/src/test/agents-authSeed*` suites.
+   - Test location: `server/src/test/unit/agents-authSeed.test.ts`, `server/src/test/integration/codexAuthCopy.integration.test.ts`.
    - Description: assert no `unlink`/`rm` destructive file deletion is executed against agent directories.
    - Purpose: enforce non-destructive migration guarantee.
    - Docs: https://nodejs.org/api/fs.html.
    - Done when: test fails on any delete attempt in `codex_agents/*`.
 3. [ ] Add file-safety guard test for rename/move operations under `codex_agents/*`.
    - Test type: Unit.
-   - Test location: `server/src/test/agents-authSeed*` suites.
+   - Test location: `server/src/test/unit/agents-authSeed.test.ts`, `server/src/test/integration/codexAuthCopy.integration.test.ts`.
    - Description: assert no `rename`-based move operations target agent directory files.
    - Purpose: preserve agent auth/config file locations.
    - Docs: https://nodejs.org/api/fs.html#fsrenameoldpath-newpath-callback.
    - Done when: test fails on any rename/move attempt in `codex_agents/*`.
 4. [ ] Add auth propagation idempotency test.
    - Test type: Integration.
-   - Test location: `server/src/test/agents-authSeed*` suites.
+   - Test location: `server/src/test/unit/agents-authSeed.test.ts`, `server/src/test/integration/codexAuthCopy.integration.test.ts`.
    - Description: run propagation twice and assert second run produces no state drift.
    - Purpose: guarantee deterministic repeatability.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if repeated propagation changes result.
 5. [ ] Add post-run agent auth file-presence test.
    - Test type: Integration.
-   - Test location: `server/src/test/agents-authSeed*` suites.
+   - Test location: `server/src/test/unit/agents-authSeed.test.ts`, `server/src/test/integration/codexAuthCopy.integration.test.ts`.
    - Description: assert all expected `codex_agents/*/auth.json` files remain present after propagation/run flow.
    - Purpose: protect runtime continuity for existing agent auth artifacts.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
@@ -1198,9 +1204,9 @@ Implement the server-side device-auth message contract change first: request bod
    - Done when: `{ "target": "chat" }` and `{ "agentName": "x" }` return `400 invalid_request`.
 2. [ ] Reject any non-empty request body (not only selector fields) with deterministic `400 invalid_request` so the `{}` contract is strict.
    - Files: `server/src/routes/codexDeviceAuth.ts`.
-   - Do: enforce `Object.keys(body).length === 0` contract.
+   - Do: enforce `Object.keys(body).length === 0` contract and normalize oversize parser errors (`entity.too.large`) to the same `400 { error: "invalid_request", message }` shape.
    - Docs: OpenAPI object schema rules https://spec.openapis.org/oas/v3.0.3.html.
-   - Done when: `{ "foo": "bar" }` also returns `400 invalid_request`.
+   - Done when: `{ "foo": "bar" }` and oversized bodies both return `400 invalid_request` with deterministic `message`.
 3. [ ] Update shared/common API types for device-auth request/response to the single-shape contract.
    - Files: `common/src/**` API contract types, `client/src/api/codex.ts` types if shared import not used.
    - Do: define request `{}` and response union for `200/400/503`.
@@ -1224,42 +1230,47 @@ Implement the server-side device-auth message contract change first: request bod
    - Do: reflect strict `{}` request and `200/400/503` response bodies.
    - Docs: https://spec.openapis.org/oas/v3.0.3.html.
    - Done when: schema validation and route tests align.
-7. [ ] Add device-auth integration test for empty `{}` success response.
+7. [ ] Update the OpenAPI contract unit test to assert the new `/codex/device-auth` schemas.
+   - Files: `server/src/test/unit/openapi.contract.test.ts`.
+   - Do: add/adjust assertions for strict `{}` request body and exact `200/400/503` response schema shapes.
+   - Docs: https://spec.openapis.org/oas/v3.0.3.html, Context7 `/jestjs/jest`.
+   - Done when: contract test fails if schema reintroduces selector fields or misses required error shapes.
+8. [ ] Add device-auth integration test for empty `{}` success response.
    - Test type: Integration.
-   - Test location: `server/src/test/codex.device-auth*` suites.
+   - Test location: `server/src/test/integration/codex.device-auth.test.ts`.
    - Description: assert empty JSON request returns `200` with `{ status: \"ok\", rawOutput }`.
    - Purpose: validate happy-path contract behavior.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/asynchronous.
    - Done when: test fails if response status/body diverges from contract.
-8. [ ] Add device-auth integration test for legacy selector-field rejection.
+9. [ ] Add device-auth integration test for legacy selector-field rejection.
    - Test type: Integration.
-   - Test location: `server/src/test/codex.device-auth*` suites.
+   - Test location: `server/src/test/integration/codex.device-auth.test.ts`.
    - Description: assert requests with `target`/`agentName` return `400 invalid_request`.
    - Purpose: enforce strict removal of legacy dual-shape parsing.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/asynchronous.
    - Done when: test fails if selector payload is accepted.
-9. [ ] Add device-auth integration test for unknown non-empty field rejection.
+10. [ ] Add device-auth integration test for unknown non-empty field rejection.
    - Test type: Integration.
-   - Test location: `server/src/test/codex.device-auth*` suites.
+   - Test location: `server/src/test/integration/codex.device-auth.test.ts`.
    - Description: assert non-empty body with unknown fields returns `400 invalid_request`.
    - Purpose: enforce strict `{}` request-shape contract.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/asynchronous.
    - Done when: test fails if unknown fields are ignored.
-10. [ ] Add device-auth integration test for codex unavailable response.
+11. [ ] Add device-auth integration test for codex unavailable response.
    - Test type: Integration.
-   - Test location: `server/src/test/codex.device-auth*` suites.
+   - Test location: `server/src/test/integration/codex.device-auth.test.ts`.
    - Description: assert unavailable codex path returns `503` with `{ error: \"codex_unavailable\", reason }`.
    - Purpose: guarantee deterministic unavailable-path contract.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/asynchronous.
    - Done when: test fails if status/error payload differs.
-11. [ ] Add device-auth integration test for payload-too-large handling.
+12. [ ] Add device-auth integration test for payload-too-large handling.
    - Test type: Integration.
-   - Test location: `server/src/test/codex.device-auth*` suites.
-   - Description: assert oversized payload handling remains deterministic and contract-safe.
+   - Test location: `server/src/test/integration/codex.device-auth.test.ts`.
+   - Description: assert oversized payload returns `400` with `{ error: \"invalid_request\", message }` and does not emit legacy/non-contract error shapes.
    - Purpose: cover request-size corner case explicitly.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/asynchronous.
-   - Done when: test fails if payload-size failure behavior becomes nondeterministic.
-12. [ ] Update `design.md` with simplified device-auth contract flow and Mermaid diagrams after all architecture-flow subtasks are complete.
+   - Done when: test fails if payload-size failure behavior returns anything other than deterministic `invalid_request`.
+13. [ ] Update `design.md` with simplified device-auth contract flow and Mermaid diagrams after all architecture-flow subtasks are complete.
    - Files: `design.md`.
    - Document name: `design.md`.
    - Document location: repository root `design.md`.
@@ -1310,21 +1321,21 @@ Add deterministic concurrent request behavior and preserve post-success auth pro
    - Done when: successful auth still triggers refresh and propagation safely.
 3. [ ] Add concurrent device-auth integration test for overlapping request idempotency.
    - Test type: Integration.
-   - Test location: `server/src/test/codex.device-auth*` suites.
+   - Test location: `server/src/test/integration/codex.device-auth.test.ts`.
    - Description: assert overlapping auth requests produce deterministic, idempotent response behavior.
    - Purpose: validate lock/serialization behavior under contention.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/setup-teardown.
    - Done when: test fails if concurrent calls produce inconsistent outcomes.
 4. [ ] Add post-success integration test for auth propagation side effects.
    - Test type: Integration.
-   - Test location: `server/src/test/codex.device-auth*` suites.
+   - Test location: `server/src/test/integration/codex.device-auth.test.ts`, `server/src/test/unit/codexAuthCopy.test.ts`.
    - Description: assert successful auth triggers non-destructive propagation path exactly as defined.
    - Purpose: prevent regression in required post-success compatibility behavior.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/asynchronous.
    - Done when: test fails if propagation side effects are skipped or duplicated.
 5. [ ] Add post-success integration test for availability refresh side effects.
    - Test type: Integration.
-   - Test location: `server/src/test/codex.device-auth*` suites.
+   - Test location: `server/src/test/integration/codex.device-auth.test.ts`, `server/src/test/unit/codexConfig.device-auth.test.ts`.
    - Description: assert successful auth updates codex availability state deterministically.
    - Purpose: ensure detection refresh remains aligned with auth completion.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/asynchronous.
@@ -1391,34 +1402,39 @@ Implement backend model-capability payload contract for Codex models so frontend
    - Files: `openapi.json`.
    - Do: add both new fields as required for codex model schema entries.
    - Docs: https://spec.openapis.org/oas/v3.0.3.html.
-   - Done when: schema reflects runtime payload.
-4. [ ] Update shared mock fixtures and contract helpers to include capability fields.
+   - Done when: schema reflects runtime payload and matches runtime route response fields.
+4. [ ] Update OpenAPI contract tests for `/chat/models` codex capability fields.
+   - Files: `server/src/test/unit/openapi.contract.test.ts`.
+   - Do: add assertions for `supportedReasoningEfforts` and `defaultReasoningEffort` presence/requirements in codex model schema.
+   - Docs: https://spec.openapis.org/oas/v3.0.3.html, Context7 `/jestjs/jest`.
+   - Done when: contract test fails if either field is missing from the documented codex model shape.
+5. [ ] Update shared mock fixtures and contract helpers to include capability fields.
    - Files: `common/src/fixtures/mockModels.ts`, related test helpers.
    - Do: update all codex fixture objects with supported/default effort fields.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/setup-teardown, https://www.typescriptlang.org/docs/.
    - Done when: fixture-driven tests do not require ad-hoc overrides.
-5. [ ] Add codex model payload test for `supportedReasoningEfforts` presence and non-empty values.
+6. [ ] Add codex model payload test for `supportedReasoningEfforts` presence and non-empty values.
    - Test type: Integration.
-   - Test location: `server/src/test/chatModels.codex*` suites.
+   - Test location: `server/src/test/unit/chatModels.codex.test.ts`.
    - Description: assert every codex model response item includes a non-empty `supportedReasoningEfforts` array.
    - Purpose: guarantee frontend receives renderable reasoning option sets.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if any codex model omits or empties the array.
-6. [ ] Add codex model payload test for `defaultReasoningEffort` validity.
+7. [ ] Add codex model payload test for `defaultReasoningEffort` validity.
    - Test type: Integration.
-   - Test location: `server/src/test/chatModels.codex*` suites.
+   - Test location: `server/src/test/unit/chatModels.codex.test.ts`.
    - Description: assert every codex model `defaultReasoningEffort` exists and is a member of `supportedReasoningEfforts`.
    - Purpose: ensure deterministic client default/reset behavior.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if default is missing or invalid.
-7. [ ] Add mixed-provider payload regression test for non-codex model shape stability.
+8. [ ] Add mixed-provider payload regression test for non-codex model shape stability.
    - Test type: Regression.
-   - Test location: `server/src/test/chatModels*` suites.
+   - Test location: `server/src/test/unit/chatModels.codex.test.ts`.
    - Description: assert non-codex model entries remain unchanged when codex capability fields are introduced.
    - Purpose: prevent cross-provider schema regressions.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/using-matchers.
    - Done when: test fails if non-codex payload shape is unintentionally modified.
-8. [ ] Update `design.md` with `/chat/models` capability contract details and Mermaid diagrams after all architecture-flow subtasks are complete.
+9. [ ] Update `design.md` with `/chat/models` capability contract details and Mermaid diagrams after all architecture-flow subtasks are complete.
    - Files: `design.md`.
    - Document name: `design.md`.
    - Document location: repository root `design.md`.
@@ -1460,7 +1476,7 @@ Replace static reasoning/model sources with one shared runtime codex capability 
 #### Subtasks
 
 1. [ ] Replace static reasoning/model sources for chat capability payloads and chat validation with one shared runtime codex capability resolver sourced from model metadata.
-   - Files: `server/src/routes/chatModels.ts`, `server/src/routes/chat.ts`, existing `chatValidators` and helper files.
+   - Files: `server/src/routes/chatModels.ts`, `server/src/routes/chat.ts`, `server/src/routes/chatValidators.ts`, shared helper files under `server/src/config`.
    - Do: remove hard-coded effort arrays and `getCodexModelList`/`getCodexEnvDefaults` static assumptions where applicable.
    - Docs: Context7 `/openai/codex`.
    - Done when: both routes read capabilities from same resolver output.
@@ -1481,35 +1497,35 @@ Replace static reasoning/model sources with one shared runtime codex capability 
    - Done when: unsupported effort returns deterministic `invalid_request` response.
 5. [ ] Add parity test for `/chat/models` payload using shared capability resolver fixture.
    - Test type: Integration.
-   - Test location: `server/src/test/chatModels.codex*`.
+   - Test location: `server/src/test/unit/chatModels.codex.test.ts`.
    - Description: assert `/chat/models` response is derived from shared resolver output fixture.
    - Purpose: lock payload producer to shared resolver contract.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/snapshot-testing.
    - Done when: test fails if `/chat/models` diverges from resolver output.
 6. [ ] Add parity test for `/chat` validation using shared capability resolver fixture.
    - Test type: Integration.
-   - Test location: `server/src/test/chat*`.
+   - Test location: `server/src/test/unit/chat-codex-reasoning-delta.test.ts`, `server/src/test/integration/chat-codex.test.ts`.
    - Description: assert `/chat` request validation uses same resolver fixture as `/chat/models`.
    - Purpose: prevent payload/validation capability drift.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if `/chat` accepts/rejects values inconsistent with resolver output.
 7. [ ] Add fallback test for deterministic `/chat/models` payload when metadata is unavailable.
    - Test type: Integration.
-   - Test location: `server/src/test/chatModels.codex*`.
+   - Test location: `server/src/test/unit/chatModels.codex.test.ts`.
    - Description: assert fallback payload shape and defaults remain deterministic when metadata fetch fails.
    - Purpose: guarantee stable API behavior in degraded metadata conditions.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/mock-functions.
    - Done when: test fails if fallback payload changes nondeterministically.
 8. [ ] Add fallback validation test for accepted reasoning-effort values.
    - Test type: Integration.
-   - Test location: `server/src/test/chat*`.
+   - Test location: `server/src/test/unit/chat-codex-reasoning-delta.test.ts`, `server/src/test/integration/chat-codex.test.ts`.
    - Description: assert valid fallback-supported effort values are accepted by `/chat` validation.
    - Purpose: confirm fallback validation still supports intended requests.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if valid fallback values are rejected.
 9. [ ] Add fallback validation test for rejected reasoning-effort values.
    - Test type: Integration.
-   - Test location: `server/src/test/chat*`.
+   - Test location: `server/src/test/unit/chat-codex-reasoning-delta.test.ts`, `server/src/test/integration/chat-codex.test.ts`.
    - Description: assert unsupported fallback effort values are rejected with deterministic `invalid_request`.
    - Purpose: confirm fallback validation remains strict and deterministic.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
@@ -1910,49 +1926,49 @@ Add focused regression coverage for precedence/normalization behavior across RES
 
 1. [ ] Add cross-surface precedence test for shared project inheritance.
    - Test type: Integration.
-   - Test location: `server/src/test/agents/**`, `server/src/test/flows/**`, `server/src/test/mcp/**`.
+   - Test location: `server/src/test/unit/agents-*.test.ts`, `server/src/test/integration/agents-*.test.ts`, `server/src/test/unit/flows*.test.ts`, `server/src/test/integration/flows.*.test.ts`, `server/src/test/integration/mcp*`, `server/src/test/unit/mcp*`, `server/src/test/mcp2/**`.
    - Description: assert shared base `[projects]` entries are inherited across REST/flow/MCP surfaces.
    - Purpose: enforce consistent shared project inheritance behavior everywhere.
    - Docs: https://www.jsonrpc.org/specification, https://toml.io/en/v1.0.0.
    - Done when: all surfaces show identical inherited shared project entries.
 2. [ ] Add cross-surface precedence test for agent project override behavior.
    - Test type: Integration.
-   - Test location: `server/src/test/agents/**`, `server/src/test/flows/**`, `server/src/test/mcp/**`.
+   - Test location: `server/src/test/unit/agents-*.test.ts`, `server/src/test/integration/agents-*.test.ts`, `server/src/test/unit/flows*.test.ts`, `server/src/test/integration/flows.*.test.ts`, `server/src/test/integration/mcp*`, `server/src/test/unit/mcp*`, `server/src/test/mcp2/**`.
    - Description: assert agent project entries override same-path base project entries across all invocation paths.
    - Purpose: enforce deterministic `effectiveProjects` override precedence.
    - Docs: https://www.jsonrpc.org/specification, https://toml.io/en/v1.0.0.
    - Done when: all surfaces agree on agent-over-base project values.
 3. [ ] Add normalization test for `features.view_image_tool` to canonical output.
    - Test type: Unit.
-   - Test location: `server/src/test/agents-config-defaults*` and normalizer suites.
+   - Test location: `server/src/test/unit/agents-config-defaults.test.ts` and normalizer suites.
    - Description: assert alias input produces canonical `tools.view_image` output only.
    - Purpose: guarantee canonical key emission for view-image behavior.
    - Docs: https://toml.io/en/v1.0.0, Context7 `/openai/codex`.
    - Done when: test fails if legacy key is re-emitted as output.
 4. [ ] Add normalization test for `features.web_search_request` to canonical output.
    - Test type: Unit.
-   - Test location: `server/src/test/agents-config-defaults*` and normalizer suites.
+   - Test location: `server/src/test/unit/agents-config-defaults.test.ts` and normalizer suites.
    - Description: assert web-search legacy alias input normalizes to canonical top-level `web_search`.
    - Purpose: prevent mixed legacy/canonical web-search state.
    - Docs: https://toml.io/en/v1.0.0, Context7 `/openai/codex`.
    - Done when: test fails if canonical `web_search` is not emitted.
 5. [ ] Add normalization collision test for canonical-key precedence.
    - Test type: Unit.
-   - Test location: `server/src/test/agents-config-defaults*` and normalizer suites.
+   - Test location: `server/src/test/unit/agents-config-defaults.test.ts` and normalizer suites.
    - Description: assert canonical key value wins when canonical and legacy alias keys conflict.
    - Purpose: enforce deterministic collision resolution.
    - Docs: https://toml.io/en/v1.0.0, Context7 `/openai/codex`.
    - Done when: test fails if alias value overrides canonical value.
 6. [ ] Add validation-parity test for unknown-key handling across REST/MCP/flow.
    - Test type: Integration.
-   - Test location: `server/src/test/agents/**`, `server/src/test/flows/**`, `server/src/test/mcp/**`.
+   - Test location: `server/src/test/unit/agents-*.test.ts`, `server/src/test/integration/agents-*.test.ts`, `server/src/test/unit/flows*.test.ts`, `server/src/test/integration/flows.*.test.ts`, `server/src/test/integration/mcp*`, `server/src/test/unit/mcp*`, `server/src/test/mcp2/**`.
    - Description: assert unknown keys produce warning+ignore behavior consistently on all invocation paths.
    - Purpose: lock one shared unknown-key policy across surfaces.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/getting-started.
    - Done when: test fails if any surface hard-fails unknown keys.
 7. [ ] Add validation-parity test for invalid-type handling across REST/MCP/flow.
    - Test type: Integration.
-   - Test location: `server/src/test/agents/**`, `server/src/test/flows/**`, `server/src/test/mcp/**`.
+   - Test location: `server/src/test/unit/agents-*.test.ts`, `server/src/test/integration/agents-*.test.ts`, `server/src/test/unit/flows*.test.ts`, `server/src/test/integration/flows.*.test.ts`, `server/src/test/integration/mcp*`, `server/src/test/unit/mcp*`, `server/src/test/mcp2/**`.
    - Description: assert invalid supported-key types hard-fail consistently on all invocation paths.
    - Purpose: lock one shared invalid-type policy across surfaces.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/getting-started.
@@ -2002,7 +2018,7 @@ Add focused regression coverage for non-destructive file safety, deterministic s
 
 1. [ ] Add auth-file presence test across migration-compatible flows.
    - Test type: Integration.
-   - Test location: `server/src/test/agents-authSeed*`, migration-related suites.
+   - Test location: `server/src/test/unit/agents-authSeed.test.ts`, `server/src/test/integration/codexAuthCopy.integration.test.ts`, migration-related suites.
    - Description: assert every expected `codex_agents/*/auth.json` exists before and after migration-compatible operations.
    - Purpose: guarantee non-destructive auth-file preservation.
    - Docs: https://nodejs.org/api/fs.html.
@@ -2016,35 +2032,35 @@ Add focused regression coverage for non-destructive file safety, deterministic s
    - Done when: test fails if raw TOML/token-like content appears in logs.
 3. [ ] Add log-safety test for device-auth error logging.
    - Test type: Unit.
-   - Test location: `server/src/test/codex.device-auth*` logging assertions.
+   - Test location: `server/src/test/integration/codex.device-auth.test.ts`, `server/src/test/unit/codexDeviceAuth.test.ts` logging assertions.
    - Description: assert device-auth failures never log raw auth output/tokens and only log sanitized diagnostics.
    - Purpose: enforce secret-safe logging for auth error paths.
    - Docs: https://cheatsheetseries.owasp.org/cheatsheets/Logging_Cheat_Sheet.html.
    - Done when: test fails if sensitive auth material appears in logs.
 4. [ ] Add fixture-sweep validation test for all `codex_agents/*/config.toml` files.
    - Test type: Integration.
-   - Test location: fixture sweep suite under `server/src/test/agents/**`.
+   - Test location: fixture sweep suite under `server/src/test/unit/agents-*.test.ts`, `server/src/test/integration/agents-*.test.ts`.
    - Description: enumerate all current agent config files and validate each against normalization/validation pipeline.
    - Purpose: ensure existing in-repo configs are all covered by deterministic validation.
    - Docs: https://toml.io/en/v1.0.0, Context7 `/openai/codex`.
    - Done when: test fails if any agent config is unvalidated or produces nondeterministic output.
 5. [ ] Add fixture-sweep parity test across REST/MCP/flow for validated configs.
    - Test type: Integration.
-   - Test location: `server/src/test/agents/**`, `server/src/test/flows/**`, `server/src/test/mcp/**`.
+   - Test location: `server/src/test/unit/agents-*.test.ts`, `server/src/test/integration/agents-*.test.ts`, `server/src/test/unit/flows*.test.ts`, `server/src/test/integration/flows.*.test.ts`, `server/src/test/integration/mcp*`, `server/src/test/unit/mcp*`, `server/src/test/mcp2/**`.
    - Description: assert each validated config yields consistent behavior across invocation paths.
    - Purpose: prevent path-dependent behavior drift for existing agents.
    - Docs: https://www.jsonrpc.org/specification, Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if any invocation path diverges.
 6. [ ] Add parser-removal regression test for agent execution path.
    - Test type: Regression.
-   - Test location: `server/src/test/agents/**`.
+   - Test location: `server/src/test/unit/agents-*.test.ts`, `server/src/test/integration/agents-*.test.ts`.
    - Description: assert agent execution no longer relies on model-only regex parsing behavior.
    - Purpose: protect resolver rollout in agent path.
    - Docs: https://toml.io/en/v1.0.0, Context7 `/openai/codex`.
    - Done when: test fails if agent path reverts to regex parsing.
 7. [ ] Add parser-removal regression test for flow execution path.
    - Test type: Regression.
-   - Test location: `server/src/test/flows/**`.
+   - Test location: `server/src/test/unit/flows*.test.ts`, `server/src/test/integration/flows.*.test.ts`.
    - Description: assert flow execution no longer relies on model-only regex parsing behavior.
    - Purpose: protect resolver rollout in flow path.
    - Docs: https://toml.io/en/v1.0.0, Context7 `/openai/codex`.

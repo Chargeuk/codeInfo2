@@ -1063,7 +1063,7 @@ Replace existing model-only config parsing (`readAgentModelId`) so all execution
 ### 6. Server: Wire runtime config overrides into chat, agent run, and agent command execution paths
 
 - Task Status: **__done__**
-- Git Commits: `None yet`
+- Git Commits: `a706e81`
 
 #### Overview
 

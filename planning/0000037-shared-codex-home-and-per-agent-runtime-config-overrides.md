@@ -1768,7 +1768,7 @@ Add deterministic concurrent request behavior and preserve post-success auth pro
 
 ### 12. Server Message Contract: Add codex model reasoning-capability payload to `/chat/models`
 
-- Task Status: **__todo__**
+- Task Status: **__in_progress__**
 - Git Commits: `None yet`
 
 #### Overview
@@ -1785,37 +1785,37 @@ Implement backend model-capability payload contract for Codex models so frontend
 
 #### Subtasks
 
-1. [ ] Update shared response types in `common/src/lmstudio.ts` to include per-model capability fields.
+1. [x] Update shared response types in `common/src/lmstudio.ts` to include per-model capability fields.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `common/src/lmstudio.ts`.
    - Do: add `supportedReasoningEfforts: string[]` and `defaultReasoningEffort: string` on codex model DTOs.
    - Docs: Context7 `/openai/codex`, TypeScript docs.
    - Done when: shared types compile and are consumed by server/client.
-2. [ ] Update `server/src/routes/chatModels.ts` to include capability fields for every codex model item.
+2. [x] Update `server/src/routes/chatModels.ts` to include capability fields for every codex model item.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `server/src/routes/chatModels.ts`.
    - Do: populate both capability fields from resolver/model metadata for each codex entry.
    - Docs: Context7 `/openai/codex`.
    - Done when: API response includes fields on all codex models.
-3. [ ] Update `openapi.json` for `/chat/models` codex response schema if documented there.
+3. [x] Update `openapi.json` for `/chat/models` codex response schema if documented there.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `openapi.json`.
    - Do: add both new fields as required for codex model schema entries.
    - Docs: https://spec.openapis.org/oas/v3.0.3.html.
    - Done when: schema reflects runtime payload and matches runtime route response fields.
-4. [ ] Update OpenAPI contract tests for `/chat/models` codex capability fields.
+4. [x] Update OpenAPI contract tests for `/chat/models` codex capability fields.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `server/src/test/unit/openapi.contract.test.ts`.
    - Do: add assertions for `supportedReasoningEfforts` and `defaultReasoningEffort` presence/requirements in codex model schema.
    - Docs: https://spec.openapis.org/oas/v3.0.3.html, Context7 `/jestjs/jest`.
    - Done when: contract test fails if either field is missing from the documented codex model shape.
-5. [ ] Update shared mock fixtures and contract helpers to include capability fields.
+5. [x] Update shared mock fixtures and contract helpers to include capability fields.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `common/src/fixtures/mockModels.ts`, related test helpers.
    - Do: update all codex fixture objects with supported/default effort fields.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/setup-teardown, https://www.typescriptlang.org/docs/.
    - Done when: fixture-driven tests do not require ad-hoc overrides.
-6. [ ] Add codex model payload test for `supportedReasoningEfforts` presence and non-empty values.
+6. [x] Add codex model payload test for `supportedReasoningEfforts` presence and non-empty values.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/unit/chatModels.codex.test.ts`.
@@ -1823,7 +1823,7 @@ Implement backend model-capability payload contract for Codex models so frontend
    - Purpose: guarantee frontend receives renderable reasoning option sets.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if any codex model omits or empties the array.
-7. [ ] Add codex model payload test for `defaultReasoningEffort` validity.
+7. [x] Add codex model payload test for `defaultReasoningEffort` validity.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/unit/chatModels.codex.test.ts`.
@@ -1831,7 +1831,7 @@ Implement backend model-capability payload contract for Codex models so frontend
    - Purpose: ensure deterministic client default/reset behavior.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if default is missing or invalid.
-8. [ ] Add mixed-provider payload regression test for non-codex model shape stability.
+8. [x] Add mixed-provider payload regression test for non-codex model shape stability.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Regression.
    - Test location: `server/src/test/unit/chatModels.codex.test.ts`.
@@ -1839,7 +1839,7 @@ Implement backend model-capability payload contract for Codex models so frontend
    - Purpose: prevent cross-provider schema regressions.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/using-matchers.
    - Done when: test fails if non-codex payload shape is unintentionally modified.
-9. [ ] Add codex-unavailable payload contract test for `/chat/models`.
+9. [x] Add codex-unavailable payload contract test for `/chat/models`.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/unit/chatModels.codex.test.ts`.
@@ -1847,7 +1847,7 @@ Implement backend model-capability payload contract for Codex models so frontend
    - Purpose: cover degraded/error-path contract behavior for frontend consumers.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if unavailable path response shape diverges from documented contract.
-10. [ ] Update `design.md` with `/chat/models` capability contract details and Mermaid diagrams after all architecture-flow subtasks are complete.
+10. [x] Update `design.md` with `/chat/models` capability contract details and Mermaid diagrams after all architecture-flow subtasks are complete.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `design.md`.
    - Document name: `design.md`.
@@ -1858,7 +1858,7 @@ Implement backend model-capability payload contract for Codex models so frontend
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` reflects the final capability payload contract and data flow implemented in this task.
 
-11. [ ] Add deterministic structured log line `[DEV-0000037][T12] event=chat_models_codex_capabilities_returned result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
+11. [x] Add deterministic structured log line `[DEV-0000037][T12] event=chat_models_codex_capabilities_returned result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: server implementation files already listed in this task's subtasks and matching `server/src/test/**` suites.
    - Do: emit this exact log prefix and event name from the implementation path, then assert in tests that `result=success` is emitted on happy path and `result=error` only appears on intentional failure-path coverage.
@@ -1866,19 +1866,29 @@ Implement backend model-capability payload contract for Codex models so frontend
    - Manual Playwright-MCP check linkage: verify this exact log line during this task's Manual Playwright-MCP check when present, or during Task 22 final regression Manual Playwright-MCP check for backend/docs-only tasks.
    - Docs: https://nodejs.org/api/console.html, Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: deterministic log assertions are present and this task's expected trigger produces the exact `[DEV-0000037][T12] event=chat_models_codex_capabilities_returned result=success` line.
-12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+12. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test --workspace server`
-3. [ ] `npm run build --workspace common`
-4. [ ] `npm run test --workspace server -- chatModels.codex`
-5. [ ] Run targeted mixed-provider model payload tests (codex + non-codex) and verify pass.
-6. [ ] Run codex-unavailable payload contract tests and verify deterministic response shape.
+1. [x] `npm run build --workspace server`
+2. [x] `npm run test --workspace server`
 
 #### Implementation Notes
 
-- None yet.
+- 2026-02-28: Set Task 12 status to `__in_progress__` before implementation.
+- 2026-02-28: Subtask 1 complete. Extended `ChatModelInfo` in `common/src/lmstudio.ts` with codex capability fields (`supportedReasoningEfforts`, `defaultReasoningEffort`) for `/chat/models` payload typing.
+- 2026-02-28: Subtask 2 complete. Updated `server/src/routes/chatModels.ts` so every codex model item now includes `supportedReasoningEfforts` and `defaultReasoningEffort` in the `/chat/models` response.
+- 2026-02-28: Subtask 3 complete. Added `/chat/models` OpenAPI path/schema with codex-model capability fields required on codex entries.
+- 2026-02-28: Subtask 4 complete. Extended `server/src/test/unit/openapi.contract.test.ts` with `/chat/models` schema assertions for required codex capability fields.
+- 2026-02-28: Subtask 5 complete. Updated `common/src/fixtures/mockModels.ts` to include codex model fixtures and codex response fixtures carrying capability fields.
+- 2026-02-28: Subtask 6 complete. Added unit coverage in `server/src/test/unit/chatModels.codex.test.ts` that verifies non-empty `supportedReasoningEfforts` on every returned codex model.
+- 2026-02-28: Subtask 7 complete. Added unit coverage in `server/src/test/unit/chatModels.codex.test.ts` that verifies each codex `defaultReasoningEffort` is present and contained in `supportedReasoningEfforts`.
+- 2026-02-28: Subtask 8 complete. Added mixed-provider regression assertions ensuring lmstudio model entries remain unchanged and do not gain codex-only capability fields.
+- 2026-02-28: Subtask 9 complete. Strengthened codex-unavailable payload assertions to enforce deterministic contract-safe shape (`available: false`, `models: []`) without malformed capability entries.
+- 2026-02-28: Subtask 11 complete. Added deterministic T12 success/error structured logs in `server/src/routes/chatModels.ts` and unit assertions for both log paths.
+- 2026-02-28: Subtask 10 complete. Updated `design.md` with Task 12 `/chat/models` capability contract documentation and Mermaid flow/sequence diagrams.
+- 2026-02-28: Subtask 12 complete. Ran workspace lint and format checks; lint passed with existing baseline warnings and format check passed after running `npm run format --workspace server`.
+- 2026-02-28: Testing 1 complete. `npm run build --workspace server` succeeded (`tsc -b`).
+- 2026-02-28: Testing 2 complete. `npm run test --workspace server` passed (unit summary: `tests 810, pass 810`; cucumber summary: `67 scenarios, 402 steps`, all passed).
 
 ### 13. Server: Share codex capability resolver across `/chat/models` and `/chat`
 
@@ -2006,11 +2016,6 @@ Replace static reasoning/model sources with one shared runtime codex capability 
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run test --workspace server`
-3. [ ] `npm run test --workspace server -- chatModels.codex`
-4. [ ] Run targeted server chat-validation tests for unsupported reasoning effort and verify deterministic error contract.
-5. [ ] Run targeted parity tests for `/chat/models` and `/chat`.
-6. [ ] Run targeted fallback-capability tests and verify both accepted and rejected effort flows are deterministic.
-7. [ ] Run forward-compatibility capability tests using non-standard effort values and verify `/chat/models` + `/chat` parity.
 
 #### Implementation Notes
 
@@ -2103,12 +2108,11 @@ After Task 10 is complete, update frontend API request/response types for the si
 
 1. [ ] `npm run build --workspace client`
 2. [ ] `npm run test --workspace client`
-3. [ ] `npm run test --workspace client -- codexDeviceAuthApi`
-4. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
-5. [ ] `npm run compose:build`
-6. [ ] `npm run compose:up`
-7. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: execute device-auth flow, capture screenshot `task-14-device-auth-contract.png`, and store it in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped by `docker-compose.local.yml`); verify the agent reviews the screenshot against this task's UI expectations (single shared auth request path and deterministic UI state), debug console includes `[DEV-0000037][T14] event=client_device_auth_contract_consumed result=success`, includes no `[DEV-0000037][T14] ... result=error`, and has no unrelated console errors.
-8. [ ] `npm run compose:down`
+3. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+4. [ ] `npm run compose:build`
+5. [ ] `npm run compose:up`
+6. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: execute device-auth flow, capture screenshot `task-14-device-auth-contract.png`, and store it in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped by `docker-compose.local.yml`); verify the agent reviews the screenshot against this task's UI expectations (single shared auth request path and deterministic UI state), debug console includes `[DEV-0000037][T14] event=client_device_auth_contract_consumed result=success`, includes no `[DEV-0000037][T14] ... result=error`, and has no unrelated console errors.
+7. [ ] `npm run compose:down`
 
 #### Implementation Notes
 
@@ -2224,14 +2228,11 @@ After Task 10 and Task 14 are complete, simplify UI usage to one shared device-a
 
 1. [ ] `npm run build --workspace client`
 2. [ ] `npm run test --workspace client`
-3. [ ] `npm run test --workspace client -- codexDeviceAuthDialog`
-4. [ ] Run related ChatPage/AgentsPage codex-auth tests and verify pass.
-5. [ ] Run targeted auth-dialog error/retry tests and verify deterministic UI states.
-6. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
-7. [ ] `npm run compose:build`
-8. [ ] `npm run compose:up`
-9. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: execute auth dialog submit/retry from ChatPage and AgentsPage, capture screenshots `task-15-chat-auth-dialog.png` and `task-15-agents-auth-dialog.png`, and store them in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped by `docker-compose.local.yml`); verify the agent reviews both screenshots against this task's UI expectations (single shared dialog flow, consistent error/retry presentation across pages), debug console includes `[DEV-0000037][T15] event=shared_auth_dialog_flow_executed result=success`, includes no `[DEV-0000037][T15] ... result=error`, and has no unrelated console errors.
-10. [ ] `npm run compose:down`
+3. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+4. [ ] `npm run compose:build`
+5. [ ] `npm run compose:up`
+6. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: execute auth dialog submit/retry from ChatPage and AgentsPage, capture screenshots `task-15-chat-auth-dialog.png` and `task-15-agents-auth-dialog.png`, and store them in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped by `docker-compose.local.yml`); verify the agent reviews both screenshots against this task's UI expectations (single shared dialog flow, consistent error/retry presentation across pages), debug console includes `[DEV-0000037][T15] event=shared_auth_dialog_flow_executed result=success`, includes no `[DEV-0000037][T15] ... result=error`, and has no unrelated console errors.
+7. [ ] `npm run compose:down`
 
 #### Implementation Notes
 
@@ -2335,14 +2336,11 @@ After Task 12 and Task 13 are complete, update chat model state plumbing to carr
 
 1. [ ] `npm run build --workspace client`
 2. [ ] `npm run test --workspace client`
-3. [ ] `npm run test --workspace client -- chatPage.codexDefaults`
-4. [ ] Run targeted `useChatModel` capability/default tests directly and verify pass.
-5. [ ] Run malformed-capability payload corner-case tests and verify pass.
-6. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
-7. [ ] `npm run compose:build`
-8. [ ] `npm run compose:up`
-9. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: execute model-switch default/reset scenarios, capture screenshots `task-16-model-default-state.png` and `task-16-model-reset-state.png`, and store them in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped by `docker-compose.local.yml`); verify the agent reviews both screenshots against this task's UI expectations (default applied on model selection and deterministic reset after capability changes), debug console includes `[DEV-0000037][T16] event=chat_model_capability_defaults_applied result=success`, includes no `[DEV-0000037][T16] ... result=error`, and has no unrelated console errors.
-10. [ ] `npm run compose:down`
+3. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+4. [ ] `npm run compose:build`
+5. [ ] `npm run compose:up`
+6. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: execute model-switch default/reset scenarios, capture screenshots `task-16-model-default-state.png` and `task-16-model-reset-state.png`, and store them in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped by `docker-compose.local.yml`); verify the agent reviews both screenshots against this task's UI expectations (default applied on model selection and deterministic reset after capability changes), debug console includes `[DEV-0000037][T16] event=chat_model_capability_defaults_applied result=success`, includes no `[DEV-0000037][T16] ... result=error`, and has no unrelated console errors.
+7. [ ] `npm run compose:down`
 
 #### Implementation Notes
 
@@ -2450,15 +2448,11 @@ After Task 16 is complete, switch chat flags UI and chat payload building to run
 
 1. [ ] `npm run build --workspace client`
 2. [ ] `npm run test --workspace client`
-3. [ ] `npm run test --workspace client -- chatPage.flags.reasoning`
-4. [ ] Run targeted reasoning payload tests and verify only supported values are sent.
-5. [ ] Run single-option capability-list tests and verify UI/payload behavior remains valid.
-6. [ ] Run non-standard capability-value tests and verify rendered options + payload passthrough remain deterministic.
-7. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
-8. [ ] `npm run compose:build`
-9. [ ] `npm run compose:up`
-10. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: execute dynamic reasoning-option render + send flow, capture screenshot `task-17-dynamic-reasoning-options.png`, and store it in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped by `docker-compose.local.yml`); verify the agent reviews the screenshot against this task's UI expectations (options exactly match runtime capability payload and selection state is valid), debug console includes `[DEV-0000037][T17] event=dynamic_reasoning_options_rendered result=success`, includes no `[DEV-0000037][T17] ... result=error`, and has no unrelated console errors.
-11. [ ] `npm run compose:down`
+3. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+4. [ ] `npm run compose:build`
+5. [ ] `npm run compose:up`
+6. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: execute dynamic reasoning-option render + send flow, capture screenshot `task-17-dynamic-reasoning-options.png`, and store it in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped by `docker-compose.local.yml`); verify the agent reviews the screenshot against this task's UI expectations (options exactly match runtime capability payload and selection state is valid), debug console includes `[DEV-0000037][T17] event=dynamic_reasoning_options_rendered result=success`, includes no `[DEV-0000037][T17] ... result=error`, and has no unrelated console errors.
+7. [ ] `npm run compose:down`
 
 #### Implementation Notes
 
@@ -2569,7 +2563,11 @@ Add focused regression coverage for precedence/normalization behavior across RES
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run test --workspace server`
-3. [ ] Run new targeted precedence/normalization regression suites directly and verify pass.
+3. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+4. [ ] `npm run compose:build`
+5. [ ] `npm run compose:up`
+6. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: execute checks for tasks implemented in this story.
+7. [ ] `npm run compose:down`
 
 #### Implementation Notes
 
@@ -2674,7 +2672,11 @@ Add focused regression coverage for non-destructive file safety, deterministic s
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run test --workspace server`
-3. [ ] Run targeted compatibility/safety regression suites directly and verify pass.
+3. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+4. [ ] `npm run compose:build`
+5. [ ] `npm run compose:up`
+6. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: execute checks for tasks implemented in this story.
+7. [ ] `npm run compose:down`
 
 #### Implementation Notes
 

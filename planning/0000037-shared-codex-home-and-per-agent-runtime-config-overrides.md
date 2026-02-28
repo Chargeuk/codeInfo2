@@ -568,7 +568,7 @@ Remove compatibility-only widened reasoning-effort unions/casts and align code t
 7. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
 8. [ ] `npm run compose:build`
 9. [ ] `npm run compose:up`
-10. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: trigger reasoning-effort selection flows and verify debug console includes `[DEV-0000037][T02] event=reasoning_effort_shims_removed result=success` (expected once per exercised path), includes no `[DEV-0000037][T02] ... result=error`, and has no unrelated console errors.
+10. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: trigger reasoning-effort selection flows, capture screenshot `task-02-reasoning-options.png`, and store it in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped by `docker-compose.local.yml`); verify the agent reviews the screenshot against this task's UI expectations (supported options shown, unsupported options absent), debug console includes `[DEV-0000037][T02] event=reasoning_effort_shims_removed result=success` (expected once per exercised path), includes no `[DEV-0000037][T02] ... result=error`, and has no unrelated console errors.
 11. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -1929,7 +1929,7 @@ After Task 10 is complete, update frontend API request/response types for the si
 4. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
 5. [ ] `npm run compose:build`
 6. [ ] `npm run compose:up`
-7. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: execute device-auth flow and verify debug console includes `[DEV-0000037][T14] event=client_device_auth_contract_consumed result=success`, includes no `[DEV-0000037][T14] ... result=error`, and has no unrelated console errors.
+7. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: execute device-auth flow, capture screenshot `task-14-device-auth-contract.png`, and store it in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped by `docker-compose.local.yml`); verify the agent reviews the screenshot against this task's UI expectations (single shared auth request path and deterministic UI state), debug console includes `[DEV-0000037][T14] event=client_device_auth_contract_consumed result=success`, includes no `[DEV-0000037][T14] ... result=error`, and has no unrelated console errors.
 8. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -2052,7 +2052,7 @@ After Task 10 and Task 14 are complete, simplify UI usage to one shared device-a
 6. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
 7. [ ] `npm run compose:build`
 8. [ ] `npm run compose:up`
-9. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: execute auth dialog submit/retry from ChatPage and AgentsPage and verify debug console includes `[DEV-0000037][T15] event=shared_auth_dialog_flow_executed result=success`, includes no `[DEV-0000037][T15] ... result=error`, and has no unrelated console errors.
+9. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: execute auth dialog submit/retry from ChatPage and AgentsPage, capture screenshots `task-15-chat-auth-dialog.png` and `task-15-agents-auth-dialog.png`, and store them in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped by `docker-compose.local.yml`); verify the agent reviews both screenshots against this task's UI expectations (single shared dialog flow, consistent error/retry presentation across pages), debug console includes `[DEV-0000037][T15] event=shared_auth_dialog_flow_executed result=success`, includes no `[DEV-0000037][T15] ... result=error`, and has no unrelated console errors.
 10. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -2163,7 +2163,7 @@ After Task 12 and Task 13 are complete, update chat model state plumbing to carr
 6. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
 7. [ ] `npm run compose:build`
 8. [ ] `npm run compose:up`
-9. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: execute model-switch default/reset scenarios and verify debug console includes `[DEV-0000037][T16] event=chat_model_capability_defaults_applied result=success`, includes no `[DEV-0000037][T16] ... result=error`, and has no unrelated console errors.
+9. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: execute model-switch default/reset scenarios, capture screenshots `task-16-model-default-state.png` and `task-16-model-reset-state.png`, and store them in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped by `docker-compose.local.yml`); verify the agent reviews both screenshots against this task's UI expectations (default applied on model selection and deterministic reset after capability changes), debug console includes `[DEV-0000037][T16] event=chat_model_capability_defaults_applied result=success`, includes no `[DEV-0000037][T16] ... result=error`, and has no unrelated console errors.
 10. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -2279,7 +2279,7 @@ After Task 16 is complete, switch chat flags UI and chat payload building to run
 7. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
 8. [ ] `npm run compose:build`
 9. [ ] `npm run compose:up`
-10. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: execute dynamic reasoning-option render + send flow and verify debug console includes `[DEV-0000037][T17] event=dynamic_reasoning_options_rendered result=success`, includes no `[DEV-0000037][T17] ... result=error`, and has no unrelated console errors.
+10. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: execute dynamic reasoning-option render + send flow, capture screenshot `task-17-dynamic-reasoning-options.png`, and store it in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped by `docker-compose.local.yml`); verify the agent reviews the screenshot against this task's UI expectations (options exactly match runtime capability payload and selection state is valid), debug console includes `[DEV-0000037][T17] event=dynamic_reasoning_options_rendered result=success`, includes no `[DEV-0000037][T17] ... result=error`, and has no unrelated console errors.
 11. [ ] `npm run compose:down`
 
 #### Implementation notes
@@ -2707,7 +2707,7 @@ Perform final shared-base config minimization as an isolated end-of-story step o
 5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
 6. [ ] `npm run compose:build`
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: execute story regression flows and verify debug console/log stream contains `result=success` lines for `[DEV-0000037][T01]` through `[DEV-0000037][T22]` for triggered scenarios, contains no matching `result=error` lines on happy paths, and contains no unrelated console errors.
+8. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: execute full story regression flows and capture at least these GUI acceptance screenshots: `task-22-chat-auth-dialog.png`, `task-22-agents-auth-dialog.png`, `task-22-model-default-reset.png`, `task-22-reasoning-options.png`, and `task-22-chat-send-state.png`; store all screenshots in `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped by `docker-compose.local.yml`), verify the agent reviews each screenshot against the corresponding story acceptance expectations, verify debug console/log stream contains `result=success` lines for `[DEV-0000037][T01]` through `[DEV-0000037][T22]` for triggered scenarios, contains no matching `result=error` lines on happy paths, and contains no unrelated console errors.
 9. [ ] `npm run compose:down`
 10. [ ] Validate minimized `./codex/config.toml` matches projects-only target shape in this story.
 11. [ ] Validate `./codex/chat/config.toml` remains present and unchanged by minimization.

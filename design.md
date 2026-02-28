@@ -1090,19 +1090,55 @@ flowchart LR
 - Host auth bootstrap: docker-compose mounts `${CODEX_HOME:-$HOME/.codex}` to `/host/codex` and `/app/codex` as the container Codex home. On startup, if `/app/codex/auth.json` is missing and `/host/codex/auth.json` exists, the server copies it once into `/app/codex` (no overwrite); `/app/codex` remains the primary home.
 - Codex home selection:
   - The primary Codex home is `CODEINFO_CODEX_HOME` (default `./codex`).
-  - Agent runs can override the Codex home by passing a per-agent home (future: `${CODEINFO_CODEX_AGENT_HOME}/${agentName}`) into the Codex factory/options.
+  - Execution entrypoints use the shared home (`getCodexHome()`) so chat, agent, flow, and MCP runs all inherit shared auth/session semantics.
   - The server injects `CODEX_HOME` into Codex SDK options (`buildCodexOptions({ codexHome })`) rather than mutating `process.env` at runtime, so concurrent requests cannot cross-contaminate config/auth.
-  - Codex availability checks follow the same pattern: `detectCodex()` updates the process-wide cache for the primary home, while `detectCodexForHome(codexHome)` validates an arbitrary home without changing global cached state.
+  - Availability checks now use shared-home startup/refresh semantics: `detectCodex()` and `refreshCodexDetection()` both compose through `detectCodexForHome(getCodexHome())` and update the global detection cache from that shared home only.
 
 ```mermaid
 flowchart LR
-  Req[Codex request] --> Choice{Has codexHome override?}
-  Choice -->|No| Primary[resolveCodexHome()\\nCODEINFO_CODEX_HOME]
-  Choice -->|Yes| Override[resolveCodexHome(codexHome)]
-  Primary --> Opts1[buildCodexOptions()]
-  Override --> Opts2[buildCodexOptions({codexHome})]
-  Opts1 --> Codex[Codex SDK]
-  Opts2 --> Codex
+  Req[Execution request] --> Home[getCodexHome shared home]
+  Home --> Opts[buildCodexOptions CODEX_HOME=shared home]
+  Opts --> Codex[Codex SDK]
+```
+
+### Shared-home availability detection (Task 8)
+
+- Startup availability and refresh availability use the same shared-home decision path.
+- Startup path (`detectCodex`) and refresh path (`refreshCodexDetection`) emit deterministic T08 logs:
+  - success: `[DEV-0000037][T08] event=shared_home_detection_completed result=success`
+  - error: `[DEV-0000037][T08] event=shared_home_detection_completed result=error`
+- Decision criteria remain deterministic for shared home:
+  - CLI must resolve (`command -v codex`)
+  - `${CODEX_HOME}/auth.json` must exist
+  - `${CODEX_HOME}/config.toml` must exist
+
+```mermaid
+flowchart TD
+  Start[Server startup] --> SeedConfig[ensureCodexConfigSeeded]
+  SeedConfig --> SeedAuth[ensureCodexAuthFromHost]
+  SeedAuth --> Detect[detectCodex using getCodexHome]
+  Detect --> Check{CLI + auth + config present?}
+  Check -->|Yes| Avail[Set registry available=true]
+  Check -->|No| Unavail[Set registry available=false + reason]
+  Avail --> LogOk[T08 success log]
+  Unavail --> LogErr[T08 error log]
+```
+
+```mermaid
+sequenceDiagram
+  participant API as Device-auth/Runtime trigger
+  participant Refresh as refreshCodexDetection()
+  participant Detect as detectCodexForHome(getCodexHome())
+  participant Registry as codexRegistry
+  API->>Refresh: refreshCodexDetection()
+  Refresh->>Detect: evaluate shared home files + CLI
+  Detect-->>Refresh: CodexDetection result
+  Refresh->>Registry: updateCodexDetection(result)
+  alt result.available
+    Refresh-->>API: T08 success log emitted
+  else unavailable
+    Refresh-->>API: T08 error log emitted
+  end
 ```
 
 ### Codex device-auth flow

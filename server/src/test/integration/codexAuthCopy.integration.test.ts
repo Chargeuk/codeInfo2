@@ -4,6 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test, { afterEach } from 'node:test';
 import pino from 'pino';
+import { refreshCodexDetection } from '../../providers/codexDetection.js';
 import { ensureCodexAuthFromHost } from '../../utils/codexAuthCopy.js';
 
 const logger = pino({ level: 'silent' });
@@ -41,4 +42,30 @@ test('startup copy copies once and does not overwrite on subsequent calls', () =
   ensureCodexAuthFromHost({ containerHome, hostHome, logger });
 
   assert.equal(fs.readFileSync(containerAuthPath, 'utf8'), '{"token":"host"}');
+});
+
+test('shared-home refresh detection transitions to available after host auth copy', () => {
+  const containerHome = makeTempDir('codex-container-');
+  const hostHome = makeTempDir('codex-host-');
+  const configPath = path.join(containerHome, 'config.toml');
+  const hostAuth = path.join(hostHome, 'auth.json');
+
+  fs.writeFileSync(configPath, 'model = "gpt-5.3-codex"\n');
+  fs.writeFileSync(hostAuth, '{"token":"host"}');
+
+  const before = refreshCodexDetection({
+    codexHome: containerHome,
+    resolveCliPath: () => '/usr/local/bin/codex',
+  });
+  assert.equal(before.available, false);
+
+  ensureCodexAuthFromHost({ containerHome, hostHome, logger });
+
+  const after = refreshCodexDetection({
+    codexHome: containerHome,
+    resolveCliPath: () => '/usr/local/bin/codex',
+  });
+  assert.equal(after.available, true);
+  assert.equal(after.authPresent, true);
+  assert.equal(after.configPresent, true);
 });

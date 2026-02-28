@@ -1,12 +1,16 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
+import os from 'node:os';
 import path from 'node:path';
-import { describe, it } from 'node:test';
+import { describe, it, mock } from 'node:test';
 
 import {
   applyResolvedServerPortToCodexConfig,
   buildCodexOptions,
   buildDefaultCodexConfig,
 } from '../../config/codexConfig.js';
+import { getCodexDetection } from '../../providers/codexRegistry.js';
+import { detectCodex } from '../../providers/codexDetection.js';
 
 describe('codexConfig', () => {
   it('buildCodexOptions sets CODEX_HOME to the resolved override path', () => {
@@ -40,5 +44,74 @@ describe('codexConfig', () => {
     });
     assert.match(rewritten, /http:\/\/localhost:5710\/mcp/);
     assert.match(rewritten, /http:\/\/server:5710\/mcp/);
+  });
+
+  it('reports shared-home availability as available when auth/config are present at startup', async () => {
+    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+    const authPath = path.join(codexHome, 'auth.json');
+    const configPath = path.join(codexHome, 'config.toml');
+    const infoLogs: string[] = [];
+    mock.method(console, 'info', (...args: unknown[]) => {
+      infoLogs.push(args.map(String).join(' '));
+    });
+
+    try {
+      await fs.writeFile(authPath, '{"token":"shared"}', 'utf8');
+      await fs.writeFile(configPath, 'model = "gpt-5.3-codex"\n', 'utf8');
+
+      const detection = detectCodex({
+        codexHome,
+        resolveCliPath: () => '/usr/local/bin/codex',
+      });
+
+      assert.equal(detection.available, true);
+      assert.equal(detection.authPresent, true);
+      assert.equal(detection.configPresent, true);
+      assert.equal(getCodexDetection().available, true);
+      assert(
+        infoLogs.some((line) =>
+          line.includes(
+            '[DEV-0000037][T08] event=shared_home_detection_completed result=success',
+          ),
+        ),
+      );
+    } finally {
+      mock.restoreAll();
+      await fs.rm(codexHome, { recursive: true, force: true });
+    }
+  });
+
+  it('reports shared-home availability as unavailable when auth is missing at startup', async () => {
+    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+    const configPath = path.join(codexHome, 'config.toml');
+    const errorLogs: string[] = [];
+    mock.method(console, 'error', (...args: unknown[]) => {
+      errorLogs.push(args.map(String).join(' '));
+    });
+
+    try {
+      await fs.writeFile(configPath, 'model = "gpt-5.3-codex"\n', 'utf8');
+
+      const detection = detectCodex({
+        codexHome,
+        resolveCliPath: () => '/usr/local/bin/codex',
+      });
+
+      assert.equal(detection.available, false);
+      assert.equal(detection.authPresent, false);
+      assert.equal(detection.configPresent, true);
+      assert.match(detection.reason ?? '', /Missing auth\.json/u);
+      assert.equal(getCodexDetection().available, false);
+      assert(
+        errorLogs.some((line) =>
+          line.includes(
+            '[DEV-0000037][T08] event=shared_home_detection_completed result=error',
+          ),
+        ),
+      );
+    } finally {
+      mock.restoreAll();
+      await fs.rm(codexHome, { recursive: true, force: true });
+    }
   });
 });

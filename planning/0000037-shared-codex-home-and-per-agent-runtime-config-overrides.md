@@ -1290,7 +1290,7 @@ Apply the same runtime config resolution to flow-driven and MCP execution surfac
 
 ### 8. Server: Shared-home detection alignment for Codex availability and startup semantics
 
-- Task Status: **__todo__**
+- Task Status: **__done__**
 - Git Commits: `None yet`
 
 #### Overview
@@ -1306,19 +1306,19 @@ Move Codex availability and startup checks to shared-home semantics for chat and
 
 #### Subtasks
 
-1. [ ] Update detection/startup logic to treat shared `./codex` as chat availability source of truth.
+1. [x] Update detection/startup logic to treat shared `./codex` as chat availability source of truth.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `server/src/providers/codexDetection.ts`, `server/src/config/codexConfig.ts`.
    - Do: for chat availability, check shared-home auth/config only.
    - Docs: Context7 `/openai/codex`, https://nodejs.org/api/fs.html.
    - Done when: chat availability remains true when shared auth is valid even if agent-local auth differs.
-2. [ ] Reuse existing detection/auth helpers (`detectCodexForHome`, `refreshCodexDetection`, `ensureAgentAuthSeeded`, `propagateAgentAuthFromPrimary`) and avoid parallel duplicate implementations.
+2. [x] Reuse existing detection/auth helpers (`detectCodexForHome`, `refreshCodexDetection`, `ensureAgentAuthSeeded`, `propagateAgentAuthFromPrimary`) and avoid parallel duplicate implementations.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `server/src/providers/codexDetection.ts`, `server/src/agents/auth*` helper files.
    - Do: compose existing helpers, do not add second implementation path.
    - Docs: https://nodejs.org/api/fs.html, https://nodejs.org/api/child_process.html.
    - Done when: detection/auth behavior routes through existing helper functions.
-3. [ ] Add availability test for shared-home auth present at startup.
+3. [x] Add availability test for shared-home auth present at startup.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/unit/codexConfig.test.ts`, `server/src/test/unit/codexConfig.device-auth.test.ts`.
@@ -1326,7 +1326,7 @@ Move Codex availability and startup checks to shared-home semantics for chat and
    - Purpose: prevent shared-home false negatives on startup.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if valid shared-home state reports unavailable.
-4. [ ] Add availability test for shared-home auth missing at startup.
+4. [x] Add availability test for shared-home auth missing at startup.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/unit/codexConfig.test.ts`, `server/src/test/unit/codexConfig.device-auth.test.ts`.
@@ -1334,7 +1334,7 @@ Move Codex availability and startup checks to shared-home semantics for chat and
    - Purpose: validate deterministic negative-path availability behavior.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: test fails if missing prerequisites still report available.
-5. [ ] Add detection refresh test for availability state transition.
+5. [x] Add detection refresh test for availability state transition.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/unit/codexConfig.device-auth.test.ts`, `server/src/test/integration/codexAuthCopy.integration.test.ts`.
@@ -1342,7 +1342,7 @@ Move Codex availability and startup checks to shared-home semantics for chat and
    - Purpose: guarantee refresh path correctness after login/propagation changes.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/timer-mocks.
    - Done when: test fails if refresh leaves stale availability state.
-6. [ ] Update `design.md` with shared-home detection architecture and Mermaid diagrams after all architecture-flow subtasks are complete.
+6. [x] Update `design.md` with shared-home detection architecture and Mermaid diagrams after all architecture-flow subtasks are complete.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `design.md`.
    - Document name: `design.md`.
@@ -1353,7 +1353,7 @@ Move Codex availability and startup checks to shared-home semantics for chat and
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` captures the final shared-home detection flow implemented by this task.
 
-7. [ ] Add deterministic structured log line `[DEV-0000037][T08] event=shared_home_detection_completed result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
+7. [x] Add deterministic structured log line `[DEV-0000037][T08] event=shared_home_detection_completed result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: server implementation files already listed in this task's subtasks and matching `server/src/test/**` suites.
    - Do: emit this exact log prefix and event name from the implementation path, then assert in tests that `result=success` is emitted on happy path and `result=error` only appears on intentional failure-path coverage.
@@ -1361,16 +1361,27 @@ Move Codex availability and startup checks to shared-home semantics for chat and
    - Manual Playwright-MCP check linkage: verify this exact log line during this task's Manual Playwright-MCP check when present, or during Task 22 final regression Manual Playwright-MCP check for backend/docs-only tasks.
    - Docs: https://nodejs.org/api/console.html, Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: deterministic log assertions are present and this task's expected trigger produces the exact `[DEV-0000037][T08] event=shared_home_detection_completed result=success` line.
-8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+8. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test --workspace server`
-3. [ ] `npm run test --workspace server -- codex`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run test --workspace server`
+3. [x] `npm run test --workspace server -- codex`
 
 #### Implementation Notes
 
-- None yet.
+- 2026-02-28: Set Task 8 status to `__in_progress__` before implementation.
+- 2026-02-28: Subtask 1 complete. Startup/shared-home detection now resolves a single shared home and uses that as chat availability source of truth via `detectCodexForHome(...)` composition.
+- 2026-02-28: Subtask 2 complete. Removed duplicate detection code path by composing `detectCodex()`/`refreshCodexDetection()` through `detectCodexForHome(...)` with shared helper dependencies.
+- 2026-02-28: Subtask 3 complete. Added startup shared-home positive-path availability coverage in `server/src/test/unit/codexConfig.test.ts` (auth+config present => available).
+- 2026-02-28: Subtask 4 complete. Added startup shared-home negative-path coverage in `server/src/test/unit/codexConfig.test.ts` (missing auth => unavailable with deterministic reason).
+- 2026-02-28: Subtask 5 complete. Added refresh transition tests in `server/src/test/unit/codexConfig.device-auth.test.ts` and `server/src/test/integration/codexAuthCopy.integration.test.ts` to verify stale unavailable state transitions to available after auth appears.
+- 2026-02-28: Subtask 6 complete. Updated `design.md` with shared-home detection architecture narrative plus Mermaid startup/refresh diagrams.
+- 2026-02-28: Subtask 7 complete. Added deterministic T08 success/error logs in `server/src/providers/codexDetection.ts` and asserted both paths in unit tests.
+- 2026-02-28: Subtask 8 complete. Ran `npm run lint --workspaces` (passed with existing import-order warnings only, no errors) and `npm run format:check --workspaces` (all workspaces matched Prettier).
+- 2026-02-28: Testing 1 complete. `npm run build --workspace server` succeeded (`tsc -b`).
+- 2026-02-28: Testing 2 complete. `npm run test --workspace server` passed with unit summary `tests 789, pass 789` and cucumber summary `67 scenarios, 402 steps` all passed.
+- 2026-02-28: Testing 3 complete. `npm run test --workspace server -- codex` passed (workspace script reran full unit+cucumber suites; final summaries remained `tests 789, pass 789` and `67 scenarios, 402 steps`, all passed).
 
 ### 9. Server: Non-destructive auth compatibility and agent-file safety guards
 

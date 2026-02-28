@@ -497,7 +497,7 @@ Upgrade `@openai/codex-sdk` to latest stable at implementation start and lock de
 ### 2. Server: Remove local reasoning-effort widening shims and align shared/client/server typing
 
 - Task Status: **__done__**
-- Git Commits: `None yet`
+- Git Commits: `e62a65d`
 
 #### Overview
 

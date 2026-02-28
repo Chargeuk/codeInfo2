@@ -3,6 +3,28 @@ import type { VersionInfo } from './versionInfo.js';
 
 type HttpError = Error & { status?: number; body?: unknown };
 
+export type CodexDeviceAuthRequest = Record<string, never>;
+
+export type CodexDeviceAuthSuccessResponse = {
+  status: 'ok';
+  rawOutput: string;
+};
+
+export type CodexDeviceAuthInvalidRequestResponse = {
+  error: 'invalid_request';
+  message: string;
+};
+
+export type CodexDeviceAuthUnavailableResponse = {
+  error: 'codex_unavailable';
+  reason: string;
+};
+
+export type CodexDeviceAuthResponse =
+  | CodexDeviceAuthSuccessResponse
+  | CodexDeviceAuthInvalidRequestResponse
+  | CodexDeviceAuthUnavailableResponse;
+
 export async function fetchServerVersion(
   serverBaseUrl: string,
   fetchImpl = globalThis.fetch,

@@ -1484,7 +1484,7 @@ Retain existing auth seeding/propagation compatibility behavior without deleting
 
 ### 10. Server Message Contract: Simplify `POST /codex/device-auth` to single request shape
 
-- Task Status: **__todo__**
+- Task Status: **__done__**
 - Git Commits: `None yet`
 
 #### Overview
@@ -1502,25 +1502,25 @@ Implement the server-side device-auth message contract change first: request bod
 
 #### Subtasks
 
-1. [ ] Update `server/src/routes/codexDeviceAuth.ts` request parsing to accept only empty JSON object and reject selector fields (`target`, `agentName`) with `400 invalid_request`.
+1. [x] Update `server/src/routes/codexDeviceAuth.ts` request parsing to accept only empty JSON object and reject selector fields (`target`, `agentName`) with `400 invalid_request`.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `server/src/routes/codexDeviceAuth.ts`.
    - Do: add strict request body validation at route start.
    - Docs: https://expressjs.com/en/resources/middleware/body-parser.html.
    - Done when: `{ "target": "chat" }` and `{ "agentName": "x" }` return `400 invalid_request`.
-2. [ ] Reject any non-empty request body (not only selector fields) with deterministic `400 invalid_request` so the `{}` contract is strict.
+2. [x] Reject any non-empty request body (not only selector fields) with deterministic `400 invalid_request` so the `{}` contract is strict.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `server/src/routes/codexDeviceAuth.ts`.
    - Do: enforce `Object.keys(body).length === 0` contract and normalize oversize parser errors (`entity.too.large`) to the same `400 { error: "invalid_request", message }` shape.
    - Docs: OpenAPI object schema rules https://spec.openapis.org/oas/v3.0.3.html.
    - Done when: `{ "foo": "bar" }` and oversized bodies both return `400 invalid_request` with deterministic `message`.
-3. [ ] Update shared/common API types for device-auth request/response to the single-shape contract.
+3. [x] Update shared/common API types for device-auth request/response to the single-shape contract.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `common/src/**` API contract types, `client/src/api/codex.ts` types if shared import not used.
    - Do: define request `{}` and response union for `200/400/503`.
    - Docs: TypeScript discriminated unions https://www.typescriptlang.org/docs/.
    - Done when: client and server compile against same type contract.
-4. [ ] Update success and error response payloads to the defined contract.
+4. [x] Update success and error response payloads to the defined contract.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `server/src/routes/codexDeviceAuth.ts`.
    - Do: return exactly:
@@ -1529,25 +1529,25 @@ Implement the server-side device-auth message contract change first: request bod
      - `503 { error: "codex_unavailable", reason }`
    - Docs: RFC 7807 guidance https://datatracker.ietf.org/doc/html/rfc7807.
    - Done when: integration tests assert exact JSON shapes.
-5. [ ] Remove legacy dual-shape parsing/response behavior from backend route.
+5. [x] Remove legacy dual-shape parsing/response behavior from backend route.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `server/src/routes/codexDeviceAuth.ts` and any helper parsing modules.
    - Do: remove target-branch logic and dead types.
    - Docs: https://spec.openapis.org/oas/v3.0.3.html.
    - Done when: no route code references `target` or `agentName` request semantics.
-6. [ ] Update `openapi.json` for `/codex/device-auth` request and response schemas.
+6. [x] Update `openapi.json` for `/codex/device-auth` request and response schemas.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `openapi.json`.
    - Do: reflect strict `{}` request and `200/400/503` response bodies.
    - Docs: https://spec.openapis.org/oas/v3.0.3.html.
    - Done when: schema validation and route tests align.
-7. [ ] Update the OpenAPI contract unit test to assert the new `/codex/device-auth` schemas.
+7. [x] Update the OpenAPI contract unit test to assert the new `/codex/device-auth` schemas.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `server/src/test/unit/openapi.contract.test.ts`.
    - Do: add/adjust assertions for strict `{}` request body and exact `200/400/503` response schema shapes.
    - Docs: https://spec.openapis.org/oas/v3.0.3.html, Context7 `/jestjs/jest`.
    - Done when: contract test fails if schema reintroduces selector fields or misses required error shapes.
-8. [ ] Add device-auth integration test for empty `{}` success response.
+8. [x] Add device-auth integration test for empty `{}` success response.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/integration/codex.device-auth.test.ts`.
@@ -1555,7 +1555,7 @@ Implement the server-side device-auth message contract change first: request bod
    - Purpose: validate happy-path contract behavior.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/asynchronous.
    - Done when: test fails if response status/body diverges from contract.
-9. [ ] Add device-auth integration test for legacy selector-field rejection.
+9. [x] Add device-auth integration test for legacy selector-field rejection.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/integration/codex.device-auth.test.ts`.
@@ -1563,7 +1563,7 @@ Implement the server-side device-auth message contract change first: request bod
    - Purpose: enforce strict removal of legacy dual-shape parsing.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/asynchronous.
    - Done when: test fails if selector payload is accepted.
-10. [ ] Add device-auth integration test for unknown non-empty field rejection.
+10. [x] Add device-auth integration test for unknown non-empty field rejection.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/integration/codex.device-auth.test.ts`.
@@ -1571,7 +1571,7 @@ Implement the server-side device-auth message contract change first: request bod
    - Purpose: enforce strict `{}` request-shape contract.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/asynchronous.
    - Done when: test fails if unknown fields are ignored.
-11. [ ] Add device-auth integration test for non-object body rejection (`null`, array, primitive JSON).
+11. [x] Add device-auth integration test for non-object body rejection (`null`, array, primitive JSON).
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/integration/codex.device-auth.test.ts`.
@@ -1579,7 +1579,7 @@ Implement the server-side device-auth message contract change first: request bod
    - Purpose: make strict `{}` request contract fully explicit beyond non-empty object cases.
    - Docs: Context7 `/jestjs/jest`, https://spec.openapis.org/oas/v3.0.3.html.
    - Done when: test fails if any non-object body is accepted or returns non-deterministic error shape.
-12. [ ] Add device-auth integration test for codex unavailable response.
+12. [x] Add device-auth integration test for codex unavailable response.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/integration/codex.device-auth.test.ts`.
@@ -1587,7 +1587,7 @@ Implement the server-side device-auth message contract change first: request bod
    - Purpose: guarantee deterministic unavailable-path contract.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/asynchronous.
    - Done when: test fails if status/error payload differs.
-13. [ ] Add device-auth integration test for payload-too-large handling.
+13. [x] Add device-auth integration test for payload-too-large handling.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/integration/codex.device-auth.test.ts`.
@@ -1595,7 +1595,7 @@ Implement the server-side device-auth message contract change first: request bod
    - Purpose: cover request-size corner case explicitly.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/asynchronous.
    - Done when: test fails if payload-size failure behavior returns anything other than deterministic `invalid_request`.
-14. [ ] Update `design.md` with simplified device-auth contract flow and Mermaid diagrams after all architecture-flow subtasks are complete.
+14. [x] Update `design.md` with simplified device-auth contract flow and Mermaid diagrams after all architecture-flow subtasks are complete.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `design.md`.
    - Document name: `design.md`.
@@ -1606,7 +1606,7 @@ Implement the server-side device-auth message contract change first: request bod
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` diagrams match final backend device-auth contract behavior.
 
-15. [ ] Add deterministic structured log line `[DEV-0000037][T10] event=device_auth_contract_validated result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
+15. [x] Add deterministic structured log line `[DEV-0000037][T10] event=device_auth_contract_validated result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: server implementation files already listed in this task's subtasks and matching `server/src/test/**` suites.
    - Do: emit this exact log prefix and event name from the implementation path, then assert in tests that `result=success` is emitted on happy path and `result=error` only appears on intentional failure-path coverage.
@@ -1614,17 +1614,37 @@ Implement the server-side device-auth message contract change first: request bod
    - Manual Playwright-MCP check linkage: verify this exact log line during this task's Manual Playwright-MCP check when present, or during Task 22 final regression Manual Playwright-MCP check for backend/docs-only tasks.
    - Docs: https://nodejs.org/api/console.html, Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: deterministic log assertions are present and this task's expected trigger produces the exact `[DEV-0000037][T10] event=device_auth_contract_validated result=success` line.
-16. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+16. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test --workspace server`
-3. [ ] `npm run test --workspace server -- codex.device-auth`
-4. [ ] Validate `/codex/device-auth` schema changes in `openapi.json`.
+1. [x] `npm run build --workspace server`
+2. [x] `npm run test --workspace server`
+3. [x] `npm run test --workspace server -- codex.device-auth`
+4. [x] Validate `/codex/device-auth` schema changes in `openapi.json`.
 
 #### Implementation Notes
 
-- None yet.
+- 2026-02-28: Set Task 10 status to `__in_progress__` before implementation.
+- 2026-02-28: Subtask 1 complete. Updated `codexDeviceAuth` route validation to accept only an empty JSON object and reject legacy selector fields with deterministic `400 invalid_request`.
+- 2026-02-28: Subtask 2 complete. Enforced strict non-empty/non-object rejection and normalized parser/too-large body failures to deterministic `400 { error: "invalid_request", message }`.
+- 2026-02-28: Subtask 3 complete. Added shared `CodexDeviceAuth*` request/response contract types in `common/src/api.ts` and aligned `client/src/api/codex.ts` to that single-shape contract.
+- 2026-02-28: Subtask 4 complete. Updated route response envelope to contract shapes: `200 { status: "ok", rawOutput }`, `400 invalid_request`, `503 codex_unavailable`.
+- 2026-02-28: Subtask 5 complete. Removed legacy request semantics (`target`/`agentName`) and branch-specific response payload fields from backend route behavior.
+- 2026-02-28: Subtask 6 complete. Updated `/codex/device-auth` OpenAPI request schema to strict empty object and added explicit `200/400/503` response schemas.
+- 2026-02-28: Subtask 7 complete. Added OpenAPI contract unit assertions to enforce strict request and deterministic `200/400/503` schema shapes for `/codex/device-auth`.
+- 2026-02-28: Subtask 8 complete. Added integration coverage for empty `{}` success response payload.
+- 2026-02-28: Subtask 9 complete. Added integration coverage proving selector-field payloads are rejected with deterministic `400 invalid_request`.
+- 2026-02-28: Subtask 10 complete. Added integration coverage for unknown non-empty field rejection.
+- 2026-02-28: Subtask 11 complete. Added integration coverage for non-object JSON request bodies (`null`, array, primitive) returning deterministic `invalid_request`.
+- 2026-02-28: Subtask 12 complete. Added integration coverage for deterministic `503 { error: "codex_unavailable", reason }` behavior.
+- 2026-02-28: Subtask 13 complete. Added integration coverage for payload-too-large normalization to deterministic `400 invalid_request`.
+- 2026-02-28: Subtask 14 complete. Updated `design.md` with Task 10 strict `{}` request contract narrative and Mermaid flow/sequence diagrams for `200/400/503` paths.
+- 2026-02-28: Subtask 15 complete. Added deterministic T10 success/error logs in route path and assertions for both log prefixes in integration tests.
+- 2026-02-28: Subtask 16 complete. Ran workspace lint/format checks, fixed introduced lint issues, and applied direct Prettier formatting for `codexDeviceAuth.ts` before final `format:check` pass.
+- 2026-02-28: Testing 1 complete. `npm run build --workspace server` succeeded (`tsc -b`) after correcting Node test mock-call typing in new T10 log assertions.
+- 2026-02-28: Testing 2 complete. `npm run test --workspace server` passed with unit summary `tests 800, pass 800, fail 0` and cucumber summary `67 scenarios, 402 steps` all passed.
+- 2026-02-28: Testing 3 complete. Ran `npm run test --workspace server -- codex.device-auth` (workspace script executes full suite); observed unit summary `tests 800, pass 800, fail 0` and cucumber summary `67 scenarios, 402 steps` all passed.
+- 2026-02-28: Testing 4 complete. Validated OpenAPI `/codex/device-auth` contract via direct `openapi.contract.test.ts` run (`3/3` passing, including strict empty-request and deterministic `200/400/503` schema assertions).
 
 ### 11. Server Message Contract: Device-auth concurrency handling and post-success side effects
 

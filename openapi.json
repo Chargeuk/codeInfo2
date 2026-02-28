@@ -13,21 +13,7 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "properties": {
-                  "target": {
-                    "type": "string",
-                    "enum": [
-                      "chat",
-                      "agent"
-                    ]
-                  },
-                  "agentName": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "target"
-                ]
+                "additionalProperties": false
               }
             }
           }
@@ -41,18 +27,72 @@
                   "type": "object",
                   "properties": {
                     "status": {
-                      "type": "string"
-                    },
-                    "target": {
-                      "type": "string"
-                    },
-                    "agentName": {
-                      "type": "string"
+                      "type": "string",
+                      "enum": [
+                        "ok"
+                      ]
                     },
                     "rawOutput": {
                       "type": "string"
                     }
-                  }
+                  },
+                  "required": [
+                    "status",
+                    "rawOutput"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "enum": [
+                        "invalid_request"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Codex unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "enum": [
+                        "codex_unavailable"
+                      ]
+                    },
+                    "reason": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "reason"
+                  ],
+                  "additionalProperties": false
                 }
               }
             }

@@ -4,7 +4,6 @@ import { describe, mock, test } from 'node:test';
 import express from 'express';
 import supertest from 'supertest';
 
-import type { DiscoveredAgent } from '../../agents/types.js';
 import type { CodexDetection } from '../../providers/codexRegistry.js';
 import { createCodexDeviceAuthRouter } from '../../routes/codexDeviceAuth.js';
 import type {
@@ -60,25 +59,12 @@ function withDeps(
   };
 }
 
-function makeAgent(name: string, home = '/tmp/agent-home'): DiscoveredAgent {
-  return {
-    name,
-    home,
-    configPath: `${home}/config.toml`,
-    description: undefined,
-    descriptionPath: undefined,
-    systemPromptPath: undefined,
-    warnings: undefined,
-  };
-}
-
 describe('POST /codex/device-auth', () => {
-  test('returns verification data for chat target', async () => {
+  test('returns verification data for empty object request', async () => {
     let receivedHome: string | undefined;
     const res = await supertest(
       buildApp(
         withDeps({
-          discoverAgents: async () => [makeAgent('coding_agent')],
           runCodexDeviceAuth: async (params) => {
             receivedHome = params?.codexHome;
             return buildDeviceAuthResult({
@@ -91,11 +77,10 @@ describe('POST /codex/device-auth', () => {
       ),
     )
       .post('/codex/device-auth')
-      .send({ target: 'chat' });
+      .send({});
 
     assert.equal(res.status, 200);
-    assert.equal(res.body.status, 'completed');
-    assert.equal(res.body.target, 'chat');
+    assert.equal(res.body.status, 'ok');
     assert.equal(
       res.body.rawOutput,
       'Open https://device.test/verify and enter code CODE-123.',
@@ -103,50 +88,53 @@ describe('POST /codex/device-auth', () => {
     assert.equal(receivedHome, undefined);
   });
 
-  test('unknown agentName returns 404', async () => {
-    const res = await supertest(
-      buildApp(
-        withDeps({
-          discoverAgents: async () => [makeAgent('known_agent')],
-          runCodexDeviceAuth: async () => {
-            throw new Error('should not run');
-          },
-        }),
-      ),
-    )
-      .post('/codex/device-auth')
-      .send({ target: 'agent', agentName: 'missing' });
-
-    assert.equal(res.status, 404);
-    assert.deepEqual(res.body, { error: 'not_found' });
+  test('selector fields are rejected with 400 invalid_request', async () => {
+    const payloads = [
+      { target: 'chat' },
+      { target: 'agent' },
+      { target: 'agent', agentName: 'coding_agent' },
+      { agentName: 'coding_agent' },
+    ];
+    for (const payload of payloads) {
+      const res = await supertest(buildApp())
+        .post('/codex/device-auth')
+        .send(payload);
+      assert.equal(res.status, 400);
+      assert.deepEqual(res.body, {
+        error: 'invalid_request',
+        message: 'request body must be an empty JSON object',
+      });
+    }
   });
 
-  test('missing target returns 400 invalid_request', async () => {
-    const res = await supertest(buildApp()).post('/codex/device-auth').send({});
-
-    assert.equal(res.status, 400);
-    assert.equal(res.body.error, 'invalid_request');
-  });
-
-  test('unsupported target returns 400 invalid_request', async () => {
+  test('unknown non-empty fields are rejected with 400 invalid_request', async () => {
     const res = await supertest(buildApp())
       .post('/codex/device-auth')
-      .send({ target: 'other' });
+      .send({ foo: 'bar' });
 
     assert.equal(res.status, 400);
-    assert.equal(res.body.error, 'invalid_request');
+    assert.deepEqual(res.body, {
+      error: 'invalid_request',
+      message: 'request body must be an empty JSON object',
+    });
   });
 
-  test('missing agentName returns 400 invalid_request', async () => {
-    const res = await supertest(buildApp())
-      .post('/codex/device-auth')
-      .send({ target: 'agent' });
-
-    assert.equal(res.status, 400);
-    assert.equal(res.body.error, 'invalid_request');
+  test('non-object bodies are rejected with deterministic invalid_request payload', async () => {
+    const payloads: unknown[] = [null, [], 'hello', 123];
+    for (const payload of payloads) {
+      const res = await supertest(buildApp())
+        .post('/codex/device-auth')
+        .set('content-type', 'application/json')
+        .send(JSON.stringify(payload));
+      assert.equal(res.status, 400);
+      assert.deepEqual(res.body, {
+        error: 'invalid_request',
+        message: 'request body must be an empty JSON object',
+      });
+    }
   });
 
-  test('codex unavailable returns 503', async () => {
+  test('codex unavailable returns 503 codex_unavailable payload', async () => {
     const res = await supertest(
       buildApp(
         withDeps({
@@ -161,7 +149,7 @@ describe('POST /codex/device-auth', () => {
       ),
     )
       .post('/codex/device-auth')
-      .send({ target: 'chat' });
+      .send({});
 
     assert.equal(res.status, 503);
     assert.deepEqual(res.body, {
@@ -183,7 +171,7 @@ describe('POST /codex/device-auth', () => {
       ),
     )
       .post('/codex/device-auth')
-      .send({ target: 'chat' });
+      .send({});
 
     assert.equal(res.status, 400);
     assert.deepEqual(res.body, {
@@ -192,16 +180,19 @@ describe('POST /codex/device-auth', () => {
     });
   });
 
-  test('oversized payload returns 400 payload too large', async () => {
+  test('oversized payload returns 400 invalid_request', async () => {
     const prevLimit = process.env.LOG_MAX_CLIENT_BYTES;
     process.env.LOG_MAX_CLIENT_BYTES = '10';
     try {
       const res = await supertest(buildApp())
         .post('/codex/device-auth')
-        .send({ target: 'chat', extra: 'toolarge' });
+        .send({ extra: 'toolarge' });
 
       assert.equal(res.status, 400);
-      assert.deepEqual(res.body, { error: 'payload too large' });
+      assert.deepEqual(res.body, {
+        error: 'invalid_request',
+        message: 'request body exceeds maximum size',
+      });
     } finally {
       if (prevLimit === undefined) {
         delete process.env.LOG_MAX_CLIENT_BYTES;
@@ -228,7 +219,6 @@ describe('POST /codex/device-auth', () => {
     const res = await supertest(
       buildApp(
         withDeps({
-          discoverAgents: async () => [makeAgent('coding_agent')],
           propagateAgentAuthFromPrimary,
           refreshCodexDetection,
           runCodexDeviceAuth: async () => ({
@@ -239,7 +229,7 @@ describe('POST /codex/device-auth', () => {
       ),
     )
       .post('/codex/device-auth')
-      .send({ target: 'chat' });
+      .send({});
 
     assert.equal(res.status, 200);
     assert.equal(propagateAgentAuthFromPrimary.mock.calls.length, 0);
@@ -250,5 +240,45 @@ describe('POST /codex/device-auth', () => {
 
     assert.equal(propagateAgentAuthFromPrimary.mock.calls.length, 1);
     assert.equal(refreshCodexDetection.mock.calls.length, 1);
+  });
+
+  test('emits deterministic T10 success log for strict contract happy path', async () => {
+    const infoMock = mock.method(console, 'info', () => {});
+    try {
+      const res = await supertest(buildApp(withDeps()))
+        .post('/codex/device-auth')
+        .send({});
+      assert.equal(res.status, 200);
+      const successCall = infoMock.mock.calls.find(
+        (call) =>
+          typeof call.arguments[0] === 'string' &&
+          call.arguments[0].startsWith(
+            '[DEV-0000037][T10] event=device_auth_contract_validated result=success',
+          ),
+      );
+      assert.ok(successCall);
+    } finally {
+      infoMock.mock.restore();
+    }
+  });
+
+  test('emits deterministic T10 error log for strict contract failures', async () => {
+    const errorMock = mock.method(console, 'error', () => {});
+    try {
+      const res = await supertest(buildApp())
+        .post('/codex/device-auth')
+        .send({ target: 'chat' });
+      assert.equal(res.status, 400);
+      const errorCall = errorMock.mock.calls.find(
+        (call) =>
+          typeof call.arguments[0] === 'string' &&
+          call.arguments[0].startsWith(
+            '[DEV-0000037][T10] event=device_auth_contract_validated result=error',
+          ),
+      );
+      assert.ok(errorCall);
+    } finally {
+      errorMock.mock.restore();
+    }
   });
 });

@@ -3136,3 +3136,43 @@ sequenceDiagram
   MCP->>VS: VectorSearch / ListIngestedRepositories
   VS-->>MCP: canonical + compatibility payload parity
 ```
+
+## Story 0000037 Task 10: Device-auth single-shape contract
+
+- `POST /codex/device-auth` now enforces a strict empty JSON object request body (`{}`) and rejects legacy selector fields (`target`, `agentName`) as `400 invalid_request`.
+- Response envelopes are deterministic:
+  - `200 { status: "ok", rawOutput }`
+  - `400 { error: "invalid_request", message }`
+  - `503 { error: "codex_unavailable", reason }`
+- Oversized and malformed JSON payloads are normalized into the same deterministic `invalid_request` contract instead of route-specific ad-hoc payloads.
+- Contract validation logging now emits deterministic T10 markers:
+  - `[DEV-0000037][T10] event=device_auth_contract_validated result=success`
+  - `[DEV-0000037][T10] event=device_auth_contract_validated result=error`
+
+```mermaid
+flowchart TD
+  A[POST /codex/device-auth] --> B{Body is strict {}?}
+  B -->|No| C[400 invalid_request message]
+  B -->|Yes| D{Codex CLI available?}
+  D -->|No| E[503 codex_unavailable reason]
+  D -->|Yes| F[Run device auth]
+  F --> G{Run ok?}
+  G -->|No parse/expired| H[400 invalid_request message]
+  G -->|Other runtime failure| I[503 codex_unavailable reason]
+  G -->|Yes| J[200 status ok + rawOutput]
+```
+
+```mermaid
+sequenceDiagram
+  participant Client
+  participant Route as /codex/device-auth
+  participant Auth as runCodexDeviceAuth
+  participant Seed as propagateAgentAuthFromPrimary
+
+  Client->>Route: POST {}
+  Route->>Route: Validate strict empty-object contract
+  Route->>Auth: run device auth (shared home)
+  Auth-->>Route: ok + rawOutput
+  Route-->>Client: 200 {status:\"ok\", rawOutput}
+  Route->>Seed: async propagate shared auth to agents
+```

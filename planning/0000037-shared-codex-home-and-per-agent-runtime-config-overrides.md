@@ -2409,7 +2409,7 @@ After Task 12 and Task 13 are complete, update chat model state plumbing to carr
 ### 17. Frontend: Render dynamic reasoning-effort options and enforce payload validity per selected model
 
 - Task Status: **__done__**
-- Git Commits: `None yet`
+- Git Commits: `6a2a15a`
 
 #### Overview
 

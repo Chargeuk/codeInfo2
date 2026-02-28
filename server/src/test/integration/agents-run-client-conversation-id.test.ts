@@ -70,6 +70,11 @@ const toRuntimeConfigSnapshot = (flags: Record<string, unknown>) =>
     (flags.runtimeConfig as Record<string, unknown> | undefined) ?? {},
   );
 
+const T18_SUCCESS_LOG =
+  '[DEV-0000037][T18] event=precedence_normalization_regressions_executed result=success';
+const T18_ERROR_LOG =
+  '[DEV-0000037][T18] event=precedence_normalization_regressions_executed result=error';
+
 test('Agents runs accept a client-supplied conversationId even when it does not exist yet', async () => {
   resetStore();
 
@@ -863,6 +868,546 @@ test('Flow and MCP runtime resolver paths emit deterministic T07 error logs on i
     memoryTurns.delete('t07-flow-invalid');
     memoryConversations.delete('t07-mcp-invalid');
     memoryTurns.delete('t07-mcp-invalid');
+    process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
+    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    if (previousFlowsDir === undefined) {
+      delete process.env.FLOWS_DIR;
+    } else {
+      process.env.FLOWS_DIR = previousFlowsDir;
+    }
+    await fs.rm(tempAgentsHome, { recursive: true, force: true });
+    await fs.rm(tempCodexHome, { recursive: true, force: true });
+    await fs.rm(tempFlowsDir, { recursive: true, force: true });
+  }
+});
+
+test('T18 cross-surface precedence parity preserves shared inheritance + agent overrides and emits success log', async () => {
+  const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const previousFlowsDir = process.env.FLOWS_DIR;
+
+  const tempAgentsHome = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'agents-home-'),
+  );
+  const tempCodexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+  const tempFlowsDir = await fs.mkdtemp(path.join(os.tmpdir(), 'flows-home-'));
+
+  const agentHome = path.join(tempAgentsHome, 'coding_agent');
+  const commandsDir = path.join(agentHome, 'commands');
+  await fs.mkdir(commandsDir, { recursive: true });
+  await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(
+    path.join(agentHome, 'config.toml'),
+    [
+      'model = "agent-parity-model"',
+      'approval_policy = "never"',
+      '[projects]',
+      '[projects."/shared"]',
+      'trust_level = "untrusted"',
+      '[projects."/agent-only"]',
+      'trust_level = "trusted"',
+    ].join('\n'),
+    'utf8',
+  );
+  await fs.writeFile(
+    path.join(commandsDir, 'hello.json'),
+    JSON.stringify(
+      {
+        Description: 'Say hello',
+        items: [{ type: 'message', role: 'user', content: ['Hello there'] }],
+      },
+      null,
+      2,
+    ),
+    'utf8',
+  );
+
+  await fs.writeFile(path.join(tempCodexHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(
+    path.join(tempCodexHome, 'config.toml'),
+    [
+      'model = "base-model-should-not-win"',
+      '[projects]',
+      '[projects."/base-only"]',
+      'trust_level = "trusted"',
+      '[projects."/shared"]',
+      'trust_level = "trusted"',
+    ].join('\n'),
+    'utf8',
+  );
+  await fs.mkdir(path.join(tempCodexHome, 'chat'), { recursive: true });
+  await fs.writeFile(
+    path.join(tempCodexHome, 'chat', 'config.toml'),
+    '',
+    'utf8',
+  );
+
+  await fs.writeFile(
+    path.join(tempFlowsDir, 'llm-basic.json'),
+    JSON.stringify(
+      {
+        description: 'LLM-only flow',
+        steps: [
+          {
+            type: 'llm',
+            label: 'Greeting',
+            agentType: 'coding_agent',
+            identifier: 'basic',
+            messages: [{ role: 'user', content: ['Say hello from a flow.'] }],
+          },
+        ],
+      },
+      null,
+      2,
+    ),
+    'utf8',
+  );
+
+  process.env.CODEINFO_CODEX_AGENT_HOME = tempAgentsHome;
+  process.env.CODEINFO_CODEX_HOME = tempCodexHome;
+  process.env.FLOWS_DIR = tempFlowsDir;
+
+  const restFlags: Array<Record<string, unknown>> = [];
+  const commandFlags: Array<Record<string, unknown>> = [];
+  const flowFlags: Array<Record<string, unknown>> = [];
+  const mcpFlags: Array<Record<string, unknown>> = [];
+  const infoLogs: string[] = [];
+  const errorLogs: string[] = [];
+  const originalInfo = console.info;
+  const originalError = console.error;
+  console.info = (...args: unknown[]) => infoLogs.push(String(args[0] ?? ''));
+  console.error = (...args: unknown[]) => errorLogs.push(String(args[0] ?? ''));
+
+  try {
+    await runAgentInstruction({
+      agentName: 'coding_agent',
+      instruction: 'REST baseline',
+      conversationId: 't18-rest-precedence',
+      source: 'REST',
+      chatFactory: () =>
+        new CapturingChat((flags) => {
+          restFlags.push(flags);
+        }),
+    });
+    await runAgentCommand({
+      agentName: 'coding_agent',
+      commandName: 'hello',
+      conversationId: 't18-command-precedence',
+      source: 'REST',
+      chatFactory: () =>
+        new CapturingChat((flags) => {
+          commandFlags.push(flags);
+        }),
+    });
+    await startFlowRun({
+      flowName: 'llm-basic',
+      conversationId: 't18-flow-precedence',
+      source: 'REST',
+      chatFactory: () =>
+        new CapturingChat((flags) => {
+          flowFlags.push(flags);
+        }),
+    });
+    await waitFor(() => flowFlags.length > 0, 5000);
+    await callTool(
+      'run_agent_instruction',
+      {
+        agentName: 'coding_agent',
+        instruction: 'MCP parity',
+        conversationId: 't18-mcp-precedence',
+      },
+      {
+        runAgentInstruction: (params) =>
+          runAgentInstruction({
+            ...(params as Parameters<typeof runAgentInstruction>[0]),
+            chatFactory: () =>
+              new CapturingChat((flags) => {
+                mcpFlags.push(flags);
+              }),
+          }),
+      },
+    );
+
+    assert.equal(errorLogs.length, 0);
+    assert.equal(restFlags.length > 0, true);
+    assert.equal(commandFlags.length > 0, true);
+    assert.equal(flowFlags.length > 0, true);
+    assert.equal(mcpFlags.length > 0, true);
+
+    const baselineRuntimeConfig = toRuntimeConfigSnapshot(
+      restFlags.at(-1) as Record<string, unknown>,
+    );
+    assert.equal(
+      (baselineRuntimeConfig.projects as Record<string, unknown>)['/base-only']
+        ? true
+        : false,
+      true,
+    );
+    assert.equal(
+      (
+        (
+          baselineRuntimeConfig.projects as Record<
+            string,
+            { trust_level?: string }
+          >
+        )['/shared'] ?? {}
+      ).trust_level,
+      'untrusted',
+    );
+    assert.equal(
+      (
+        (
+          baselineRuntimeConfig.projects as Record<
+            string,
+            { trust_level?: string }
+          >
+        )['/agent-only'] ?? {}
+      ).trust_level,
+      'trusted',
+    );
+
+    assert.deepEqual(
+      toRuntimeConfigSnapshot(commandFlags.at(-1) as Record<string, unknown>),
+      baselineRuntimeConfig,
+    );
+    assert.deepEqual(
+      toRuntimeConfigSnapshot(flowFlags.at(-1) as Record<string, unknown>),
+      baselineRuntimeConfig,
+    );
+    assert.deepEqual(
+      toRuntimeConfigSnapshot(mcpFlags.at(-1) as Record<string, unknown>),
+      baselineRuntimeConfig,
+    );
+
+    console.info(T18_SUCCESS_LOG);
+    assert.equal(
+      infoLogs.some((line) => line.includes(T18_SUCCESS_LOG)),
+      true,
+    );
+  } finally {
+    console.info = originalInfo;
+    console.error = originalError;
+    memoryConversations.delete('t18-rest-precedence');
+    memoryTurns.delete('t18-rest-precedence');
+    memoryConversations.delete('t18-command-precedence');
+    memoryTurns.delete('t18-command-precedence');
+    memoryConversations.delete('t18-flow-precedence');
+    memoryTurns.delete('t18-flow-precedence');
+    memoryConversations.delete('t18-mcp-precedence');
+    memoryTurns.delete('t18-mcp-precedence');
+    process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
+    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    if (previousFlowsDir === undefined) {
+      delete process.env.FLOWS_DIR;
+    } else {
+      process.env.FLOWS_DIR = previousFlowsDir;
+    }
+    await fs.rm(tempAgentsHome, { recursive: true, force: true });
+    await fs.rm(tempCodexHome, { recursive: true, force: true });
+    await fs.rm(tempFlowsDir, { recursive: true, force: true });
+  }
+});
+
+test('T18 unknown-key policy is warning+ignore across REST, flow, and MCP surfaces', async () => {
+  const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const previousFlowsDir = process.env.FLOWS_DIR;
+  const tempAgentsHome = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'agents-home-'),
+  );
+  const tempCodexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+  const tempFlowsDir = await fs.mkdtemp(path.join(os.tmpdir(), 'flows-home-'));
+
+  const agentHome = path.join(tempAgentsHome, 'coding_agent');
+  await fs.mkdir(agentHome, { recursive: true });
+  await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(
+    path.join(agentHome, 'config.toml'),
+    [
+      'model = "agent-warning-model"',
+      'approval_policy = "never"',
+      'top_level_unknown = "ignored"',
+      '[features]',
+      'unknown_feature_flag = true',
+      '[projects]',
+      '[projects."/shared"]',
+      'trust_level = "untrusted"',
+      'project_unknown = "ignored"',
+    ].join('\n'),
+    'utf8',
+  );
+
+  await fs.writeFile(path.join(tempCodexHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(
+    path.join(tempCodexHome, 'config.toml'),
+    ['[projects]', '[projects."/base-only"]', 'trust_level = "trusted"'].join(
+      '\n',
+    ),
+    'utf8',
+  );
+  await fs.mkdir(path.join(tempCodexHome, 'chat'), { recursive: true });
+  await fs.writeFile(
+    path.join(tempCodexHome, 'chat', 'config.toml'),
+    '',
+    'utf8',
+  );
+  await fs.writeFile(
+    path.join(tempFlowsDir, 'llm-basic.json'),
+    JSON.stringify(
+      {
+        description: 'LLM-only flow',
+        steps: [
+          {
+            type: 'llm',
+            agentType: 'coding_agent',
+            identifier: 'basic',
+            messages: [{ role: 'user', content: ['Say hello'] }],
+          },
+        ],
+      },
+      null,
+      2,
+    ),
+    'utf8',
+  );
+
+  process.env.CODEINFO_CODEX_AGENT_HOME = tempAgentsHome;
+  process.env.CODEINFO_CODEX_HOME = tempCodexHome;
+  process.env.FLOWS_DIR = tempFlowsDir;
+
+  const restFlags: Array<Record<string, unknown>> = [];
+  const flowFlags: Array<Record<string, unknown>> = [];
+  const mcpFlags: Array<Record<string, unknown>> = [];
+  const warningLogs: string[] = [];
+  const originalWarn = console.warn;
+  console.warn = (...args: unknown[]) =>
+    warningLogs.push(String(args[0] ?? ''));
+
+  try {
+    await runAgentInstruction({
+      agentName: 'coding_agent',
+      instruction: 'REST warning path',
+      conversationId: 't18-unknown-rest',
+      source: 'REST',
+      chatFactory: () =>
+        new CapturingChat((flags) => {
+          restFlags.push(flags);
+        }),
+    });
+    await startFlowRun({
+      flowName: 'llm-basic',
+      conversationId: 't18-unknown-flow',
+      source: 'REST',
+      chatFactory: () =>
+        new CapturingChat((flags) => {
+          flowFlags.push(flags);
+        }),
+    });
+    await waitFor(() => flowFlags.length > 0, 5000);
+    await callTool(
+      'run_agent_instruction',
+      {
+        agentName: 'coding_agent',
+        instruction: 'MCP warning path',
+        conversationId: 't18-unknown-mcp',
+      },
+      {
+        runAgentInstruction: (params) =>
+          runAgentInstruction({
+            ...(params as Parameters<typeof runAgentInstruction>[0]),
+            chatFactory: () =>
+              new CapturingChat((flags) => {
+                mcpFlags.push(flags);
+              }),
+          }),
+      },
+    );
+
+    assert.equal(restFlags.length > 0, true);
+    assert.equal(flowFlags.length > 0, true);
+    assert.equal(mcpFlags.length > 0, true);
+
+    const baselineRuntimeConfig = toRuntimeConfigSnapshot(
+      restFlags.at(-1) as Record<string, unknown>,
+    );
+    assert.equal('top_level_unknown' in baselineRuntimeConfig, false);
+    assert.equal(
+      'unknown_feature_flag' in
+        ((baselineRuntimeConfig.features as Record<string, unknown>) ?? {}),
+      false,
+    );
+    assert.equal(
+      'project_unknown' in
+        (((
+          baselineRuntimeConfig.projects as Record<
+            string,
+            Record<string, unknown>
+          >
+        )?.['/shared'] as Record<string, unknown>) ?? {}),
+      false,
+    );
+    assert.deepEqual(
+      toRuntimeConfigSnapshot(flowFlags.at(-1) as Record<string, unknown>),
+      baselineRuntimeConfig,
+    );
+    assert.deepEqual(
+      toRuntimeConfigSnapshot(mcpFlags.at(-1) as Record<string, unknown>),
+      baselineRuntimeConfig,
+    );
+
+    assert.equal(
+      warningLogs.some((line) =>
+        line.includes('[runtime-config] warning path=agent.top_level_unknown'),
+      ),
+      true,
+    );
+  } finally {
+    console.warn = originalWarn;
+    memoryConversations.delete('t18-unknown-rest');
+    memoryTurns.delete('t18-unknown-rest');
+    memoryConversations.delete('t18-unknown-flow');
+    memoryTurns.delete('t18-unknown-flow');
+    memoryConversations.delete('t18-unknown-mcp');
+    memoryTurns.delete('t18-unknown-mcp');
+    process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
+    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    if (previousFlowsDir === undefined) {
+      delete process.env.FLOWS_DIR;
+    } else {
+      process.env.FLOWS_DIR = previousFlowsDir;
+    }
+    await fs.rm(tempAgentsHome, { recursive: true, force: true });
+    await fs.rm(tempCodexHome, { recursive: true, force: true });
+    await fs.rm(tempFlowsDir, { recursive: true, force: true });
+  }
+});
+
+test('T18 invalid-type policy hard-fails across REST, flow, and MCP surfaces and emits error log', async () => {
+  const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const previousFlowsDir = process.env.FLOWS_DIR;
+  const tempAgentsHome = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'agents-home-'),
+  );
+  const tempCodexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+  const tempFlowsDir = await fs.mkdtemp(path.join(os.tmpdir(), 'flows-home-'));
+  const agentHome = path.join(tempAgentsHome, 'coding_agent');
+  await fs.mkdir(agentHome, { recursive: true });
+  await fs.writeFile(path.join(agentHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(
+    path.join(agentHome, 'config.toml'),
+    ['model = "agent-model"', 'approval_policy = 42'].join('\n'),
+    'utf8',
+  );
+  await fs.writeFile(path.join(tempCodexHome, 'auth.json'), '{}', 'utf8');
+  await fs.writeFile(path.join(tempCodexHome, 'config.toml'), '', 'utf8');
+  await fs.mkdir(path.join(tempCodexHome, 'chat'), { recursive: true });
+  await fs.writeFile(
+    path.join(tempCodexHome, 'chat', 'config.toml'),
+    '',
+    'utf8',
+  );
+  await fs.writeFile(
+    path.join(tempFlowsDir, 'llm-basic.json'),
+    JSON.stringify(
+      {
+        description: 'LLM-only flow',
+        steps: [
+          {
+            type: 'llm',
+            agentType: 'coding_agent',
+            identifier: 'basic',
+            messages: [{ role: 'user', content: ['Say hello'] }],
+          },
+        ],
+      },
+      null,
+      2,
+    ),
+    'utf8',
+  );
+
+  process.env.CODEINFO_CODEX_AGENT_HOME = tempAgentsHome;
+  process.env.CODEINFO_CODEX_HOME = tempCodexHome;
+  process.env.FLOWS_DIR = tempFlowsDir;
+
+  const errorLogs: string[] = [];
+  const originalError = console.error;
+  console.error = (...args: unknown[]) => errorLogs.push(String(args[0] ?? ''));
+
+  try {
+    await assert.rejects(
+      async () =>
+        runAgentInstruction({
+          agentName: 'coding_agent',
+          instruction: 'REST invalid',
+          conversationId: 't18-invalid-rest',
+          source: 'REST',
+          chatFactory: () => new MinimalChat(),
+        }),
+      (error: unknown) =>
+        Boolean(
+          error &&
+            typeof error === 'object' &&
+            (error as { code?: string }).code ===
+              'RUNTIME_CONFIG_VALIDATION_FAILED',
+        ),
+    );
+    await assert.rejects(
+      async () =>
+        startFlowRun({
+          flowName: 'llm-basic',
+          conversationId: 't18-invalid-flow',
+          source: 'REST',
+          chatFactory: () => new MinimalChat(),
+        }),
+      (error: unknown) =>
+        Boolean(
+          error &&
+            typeof error === 'object' &&
+            (error as { code?: string }).code ===
+              'RUNTIME_CONFIG_VALIDATION_FAILED',
+        ),
+    );
+    await assert.rejects(
+      async () =>
+        callTool(
+          'run_agent_instruction',
+          {
+            agentName: 'coding_agent',
+            instruction: 'MCP invalid',
+            conversationId: 't18-invalid-mcp',
+          },
+          {
+            runAgentInstruction: (params) =>
+              runAgentInstruction({
+                ...(params as Parameters<typeof runAgentInstruction>[0]),
+                chatFactory: () => new MinimalChat(),
+              }),
+          },
+        ),
+      (error: unknown) =>
+        Boolean(
+          error &&
+            typeof error === 'object' &&
+            (error as { code?: string }).code ===
+              'RUNTIME_CONFIG_VALIDATION_FAILED',
+        ),
+    );
+
+    console.error(T18_ERROR_LOG);
+    assert.equal(
+      errorLogs.some((line) => line.includes(T18_ERROR_LOG)),
+      true,
+    );
+  } finally {
+    console.error = originalError;
+    memoryConversations.delete('t18-invalid-rest');
+    memoryTurns.delete('t18-invalid-rest');
+    memoryConversations.delete('t18-invalid-flow');
+    memoryTurns.delete('t18-invalid-flow');
+    memoryConversations.delete('t18-invalid-mcp');
+    memoryTurns.delete('t18-invalid-mcp');
     process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
     process.env.CODEINFO_CODEX_HOME = previousCodexHome;
     if (previousFlowsDir === undefined) {

@@ -8,9 +8,55 @@ import type { ThreadOptions as CodexThreadOptions } from '@openai/codex-sdk';
 
 import { resolveAgentRuntimeExecutionConfig } from '../../agents/config.js';
 import { ChatInterfaceCodex } from '../../chat/interfaces/ChatInterfaceCodex.js';
+import { normalizeRuntimeConfig } from '../../config/runtimeConfig.js';
 import { setCodexDetection } from '../../providers/codexRegistry.js';
 
 describe('Agent config defaults', () => {
+  it('normalizes features.view_image_tool alias to canonical output only', () => {
+    const normalized = normalizeRuntimeConfig({
+      features: { view_image_tool: true, keep_this: true },
+    });
+
+    assert.deepEqual(normalized.tools, { view_image: true });
+    assert.deepEqual(normalized.features, { keep_this: true });
+    assert.equal(
+      (normalized.features as Record<string, unknown>).view_image_tool,
+      undefined,
+    );
+  });
+
+  it('normalizes features.web_search_request alias to canonical web_search output', () => {
+    const normalized = normalizeRuntimeConfig({
+      features: { web_search_request: false, keep_this: true },
+    });
+
+    assert.equal(normalized.web_search, 'disabled');
+    assert.deepEqual(normalized.features, { keep_this: true });
+    assert.equal(
+      (normalized.features as Record<string, unknown>).web_search_request,
+      undefined,
+    );
+  });
+
+  it('keeps canonical keys when canonical and alias keys conflict', () => {
+    const normalized = normalizeRuntimeConfig({
+      web_search: 'cached',
+      tools: { view_image: true },
+      features: { web_search_request: false, view_image_tool: false },
+    });
+
+    assert.equal(normalized.web_search, 'cached');
+    assert.deepEqual(normalized.tools, { view_image: true });
+    assert.equal(
+      (normalized.features as Record<string, unknown>)?.web_search_request,
+      undefined,
+    );
+    assert.equal(
+      (normalized.features as Record<string, unknown>)?.view_image_tool,
+      undefined,
+    );
+  });
+
   it('resolves model from shared runtime config resolver', async () => {
     const tmp = await fs.mkdtemp(path.join(os.tmpdir(), 'agent-config-'));
     const configPath = path.join(tmp, 'config.toml');

@@ -2034,7 +2034,7 @@ Replace static reasoning/model sources with one shared runtime codex capability 
 
 ### 14. Frontend: Consume simplified device-auth API contract
 
-- Task Status: **__todo__**
+- Task Status: **__in_progress__**
 - Git Commits: `None yet`
 
 #### Overview
@@ -2051,7 +2051,7 @@ After Task 10 is complete, update frontend API request/response types for the si
 
 #### Subtasks
 
-1. [ ] Update `client/src/api/codex.ts` request type/payload to send `{}` for `POST /codex/device-auth`.
+1. [x] Update `client/src/api/codex.ts` request type/payload to send `{}` for `POST /codex/device-auth`.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `client/src/api/codex.ts`.
    - Do: remove target/agent parameters and always post empty object.
@@ -2127,7 +2127,7 @@ After Task 10 is complete, update frontend API request/response types for the si
 
 #### Implementation Notes
 
-- None yet.
+- 2026-02-28: Subtask 1 complete from existing implementation evidence in `client/src/api/codex.ts` (introduced in `21d981e`): `postCodexDeviceAuth` posts `JSON.stringify({})` and ignores caller-provided target fields.
 
 ### 15. Frontend: Remove device-auth target selector UX and wire one shared auth dialog flow
 

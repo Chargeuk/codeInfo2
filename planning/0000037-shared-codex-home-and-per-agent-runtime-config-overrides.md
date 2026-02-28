@@ -2144,7 +2144,7 @@ After Task 10 is complete, update frontend API request/response types for the si
 ### 15. Frontend: Remove device-auth target selector UX and wire one shared auth dialog flow
 
 - Task Status: **__done__**
-- Git Commits: `None yet`
+- Git Commits: `15e301c`
 
 #### Overview
 

@@ -19,6 +19,7 @@ import {
   memoryTurns,
 } from '../../chat/memoryPersistence.js';
 import { setCodexDetection } from '../../providers/codexRegistry.js';
+import { createCodexDeviceAuthRouter } from '../../routes/codexDeviceAuth.js';
 import { createChatRouter } from '../../routes/chat.js';
 import { attachWs } from '../../ws/server.js';
 import {
@@ -353,6 +354,70 @@ test('codex chat streams token/final/complete with thread id', async () => {
     await wsHandle.close();
     await new Promise<void>((resolve) => httpServer.close(() => resolve()));
   }
+});
+
+test('shared-home device-auth success unlocks chat without extra target selection', async () => {
+  const app = express();
+  setCodexDetection({
+    available: false,
+    authPresent: false,
+    configPresent: true,
+    reason: 'auth missing',
+  });
+  app.use(
+    '/codex',
+    createCodexDeviceAuthRouter({
+      discoverAgents: async () => [],
+      propagateAgentAuthFromPrimary: async () => ({ agentCount: 0 }),
+      refreshCodexDetection: () => {
+        const detection = {
+          available: true,
+          authPresent: true,
+          configPresent: true,
+        };
+        setCodexDetection(detection);
+        return detection;
+      },
+      getCodexHome: () => tempCodexHomeForTest ?? '/tmp/codex-home',
+      ensureCodexAuthFileStore: async (configPath: string) => ({
+        changed: false,
+        configPath,
+      }),
+      getCodexConfigPathForHome: (home: string) => `${home}/config.toml`,
+      runCodexDeviceAuth: async () => ({
+        ok: true,
+        rawOutput: 'Open https://device.test/verify and enter code CODE-123.',
+        completion: Promise.resolve({
+          exitCode: 0,
+          result: {
+            ok: true,
+            rawOutput:
+              'Open https://device.test/verify and enter code CODE-123.',
+          },
+        }),
+      }),
+      resolveCodexCli: () => ({ available: true }),
+    }),
+  );
+  app.use(
+    '/chat',
+    createChatRouter({
+      clientFactory: dummyClientFactory,
+      codexFactory: () => new MockCodex('thread-after-auth'),
+    }),
+  );
+
+  await request(app).post('/codex/device-auth').send({}).expect(200);
+  await new Promise((resolve) => setImmediate(resolve));
+
+  const res = await request(app)
+    .post('/chat')
+    .send(
+      buildCodexBody({
+        conversationId: `conv-codex-after-device-auth-${++conversationSeq}`,
+      }),
+    );
+  assert.equal(res.status, 202);
 });
 
 test('codex chat uses chat runtime config file (not base behavior keys)', async () => {

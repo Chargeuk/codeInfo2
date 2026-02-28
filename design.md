@@ -3176,3 +3176,60 @@ sequenceDiagram
   Route-->>Client: 200 {status:\"ok\", rawOutput}
   Route->>Seed: async propagate shared auth to agents
 ```
+
+## Story 0000037 Task 11: Device-auth concurrency and post-success side effects
+
+- `POST /codex/device-auth` now deduplicates overlapping auth runs by shared-home key using a single-flight helper (`server/src/utils/singleFlight.ts`), so concurrent requests reuse one in-flight CLI login operation.
+- Post-success side effects are still preserved, but run once per successful auth completion:
+  - discover agents
+  - propagate shared auth to agent homes (non-destructive copy semantics)
+  - refresh shared-home codex availability
+- Side effects are executed only after completion confirms success (`result.ok` and zero/empty exit code).
+- Deterministic completion logging now includes:
+  - `[DEV-0000037][T11] event=device_auth_concurrency_and_side_effects_completed result=success`
+  - `[DEV-0000037][T11] event=device_auth_concurrency_and_side_effects_completed result=error`
+
+```mermaid
+flowchart TD
+  A[POST /codex/device-auth] --> B[Resolve shared-home key]
+  B --> C{In-flight run exists?}
+  C -->|Yes| D[Reuse existing run promise]
+  C -->|No| E[Start runCodexDeviceAuth once]
+  D --> F[Await same result]
+  E --> F
+  F --> G{Route result ok?}
+  G -->|No| H[Return deterministic 400/503 contract]
+  G -->|Yes| I[Return 200 status ok + rawOutput]
+  E --> J[Attach one completion side-effect chain]
+  J --> K{Completion success?}
+  K -->|No| L[Emit T11 error log]
+  K -->|Yes| M[Propagate auth + refresh detection]
+  M --> N[Emit T11 success log]
+```
+
+```mermaid
+sequenceDiagram
+  participant C1 as Client A
+  participant C2 as Client B
+  participant Route as /codex/device-auth
+  participant SF as SingleFlight cache
+  participant CLI as runCodexDeviceAuth
+  participant Side as propagate+refresh
+
+  C1->>Route: POST {}
+  Route->>SF: getOrCreate(shared-home key)
+  SF-->>Route: create new in-flight run
+  Route->>CLI: start device-auth CLI
+
+  C2->>Route: POST {}
+  Route->>SF: getOrCreate(shared-home key)
+  SF-->>Route: reuse existing run promise
+
+  CLI-->>Route: ok + rawOutput
+  Route-->>C1: 200 {status:"ok", rawOutput}
+  Route-->>C2: 200 {status:"ok", rawOutput}
+
+  CLI-->>Side: completion success
+  Side->>Side: discover agents, propagate auth, refresh detection
+  Side-->>Route: T11 success log
+```

@@ -242,6 +242,62 @@ describe('POST /codex/device-auth', () => {
     assert.equal(refreshCodexDetection.mock.calls.length, 1);
   });
 
+  test('overlapping requests reuse one auth run and keep side effects idempotent', async () => {
+    let resolveRun!: (value: DeviceAuthResult) => void;
+    const runPromise = new Promise<DeviceAuthResult>((resolve) => {
+      resolveRun = resolve;
+    });
+    let resolveCompletion!: (value: CodexDeviceAuthCompletion) => void;
+    const completion = new Promise<CodexDeviceAuthCompletion>((resolve) => {
+      resolveCompletion = resolve;
+    });
+    const successResult = {
+      ok: true,
+      rawOutput: 'Open https://device.test/verify and enter code CODE-123.',
+    } as const satisfies CodexDeviceAuthResult;
+    const runCodexDeviceAuth = mock.fn(async () => runPromise);
+    const propagateAgentAuthFromPrimary = mock.fn(async () => ({
+      agentCount: 2,
+    }));
+    const refreshCodexDetection = mock.fn(() => defaultDetection);
+    const app = buildApp(
+      withDeps({
+        runCodexDeviceAuth,
+        propagateAgentAuthFromPrimary,
+        refreshCodexDetection,
+      }),
+    );
+
+    const reqA = supertest(app)
+      .post('/codex/device-auth')
+      .send({})
+      .then((response) => response);
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    const reqB = supertest(app)
+      .post('/codex/device-auth')
+      .send({})
+      .then((response) => response);
+    await new Promise((resolve) => setTimeout(resolve, 25));
+
+    resolveRun({
+      ...successResult,
+      completion,
+    });
+    const [resA, resB] = await Promise.all([reqA, reqB]);
+    assert.equal(resA.status, 200);
+    assert.equal(resB.status, 200);
+    assert.deepEqual(resA.body, resB.body);
+    assert.equal(runCodexDeviceAuth.mock.calls.length, 1);
+    assert.equal(propagateAgentAuthFromPrimary.mock.calls.length, 0);
+    assert.equal(refreshCodexDetection.mock.calls.length, 0);
+
+    resolveCompletion({ exitCode: 0, result: successResult });
+    await new Promise((resolve) => setImmediate(resolve));
+
+    assert.equal(propagateAgentAuthFromPrimary.mock.calls.length, 1);
+    assert.equal(refreshCodexDetection.mock.calls.length, 1);
+  });
+
   test('emits deterministic T10 success log for strict contract happy path', async () => {
     const infoMock = mock.method(console, 'info', () => {});
     try {
@@ -274,6 +330,78 @@ describe('POST /codex/device-auth', () => {
           typeof call.arguments[0] === 'string' &&
           call.arguments[0].startsWith(
             '[DEV-0000037][T10] event=device_auth_contract_validated result=error',
+          ),
+      );
+      assert.ok(errorCall);
+    } finally {
+      errorMock.mock.restore();
+    }
+  });
+
+  test('emits deterministic T11 success log after completion side effects', async () => {
+    let resolveCompletion!: (value: CodexDeviceAuthCompletion) => void;
+    const completion = new Promise<CodexDeviceAuthCompletion>((resolve) => {
+      resolveCompletion = resolve;
+    });
+    const successResult = {
+      ok: true,
+      rawOutput: 'Open https://device.test/verify and enter code CODE-123.',
+    } as const satisfies CodexDeviceAuthResult;
+    const infoMock = mock.method(console, 'info', () => {});
+    try {
+      const res = await supertest(
+        buildApp(
+          withDeps({
+            runCodexDeviceAuth: async () => ({
+              ...successResult,
+              completion,
+            }),
+          }),
+        ),
+      )
+        .post('/codex/device-auth')
+        .send({});
+      assert.equal(res.status, 200);
+
+      resolveCompletion({ exitCode: 0, result: successResult });
+      await new Promise((resolve) => setImmediate(resolve));
+
+      const successCall = infoMock.mock.calls.find(
+        (call) =>
+          typeof call.arguments[0] === 'string' &&
+          call.arguments[0].startsWith(
+            '[DEV-0000037][T11] event=device_auth_concurrency_and_side_effects_completed result=success',
+          ),
+      );
+      assert.ok(successCall);
+    } finally {
+      infoMock.mock.restore();
+    }
+  });
+
+  test('emits deterministic T11 error log for completion side-effect failures', async () => {
+    const errorMock = mock.method(console, 'error', () => {});
+    try {
+      const res = await supertest(
+        buildApp(
+          withDeps({
+            runCodexDeviceAuth: async () =>
+              buildDeviceAuthResult({
+                ok: false,
+                message: 'device auth command failed',
+              }),
+          }),
+        ),
+      )
+        .post('/codex/device-auth')
+        .send({});
+      assert.equal(res.status, 503);
+      await new Promise((resolve) => setImmediate(resolve));
+      const errorCall = errorMock.mock.calls.find(
+        (call) =>
+          typeof call.arguments[0] === 'string' &&
+          call.arguments[0].startsWith(
+            '[DEV-0000037][T11] event=device_auth_concurrency_and_side_effects_completed result=error',
           ),
       );
       assert.ok(errorCall);

@@ -5,6 +5,9 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
+import express from 'express';
+import supertest from 'supertest';
+
 import { runAgentCommand, runAgentInstruction } from '../../agents/service.js';
 import { ChatInterface } from '../../chat/interfaces/ChatInterface.js';
 import {
@@ -14,6 +17,7 @@ import {
 import { startFlowRun } from '../../flows/service.js';
 import { resetStore } from '../../logStore.js';
 import { callTool } from '../../mcpAgents/tools.js';
+import { createCodexDeviceAuthRouter } from '../../routes/codexDeviceAuth.js';
 
 class MinimalChat extends ChatInterface {
   async execute(
@@ -574,6 +578,152 @@ test('REST baseline runtime config matches command, flow, and MCP execution surf
     memoryTurns.delete('t07-flow-parity');
     memoryConversations.delete('t07-mcp-parity');
     memoryTurns.delete('t07-mcp-parity');
+    process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
+    process.env.CODEINFO_CODEX_HOME = previousCodexHome;
+    if (previousFlowsDir === undefined) {
+      delete process.env.FLOWS_DIR;
+    } else {
+      process.env.FLOWS_DIR = previousFlowsDir;
+    }
+    await fs.rm(tempAgentsHome, { recursive: true, force: true });
+    await fs.rm(tempCodexHome, { recursive: true, force: true });
+    await fs.rm(tempFlowsDir, { recursive: true, force: true });
+  }
+});
+
+test('one successful device-auth flow unlocks shared auth reuse for agent, flow, and MCP runs', async () => {
+  const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
+  const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
+  const previousFlowsDir = process.env.FLOWS_DIR;
+
+  const tempAgentsHome = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'agents-home-'),
+  );
+  const tempCodexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+  const tempFlowsDir = await fs.mkdtemp(path.join(os.tmpdir(), 'flows-home-'));
+  const agentHome = path.join(tempAgentsHome, 'coding_agent');
+  await fs.mkdir(agentHome, { recursive: true });
+  await fs.writeFile(
+    path.join(agentHome, 'config.toml'),
+    ['model = "agent-shared-auth-model"', 'approval_policy = "never"'].join(
+      '\n',
+    ),
+    'utf8',
+  );
+  await fs.writeFile(path.join(tempCodexHome, 'auth.json'), '{"token":"ok"}');
+  await fs.writeFile(path.join(tempCodexHome, 'config.toml'), '', 'utf8');
+  await fs.mkdir(path.join(tempCodexHome, 'chat'), { recursive: true });
+  await fs.writeFile(
+    path.join(tempCodexHome, 'chat', 'config.toml'),
+    '',
+    'utf8',
+  );
+  await fs.writeFile(
+    path.join(tempFlowsDir, 'llm-basic.json'),
+    JSON.stringify(
+      {
+        description: 'LLM-only flow',
+        steps: [
+          {
+            type: 'llm',
+            label: 'Greeting',
+            agentType: 'coding_agent',
+            identifier: 'basic',
+            messages: [{ role: 'user', content: ['Say hello'] }],
+          },
+        ],
+      },
+      null,
+      2,
+    ),
+    'utf8',
+  );
+
+  process.env.CODEINFO_CODEX_AGENT_HOME = tempAgentsHome;
+  process.env.CODEINFO_CODEX_HOME = tempCodexHome;
+  process.env.FLOWS_DIR = tempFlowsDir;
+
+  const app = express();
+  app.use(
+    '/codex',
+    createCodexDeviceAuthRouter({
+      discoverAgents: async () => [
+        {
+          name: 'coding_agent',
+          home: agentHome,
+          configPath: path.join(agentHome, 'config.toml'),
+        },
+      ],
+      propagateAgentAuthFromPrimary: async () => ({ agentCount: 1 }),
+      refreshCodexDetection: () => ({
+        available: true,
+        authPresent: true,
+        configPresent: true,
+      }),
+      getCodexHome: () => tempCodexHome,
+      ensureCodexAuthFileStore: async (configPath: string) => ({
+        changed: false,
+        configPath,
+      }),
+      getCodexConfigPathForHome: (home: string) => `${home}/config.toml`,
+      runCodexDeviceAuth: async () => ({
+        ok: true,
+        rawOutput: 'Open https://device.test/verify and enter code CODE-123.',
+        completion: Promise.resolve({
+          exitCode: 0,
+          result: {
+            ok: true,
+            rawOutput:
+              'Open https://device.test/verify and enter code CODE-123.',
+          },
+        }),
+      }),
+      resolveCodexCli: () => ({ available: true }),
+    }),
+  );
+
+  try {
+    await supertest(app).post('/codex/device-auth').send({}).expect(200);
+    await new Promise((resolve) => setImmediate(resolve));
+
+    const agentResult = await runAgentInstruction({
+      agentName: 'coding_agent',
+      instruction: 'After shared auth',
+      conversationId: 't11-shared-auth-agent',
+      source: 'REST',
+      chatFactory: () => new MinimalChat(),
+    });
+    assert.equal(agentResult.agentName, 'coding_agent');
+
+    const flowResult = await startFlowRun({
+      flowName: 'llm-basic',
+      conversationId: 't11-shared-auth-flow',
+      source: 'REST',
+      chatFactory: () => new MinimalChat(),
+    });
+    assert.equal(flowResult.flowName, 'llm-basic');
+
+    const mcpResult = await callTool(
+      'run_agent_instruction',
+      {
+        agentName: 'coding_agent',
+        instruction: 'After shared auth via MCP',
+        conversationId: 't11-shared-auth-mcp',
+      },
+      {
+        runAgentInstruction: (params) =>
+          runAgentInstruction({
+            ...params,
+            chatFactory: () => new MinimalChat(),
+          }),
+      },
+    );
+    const mcpContent = (
+      mcpResult as unknown as { content: ReadonlyArray<{ text: string }> }
+    ).content[0]?.text;
+    const parsed = JSON.parse(mcpContent ?? '{}') as { agentName?: string };
+    assert.equal(parsed.agentName, 'coding_agent');
+  } finally {
     process.env.CODEINFO_CODEX_AGENT_HOME = previousAgentsHome;
     process.env.CODEINFO_CODEX_HOME = previousCodexHome;
     if (previousFlowsDir === undefined) {

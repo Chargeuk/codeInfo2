@@ -1648,7 +1648,7 @@ Implement the server-side device-auth message contract change first: request bod
 
 ### 11. Server Message Contract: Device-auth concurrency handling and post-success side effects
 
-- Task Status: **__todo__**
+- Task Status: **__done__**
 - Git Commits: `None yet`
 
 #### Overview
@@ -1665,19 +1665,19 @@ Add deterministic concurrent request behavior and preserve post-success auth pro
 
 #### Subtasks
 
-1. [ ] Add deterministic concurrent request handling so overlapping device-auth runs remain idempotent and do not corrupt auth propagation state.
+1. [x] Add deterministic concurrent request handling so overlapping device-auth runs remain idempotent and do not corrupt auth propagation state.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `server/src/routes/codexDeviceAuth.ts`, shared lock helper module.
    - Do: reuse conversation-lock pattern (`tryAcquireConversationLock` / `releaseConversationLock`) or equivalent shared lock helper.
    - Docs: https://nodejs.org/api/async_context.html, https://nodejs.org/api/fs.html.
    - Done when: concurrent requests do not create inconsistent auth state.
-2. [ ] Preserve non-destructive post-success auth propagation/availability refresh behavior under the single-shape contract.
+2. [x] Preserve non-destructive post-success auth propagation/availability refresh behavior under the single-shape contract.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `server/src/routes/codexDeviceAuth.ts`, `server/src/providers/codexDetection.ts`, auth propagation helpers.
    - Do: keep existing refresh/propagation side effects, but only after successful auth.
    - Docs: https://nodejs.org/api/async_context.html, https://expressjs.com/en/guide/routing.html.
    - Done when: successful auth still triggers refresh and propagation safely.
-3. [ ] Add concurrent device-auth integration test for overlapping request idempotency.
+3. [x] Add concurrent device-auth integration test for overlapping request idempotency.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/integration/codex.device-auth.test.ts`.
@@ -1685,7 +1685,7 @@ Add deterministic concurrent request behavior and preserve post-success auth pro
    - Purpose: validate lock/serialization behavior under contention.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/setup-teardown.
    - Done when: test fails if concurrent calls produce inconsistent outcomes.
-4. [ ] Add post-success integration test for auth propagation side effects.
+4. [x] Add post-success integration test for auth propagation side effects.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/integration/codex.device-auth.test.ts`, `server/src/test/unit/codexAuthCopy.test.ts`.
@@ -1693,7 +1693,7 @@ Add deterministic concurrent request behavior and preserve post-success auth pro
    - Purpose: prevent regression in required post-success compatibility behavior.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/asynchronous.
    - Done when: test fails if propagation side effects are skipped or duplicated.
-5. [ ] Add post-success integration test for availability refresh side effects.
+5. [x] Add post-success integration test for availability refresh side effects.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/integration/codex.device-auth.test.ts`, `server/src/test/unit/codexConfig.device-auth.test.ts`.
@@ -1701,7 +1701,7 @@ Add deterministic concurrent request behavior and preserve post-success auth pro
    - Purpose: ensure detection refresh remains aligned with auth completion.
    - Docs: Context7 `/jestjs/jest`, https://jestjs.io/docs/asynchronous.
    - Done when: test fails if availability state is stale after success.
-6. [ ] Add shared-auth reuse integration test across execution surfaces after one successful device-auth flow.
+6. [x] Add shared-auth reuse integration test across execution surfaces after one successful device-auth flow.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Test type: Integration.
    - Test location: `server/src/test/integration/codex.device-auth.test.ts`, `server/src/test/integration/chat-codex.test.ts`, `server/src/test/integration/agents-run-*.test.ts`, `server/src/test/integration/flows.run.*.test.ts`.
@@ -1709,7 +1709,7 @@ Add deterministic concurrent request behavior and preserve post-success auth pro
    - Purpose: validate the core story guarantee of one shared auth/session home across invocation paths.
    - Docs: Context7 `/jestjs/jest`, Context7 `/openai/codex`.
    - Done when: test fails if any surface still requires separate per-agent auth after shared auth success.
-7. [ ] Update `projectStructure.md` for any files added or removed in this task, after all file-add/remove subtasks are completed.
+7. [x] Update `projectStructure.md` for any files added or removed in this task, after all file-add/remove subtasks are completed.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `projectStructure.md`.
    - Document name: `projectStructure.md`.
@@ -1719,7 +1719,7 @@ Add deterministic concurrent request behavior and preserve post-success auth pro
    - Do: list every file added and removed by this task (lock/helper modules, concurrency tests, and any deleted/renamed paths) after all file-changing subtasks complete.
    - Docs: https://git-scm.com/docs/git-ls-files.
    - Done when: project file map reflects the complete final set of files added/removed by this task.
-8. [ ] Update `design.md` with device-auth concurrency and side-effect flows plus Mermaid diagrams after all architecture-flow subtasks are complete.
+8. [x] Update `design.md` with device-auth concurrency and side-effect flows plus Mermaid diagrams after all architecture-flow subtasks are complete.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `design.md`.
    - Document name: `design.md`.
@@ -1730,7 +1730,7 @@ Add deterministic concurrent request behavior and preserve post-success auth pro
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` diagrams and text describe the final concurrency and side-effect behavior implemented in this task.
 
-9. [ ] Add deterministic structured log line `[DEV-0000037][T11] event=device_auth_concurrency_and_side_effects_completed result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
+9. [x] Add deterministic structured log line `[DEV-0000037][T11] event=device_auth_concurrency_and_side_effects_completed result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: server implementation files already listed in this task's subtasks and matching `server/src/test/**` suites.
    - Do: emit this exact log prefix and event name from the implementation path, then assert in tests that `result=success` is emitted on happy path and `result=error` only appears on intentional failure-path coverage.
@@ -1738,18 +1738,33 @@ Add deterministic concurrent request behavior and preserve post-success auth pro
    - Manual Playwright-MCP check linkage: verify this exact log line during this task's Manual Playwright-MCP check when present, or during Task 22 final regression Manual Playwright-MCP check for backend/docs-only tasks.
    - Docs: https://nodejs.org/api/console.html, Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: deterministic log assertions are present and this task's expected trigger produces the exact `[DEV-0000037][T11] event=device_auth_concurrency_and_side_effects_completed result=success` line.
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+10. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test --workspace server`
-3. [ ] `npm run test --workspace server -- codex.device-auth`
-4. [ ] Run targeted concurrency test(s) for `/codex/device-auth` and verify idempotent outcomes.
-5. [ ] Run shared-auth reuse integration tests across chat/agent/flow surfaces and verify no per-agent re-login is required.
+1. [x] `npm run build --workspace server`
+2. [x] `npm run test --workspace server`
+3. [x] `npm run test --workspace server -- codex.device-auth`
+4. [x] Run targeted concurrency test(s) for `/codex/device-auth` and verify idempotent outcomes.
+5. [x] Run shared-auth reuse integration tests across chat/agent/flow surfaces and verify no per-agent re-login is required.
 
 #### Implementation Notes
 
-- None yet.
+- 2026-02-28: Set Task 11 status to `__in_progress__` before implementation.
+- 2026-02-28: Subtask 1 complete. Added shared single-flight helper (`server/src/utils/singleFlight.ts`) and wired `/codex/device-auth` to deduplicate overlapping in-flight auth runs by shared-home key.
+- 2026-02-28: Subtask 2 complete. Preserved post-success side effects (discover agents, propagate auth, refresh detection) and constrained them to run only after successful completion of the single in-flight auth operation.
+- 2026-02-28: Subtask 3 complete. Added overlapping-request integration coverage in `server/src/test/integration/codex.device-auth.test.ts` to verify concurrent requests reuse one auth run and return deterministic responses.
+- 2026-02-28: Subtask 4 complete. Extended device-auth integration coverage to assert auth propagation side effects remain delayed until completion and execute once.
+- 2026-02-28: Subtask 5 complete. Extended device-auth integration coverage to assert availability refresh is triggered post-success and remains idempotent under overlap.
+- 2026-02-28: Subtask 6 complete. Added shared-auth reuse integration coverage across execution surfaces via `server/src/test/integration/chat-codex.test.ts` and `server/src/test/integration/agents-run-client-conversation-id.test.ts` after a successful device-auth flow.
+- 2026-02-28: Subtask 7 complete. Updated `projectStructure.md` with Task 0000037-T11 file add/remove ledger and touched-path list.
+- 2026-02-28: Subtask 8 complete. Updated `design.md` with Task 11 concurrency/side-effect architecture notes and Mermaid flow+sequence diagrams.
+- 2026-02-28: Subtask 9 complete. Added deterministic T11 success/error logs in `server/src/routes/codexDeviceAuth.ts` and test assertions for both paths.
+- 2026-02-28: Subtask 10 complete. Ran workspace lint and format checks; lint passed with existing baseline warnings, format check required and then passed after running `npm run format --workspace server`.
+- 2026-02-28: Testing 1 complete. `npm run build --workspace server` succeeded (`tsc -b`) after Task 11 route/test/doc updates.
+- 2026-02-28: Testing 2 complete. `npm run test --workspace server` passed with unit summary `tests 805, pass 805, fail 0` and cucumber summary `67 scenarios, 402 steps` all passed.
+- 2026-02-28: Testing 3 complete. Ran `npm run test --workspace server -- codex.device-auth`; unit summary reported `tests 805, pass 805, fail 0` and cucumber summary reported `67 scenarios, 402 steps, all passed` (process lingered after summaries; residual cucumber processes were terminated after completion output).
+- 2026-02-28: Testing 4 complete. Ran targeted concurrency regression `node --test --test-name-pattern "overlapping requests reuse one auth run and keep side effects idempotent" src/test/integration/codex.device-auth.test.ts` (1/1 passed) and confirmed deterministic idempotent overlap behavior.
+- 2026-02-28: Testing 5 complete. Ran targeted shared-auth reuse checks via `node --test --test-name-pattern "shared-home device-auth success unlocks chat without extra target selection" src/test/integration/chat-codex.test.ts` and `node --test --test-name-pattern "one successful device-auth flow unlocks shared auth reuse for agent, flow, and MCP runs" src/test/integration/agents-run-client-conversation-id.test.ts` (both 1/1 passed) with no extra per-agent login required.
 
 ### 12. Server Message Contract: Add codex model reasoning-capability payload to `/chat/models`
 

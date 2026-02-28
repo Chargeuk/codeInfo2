@@ -18,6 +18,7 @@ import {
 import { baseLogger, resolveLogConfig } from '../logger.js';
 import { refreshCodexDetection } from '../providers/codexDetection.js';
 import { runCodexDeviceAuth } from '../utils/codexDeviceAuth.js';
+import { getOrCreateSingleFlight } from '../utils/singleFlight.js';
 
 type Deps = {
   discoverAgents: typeof discoverAgents;
@@ -41,6 +42,15 @@ const T10_SUCCESS_LOG =
   '[DEV-0000037][T10] event=device_auth_contract_validated result=success';
 const T10_ERROR_LOG =
   '[DEV-0000037][T10] event=device_auth_contract_validated result=error';
+const T11_SUCCESS_LOG =
+  '[DEV-0000037][T11] event=device_auth_concurrency_and_side_effects_completed result=success';
+const T11_ERROR_LOG =
+  '[DEV-0000037][T11] event=device_auth_concurrency_and_side_effects_completed result=error';
+
+const deviceAuthInFlightByHome = new Map<
+  string,
+  Promise<Awaited<ReturnType<typeof runCodexDeviceAuth>>>
+>();
 
 function resolveCodexCli(): { available: boolean; reason?: string } {
   try {
@@ -181,55 +191,81 @@ export function createCodexDeviceAuthRouter(
       });
     }
 
-    const deviceAuth = await deps.runCodexDeviceAuth({
-      codexHome: undefined,
-    });
-
-    void deviceAuth.completion
-      .then(async ({ exitCode, result }) => {
-        baseLogger.info(
-          {
-            exitCode,
-          },
-          'DEV-0000031:T10:codex_device_auth_completed',
-        );
-
-        if (!result.ok || (exitCode !== null && exitCode !== 0)) {
-          return;
-        }
-
-        const agents = await deps.discoverAgents({ seedAuth: false });
-        const { agentCount } = await deps.propagateAgentAuthFromPrimary({
-          agents,
-          primaryCodexHome: deps.getCodexHome(),
-          logger: baseLogger,
-          overwrite: true,
+    const singleFlightKey = `device-auth:${targetCodexHome}`;
+    const { promise: deviceAuthPromise } = getOrCreateSingleFlight(
+      deviceAuthInFlightByHome,
+      singleFlightKey,
+      async () => {
+        const deviceAuth = await deps.runCodexDeviceAuth({
+          codexHome: undefined,
         });
 
-        baseLogger.info(
-          {
-            agentCount,
-          },
-          'DEV-0000031:T4:codex_device_auth_propagated',
-        );
+        void deviceAuth.completion
+          .then(async ({ exitCode, result }) => {
+            baseLogger.info(
+              {
+                exitCode,
+              },
+              'DEV-0000031:T10:codex_device_auth_completed',
+            );
 
-        const refreshed = deps.refreshCodexDetection();
-        baseLogger.info(
-          { available: refreshed.available, codexHome: deps.getCodexHome() },
-          'DEV-0000031:T4:codex_device_auth_availability_refreshed',
-        );
-      })
-      .catch((error) => {
-        console.error(T10_ERROR_LOG, {
-          code: 'completion_failed',
-        });
-        baseLogger.error(
-          {
-            err: error,
-          },
-          'DEV-0000031:T10:codex_device_auth_completion_failed',
-        );
-      });
+            if (!result.ok || (exitCode !== null && exitCode !== 0)) {
+              console.error(T11_ERROR_LOG, {
+                code: 'completion_unsuccessful',
+                exitCode,
+              });
+              return;
+            }
+
+            const agents = await deps.discoverAgents({ seedAuth: false });
+            const { agentCount } = await deps.propagateAgentAuthFromPrimary({
+              agents,
+              primaryCodexHome: deps.getCodexHome(),
+              logger: baseLogger,
+              overwrite: true,
+            });
+
+            baseLogger.info(
+              {
+                agentCount,
+              },
+              'DEV-0000031:T4:codex_device_auth_propagated',
+            );
+
+            const refreshed = deps.refreshCodexDetection();
+            baseLogger.info(
+              {
+                available: refreshed.available,
+                codexHome: deps.getCodexHome(),
+              },
+              'DEV-0000031:T4:codex_device_auth_availability_refreshed',
+            );
+            console.info(T11_SUCCESS_LOG, {
+              agentCount,
+              available: refreshed.available,
+              codexHome: deps.getCodexHome(),
+            });
+          })
+          .catch((error) => {
+            console.error(T10_ERROR_LOG, {
+              code: 'completion_failed',
+            });
+            console.error(T11_ERROR_LOG, {
+              code: 'completion_side_effect_failed',
+            });
+            baseLogger.error(
+              {
+                err: error,
+              },
+              'DEV-0000031:T10:codex_device_auth_completion_failed',
+            );
+          });
+
+        return deviceAuth;
+      },
+    );
+
+    const deviceAuth = await deviceAuthPromise;
 
     if (!deviceAuth.ok) {
       const statusCode =

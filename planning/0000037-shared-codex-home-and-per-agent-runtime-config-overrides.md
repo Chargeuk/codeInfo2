@@ -2913,7 +2913,7 @@ Update repository file-map and compatibility alias examples after implementation
 
 ### 22. Final isolated migration step: Minimize `./codex/config.toml` (projects-only)
 
-- Task Status: **__todo__**
+- Task Status: **__done__**
 - Git Commits: `None yet`
 
 #### Overview
@@ -2929,7 +2929,7 @@ Perform final shared-base config minimization as an isolated end-of-story step o
 
 #### Subtasks
 
-1. [ ] Verify prerequisite gate: all prior tasks are marked done and validated.
+1. [x] Verify prerequisite gate: all prior tasks are marked done and validated.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `planning/0000037-shared-codex-home-and-per-agent-runtime-config-overrides.md`.
    - Document name: `0000037-shared-codex-home-and-per-agent-runtime-config-overrides.md`.
@@ -2939,7 +2939,7 @@ Perform final shared-base config minimization as an isolated end-of-story step o
    - Do: verify tasks 1-21 are complete before editing `./codex/config.toml`, then mark Task 22 gating checklist state in this planning document.
    - Docs: https://toml.io/en/v1.0.0, Context7 `/openai/codex`.
    - Done when: all preceding task statuses and testing checkboxes are complete.
-2. [ ] Confirm all `code_info`-dependent verification/inspection steps are complete before minimization and record this checkpoint in Implementation notes.
+2. [x] Confirm all `code_info`-dependent verification/inspection steps are complete before minimization and record this checkpoint in Implementation notes.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `planning/0000037-shared-codex-home-and-per-agent-runtime-config-overrides.md`.
    - Document name: `0000037-shared-codex-home-and-per-agent-runtime-config-overrides.md`.
@@ -2949,31 +2949,31 @@ Perform final shared-base config minimization as an isolated end-of-story step o
    - Do: add explicit checkpoint note before file minimization commit.
    - Docs: Context7 `/openai/codex`, https://toml.io/en/v1.0.0.
    - Done when: note exists before any minimization diff.
-3. [ ] Confirm pre-minimization full regression gate is already complete (from Tasks 1-21 evidence) before editing `./codex/config.toml`.
+3. [x] Confirm pre-minimization full regression gate is already complete (from Tasks 1-21 evidence) before editing `./codex/config.toml`.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: this story plan, prior task testing evidence references, and relevant CI/local logs.
    - Do: explicitly record that full build/test/e2e/compose verification was completed before minimization; do not introduce new feature work after this checkpoint.
    - Docs: Context7 `/openai/codex`, https://toml.io/en/v1.0.0.
    - Done when: Implementation Notes include a pre-minimization gate entry referencing completed validation from earlier tasks.
-4. [ ] Ensure `./codex/chat/config.toml` exists and carries chat behavior defaults before minimizing base config; if missing, abort minimization with deterministic error and no file mutation.
+4. [x] Ensure `./codex/chat/config.toml` exists and carries chat behavior defaults before minimizing base config; if missing, abort minimization with deterministic error and no file mutation.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `codex/chat/config.toml`, migration helper in server if scripted.
    - Do: enforce guard that blocks minimization when chat config missing.
    - Docs: https://nodejs.org/api/fs.html#fspromisescopyfilesrc-dest-mode, https://toml.io/en/v1.0.0.
    - Done when: missing-chat-config case exits safely with no mutation.
-5. [ ] Minimize `./codex/config.toml` to shared defaults + `[projects]` only (remove behavior keys and MCP blocks from this file).
+5. [x] Minimize `./codex/config.toml` to shared defaults + `[projects]` only (remove behavior keys and MCP blocks from this file).
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `codex/config.toml`.
    - Do: retain shared projects entries only; remove `model`, `model_reasoning_effort`, `approval_policy`, `sandbox_mode`, `[features]`, `[mcp_servers]`.
    - Docs: https://toml.io/en/v1.0.0, Context7 `/openai/codex`.
    - Done when: file is projects-only plus shared-home defaults.
-6. [ ] Re-verify that no `codex_agents/*` files were deleted/moved/renamed and all existing `auth.json` files remain present.
+6. [x] Re-verify that no `codex_agents/*` files were deleted/moved/renamed and all existing `auth.json` files remain present.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `codex_agents/*`.
    - Do: run file-presence verification and compare against pre-step list.
    - Docs: https://nodejs.org/api/fs.html.
    - Done when: all agent auth files still exist unchanged in location.
-7. [ ] Add explicit operator note in Implementation notes that `code_info` MCP is expected to be unavailable after this step in this running instance.
+7. [x] Add explicit operator note in Implementation notes that `code_info` MCP is expected to be unavailable after this step in this running instance.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `planning/0000037-shared-codex-home-and-per-agent-runtime-config-overrides.md`.
    - Document name: `0000037-shared-codex-home-and-per-agent-runtime-config-overrides.md`.
@@ -2983,7 +2983,7 @@ Perform final shared-base config minimization as an isolated end-of-story step o
    - Do: add final warning note immediately after execution.
    - Docs: Context7 `/openai/codex`, https://toml.io/en/v1.0.0.
    - Done when: note exists and references this expected post-step behavior.
-8. [ ] Update `design.md` with final minimized-base migration architecture and Mermaid diagrams after all architecture-flow subtasks are complete.
+8. [x] Update `design.md` with final minimized-base migration architecture and Mermaid diagrams after all architecture-flow subtasks are complete.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `design.md`.
    - Document name: `design.md`.
@@ -2994,7 +2994,7 @@ Perform final shared-base config minimization as an isolated end-of-story step o
    - Docs: Context7 `/mermaid-js/mermaid`, https://mermaid.js.org/intro/.
    - Done when: `design.md` reflects the final post-migration architecture and expected operational state.
 
-9. [ ] Add deterministic structured log line `[DEV-0000037][T22] event=final_config_minimization_completed result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
+9. [x] Add deterministic structured log line `[DEV-0000037][T22] event=final_config_minimization_completed result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
    - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
    - Files: `codex/config.toml`, `codex/chat/config.toml`, migration helper files, and verification tests/scripts listed in this task.
    - Do: emit this exact log prefix and event name from the implementation path, then assert in tests that `result=success` is emitted on happy path and `result=error` only appears on intentional failure-path coverage.
@@ -3002,16 +3002,31 @@ Perform final shared-base config minimization as an isolated end-of-story step o
    - Manual Playwright-MCP check linkage: verify this exact log line during this task's Manual Playwright-MCP check when present, or during Task 22 final regression Manual Playwright-MCP check for backend/docs-only tasks.
    - Docs: https://nodejs.org/api/console.html, Context7 `/jestjs/jest`, https://jestjs.io/docs/expect.
    - Done when: deterministic log assertions are present and this task's expected trigger produces the exact `[DEV-0000037][T22] event=final_config_minimization_completed result=success` line.
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+10. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 #### Testing
 
-1. [ ] Verify pre-minimization full regression gate is complete by referencing Tasks 1-21 testing evidence (`build`, `test`, `e2e`, `compose`, and required manual checks).
-2. [ ] Validate minimized `./codex/config.toml` matches projects-only target shape in this story.
-3. [ ] Validate `./codex/chat/config.toml` remains present and unchanged by minimization.
-4. [ ] Verify filesystem checks for `codex_agents/*/auth.json` presence pass.
-5. [ ] Simulate missing chat config precondition and verify minimization step abort behavior is deterministic and non-destructive.
-6. [ ] Verify final Implementation Notes include both required operational warnings: `code_info`-dependent checks were completed before minimization, and `code_info` MCP is expected to be unavailable after minimization in this running instance.
+1. [x] Verify pre-minimization full regression gate is complete by referencing Tasks 1-21 testing evidence (`build`, `test`, `e2e`, `compose`, and required manual checks).
+2. [x] Validate minimized `./codex/config.toml` matches projects-only target shape in this story.
+3. [x] Validate `./codex/chat/config.toml` remains present and unchanged by minimization.
+4. [x] Verify filesystem checks for `codex_agents/*/auth.json` presence pass.
+5. [x] Simulate missing chat config precondition and verify minimization step abort behavior is deterministic and non-destructive.
+6. [x] Verify final Implementation Notes include both required operational warnings: `code_info`-dependent checks were completed before minimization, and `code_info` MCP is expected to be unavailable after minimization in this running instance.
 
 #### Implementation Notes
 
-- None yet.
+- 2026-02-28: Subtask 1 complete. Re-read the full plan and confirmed Tasks 1-21 are all `__done__` with completed testing checklists before beginning Task 22 minimization work.
+- 2026-02-28: Subtask 2 complete. Recorded pre-minimization checkpoint that all required `code_info`-dependent inspections were completed during Tasks 1-21 before executing final base-config minimization.
+- 2026-02-28: Subtask 3 complete. Confirmed pre-minimization full regression gate evidence exists in Tasks 1-21 notes (`build`, `test`, `e2e`, `compose`, manual checks), and no new feature work was introduced before minimization.
+- 2026-02-28: Subtask 4 complete. Added `minimizeBaseConfigToProjectsOnly` guard in `server/src/config/runtimeConfig.ts` that hard-fails with deterministic `T22_CHAT_CONFIG_MISSING` + T22 error log when chat config is missing, and verified non-destructive behavior with `runtimeConfig.test.ts`.
+- 2026-02-28: Subtask 5 complete. Minimized `codex/config.toml` to projects-only content and removed runtime behavior/MCP sections from the shared base config.
+- 2026-02-28: Subtask 6 complete. Re-verified agent-file safety: all expected `codex_agents/*/auth.json` files are still present and `git diff --name-status -- codex_agents` reported no move/delete/rename mutations.
+- 2026-02-28: Subtask 7 complete. Operator note: after this final minimization in this running instance, `code_info` MCP availability is expected to be unavailable and should not be relied on for subsequent checks.
+- 2026-02-28: Subtask 8 complete. Updated `design.md` with Task 22 final minimized-base architecture, projects-only base shape, and Mermaid diagrams covering guard-fail (non-destructive) and success flows.
+- 2026-02-28: Subtask 9 complete. Added deterministic T22 success/error logs in `minimizeBaseConfigToProjectsOnly` and added unit coverage in `runtimeConfig.test.ts` asserting success-path emission and intentional failure-path `result=error` emission with non-destructive abort semantics.
+- 2026-02-28: Subtask 10 complete. Ran `npm run lint --workspaces` (passes with existing baseline import-order warnings) and `npm run format:check --workspaces`; formatting initially failed on `runtimeConfig.ts`, then passed after `npm run format --workspace server`.
+- 2026-02-28: Testing 1 complete. Verified pre-minimization regression evidence remains present in Tasks 1-21 notes (`build`, `test`, `e2e`, compose lifecycle, and required manual Playwright checks).
+- 2026-02-28: Testing 2 complete. Validated minimized `codex/config.toml` content is projects-only and contains none of the removed behavior/MCP keys.
+- 2026-02-28: Testing 3 complete. Verified `codex/chat/config.toml` remained unchanged by minimization (`git status --short codex/chat/config.toml` returned no changes).
+- 2026-02-28: Testing 4 complete. Verified auth-file presence check passes for `codex_agents/coding_agent/auth.json`, `codex_agents/planning_agent/auth.json`, and `codex_agents/tasking_agent/auth.json`.
+- 2026-02-28: Testing 5 complete. Simulated missing-chat-config guard via targeted unit run (`npx cross-env ... node --test src/test/unit/runtimeConfig.test.ts`) and confirmed `aborts minimization without mutation when chat config is missing` passed with deterministic T22 error logging.
+- 2026-02-28: Testing 6 complete. Verified final Task 22 Implementation Notes include both operational warnings: pre-minimization `code_info`-dependent checks completed and post-minimization `code_info` unavailability expectation.

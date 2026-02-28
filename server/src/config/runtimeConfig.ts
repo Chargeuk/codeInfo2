@@ -20,6 +20,10 @@ const T04_SUCCESS_LOG =
   '[DEV-0000037][T04] event=runtime_config_merged_and_validated result=success';
 const T04_ERROR_LOG =
   '[DEV-0000037][T04] event=runtime_config_merged_and_validated result=error';
+const T22_SUCCESS_LOG =
+  '[DEV-0000037][T22] event=final_config_minimization_completed result=success';
+const T22_ERROR_LOG =
+  '[DEV-0000037][T22] event=final_config_minimization_completed result=error';
 
 export type RuntimeTomlConfig = Record<string, unknown>;
 export type RuntimeConfigWarning = { path: string; message: string };
@@ -548,6 +552,87 @@ export async function ensureChatRuntimeConfigBootstrapped(params?: {
     if ((error as { code?: string }).code === 'EEXIST') {
       return { codexHome, baseConfigPath, chatConfigPath, copied: false };
     }
+    throw error;
+  }
+}
+
+type ProjectTrustTable = Record<string, { trust_level?: unknown }>;
+
+function toTomlQuoted(value: string): string {
+  return JSON.stringify(value);
+}
+
+function buildProjectsOnlyToml(projects: ProjectTrustTable): string {
+  const lines: string[] = ['[projects]'];
+  for (const projectPath of Object.keys(projects).sort()) {
+    lines.push(`[projects.${toTomlQuoted(projectPath)}]`);
+    const trustLevel = projects[projectPath]?.trust_level;
+    if (typeof trustLevel === 'string') {
+      lines.push(`trust_level = ${toTomlQuoted(trustLevel)}`);
+    }
+    lines.push('');
+  }
+  return `${lines.join('\n').trimEnd()}\n`;
+}
+
+export async function minimizeBaseConfigToProjectsOnly(params?: {
+  codexHome?: string;
+}): Promise<{
+  codexHome: string;
+  baseConfigPath: string;
+  chatConfigPath: string;
+  projectCount: number;
+}> {
+  const codexHome = resolveCodexHome(params?.codexHome);
+  const baseConfigPath = getCodexConfigPathForHome(codexHome);
+  const chatConfigPath = getCodexChatConfigPathForHome(codexHome);
+
+  try {
+    await fs.access(chatConfigPath, fsConstants.R_OK);
+  } catch {
+    console.error(
+      `${T22_ERROR_LOG} reason=missing_chat_config chatConfigPath=${chatConfigPath}`,
+    );
+    throw new Error(
+      `T22_CHAT_CONFIG_MISSING: Missing required chat config at ${chatConfigPath}`,
+    );
+  }
+
+  try {
+    const normalizedBase = await readAndNormalizeRuntimeTomlConfig(
+      baseConfigPath,
+      {
+        required: true,
+      },
+    );
+    const projects = isRecord(normalizedBase?.projects)
+      ? (normalizedBase.projects as ProjectTrustTable)
+      : {};
+    const minimizedToml = buildProjectsOnlyToml(projects);
+    await fs.writeFile(baseConfigPath, minimizedToml, 'utf8');
+    console.info(T22_SUCCESS_LOG, {
+      codexHome,
+      baseConfigPath,
+      chatConfigPath,
+      projectCount: Object.keys(projects).length,
+    });
+    return {
+      codexHome,
+      baseConfigPath,
+      chatConfigPath,
+      projectCount: Object.keys(projects).length,
+    };
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message.startsWith('T22_CHAT_CONFIG_MISSING:')
+    ) {
+      throw error;
+    }
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(
+      `${T22_ERROR_LOG} reason=unexpected_failure message=${message}`,
+    );
     throw error;
   }
 }

@@ -3559,3 +3559,66 @@ sequenceDiagram
   API-->>UI: 200 {status:"ok", rawOutput}
   API->>SE: discover agents + propagate auth copy + refresh shared-home detection
 ```
+
+## Story 0000037 Task 22: final isolated base-config minimization
+
+- Final migration role split after Task 22:
+  - shared auth/session home remains `./codex`.
+  - chat behavior source remains `./codex/chat/config.toml`.
+  - agent behavior source remains `codex_agents/<agent>/config.toml`.
+  - shared base `./codex/config.toml` is minimized to `[projects]` trust metadata only.
+- Final isolated-step guard:
+  - minimization must abort when `./codex/chat/config.toml` is missing.
+  - abort path is non-destructive (base config content is not mutated on guard failure).
+- Deterministic Task 22 minimization logs:
+  - success: `[DEV-0000037][T22] event=final_config_minimization_completed result=success`
+  - error: `[DEV-0000037][T22] event=final_config_minimization_completed result=error`
+- Post-step operator expectation for this running instance:
+  - `code_info` MCP is expected to be unavailable after final base minimization.
+
+### Task 22 final minimized base shape
+
+```toml
+[projects]
+[projects."/app/server"]
+trust_level = "trusted"
+
+[projects."/data"]
+trust_level = "trusted"
+```
+
+### Task 22 minimization flow
+
+```mermaid
+flowchart TD
+  A[Task 22 starts] --> B[Confirm Tasks 1-21 complete + pre-minimization gates recorded]
+  B --> C{chat config exists? ./codex/chat/config.toml}
+  C -- no --> D[Abort with deterministic T22 error log]
+  D --> E[No mutation to ./codex/config.toml]
+  C -- yes --> F[Read shared base config]
+  F --> G[Retain projects trust entries only]
+  G --> H[Write minimized ./codex/config.toml]
+  H --> I[Emit deterministic T22 success log]
+  I --> J[Verify codex_agents/* auth files still present]
+  J --> K[Record post-step code_info unavailability warning]
+```
+
+```mermaid
+sequenceDiagram
+  participant Op as Operator
+  participant Guard as T22 guard
+  participant Base as ./codex/config.toml
+  participant Chat as ./codex/chat/config.toml
+  participant Log as Structured logs
+
+  Op->>Guard: run final minimization
+  Guard->>Chat: check file exists
+  alt missing chat config
+    Guard->>Log: T22 result=error reason=missing_chat_config
+    Guard-->>Op: abort (no base mutation)
+  else chat config present
+    Guard->>Base: read + minimize to projects-only
+    Guard->>Log: T22 result=success
+    Guard-->>Op: completed
+  end
+```

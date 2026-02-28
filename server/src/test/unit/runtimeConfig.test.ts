@@ -9,6 +9,7 @@ import {
   ensureChatRuntimeConfigBootstrapped,
   loadRuntimeConfigSnapshot,
   mergeProjectsFromBaseIntoRuntime,
+  minimizeBaseConfigToProjectsOnly,
   normalizeRuntimeConfig,
   readAndNormalizeRuntimeTomlConfig,
   resolveAgentRuntimeConfig,
@@ -118,6 +119,107 @@ describe('runtimeConfig bootstrap', () => {
       assert.equal(result.copied, false);
       assert.equal(exists, false);
     } finally {
+      await fs.rm(codexHome, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('runtimeConfig final minimization', () => {
+  it('minimizes base config to projects-only and emits deterministic T22 success log', async () => {
+    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+    const baseConfigPath = path.join(codexHome, 'config.toml');
+    const chatConfigPath = path.join(codexHome, 'chat', 'config.toml');
+    const infoLogs: string[] = [];
+    const errorLogs: string[] = [];
+    mock.method(console, 'info', (...args: unknown[]) => {
+      infoLogs.push(args.map(String).join(' '));
+    });
+    mock.method(console, 'error', (...args: unknown[]) => {
+      errorLogs.push(args.map(String).join(' '));
+    });
+
+    try {
+      await fs.mkdir(path.dirname(chatConfigPath), { recursive: true });
+      await fs.writeFile(
+        baseConfigPath,
+        [
+          'model = "gpt-5.3-codex-spark"',
+          'model_reasoning_effort = "xhigh"',
+          'approval_policy = "never"',
+          'sandbox_mode = "danger-full-access"',
+          '[features]',
+          'web_search_request = true',
+          '[mcp_servers.context7]',
+          'command = "npx"',
+          '[projects]',
+          '[projects."/data"]',
+          'trust_level = "trusted"',
+          '[projects."/app/server"]',
+          'trust_level = "trusted"',
+          '',
+        ].join('\n'),
+        'utf8',
+      );
+      await fs.writeFile(chatConfigPath, 'model = "chat-kept"\n', 'utf8');
+
+      await minimizeBaseConfigToProjectsOnly({ codexHome });
+      const minimized = await fs.readFile(baseConfigPath, 'utf8');
+
+      assert.match(minimized, /\[projects\]/u);
+      assert.match(minimized, /\[projects\."\/data"\]/u);
+      assert.match(minimized, /\[projects\."\/app\/server"\]/u);
+      assert.doesNotMatch(minimized, /model\s*=/u);
+      assert.doesNotMatch(minimized, /approval_policy/u);
+      assert.doesNotMatch(minimized, /\[features\]/u);
+      assert.doesNotMatch(minimized, /\[mcp_servers/u);
+      assert(
+        infoLogs.some((line) =>
+          line.includes(
+            '[DEV-0000037][T22] event=final_config_minimization_completed result=success',
+          ),
+        ),
+      );
+      assert.equal(
+        errorLogs.some((line) =>
+          line.includes(
+            '[DEV-0000037][T22] event=final_config_minimization_completed result=error',
+          ),
+        ),
+        false,
+      );
+    } finally {
+      mock.restoreAll();
+      await fs.rm(codexHome, { recursive: true, force: true });
+    }
+  });
+
+  it('aborts minimization without mutation when chat config is missing and emits deterministic T22 error log', async () => {
+    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+    const baseConfigPath = path.join(codexHome, 'config.toml');
+    const errorLogs: string[] = [];
+    const originalBase =
+      'model = "gpt-5.3-codex-spark"\n[projects]\n[projects."/data"]\ntrust_level = "trusted"\n';
+    mock.method(console, 'error', (...args: unknown[]) => {
+      errorLogs.push(args.map(String).join(' '));
+    });
+
+    try {
+      await fs.writeFile(baseConfigPath, originalBase, 'utf8');
+      await assert.rejects(
+        async () => minimizeBaseConfigToProjectsOnly({ codexHome }),
+        /T22_CHAT_CONFIG_MISSING/u,
+      );
+      const afterAttempt = await fs.readFile(baseConfigPath, 'utf8');
+      assert.equal(afterAttempt, originalBase);
+      assert(
+        errorLogs.some((line) =>
+          line.includes(
+            '[DEV-0000037][T22] event=final_config_minimization_completed result=error',
+          ),
+        ),
+      );
+    } finally {
+      mock.restoreAll();
       await fs.rm(codexHome, { recursive: true, force: true });
     }
   });

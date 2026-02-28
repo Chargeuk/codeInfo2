@@ -1291,7 +1291,7 @@ Apply the same runtime config resolution to flow-driven and MCP execution surfac
 ### 8. Server: Shared-home detection alignment for Codex availability and startup semantics
 
 - Task Status: **__done__**
-- Git Commits: `None yet`
+- Git Commits: `638ded6`
 
 #### Overview
 

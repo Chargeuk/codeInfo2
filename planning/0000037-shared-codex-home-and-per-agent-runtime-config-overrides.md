@@ -2914,7 +2914,7 @@ Update repository file-map and compatibility alias examples after implementation
 ### 22. Final isolated migration step: Minimize `./codex/config.toml` (projects-only)
 
 - Task Status: **__done__**
-- Git Commits: `None yet`
+- Git Commits: `7c074c8`
 
 #### Overview
 

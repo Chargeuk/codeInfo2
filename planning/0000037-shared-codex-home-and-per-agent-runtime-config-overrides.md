@@ -3333,3 +3333,45 @@ Implement follow-up fixes for accepted Copilot review findings after Task 24, in
 - 2026-03-01: Testing 8 complete. Manual Playwright-MCP smoke at `http://host.docker.internal:5001/chat` executed device-auth dialog flow (`Re-authenticate (device auth)` -> `Start device auth`) and captured screenshot `/tmp/playwright-output/playwright-output-local/task-25-device-auth-dialog.png`; console included `[DEV-0000037][T25] event=post_review_findings_resolved result=success`, included no T25 `result=error`, and `browser_console_messages(level=error)` returned empty.
 - 2026-03-01: Testing 9 complete. `npm run compose:down` stopped and removed local stack containers/network cleanly.
 - 2026-03-01: Recorded Task 25 implementation commit hash `0160e1c` in the task Git Commits field.
+
+## Post-Implementation Code Review (2026-03-01, branch vs `main` follow-up)
+
+### Scope Reviewed
+
+- Performed a full branch delta review against `main` using `git diff main...HEAD` (78 changed files across server/client/common/OpenAPI/docs/planning surfaces).
+- Re-reviewed high-risk implementation areas for this story: runtime config normalization/merge/validation, shared-home detection, `/codex/device-auth` request/response contract and single-flight behavior, codex capability resolver reuse, chat model capability payload wiring, and frontend reasoning/device-auth UX flows.
+- Re-checked story acceptance criteria in this plan against current code and test artifacts after Task 25 completion.
+
+### Checks Performed
+
+- Repository checks:
+  - `git diff --stat main...HEAD`
+  - `git diff --name-only main...HEAD`
+  - `git diff --name-status main...HEAD` (verified no `D`/`R` entries under `codex_agents/*`; only expected `M` updates)
+- Build validation:
+  - `npm run build --workspace server` (pass)
+  - `npm run build --workspace client` (pass)
+- Focused server regression validation (pass, `58/58`):
+  - `runtimeConfig.test.ts`
+  - `codexDeviceAuth.test.ts`
+  - `chatModels.codex.test.ts`
+  - `openapi.contract.test.ts`
+- Focused client regression validation (pass, `4/4 suites`, `28/28 tests`):
+  - `chatPage.flags.reasoning.payload.test.tsx`
+  - `chatPage.models.test.tsx`
+  - `codexDeviceAuthApi.test.ts`
+  - `codexDeviceAuthDialog.test.tsx`
+
+### Findings
+
+- No blocking issues found in code quality, maintainability, performance, security, or acceptance-criteria coverage for Story 0000037 in the current branch state.
+- Residual non-blocking note: existing client test-runtime `act(...)` environment warnings remain present in targeted suites; these were informational and did not affect pass/fail outcomes or story acceptance behavior.
+
+### Acceptance Criteria Re-Check Summary
+
+- Shared `CODEX_HOME` behavior and per-agent runtime override semantics remain intact and deterministic.
+- Agent runtime behavior derives from `codex_agents/<agent>/config.toml` with shared `[projects]` merge precedence only (`base` then `agent`, agent wins).
+- Chat runtime behavior is sourced via dedicated `codex/chat/config.toml` runtime overrides.
+- `/codex/device-auth` contract is single-shape (`{}` request) with deterministic `200/400/503` responses and legacy selector-field rejection behavior.
+- `/chat/models` codex payload includes `supportedReasoningEfforts` and `defaultReasoningEffort`; frontend consumes these capabilities dynamically and enforces deterministic fallback/reset behavior.
+- Non-destructive migration/file-safety rule for `codex_agents/*` remains satisfied (no delete/move/rename operations in branch delta).

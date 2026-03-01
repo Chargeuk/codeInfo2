@@ -57,7 +57,8 @@ Finally, re-embed no-op behavior and status semantics need tightening. Successfu
 
 ### Questions
 
-None. Open planning questions captured so far are resolved and this story is ready for task breakdown.
+- For terminal statuses (`completed`, `cancelled`, `error`), should `phase` be omitted entirely or included as `null` for contract consistency?
+- Should the final top-level MCP terminal payload include a stable `message` field for AI-readable summary text, or should it rely only on structured terminal fields?
 
 ## Implementation Ideas
 

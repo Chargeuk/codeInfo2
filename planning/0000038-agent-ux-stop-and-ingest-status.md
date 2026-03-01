@@ -31,10 +31,12 @@ Finally, re-embed no-op behavior and status semantics need tightening. If re-emb
 - Blocking re-embed behavior is implemented consistently across both MCP surfaces exposed by this app (classic MCP and MCP v2 routes).
 - Existing MCP keep-alive behavior is used so long-running blocking tool calls keep the connection alive until final completion response.
 - Blocking MCP re-embed final response includes terminal outcome semantics (success or terminal failure) and does not return `started` while work is still in progress.
+- Blocking MCP re-embed response payload contains final summary data only (no per-phase progress stream/snapshot payload in the final result contract).
 - MCP blocking re-embed does not support cancellation via MCP request parameters or MCP cancel contract extensions in this story.
 - Users can still observe active ingest/re-embed progress in the web GUI and can cancel from the existing web ingest controls while MCP callers continue waiting for terminal completion response.
 - During ingest/re-embed, repositories remain visible in Ingest page embedded folder list with an explicit in-progress status value.
 - During ingest/re-embed, repositories remain visible in MCP repository listing with explicit in-progress status value.
+- MCP repository listing for active ingest/re-embed includes last completed ingest metadata plus active-run overlay fields.
 - MCP ListIngestedRepositories schema/contracts are updated to include repository status field(s) required for in-progress visibility.
 - Re-embed runs with no files needing embedding are reported as `completed` (not `skipped`).
 - Re-embed flow performs file-change delta decision early; when no files changed, the run exits early and performs no embedding and no AST parsing/upsert/delete work.
@@ -52,8 +54,6 @@ Finally, re-embed no-op behavior and status semantics need tightening. If re-emb
 ### Questions
 
 - What terminal status vocabulary should be canonical across UI, REST, and MCP for active ingestion (`ingesting` vs `embedding` vs `running`), and should we expose both coarse and detailed phase?
-- Should blocking MCP re-embed return only final summary data, or include structured per-phase progress summary in the final payload?
-- When a repository is actively ingesting, should MCP repository list include last completed ingest metadata plus active-run overlay fields, or only active-run fields?
 - If no files changed but files were deleted, should this still be considered `completed` with deletion summary, and should that summary be included in the final MCP blocking response?
 
 ## Implementation Ideas
@@ -71,11 +71,13 @@ Finally, re-embed no-op behavior and status semantics need tightening. If re-emb
   - Change reingest tool service contract from `started` to “wait-until-terminal”.
   - Keep keep-alive enabled during tool execution and finalize with one JSON-RPC response at terminal state.
   - Unify shared blocking implementation consumed by both `server/src/mcp/server.ts` and `server/src/mcp2/*` tool wiring.
+  - Keep final tool response contract summary-only (terminal outcome + final metadata), without per-phase progress payload sections.
   - Do not add MCP-side cancel request fields or JSON-RPC cancel extensions for this story; cancellation remains a web GUI concern.
 
 - Repository visibility while ingesting:
   - Merge active ingest job state with persisted roots metadata in both ingest roots route and MCP list-ingested repositories tool.
   - Add repository status field to tool payload schema and route payloads.
+  - For active runs, preserve last completed ingest metadata and apply active-run overlay fields rather than replacing metadata entirely.
   - Ensure in-progress entries are present even when roots metadata was removed/replaced during re-embed.
 
 - No-change early return and status semantics:

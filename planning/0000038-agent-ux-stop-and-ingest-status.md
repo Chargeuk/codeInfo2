@@ -32,6 +32,7 @@ Finally, re-embed no-op behavior and status semantics need tightening. Successfu
 - Existing MCP keep-alive behavior is used so long-running blocking tool calls keep the connection alive until final completion response.
 - Blocking MCP re-embed final response includes terminal outcome semantics (success or terminal failure) and does not return `started` while work is still in progress.
 - Blocking MCP re-embed response payload contains final summary data only (no per-phase progress stream/snapshot payload in the final result contract).
+- When a blocking MCP re-embed wait is interrupted by user cancellation from the web GUI, MCP returns a normal terminal result payload with `status: cancelled` (not a JSON-RPC error contract).
 - MCP blocking re-embed does not support cancellation via MCP request parameters or MCP cancel contract extensions in this story.
 - Users can still observe active ingest/re-embed progress in the web GUI and can cancel from the existing web ingest controls while MCP callers continue waiting for terminal completion response.
 - During ingest/re-embed, repositories remain visible in Ingest page embedded folder list with an explicit in-progress status value.
@@ -56,9 +57,7 @@ Finally, re-embed no-op behavior and status semantics need tightening. Successfu
 
 ### Questions
 
-- If a user cancels ingest/re-embed from the web GUI while a blocking MCP `reingest_repository` call is waiting, should MCP return an error contract (for example a `CANCELLED`-type error) or a normal terminal result payload with `status: cancelled`?
-- Confirm canonical active-ingest field names across UI, REST, and MCP payloads: `status` (coarse) and `phase` (detailed).
-- Should final blocking MCP summary include a compact nested `summary` object (counts, duration, message) or only top-level terminal fields?
+None. Open planning questions captured so far are resolved and this story is ready for task breakdown.
 
 ## Implementation Ideas
 
@@ -75,7 +74,8 @@ Finally, re-embed no-op behavior and status semantics need tightening. Successfu
   - Change reingest tool service contract from `started` to “wait-until-terminal”.
   - Keep keep-alive enabled during tool execution and finalize with one JSON-RPC response at terminal state.
   - Unify shared blocking implementation consumed by both `server/src/mcp/server.ts` and `server/src/mcp2/*` tool wiring.
-  - Keep final tool response contract summary-only (terminal outcome + final metadata), without per-phase progress payload sections.
+  - Keep final tool response contract summary-only and top-level terminal fields only, without per-phase progress payload sections or nested summary blocks.
+  - On GUI-triggered cancel while MCP is waiting, return a normal terminal result payload with status cancelled instead of throwing a JSON-RPC error.
   - Do not add MCP-side cancel request fields or JSON-RPC cancel extensions for this story; cancellation remains a web GUI concern.
 
 - Repository visibility while ingesting:

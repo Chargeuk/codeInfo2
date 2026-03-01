@@ -335,10 +335,10 @@ export function validateChatRequest(
         modelReasoningEffort as ModelReasoningEffort;
     }
   } else if (provider === 'codex') {
-    codexFlags.modelReasoningEffort = (
-      selectedModelCapability?.defaultReasoningEffort ??
-      codexEnvDefaults?.defaults.modelReasoningEffort
-    ) as ModelReasoningEffort;
+    codexFlags.modelReasoningEffort =
+      (selectedModelCapability?.defaultReasoningEffort ??
+        codexEnvDefaults?.defaults
+          .modelReasoningEffort) as ModelReasoningEffort;
     defaultedFlags.push('modelReasoningEffort');
   }
 

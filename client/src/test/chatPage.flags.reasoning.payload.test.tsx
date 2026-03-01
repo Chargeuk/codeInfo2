@@ -112,9 +112,7 @@ function mockProvidersWithBodies(
           provider: 'codex',
           available: true,
           toolsAvailable: true,
-          ...(codexDefaults
-            ? { codexDefaults, codexWarnings: [] }
-            : {}),
+          ...(codexDefaults ? { codexDefaults, codexWarnings: [] } : {}),
           models: codexModels,
         }),
       }) as unknown as Response;

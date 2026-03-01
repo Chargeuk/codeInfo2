@@ -59,6 +59,8 @@ Finally, re-embed no-op behavior and status semantics need tightening. Successfu
 ### Questions
 
 - For terminal statuses (`completed`, `cancelled`, `error`), should `phase` be omitted entirely or included as `null` for contract consistency?
+- For final blocking MCP terminal payloads, which top-level fields are mandatory across all statuses (`status`, `operation`, `runId`, `sourceId`, `durationMs`, counts, error code)?
+- For `cancelled` terminal results, should the payload include last-known progress counters (`files/chunks/embedded`) when available, or always return only terminal identifiers/status fields?
 
 ## Implementation Ideas
 

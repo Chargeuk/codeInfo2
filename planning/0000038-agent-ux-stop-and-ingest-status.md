@@ -56,7 +56,9 @@ Finally, re-embed no-op behavior and status semantics need tightening. Successfu
 
 ### Questions
 
-None. Open planning questions captured so far are resolved and this story is ready for task breakdown.
+- If a user cancels ingest/re-embed from the web GUI while a blocking MCP `reingest_repository` call is waiting, should MCP return an error contract (for example a `CANCELLED`-type error) or a normal terminal result payload with `status: cancelled`?
+- Confirm canonical active-ingest field names across UI, REST, and MCP payloads: `status` (coarse) and `phase` (detailed).
+- Should final blocking MCP summary include a compact nested `summary` object (counts, duration, message) or only top-level terminal fields?
 
 ## Implementation Ideas
 

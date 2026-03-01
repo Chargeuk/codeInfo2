@@ -43,8 +43,20 @@ Finally, re-embed no-op behavior and status semantics need tightening. Successfu
 - Canonical status model across UI, REST, and MCP uses coarse + detailed fields for active ingestion:
   - coarse top-level status `ingesting` for all in-progress runs;
   - detailed phase field exposing current phase (`queued`, `scanning`, `embedding`).
+- For terminal statuses (`completed`, `cancelled`, `error`), `phase` is omitted from payloads.
 - Any successful ingest/re-ingest request is reported as `completed` regardless of internal path taken (full embed, no-change early return, deletion-only delta path, or mixed delta path).
 - Re-embed flow performs file-change delta decision early; when no files changed, the run exits early and performs no embedding and no AST parsing/upsert/delete work.
+- Final blocking MCP terminal payload uses a deterministic top-level contract across statuses with mandatory fields:
+  - `status` (`completed` | `cancelled` | `error`)
+  - `operation` (`reembed`)
+  - `runId`
+  - `sourceId`
+  - `durationMs`
+  - `files`
+  - `chunks`
+  - `embedded`
+  - `errorCode` (nullable; populated only when `status=error`)
+- For `cancelled` terminal results, payload includes last-known counters (`files`, `chunks`, `embedded`) when available.
 - UI and server tests are added/updated for all above behaviors, including MCP classic + MCP v2 parity coverage.
 - Documentation updates (README/design/projectStructure as needed) reflect new stop semantics, blocking MCP re-embed behavior, repository status visibility, and no-change early return behavior.
 
@@ -58,9 +70,7 @@ Finally, re-embed no-op behavior and status semantics need tightening. Successfu
 
 ### Questions
 
-- For terminal statuses (`completed`, `cancelled`, `error`), should `phase` be omitted entirely or included as `null` for contract consistency?
-- For final blocking MCP terminal payloads, which top-level fields are mandatory across all statuses (`status`, `operation`, `runId`, `sourceId`, `durationMs`, counts, error code)?
-- For `cancelled` terminal results, should the payload include last-known progress counters (`files/chunks/embedded`) when available, or always return only terminal identifiers/status fields?
+None. Open planning questions captured so far are resolved and this story is ready for task breakdown.
 
 ## Implementation Ideas
 
@@ -78,6 +88,7 @@ Finally, re-embed no-op behavior and status semantics need tightening. Successfu
   - Keep keep-alive enabled during tool execution and finalize with one JSON-RPC response at terminal state.
   - Unify shared blocking implementation consumed by both `server/src/mcp/server.ts` and `server/src/mcp2/*` tool wiring.
   - Keep final tool response contract summary-only and top-level terminal fields only, without per-phase progress payload sections, nested summary blocks, or a top-level `message` string.
+  - Enforce mandatory terminal top-level fields: `status`, `operation`, `runId`, `sourceId`, `durationMs`, `files`, `chunks`, `embedded`, and nullable `errorCode`.
   - On GUI-triggered cancel while MCP is waiting, return a normal terminal result payload with status cancelled instead of throwing a JSON-RPC error.
   - Do not add MCP-side cancel request fields or JSON-RPC cancel extensions for this story; cancellation remains a web GUI concern.
 
@@ -86,11 +97,13 @@ Finally, re-embed no-op behavior and status semantics need tightening. Successfu
   - Add repository status fields to tool payload schema and route payloads using coarse + detailed model (`status: ingesting`, `phase: queued|scanning|embedding` while active).
   - For active runs, preserve last completed ingest metadata and apply active-run overlay fields rather than replacing metadata entirely.
   - Ensure in-progress entries are present even when roots metadata was removed/replaced during re-embed.
+  - Omit `phase` for terminal states in emitted payloads (`completed`, `cancelled`, `error`).
 
 - No-change early return and status semantics:
   - Move delta no-op decision to earliest safe point after file discovery/hash comparison.
   - Short-circuit before AST parse loop and embedding loop when no changed/added/deleted work exists.
   - Standardize terminal success semantics so successful runs always emit `completed` (including no-change and deletion-only outcomes) with structured terminal fields.
+  - For cancelled outcomes, include last-known progress counters in terminal payload fields.
 
 - Testing:
   - Client RTL tests for Agents input/sidebar behavior during run.

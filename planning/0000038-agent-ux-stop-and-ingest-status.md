@@ -38,6 +38,9 @@ Finally, re-embed no-op behavior and status semantics need tightening. If re-emb
 - During ingest/re-embed, repositories remain visible in MCP repository listing with explicit in-progress status value.
 - MCP repository listing for active ingest/re-embed includes last completed ingest metadata plus active-run overlay fields.
 - MCP ListIngestedRepositories schema/contracts are updated to include repository status field(s) required for in-progress visibility.
+- Canonical status model across UI, REST, and MCP uses coarse + detailed fields for active ingestion:
+  - coarse top-level status `ingesting` for all in-progress runs;
+  - detailed phase field exposing current phase (`queued`, `scanning`, `embedding`).
 - Re-embed runs with no files needing embedding are reported as `completed` (not `skipped`).
 - Re-embed flow performs file-change delta decision early; when no files changed, the run exits early and performs no embedding and no AST parsing/upsert/delete work.
 - UI and server tests are added/updated for all above behaviors, including MCP classic + MCP v2 parity coverage.
@@ -53,7 +56,6 @@ Finally, re-embed no-op behavior and status semantics need tightening. If re-emb
 
 ### Questions
 
-- What terminal status vocabulary should be canonical across UI, REST, and MCP for active ingestion (`ingesting` vs `embedding` vs `running`), and should we expose both coarse and detailed phase?
 - If no files changed but files were deleted, should this still be considered `completed` with deletion summary, and should that summary be included in the final MCP blocking response?
 
 ## Implementation Ideas
@@ -76,7 +78,7 @@ Finally, re-embed no-op behavior and status semantics need tightening. If re-emb
 
 - Repository visibility while ingesting:
   - Merge active ingest job state with persisted roots metadata in both ingest roots route and MCP list-ingested repositories tool.
-  - Add repository status field to tool payload schema and route payloads.
+  - Add repository status fields to tool payload schema and route payloads using coarse + detailed model (`status: ingesting`, `phase: queued|scanning|embedding` while active).
   - For active runs, preserve last completed ingest metadata and apply active-run overlay fields rather than replacing metadata entirely.
   - Ensure in-progress entries are present even when roots metadata was removed/replaced during re-embed.
 

@@ -1,7 +1,7 @@
 import { SYSTEM_CONTEXT } from '@codeinfo2/common';
 import { Codex } from '@openai/codex-sdk';
 import type {
-  ModelReasoningEffort,
+  CodexOptions,
   ThreadOptions as CodexThreadOptions,
   TurnOptions as CodexTurnOptions,
 } from '@openai/codex-sdk';
@@ -10,25 +10,19 @@ import { append } from '../../logStore.js';
 import { baseLogger } from '../../logger.js';
 import { updateConversationThreadId } from '../../mongo/repo.js';
 import type { TurnUsageMetadata } from '../../mongo/turn.js';
-import { detectCodexForHome } from '../../providers/codexDetection.js';
+import { refreshCodexDetection } from '../../providers/codexDetection.js';
 import { getCodexDetection } from '../../providers/codexRegistry.js';
 import { ChatInterface, type ChatToolResultEvent } from './ChatInterface.js';
-
-type CodexThreadOptionsCompat = Omit<
-  CodexThreadOptions,
-  'modelReasoningEffort'
-> & {
-  modelReasoningEffort?: ModelReasoningEffort | 'xhigh';
-};
 
 type CodexRunFlags = {
   workingDirectoryOverride?: string;
   threadId?: string | null;
-  codexFlags?: Partial<CodexThreadOptionsCompat>;
+  codexFlags?: Partial<CodexThreadOptions>;
   codexHome?: string;
   disableSystemContext?: boolean;
   systemPrompt?: string;
   useConfigDefaults?: boolean;
+  runtimeConfig?: CodexOptions['config'];
   requestId?: string;
   signal?: AbortSignal;
   skipPersistence?: boolean;
@@ -107,8 +101,9 @@ export interface CodexLike {
 
 export class ChatInterfaceCodex extends ChatInterface {
   constructor(
-    private readonly codexFactory: () => CodexLike = () =>
-      new Codex(buildCodexOptions()) as unknown as CodexLike,
+    private readonly codexFactory: (options?: CodexOptions) => CodexLike = (
+      options?: CodexOptions,
+    ) => new Codex(options ?? buildCodexOptions()) as unknown as CodexLike,
   ) {
     super();
   }
@@ -129,9 +124,10 @@ export class ChatInterfaceCodex extends ChatInterface {
       systemPrompt,
       useConfigDefaults,
       workingDirectoryOverride,
+      runtimeConfig,
     } = (flags ?? {}) as CodexRunFlags;
     const detection = codexHome
-      ? detectCodexForHome(codexHome)
+      ? refreshCodexDetection({ codexHome })
       : getCodexDetection();
     if (!detection.available) {
       const msg = detection.reason ?? 'codex unavailable';
@@ -160,8 +156,7 @@ export class ChatInterfaceCodex extends ChatInterface {
           networkAccessEnabled: codexFlags?.networkAccessEnabled,
           webSearchEnabled: codexFlags?.webSearchEnabled,
           approvalPolicy: codexFlags?.approvalPolicy,
-          modelReasoningEffort:
-            codexFlags?.modelReasoningEffort as unknown as CodexThreadOptions['modelReasoningEffort'],
+          modelReasoningEffort: codexFlags?.modelReasoningEffort,
         };
 
     const undefinedFlags: string[] = [];
@@ -183,9 +178,9 @@ export class ChatInterfaceCodex extends ChatInterface {
       '[codex-thread-options] prepared',
     );
 
-    const codex = codexHome
-      ? (new Codex(buildCodexOptions({ codexHome })) as unknown as CodexLike)
-      : this.codexFactory();
+    const codex = this.codexFactory(
+      buildCodexOptions({ codexHome, runtimeConfig }),
+    );
 
     const systemContext = disableSystemContext ? '' : SYSTEM_CONTEXT.trim();
     const agentSystemPrompt = (systemPrompt ?? '').trim();

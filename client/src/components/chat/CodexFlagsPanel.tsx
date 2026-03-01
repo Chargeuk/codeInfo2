@@ -13,19 +13,16 @@ import {
   Switch,
   Typography,
 } from '@mui/material';
-import type {
-  ApprovalPolicy,
-  ModelReasoningEffort,
-  SandboxMode,
-} from '../../hooks/useChatStream';
+import type { ApprovalPolicy, SandboxMode } from '../../hooks/useChatStream';
 
 type Props = {
   sandboxMode: SandboxMode;
   onSandboxModeChange: (value: SandboxMode) => void;
   approvalPolicy: ApprovalPolicy;
   onApprovalPolicyChange: (value: ApprovalPolicy) => void;
-  modelReasoningEffort: ModelReasoningEffort;
-  onModelReasoningEffortChange: (value: ModelReasoningEffort) => void;
+  modelReasoningEffort: string;
+  onModelReasoningEffortChange: (value: string) => void;
+  reasoningEffortOptions: string[];
   networkAccessEnabled: boolean;
   onNetworkAccessEnabledChange: (value: boolean) => void;
   webSearchEnabled: boolean;
@@ -46,15 +43,8 @@ const approvalOptions: Array<{ value: ApprovalPolicy; label: string }> = [
   { value: 'untrusted', label: 'Untrusted' },
 ];
 
-const reasoningOptions: Array<{
-  value: ModelReasoningEffort;
-  label: string;
-}> = [
-  { value: 'xhigh', label: 'XHigh' },
-  { value: 'high', label: 'High' },
-  { value: 'medium', label: 'Medium' },
-  { value: 'low', label: 'Low' },
-];
+const reasoningLabel = (value: string) =>
+  value.charAt(0).toUpperCase() + value.slice(1);
 
 export default function CodexFlagsPanel({
   sandboxMode,
@@ -63,6 +53,7 @@ export default function CodexFlagsPanel({
   onApprovalPolicyChange,
   modelReasoningEffort,
   onModelReasoningEffortChange,
+  reasoningEffortOptions,
   networkAccessEnabled,
   onNetworkAccessEnabledChange,
   webSearchEnabled,
@@ -124,17 +115,19 @@ export default function CodexFlagsPanel({
               labelId="codex-reasoning-effort-label"
               id="codex-reasoning-effort-select"
               label="Reasoning effort"
-              value={modelReasoningEffort}
+              value={
+                reasoningEffortOptions.includes(modelReasoningEffort)
+                  ? modelReasoningEffort
+                  : ''
+              }
               onChange={(event) =>
-                onModelReasoningEffortChange(
-                  event.target.value as ModelReasoningEffort,
-                )
+                onModelReasoningEffortChange(event.target.value as string)
               }
               data-testid="reasoning-effort-select"
             >
-              {reasoningOptions.map((option) => (
-                <MenuItem key={option.value} value={option.value}>
-                  {option.label}
+              {reasoningEffortOptions.map((option) => (
+                <MenuItem key={option} value={option}>
+                  {reasoningLabel(option)}
                 </MenuItem>
               ))}
             </Select>

@@ -289,17 +289,6 @@ export default function AgentsPage() {
   );
   const canShowDeviceAuth =
     Boolean(selectedAgentName) && Boolean(codexProvider?.available);
-  const deviceAuthDefaultTarget = useMemo(
-    () =>
-      selectedAgentName
-        ? ({ target: 'agent', agentName: selectedAgentName } as const)
-        : ({ target: 'chat' } as const),
-    [selectedAgentName],
-  );
-  const deviceAuthAgents = useMemo(
-    () => agents.map((agent) => ({ name: agent.name })),
-    [agents],
-  );
 
   useEffect(() => {
     log('info', 'DEV-0000028[T1] agents transcript layout ready', {
@@ -2130,8 +2119,7 @@ export default function AgentsPage() {
                   <CodexDeviceAuthDialog
                     open={deviceAuthOpen}
                     onClose={handleDeviceAuthClose}
-                    defaultTarget={deviceAuthDefaultTarget}
-                    agents={deviceAuthAgents}
+                    source="agents"
                     onSuccess={handleDeviceAuthSuccess}
                   />
                 </Stack>

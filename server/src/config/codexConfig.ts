@@ -51,6 +51,10 @@ export function getCodexConfigPathForHome(codexHome: string): string {
   return path.join(codexHome, 'config.toml');
 }
 
+export function getCodexChatConfigPathForHome(codexHome: string): string {
+  return path.join(codexHome, 'chat', 'config.toml');
+}
+
 export function getCodexAuthPathForHome(codexHome: string): string {
   return path.join(codexHome, 'auth.json');
 }
@@ -61,6 +65,10 @@ export function getCodexHome(): string {
 
 export function getCodexConfigPath(): string {
   return getCodexConfigPathForHome(getCodexHome());
+}
+
+export function getCodexChatConfigPath(): string {
+  return getCodexChatConfigPathForHome(getCodexHome());
 }
 
 export function getCodexAuthPath(): string {
@@ -189,9 +197,11 @@ export async function ensureCodexAuthFileStore(configPath: string): Promise<{
 
 export function buildCodexOptions(params?: {
   codexHome?: string;
+  runtimeConfig?: CodexOptions['config'];
 }): CodexOptions | undefined {
   const home = resolveCodexHome(params?.codexHome);
   return {
+    ...(params?.runtimeConfig ? { config: params.runtimeConfig } : {}),
     env: {
       // ensure we give the full environment so MCP servers work
       ...process.env,

@@ -678,6 +678,15 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 - client/src/test/useConversationTurns.commandMetadata.test.ts — unit coverage that turns preserve optional `command` metadata for UI rendering
 - client/src/test/chatPage.inflightNavigate.test.tsx — RTL coverage that navigating away/back during inflight keeps full history + inflight text
 - e2e/support/mockChatWs.ts — Playwright `routeWebSocket` helper for mocking chat WS protocol in end-to-end tests
+
+- Task 0000037-T3 file add/remove ledger:
+  - Added: `server/src/config/runtimeConfig.ts` — centralized runtime TOML loader/normalizer/bootstrap resolver for base/chat/agent config.
+  - Added: `server/src/test/unit/runtimeConfig.test.ts` — unit coverage for alias normalization, bootstrap copy/no-overwrite/no-base behavior, and deterministic T03 logs.
+  - Removed: none.
+- Task 0000037-T4 file add/remove ledger:
+  - Added: none.
+  - Removed: none.
+  - Updated in place: `server/src/config/runtimeConfig.ts`, `server/src/agents/config.ts`, and `server/src/test/unit/runtimeConfig.test.ts` for deterministic projects merge precedence, shared validation policy, deterministic runtime-config failure semantics, and T04 log assertions.
 - e2e/agents.spec.ts — e2e coverage for Agents raw outbound payload preservation, whitespace-only submit blocking, and hydrated markdown parity/fallback behavior
 - e2e/chat-ws-logs.spec.ts — e2e asserting Logs UI shows client-forwarded chat WS log lines after mocked transcript events
 - Task 0000036-T8 file-map update — no file paths were added/removed; existing files updated in place: `server/src/routes/ingestModels.ts`, `server/src/test/unit/ingest-models.test.ts`, `server/src/test/features/ingest-models.feature`, `server/src/test/steps/ingest-models.steps.ts`, `server/src/ingest/providers/index.ts`, and `design.md`.
@@ -691,3 +700,124 @@ Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep t
 - Task 0000036-T18 file-map update — added files: `server/src/config/openaiIngestRetries.ts`, `server/src/test/unit/openai-ingest-retries-config.test.ts`, and `server/src/test/integration/openai-retry-env-override.test.ts`; updated files: `server/src/ingest/providers/openaiRetry.ts`, `server/src/ingest/providers/openaiConstants.ts`, `server/src/ingest/providers/index.ts`, `server/src/test/unit/openai-provider-retry.test.ts`, and `server/.env`; removed files: `None`.
 - Task 0000036-T19 file-map update — added files: `server/src/ingest/providers/ingestFailureClassifier.ts`, `server/src/test/unit/ingest-cancel.test.ts`, `server/src/test/unit/ingest-reembed.test.ts`, `server/src/test/unit/lmstudio-provider-retry-logging.test.ts`, and `server/src/test/integration/ingest-failure-logging-coverage.test.ts`; updated files: `server/src/ingest/providers/ingestFailureLogging.ts`, `server/src/ingest/providers/lmstudioEmbeddingProvider.ts`, `server/src/ingest/providers/index.ts`, `server/src/ingest/providers/types.ts`, `server/src/ingest/chunker.ts`, `server/src/ingest/discovery.ts`, `server/src/ingest/ingestJob.ts`, `server/src/routes/ingestCancel.ts`, `server/src/routes/ingestStart.ts`, `server/src/routes/ingestReembed.ts`, `server/src/routes/ingestRoots.ts`, `server/src/test/unit/ingest-start.test.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`, `server/src/test/unit/openai-provider-retry.test.ts`, `client/src/test/logsPage.test.tsx`, `README.md`, `design.md`, and `planning/0000036-openai-embeddings-provider-locking.md`; removed files: `None`.
 - Task 0000036-T20 file-map update — added files: `None`; updated files: `server/src/config/openaiIngestRetries.ts`, `server/src/routes/ingestReembed.ts`, `server/src/test/unit/openai-ingest-retries-config.test.ts`, `server/src/test/unit/openai-provider-retry.test.ts`, `server/src/test/unit/ingest-reembed.test.ts`, `server/src/test/integration/ingest-failure-logging-coverage.test.ts`, `README.md`, `design.md`, and `planning/0000036-openai-embeddings-provider-locking.md`; removed files: `None`.
+- Task 0000037-T11 file-map update — added files: `server/src/utils/singleFlight.ts`; removed files: `None`. Existing files updated in place include `server/src/routes/codexDeviceAuth.ts`, `server/src/test/integration/codex.device-auth.test.ts`, `server/src/test/integration/chat-codex.test.ts`, `server/src/test/integration/agents-run-client-conversation-id.test.ts`, `design.md`, and `planning/0000037-shared-codex-home-and-per-agent-runtime-config-overrides.md`.
+- Task 0000037-T13 file-map update — added files: `server/src/codex/capabilityResolver.ts`; removed files: `None`. Existing files updated in place include `server/src/config/codexEnvDefaults.ts`, `server/src/routes/chatModels.ts`, `server/src/routes/chatValidators.ts`, `server/src/routes/chat.ts`, `server/src/test/unit/chatModels.codex.test.ts`, `server/src/test/unit/chat-codex-reasoning-delta.test.ts`, `server/src/test/integration/chat-codex.test.ts`, `design.md`, and `planning/0000037-shared-codex-home-and-per-agent-runtime-config-overrides.md`.
+
+## Story 0000037 final file-map rollup (Task 21)
+
+- Source of truth: aggregated from `git log --grep '^DEV-0000037 -' --name-status`.
+- Deterministic Task 21 documentation-sync log markers:
+  - success: `[DEV-0000037][T21] event=project_structure_documentation_synced result=success`
+  - error: `[DEV-0000037][T21] event=project_structure_documentation_synced result=error`
+
+### Added files (story-wide)
+
+- `planning/0000037-shared-codex-home-and-per-agent-runtime-config-overrides.md`
+- `server/src/codex/capabilityResolver.ts`
+- `server/src/config/codexSdkUpgrade.ts`
+- `server/src/config/runtimeConfig.ts`
+- `server/src/test/unit/codexSdkUpgrade.test.ts`
+- `server/src/test/unit/design-docs.task20.test.ts`
+- `server/src/test/unit/runtimeConfig.test.ts`
+- `server/src/utils/singleFlight.ts`
+
+### Removed files (story-wide)
+
+- `None`
+
+### Modified files (story-wide)
+
+- `.gitignore`
+- `client/src/api/codex.ts`
+- `client/src/components/chat/CodexFlagsPanel.tsx`
+- `client/src/components/codex/CodexDeviceAuthDialog.tsx`
+- `client/src/hooks/useChatModel.ts`
+- `client/src/hooks/useChatStream.ts`
+- `client/src/pages/AgentsPage.tsx`
+- `client/src/pages/ChatPage.tsx`
+- `client/src/test/agentsPage.agentChange.test.tsx`
+- `client/src/test/chatPage.codexDefaults.test.tsx`
+- `client/src/test/chatPage.flags.reasoning.payload.test.tsx`
+- `client/src/test/chatPage.flags.sandbox.payload.test.tsx`
+- `client/src/test/chatPage.models.test.tsx`
+- `client/src/test/chatPage.provider.test.tsx`
+- `client/src/test/chatPage.reasoning.test.tsx`
+- `client/src/test/codexDeviceAuthApi.test.ts`
+- `client/src/test/codexDeviceAuthDialog.test.tsx`
+- `common/src/api.ts`
+- `common/src/fixtures/mockModels.ts`
+- `common/src/lmstudio.ts`
+- `design.md`
+- `openapi.json`
+- `package-lock.json`
+- `planning/0000037-shared-codex-home-and-per-agent-runtime-config-overrides.md`
+- `projectStructure.md`
+- `server/package.json`
+- `server/src/agents/authSeed.ts`
+- `server/src/agents/config.ts`
+- `server/src/agents/service.ts`
+- `server/src/chat/factory.ts`
+- `server/src/chat/interfaces/ChatInterfaceCodex.ts`
+- `server/src/config/codexConfig.ts`
+- `server/src/config/codexEnvDefaults.ts`
+- `server/src/config/runtimeConfig.ts`
+- `server/src/flows/service.ts`
+- `server/src/index.ts`
+- `server/src/providers/codexDetection.ts`
+- `server/src/routes/chat.ts`
+- `server/src/routes/chatModels.ts`
+- `server/src/routes/chatValidators.ts`
+- `server/src/routes/codexDeviceAuth.ts`
+- `server/src/test/integration/agents-run-client-conversation-id.test.ts`
+- `server/src/test/integration/chat-codex-mcp.test.ts`
+- `server/src/test/integration/chat-codex.test.ts`
+- `server/src/test/integration/codex.device-auth.test.ts`
+- `server/src/test/integration/codexAuthCopy.integration.test.ts`
+- `server/src/test/integration/flows.run.basic.test.ts`
+- `server/src/test/steps/chat-tools-visibility.steps.ts`
+- `server/src/test/steps/chat_cancellation.steps.ts`
+- `server/src/test/steps/chat_stream.steps.ts`
+- `server/src/test/unit/agents-authSeed.test.ts`
+- `server/src/test/unit/agents-config-defaults.test.ts`
+- `server/src/test/unit/chat-codex-reasoning-delta.test.ts`
+- `server/src/test/unit/chatModels.codex.test.ts`
+- `server/src/test/unit/chatValidators.test.ts`
+- `server/src/test/unit/codexConfig.device-auth.test.ts`
+- `server/src/test/unit/codexConfig.test.ts`
+- `server/src/test/unit/codexDeviceAuth.test.ts`
+- `server/src/test/unit/openapi.contract.test.ts`
+- `server/src/test/unit/runtimeConfig.test.ts`
+
+## Story 0000037 compatibility aliases (input accepted, canonical output only)
+
+Before (legacy aliases accepted as input):
+
+```toml
+[features]
+view_image_tool = true
+web_search_request = true
+```
+
+After (canonical runtime/output shape only):
+
+```toml
+[tools]
+view_image = true
+web_search = "live"
+```
+
+- Read-time compatibility behavior:
+  - `features.view_image_tool` -> `tools.view_image`
+  - `features.web_search_request` and top-level `web_search_request` -> top-level `web_search`
+- Canonical key precedence:
+  - if canonical and alias keys both exist, canonical value wins
+- Emission/storage rule:
+  - aliases are accepted for compatibility input only and are not emitted as canonical output
+
+## Story 0000037 Task 23 codex_agents parity corrections
+
+- Restored to match `main` (file-set parity fix):
+  - `codex_agents/planning_agent/commands/kadshow_improve_plan.json`
+  - `codex_agents/tasking_agent/commands/kadshow_task_up.json`
+- Task 23 verification target:
+  - `git diff --name-status main...HEAD -- codex_agents` must contain no `D`/`R` entries after the parity-fix commit.

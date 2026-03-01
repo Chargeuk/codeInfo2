@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
+import fs from 'node:fs/promises';
 import http from 'node:http';
+import os from 'node:os';
+import path from 'node:path';
 import test, { afterEach, beforeEach } from 'node:test';
 import { SYSTEM_CONTEXT } from '@codeinfo2/common';
 import type { LMStudioClient } from '@lmstudio/sdk';
@@ -159,10 +162,22 @@ const dummyClientFactory = () =>
 
 const ORIGINAL_CODEX_WORKDIR = process.env.CODEX_WORKDIR;
 const ORIGINAL_CODEINFO_CODEX_WORKDIR = process.env.CODEINFO_CODEX_WORKDIR;
+const ORIGINAL_CODEINFO_CODEX_HOME = process.env.CODEINFO_CODEX_HOME;
+let tempCodexHomeForTest: string | undefined;
 
-beforeEach(() => {
+beforeEach(async () => {
   delete process.env.CODEX_WORKDIR;
   delete process.env.CODEINFO_CODEX_WORKDIR;
+  tempCodexHomeForTest = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'chat-codex-mcp-home-'),
+  );
+  await fs.mkdir(path.join(tempCodexHomeForTest, 'chat'), { recursive: true });
+  await fs.writeFile(
+    path.join(tempCodexHomeForTest, 'chat', 'config.toml'),
+    'model = "gpt-5.1-codex-max"\n',
+    'utf8',
+  );
+  process.env.CODEINFO_CODEX_HOME = tempCodexHomeForTest;
   memoryConversations.clear();
   memoryTurns.clear();
   setCodexDetection({
@@ -175,7 +190,7 @@ beforeEach(() => {
   conversationCounter = 0;
 });
 
-afterEach(() => {
+afterEach(async () => {
   if (ORIGINAL_CODEX_WORKDIR === undefined) {
     delete process.env.CODEX_WORKDIR;
   } else {
@@ -186,6 +201,15 @@ afterEach(() => {
     delete process.env.CODEINFO_CODEX_WORKDIR;
   } else {
     process.env.CODEINFO_CODEX_WORKDIR = ORIGINAL_CODEINFO_CODEX_WORKDIR;
+  }
+  if (ORIGINAL_CODEINFO_CODEX_HOME === undefined) {
+    delete process.env.CODEINFO_CODEX_HOME;
+  } else {
+    process.env.CODEINFO_CODEX_HOME = ORIGINAL_CODEINFO_CODEX_HOME;
+  }
+  if (tempCodexHomeForTest) {
+    await fs.rm(tempCodexHomeForTest, { recursive: true, force: true });
+    tempCodexHomeForTest = undefined;
   }
   memoryConversations.clear();
   memoryTurns.clear();

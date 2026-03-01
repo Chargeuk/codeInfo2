@@ -41,10 +41,22 @@ const defaultCodexDefaults = {
   webSearchEnabled: false,
 } as const;
 
+const defaultCodexModels = [
+  {
+    key: 'gpt-5.1-codex-max',
+    displayName: 'gpt-5.1-codex-max',
+    type: 'codex',
+    supportedReasoningEfforts: ['minimal', 'medium', 'high', 'xhigh'],
+    defaultReasoningEffort: 'medium',
+  },
+] satisfies Array<Record<string, unknown>>;
+
 function mockCodexReady(options?: {
   codexDefaults?: typeof defaultCodexDefaults;
   includeDefaults?: boolean;
+  codexModels?: Array<Record<string, unknown>>;
 }) {
+  const codexModels = options?.codexModels ?? defaultCodexModels;
   mockFetch.mockImplementation((url: RequestInfo | URL) => {
     const href = typeof url === 'string' ? url : url.toString();
     if (href.includes('/health')) {
@@ -98,13 +110,7 @@ function mockCodexReady(options?: {
                 codexWarnings: [],
               }
             : {}),
-          models: [
-            {
-              key: 'gpt-5.1-codex-max',
-              displayName: 'gpt-5.1-codex-max',
-              type: 'codex',
-            },
-          ],
+          models: codexModels,
         }),
       }) as unknown as Response;
     }
@@ -284,5 +290,311 @@ describe('Codex defaults from server', () => {
 
     expect(sandboxSelect).toHaveAttribute('aria-disabled', 'true');
     expect(networkSwitch).toBeDisabled();
+  });
+
+  it('resets invalid reasoning effort when switching models', async () => {
+    const infoSpy = jest.spyOn(console, 'info').mockImplementation(() => {});
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    mockCodexReady({
+      codexModels: [
+        {
+          key: 'model-a',
+          displayName: 'Model A',
+          type: 'codex',
+          supportedReasoningEfforts: ['high', 'xhigh'],
+          defaultReasoningEffort: 'high',
+        },
+        {
+          key: 'model-b',
+          displayName: 'Model B',
+          type: 'codex',
+          supportedReasoningEfforts: ['minimal'],
+          defaultReasoningEffort: 'minimal',
+        },
+      ],
+    });
+
+    try {
+      const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+      render(<RouterProvider router={router} />);
+
+      const providerSelect = await screen.findByRole('combobox', {
+        name: /provider/i,
+      });
+      await userEvent.click(providerSelect);
+      await userEvent.click(
+        await screen.findByRole('option', { name: /openai codex/i }),
+      );
+      await ensureCodexFlagsPanelExpanded();
+
+      const modelSelect = await screen.findByRole('combobox', {
+        name: /model/i,
+      });
+      await userEvent.click(modelSelect);
+      await userEvent.click(
+        await screen.findByRole('option', { name: /model b/i }),
+      );
+
+      await waitFor(() =>
+        expect(screen.getByTestId('reasoning-effort-select')).toHaveTextContent(
+          /minimal/i,
+        ),
+      );
+      expect(
+        infoSpy.mock.calls.some(
+          ([message]) =>
+            message ===
+            '[DEV-0000037][T16] event=chat_model_capability_defaults_applied result=success',
+        ),
+      ).toBe(true);
+      expect(
+        errorSpy.mock.calls.some(
+          ([message]) =>
+            typeof message === 'string' &&
+            message.includes('[DEV-0000037][T16]') &&
+            message.includes('result=error'),
+        ),
+      ).toBe(false);
+    } finally {
+      infoSpy.mockRestore();
+      errorSpy.mockRestore();
+    }
+  });
+
+  it('resets invalid reasoning effort after capability payload refresh', async () => {
+    const infoSpy = jest.spyOn(console, 'info').mockImplementation(() => {});
+    let codexModelsRequestCount = 0;
+
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const href = typeof url === 'string' ? url : url.toString();
+      if (href.includes('/health')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ mongoConnected: true }),
+        }) as unknown as Response;
+      }
+      if (href.includes('/conversations')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ items: [], nextCursor: null }),
+        }) as unknown as Response;
+      }
+      if (href.includes('/chat/providers')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            providers: [
+              {
+                id: 'lmstudio',
+                label: 'LM Studio',
+                available: true,
+                toolsAvailable: true,
+              },
+              {
+                id: 'codex',
+                label: 'OpenAI Codex',
+                available: true,
+                toolsAvailable: true,
+              },
+            ],
+          }),
+        }) as unknown as Response;
+      }
+      if (href.includes('/chat/models') && href.includes('provider=codex')) {
+        codexModelsRequestCount += 1;
+        const models =
+          codexModelsRequestCount === 1
+            ? [
+                {
+                  key: 'refresh-model',
+                  displayName: 'Refresh Model',
+                  type: 'codex',
+                  supportedReasoningEfforts: ['high', 'xhigh'],
+                  defaultReasoningEffort: 'high',
+                },
+              ]
+            : [
+                {
+                  key: 'refresh-model',
+                  displayName: 'Refresh Model',
+                  type: 'codex',
+                  supportedReasoningEfforts: ['minimal'],
+                  defaultReasoningEffort: 'minimal',
+                },
+              ];
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            provider: 'codex',
+            available: true,
+            toolsAvailable: true,
+            codexDefaults: {
+              sandboxMode: 'read-only',
+              approvalPolicy: 'never',
+              modelReasoningEffort: 'high',
+              networkAccessEnabled: false,
+              webSearchEnabled: false,
+            },
+            codexWarnings: [],
+            models,
+          }),
+        }) as unknown as Response;
+      }
+      if (href.includes('/chat/models')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            provider: 'lmstudio',
+            available: true,
+            toolsAvailable: true,
+            models: [{ key: 'lm', displayName: 'LM Model', type: 'gguf' }],
+          }),
+        }) as unknown as Response;
+      }
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({}),
+      }) as unknown as Response;
+    });
+
+    try {
+      const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+      render(<RouterProvider router={router} />);
+
+      const providerSelect = await screen.findByRole('combobox', {
+        name: /provider/i,
+      });
+      await userEvent.click(providerSelect);
+      await userEvent.click(
+        await screen.findByRole('option', { name: /openai codex/i }),
+      );
+      await ensureCodexFlagsPanelExpanded();
+
+      await userEvent.click(providerSelect);
+      await userEvent.click(
+        await screen.findByRole('option', { name: /lm studio/i }),
+      );
+      await userEvent.click(providerSelect);
+      await userEvent.click(
+        await screen.findByRole('option', { name: /openai codex/i }),
+      );
+
+      await ensureCodexFlagsPanelExpanded();
+      await waitFor(() =>
+        expect(screen.getByTestId('reasoning-effort-select')).toHaveTextContent(
+          /minimal/i,
+        ),
+      );
+      expect(codexModelsRequestCount).toBeGreaterThanOrEqual(2);
+      expect(
+        infoSpy.mock.calls.some(
+          ([message]) =>
+            message ===
+            '[DEV-0000037][T16] event=chat_model_capability_defaults_applied result=success',
+        ),
+      ).toBe(true);
+    } finally {
+      infoSpy.mockRestore();
+    }
+  });
+
+  it('logs deterministic error for malformed empty supportedReasoningEfforts payload', async () => {
+    const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    mockCodexReady({
+      includeDefaults: false,
+      codexModels: [
+        {
+          key: 'malformed-model',
+          displayName: 'Malformed Model',
+          type: 'codex',
+          supportedReasoningEfforts: [],
+          defaultReasoningEffort: '',
+        },
+      ],
+    });
+
+    try {
+      const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+      render(<RouterProvider router={router} />);
+
+      const providerSelect = await screen.findByRole('combobox', {
+        name: /provider/i,
+      });
+      await userEvent.click(providerSelect);
+      await userEvent.click(
+        await screen.findByRole('option', { name: /openai codex/i }),
+      );
+      await ensureCodexFlagsPanelExpanded();
+
+      await waitFor(() =>
+        expect(
+          errorSpy.mock.calls.some(
+            ([message]) =>
+              message ===
+              '[DEV-0000037][T16] event=chat_model_capability_defaults_applied result=error reason=invalid_model_capabilities model=malformed-model',
+          ),
+        ).toBe(true),
+      );
+      expect(screen.getByTestId('chat-input')).toBeEnabled();
+    } finally {
+      errorSpy.mockRestore();
+    }
+  });
+
+  it('falls back deterministically when defaultReasoningEffort is not supported', async () => {
+    const infoSpy = jest.spyOn(console, 'info').mockImplementation(() => {});
+    mockCodexReady({
+      codexDefaults: {
+        sandboxMode: 'read-only',
+        approvalPolicy: 'never',
+        modelReasoningEffort: 'xhigh',
+        networkAccessEnabled: false,
+        webSearchEnabled: false,
+      },
+      codexModels: [
+        {
+          key: 'mismatched-default',
+          displayName: 'Mismatched Default',
+          type: 'codex',
+          supportedReasoningEfforts: ['low'],
+          defaultReasoningEffort: 'xhigh',
+        },
+      ],
+    });
+
+    try {
+      const router = createMemoryRouter(routes, { initialEntries: ['/chat'] });
+      render(<RouterProvider router={router} />);
+
+      const providerSelect = await screen.findByRole('combobox', {
+        name: /provider/i,
+      });
+      await userEvent.click(providerSelect);
+      await userEvent.click(
+        await screen.findByRole('option', { name: /openai codex/i }),
+      );
+
+      await ensureCodexFlagsPanelExpanded();
+      await waitFor(() =>
+        expect(screen.getByTestId('reasoning-effort-select')).toHaveTextContent(
+          /low/i,
+        ),
+      );
+      expect(
+        infoSpy.mock.calls.some(
+          ([message]) =>
+            message ===
+            '[DEV-0000037][T16] event=chat_model_capability_defaults_applied result=success',
+        ),
+      ).toBe(true);
+    } finally {
+      infoSpy.mockRestore();
+    }
   });
 });

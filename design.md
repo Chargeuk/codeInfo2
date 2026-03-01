@@ -319,6 +319,235 @@ flowchart LR
 
 ## MCP keepalive lifecycle (shared helper)
 
+## Shared runtime config loader/bootstrap normalization (Story 0000037 Task 3)
+
+- Added `server/src/config/runtimeConfig.ts` as the canonical read path for Codex runtime TOML across:
+  - shared base config: `./codex/config.toml`
+  - chat runtime config: `./codex/chat/config.toml`
+  - agent runtime config: `codex_agents/<agent>/config.toml` (resolved via `discoverAgents` metadata when `agentName` is provided)
+- Read-time normalization is deterministic and canonical-output only:
+  - `features.view_image_tool` is accepted as legacy input alias and normalized to `tools.view_image`
+  - `features.web_search_request` (and top-level `web_search_request`) are accepted as input aliases and normalized to top-level `web_search` mode
+  - canonical keys (`tools.view_image`, `web_search`) win if both canonical and alias keys are present
+- Chat runtime bootstrap is copy-once and non-destructive:
+  - if `./codex/chat/config.toml` is missing and `./codex/config.toml` exists, copy base to chat once
+  - existing chat config is never overwritten
+  - no copy occurs when base config is missing
+- Deterministic Task 3 logging is emitted from resolver load:
+  - success: `[DEV-0000037][T03] event=runtime_config_loaded_and_normalized result=success`
+  - error: `[DEV-0000037][T03] event=runtime_config_loaded_and_normalized result=error ...`
+
+```mermaid
+flowchart TD
+  A[loadRuntimeConfigSnapshot] --> B[Resolve CODEX_HOME via resolveCodexHome]
+  B --> C{bootstrapChatConfig enabled?}
+  C -- yes --> D[ensureChatRuntimeConfigBootstrapped]
+  D --> E{chat missing and base exists?}
+  E -- yes --> F[copy base config -> chat config once]
+  E -- no --> G[skip copy/no-overwrite]
+  C -- no --> H[skip bootstrap]
+  F --> I[Read + parse base/chat/agent TOML]
+  G --> I
+  H --> I
+  I --> J[normalize legacy aliases to canonical keys]
+  J --> K[emit T03 success log and return snapshot]
+  I --> L[emit T03 error log and throw on read/parse failure]
+```
+
+```mermaid
+sequenceDiagram
+  participant Caller as Server caller
+  participant Resolver as runtimeConfig.ts
+  participant FS as Filesystem
+  participant Norm as Normalizer
+  Caller->>Resolver: loadRuntimeConfigSnapshot({ agentName|agentConfigPath })
+  Resolver->>FS: ensure chat config bootstrap (copy-once)
+  FS-->>Resolver: copied | skipped
+  Resolver->>FS: read base/chat/agent TOML
+  FS-->>Resolver: file contents / ENOENT / parse data
+  Resolver->>Norm: normalize aliases (view_image, web_search)
+  Norm-->>Resolver: canonical config objects
+  Resolver-->>Caller: RuntimeConfigSnapshot + T03 success log
+  Note over Resolver,Caller: Any read/parse failure emits deterministic T03 error log and rethrows
+```
+
+## Runtime config merge precedence + validation policy (Story 0000037 Task 4)
+
+- Runtime config resolution now performs a deterministic shared-project merge before validation:
+  - `effectiveProjects = { ...baseProjects, ...runtimeProjects }`
+  - only `[projects]` are inherited from shared base config; behavior keys (`model`, `approval_policy`, `sandbox_mode`, `tools`, etc.) remain runtime-owned.
+- Validation is centralized in `server/src/config/runtimeConfig.ts`:
+  - unknown keys: warning + ignored (non-fatal)
+  - supported keys with invalid types: deterministic hard failure
+  - misplaced `cli_auth_credentials_store` under `[projects."<path>"]`: warning + ignored (never promoted)
+- Deterministic failure handling is normalized for both agent and chat resolver surfaces via `RuntimeConfigResolutionError`:
+  - `RUNTIME_CONFIG_MISSING`
+  - `RUNTIME_CONFIG_UNREADABLE`
+  - `RUNTIME_CONFIG_INVALID`
+  - `RUNTIME_CONFIG_VALIDATION_FAILED`
+- Task 4 structured logs are emitted at merge+validate boundaries:
+  - success: `[DEV-0000037][T04] event=runtime_config_merged_and_validated result=success`
+  - error: `[DEV-0000037][T04] event=runtime_config_merged_and_validated result=error ...`
+
+```mermaid
+flowchart TD
+  A[Resolve runtime config for agent/chat] --> B[Read shared base config (optional)]
+  B --> C[Read runtime config (required)]
+  C --> D[Merge projects only: effectiveProjects = base -> runtime precedence]
+  D --> E[Validate merged config]
+  E --> F{supported key invalid type?}
+  F -- yes --> G[Throw deterministic validation failure]
+  F -- no --> H{unknown/misplaced key?}
+  H -- yes --> I[Warn and ignore key]
+  H -- no --> J[Keep canonical key/value]
+  I --> K[Emit T04 success log]
+  J --> K
+  G --> L[Emit T04 error log + throw RuntimeConfigResolutionError]
+```
+
+```mermaid
+sequenceDiagram
+  participant Caller as Agent/Chat config consumer
+  participant Resolver as runtimeConfig.ts
+  participant Merge as mergeProjectsFromBaseIntoRuntime
+  participant Validate as validateRuntimeConfig
+  Caller->>Resolver: resolveMergedAndValidatedRuntimeConfig(surface, runtimeConfigPath)
+  Resolver->>Resolver: read base(optional) + runtime(required)
+  Resolver->>Merge: apply base projects + runtime projects
+  Merge-->>Resolver: merged config (behavior keys runtime-owned)
+  Resolver->>Validate: validate merged config
+  Validate-->>Resolver: sanitized config + warnings OR validation error
+  Resolver-->>Caller: success -> config + warnings + T04 success log
+  Resolver-->>Caller: failure -> RuntimeConfigResolutionError + T04 error log
+```
+
+## Shared runtime resolver entrypoints (Story 0000037 Task 5)
+
+- Runtime entrypoints no longer use model-only parsing helpers for behavior decisions; they resolve execution defaults through one shared helper in `server/src/agents/config.ts`.
+- `resolveAgentRuntimeExecutionConfig(...)` wraps `resolveAgentRuntimeConfig(...)` and returns normalized execution data (`runtimeConfig`, optional `modelId`) for both:
+  - `agents/service.ts` entrypoints (`startAgentInstruction`, `startAgentCommand`, `runAgentInstructionUnlocked`)
+  - `flows/service.ts` entrypoints (`getAgentModelId` path used by flow startup and per-step execution)
+- Deterministic Task 5 logs are emitted whenever entrypoints request runtime options via shared resolver:
+  - success: `[DEV-0000037][T05] event=shared_runtime_resolver_used_by_entrypoints result=success`
+  - error: `[DEV-0000037][T05] event=shared_runtime_resolver_used_by_entrypoints result=error ...`
+- Regression safety:
+  - agent run path now fails deterministically on invalid supported-key types in agent TOML (instead of silently continuing with model-only parsing);
+  - flow run path has the same deterministic failure behavior, ensuring parser-removal parity across surfaces.
+
+```mermaid
+flowchart TD
+  A[Agent/Flow entrypoint] --> B[resolveAgentRuntimeExecutionConfig]
+  B --> C[resolveAgentRuntimeConfig from runtimeConfig.ts]
+  C --> D[merge+validate runtime config]
+  D --> E{valid?}
+  E -- yes --> F[return modelId/runtimeConfig + emit T05 success log]
+  E -- no --> G[throw deterministic runtime config error + emit T05 error log]
+```
+
+```mermaid
+sequenceDiagram
+  participant AgentSvc as agents/service.ts
+  participant FlowSvc as flows/service.ts
+  participant EntryHelper as agents/config.ts helper
+  participant Runtime as runtimeConfig.ts
+
+  AgentSvc->>EntryHelper: resolveAgentRuntimeExecutionConfig(configPath)
+  FlowSvc->>EntryHelper: resolveAgentRuntimeExecutionConfig(configPath)
+  EntryHelper->>Runtime: resolveAgentRuntimeConfig(agentConfigPath)
+  Runtime-->>EntryHelper: config OR RuntimeConfigResolutionError
+  EntryHelper-->>AgentSvc: modelId/runtimeConfig + T05 success OR throw + T05 error
+  EntryHelper-->>FlowSvc: modelId/runtimeConfig + T05 success OR throw + T05 error
+```
+
+## REST runtime overrides on chat/run/commands (Story 0000037 Task 6)
+
+- REST execution surfaces now pass resolver-owned runtime config through `CodexOptions.config` while keeping shared-home semantics:
+  - `/chat` resolves chat runtime config (`./codex/chat/config.toml`) and passes merged runtime payload into Codex construction.
+  - `/agents/:agentName/run` resolves named-agent runtime config and passes it into run flags as `runtimeConfig` (no per-agent `codexHome` override).
+  - `/agents/:agentName/commands/run` reuses the same unlocked run path and runtime-config source as `/run`.
+- `ChatInterfaceCodex` and related option plumbing accept optional runtime config payloads without breaking previous call signatures.
+- All updated run starts keep `useConfigDefaults: true`; runtime config now owns behavior keys while only project inheritance comes from shared base merge rules.
+- Deterministic Task 6 logs are emitted when runtime overrides are applied to REST paths:
+  - success: `[DEV-0000037][T06] event=runtime_overrides_applied_rest_paths result=success`
+  - error: `[DEV-0000037][T06] event=runtime_overrides_applied_rest_paths result=error ...`
+
+```mermaid
+flowchart TD
+  A[REST request] --> B{Surface}
+  B -- /chat --> C[resolveChatRuntimeConfig]
+  B -- /agents/:agentName/run --> D[resolveAgentRuntimeExecutionConfig]
+  B -- /agents/:agentName/commands/run --> E[runAgentInstructionUnlocked -> resolveAgentRuntimeExecutionConfig]
+  C --> F[buildCodexOptions CODEX_HOME + config]
+  D --> G[chat.run flags: runtimeConfig + useConfigDefaults=true]
+  E --> G
+  F --> H[Emit T06 success log]
+  G --> H
+  C --> I[Resolver failure -> T06 error + deterministic response]
+  D --> I
+  E --> I
+```
+
+```mermaid
+sequenceDiagram
+  participant ChatRoute as routes/chat.ts
+  participant AgentSvc as agents/service.ts
+  participant ChatIface as ChatInterfaceCodex
+  participant Resolver as runtimeConfig resolver
+  participant CodexSDK as Codex SDK
+
+  ChatRoute->>Resolver: resolveChatRuntimeConfig()
+  Resolver-->>ChatRoute: runtimeConfig or deterministic error
+  ChatRoute->>ChatIface: chat.run(..., runtimeConfig)
+  ChatIface->>CodexSDK: new Codex(buildCodexOptions({config}))
+  CodexSDK-->>ChatIface: run stream
+  ChatIface-->>ChatRoute: events
+
+  AgentSvc->>Resolver: resolveAgentRuntimeExecutionConfig(agentConfigPath)
+  Resolver-->>AgentSvc: runtimeConfig/modelId or deterministic error
+  AgentSvc->>ChatIface: chat.run(..., runtimeConfig, useConfigDefaults=true)
+  ChatIface->>CodexSDK: thread start/resume with shared CODEX_HOME
+  CodexSDK-->>AgentSvc: run stream
+```
+
+## Flow + MCP runtime overrides parity (Story 0000037 Task 7)
+
+- Flow and MCP execution paths now consume the same runtime-config resolver semantics as REST run surfaces:
+  - Flow step execution resolves the named agent runtime config and passes it to `chat.run(..., { runtimeConfig, useConfigDefaults: true })`.
+  - Flow no longer passes per-agent `codexHome` overrides; shared `CODEX_HOME` semantics apply via shared Codex options.
+  - Flow Codex availability checks now use shared-home detection (`detectCodexForHome(getCodexHome())`) instead of agent-home checks.
+  - Agents MCP tool execution already delegates to `agents/service.ts`; MCP-triggered runs therefore share the same runtime resolver, `useConfigDefaults: true`, and shared-home behavior as REST run.
+- Deterministic Task 7 logs are emitted when flow/MCP runtime overrides are applied:
+  - success: `[DEV-0000037][T07] event=runtime_overrides_applied_flow_mcp result=success`
+  - error: `[DEV-0000037][T07] event=runtime_overrides_applied_flow_mcp result=error ...`
+
+```mermaid
+flowchart TD
+  A[Invocation surface] --> B{Surface}
+  B -- REST /agents/run --> C[agents/service resolveAgentRuntimeExecutionConfig]
+  B -- REST /agents/commands/run --> C
+  B -- Agents MCP run_agent_instruction/run_command --> C
+  B -- Flow step execution --> D[flows/service resolveAgentRuntimeExecutionConfig]
+  C --> E[chat.run with runtimeConfig + useConfigDefaults=true]
+  D --> E
+  E --> F[shared CODEX_HOME execution semantics]
+```
+
+```mermaid
+sequenceDiagram
+  participant FlowSvc as flows/service.ts
+  participant AgentSvc as agents/service.ts
+  participant Resolver as resolveAgentRuntimeExecutionConfig
+  participant ChatIface as ChatInterfaceCodex
+
+  FlowSvc->>Resolver: resolve(agentConfigPath)
+  Resolver-->>FlowSvc: runtimeConfig/modelId or deterministic error
+  FlowSvc->>ChatIface: run(..., runtimeConfig, useConfigDefaults=true)
+
+  AgentSvc->>Resolver: resolve(agentConfigPath)
+  Resolver-->>AgentSvc: runtimeConfig/modelId or deterministic error
+  AgentSvc->>ChatIface: run(..., runtimeConfig, useConfigDefaults=true, source='MCP'|'REST')
+```
+
 - MCP keepalive lifecycle is centralized in `server/src/mcpCommon/keepAlive.ts` and reused by classic `POST /mcp`, MCP v2 (`server/src/mcp2/router.ts`), and Agents MCP (`server/src/mcpAgents/router.ts`).
 - Keepalive is scoped to long-running `tools/call` only. Non-tool requests (`initialize`, `tools/list`, parse/invalid request) return normal JSON-RPC payloads without keepalive preamble bytes.
 - Helper behavior is deterministic: `start` writes initial whitespace and heartbeat whitespace bytes, then `stop` clears timers on `sendJson`, response `finish`/`close`, or write failure to avoid write-after-close errors.
@@ -861,45 +1090,110 @@ flowchart LR
 - Host auth bootstrap: docker-compose mounts `${CODEX_HOME:-$HOME/.codex}` to `/host/codex` and `/app/codex` as the container Codex home. On startup, if `/app/codex/auth.json` is missing and `/host/codex/auth.json` exists, the server copies it once into `/app/codex` (no overwrite); `/app/codex` remains the primary home.
 - Codex home selection:
   - The primary Codex home is `CODEINFO_CODEX_HOME` (default `./codex`).
-  - Agent runs can override the Codex home by passing a per-agent home (future: `${CODEINFO_CODEX_AGENT_HOME}/${agentName}`) into the Codex factory/options.
+  - Execution entrypoints use the shared home (`getCodexHome()`) so chat, agent, flow, and MCP runs all inherit shared auth/session semantics.
   - The server injects `CODEX_HOME` into Codex SDK options (`buildCodexOptions({ codexHome })`) rather than mutating `process.env` at runtime, so concurrent requests cannot cross-contaminate config/auth.
-  - Codex availability checks follow the same pattern: `detectCodex()` updates the process-wide cache for the primary home, while `detectCodexForHome(codexHome)` validates an arbitrary home without changing global cached state.
+  - Availability checks now use shared-home startup/refresh semantics: `detectCodex()` and `refreshCodexDetection()` both compose through `detectCodexForHome(getCodexHome())` and update the global detection cache from that shared home only.
 
 ```mermaid
 flowchart LR
-  Req[Codex request] --> Choice{Has codexHome override?}
-  Choice -->|No| Primary[resolveCodexHome()\\nCODEINFO_CODEX_HOME]
-  Choice -->|Yes| Override[resolveCodexHome(codexHome)]
-  Primary --> Opts1[buildCodexOptions()]
-  Override --> Opts2[buildCodexOptions({codexHome})]
-  Opts1 --> Codex[Codex SDK]
-  Opts2 --> Codex
+  Req[Execution request] --> Home[getCodexHome shared home]
+  Home --> Opts[buildCodexOptions CODEX_HOME=shared home]
+  Opts --> Codex[Codex SDK]
+```
+
+### Shared-home availability detection (Task 8)
+
+- Startup availability and refresh availability use the same shared-home decision path.
+- Startup path (`detectCodex`) and refresh path (`refreshCodexDetection`) emit deterministic T08 logs:
+  - success: `[DEV-0000037][T08] event=shared_home_detection_completed result=success`
+  - error: `[DEV-0000037][T08] event=shared_home_detection_completed result=error`
+- Decision criteria remain deterministic for shared home:
+  - CLI must resolve (`command -v codex`)
+  - `${CODEX_HOME}/auth.json` must exist
+  - `${CODEX_HOME}/config.toml` must exist
+
+```mermaid
+flowchart TD
+  Start[Server startup] --> SeedConfig[ensureCodexConfigSeeded]
+  SeedConfig --> SeedAuth[ensureCodexAuthFromHost]
+  SeedAuth --> Detect[detectCodex using getCodexHome]
+  Detect --> Check{CLI + auth + config present?}
+  Check -->|Yes| Avail[Set registry available=true]
+  Check -->|No| Unavail[Set registry available=false + reason]
+  Avail --> LogOk[T08 success log]
+  Unavail --> LogErr[T08 error log]
+```
+
+```mermaid
+sequenceDiagram
+  participant API as Device-auth/Runtime trigger
+  participant Refresh as refreshCodexDetection()
+  participant Detect as detectCodexForHome(getCodexHome())
+  participant Registry as codexRegistry
+  API->>Refresh: refreshCodexDetection()
+  Refresh->>Detect: evaluate shared home files + CLI
+  Detect-->>Refresh: CodexDetection result
+  Refresh->>Registry: updateCodexDetection(result)
+  alt result.available
+    Refresh-->>API: T08 success log emitted
+  else unavailable
+    Refresh-->>API: T08 error log emitted
+  end
 ```
 
 ### Codex device-auth flow
 
-- The client calls `POST /codex/device-auth` with `target=chat` or `target=agent` (plus `agentName` for agent targets).
-- The server validates the target, checks the Codex CLI presence, and resolves the target Codex home before running the CLI.
-- `codex login --device-auth` is executed with `CODEX_HOME` set to the chosen home so `auth.json` is written to the correct location.
-- The API returns `verificationUrl`, `userCode`, and optional `expiresInSec`; the UI then prompts the user to complete device auth manually.
-- After the CLI completes, the server propagates auth to agents and refreshes Codex availability in the background when targeting chat.
+- Canonical contract (Task 10+): the client calls `POST /codex/device-auth` with a strict empty JSON object body (`{}`).
+- Selector fields are rejected deterministically: any `target`/`agentName` fields return `400 invalid_request`.
+- `codex login --device-auth` executes once per shared-home key using single-flight dedupe and shared `CODEX_HOME` semantics.
+- Successful completion returns `200 { status: "ok", rawOutput }`; failures normalize to `400 invalid_request` or `503 codex_unavailable`.
+- Post-success side effects are deterministic and non-destructive: discover agents, propagate auth copy compatibility, refresh codex detection.
 
 ```mermaid
 sequenceDiagram
   participant UI as Client UI
   participant API as Server (/codex/device-auth)
   participant CLI as Codex CLI
-  participant Home as CODEX_HOME
-  UI->>API: POST device-auth {target, agentName?}
-  API->>API: validate target + agent
-  alt target=chat
-    API->>Home: use CODEINFO_CODEX_HOME
-  else target=agent
-    API->>Home: use agent home
-  end
-  API->>CLI: codex login --device-auth (CODEX_HOME=Home)
-  CLI-->>API: verification URL + user code
-  API-->>UI: 200 {verificationUrl, userCode, expiresInSec}
+  participant SF as SingleFlight
+  participant Home as Shared CODEX_HOME
+  UI->>API: POST {}
+  API->>API: validate strict empty object
+  API->>SF: getOrCreate(shared-home key)
+  SF->>CLI: codex login --device-auth (CODEX_HOME=Home)
+  CLI-->>API: completion output
+  API-->>UI: 200 {status:"ok", rawOutput}
+```
+
+### Auth compatibility and file-safety guards (Task 9)
+
+- Agent auth compatibility keeps seed/propagation behavior non-destructive for `codex_agents/*`.
+- Allowed operations in this flow are read/copy/create-only (`stat`, `mkdir`, `copyFile`).
+- Disallowed operations under agent homes are delete/move primitives (`unlink`, `rm`, `rename`).
+- Propagation emits deterministic Task 9 guard logs:
+  - success: `[DEV-0000037][T09] event=auth_compatibility_guard_passed result=success`
+  - error: `[DEV-0000037][T09] event=auth_compatibility_guard_passed result=error`
+
+```mermaid
+flowchart TD
+  Start[Propagate auth from primary] --> Filter[Select all agents or one target]
+  Filter --> CheckAuth{Primary auth.json exists?}
+  CheckAuth -->|No| Skip[No copy performed]
+  CheckAuth -->|Yes| ForEach[For each selected agent]
+  ForEach --> Exists{Agent auth.json exists and overwrite=false?}
+  Exists -->|Yes| Keep[Keep existing file]
+  Exists -->|No| Copy[mkdir agent home + copyFile auth.json]
+  Keep --> Next[Next agent]
+  Copy --> Next
+  Next --> Done[Propagation completes]
+  Done --> Log[T09 success/error guard log]
+```
+
+```mermaid
+flowchart LR
+  A[Agent auth compatibility path] --> B[Allowed: stat/mkdir/copyFile]
+  A --> C[Forbidden: unlink/rm/rename]
+  B --> D[auth.json preserved in codex_agents/*]
+  C --> E[Test failure]
 ```
 
 ### Docker/Compose agent wiring
@@ -942,7 +1236,7 @@ flowchart LR
   MCP --> Tools[Tool registry\\n(list_agents/list_commands/run_agent_instruction/run_command)]
   Tools --> Svc[Agents service\\nlistAgents()/listAgentCommands()/runAgentInstruction()/runAgentCommand()]
   Svc --> Disc[discoverAgents()\\n+ auth seeding]
-  Svc --> Codex[Codex run\\n(per-agent CODEX_HOME)]
+  Svc --> Codex[Codex run\\n(shared CODEX_HOME + runtime config overrides)]
 ```
 
 - `run_agent_instruction` accepts an optional `working_folder` (absolute path string). It is resolved by the shared agents service using the same rules as REST (host-path mapping when possible, literal fallback).
@@ -954,7 +1248,7 @@ sequenceDiagram
   participant MCP as Agents MCP\\n:5012
   participant Tools as Tool registry\\ncallTool()
   participant Svc as Agents service\\nrunAgentInstruction()
-  participant Codex as Codex (per-agent CODEX_HOME)
+  participant Codex as Codex (shared CODEX_HOME + runtime config overrides)
 
   Client->>MCP: tools/call run_agent_instruction\\n{ agentName, instruction, conversationId?, working_folder? }
   MCP->>Tools: callTool('run_agent_instruction', args)
@@ -978,7 +1272,7 @@ sequenceDiagram
   participant MCP as Agents MCP\n:5012
   participant Tools as Tool registry\ncallTool()
   participant Svc as Agents service\nrunAgentCommand()
-  participant Codex as Codex (per-agent CODEX_HOME)
+  participant Codex as Codex (shared CODEX_HOME + runtime config overrides)
 
   Client->>MCP: tools/call run_command\n{ agentName, commandName, conversationId?, working_folder? }
   MCP->>Tools: callTool('run_command', args)
@@ -1151,7 +1445,7 @@ sequenceDiagram
   participant Server as Server
   participant Svc as Agents service\\nrunAgentInstruction()
   participant Mongo as MongoDB
-  participant Codex as Codex (per-agent CODEX_HOME)
+  participant Codex as Codex (shared CODEX_HOME + runtime config overrides)
 
   Client->>Server: Run instruction\\n(agentName, instruction, conversationId?)
   Server->>Svc: runAgentInstruction(...)
@@ -2838,4 +3132,493 @@ sequenceDiagram
 
   MCP->>VS: VectorSearch / ListIngestedRepositories
   VS-->>MCP: canonical + compatibility payload parity
+```
+
+## Story 0000037 Task 10: Device-auth single-shape contract
+
+- `POST /codex/device-auth` now enforces a strict empty JSON object request body (`{}`) and rejects legacy selector fields (`target`, `agentName`) as `400 invalid_request`.
+- Response envelopes are deterministic:
+  - `200 { status: "ok", rawOutput }`
+  - `400 { error: "invalid_request", message }`
+  - `503 { error: "codex_unavailable", reason }`
+- Oversized and malformed JSON payloads are normalized into the same deterministic `invalid_request` contract instead of route-specific ad-hoc payloads.
+- Contract validation logging now emits deterministic T10 markers:
+  - `[DEV-0000037][T10] event=device_auth_contract_validated result=success`
+  - `[DEV-0000037][T10] event=device_auth_contract_validated result=error`
+
+```mermaid
+flowchart TD
+  A[POST /codex/device-auth] --> B{Body is strict {}?}
+  B -->|No| C[400 invalid_request message]
+  B -->|Yes| D{Codex CLI available?}
+  D -->|No| E[503 codex_unavailable reason]
+  D -->|Yes| F[Run device auth]
+  F --> G{Run ok?}
+  G -->|No parse/expired| H[400 invalid_request message]
+  G -->|Other runtime failure| I[503 codex_unavailable reason]
+  G -->|Yes| J[200 status ok + rawOutput]
+```
+
+```mermaid
+sequenceDiagram
+  participant Client
+  participant Route as /codex/device-auth
+  participant Auth as runCodexDeviceAuth
+  participant Seed as propagateAgentAuthFromPrimary
+
+  Client->>Route: POST {}
+  Route->>Route: Validate strict empty-object contract
+  Route->>Auth: run device auth (shared home)
+  Auth-->>Route: ok + rawOutput
+  Route-->>Client: 200 {status:\"ok\", rawOutput}
+  Route->>Seed: async propagate shared auth to agents
+```
+
+## Story 0000037 Task 11: Device-auth concurrency and post-success side effects
+
+- `POST /codex/device-auth` now deduplicates overlapping auth runs by shared-home key using a single-flight helper (`server/src/utils/singleFlight.ts`), so concurrent requests reuse one in-flight CLI login operation.
+- Post-success side effects are still preserved, but run once per successful auth completion:
+  - discover agents
+  - propagate shared auth to agent homes (non-destructive copy semantics)
+  - refresh shared-home codex availability
+- Side effects are executed only after completion confirms success (`result.ok` and zero/empty exit code).
+- Deterministic completion logging now includes:
+  - `[DEV-0000037][T11] event=device_auth_concurrency_and_side_effects_completed result=success`
+  - `[DEV-0000037][T11] event=device_auth_concurrency_and_side_effects_completed result=error`
+
+```mermaid
+flowchart TD
+  A[POST /codex/device-auth] --> B[Resolve shared-home key]
+  B --> C{In-flight run exists?}
+  C -->|Yes| D[Reuse existing run promise]
+  C -->|No| E[Start runCodexDeviceAuth once]
+  D --> F[Await same result]
+  E --> F
+  F --> G{Route result ok?}
+  G -->|No| H[Return deterministic 400/503 contract]
+  G -->|Yes| I[Return 200 status ok + rawOutput]
+  E --> J[Attach one completion side-effect chain]
+  J --> K{Completion success?}
+  K -->|No| L[Emit T11 error log]
+  K -->|Yes| M[Propagate auth + refresh detection]
+  M --> N[Emit T11 success log]
+```
+
+```mermaid
+sequenceDiagram
+  participant C1 as Client A
+  participant C2 as Client B
+  participant Route as /codex/device-auth
+  participant SF as SingleFlight cache
+  participant CLI as runCodexDeviceAuth
+  participant Side as propagate+refresh
+
+  C1->>Route: POST {}
+  Route->>SF: getOrCreate(shared-home key)
+  SF-->>Route: create new in-flight run
+  Route->>CLI: start device-auth CLI
+
+  C2->>Route: POST {}
+  Route->>SF: getOrCreate(shared-home key)
+  SF-->>Route: reuse existing run promise
+
+  CLI-->>Route: ok + rawOutput
+  Route-->>C1: 200 {status:"ok", rawOutput}
+  Route-->>C2: 200 {status:"ok", rawOutput}
+
+  CLI-->>Side: completion success
+  Side->>Side: discover agents, propagate auth, refresh detection
+  Side-->>Route: T11 success log
+```
+
+## Story 0000037 Task 12: `/chat/models` codex capability payload contract
+
+- `GET /chat/models?provider=codex` now returns codex model entries with explicit per-model capability fields:
+  - `supportedReasoningEfforts: string[]`
+  - `defaultReasoningEffort: string`
+- Capability fields are emitted on every codex model payload entry and remain absent on non-codex entries (mixed-provider payload stability).
+- Codex unavailable path remains deterministic and contract-safe:
+  - `available: false`
+  - `models: []`
+- OpenAPI now documents `/chat/models` with codex model entry requirements and codex capability fields.
+- Deterministic Task 12 log markers are emitted by `/chat/models` codex responses:
+  - `[DEV-0000037][T12] event=chat_models_codex_capabilities_returned result=success`
+  - `[DEV-0000037][T12] event=chat_models_codex_capabilities_returned result=error`
+
+```mermaid
+flowchart TD
+  A[GET /chat/models?provider=codex] --> B[Resolve codex detection + MCP status + env defaults]
+  B --> C[Resolve codex model list]
+  C --> D[Map each codex model]
+  D --> E[Attach supportedReasoningEfforts + defaultReasoningEffort]
+  E --> F{Codex available?}
+  F -->|Yes| G[Return models with capability fields]
+  F -->|No| H[Return available false + empty models]
+  G --> I[Emit T12 success log]
+  H --> J[Emit T12 error log]
+```
+
+```mermaid
+sequenceDiagram
+  participant Client
+  participant Route as /chat/models
+  participant Detect as codex detection + mcp status
+  participant Env as codex env defaults
+  participant List as codex model list
+
+  Client->>Route: GET /chat/models?provider=codex
+  Route->>Detect: read availability/tool status
+  Route->>Env: read codex defaults
+  Route->>List: read configured model ids
+  Route->>Route: attach capability fields per codex model
+  Route-->>Client: provider/available/toolsAvailable/models(+capabilities)
+  Route->>Route: emit deterministic T12 success/error log
+```
+
+## Story 0000037 Task 13: shared codex capability resolver parity for `/chat/models` and `/chat`
+
+- One shared resolver module now owns codex capability resolution for both payload generation and request validation:
+  - `server/src/codex/capabilityResolver.ts`
+- `/chat/models?provider=codex` and `/chat` validation consume the same resolver output to prevent capability drift.
+- Resolver output is deterministic:
+  - ordered/deduplicated `supportedReasoningEfforts`
+  - explicit `defaultReasoningEffort` per model
+  - deterministic fallback model capabilities when metadata is unavailable.
+- Deterministic Task 13 parity log markers are emitted from shared resolver execution:
+  - `[DEV-0000037][T13] event=shared_capability_resolver_parity_enforced result=success`
+  - `[DEV-0000037][T13] event=shared_capability_resolver_parity_enforced result=error`
+
+```mermaid
+flowchart TD
+  A[Shared resolver: resolveCodexCapabilities] --> B[/chat/models mapping]
+  A --> C[/chat validation]
+  B --> D[Emit codex model payload with supportedReasoningEfforts + defaultReasoningEffort]
+  C --> E[Validate modelReasoningEffort against selected model support]
+  E --> F{supported?}
+  F -->|Yes| G[Accept request]
+  F -->|No| H[400 invalid_request deterministic error]
+```
+
+```mermaid
+flowchart TD
+  A[resolveCodexCapabilities] --> B{metadata available and valid?}
+  B -->|Yes| C[Normalize + order + dedupe efforts]
+  B -->|No| D[Deterministic fallback from env defaults/model list]
+  C --> E[Return shared capability map]
+  D --> E
+  E --> F[Emit T13 success log]
+  D --> G[Emit T13 error log when metadata resolution fails]
+```
+
+## Story 0000037 Task 14: frontend consumption of simplified device-auth API contract
+
+- Client-side device-auth API consumption now assumes one strict request/response contract:
+  - request body: `{}`
+  - success (`200`): `{ status: 'ok', rawOutput: string }`
+  - invalid request (`400`): `{ error: 'invalid_request', message: string }`
+  - unavailable (`503`): `{ error: 'codex_unavailable', reason: string }`
+- Target-specific client response handling was removed from the API helper path, and request serialization remains strict even when legacy UI target controls are still visible.
+- Deterministic Task 14 client log markers are emitted from API consumption:
+  - `[DEV-0000037][T14] event=client_device_auth_contract_consumed result=success`
+  - `[DEV-0000037][T14] event=client_device_auth_contract_consumed result=error`
+
+```mermaid
+sequenceDiagram
+  participant UI as DeviceAuthDialog
+  participant API as postCodexDeviceAuth
+  participant Route as POST /codex/device-auth
+
+  UI->>API: call with {}
+  API->>Route: POST {} (application/json)
+  Route-->>API: 200 {status:"ok", rawOutput}
+  API-->>UI: success {status:"ok", rawOutput}
+  API->>API: emit T14 success log
+```
+
+```mermaid
+flowchart TD
+  A[postCodexDeviceAuth] --> B[POST {}]
+  B --> C{HTTP ok?}
+  C -->|Yes| D{status == 'ok' and rawOutput is non-empty string?}
+  D -->|Yes| E[Return success payload]
+  D -->|No| F[Throw invalid success shape error + T14 error log]
+  C -->|No| G[Parse error payload]
+  G --> H[Prefer message then reason fallback]
+  H --> I[Throw CodexDeviceAuthApiError + T14 error log]
+  E --> J[T14 success log]
+```
+
+## Story 0000037 Task 15: unified frontend device-auth dialog flow
+
+- The frontend now uses one shared `CodexDeviceAuthDialog` flow for both `ChatPage` and `AgentsPage`.
+- Target-selection UI/state has been removed from the dialog; submit always calls the strict Task 14 API helper contract.
+- Both pages wire the same dialog behavior and only pass source context (`chat` or `agents`) for deterministic logging and callback handling.
+- Deterministic Task 15 log markers are emitted by dialog submit handling:
+  - `[DEV-0000037][T15] event=shared_auth_dialog_flow_executed result=success`
+  - `[DEV-0000037][T15] event=shared_auth_dialog_flow_executed result=error`
+
+```mermaid
+sequenceDiagram
+  participant Page as ChatPage or AgentsPage
+  participant Dialog as CodexDeviceAuthDialog
+  participant API as postCodexDeviceAuth
+
+  Page->>Dialog: open shared dialog
+  Dialog->>API: POST /codex/device-auth {}
+  API-->>Dialog: 200 { status: "ok", rawOutput }
+  Dialog->>Dialog: emit T15 success log
+  Dialog-->>Page: onSuccess callback
+```
+
+```mermaid
+flowchart TD
+  A[Open shared dialog] --> B[Submit Start device auth]
+  B --> C{API result}
+  C -->|200| D[Render output block]
+  C -->|400 invalid_request| E[Render deterministic error alert]
+  C -->|503 codex_unavailable| F[Render deterministic unavailable alert]
+  E --> G[Retry]
+  F --> G
+  G --> B
+  D --> H[Emit T15 success log]
+  E --> I[Emit T15 error log]
+  F --> I
+```
+
+## Story 0000037 Task 16: chat model capability defaults and deterministic reset state
+
+- `useChatModel` now normalizes per-model capability payload fields (`supportedReasoningEfforts`, `defaultReasoningEffort`) and exposes `selectedModelCapabilities` for the active codex model.
+- `ChatPage` applies deterministic capability-state rules:
+  - if current reasoning selection is not supported by the selected model, reset to that model's default effort;
+  - if capability payload is malformed (empty supported list or invalid default), emit deterministic error log and preserve stable UI behavior.
+- `useChatStream` now resolves outgoing reasoning effort from selected-model capability payload and shared codex defaults instead of static client enum validation.
+- Deterministic Task 16 logs are emitted from the capability-application path:
+  - `[DEV-0000037][T16] event=chat_model_capability_defaults_applied result=success`
+  - `[DEV-0000037][T16] event=chat_model_capability_defaults_applied result=error`
+
+```mermaid
+sequenceDiagram
+  participant Models as GET /chat/models (codex)
+  participant Hook as useChatModel
+  participant Page as ChatPage
+  participant Stream as useChatStream
+
+  Models-->>Hook: models[] + capability fields
+  Hook-->>Page: selectedModelCapabilities
+  Page->>Page: validate current reasoning selection
+  alt selection invalid
+    Page->>Page: reset to defaultReasoningEffort
+    Page->>Page: emit T16 success log
+  else malformed capabilities
+    Page->>Page: emit T16 error log
+  end
+  Page->>Stream: send(provider/model/codexFlags + selectedModelCapabilities)
+  Stream->>Stream: resolve payload reasoning effort deterministically
+```
+
+```mermaid
+flowchart TD
+  A[Selected codex model changes or capabilities refresh] --> B[Read supportedReasoningEfforts + defaultReasoningEffort]
+  B --> C{Capabilities valid?}
+  C -->|No| D[Keep UI stable + emit T16 error]
+  C -->|Yes| E{Current selection in supported list?}
+  E -->|Yes| F[Keep selection + emit T16 success]
+  E -->|No| G[Reset to defaultReasoningEffort + emit T16 success]
+  F --> H[useChatStream resolves outgoing reasoning effort]
+  G --> H
+  D --> H
+```
+
+## Story 0000037 Task 17: dynamic reasoning-option rendering and send-path validity
+
+- `CodexFlagsPanel` reasoning options now render only from selected model capability payload (`supportedReasoningEfforts`) and no longer rely on static client option arrays.
+- `useChatStream` send-path validation now includes capability gating for codex reasoning effort:
+  - only values from selected-model `supportedReasoningEfforts` may be sent;
+  - stale invalid selections are corrected to selected-model default/first-supported value before payload evaluation;
+  - if capability payload is malformed (no supported values), `modelReasoningEffort` is omitted and deterministic error logging is emitted.
+- Deterministic Task 17 logs:
+  - success: `[DEV-0000037][T17] event=dynamic_reasoning_options_rendered result=success`
+  - error: `[DEV-0000037][T17] event=dynamic_reasoning_options_rendered result=error`
+
+```mermaid
+sequenceDiagram
+  participant Models as GET /chat/models (codex)
+  participant Page as ChatPage + CodexFlagsPanel
+  participant Stream as useChatStream
+  participant Chat as POST /chat
+
+  Models-->>Page: selected model supportedReasoningEfforts/defaultReasoningEffort
+  Page->>Page: render reasoning select options from supportedReasoningEfforts
+  Page->>Page: emit T17 success (valid capability render)
+  Page->>Stream: send(codexFlags + selectedModelCapabilities)
+  Stream->>Stream: validate selected effort against supportedReasoningEfforts
+  alt stale/invalid selected effort
+    Stream->>Stream: replace with defaultReasoningEffort/first supported
+  end
+  alt malformed capabilities
+    Stream->>Stream: omit modelReasoningEffort, emit T17 error
+  else valid
+    Stream->>Chat: include supported modelReasoningEffort only
+    Stream->>Stream: emit T17 success
+  end
+```
+
+```mermaid
+flowchart TD
+  A[Codex model selected] --> B[Read supportedReasoningEfforts]
+  B --> C[Render reasoning selector options]
+  C --> D{User/State reasoning value supported?}
+  D -->|Yes| E[Use value for payload comparison]
+  D -->|No| F[Resolve fallback: default or first supported]
+  E --> G{Capabilities malformed?}
+  F --> G
+  G -->|No| H[Send supported value or omit if equals codexDefaults]
+  G -->|Yes| I[Omit reasoning from payload]
+  H --> J[Emit T17 success]
+  I --> K[Emit T17 error]
+```
+
+## Story 0000037 Task 20: shared-home runtime architecture and API contract sync
+
+- Canonical runtime ownership for this story:
+  - shared auth/session home: `./codex` via shared `CODEX_HOME`.
+  - chat behavior source: `./codex/chat/config.toml`.
+  - agent behavior source: `codex_agents/<agent>/config.toml`.
+- Agent behavior precedence remains deterministic:
+  - only `[projects]` may inherit from shared base.
+  - merge rule: `effectiveProjects = { ...baseProjects, ...agentProjects }`.
+  - non-project behavior keys from shared `./codex/config.toml` must not override named-agent behavior.
+- Normalization rules are canonical and read-time only:
+  - input alias `features.view_image_tool` normalizes to canonical `tools.view_image`.
+  - input aliases `features.web_search_request` and top-level `web_search_request` normalize to canonical top-level `web_search`.
+  - canonical keys win when canonical and alias keys are both present.
+- Device-auth contract remains strict and shared-home based:
+  - request: `POST /codex/device-auth` with `{}` only.
+  - success: `200 { status: "ok", rawOutput }`.
+  - invalid request: `400 { error: "invalid_request", message }`.
+  - unavailable: `503 { error: "codex_unavailable", reason }`.
+- Reasoning-effort options are capability-driven:
+  - model payload includes `supportedReasoningEfforts` and `defaultReasoningEffort`.
+  - UI renders from those fields only and resets stale/invalid selections to the model default.
+- Deterministic Task 20 documentation-sync log markers:
+  - success: `[DEV-0000037][T20] event=design_documentation_synced result=success`
+  - error: `[DEV-0000037][T20] event=design_documentation_synced result=error`
+
+### Task 20 contract examples
+
+Before (legacy alias + selector contract):
+
+```toml
+[features]
+view_image_tool = true
+web_search_request = true
+```
+
+```json
+{ "target": "agent", "agentName": "coding_agent" }
+```
+
+After (canonical keys + strict shared auth contract):
+
+```toml
+[tools]
+view_image = true
+web_search = "live"
+```
+
+```json
+{}
+```
+
+### Task 20 runtime ownership flow
+
+```mermaid
+flowchart TD
+  A[Incoming run request] --> B{Surface}
+  B -->|Chat| C[Load ./codex/chat/config.toml]
+  B -->|Agent/Flow/MCP| D[Load codex_agents/<agent>/config.toml]
+  C --> E[Apply shared CODEX_HOME ./codex]
+  D --> F[Merge projects with base: { ...baseProjects, ...agentProjects }]
+  F --> G[Apply shared CODEX_HOME ./codex]
+  E --> H[Build CodexOptions.config runtime overrides]
+  G --> H
+  H --> I[Execute with useConfigDefaults=true]
+```
+
+```mermaid
+sequenceDiagram
+  participant UI as Client
+  participant API as /codex/device-auth
+  participant CLI as codex login --device-auth
+  participant SE as Side effects
+
+  UI->>API: POST {}
+  API->>API: validate strict empty body
+  API->>CLI: run with shared CODEX_HOME
+  CLI-->>API: rawOutput
+  API-->>UI: 200 {status:"ok", rawOutput}
+  API->>SE: discover agents + propagate auth copy + refresh shared-home detection
+```
+
+## Story 0000037 Task 22: final isolated base-config minimization
+
+- Final migration role split after Task 22:
+  - shared auth/session home remains `./codex`.
+  - chat behavior source remains `./codex/chat/config.toml`.
+  - agent behavior source remains `codex_agents/<agent>/config.toml`.
+  - shared base `./codex/config.toml` is minimized to `[projects]` trust metadata only.
+- Final isolated-step guard:
+  - minimization must abort when `./codex/chat/config.toml` is missing.
+  - abort path is non-destructive (base config content is not mutated on guard failure).
+- Deterministic Task 22 minimization logs:
+  - success: `[DEV-0000037][T22] event=final_config_minimization_completed result=success`
+  - error: `[DEV-0000037][T22] event=final_config_minimization_completed result=error`
+- Post-step operator expectation for this running instance:
+  - `code_info` MCP is expected to be unavailable after final base minimization.
+
+### Task 22 final minimized base shape
+
+```toml
+[projects]
+[projects."/app/server"]
+trust_level = "trusted"
+
+[projects."/data"]
+trust_level = "trusted"
+```
+
+### Task 22 minimization flow
+
+```mermaid
+flowchart TD
+  A[Task 22 starts] --> B[Confirm Tasks 1-21 complete + pre-minimization gates recorded]
+  B --> C{chat config exists? ./codex/chat/config.toml}
+  C -- no --> D[Abort with deterministic T22 error log]
+  D --> E[No mutation to ./codex/config.toml]
+  C -- yes --> F[Read shared base config]
+  F --> G[Retain projects trust entries only]
+  G --> H[Write minimized ./codex/config.toml]
+  H --> I[Emit deterministic T22 success log]
+  I --> J[Verify codex_agents/* auth files still present]
+  J --> K[Record post-step code_info unavailability warning]
+```
+
+```mermaid
+sequenceDiagram
+  participant Op as Operator
+  participant Guard as T22 guard
+  participant Base as ./codex/config.toml
+  participant Chat as ./codex/chat/config.toml
+  participant Log as Structured logs
+
+  Op->>Guard: run final minimization
+  Guard->>Chat: check file exists
+  alt missing chat config
+    Guard->>Log: T22 result=error reason=missing_chat_config
+    Guard-->>Op: abort (no base mutation)
+  else chat config present
+    Guard->>Base: read + minimize to projects-only
+    Guard->>Log: T22 result=success
+    Guard-->>Op: completed
+  end
 ```

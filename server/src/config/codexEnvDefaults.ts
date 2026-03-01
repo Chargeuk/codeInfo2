@@ -1,10 +1,31 @@
 import type { CodexDefaults as SharedCodexDefaults } from '@codeinfo2/common';
 import { baseLogger } from '../logger.js';
-import {
-  approvalPolicies,
-  modelReasoningEfforts,
-  sandboxModes,
-} from '../routes/chatValidators.js';
+import type {
+  ApprovalMode,
+  ModelReasoningEffort,
+  SandboxMode,
+} from '@openai/codex-sdk';
+
+const sandboxModes: SandboxMode[] = [
+  'read-only',
+  'workspace-write',
+  'danger-full-access',
+] as SandboxMode[];
+
+const approvalPolicies: ApprovalMode[] = [
+  'never',
+  'on-request',
+  'on-failure',
+  'untrusted',
+] as ApprovalMode[];
+
+const modelReasoningEfforts: ModelReasoningEffort[] = [
+  'minimal',
+  'low',
+  'medium',
+  'high',
+  'xhigh',
+] as ModelReasoningEffort[];
 
 export type CodexDefaults = SharedCodexDefaults;
 

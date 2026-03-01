@@ -368,7 +368,7 @@ describe('Agents page - device auth', () => {
     ).toBeInTheDocument();
   });
 
-  it('defaults the device-auth dialog target to the selected agent', async () => {
+  it('opens shared device-auth dialog without target selector', async () => {
     setup(true);
 
     const agentSelect = await screen.findByRole('combobox', {
@@ -387,10 +387,8 @@ describe('Agents page - device auth', () => {
       await userEvent.click(button);
     });
 
-    const targetSelect = await screen.findByRole('combobox', {
-      name: 'Target',
-    });
-    expect(targetSelect).toHaveTextContent('Agent: a2');
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: /target/i })).toBeNull();
   });
 
   it('hides the device-auth button when Codex is unavailable', async () => {

@@ -82,3 +82,132 @@ test('OpenAPI /tools/ingested-repos schema includes canonical repo and lock alia
   assert.ok(topProps.lockedModelId);
   assert.ok(topProps.schemaVersion);
 });
+
+test('OpenAPI /codex/device-auth schema enforces empty request and deterministic 200/400/503 responses', () => {
+  const openapi = readOpenApi();
+  const schema = (openapi.paths as Record<string, Record<string, unknown>>)?.[
+    '/codex/device-auth'
+  ] as Record<string, unknown> | undefined;
+  assert.ok(schema, 'missing /codex/device-auth schema');
+
+  const post = (schema?.post ?? null) as Record<string, unknown> | null;
+  assert.ok(post, 'missing /codex/device-auth post schema');
+
+  const requestSchema = (((
+    (
+      ((post?.requestBody as Record<string, unknown>)?.content ?? {}) as Record<
+        string,
+        unknown
+      >
+    )['application/json'] as Record<string, unknown>
+  )?.schema ?? null) as Record<string, unknown> | null)!;
+  assert.ok(requestSchema, 'missing /codex/device-auth request schema');
+  assert.equal(requestSchema.type, 'object');
+  assert.equal(requestSchema.additionalProperties, false);
+  assert.equal(
+    Object.keys((requestSchema.properties ?? {}) as Record<string, unknown>)
+      .length,
+    0,
+  );
+
+  const responses = (post?.responses ?? {}) as Record<string, unknown>;
+
+  const successSchema = (((
+    (
+      ((responses['200'] as Record<string, unknown>)?.content ?? {}) as Record<
+        string,
+        unknown
+      >
+    )['application/json'] as Record<string, unknown>
+  )?.schema ?? null) as Record<string, unknown> | null)!;
+  assert.ok(successSchema, 'missing 200 response schema');
+  assert.deepEqual(successSchema.required, ['status', 'rawOutput']);
+  assert.deepEqual(
+    (successSchema.properties as Record<string, unknown>).status,
+    {
+      type: 'string',
+      enum: ['ok'],
+    },
+  );
+
+  const invalidRequestSchema = (((
+    (
+      ((responses['400'] as Record<string, unknown>)?.content ?? {}) as Record<
+        string,
+        unknown
+      >
+    )['application/json'] as Record<string, unknown>
+  )?.schema ?? null) as Record<string, unknown> | null)!;
+  assert.ok(invalidRequestSchema, 'missing 400 response schema');
+  assert.deepEqual(invalidRequestSchema.required, ['error', 'message']);
+  assert.deepEqual(
+    (invalidRequestSchema.properties as Record<string, unknown>).error,
+    { type: 'string', enum: ['invalid_request'] },
+  );
+
+  const unavailableSchema = (((
+    (
+      ((responses['503'] as Record<string, unknown>)?.content ?? {}) as Record<
+        string,
+        unknown
+      >
+    )['application/json'] as Record<string, unknown>
+  )?.schema ?? null) as Record<string, unknown> | null)!;
+  assert.ok(unavailableSchema, 'missing 503 response schema');
+  assert.deepEqual(unavailableSchema.required, ['error', 'reason']);
+  assert.deepEqual(
+    (unavailableSchema.properties as Record<string, unknown>).error,
+    { type: 'string', enum: ['codex_unavailable'] },
+  );
+});
+
+test('OpenAPI /chat/models schema includes codex capability fields', () => {
+  const openapi = readOpenApi();
+  const schema = (openapi.paths as Record<string, Record<string, unknown>>)?.[
+    '/chat/models'
+  ] as Record<string, unknown> | undefined;
+  assert.ok(schema, 'missing /chat/models schema');
+
+  const success = (
+    ((schema?.get as Record<string, unknown>)?.responses ?? {}) as Record<
+      string,
+      Record<string, unknown>
+    >
+  )['200'];
+  const bodySchema = ((
+    ((success?.content as Record<string, unknown>) ?? {})[
+      'application/json'
+    ] as Record<string, unknown>
+  )?.schema ?? null) as Record<string, unknown> | null;
+  assert.ok(bodySchema, 'missing /chat/models 200 schema');
+
+  const modelItems = ((
+    ((bodySchema?.properties as Record<string, unknown>)?.models ??
+      {}) as Record<string, unknown>
+  ).items ?? null) as Record<string, unknown> | null;
+  assert.ok(modelItems, 'missing /chat/models models.items schema');
+
+  const oneOf = (modelItems?.oneOf ?? null) as Record<string, unknown>[] | null;
+  assert.ok(
+    oneOf && oneOf.length >= 1,
+    'missing /chat/models model oneOf schema',
+  );
+
+  const codexEntry = oneOf.find((entry) => {
+    const typeSchema = ((entry.properties ?? {}) as Record<string, unknown>)
+      .type as Record<string, unknown> | undefined;
+    const typeEnum = (typeSchema?.enum ?? []) as unknown[];
+    return typeEnum.includes('codex');
+  });
+
+  assert.ok(codexEntry, 'missing codex model schema entry');
+  const codexRequired = (codexEntry?.required ?? []) as string[];
+  assert.ok(
+    codexRequired.includes('supportedReasoningEfforts'),
+    'codex model schema missing required supportedReasoningEfforts',
+  );
+  assert.ok(
+    codexRequired.includes('defaultReasoningEffort'),
+    'codex model schema missing required defaultReasoningEffort',
+  );
+});

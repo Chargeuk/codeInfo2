@@ -1,4 +1,5 @@
 import { LMStudioClient } from '@lmstudio/sdk';
+import type { CodexOptions } from '@openai/codex-sdk';
 import { createLmStudioTools } from '../lmstudio/tools.js';
 import { ChatInterface } from './interfaces/ChatInterface.js';
 import {
@@ -17,7 +18,7 @@ export class UnsupportedProviderError extends Error {
 }
 
 type ProviderFactory = (deps?: {
-  codexFactory?: () => CodexLike;
+  codexFactory?: (options?: CodexOptions) => CodexLike;
   clientFactory?: (baseUrl: string) => LMStudioClient;
   toolFactory?: (opts: Record<string, unknown>) => {
     tools: ReadonlyArray<unknown>;
@@ -39,7 +40,7 @@ const providerMap: Record<string, ProviderFactory> = {
 export function getChatInterface(
   provider: string,
   deps?: {
-    codexFactory?: () => CodexLike;
+    codexFactory?: (options?: CodexOptions) => CodexLike;
     clientFactory?: (baseUrl: string) => LMStudioClient;
     toolFactory?: (opts: Record<string, unknown>) => {
       tools: ReadonlyArray<unknown>;

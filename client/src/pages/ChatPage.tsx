@@ -37,7 +37,6 @@ import {
   useRef,
   useState,
 } from 'react';
-import { listAgents } from '../api/agents';
 import Markdown from '../components/Markdown';
 import CodexFlagsPanel from '../components/chat/CodexFlagsPanel';
 import ConversationList from '../components/chat/ConversationList';
@@ -64,6 +63,8 @@ const bubbleTimestampFormatter = new Intl.DateTimeFormat(undefined, {
   dateStyle: 'medium',
   timeStyle: 'short',
 });
+const DEV_0000037_T16_PREFIX = '[DEV-0000037][T16]';
+const DEV_0000037_T17_PREFIX = '[DEV-0000037][T17]';
 
 const formatBubbleTimestamp = (value?: string) => {
   const candidate = value ? new Date(value) : new Date();
@@ -153,6 +154,7 @@ export default function ChatPage() {
     providerErrorMessage,
     codexDefaults,
     codexWarnings,
+    selectedModelCapabilities,
     isLoading,
     isError,
     isEmpty,
@@ -199,6 +201,7 @@ export default function ChatPage() {
       webSearchEnabled,
     },
     codexDefaults,
+    selectedModelCapabilities,
   );
 
   const {
@@ -233,6 +236,7 @@ export default function ChatPage() {
   const stopRef = useRef(stop);
   const lastSentRef = useRef('');
   const codexDocsLoggedRef = useRef(false);
+  const codexDynamicReasoningStateKeyRef = useRef<string | null>(null);
   const [input, setInput] = useState('');
   const [thinkOpen, setThinkOpen] = useState<Record<string, boolean>>({});
   const [toolOpen, setToolOpen] = useState<Record<string, boolean>>({});
@@ -240,10 +244,6 @@ export default function ChatPage() {
     {},
   );
   const [deviceAuthOpen, setDeviceAuthOpen] = useState(false);
-  const [deviceAuthLoading, setDeviceAuthLoading] = useState(false);
-  const [deviceAuthAgents, setDeviceAuthAgents] = useState<
-    Array<{ name: string }>
-  >([]);
   const metadataLoggedRef = useRef(new Set<string>());
   const stepLoggedRef = useRef(new Set<string>());
   const toolDistanceLoggedRef = useRef(new Set<string>());
@@ -464,6 +464,7 @@ export default function ChatPage() {
   );
   const showCodexWarnings = codexWarningList.length > 0;
   const codexDefaultsInitializedRef = useRef(false);
+  const codexCapabilityStateKeyRef = useRef<string | null>(null);
   const codexWarningsRef = useRef('');
   const pendingCodexDefaultsReasonRef = useRef<
     null | 'provider-change' | 'new-conversation'
@@ -642,6 +643,7 @@ export default function ChatPage() {
   useEffect(() => {
     if (providerIsCodex) return;
     codexDefaultsInitializedRef.current = false;
+    codexCapabilityStateKeyRef.current = null;
     pendingCodexDefaultsReasonRef.current = null;
     codexWarningsRef.current = '';
   }, [providerIsCodex]);
@@ -667,6 +669,84 @@ export default function ChatPage() {
       pendingCodexDefaultsReasonRef.current = null;
     }
   }, [applyCodexDefaults, codexDefaults, providerIsCodex]);
+
+  useEffect(() => {
+    if (!providerIsCodex || !selectedModelCapabilities || !selected) return;
+
+    const supportedReasoningEfforts =
+      selectedModelCapabilities.supportedReasoningEfforts;
+    const defaultReasoningEffort =
+      selectedModelCapabilities.defaultReasoningEffort;
+
+    if (
+      supportedReasoningEfforts.length === 0 ||
+      !defaultReasoningEffort ||
+      !supportedReasoningEfforts.includes(defaultReasoningEffort)
+    ) {
+      console.error(
+        `${DEV_0000037_T16_PREFIX} event=chat_model_capability_defaults_applied result=error reason=invalid_model_capabilities model=${selected}`,
+      );
+      return;
+    }
+
+    if (!supportedReasoningEfforts.includes(modelReasoningEffort)) {
+      setModelReasoningEffort(defaultReasoningEffort);
+      console.info(
+        `${DEV_0000037_T16_PREFIX} event=chat_model_capability_defaults_applied result=success`,
+      );
+      codexCapabilityStateKeyRef.current = null;
+      return;
+    }
+
+    const key = `${selected}:${defaultReasoningEffort}:${modelReasoningEffort}:${supportedReasoningEfforts.join('|')}`;
+    if (codexCapabilityStateKeyRef.current === key) {
+      return;
+    }
+    codexCapabilityStateKeyRef.current = key;
+    console.info(
+      `${DEV_0000037_T16_PREFIX} event=chat_model_capability_defaults_applied result=success`,
+    );
+  }, [
+    modelReasoningEffort,
+    providerIsCodex,
+    selected,
+    selectedModelCapabilities,
+  ]);
+
+  useEffect(() => {
+    if (!providerIsCodex || !selectedModelCapabilities || !selected) return;
+
+    const supportedReasoningEfforts =
+      selectedModelCapabilities.supportedReasoningEfforts;
+    const defaultReasoningEffort =
+      selectedModelCapabilities.defaultReasoningEffort;
+
+    if (
+      supportedReasoningEfforts.length === 0 ||
+      !defaultReasoningEffort ||
+      !supportedReasoningEfforts.includes(defaultReasoningEffort)
+    ) {
+      console.error(
+        `${DEV_0000037_T17_PREFIX} event=dynamic_reasoning_options_rendered result=error reason=invalid_model_capabilities model=${selected}`,
+      );
+      codexDynamicReasoningStateKeyRef.current = null;
+      return;
+    }
+
+    const key = `${selected}:${modelReasoningEffort}:${supportedReasoningEfforts.join('|')}`;
+    if (codexDynamicReasoningStateKeyRef.current === key) {
+      return;
+    }
+    codexDynamicReasoningStateKeyRef.current = key;
+    console.info(
+      `${DEV_0000037_T17_PREFIX} event=dynamic_reasoning_options_rendered result=success`,
+    );
+  }, [
+    modelReasoningEffort,
+    providerIsCodex,
+    selected,
+    selectedModelCapabilities,
+  ]);
 
   useEffect(() => {
     if (!selectedConversation?.model) return;
@@ -766,21 +846,9 @@ export default function ChatPage() {
     handleNewConversation({ reason: 'provider-change', nextProvider });
   };
 
-  const handleDeviceAuthOpen = async () => {
+  const handleDeviceAuthOpen = () => {
     deviceAuthLog('info', 'DEV-0000031:T7:codex_device_auth_chat_button_click');
     setDeviceAuthOpen(true);
-    setDeviceAuthLoading(true);
-    try {
-      const response = await listAgents();
-      const agents = Array.isArray(response.agents)
-        ? response.agents.map((agent) => ({ name: agent.name }))
-        : [];
-      setDeviceAuthAgents(agents);
-    } catch {
-      setDeviceAuthAgents([]);
-    } finally {
-      setDeviceAuthLoading(false);
-    }
   };
 
   const handleDeviceAuthClose = () => {
@@ -1617,8 +1685,8 @@ export default function ChatPage() {
                                 type="button"
                                 variant="outlined"
                                 size="small"
-                                onClick={() => void handleDeviceAuthOpen()}
-                                disabled={isLoading || deviceAuthLoading}
+                                onClick={handleDeviceAuthOpen}
+                                disabled={isLoading}
                                 fullWidth
                               >
                                 Re-authenticate (device auth)
@@ -1630,8 +1698,7 @@ export default function ChatPage() {
                       <CodexDeviceAuthDialog
                         open={deviceAuthOpen}
                         onClose={handleDeviceAuthClose}
-                        defaultTarget={{ target: 'chat' }}
-                        agents={deviceAuthAgents}
+                        source="chat"
                         onSuccess={handleDeviceAuthSuccess}
                       />
 
@@ -1660,6 +1727,10 @@ export default function ChatPage() {
                           onApprovalPolicyChange={setApprovalPolicy}
                           modelReasoningEffort={modelReasoningEffort}
                           onModelReasoningEffortChange={setModelReasoningEffort}
+                          reasoningEffortOptions={
+                            selectedModelCapabilities?.supportedReasoningEfforts ??
+                            []
+                          }
                           networkAccessEnabled={networkAccessEnabled}
                           onNetworkAccessEnabledChange={setNetworkAccessEnabled}
                           webSearchEnabled={webSearchEnabled}

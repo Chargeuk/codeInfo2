@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import test, { afterEach, beforeEach } from 'node:test';
 
-import { validateChatRequest } from '../../routes/chatValidators.js';
+import {
+  modelReasoningEfforts,
+  validateChatRequest,
+} from '../../routes/chatValidators.js';
 
 const ENV_KEYS = [
   'Codex_sandbox_mode',
@@ -145,6 +148,36 @@ test('explicit Codex flags override env defaults', () => {
     webSearchEnabled: true,
   });
   assert.equal(result.warnings.length, 0);
+});
+
+test('accepts every SDK-native reasoning effort value for Codex requests', () => {
+  for (const reasoningEffort of modelReasoningEfforts) {
+    const result = validateChatRequest({
+      model: 'gpt-5.2-codex',
+      message: 'hello',
+      conversationId: `reasoning-${reasoningEffort}`,
+      provider: 'codex',
+      modelReasoningEffort: reasoningEffort,
+    });
+
+    assert.equal(result.codexFlags.modelReasoningEffort, reasoningEffort);
+  }
+});
+
+test('rejects unsupported reasoning effort values with deterministic message', () => {
+  assert.throws(
+    () =>
+      validateChatRequest({
+        model: 'gpt-5.2-codex',
+        message: 'hello',
+        conversationId: 'reasoning-invalid',
+        provider: 'codex',
+        modelReasoningEffort: 'unsupported-effort',
+      }),
+    new RegExp(
+      `modelReasoningEffort must be one of: ${modelReasoningEfforts.join(', ')}`,
+    ),
+  );
 });
 
 test('non-Codex validation ignores env defaults', () => {

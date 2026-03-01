@@ -13,21 +13,7 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "properties": {
-                  "target": {
-                    "type": "string",
-                    "enum": [
-                      "chat",
-                      "agent"
-                    ]
-                  },
-                  "agentName": {
-                    "type": "string"
-                  }
-                },
-                "required": [
-                  "target"
-                ]
+                "additionalProperties": false
               }
             }
           }
@@ -41,18 +27,72 @@
                   "type": "object",
                   "properties": {
                     "status": {
-                      "type": "string"
-                    },
-                    "target": {
-                      "type": "string"
-                    },
-                    "agentName": {
-                      "type": "string"
+                      "type": "string",
+                      "enum": [
+                        "ok"
+                      ]
                     },
                     "rawOutput": {
                       "type": "string"
                     }
-                  }
+                  },
+                  "required": [
+                    "status",
+                    "rawOutput"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "enum": [
+                        "invalid_request"
+                      ]
+                    },
+                    "message": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "message"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Codex unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "type": "string",
+                      "enum": [
+                        "codex_unavailable"
+                      ]
+                    },
+                    "reason": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "error",
+                    "reason"
+                  ],
+                  "additionalProperties": false
                 }
               }
             }
@@ -1693,6 +1733,153 @@
                     "lock",
                     "lockedModelId",
                     "schemaVersion"
+                  ],
+                  "additionalProperties": false
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/chat/models": {
+      "get": {
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "codex",
+                "lmstudio"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Chat model listing",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "provider": {
+                      "type": "string"
+                    },
+                    "available": {
+                      "type": "boolean"
+                    },
+                    "toolsAvailable": {
+                      "type": "boolean"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "models": {
+                      "type": "array",
+                      "items": {
+                        "oneOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "key": {
+                                "type": "string"
+                              },
+                              "displayName": {
+                                "type": "string"
+                              },
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "codex"
+                                ]
+                              },
+                              "supportedReasoningEfforts": {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                },
+                                "minItems": 1
+                              },
+                              "defaultReasoningEffort": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "key",
+                              "displayName",
+                              "type",
+                              "supportedReasoningEfforts",
+                              "defaultReasoningEffort"
+                            ],
+                            "additionalProperties": false
+                          },
+                          {
+                            "type": "object",
+                            "properties": {
+                              "key": {
+                                "type": "string"
+                              },
+                              "displayName": {
+                                "type": "string"
+                              },
+                              "type": {
+                                "type": "string"
+                              }
+                            },
+                            "required": [
+                              "key",
+                              "displayName",
+                              "type"
+                            ],
+                            "additionalProperties": false
+                          }
+                        ]
+                      }
+                    },
+                    "codexDefaults": {
+                      "type": "object",
+                      "properties": {
+                        "sandboxMode": {
+                          "type": "string"
+                        },
+                        "approvalPolicy": {
+                          "type": "string"
+                        },
+                        "modelReasoningEffort": {
+                          "type": "string"
+                        },
+                        "networkAccessEnabled": {
+                          "type": "boolean"
+                        },
+                        "webSearchEnabled": {
+                          "type": "boolean"
+                        }
+                      },
+                      "required": [
+                        "sandboxMode",
+                        "approvalPolicy",
+                        "modelReasoningEffort",
+                        "networkAccessEnabled",
+                        "webSearchEnabled"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "codexWarnings": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [
+                    "provider",
+                    "available",
+                    "toolsAvailable",
+                    "models"
                   ],
                   "additionalProperties": false
                 }

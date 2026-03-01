@@ -194,7 +194,7 @@ describe('Chat provider selection (WS transport)', () => {
     expect(button).toBeInTheDocument();
   });
 
-  it('opens device-auth dialog with Chat selected by default', async () => {
+  it('opens shared device-auth dialog without target selector', async () => {
     const user = userEvent.setup();
     mockChatProvidersFetch({
       providers: [
@@ -219,8 +219,7 @@ describe('Chat provider selection (WS transport)', () => {
     );
 
     expect(await screen.findByRole('dialog')).toBeInTheDocument();
-    const targetSelect = screen.getByRole('combobox', { name: /target/i });
-    expect(targetSelect).toHaveTextContent('Chat');
+    expect(screen.queryByRole('combobox', { name: /target/i })).toBeNull();
   });
 
   it('hides device-auth button when Codex is unavailable', async () => {

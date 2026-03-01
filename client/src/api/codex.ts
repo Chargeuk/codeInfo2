@@ -1,19 +1,12 @@
+import type {
+  CodexDeviceAuthResponse as SharedCodexDeviceAuthResponse,
+  CodexDeviceAuthSuccessResponse,
+} from '@codeinfo2/common';
+
 import { createLogger } from '../logging/logger';
 import { getApiBaseUrl } from './baseUrl';
 
-export type CodexDeviceAuthTarget = 'chat' | 'agent';
-
-export type CodexDeviceAuthRequest = {
-  target: CodexDeviceAuthTarget;
-  agentName?: string;
-};
-
-export type CodexDeviceAuthResponse = {
-  status: string;
-  rawOutput: string;
-  target: CodexDeviceAuthTarget;
-  agentName?: string;
-};
+export type CodexDeviceAuthResponse = CodexDeviceAuthSuccessResponse;
 
 export type CodexDeviceAuthApiErrorDetails = {
   status: number;
@@ -76,6 +69,14 @@ async function parseCodexDeviceAuthErrorResponse(res: Response): Promise<{
 
 const serverBase = getApiBaseUrl();
 const log = createLogger('codex-device-auth-api');
+const T14_SUCCESS_LOG =
+  '[DEV-0000037][T14] event=client_device_auth_contract_consumed result=success';
+const T14_ERROR_LOG =
+  '[DEV-0000037][T14] event=client_device_auth_contract_consumed result=error';
+const T26_SUCCESS_LOG =
+  '[DEV-0000037][T26] event=codex_device_auth_api_signature_aligned result=success';
+const T26_ERROR_LOG =
+  '[DEV-0000037][T26] event=codex_device_auth_api_signature_aligned result=error';
 
 async function throwCodexDeviceAuthError(
   res: Response,
@@ -91,6 +92,14 @@ async function throwCodexDeviceAuthError(
     status: res.status,
     error: parsed.error ?? parsed.reason ?? parsed.message ?? baseMessage,
   });
+  log('error', T14_ERROR_LOG, {
+    status: res.status,
+    error: parsed.error ?? parsed.reason ?? parsed.message ?? baseMessage,
+  });
+  log('error', T26_ERROR_LOG, {
+    status: res.status,
+    error: parsed.error ?? parsed.reason ?? parsed.message ?? baseMessage,
+  });
 
   throw new CodexDeviceAuthApiError({
     status: res.status,
@@ -99,24 +108,15 @@ async function throwCodexDeviceAuthError(
   });
 }
 
-export async function postCodexDeviceAuth(
-  params: CodexDeviceAuthRequest,
-): Promise<CodexDeviceAuthResponse> {
-  log('info', 'DEV-0000031:T5:codex_device_auth_api_request', {
-    target: params.target,
-    agentNamePresent: Boolean(params.agentName?.trim()),
-  });
+export async function postCodexDeviceAuth(): Promise<CodexDeviceAuthResponse> {
+  log('info', 'DEV-0000031:T5:codex_device_auth_api_request', {});
 
-  const trimmedAgentName = params.agentName?.trim();
   const res = await fetch(
     new URL('/codex/device-auth', serverBase).toString(),
     {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        target: params.target,
-        ...(trimmedAgentName ? { agentName: trimmedAgentName } : {}),
-      }),
+      body: JSON.stringify({}),
     },
   );
 
@@ -132,20 +132,40 @@ export async function postCodexDeviceAuth(
   });
 
   const data = (await res.json()) as Record<string, unknown>;
-  const status = typeof data.status === 'string' ? data.status : '';
-  const rawOutput = typeof data.rawOutput === 'string' ? data.rawOutput : '';
-  const target = typeof data.target === 'string' ? data.target : '';
-  const agentName =
-    typeof data.agentName === 'string' ? data.agentName : undefined;
+  const status = data.status;
+  const rawOutput = data.rawOutput;
 
-  if (!status || !rawOutput || (target !== 'chat' && target !== 'agent')) {
+  if (
+    status !== 'ok' ||
+    typeof rawOutput !== 'string' ||
+    rawOutput.length < 1
+  ) {
+    log('error', T14_ERROR_LOG, {
+      status: res.status,
+      error: 'invalid_success_response_shape',
+    });
+    log('error', T26_ERROR_LOG, {
+      status: res.status,
+      error: 'invalid_success_response_shape',
+    });
     throw new Error('Invalid codex device auth response');
   }
 
-  return {
-    status,
+  log('info', T14_SUCCESS_LOG, {
+    status: res.status,
+    responseStatus: status,
+  });
+  log('info', T26_SUCCESS_LOG, {
+    status: res.status,
+    responseStatus: status,
+  });
+
+  const response: SharedCodexDeviceAuthResponse = {
+    status: 'ok',
     rawOutput,
-    target: target as CodexDeviceAuthTarget,
-    agentName,
+  };
+  return {
+    status: response.status,
+    rawOutput: response.rawOutput,
   };
 }

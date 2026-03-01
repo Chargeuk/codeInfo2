@@ -1,7 +1,8 @@
-import type { CodexDefaults, LogLevel } from '@codeinfo2/common';
+import { type CodexDefaults, type LogLevel } from '@codeinfo2/common';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getApiBaseUrl } from '../api/baseUrl';
 import { createLogger } from '../logging/logger';
+import { normalizeReasoningCapabilityStrings } from '../utils/reasoningCapabilities';
 import type { ChatWsToolEvent, ChatWsTranscriptEvent } from './useChatWs';
 import type { InflightSnapshot } from './useConversationTurns';
 
@@ -16,7 +17,7 @@ export type ApprovalPolicy =
   | 'on-failure'
   | 'untrusted';
 
-export type ModelReasoningEffort = 'low' | 'medium' | 'high' | 'xhigh';
+export type ModelReasoningEffort = string;
 
 export type CodexFlagState = {
   sandboxMode?: SandboxMode;
@@ -105,6 +106,13 @@ type Status = 'idle' | 'sending';
 const API_BASE = getApiBaseUrl();
 
 const HYDRATION_DEDUPE_WINDOW_MS = 30 * 60 * 1000;
+const DEV_0000037_T02_PREFIX = '[DEV-0000037][T02]';
+const DEV_0000037_T17_PREFIX = '[DEV-0000037][T17]';
+
+type SelectedModelReasoningCapabilities = {
+  supportedReasoningEfforts: string[];
+  defaultReasoningEffort: string;
+};
 
 const parseTimestamp = (value?: string) => {
   if (!value) return null;
@@ -239,6 +247,7 @@ export function useChatStream(
   provider?: string,
   codexFlags?: CodexFlagState,
   codexDefaults?: CodexDefaults,
+  selectedModelCapabilities?: SelectedModelReasoningCapabilities,
 ) {
   const log = useRef(createLogger('client')).current;
   const flowLog = useRef(createLogger('client-flows')).current;
@@ -999,13 +1008,50 @@ export function useChatStream(
           provider === 'codex' ? { ...baseCodexPayload } : {};
 
         if (provider === 'codex') {
+          const selectedReasoningEffort =
+            typeof codexFlags?.modelReasoningEffort === 'string'
+              ? codexFlags.modelReasoningEffort
+              : undefined;
+          const supportedReasoningEfforts = normalizeReasoningCapabilityStrings(
+            selectedModelCapabilities?.supportedReasoningEfforts,
+          );
+          const defaultReasoningEffort =
+            (typeof selectedModelCapabilities?.defaultReasoningEffort ===
+              'string' &&
+            selectedModelCapabilities.defaultReasoningEffort.trim().length > 0
+              ? selectedModelCapabilities.defaultReasoningEffort.trim()
+              : undefined) ?? codexDefaults?.modelReasoningEffort;
+          const resolvedReasoningEffortCandidate =
+            supportedReasoningEfforts.length > 0
+              ? supportedReasoningEfforts.includes(
+                  selectedReasoningEffort ?? '',
+                )
+                ? selectedReasoningEffort
+                : supportedReasoningEfforts.includes(
+                      defaultReasoningEffort ?? '',
+                    )
+                  ? defaultReasoningEffort
+                  : supportedReasoningEfforts[0]
+              : undefined;
+          const resolvedReasoningEffort =
+            resolvedReasoningEffortCandidate &&
+            supportedReasoningEfforts.includes(resolvedReasoningEffortCandidate)
+              ? resolvedReasoningEffortCandidate
+              : undefined;
+
+          if (supportedReasoningEfforts.length === 0) {
+            console.error(
+              `${DEV_0000037_T17_PREFIX} event=dynamic_reasoning_options_rendered result=error reason=no_supported_reasoning_efforts`,
+            );
+          }
+
           const fallbackFlags: Required<CodexFlagState> = {
             sandboxMode:
               codexFlags?.sandboxMode ?? DEFAULT_CODEX_FLAGS.sandboxMode,
             approvalPolicy:
               codexFlags?.approvalPolicy ?? DEFAULT_CODEX_FLAGS.approvalPolicy,
             modelReasoningEffort:
-              codexFlags?.modelReasoningEffort ??
+              resolvedReasoningEffort ??
               DEFAULT_CODEX_FLAGS.modelReasoningEffort,
             networkAccessEnabled:
               codexFlags?.networkAccessEnabled ??
@@ -1018,8 +1064,17 @@ export function useChatStream(
           if (!codexDefaults) {
             codexPayload.sandboxMode = fallbackFlags.sandboxMode;
             codexPayload.approvalPolicy = fallbackFlags.approvalPolicy;
-            codexPayload.modelReasoningEffort =
-              fallbackFlags.modelReasoningEffort;
+            if (resolvedReasoningEffort) {
+              codexPayload.modelReasoningEffort = resolvedReasoningEffort;
+              console.info(
+                `${DEV_0000037_T02_PREFIX} event=reasoning_effort_shims_removed result=success`,
+              );
+              console.info(
+                `${DEV_0000037_T17_PREFIX} event=dynamic_reasoning_options_rendered result=success`,
+              );
+            } else {
+              omittedFlags.push('modelReasoningEffort');
+            }
             codexPayload.networkAccessEnabled =
               fallbackFlags.networkAccessEnabled;
             codexPayload.webSearchEnabled = fallbackFlags.webSearchEnabled;
@@ -1047,14 +1102,28 @@ export function useChatStream(
               omittedFlags.push('approvalPolicy');
             }
 
-            const modelReasoningEffort = codexFlags?.modelReasoningEffort;
+            const modelReasoningEffort = resolvedReasoningEffort;
             if (
               modelReasoningEffort &&
               modelReasoningEffort !== codexDefaults.modelReasoningEffort
             ) {
               codexPayload.modelReasoningEffort = modelReasoningEffort;
+              console.info(
+                `${DEV_0000037_T02_PREFIX} event=reasoning_effort_shims_removed result=success`,
+              );
+              console.info(
+                `${DEV_0000037_T17_PREFIX} event=dynamic_reasoning_options_rendered result=success`,
+              );
             } else {
               omittedFlags.push('modelReasoningEffort');
+              if (modelReasoningEffort) {
+                console.info(
+                  `${DEV_0000037_T02_PREFIX} event=reasoning_effort_shims_removed result=success`,
+                );
+                console.info(
+                  `${DEV_0000037_T17_PREFIX} event=dynamic_reasoning_options_rendered result=success`,
+                );
+              }
             }
 
             const networkAccessEnabled = codexFlags?.networkAccessEnabled;
@@ -1161,6 +1230,7 @@ export function useChatStream(
     [
       codexDefaults,
       codexFlags,
+      selectedModelCapabilities,
       ensureAssistantMessage,
       handleErrorBubble,
       logWithChannel,

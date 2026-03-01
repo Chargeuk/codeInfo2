@@ -6,10 +6,16 @@ import type {
 } from '@codeinfo2/common';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getApiBaseUrl } from '../api/baseUrl';
+import { normalizeReasoningCapabilityStrings } from '../utils/reasoningCapabilities';
 
 type Status = 'idle' | 'loading' | 'success' | 'error';
 
 const serverBase = getApiBaseUrl();
+
+export type SelectedModelReasoningCapabilities = {
+  supportedReasoningEfforts: string[];
+  defaultReasoningEffort: string;
+};
 
 export function useChatModel() {
   const providerControllerRef = useRef<AbortController | null>(null);
@@ -167,7 +173,46 @@ export function useChatModel() {
         }
 
         const data = (await res.json()) as ChatModelsResponse;
-        const models = Array.isArray(data.models) ? data.models : [];
+        const rawModels = Array.isArray(data.models) ? data.models : [];
+        const codexDefaultEffort =
+          typeof data.codexDefaults?.modelReasoningEffort === 'string'
+            ? data.codexDefaults.modelReasoningEffort
+            : '';
+        const models =
+          effectiveProvider === 'codex'
+            ? rawModels.map((model) => {
+                const supported = normalizeReasoningCapabilityStrings(
+                  model.supportedReasoningEfforts,
+                );
+                const rawDefault =
+                  typeof model.defaultReasoningEffort === 'string'
+                    ? model.defaultReasoningEffort.trim()
+                    : '';
+
+                const normalizedSupported = [...supported];
+                if (normalizedSupported.length === 0 && rawDefault) {
+                  normalizedSupported.push(rawDefault);
+                }
+                if (normalizedSupported.length === 0 && codexDefaultEffort) {
+                  normalizedSupported.push(codexDefaultEffort);
+                }
+
+                let normalizedDefault = rawDefault || codexDefaultEffort;
+                if (
+                  normalizedSupported.length > 0 &&
+                  (!normalizedDefault ||
+                    !normalizedSupported.includes(normalizedDefault))
+                ) {
+                  normalizedDefault = normalizedSupported[0];
+                }
+
+                return {
+                  ...model,
+                  supportedReasoningEfforts: normalizedSupported,
+                  defaultReasoningEffort: normalizedDefault,
+                };
+              })
+            : rawModels;
         if (data.codexDefaults) {
           const hasWarnings = Boolean(data.codexWarnings?.length);
           console.info('[codex-models-response] codexDefaults received', {
@@ -238,6 +283,28 @@ export function useChatModel() {
     return { isLoading, isError, isEmpty };
   }, [models.length, provider, providerStatus, status]);
 
+  const selectedModelCapabilities = useMemo<
+    SelectedModelReasoningCapabilities | undefined
+  >(() => {
+    if (provider !== 'codex' || !selected) return undefined;
+    const selectedModel = models.find((model) => model.key === selected);
+    if (!selectedModel) return undefined;
+    if (selectedModel.type !== 'codex') return undefined;
+
+    const supported = normalizeReasoningCapabilityStrings(
+      selectedModel.supportedReasoningEfforts,
+    );
+    const defaultReasoningEffort =
+      typeof selectedModel.defaultReasoningEffort === 'string'
+        ? selectedModel.defaultReasoningEffort.trim()
+        : '';
+
+    return {
+      supportedReasoningEfforts: supported,
+      defaultReasoningEffort,
+    };
+  }, [models, provider, selected]);
+
   return {
     providers,
     provider,
@@ -252,6 +319,7 @@ export function useChatModel() {
     models,
     selected,
     setSelected,
+    selectedModelCapabilities,
     status,
     errorMessage,
     refreshProviders,

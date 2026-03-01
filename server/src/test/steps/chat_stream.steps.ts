@@ -1,5 +1,8 @@
 import assert from 'assert';
+import fs from 'node:fs/promises';
 import http, { type Server } from 'node:http';
+import os from 'node:os';
+import path from 'node:path';
 
 import { chatRequestFixture } from '@codeinfo2/common';
 import { After, Before, Given, Then, When } from '@cucumber/cucumber';
@@ -55,6 +58,8 @@ let statusCode: number | null = null;
 let startResponse: ChatStartResponse | null = null;
 let errorResponse: { code?: string; message?: string } | null = null;
 let received: WsEvent[] = [];
+const ORIGINAL_CODEINFO_CODEX_HOME = process.env.CODEINFO_CODEX_HOME;
+let tempCodexHomeForScenario: string | null = null;
 
 async function ensureWsSubscribed(conversationId: string) {
   if (!ws) {
@@ -66,6 +71,18 @@ async function ensureWsSubscribed(conversationId: string) {
 Before(async () => {
   resetStore();
   process.env.LMSTUDIO_BASE_URL = 'ws://localhost:1234';
+  tempCodexHomeForScenario = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'chat-stream-codex-home-'),
+  );
+  await fs.mkdir(path.join(tempCodexHomeForScenario, 'chat'), {
+    recursive: true,
+  });
+  await fs.writeFile(
+    path.join(tempCodexHomeForScenario, 'chat', 'config.toml'),
+    'model = "gpt-5.3-codex"\n',
+    'utf8',
+  );
+  process.env.CODEINFO_CODEX_HOME = tempCodexHomeForScenario;
 
   const app = express();
   app.use(cors());
@@ -122,6 +139,15 @@ After(async () => {
   statusCode = null;
   startResponse = null;
   errorResponse = null;
+  if (ORIGINAL_CODEINFO_CODEX_HOME === undefined) {
+    delete process.env.CODEINFO_CODEX_HOME;
+  } else {
+    process.env.CODEINFO_CODEX_HOME = ORIGINAL_CODEINFO_CODEX_HOME;
+  }
+  if (tempCodexHomeForScenario) {
+    await fs.rm(tempCodexHomeForScenario, { recursive: true, force: true });
+    tempCodexHomeForScenario = null;
+  }
 });
 
 Given('chat stream scenario {string}', (name: string) => {

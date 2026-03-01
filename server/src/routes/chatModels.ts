@@ -1,11 +1,11 @@
-import type { ChatModelsResponse } from '@codeinfo2/common';
+import { type ChatModelsResponse } from '@codeinfo2/common';
 import type { LMStudioClient } from '@lmstudio/sdk';
 import { Router } from 'express';
 import { resolveChatDefaults } from '../config/chatDefaults.js';
 import {
-  getCodexEnvDefaults,
-  getCodexModelList,
-} from '../config/codexEnvDefaults.js';
+  resolveCodexCapabilities,
+  type CodexCapabilityResolution,
+} from '../codex/capabilityResolver.js';
 import { append } from '../logStore.js';
 import { baseLogger } from '../logger.js';
 import { getCodexDetection } from '../providers/codexRegistry.js';
@@ -13,6 +13,10 @@ import { getMcpStatus } from '../providers/mcpStatus.js';
 
 type ClientFactory = (baseUrl: string) => LMStudioClient;
 const BASE_URL_REGEX = /^(https?|wss?):\/\//i;
+const TASK12_LOG_SUCCESS =
+  '[DEV-0000037][T12] event=chat_models_codex_capabilities_returned result=success';
+const TASK12_LOG_ERROR =
+  '[DEV-0000037][T12] event=chat_models_codex_capabilities_returned result=error';
 
 const scrubBaseUrl = (value: string) => {
   try {
@@ -43,8 +47,12 @@ const prioritizeModel = <T extends { key: string }>(
 
 export function createChatModelsRouter({
   clientFactory,
+  codexCapabilityResolver = resolveCodexCapabilities,
 }: {
   clientFactory: ClientFactory;
+  codexCapabilityResolver?: (options: {
+    consumer: 'chat_models' | 'chat_validation';
+  }) => CodexCapabilityResolution;
 }) {
   const router = Router();
   const isChatModel = (model: { type?: string; architecture?: string }) => {
@@ -59,29 +67,28 @@ export function createChatModelsRouter({
     if (provider === 'codex') {
       const detection = getCodexDetection();
       const mcp = await getMcpStatus();
-      const codexEnv = getCodexEnvDefaults();
-      const modelList = getCodexModelList();
+      const capabilities = codexCapabilityResolver({ consumer: 'chat_models' });
       const toolsAvailable = detection.available && mcp.available;
       const runtimeWarnings: string[] = [];
 
-      if (codexEnv.defaults.webSearchEnabled && !toolsAvailable) {
+      if (capabilities.defaults.webSearchEnabled && !toolsAvailable) {
         runtimeWarnings.push(
           'Codex web search is enabled, but tools are unavailable; web search will be ignored.',
         );
       }
 
-      const codexWarnings = [
-        ...modelList.warnings,
-        ...codexEnv.warnings,
-        ...runtimeWarnings,
-      ];
+      const codexWarnings = [...capabilities.warnings, ...runtimeWarnings];
       const preferredDefaults = resolveChatDefaults({});
       const codexModels = prioritizeModel(
-        modelList.models.map((model) => ({
-          key: model,
-          displayName: model,
-          type: 'codex',
-        })),
+        capabilities.models.map((capability) => {
+          return {
+            key: capability.model,
+            displayName: capability.model,
+            type: 'codex',
+            supportedReasoningEfforts: capability.supportedReasoningEfforts,
+            defaultReasoningEffort: capability.defaultReasoningEffort,
+          };
+        }),
         preferredDefaults.provider === 'codex'
           ? preferredDefaults.model
           : undefined,
@@ -89,9 +96,9 @@ export function createChatModelsRouter({
 
       baseLogger.info(
         {
-          modelCount: modelList.models.length,
-          fallbackUsed: modelList.fallbackUsed,
-          warningsCount: modelList.warnings.length,
+          modelCount: capabilities.models.length,
+          fallbackUsed: capabilities.fallbackUsed,
+          warningsCount: capabilities.warnings.length,
         },
         '[codex-model-list] using env list',
       );
@@ -109,9 +116,30 @@ export function createChatModelsRouter({
         toolsAvailable,
         reason: detection.reason ?? (mcp.available ? undefined : mcp.reason),
         models: detection.available ? codexModels : [],
-        codexDefaults: codexEnv.defaults,
+        codexDefaults: capabilities.defaults,
         codexWarnings,
       };
+
+      if (detection.available) {
+        baseLogger.info(
+          {
+            requestId,
+            modelCount: response.models.length,
+            toolsAvailable: response.toolsAvailable,
+          },
+          TASK12_LOG_SUCCESS,
+        );
+      } else {
+        baseLogger.error(
+          {
+            requestId,
+            code: 'codex_unavailable',
+            reason: response.reason,
+            modelCount: response.models.length,
+          },
+          TASK12_LOG_ERROR,
+        );
+      }
 
       return res.json(response);
     }

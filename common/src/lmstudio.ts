@@ -30,12 +30,27 @@ export type ChatModelInfo = {
   key: string;
   displayName: string;
   type: string;
+  // Required for Codex model entries in /chat/models payloads.
+  supportedReasoningEfforts?: string[];
+  // Required for Codex model entries in /chat/models payloads.
+  defaultReasoningEffort?: string;
 };
+
+export const CODEX_MODEL_REASONING_EFFORTS = [
+  'minimal',
+  'low',
+  'medium',
+  'high',
+  'xhigh',
+] as const;
+
+export type CodexModelReasoningEffort =
+  (typeof CODEX_MODEL_REASONING_EFFORTS)[number];
 
 export type CodexDefaults = {
   sandboxMode: 'read-only' | 'workspace-write' | 'danger-full-access';
   approvalPolicy: 'untrusted' | 'on-request' | 'on-failure' | 'never';
-  modelReasoningEffort: 'low' | 'medium' | 'high' | 'xhigh';
+  modelReasoningEffort: CodexModelReasoningEffort;
   networkAccessEnabled: boolean;
   webSearchEnabled: boolean;
 };

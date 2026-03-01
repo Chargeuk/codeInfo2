@@ -1,6 +1,7 @@
 import { jest } from '@jest/globals';
 
 const mockFetch = jest.fn();
+const logSpy = jest.fn();
 
 beforeAll(() => {
   global.fetch = mockFetch as unknown as typeof fetch;
@@ -8,50 +9,75 @@ beforeAll(() => {
 
 beforeEach(() => {
   mockFetch.mockReset();
+  logSpy.mockReset();
 });
+
+await jest.unstable_mockModule('../logging/logger', async () => ({
+  __esModule: true,
+  createLogger: jest.fn(() => logSpy),
+}));
 
 const { postCodexDeviceAuth } = await import('../api/codex');
 
 describe('Codex device-auth API helper', () => {
-  it('returns parsed data on success', async () => {
+  it('serializes request body as strict empty object', async () => {
     mockFetch.mockResolvedValue({
       ok: true,
       status: 200,
       json: async () => ({
-        status: 'completed',
-        target: 'chat',
+        status: 'ok',
         rawOutput: 'Open https://example.com/device and enter code ABCD-EFGH.',
       }),
     } as unknown as Response);
 
-    await expect(postCodexDeviceAuth({ target: 'chat' })).resolves.toEqual({
-      status: 'completed',
-      target: 'chat',
+    await postCodexDeviceAuth();
+
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(mockFetch).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining({
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({}),
+      }),
+    );
+  });
+
+  it('parses strict 200 success shape', async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        status: 'ok',
+        rawOutput: 'Open https://example.com/device and enter code ABCD-EFGH.',
+      }),
+    } as unknown as Response);
+
+    await expect(postCodexDeviceAuth()).resolves.toEqual({
+      status: 'ok',
       rawOutput: 'Open https://example.com/device and enter code ABCD-EFGH.',
-      agentName: undefined,
     });
   });
 
-  it('throws structured error for non-200 responses', async () => {
+  it('parses deterministic 400 invalid_request response', async () => {
     mockFetch.mockResolvedValue({
       ok: false,
       status: 400,
       headers: { get: () => 'application/json' },
       json: async () => ({
         error: 'invalid_request',
-        message: 'target is required',
+        message: 'request body must be an empty JSON object',
       }),
     } as unknown as Response);
 
-    await expect(postCodexDeviceAuth({ target: 'chat' })).rejects.toMatchObject(
-      {
-        status: 400,
-        message: 'target is required',
-      },
-    );
+    await expect(postCodexDeviceAuth()).rejects.toMatchObject({
+      status: 400,
+      message: 'request body must be an empty JSON object',
+      error: 'invalid_request',
+    });
   });
 
-  it('uses reason when provided by the API', async () => {
+  it('parses deterministic 503 codex_unavailable response', async () => {
     mockFetch.mockResolvedValue({
       ok: false,
       status: 503,
@@ -62,11 +88,71 @@ describe('Codex device-auth API helper', () => {
       }),
     } as unknown as Response);
 
-    await expect(postCodexDeviceAuth({ target: 'chat' })).rejects.toMatchObject(
-      {
-        status: 503,
-        message: 'codex missing',
-      },
+    await expect(postCodexDeviceAuth()).rejects.toMatchObject({
+      status: 503,
+      message: 'codex missing',
+      error: 'codex_unavailable',
+    });
+  });
+
+  it('emits deterministic T14 success log for valid contract consumption', async () => {
+    mockFetch.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        status: 'ok',
+        rawOutput: 'Open https://example.com/device and enter code ABCD-EFGH.',
+      }),
+    } as unknown as Response);
+
+    await postCodexDeviceAuth();
+
+    expect(logSpy).toHaveBeenCalledWith(
+      'info',
+      '[DEV-0000037][T14] event=client_device_auth_contract_consumed result=success',
+      expect.objectContaining({
+        status: 200,
+        responseStatus: 'ok',
+      }),
+    );
+    expect(logSpy).toHaveBeenCalledWith(
+      'info',
+      '[DEV-0000037][T26] event=codex_device_auth_api_signature_aligned result=success',
+      expect.objectContaining({
+        status: 200,
+        responseStatus: 'ok',
+      }),
+    );
+  });
+
+  it('emits deterministic T14 error log for invalid_request path', async () => {
+    mockFetch.mockResolvedValue({
+      ok: false,
+      status: 400,
+      headers: { get: () => 'application/json' },
+      json: async () => ({
+        error: 'invalid_request',
+        message: 'request body must be an empty JSON object',
+      }),
+    } as unknown as Response);
+
+    await expect(postCodexDeviceAuth()).rejects.toBeDefined();
+
+    expect(logSpy).toHaveBeenCalledWith(
+      'error',
+      '[DEV-0000037][T14] event=client_device_auth_contract_consumed result=error',
+      expect.objectContaining({
+        status: 400,
+        error: 'invalid_request',
+      }),
+    );
+    expect(logSpy).toHaveBeenCalledWith(
+      'error',
+      '[DEV-0000037][T26] event=codex_device_auth_api_signature_aligned result=error',
+      expect.objectContaining({
+        status: 400,
+        error: 'invalid_request',
+      }),
     );
   });
 });

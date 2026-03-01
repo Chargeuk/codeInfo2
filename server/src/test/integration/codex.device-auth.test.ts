@@ -180,7 +180,7 @@ describe('POST /codex/device-auth', () => {
     });
   });
 
-  test('oversized payload returns 400 invalid_request', async () => {
+  test('oversized payload returns standardized invalid_request contract', async () => {
     const prevLimit = process.env.LOG_MAX_CLIENT_BYTES;
     process.env.LOG_MAX_CLIENT_BYTES = '10';
     try {
@@ -193,6 +193,8 @@ describe('POST /codex/device-auth', () => {
         error: 'invalid_request',
         message: 'request body exceeds maximum size',
       });
+      assert.equal('reason' in res.body, false);
+      assert.equal(res.body.error === 'payload too large', false);
     } finally {
       if (prevLimit === undefined) {
         delete process.env.LOG_MAX_CLIENT_BYTES;

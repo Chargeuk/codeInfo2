@@ -9,8 +9,14 @@ import {
   buildCodexOptions,
   buildDefaultCodexConfig,
 } from '../../config/codexConfig.js';
-import { getCodexDetection } from '../../providers/codexRegistry.js';
-import { detectCodex } from '../../providers/codexDetection.js';
+import {
+  getCodexDetection,
+  setCodexDetection,
+} from '../../providers/codexRegistry.js';
+import {
+  detectCodex,
+  refreshCodexDetection,
+} from '../../providers/codexDetection.js';
 
 describe('codexConfig', () => {
   it('buildCodexOptions sets CODEX_HOME to the resolved override path', () => {
@@ -111,6 +117,39 @@ describe('codexConfig', () => {
       );
     } finally {
       mock.restoreAll();
+      await fs.rm(codexHome, { recursive: true, force: true });
+    }
+  });
+
+  it('keeps codex registry fresh across direct-home detection failure and success refreshes', async () => {
+    const codexHome = await fs.mkdtemp(path.join(os.tmpdir(), 'codex-home-'));
+    const authPath = path.join(codexHome, 'auth.json');
+    const configPath = path.join(codexHome, 'config.toml');
+    setCodexDetection({
+      available: true,
+      authPresent: true,
+      configPresent: true,
+      reason: undefined,
+    });
+
+    try {
+      await fs.writeFile(configPath, 'model = "gpt-5.3-codex"\n', 'utf8');
+
+      const failed = refreshCodexDetection({
+        codexHome,
+        resolveCliPath: () => '/usr/local/bin/codex',
+      });
+      assert.equal(failed.available, false);
+      assert.equal(getCodexDetection().available, false);
+
+      await fs.writeFile(authPath, '{"token":"seeded"}', 'utf8');
+      const recovered = refreshCodexDetection({
+        codexHome,
+        resolveCliPath: () => '/usr/local/bin/codex',
+      });
+      assert.equal(recovered.available, true);
+      assert.equal(getCodexDetection().available, true);
+    } finally {
       await fs.rm(codexHome, { recursive: true, force: true });
     }
   });

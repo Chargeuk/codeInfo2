@@ -1,28 +1,3 @@
-const inFlightLocks = new Map<string, Promise<void>>();
-
-export async function withSerializedKey<T>(
-  key: string,
-  fn: () => Promise<T>,
-): Promise<T> {
-  const previous = inFlightLocks.get(key) ?? Promise.resolve();
-  let release!: () => void;
-  const next = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  const chain = previous.then(() => next);
-  inFlightLocks.set(key, chain);
-
-  await previous;
-  try {
-    return await fn();
-  } finally {
-    release();
-    if (inFlightLocks.get(key) === chain) {
-      inFlightLocks.delete(key);
-    }
-  }
-}
-
 export function getOrCreateSingleFlight<T>(
   cache: Map<string, Promise<T>>,
   key: string,
@@ -35,11 +10,12 @@ export function getOrCreateSingleFlight<T>(
 
   const created = create();
   cache.set(key, created);
-  void created.finally(() => {
+  const cleanup = () => {
     if (cache.get(key) === created) {
       cache.delete(key);
     }
-  });
+  };
+  void created.then(cleanup, cleanup);
 
   return { promise: created, reused: false };
 }

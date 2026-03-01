@@ -6,7 +6,10 @@ import type { LMStudioClient } from '@lmstudio/sdk';
 import express from 'express';
 import request from 'supertest';
 
-import type { CodexCapabilityResolution } from '../../codex/capabilityResolver.js';
+import {
+  resolveCodexCapabilities,
+  type CodexCapabilityResolution,
+} from '../../codex/capabilityResolver.js';
 import { baseLogger } from '../../logger.js';
 import { setCodexDetection } from '../../providers/codexRegistry.js';
 import { resetMcpStatusCache } from '../../providers/mcpStatus.js';
@@ -279,14 +282,22 @@ test('codex response includes defaults and warnings when unavailable', async () 
 });
 
 test('codex capability resolver fallback is deterministic when metadata resolution fails', async () => {
-  env.set('Codex_reasoning_efforts_metadata', '__throw__');
   setCodexDetection({
     available: true,
     authPresent: true,
     configPresent: true,
   });
 
-  const server = await startServer({ mcpAvailable: true });
+  const server = await startServer({
+    mcpAvailable: true,
+    codexCapabilityResolver: (options) =>
+      resolveCodexCapabilities({
+        ...options,
+        resolveReasoningEffortsMetadata: () => {
+          throw new Error('injected metadata failure');
+        },
+      }),
+  });
   env.set('MCP_URL', `${server.baseUrl}/mcp`);
   try {
     const res = await request(server.httpServer)
@@ -621,7 +632,6 @@ test('emits deterministic T12 error log when codex is unavailable', async (t) =>
 });
 
 test('emits deterministic T13 error log when shared resolver metadata path fails intentionally', async (t) => {
-  env.set('Codex_reasoning_efforts_metadata', '__throw__');
   setCodexDetection({
     available: true,
     authPresent: true,
@@ -636,7 +646,16 @@ test('emits deterministic T13 error log when shared resolver metadata path fails
     if (message) errorLines.push(message);
   });
 
-  const server = await startServer({ mcpAvailable: true });
+  const server = await startServer({
+    mcpAvailable: true,
+    codexCapabilityResolver: (options) =>
+      resolveCodexCapabilities({
+        ...options,
+        resolveReasoningEffortsMetadata: () => {
+          throw new Error('injected metadata failure');
+        },
+      }),
+  });
   env.set('MCP_URL', `${server.baseUrl}/mcp`);
   try {
     await request(server.httpServer)

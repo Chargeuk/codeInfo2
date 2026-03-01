@@ -6,6 +6,7 @@ import type {
 } from '@codeinfo2/common';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getApiBaseUrl } from '../api/baseUrl';
+import { normalizeReasoningCapabilityStrings } from '../utils/reasoningCapabilities';
 
 type Status = 'idle' | 'loading' | 'success' | 'error';
 
@@ -14,20 +15,6 @@ const serverBase = getApiBaseUrl();
 export type SelectedModelReasoningCapabilities = {
   supportedReasoningEfforts: string[];
   defaultReasoningEffort: string;
-};
-
-const normalizeReasoningCapabilityStrings = (value: unknown): string[] => {
-  if (!Array.isArray(value)) return [];
-  const seen = new Set<string>();
-  const normalized: string[] = [];
-  value.forEach((entry) => {
-    if (typeof entry !== 'string') return;
-    const trimmed = entry.trim();
-    if (!trimmed || seen.has(trimmed)) return;
-    seen.add(trimmed);
-    normalized.push(trimmed);
-  });
-  return normalized;
 };
 
 export function useChatModel() {

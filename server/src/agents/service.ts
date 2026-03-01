@@ -22,7 +22,6 @@ import {
 } from '../chat/memoryPersistence.js';
 import { McpResponder } from '../chat/responders/McpResponder.js';
 import { mapHostWorkingFolderToWorkdir } from '../ingest/pathMap.js';
-import { getCodexHome } from '../config/codexConfig.js';
 import { RuntimeConfigResolutionError } from '../config/runtimeConfig.js';
 import {
   listIngestedRepositories,
@@ -35,7 +34,7 @@ import { ConversationModel } from '../mongo/conversation.js';
 import type { Conversation } from '../mongo/conversation.js';
 import { createConversation } from '../mongo/repo.js';
 import type { TurnCommandMetadata } from '../mongo/turn.js';
-import { detectCodexForHome } from '../providers/codexDetection.js';
+import { refreshCodexDetection } from '../providers/codexDetection.js';
 import { publishUserTurn } from '../ws/server.js';
 
 import {
@@ -288,7 +287,7 @@ export async function startAgentInstruction(
       throw toRunAgentError('AGENT_NOT_FOUND');
     }
 
-    const detection = detectCodexForHome(getCodexHome());
+    const detection = refreshCodexDetection();
     if (!detection.available) {
       throw toRunAgentError('CODEX_UNAVAILABLE', detection.reason);
     }
@@ -446,7 +445,7 @@ export async function startAgentCommand(params: {
   let modelId = 'gpt-5.1-codex-max';
 
   try {
-    const detection = detectCodexForHome(getCodexHome());
+    const detection = refreshCodexDetection();
     if (!detection.available) {
       throw toRunAgentError('CODEX_UNAVAILABLE', detection.reason);
     }
@@ -697,7 +696,7 @@ export async function runAgentInstructionUnlocked(params: {
     throw toRunAgentError('AGENT_NOT_FOUND');
   }
 
-  const detection = detectCodexForHome(getCodexHome());
+  const detection = refreshCodexDetection();
   if (!detection.available) {
     throw toRunAgentError('CODEX_UNAVAILABLE', detection.reason);
   }

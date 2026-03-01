@@ -10,7 +10,7 @@ import { append } from '../../logStore.js';
 import { baseLogger } from '../../logger.js';
 import { updateConversationThreadId } from '../../mongo/repo.js';
 import type { TurnUsageMetadata } from '../../mongo/turn.js';
-import { detectCodexForHome } from '../../providers/codexDetection.js';
+import { refreshCodexDetection } from '../../providers/codexDetection.js';
 import { getCodexDetection } from '../../providers/codexRegistry.js';
 import { ChatInterface, type ChatToolResultEvent } from './ChatInterface.js';
 
@@ -127,7 +127,7 @@ export class ChatInterfaceCodex extends ChatInterface {
       runtimeConfig,
     } = (flags ?? {}) as CodexRunFlags;
     const detection = codexHome
-      ? detectCodexForHome(codexHome)
+      ? refreshCodexDetection({ codexHome })
       : getCodexDetection();
     if (!detection.available) {
       const msg = detection.reason ?? 'codex unavailable';

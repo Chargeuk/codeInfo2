@@ -122,11 +122,6 @@ export function createCodexDeviceAuthRouter(
     const requestId =
       (res.locals?.requestId as string | undefined) ?? undefined;
 
-    const rawSize = JSON.stringify(req.body ?? {}).length;
-    if (rawSize > maxClientBytes) {
-      return res.status(400).json({ error: 'payload too large' });
-    }
-
     try {
       parseDeviceAuthBody(req.body);
     } catch (error) {

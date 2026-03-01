@@ -2,6 +2,7 @@ import { type CodexDefaults, type LogLevel } from '@codeinfo2/common';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { getApiBaseUrl } from '../api/baseUrl';
 import { createLogger } from '../logging/logger';
+import { normalizeReasoningCapabilityStrings } from '../utils/reasoningCapabilities';
 import type { ChatWsToolEvent, ChatWsTranscriptEvent } from './useChatWs';
 import type { InflightSnapshot } from './useConversationTurns';
 
@@ -107,20 +108,6 @@ const API_BASE = getApiBaseUrl();
 const HYDRATION_DEDUPE_WINDOW_MS = 30 * 60 * 1000;
 const DEV_0000037_T02_PREFIX = '[DEV-0000037][T02]';
 const DEV_0000037_T17_PREFIX = '[DEV-0000037][T17]';
-
-const normalizeReasoningCapabilityStrings = (value: unknown): string[] => {
-  if (!Array.isArray(value)) return [];
-  const seen = new Set<string>();
-  const normalized: string[] = [];
-  value.forEach((entry) => {
-    if (typeof entry !== 'string') return;
-    const trimmed = entry.trim();
-    if (!trimmed || seen.has(trimmed)) return;
-    seen.add(trimmed);
-    normalized.push(trimmed);
-  });
-  return normalized;
-};
 
 type SelectedModelReasoningCapabilities = {
   supportedReasoningEfforts: string[];

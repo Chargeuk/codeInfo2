@@ -29,6 +29,7 @@ export type CodexCapabilityResolution = {
 
 export type ResolveCodexCapabilitiesOptions = {
   consumer: 'chat_models' | 'chat_validation';
+  resolveReasoningEffortsMetadata?: () => string | undefined;
 };
 
 const parseReasoningEffortsMetadata = (
@@ -51,12 +52,6 @@ const parseReasoningEffortsMetadata = (
       efforts: [...CODEX_MODEL_REASONING_EFFORTS],
       fallbackUsed: true,
     };
-  }
-
-  if (trimmed === '__throw__') {
-    throw new Error(
-      'Codex reasoning capability metadata resolution failed intentionally.',
-    );
   }
 
   const parsed = trimmed
@@ -84,10 +79,13 @@ export const resolveCodexCapabilities = (
   const codexEnv = getCodexEnvDefaults();
   const modelList = getCodexModelList();
   const warnings = [...codexEnv.warnings, ...modelList.warnings];
+  const resolveReasoningEffortsMetadata =
+    options.resolveReasoningEffortsMetadata ??
+    (() => process.env.Codex_reasoning_efforts_metadata);
 
   try {
     const metadata = parseReasoningEffortsMetadata(
-      process.env.Codex_reasoning_efforts_metadata,
+      resolveReasoningEffortsMetadata(),
       warnings,
     );
 

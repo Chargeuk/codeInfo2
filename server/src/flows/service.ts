@@ -51,7 +51,6 @@ import {
   updateConversationThreadId,
 } from '../mongo/repo.js';
 import { getFlowAndCommandRetries } from '../config/flowAndCommandRetries.js';
-import { getCodexHome } from '../config/codexConfig.js';
 import type {
   TurnCommandMetadata,
   Turn,
@@ -59,7 +58,7 @@ import type {
   TurnTimingMetadata,
   TurnUsageMetadata,
 } from '../mongo/turn.js';
-import { detectCodexForHome } from '../providers/codexDetection.js';
+import { refreshCodexDetection } from '../providers/codexDetection.js';
 import { formatRetryInstruction } from '../utils/retryContext.js';
 import { publishUserTurn } from '../ws/server.js';
 
@@ -1537,7 +1536,7 @@ async function runFlowUnlocked(params: {
       );
     }
 
-    const detection = detectCodexForHome(getCodexHome());
+    const detection = refreshCodexDetection();
     if (!detection.available) {
       throw toFlowRunError('CODEX_UNAVAILABLE', detection.reason);
     }
@@ -2230,7 +2229,7 @@ export async function startFlowRun(
       );
     }
 
-    const detection = detectCodexForHome(getCodexHome());
+    const detection = refreshCodexDetection();
     if (!detection.available) {
       throw toFlowRunError('CODEX_UNAVAILABLE', detection.reason);
     }

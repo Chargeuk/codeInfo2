@@ -234,7 +234,7 @@ function pushUnknownWarning(
 ) {
   warnings.push({
     path: `${pathLabel}.${key}`,
-    message: `Unknown key ${pathLabel}.${key}; ignored`,
+    message: `Unknown key ${pathLabel}.${key}; preserved for forward compatibility`,
   });
 }
 
@@ -310,6 +310,7 @@ export function validateRuntimeConfig(
           continue;
         }
         pushUnknownWarning(warnings, `${pathLabel}.tools`, toolKey);
+        normalizedTools[toolKey] = toolValue;
       }
       if (Object.keys(normalizedTools).length > 0) {
         sanitized.tools = normalizedTools;
@@ -334,6 +335,7 @@ export function validateRuntimeConfig(
           continue;
         }
         pushUnknownWarning(warnings, `${pathLabel}.features`, featureKey);
+        normalizedFeatures[featureKey] = featureValue;
       }
       if (Object.keys(normalizedFeatures).length > 0) {
         sanitized.features = normalizedFeatures;
@@ -374,8 +376,9 @@ export function validateRuntimeConfig(
 
           warnings.push({
             path: `${pathLabel}.projects.${projectPath}.${projectKey}`,
-            message: `Unknown key ${projectKey} under projects table; ignored`,
+            message: `Unknown key ${projectKey} under projects table; preserved for forward compatibility`,
           });
+          normalizedProject[projectKey] = projectEntryValue;
         }
         normalizedProjects[projectPath] = normalizedProject;
       }
@@ -384,6 +387,7 @@ export function validateRuntimeConfig(
     }
 
     pushUnknownWarning(warnings, pathLabel, key);
+    sanitized[key] = value;
   }
 
   return { config: normalizeRuntimeConfig(sanitized), warnings };

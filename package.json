@@ -6,6 +6,12 @@
   "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
+    "test:summary:server": "node ./scripts/test-summary-server.mjs",
+    "test:summary:client": "node ./scripts/test-summary-client.mjs",
+    "test:summary:e2e": "node ./scripts/test-summary-e2e.mjs",
+    "build:summary:server": "node ./scripts/build-summary-server.mjs",
+    "build:summary:client": "node ./scripts/build-summary-client.mjs",
+    "compose:build:summary": "node ./scripts/compose-build-summary.mjs",
     "lint": "eslint . --ext .ts,.tsx --max-warnings=0",
     "lint:fix": "eslint . --ext .ts,.tsx --fix",
     "format:check": "prettier . --check",

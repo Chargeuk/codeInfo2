@@ -124,17 +124,18 @@
     {
       "type": "message",
       "role": "user",
-      "content": ["The testing steps for each task, contain all, or a subset of the following items based on what was. If there are specific additional or expanded testing required for a task, then the list should be expanded to detail this:",
-        "1. [ ] `npm run build --workspace server` - Note this is not needed if the changes were purely front end. It is mandatory if this task is the final regression check.",
-        "2. [ ] `npm run build --workspace client` - Note this is not needed if the changes were purely back end. It is mandatory if this task is the final regression check.",
-        "3. [ ] `npm run test --workspace server` - Note this is not needed if the changes were purely front end. It is mandatory if this task is the final regression check.",
-        "4. [ ] `npm run test --workspace client` - Note this is not needed if the changes were purely back end. It is mandatory if this task is the final regression check.",
-        "5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)",
-        "Note that the following items (6 to 9) are only needed if the changes are testable from the front end OR if this task is the final regression check.",
-        "6. [ ] `npm run compose:build`",
+      "content": ["The testing steps for each task should contain all, or a subset, of the following items based on what changed. Do not add testing steps for specific tests; always run full app-level suites via the summary wrappers to avoid unnecessary token usage. The testing step numbers should be updated based on the steps actually used within the plan:",
+        "1. [ ] `npm run build:summary:server` - Use when server/common code may be affected. Mandatory for final regression checks unless the task is strictly front end. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.",
+        "2. [ ] `npm run build:summary:client` - Use when client/common code may be affected. Mandatory for final regression checks unless the task is strictly back end. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.",
+        "3. [ ] `npm run test:summary:server` - Use when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/server-tests-*.log`) and resolve listed failures.",
+        "4. [ ] `npm run test:summary:client` - Use when client/common behavior may be affected. Mandatory for final regression checks unless the task is strictly back end. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`) and resolve listed failures.",
+        "5. [ ] `npm run test:summary:e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness) - If `failed > 0` OR setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log` and resolve root causes before rerunning.",
+        "Note that the following items (6 to 9) are only needed if changes are testable from the front end OR if this task is the final regression check.",
+        "6. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).",
         "7. [ ] `npm run compose:up`",
         "8. [ ] Manual Playwright-MCP check to manually confirm items within the story and general regressions checks that should be detailed based on the task being tested. This should include a check to ensure that there are no logged errors withing the debug console. The front end is accessible at http://host.docker.internal:5001 via the playwright MCP tools",
-        "9. [ ] `npm run compose:down`"
+        "9. [ ] `npm run compose:down`",
+        "Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts. This preserves tokens while keeping full diagnostics available."
       ]
     },
     {
@@ -149,4 +150,3 @@
     }
   ]
 }
-

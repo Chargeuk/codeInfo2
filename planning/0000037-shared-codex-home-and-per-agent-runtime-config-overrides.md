@@ -3203,3 +3203,111 @@ Re-run full Story 0000037 validation after Task 23 fixes to ensure all acceptanc
 
 - No blocking code-quality, maintainability, performance, security, or acceptance-criteria regressions were identified in this branch review.
 - Noted test-runtime noise only (non-blocking): existing React `act(...)` environment warnings in some client tests; tests still pass and this does not alter story acceptance behavior.
+
+### 25. Post-code-review remediation: resolve accepted Copilot findings and re-validate story stability
+
+- Task Status: **__todo__**
+- Git Commits: `pending`
+
+#### Overview
+
+Implement follow-up fixes for accepted Copilot review findings after Task 24, including shared frontend normalization utility extraction, capability-resolver failure-path test decoupling from env sentinels, stale Codex registry prevention for direct `detectCodexForHome` callsites, dead-code cleanup in single-flight helpers, and `/codex/device-auth` oversized-request error contract consistency.
+
+#### Documentation Locations
+
+- Story plan acceptance criteria in this file.
+- OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (for contract-shape consistency validation).
+- Node.js console/logging docs: https://nodejs.org/api/console.html (for deterministic log markers).
+- Context7 `/jestjs/jest` and `/openai/codex` (for deterministic server/client test behavior and Codex runtime integration context).
+
+#### Subtasks
+
+1. [ ] Remove production magic-sentinel coupling in shared capability parsing by replacing the `Codex_reasoning_efforts_metadata='__throw__'` trigger path with a test seam (dependency injection/mocking) that can intentionally force resolver failure without production-only sentinel values.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
+   - Files: `server/src/codex/capabilityResolver.ts`.
+   - Do: remove magic metadata value branching from production parsing logic and preserve deterministic fallback behavior when failure is intentionally injected from tests.
+   - Docs: Context7 `/openai/codex`, https://www.typescriptlang.org/docs/.
+   - Done when: production resolver behavior no longer depends on magic metadata values and fallback/error paths remain deterministic.
+2. [ ] Add/modify a dedicated server unit test file for resolver failure-path injection without env sentinels.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
+   - Files: `server/src/test/unit/capabilityResolver.test.ts` (new) or a single equivalent dedicated resolver unit test file.
+   - Do: assert fallback capabilities/warnings and deterministic error logging when failure is forced through the test seam (not via `__throw__` metadata).
+   - Docs: Context7 `/jestjs/jest`, https://nodejs.org/api/test.html.
+   - Done when: resolver failure behavior is fully covered with no magic env sentinel dependency.
+3. [ ] Update chat-model contract tests that currently rely on `Codex_reasoning_efforts_metadata='__throw__'` to use the new injected failure mechanism.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
+   - Files: `server/src/test/unit/chatModels.codex.test.ts`.
+   - Do: remove `__throw__` fixture usage and preserve existing deterministic T13 error-coverage assertions.
+   - Docs: Context7 `/jestjs/jest`.
+   - Done when: no Task 25 test depends on magic metadata values to force resolver failures.
+4. [ ] Extract duplicated `normalizeReasoningCapabilityStrings` logic into a shared client utility and update both hooks to consume the single implementation.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
+   - Files: `client/src/hooks/useChatModel.ts`, `client/src/hooks/useChatStream.ts`, plus new shared utility under `client/src/utils/`.
+   - Do: create one canonical helper and remove local duplicates to prevent future divergence.
+   - Docs: https://react.dev/reference/react.
+   - Done when: both hooks import the same helper and no duplicated normalization implementation remains.
+5. [ ] Add a dedicated client utility test file for reasoning-capability normalization behavior.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
+   - Files: `client/src/test/reasoningCapabilities.normalize.test.ts` (new) or a single equivalent dedicated helper test file.
+   - Do: cover trim/de-duplicate/empty/non-string filtering behavior for the shared helper.
+   - Docs: Context7 `/jestjs/jest`.
+   - Done when: helper behavior is asserted independently of hook-level tests.
+6. [ ] Remove unused dead code export `withSerializedKey` from the shared single-flight utility (or convert it to a used internal helper if retained intentionally).
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
+   - Files: `server/src/utils/singleFlight.ts`.
+   - Do: eliminate unused API surface to avoid drift; keep only in-use single-flight primitives.
+   - Docs: https://www.typescriptlang.org/docs/.
+   - Done when: no unused exported helper remains in `singleFlight.ts`.
+7. [ ] Add/modify a dedicated server unit test file covering retained single-flight utility semantics.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
+   - Files: `server/src/test/unit/singleFlight.test.ts` (new) or a single equivalent dedicated single-flight utility test file.
+   - Do: assert dedupe and cache-release behavior for the retained helper(s), including happy path and rejection cleanup.
+   - Docs: https://nodejs.org/api/test.html.
+   - Done when: retained single-flight behavior is explicitly regression-tested.
+8. [ ] Fix stale-registry risk by ensuring direct `detectCodexForHome` usage does not leave `getCodexDetection()` out-of-date across error and success paths.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
+   - Files: `server/src/providers/codexDetection.ts`, and any direct callsites under `server/src/agents/service.ts`, `server/src/flows/service.ts`, `server/src/chat/interfaces/ChatInterfaceCodex.ts` as needed by the selected fix approach.
+   - Do: apply one consistent fix approach (state update inside detection helper or callsite migration to registry-updating APIs) and preserve existing behavior expectations.
+   - Docs: https://nodejs.org/api/fs.html.
+   - Done when: shared registry freshness is deterministic for direct-home detection flows.
+9. [ ] Add/modify a dedicated server test file validating registry freshness for direct-home detection paths.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
+   - Files: `server/src/test/unit/codexConfig.test.ts` and/or `server/src/test/unit/codexConfig.device-auth.test.ts` (single targeted test-file update subtask for the chosen file).
+   - Do: assert registry state changes correctly when detection fails and succeeds through direct-home detection execution paths.
+   - Docs: Context7 `/jestjs/jest`.
+   - Done when: stale-registry regression is covered by deterministic unit assertions.
+10. [ ] Standardize the manual oversized body guard in `/codex/device-auth` to the current API error contract (`error: invalid_request`, with deterministic message) or remove the redundant guard if middleware coverage is sufficient and equivalent.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
+   - Files: `server/src/routes/codexDeviceAuth.ts`, `openapi.json` (if contract docs need adjustment).
+   - Do: eliminate any remaining legacy `payload too large` response shape mismatch.
+   - Docs: https://spec.openapis.org/oas/v3.0.3.html.
+   - Done when: all oversized-request paths for this endpoint conform to a single documented error shape.
+11. [ ] Add/modify a dedicated integration test file for oversized `/codex/device-auth` requests validating the standardized contract shape.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
+   - Files: `server/src/test/integration/codex.device-auth.test.ts`.
+   - Do: assert oversized payload responses are deterministic and match the standardized invalid-request contract.
+   - Docs: Context7 `/jestjs/jest`, https://nodejs.org/api/test.html.
+   - Done when: integration coverage proves no legacy oversized error payload shape remains.
+12. [ ] Add deterministic structured log line `[DEV-0000037][T25] event=post_review_findings_resolved result=success` at this task's primary success event, and add a matching negative-path assertion for `result=error` behavior.
+   - Junior context (duplicated intentionally): use this subtask's listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks. If this subtask adds/removes files, ensure the task's `projectStructure.md` update subtask records every added/removed path.
+   - Files: Task 25 validation helper/tests and this planning file.
+   - Do: emit exact T25 success/error markers when Task 25 remediation validation passes/fails.
+   - Docs: https://nodejs.org/api/console.html, Context7 `/jestjs/jest`.
+   - Done when: deterministic T25 log assertions exist for both success and intentional failure-path coverage.
+13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: execute Story 0000037 smoke verification focused on `/chat` and `/codex/device-auth` flows, ensure console contains `[DEV-0000037][T25] event=post_review_findings_resolved result=success`, contains no `[DEV-0000037][T25] ... result=error`, and has no unrelated console errors.
+9. [ ] `npm run compose:down`
+
+#### Implementation Notes
+
+- Pending.

@@ -19,7 +19,7 @@ On the ingest side, AI-facing behavior needs to be deterministic and simple. The
 
 Repository visibility during ingest is also incomplete. Repositories being ingested/re-embedded can disappear from both the Ingest page list and MCP repository listing while processing, which leads users and AIs to believe the repository does not exist. The desired behavior is to always include such repositories with a visible ingest status (for example `ingesting`) in both UI and MCP responses.
 
-Finally, re-embed no-op behavior and status semantics need tightening. If re-embed finds no files requiring embeddings, status currently lands as `skipped`; desired behavior is `completed`. Also, the “no files changed” decision should happen earlier so that no embedding work and no AST parsing/writing occurs when there are no changes, giving a fast early return.
+Finally, re-embed no-op behavior and status semantics need tightening. Successful ingest/re-ingest outcomes should always end in `completed`, including no-change and deletion-only paths. The “no files changed” decision should happen earlier so that no embedding work and no AST parsing/writing occurs when there are no changes, giving a fast early return.
 
 ### Acceptance Criteria
 
@@ -41,7 +41,7 @@ Finally, re-embed no-op behavior and status semantics need tightening. If re-emb
 - Canonical status model across UI, REST, and MCP uses coarse + detailed fields for active ingestion:
   - coarse top-level status `ingesting` for all in-progress runs;
   - detailed phase field exposing current phase (`queued`, `scanning`, `embedding`).
-- Re-embed runs with no files needing embedding are reported as `completed` (not `skipped`).
+- Any successful ingest/re-ingest request is reported as `completed` regardless of internal path taken (full embed, no-change early return, deletion-only delta path, or mixed delta path).
 - Re-embed flow performs file-change delta decision early; when no files changed, the run exits early and performs no embedding and no AST parsing/upsert/delete work.
 - UI and server tests are added/updated for all above behaviors, including MCP classic + MCP v2 parity coverage.
 - Documentation updates (README/design/projectStructure as needed) reflect new stop semantics, blocking MCP re-embed behavior, repository status visibility, and no-change early return behavior.
@@ -56,7 +56,7 @@ Finally, re-embed no-op behavior and status semantics need tightening. If re-emb
 
 ### Questions
 
-- If no files changed but files were deleted, should this still be considered `completed` with deletion summary, and should that summary be included in the final MCP blocking response?
+None. Open planning questions captured so far are resolved and this story is ready for task breakdown.
 
 ## Implementation Ideas
 
@@ -85,7 +85,7 @@ Finally, re-embed no-op behavior and status semantics need tightening. If re-emb
 - No-change early return and status semantics:
   - Move delta no-op decision to earliest safe point after file discovery/hash comparison.
   - Short-circuit before AST parse loop and embedding loop when no changed/added/deleted work exists.
-  - Set final state/result to `completed` for no-change re-embed outcomes and include clear message.
+  - Standardize terminal success semantics so successful runs always emit `completed` (including no-change and deletion-only outcomes), with concise summary text in final response payloads.
 
 - Testing:
   - Client RTL tests for Agents input/sidebar behavior during run.

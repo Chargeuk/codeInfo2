@@ -3207,7 +3207,7 @@ Re-run full Story 0000037 validation after Task 23 fixes to ensure all acceptanc
 ### 25. Post-code-review remediation: resolve accepted Copilot findings and re-validate story stability
 
 - Task Status: **__done__**
-- Git Commits: `pending`
+- Git Commits: `0160e1c`
 
 #### Overview
 
@@ -3332,3 +3332,4 @@ Implement follow-up fixes for accepted Copilot review findings after Task 24, in
 - 2026-03-01: Testing 7 complete. `npm run compose:up` succeeded and local stack services reached healthy startup.
 - 2026-03-01: Testing 8 complete. Manual Playwright-MCP smoke at `http://host.docker.internal:5001/chat` executed device-auth dialog flow (`Re-authenticate (device auth)` -> `Start device auth`) and captured screenshot `/tmp/playwright-output/playwright-output-local/task-25-device-auth-dialog.png`; console included `[DEV-0000037][T25] event=post_review_findings_resolved result=success`, included no T25 `result=error`, and `browser_console_messages(level=error)` returned empty.
 - 2026-03-01: Testing 9 complete. `npm run compose:down` stopped and removed local stack containers/network cleanly.
+- 2026-03-01: Recorded Task 25 implementation commit hash `0160e1c` in the task Git Commits field.

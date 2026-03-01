@@ -32,6 +32,7 @@ Finally, re-embed no-op behavior and status semantics need tightening. Successfu
 - Existing MCP keep-alive behavior is used so long-running blocking tool calls keep the connection alive until final completion response.
 - Blocking MCP re-embed final response includes terminal outcome semantics (success or terminal failure) and does not return `started` while work is still in progress.
 - Blocking MCP re-embed response payload contains final summary data only (no per-phase progress stream/snapshot payload in the final result contract).
+- Final blocking MCP terminal payload does not include a top-level `message` field; terminal meaning is carried by structured fields only.
 - When a blocking MCP re-embed wait is interrupted by user cancellation from the web GUI, MCP returns a normal terminal result payload with `status: cancelled` (not a JSON-RPC error contract).
 - MCP blocking re-embed does not support cancellation via MCP request parameters or MCP cancel contract extensions in this story.
 - Users can still observe active ingest/re-embed progress in the web GUI and can cancel from the existing web ingest controls while MCP callers continue waiting for terminal completion response.
@@ -58,7 +59,6 @@ Finally, re-embed no-op behavior and status semantics need tightening. Successfu
 ### Questions
 
 - For terminal statuses (`completed`, `cancelled`, `error`), should `phase` be omitted entirely or included as `null` for contract consistency?
-- Should the final top-level MCP terminal payload include a stable `message` field for AI-readable summary text, or should it rely only on structured terminal fields?
 
 ## Implementation Ideas
 
@@ -75,7 +75,7 @@ Finally, re-embed no-op behavior and status semantics need tightening. Successfu
   - Change reingest tool service contract from `started` to “wait-until-terminal”.
   - Keep keep-alive enabled during tool execution and finalize with one JSON-RPC response at terminal state.
   - Unify shared blocking implementation consumed by both `server/src/mcp/server.ts` and `server/src/mcp2/*` tool wiring.
-  - Keep final tool response contract summary-only and top-level terminal fields only, without per-phase progress payload sections or nested summary blocks.
+  - Keep final tool response contract summary-only and top-level terminal fields only, without per-phase progress payload sections, nested summary blocks, or a top-level `message` string.
   - On GUI-triggered cancel while MCP is waiting, return a normal terminal result payload with status cancelled instead of throwing a JSON-RPC error.
   - Do not add MCP-side cancel request fields or JSON-RPC cancel extensions for this story; cancellation remains a web GUI concern.
 
@@ -88,7 +88,7 @@ Finally, re-embed no-op behavior and status semantics need tightening. Successfu
 - No-change early return and status semantics:
   - Move delta no-op decision to earliest safe point after file discovery/hash comparison.
   - Short-circuit before AST parse loop and embedding loop when no changed/added/deleted work exists.
-  - Standardize terminal success semantics so successful runs always emit `completed` (including no-change and deletion-only outcomes), with concise summary text in final response payloads.
+  - Standardize terminal success semantics so successful runs always emit `completed` (including no-change and deletion-only outcomes) with structured terminal fields.
 
 - Testing:
   - Client RTL tests for Agents input/sidebar behavior during run.

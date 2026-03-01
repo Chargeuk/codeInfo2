@@ -1,8 +1,9 @@
 #!/usr/bin/env node
-// Purpose: run client tests with minimal terminal output while preserving full logs for debugging.
+// Purpose: reduce token usage by printing only a compact client test summary in the terminal.
 // Use: `npm run test:summary:client` from the repository root.
-// Behavior: executes the existing client workspace test command, writes full output to test-results/,
+// Behavior: executes the existing client workspace test command, writes full output to test-results/ for inspection,
 // and prints only total/passed/failed counts plus failing test names when present.
+// Why: this keeps routine AI-assisted runs low-noise while still preserving full logs when failures need diagnosis.
 
 import { spawn } from 'node:child_process';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';

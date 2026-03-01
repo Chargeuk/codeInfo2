@@ -1,9 +1,10 @@
 #!/usr/bin/env node
-// Purpose: run full e2e flow with minimal terminal output while preserving full logs for debugging.
+// Purpose: reduce token usage by printing only a compact e2e summary in the terminal.
 // Use: `npm run test:summary:e2e` from repository root.
 // Behavior: runs compose build/up, executes Playwright e2e tests with JSON reporter, always performs teardown,
 // and prints only total/passed/failed counts plus failing test names.
 // Logging: writes full output to logs/test-summaries/e2e-tests-latest.log on every run (overwrites previous run).
+// Why: this keeps routine AI-assisted runs low-noise while still preserving full logs when failures need diagnosis.
 
 import { spawn } from 'node:child_process';
 import { createWriteStream, mkdirSync } from 'node:fs';

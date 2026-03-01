@@ -3375,3 +3375,70 @@ Implement follow-up fixes for accepted Copilot review findings after Task 24, in
 - `/codex/device-auth` contract is single-shape (`{}` request) with deterministic `200/400/503` responses and legacy selector-field rejection behavior.
 - `/chat/models` codex payload includes `supportedReasoningEfforts` and `defaultReasoningEffort`; frontend consumes these capabilities dynamically and enforces deterministic fallback/reset behavior.
 - Non-destructive migration/file-safety rule for `codex_agents/*` remains satisfied (no delete/move/rename operations in branch delta).
+
+### 26. Frontend cleanup: remove unused `postCodexDeviceAuth` request parameter and align tests/callers
+
+- Task Status: **__todo__**
+- Git Commits: `pending`
+
+#### Overview
+
+Remove the now-unused `postCodexDeviceAuth` request argument from the client API surface so the function signature matches the strict empty-object server contract. Update all callers and tests to the new no-argument call shape while preserving current runtime behavior and error-contract validation coverage.
+
+#### Documentation Locations
+
+- Story plan acceptance criteria in this file.
+- OpenAPI 3.0.3 specification: https://spec.openapis.org/oas/v3.0.3.html (for endpoint contract-shape consistency).
+- TypeScript handbook: https://www.typescriptlang.org/docs/ (for public API signature updates).
+- Context7 `/jestjs/jest` (for deterministic client test updates and expectations).
+
+#### Subtasks
+
+1. [ ] Remove the unused request parameter from the exported client API signature for device auth.
+   - Junior context (duplicated intentionally): use this subtask’s listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks.
+   - Files: `client/src/api/codex.ts`.
+   - Do: change `postCodexDeviceAuth(_params: CodexDeviceAuthRequest = {})` to a zero-argument function and remove no-op unused-parameter handling.
+   - Docs: https://www.typescriptlang.org/docs/.
+   - Done when: public function signature no longer accepts an unused request argument.
+2. [ ] Update all production callers to use the no-argument `postCodexDeviceAuth()` invocation.
+   - Junior context (duplicated intentionally): use this subtask’s listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks.
+   - Files: all callsites discovered under `client/src/` for `postCodexDeviceAuth(` (including dialog/page flows).
+   - Do: replace `postCodexDeviceAuth({})` callsites with `postCodexDeviceAuth()` while preserving existing UX and logging behavior.
+   - Docs: https://react.dev/reference/react.
+   - Done when: no runtime caller passes an empty object argument.
+3. [ ] Update tests for the new zero-argument API contract in a dedicated test-focused subtask.
+   - Junior context (duplicated intentionally): use this subtask’s listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks.
+   - Files: `client/src/test/codexDeviceAuthApi.test.ts` plus any direct callsite tests that invoke `postCodexDeviceAuth({})`.
+   - Do: update all invocations/expectations to `postCodexDeviceAuth()` and keep strict `{}` request-serialization assertions intact.
+   - Docs: Context7 `/jestjs/jest`.
+   - Done when: tests validate unchanged request/response behavior with the new no-argument function signature.
+4. [ ] Add deterministic Task 26 validation logs for success/error path assertions in dedicated test coverage.
+   - Junior context (duplicated intentionally): use this subtask’s listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks.
+   - Files: task-specific client test file(s) and this planning file.
+   - Do: add and assert exact markers:
+     - success: `[DEV-0000037][T26] event=codex_device_auth_api_signature_aligned result=success`
+     - error: `[DEV-0000037][T26] event=codex_device_auth_api_signature_aligned result=error`
+   - Docs: https://nodejs.org/api/console.html, Context7 `/jestjs/jest`.
+   - Done when: deterministic T26 success/error log assertions are covered by tests.
+5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run available fix scripts and resolve remaining issues.
+   - Junior context (duplicated intentionally): use this subtask’s listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks.
+   - Files: changed client/api/test files and any formatting/lint fallout.
+   - Do: ensure no new lint or formatting regressions are introduced.
+   - Docs: Context7 `/jestjs/jest`, https://www.typescriptlang.org/docs/.
+   - Done when: lint/format checks pass with no new errors.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [ ] `npm run compose:build`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: verify `/chat` device-auth flow still works with no-argument API usage, console contains `[DEV-0000037][T26] event=codex_device_auth_api_signature_aligned result=success`, contains no `[DEV-0000037][T26] ... result=error`, and has no unrelated console errors.
+9. [ ] `npm run compose:down`
+
+#### Implementation Notes
+
+- Pending.

@@ -1112,7 +1112,7 @@ test('T18 cross-surface precedence parity preserves shared inheritance + agent o
   }
 });
 
-test('T18 unknown-key policy is warning+ignore across REST, flow, and MCP surfaces', async () => {
+test('T18 unknown-key policy is warning+pass-through for top-level keys across REST, flow, and MCP surfaces', async () => {
   const previousAgentsHome = process.env.CODEINFO_CODEX_AGENT_HOME;
   const previousCodexHome = process.env.CODEINFO_CODEX_HOME;
   const previousFlowsDir = process.env.FLOWS_DIR;
@@ -1234,7 +1234,11 @@ test('T18 unknown-key policy is warning+ignore across REST, flow, and MCP surfac
     const baselineRuntimeConfig = toRuntimeConfigSnapshot(
       restFlags.at(-1) as Record<string, unknown>,
     );
-    assert.equal('top_level_unknown' in baselineRuntimeConfig, false);
+    assert.equal(
+      (baselineRuntimeConfig.top_level_unknown as string | undefined) ??
+        undefined,
+      'ignored',
+    );
     assert.equal(
       'unknown_feature_flag' in
         ((baselineRuntimeConfig.features as Record<string, unknown>) ?? {}),

@@ -384,6 +384,7 @@ export function validateRuntimeConfig(
     }
 
     pushUnknownWarning(warnings, pathLabel, key);
+    sanitized[key] = value;
   }
 
   return { config: normalizeRuntimeConfig(sanitized), warnings };

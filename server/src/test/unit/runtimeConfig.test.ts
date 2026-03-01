@@ -425,6 +425,40 @@ describe('runtimeConfig merge and validation', () => {
     assert.equal(result.warnings.length, 2);
   });
 
+  it('warns and preserves unknown nested keys while keeping known key validation', () => {
+    const result = validateRuntimeConfig({
+      model: 'gpt-5.3-codex',
+      tools: {
+        view_image: true,
+        unknown_tool_field: { nested: true },
+      },
+      features: {
+        unknown_feature_flag: true,
+      },
+      projects: {
+        '/data': {
+          trust_level: 'trusted',
+          project_unknown: 'preserved',
+        },
+      },
+    });
+
+    assert.deepEqual(result.config.tools, {
+      view_image: true,
+      unknown_tool_field: { nested: true },
+    });
+    assert.deepEqual(result.config.features, {
+      unknown_feature_flag: true,
+    });
+    assert.deepEqual(result.config.projects, {
+      '/data': {
+        trust_level: 'trusted',
+        project_unknown: 'preserved',
+      },
+    });
+    assert.equal(result.warnings.length, 3);
+  });
+
   it('warns and ignores misplaced cli_auth_credentials_store under project path', () => {
     const result = validateRuntimeConfig({
       model: 'gpt-5.3-codex',

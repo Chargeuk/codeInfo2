@@ -1,5 +1,4 @@
 import type {
-  CodexDeviceAuthRequest,
   CodexDeviceAuthResponse as SharedCodexDeviceAuthResponse,
   CodexDeviceAuthSuccessResponse,
 } from '@codeinfo2/common';
@@ -74,6 +73,10 @@ const T14_SUCCESS_LOG =
   '[DEV-0000037][T14] event=client_device_auth_contract_consumed result=success';
 const T14_ERROR_LOG =
   '[DEV-0000037][T14] event=client_device_auth_contract_consumed result=error';
+const T26_SUCCESS_LOG =
+  '[DEV-0000037][T26] event=codex_device_auth_api_signature_aligned result=success';
+const T26_ERROR_LOG =
+  '[DEV-0000037][T26] event=codex_device_auth_api_signature_aligned result=error';
 
 async function throwCodexDeviceAuthError(
   res: Response,
@@ -93,6 +96,10 @@ async function throwCodexDeviceAuthError(
     status: res.status,
     error: parsed.error ?? parsed.reason ?? parsed.message ?? baseMessage,
   });
+  log('error', T26_ERROR_LOG, {
+    status: res.status,
+    error: parsed.error ?? parsed.reason ?? parsed.message ?? baseMessage,
+  });
 
   throw new CodexDeviceAuthApiError({
     status: res.status,
@@ -101,10 +108,7 @@ async function throwCodexDeviceAuthError(
   });
 }
 
-export async function postCodexDeviceAuth(
-  _params: CodexDeviceAuthRequest = {},
-): Promise<CodexDeviceAuthResponse> {
-  void _params;
+export async function postCodexDeviceAuth(): Promise<CodexDeviceAuthResponse> {
   log('info', 'DEV-0000031:T5:codex_device_auth_api_request', {});
 
   const res = await fetch(
@@ -140,10 +144,18 @@ export async function postCodexDeviceAuth(
       status: res.status,
       error: 'invalid_success_response_shape',
     });
+    log('error', T26_ERROR_LOG, {
+      status: res.status,
+      error: 'invalid_success_response_shape',
+    });
     throw new Error('Invalid codex device auth response');
   }
 
   log('info', T14_SUCCESS_LOG, {
+    status: res.status,
+    responseStatus: status,
+  });
+  log('info', T26_SUCCESS_LOG, {
     status: res.status,
     responseStatus: status,
   });

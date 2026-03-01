@@ -3378,7 +3378,7 @@ Implement follow-up fixes for accepted Copilot review findings after Task 24, in
 
 ### 26. Frontend cleanup: remove unused `postCodexDeviceAuth` request parameter and align tests/callers
 
-- Task Status: **__todo__**
+- Task Status: **__done__**
 - Git Commits: `pending`
 
 #### Overview
@@ -3394,25 +3394,25 @@ Remove the now-unused `postCodexDeviceAuth` request argument from the client API
 
 #### Subtasks
 
-1. [ ] Remove the unused request parameter from the exported client API signature for device auth.
+1. [x] Remove the unused request parameter from the exported client API signature for device auth.
    - Junior context (duplicated intentionally): use this subtask’s listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks.
    - Files: `client/src/api/codex.ts`.
    - Do: change `postCodexDeviceAuth(_params: CodexDeviceAuthRequest = {})` to a zero-argument function and remove no-op unused-parameter handling.
    - Docs: https://www.typescriptlang.org/docs/.
    - Done when: public function signature no longer accepts an unused request argument.
-2. [ ] Update all production callers to use the no-argument `postCodexDeviceAuth()` invocation.
+2. [x] Update all production callers to use the no-argument `postCodexDeviceAuth()` invocation.
    - Junior context (duplicated intentionally): use this subtask’s listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks.
    - Files: all callsites discovered under `client/src/` for `postCodexDeviceAuth(` (including dialog/page flows).
    - Do: replace `postCodexDeviceAuth({})` callsites with `postCodexDeviceAuth()` while preserving existing UX and logging behavior.
    - Docs: https://react.dev/reference/react.
    - Done when: no runtime caller passes an empty object argument.
-3. [ ] Update tests for the new zero-argument API contract in a dedicated test-focused subtask.
+3. [x] Update tests for the new zero-argument API contract in a dedicated test-focused subtask.
    - Junior context (duplicated intentionally): use this subtask’s listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks.
    - Files: `client/src/test/codexDeviceAuthApi.test.ts` plus any direct callsite tests that invoke `postCodexDeviceAuth({})`.
    - Do: update all invocations/expectations to `postCodexDeviceAuth()` and keep strict `{}` request-serialization assertions intact.
    - Docs: Context7 `/jestjs/jest`.
    - Done when: tests validate unchanged request/response behavior with the new no-argument function signature.
-4. [ ] Add deterministic Task 26 validation logs for success/error path assertions in dedicated test coverage.
+4. [x] Add deterministic Task 26 validation logs for success/error path assertions in dedicated test coverage.
    - Junior context (duplicated intentionally): use this subtask’s listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks.
    - Files: task-specific client test file(s) and this planning file.
    - Do: add and assert exact markers:
@@ -3420,7 +3420,7 @@ Remove the now-unused `postCodexDeviceAuth` request argument from the client API
      - error: `[DEV-0000037][T26] event=codex_device_auth_api_signature_aligned result=error`
    - Docs: https://nodejs.org/api/console.html, Context7 `/jestjs/jest`.
    - Done when: deterministic T26 success/error log assertions are covered by tests.
-5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run available fix scripts and resolve remaining issues.
+5. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, run available fix scripts and resolve remaining issues.
    - Junior context (duplicated intentionally): use this subtask’s listed files, test locations, and docs links as the required source of truth; do not assume context from other subtasks.
    - Files: changed client/api/test files and any formatting/lint fallout.
    - Do: ensure no new lint or formatting regressions are introduced.
@@ -3429,16 +3429,29 @@ Remove the now-unused `postCodexDeviceAuth` request argument from the client API
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
-6. [ ] `npm run compose:build`
-7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`: verify `/chat` device-auth flow still works with no-argument API usage, console contains `[DEV-0000037][T26] event=codex_device_auth_api_signature_aligned result=success`, contains no `[DEV-0000037][T26] ... result=error`, and has no unrelated console errors.
-9. [ ] `npm run compose:down`
+1. [x] `npm run build --workspace server`
+2. [x] `npm run build --workspace client`
+3. [x] `npm run test --workspace server`
+4. [x] `npm run test --workspace client`
+5. [x] `npm run e2e` (allow up to 7 minutes; e.g., `timeout 7m` or set `timeout_ms=420000` in the harness)
+6. [x] `npm run compose:build`
+7. [x] `npm run compose:up`
+8. [x] Manual Playwright-MCP check at `http://host.docker.internal:5001`: verify `/chat` device-auth flow still works with no-argument API usage, console contains `[DEV-0000037][T26] event=codex_device_auth_api_signature_aligned result=success`, contains no `[DEV-0000037][T26] ... result=error`, and has no unrelated console errors.
+9. [x] `npm run compose:down`
 
 #### Implementation Notes
 
-- Pending.
+- 2026-03-01: Subtask 1 complete. Updated `client/src/api/codex.ts` `postCodexDeviceAuth` signature to zero arguments and removed the unused no-op parameter handling.
+- 2026-03-01: Subtask 2 complete. Verified with `rg -n "postCodexDeviceAuth\\(" client/src -S` that no production callsites pass `{}`; only task-specific test invocations remained for update.
+- 2026-03-01: Subtask 3 complete. Updated `client/src/test/codexDeviceAuthApi.test.ts` to invoke `postCodexDeviceAuth()` with zero arguments while retaining strict `{}` request-body serialization assertions.
+- 2026-03-01: Subtask 4 complete. Added deterministic Task 26 log assertions in client API tests for both success (`result=success`) and error (`result=error`) paths.
+- 2026-03-01: Subtask 5 complete. Ran `npm run lint --workspaces` (pass with existing baseline server import-order warnings only, no new errors) and `npm run format:check --workspaces` (all workspaces matched Prettier).
+- 2026-03-01: Testing 1 complete. `npm run build --workspace server` succeeded (`tsc -b`).
+- 2026-03-01: Testing 2 complete. `npm run build --workspace client` succeeded (`vite build`).
+- 2026-03-01: Testing 3 complete. `npm run test --workspace server` passed (unit summary: `tests 850, pass 850`; cucumber integration summary: `67 scenarios, 402 steps, all passed`).
+- 2026-03-01: Testing 4 complete. `npm run test --workspace client` passed (`Test Suites: 93 passed`, `Tests: 387 passed`); existing test-runtime console noise remained non-blocking.
+- 2026-03-01: Testing 5 complete. `timeout 420s npm run e2e` passed (`39 passed`, `3 skipped`) and completed compose e2e up/test/down lifecycle.
+- 2026-03-01: Testing 6 complete. `npm run compose:build` succeeded and rebuilt local stack images (`codeinfo2-server`, `codeinfo2-client`).
+- 2026-03-01: Testing 7 complete. `npm run compose:up` succeeded and local stack services reached healthy startup.
+- 2026-03-01: Testing 8 complete. Manual Playwright-MCP check at `http://host.docker.internal:5001/chat` executed `Re-authenticate (device auth)` -> `Start device auth`; browser console contained `[DEV-0000037][T26] event=codex_device_auth_api_signature_aligned result=success`, contained no T26 `result=error`, and `browser_console_messages(level=error)` returned empty.
+- 2026-03-01: Testing 9 complete. `npm run compose:down` stopped and removed local stack containers/network cleanly.

@@ -30,7 +30,7 @@ describe('Codex device-auth API helper', () => {
       }),
     } as unknown as Response);
 
-    await postCodexDeviceAuth({});
+    await postCodexDeviceAuth();
 
     expect(mockFetch).toHaveBeenCalledTimes(1);
     expect(mockFetch).toHaveBeenCalledWith(
@@ -53,7 +53,7 @@ describe('Codex device-auth API helper', () => {
       }),
     } as unknown as Response);
 
-    await expect(postCodexDeviceAuth({})).resolves.toEqual({
+    await expect(postCodexDeviceAuth()).resolves.toEqual({
       status: 'ok',
       rawOutput: 'Open https://example.com/device and enter code ABCD-EFGH.',
     });
@@ -70,7 +70,7 @@ describe('Codex device-auth API helper', () => {
       }),
     } as unknown as Response);
 
-    await expect(postCodexDeviceAuth({})).rejects.toMatchObject({
+    await expect(postCodexDeviceAuth()).rejects.toMatchObject({
       status: 400,
       message: 'request body must be an empty JSON object',
       error: 'invalid_request',
@@ -88,7 +88,7 @@ describe('Codex device-auth API helper', () => {
       }),
     } as unknown as Response);
 
-    await expect(postCodexDeviceAuth({})).rejects.toMatchObject({
+    await expect(postCodexDeviceAuth()).rejects.toMatchObject({
       status: 503,
       message: 'codex missing',
       error: 'codex_unavailable',
@@ -105,11 +105,19 @@ describe('Codex device-auth API helper', () => {
       }),
     } as unknown as Response);
 
-    await postCodexDeviceAuth({});
+    await postCodexDeviceAuth();
 
     expect(logSpy).toHaveBeenCalledWith(
       'info',
       '[DEV-0000037][T14] event=client_device_auth_contract_consumed result=success',
+      expect.objectContaining({
+        status: 200,
+        responseStatus: 'ok',
+      }),
+    );
+    expect(logSpy).toHaveBeenCalledWith(
+      'info',
+      '[DEV-0000037][T26] event=codex_device_auth_api_signature_aligned result=success',
       expect.objectContaining({
         status: 200,
         responseStatus: 'ok',
@@ -128,11 +136,19 @@ describe('Codex device-auth API helper', () => {
       }),
     } as unknown as Response);
 
-    await expect(postCodexDeviceAuth({})).rejects.toBeDefined();
+    await expect(postCodexDeviceAuth()).rejects.toBeDefined();
 
     expect(logSpy).toHaveBeenCalledWith(
       'error',
       '[DEV-0000037][T14] event=client_device_auth_contract_consumed result=error',
+      expect.objectContaining({
+        status: 400,
+        error: 'invalid_request',
+      }),
+    );
+    expect(logSpy).toHaveBeenCalledWith(
+      'error',
+      '[DEV-0000037][T26] event=codex_device_auth_api_signature_aligned result=error',
       expect.objectContaining({
         status: 400,
         error: 'invalid_request',

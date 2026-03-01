@@ -3379,7 +3379,7 @@ Implement follow-up fixes for accepted Copilot review findings after Task 24, in
 ### 26. Frontend cleanup: remove unused `postCodexDeviceAuth` request parameter and align tests/callers
 
 - Task Status: **__done__**
-- Git Commits: `pending`
+- Git Commits: `04aabf0`
 
 #### Overview
 
@@ -3455,3 +3455,4 @@ Remove the now-unused `postCodexDeviceAuth` request argument from the client API
 - 2026-03-01: Testing 7 complete. `npm run compose:up` succeeded and local stack services reached healthy startup.
 - 2026-03-01: Testing 8 complete. Manual Playwright-MCP check at `http://host.docker.internal:5001/chat` executed `Re-authenticate (device auth)` -> `Start device auth`; browser console contained `[DEV-0000037][T26] event=codex_device_auth_api_signature_aligned result=success`, contained no T26 `result=error`, and `browser_console_messages(level=error)` returned empty.
 - 2026-03-01: Testing 9 complete. `npm run compose:down` stopped and removed local stack containers/network cleanly.
+- 2026-03-01: Recorded Task 26 implementation commit hash `04aabf0` in the task Git Commits field.

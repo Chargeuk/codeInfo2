@@ -192,6 +192,76 @@ Validated using repository analysis (`code_info`) plus protocol cross-checks (`d
 - This story does not add a new MCP v2 repository-listing tool; repository-listing contract changes apply to REST `/ingest/roots` and MCP classic `ListIngestedRepositories`.
 - Keep-alive and terminal payload semantics must remain aligned with MCP transport behavior (long wait with heartbeats, single terminal tool result).
 
+## Edge Cases and Failure Modes
+
+Validated from existing code behavior and tests (2026-03-02) using `code_info`, `deepwiki`, and `context7`.
+
+### Agents Stop and Command Runs
+
+1. Stop clicked before inflight id is known:
+   - Failure mode: WS `cancel_inflight` may not be sent yet, so inflight cancellation lookup cannot drive stop.
+   - Required handling: command abort is still attempted by `conversationId`; no new command steps/retries start after stop request time.
+2. Stop clicked with stale or wrong inflight id:
+   - Failure mode: server emits `INFLIGHT_NOT_FOUND` for the chat inflight path.
+   - Required handling: keep the inflight error behavior, but do not skip command abort for that conversation.
+3. Duplicate stop requests:
+   - Failure mode: multiple stop signals for same run/conversation.
+   - Required handling: stop path is idempotent; no extra command execution is resumed by repeated stop calls.
+4. Conversation switch during active run:
+   - Failure mode: user changes sidebar selection while prior conversation is still running.
+   - Required handling: switch is allowed; prior run state continues independently; input text for active draft remains stable in the selected conversation context.
+
+### Blocking `reingest_repository` (Classic + MCP2)
+
+1. Invalid input / unknown root / ingest lock busy before run starts:
+   - Failure mode: request cannot start.
+   - Required handling: return existing JSON-RPC protocol errors (`INVALID_PARAMS`, `NOT_FOUND`, `BUSY`) and do not emit terminal payload contract.
+2. GUI cancel while MCP call is waiting:
+   - Failure mode: run is cancelled out-of-band from MCP request.
+   - Required handling: MCP completes with normal terminal result payload `status: cancelled` (not JSON-RPC error).
+3. Client disconnect during blocking wait:
+   - Failure mode: keepalive write fails or response closes mid-wait.
+   - Required handling: server stops keepalive safely; no process crash; ingest run state itself remains governed by ingest subsystem.
+4. Terminal state reached with partial progress counters:
+   - Failure mode: cancel/error may not have full final counters.
+   - Required handling: return last-known counters in `files/chunks/embedded`; preserve required top-level fields.
+5. Parity drift between classic and mcp2:
+   - Failure mode: one surface emits new contract while the other emits old `started`.
+   - Required handling: both surfaces emit the same terminal `reingest_repository` result semantics in this story.
+
+### Ingest Listing Overlay and Status/Phase Mapping
+
+1. Active runtime status exists but persisted root metadata is missing:
+   - Failure mode: repository disappears from listing during active ingest/re-embed.
+   - Required handling: synthesize listing entry with identity + active run-state fields so repository remains visible.
+2. Persisted state contains legacy/internal `skipped`:
+   - Failure mode: external clients see mixed success semantics (`completed` vs `skipped`).
+   - Required handling: normalize externally to `status: completed`.
+3. Phase leakage for terminal statuses:
+   - Failure mode: `phase` present with `completed/cancelled/error`.
+   - Required handling: omit `phase` entirely for terminal statuses.
+4. Host path mapping cannot fully resolve:
+   - Failure mode: incomplete host path mapping in listings.
+   - Required handling: keep entry visible and include warning field where supported rather than dropping the repo entry.
+5. Schema migration mismatch:
+   - Failure mode: payload shape changes without schemaVersion signal.
+   - Required handling: both `/ingest/roots` and MCP classic listing emit `schemaVersion: "0000038-status-phase-v1"` once changes are active.
+
+### No-Change Early Return and Pipeline Behavior
+
+1. Delta re-embed with zero changed/added/deleted files:
+   - Failure mode: unnecessary AST parse/write and embedding still run.
+   - Required handling: return early before AST parse/write and before embedding work.
+2. Deletion-only delta path:
+   - Failure mode: deletion cleanup is treated as non-terminal or inconsistent success state.
+   - Required handling: successful deletion-only path resolves to external `completed` with deterministic terminal payload fields.
+3. Cancellation arrives near early-return boundary:
+   - Failure mode: race between early terminal success and cancellation signal.
+   - Required handling: exactly one terminal outcome is emitted for the run; no duplicate/contradictory terminal states.
+4. Existing AST parse failures in non-no-change paths:
+   - Failure mode: story work accidentally broadens AST error handling scope.
+   - Required handling: keep current AST failure handling semantics unchanged except where no-change early return bypasses AST work entirely.
+
 ## Contract Example (Terminal MCP Re-embed Result)
 
 ```json

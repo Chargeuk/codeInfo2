@@ -9,12 +9,12 @@
     {
       "type": "message",
       "role": "user",
-      "content": ["Does the next story to work on contain tasks? If not, please create tasks for this story, ensuring that each task only implements one thing that can be tested. Server changes to messages should be tasked separately and prior to the front end changes that rely on them unless changing the server will break the front end. Ensure that each task is detailed enough for a junior developer to work through without the input of a senior. Base the formatting, detail and structure of the tasks on previous story tasks. If it is already tasked up, then just state this, and give an overview of the tasks. Do not provide options, just make the best changes you feel would be best.Commit after making any changes."]
+      "content": ["Does the next story to work on contain tasks? If not, please create tasks for this story, ensuring that each task only implements one thing that can be tested. Server changes to messages should be tasked separately and prior to the front end changes that rely on them unless changing the server will break the front end. Ensure that each task is detailed enough for a junior developer to work through without the input of a senior. Base the formatting, detail and structure of the tasks on `planning/plan_format.md`. If it is already tasked up, then just state this, and give an overview of the tasks. Do not provide options, just make the best changes you feel would be best. Commit after making any changes."]
     },
     {
       "type": "message",
       "role": "user",
-      "content": ["Does the tasking up reflect all the work required to be implemented as part of this story's requirements and details or are there parts missing? If there are parts missing, please add them as new tasks or subtasks as required. Do not provide options, just make the best changes you feel would be best.Commit after making any changes."]
+      "content": ["Does the tasking up reflect all the work required to be implemented as part of this story's requirements and details or are there parts missing? If there are parts missing, please add them as new tasks or subtasks as required. Do not provide options, just make the best changes you feel would be best. Commit after making any changes."]
     },
     {
       "type": "message",
@@ -124,7 +124,7 @@
     {
       "type": "message",
       "role": "user",
-      "content": ["The testing steps for each task should contain all, or a subset, of the following items based on what changed. Do not add testing steps for specific tests; always run full app-level suites via the summary wrappers to avoid unnecessary token usage. The testing step numbers should be updated based on the steps actually used within the plan:",
+      "content": ["The testing steps for each task should contain all, or a subset, of the following items based on what changed. Do not add testing steps for specific tests; always run full app-level suites via the summary wrappers to avoid unnecessary token usage. Ensure the testing instructions state to not attempt to run tests without using the wrapper. The testing step numbers should be updated based on the steps actually used within the plan:",
         "1. [ ] `npm run build:summary:server` - Use when server/common code may be affected. Mandatory for final regression checks unless the task is strictly front end. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.",
         "2. [ ] `npm run build:summary:client` - Use when client/common code may be affected. Mandatory for final regression checks unless the task is strictly back end. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.",
         "3. [ ] `npm run test:summary:server` - Use when server/common behavior may be affected. Mandatory for final regression checks unless the task is strictly front end. If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/server-tests-*.log`) and resolve listed failures.",

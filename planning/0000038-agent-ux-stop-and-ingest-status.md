@@ -568,7 +568,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 ### 2. Frontend: make Agents stop send `cancel_inflight` by conversation even when `inflightId` is unknown
 
 - Task Status: **__done__**
-- Git Commits: `None yet`
+- Git Commits: `12e1781`
 
 #### Overview
 

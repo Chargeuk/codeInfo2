@@ -499,6 +499,13 @@ Update WebSocket cancel message handling so command-run abort is always attempte
    - Docs: https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API | https://github.com/websockets/ws | https://nodejs.org/api/events.html | https://jestjs.io/docs/expect
    - Acceptance criteria focus: AC3, AC4, AC23.
    - Files to read/edit: `server/src/ws/types.ts`, `server/src/ws/server.ts`, `server/src/test/unit/ws-*.test.ts`, `server/src/test/unit/agents-commands*.test.ts`, `server/src/test/unit/ws-chat-stream.test.ts`
+13. [ ] If this task adds or removes files, update `projectStructure.md` after finishing those file changes.
+   - Starter snippet (adapt names to exact existing symbols): `Add entries for any new/removed files introduced by Task 1, grouped under server WS and server test directories.`
+   - Verification command after this subtask: `npm run format:check --workspaces`
+   - Dependency note: execute this after all file add/remove subtasks in Task 1 and before moving to the next task.
+   - Docs: https://www.markdownguide.org/basic-syntax/
+   - Acceptance criteria focus: AC22 documentation completeness.
+   - Files to read/edit: `projectStructure.md`, `server/src/ws/*`, `server/src/test/unit/*`
 
 #### Testing
 
@@ -623,6 +630,13 @@ Consume Task 1’s server message-contract update in the Agents UI so Stop alway
    - Docs: https://react.dev/reference/react/useCallback | https://llms.mui.com/material-ui/6.4.12/llms.txt | https://testing-library.com/docs/react-testing-library/intro
    - Acceptance criteria focus: AC3, AC4, AC23.
    - Files to read/edit: `client/src/hooks/useChatWs.ts`, `client/src/pages/AgentsPage.tsx`, `client/src/test/agentsPage.commandsRun.abort.test.tsx`, `client/src/test/chatPage.stop.test.tsx`, `client/src/test/flowsPage.stop.test.tsx`, `client/src/test/useChatWs*.test.ts`
+10. [ ] If this task adds or removes files, update `projectStructure.md` after finishing those file changes.
+   - Starter snippet (adapt names to exact existing symbols): `Add entries for any new/removed files introduced by Task 2 under client hooks/pages/tests.`
+   - Verification command after this subtask: `npm run format:check --workspaces`
+   - Dependency note: execute this after all file add/remove subtasks in Task 2 and before moving to the next task.
+   - Docs: https://www.markdownguide.org/basic-syntax/
+   - Acceptance criteria focus: AC22 documentation completeness.
+   - Files to read/edit: `projectStructure.md`, `client/src/hooks/*`, `client/src/pages/*`, `client/src/test/*`
 
 #### Testing
 
@@ -733,6 +747,13 @@ Limit active-run UI restrictions to submit/execute controls only. Keep instructi
    - Docs: https://react.dev/learn/conditional-rendering | https://llms.mui.com/material-ui/6.4.12/llms.txt | https://reactrouter.com/ | https://www.w3.org/WAI/ARIA/apg/
    - Acceptance criteria focus: AC1, AC2.
    - Files to read/edit: `client/src/pages/AgentsPage.tsx`, `client/src/components/chat/ConversationList.tsx`, `client/src/test/agentsPage*.test.tsx`
+9. [ ] If this task adds or removes files, update `projectStructure.md` after finishing those file changes.
+   - Starter snippet (adapt names to exact existing symbols): `Add entries for any new/removed files introduced by Task 3 under client pages/components/tests.`
+   - Verification command after this subtask: `npm run format:check --workspaces`
+   - Dependency note: execute this after all file add/remove subtasks in Task 3 and before moving to the next task.
+   - Docs: https://www.markdownguide.org/basic-syntax/
+   - Acceptance criteria focus: AC22 documentation completeness.
+   - Files to read/edit: `projectStructure.md`, `client/src/pages/*`, `client/src/components/*`, `client/src/test/*`
 
 #### Testing
 
@@ -990,6 +1011,13 @@ Replace immediate `status: started` reingest results with one terminal payload r
    - Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/ | https://www.jsonrpc.org/specification | https://expressjs.com/en/guide/migrating-5.html
    - Acceptance criteria focus: AC5, AC6, AC7, AC8, AC9, AC10, AC18, AC19, AC20, AC24.
    - Files to read/edit: `server/src/ingest/reingestService.ts`, `server/src/ingest/ingestJob.ts`, `server/src/mcp/server.ts`, `server/src/mcp2/tools/reingestRepository.ts`, `server/src/mcp2/router.ts`, `server/src/mcpCommon/keepAlive.ts`, `server/src/test/unit/reingestService.test.ts`, `server/src/test/unit/mcp-*.test.ts`, `server/src/test/unit/reingest*.test.ts`, `server/src/test/unit/mcp.keepalive.helper.test.ts`, `server/src/test/unit/mcp2-router-*.test.ts`, `server/src/test/unit/mcp.reingest.classic.test.ts`
+24. [ ] If this task adds or removes files, update `projectStructure.md` after finishing those file changes.
+   - Starter snippet (adapt names to exact existing symbols): `Add entries for any new/removed files introduced by Task 4 across server ingest, MCP, and server test suites.`
+   - Verification command after this subtask: `npm run format:check --workspaces`
+   - Dependency note: execute this after all file add/remove subtasks in Task 4 and before moving to the next task.
+   - Docs: https://www.markdownguide.org/basic-syntax/
+   - Acceptance criteria focus: AC22 documentation completeness.
+   - Files to read/edit: `projectStructure.md`, `server/src/ingest/*`, `server/src/mcp/*`, `server/src/mcp2/*`, `server/src/test/unit/*`
 
 #### Testing
 
@@ -1222,6 +1250,13 @@ Apply one shared status/phase mapping and active-overlay merge path for `/ingest
    - Docs: https://json-schema.org/understanding-json-schema/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
    - Acceptance criteria focus: AC11, AC12, AC13, AC14, AC15, AC25, AC26, AC27, AC28.
    - Files to read/edit: `server/src/lmstudio/toolService.ts`, `server/src/routes/ingestRoots.ts`, `server/src/routes/toolsIngestedRepos.ts`, `server/src/mcp/server.ts`, `server/src/ingest/ingestJob.ts`, `server/src/test/unit/tools-ingested-repos*.test.ts`, `server/src/test/unit/ingest-roots*.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`
+22. [ ] If this task adds or removes files, update `projectStructure.md` after finishing those file changes.
+   - Starter snippet (adapt names to exact existing symbols): `Add entries for any new/removed files introduced by Task 5 in server listing routes/services and ingest listing test suites.`
+   - Verification command after this subtask: `npm run format:check --workspaces`
+   - Dependency note: execute this after all file add/remove subtasks in Task 5 and before moving to the next task.
+   - Docs: https://www.markdownguide.org/basic-syntax/
+   - Acceptance criteria focus: AC22 documentation completeness.
+   - Files to read/edit: `projectStructure.md`, `server/src/lmstudio/*`, `server/src/routes/*`, `server/src/mcp/*`, `server/src/test/unit/*`
 
 #### Testing
 
@@ -1352,6 +1387,13 @@ Ensure no-change delta runs exit before AST parse/upsert/delete and before embed
    - Docs: https://tree-sitter.github.io/tree-sitter/ | https://github.com/tree-sitter/tree-sitter-typescript | https://nodejs.org/en/learn/asynchronous-work/dont-block-the-event-loop | https://mongoosejs.com/docs/ | https://jestjs.io/docs/getting-started
    - Acceptance criteria focus: AC16, AC17.
    - Files to read/edit: `server/src/ingest/ingestJob.ts`, `server/src/ingest/reingestService.ts`, `server/src/test/unit/ingest-ast-indexing.test.ts`, `server/src/test/unit/reingest*.test.ts`, `server/src/test/features/ingest-delta-reembed.feature`, `server/src/test/steps/ingest-delta-reembed.steps.ts`
+11. [ ] If this task adds or removes files, update `projectStructure.md` after finishing those file changes.
+   - Starter snippet (adapt names to exact existing symbols): `Add entries for any new/removed files introduced by Task 6 in ingest pipeline and BDD/unit test paths.`
+   - Verification command after this subtask: `npm run format:check --workspaces`
+   - Dependency note: execute this after all file add/remove subtasks in Task 6 and before moving to the next task.
+   - Docs: https://www.markdownguide.org/basic-syntax/
+   - Acceptance criteria focus: AC22 documentation completeness.
+   - Files to read/edit: `projectStructure.md`, `server/src/ingest/*`, `server/src/test/unit/*`, `server/src/test/features/*`, `server/src/test/steps/*`
 
 #### Testing
 
@@ -1501,6 +1543,13 @@ Align Ingest page data normalization/rendering with server contract updates so a
    - Docs: https://react.dev/learn/synchronizing-with-effects | https://llms.mui.com/material-ui/6.4.12/llms.txt | https://www.typescriptlang.org/docs/handbook/2/narrowing.html | https://www.typescriptlang.org/docs/handbook/release-notes/typescript-5-9.html
    - Acceptance criteria focus: AC11, AC12, AC14, AC15, AC25, AC28.
    - Files to read/edit: `common/src/lmstudio.ts`, `client/src/hooks/useIngestRoots.ts`, `client/src/components/ingest/RootsTable.tsx`, `client/src/components/ingest/ActiveRunCard.tsx`, `client/src/pages/IngestPage.tsx`, `client/src/test/ingest*.test.tsx`
+13. [ ] If this task adds or removes files, update `projectStructure.md` after finishing those file changes.
+   - Starter snippet (adapt names to exact existing symbols): `Add entries for any new/removed files introduced by Task 7 in common/client ingest hooks, components, pages, and tests.`
+   - Verification command after this subtask: `npm run format:check --workspaces`
+   - Dependency note: execute this after all file add/remove subtasks in Task 7 and before moving to the next task.
+   - Docs: https://www.markdownguide.org/basic-syntax/
+   - Acceptance criteria focus: AC22 documentation completeness.
+   - Files to read/edit: `projectStructure.md`, `common/src/*`, `client/src/hooks/*`, `client/src/components/ingest/*`, `client/src/pages/*`, `client/src/test/*`
 
 #### Testing
 

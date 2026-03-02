@@ -852,7 +852,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 
 ### 4. Server Message Contract: make `reingest_repository` blocking and terminal-only (classic + MCP v2 parity)
 
-- Task Status: **__to_do__**
+- Task Status: **__in_progress__**
 - Git Commits: `None yet`
 
 #### Overview
@@ -1167,7 +1167,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 
 #### Implementation notes
 
-- Pending implementation.
+- 2026-03-02 audit update: Local uncommitted changes are present in Task 4 implementation files (`server/src/ingest/reingestService.ts`, `server/src/ingest/ingestJob.ts`, `server/src/mcp/server.ts`, `server/src/mcp2/tools/reingestRepository.ts`) and Task 4 test files (`server/src/test/unit/reingestService.test.ts`, `server/src/test/unit/mcp.reingest.classic.test.ts`, `server/src/test/unit/mcp2.reingest.tool.test.ts`, `server/src/test/unit/mcp.keepalive.helper.test.ts`). Task status is set to `__in_progress__` because implementation work is underway but has not yet been fully finalized in this plan section with committed hashes and completed testing checklist evidence.
 
 ---
 

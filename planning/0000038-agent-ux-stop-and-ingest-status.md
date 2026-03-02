@@ -377,6 +377,7 @@ Update WebSocket cancel message handling so command-run abort is always attempte
 - Verified on 2026-03-02: `ws` server library documentation (README/API usage) for connection handling and server-side message processing paths: https://github.com/websockets/ws
 - Verified on 2026-03-02: Node.js `events` documentation for EventEmitter ordering/idempotent listener behavior used in race-safe stop handling: https://nodejs.org/api/events.html
 - Verified on 2026-03-02 via Context7 MCP (`/jestjs/jest`): Jest documentation for `expect` matchers, mock assertions, and async test patterns used in stop/cancel regression tests: https://context7.com/jestjs/jest/llms.txt
+- Verified on 2026-03-02 via Context7 MCP (`/mermaid-js/mermaid`): Mermaid sequence-diagram syntax for documenting stop-race message flow updates in `design.md`: https://context7.com/mermaid-js/mermaid/llms.txt
 
 #### Subtasks
 
@@ -499,7 +500,14 @@ Update WebSocket cancel message handling so command-run abort is always attempte
    - Docs: https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API | https://github.com/websockets/ws | https://nodejs.org/api/events.html | https://jestjs.io/docs/expect
    - Acceptance criteria focus: AC3, AC4, AC23.
    - Files to read/edit: `server/src/ws/types.ts`, `server/src/ws/server.ts`, `server/src/test/unit/ws-*.test.ts`, `server/src/test/unit/agents-commands*.test.ts`, `server/src/test/unit/ws-chat-stream.test.ts`
-13. [ ] If this task adds or removes files, update `projectStructure.md` after finishing those file changes.
+13. [ ] Update `design.md` with the final stop/cancel flow and add Mermaid sequence diagram(s) for conversation-authoritative cancel handling.
+   - Starter snippet (adapt names to exact existing symbols): `Add a Mermaid sequence diagram showing cancel_inflight paths for conversation-only cancel and inflight-id mismatch behavior.`
+   - Verification command after this subtask: `npm run format:check --workspaces`
+   - Dependency note: execute this after implementing Task 1 behavior/tests so the diagram reflects final code paths.
+   - Docs: https://context7.com/mermaid-js/mermaid/llms.txt | https://context7.com/jestjs/jest/llms.txt
+   - Acceptance criteria focus: AC22 documentation completeness and AC23 stop-race flow clarity.
+   - Files to read/edit: `design.md`, `server/src/ws/server.ts`, `server/src/agents/commandsRunner.ts`
+14. [ ] If this task adds or removes files, update `projectStructure.md` after finishing those file changes.
    - Starter snippet (adapt names to exact existing symbols): `Add entries for any new/removed files introduced by Task 1, grouped under server WS and server test directories.`
    - Verification command after this subtask: `npm run format:check --workspaces`
    - Dependency note: execute this after all file add/remove subtasks in Task 1 and before moving to the next task.
@@ -783,6 +791,7 @@ Replace immediate `status: started` reingest results with one terminal payload r
 - Verified on 2026-03-02: JSON-RPC spec for strict protocol error boundaries (pre-run validation failures vs post-start terminal outcomes): https://www.jsonrpc.org/specification
 - Verified on 2026-03-02: Express 5 migration docs for response/runtime behavior assumptions in server route/tool layers: https://expressjs.com/en/guide/migrating-5.html
 - Verified on 2026-03-02 via Context7 MCP (`/jestjs/jest`): Jest documentation for parity assertions across classic MCP and MCP v2 contract tests: https://context7.com/jestjs/jest/llms.txt
+- Verified on 2026-03-02 via Context7 MCP (`/mermaid-js/mermaid`): Mermaid flowchart and sequence syntax for documenting blocking reingest flow and terminal contract transitions: https://context7.com/mermaid-js/mermaid/llms.txt
 
 #### Subtasks
 
@@ -1011,7 +1020,14 @@ Replace immediate `status: started` reingest results with one terminal payload r
    - Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/ | https://www.jsonrpc.org/specification | https://expressjs.com/en/guide/migrating-5.html
    - Acceptance criteria focus: AC5, AC6, AC7, AC8, AC9, AC10, AC18, AC19, AC20, AC24.
    - Files to read/edit: `server/src/ingest/reingestService.ts`, `server/src/ingest/ingestJob.ts`, `server/src/mcp/server.ts`, `server/src/mcp2/tools/reingestRepository.ts`, `server/src/mcp2/router.ts`, `server/src/mcpCommon/keepAlive.ts`, `server/src/test/unit/reingestService.test.ts`, `server/src/test/unit/mcp-*.test.ts`, `server/src/test/unit/reingest*.test.ts`, `server/src/test/unit/mcp.keepalive.helper.test.ts`, `server/src/test/unit/mcp2-router-*.test.ts`, `server/src/test/unit/mcp.reingest.classic.test.ts`
-24. [ ] If this task adds or removes files, update `projectStructure.md` after finishing those file changes.
+24. [ ] Update `design.md` with blocking reingest architecture flow and Mermaid diagram(s) for classic + MCP v2 parity.
+   - Starter snippet (adapt names to exact existing symbols): `Add Mermaid flowchart/sequence diagrams covering pre-run protocol-error boundary, blocking wait, keepalive during wait, and terminal payload completion.`
+   - Verification command after this subtask: `npm run format:check --workspaces`
+   - Dependency note: execute this after Task 4 implementation/tests so diagrams reflect final runtime parity across both MCP surfaces.
+   - Docs: https://context7.com/mermaid-js/mermaid/llms.txt | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
+   - Acceptance criteria focus: AC22 documentation completeness plus AC20/AC24 flow-boundary clarity.
+   - Files to read/edit: `design.md`, `server/src/ingest/reingestService.ts`, `server/src/mcp/server.ts`, `server/src/mcp2/tools/reingestRepository.ts`, `server/src/mcp2/router.ts`
+25. [ ] If this task adds or removes files, update `projectStructure.md` after finishing those file changes.
    - Starter snippet (adapt names to exact existing symbols): `Add entries for any new/removed files introduced by Task 4 across server ingest, MCP, and server test suites.`
    - Verification command after this subtask: `npm run format:check --workspaces`
    - Dependency note: execute this after all file add/remove subtasks in Task 4 and before moving to the next task.
@@ -1046,6 +1062,7 @@ Apply one shared status/phase mapping and active-overlay merge path for `/ingest
 - Verified on 2026-03-02: MCP tools specification for consistent output contracts between `/ingest/roots` and MCP listing surfaces: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
 - Verified on 2026-03-02: MDN `Object` reference for safe merge/overlay behavior while preserving persisted metadata fields: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
 - Verified on 2026-03-02 via Context7 MCP (`/jestjs/jest`): Jest documentation for schema-version and synthesized-entry contract assertions in ingest listing tests: https://context7.com/jestjs/jest/llms.txt
+- Verified on 2026-03-02 via Context7 MCP (`/mermaid-js/mermaid`): Mermaid flowchart syntax for documenting ingest status/phase mapping and active-overlay precedence in `design.md`: https://context7.com/mermaid-js/mermaid/llms.txt
 
 #### Subtasks
 
@@ -1250,7 +1267,14 @@ Apply one shared status/phase mapping and active-overlay merge path for `/ingest
    - Docs: https://json-schema.org/understanding-json-schema/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
    - Acceptance criteria focus: AC11, AC12, AC13, AC14, AC15, AC25, AC26, AC27, AC28.
    - Files to read/edit: `server/src/lmstudio/toolService.ts`, `server/src/routes/ingestRoots.ts`, `server/src/routes/toolsIngestedRepos.ts`, `server/src/mcp/server.ts`, `server/src/ingest/ingestJob.ts`, `server/src/test/unit/tools-ingested-repos*.test.ts`, `server/src/test/unit/ingest-roots*.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`
-22. [ ] If this task adds or removes files, update `projectStructure.md` after finishing those file changes.
+22. [ ] Update `design.md` with status/phase mapping architecture flow and Mermaid diagram(s) for active-overlay precedence.
+   - Starter snippet (adapt names to exact existing symbols): `Add Mermaid flowchart showing internal ingest states -> external status/phase mapping, synthesized entry path, and overlay precedence with persisted metadata retention.`
+   - Verification command after this subtask: `npm run format:check --workspaces`
+   - Dependency note: execute this after Task 5 implementation/tests so mapping diagrams reflect final contract behavior.
+   - Docs: https://context7.com/mermaid-js/mermaid/llms.txt | https://json-schema.org/understanding-json-schema/
+   - Acceptance criteria focus: AC22 documentation completeness plus AC25/AC26 mapping clarity.
+   - Files to read/edit: `design.md`, `server/src/lmstudio/toolService.ts`, `server/src/routes/ingestRoots.ts`, `server/src/mcp/server.ts`
+23. [ ] If this task adds or removes files, update `projectStructure.md` after finishing those file changes.
    - Starter snippet (adapt names to exact existing symbols): `Add entries for any new/removed files introduced by Task 5 in server listing routes/services and ingest listing test suites.`
    - Verification command after this subtask: `npm run format:check --workspaces`
    - Dependency note: execute this after all file add/remove subtasks in Task 5 and before moving to the next task.
@@ -1288,6 +1312,7 @@ Ensure no-change delta runs exit before AST parse/upsert/delete and before embed
 - Verified on 2026-03-02 via Context7 MCP (`/jestjs/jest`): Jest documentation for deterministic unit/integration race test structure, including async and mock assertion patterns: https://context7.com/jestjs/jest/llms.txt
 - Verified on 2026-03-02: Cucumber guides overview for feature/step convention and executable specification structure: https://cucumber.io/docs/guides/
 - Verified on 2026-03-02: Cucumber 10-minute tutorial (guides subpath requested) for concrete feature/step wiring used by ingest race scenarios: https://cucumber.io/docs/guides/10-minute-tutorial/
+- Verified on 2026-03-02 via Context7 MCP (`/mermaid-js/mermaid`): Mermaid flowchart syntax for documenting no-change early-return and cancellation boundary flow in `design.md`: https://context7.com/mermaid-js/mermaid/llms.txt
 
 #### Subtasks
 
@@ -1387,7 +1412,14 @@ Ensure no-change delta runs exit before AST parse/upsert/delete and before embed
    - Docs: https://tree-sitter.github.io/tree-sitter/ | https://github.com/tree-sitter/tree-sitter-typescript | https://nodejs.org/en/learn/asynchronous-work/dont-block-the-event-loop | https://mongoosejs.com/docs/ | https://jestjs.io/docs/getting-started
    - Acceptance criteria focus: AC16, AC17.
    - Files to read/edit: `server/src/ingest/ingestJob.ts`, `server/src/ingest/reingestService.ts`, `server/src/test/unit/ingest-ast-indexing.test.ts`, `server/src/test/unit/reingest*.test.ts`, `server/src/test/features/ingest-delta-reembed.feature`, `server/src/test/steps/ingest-delta-reembed.steps.ts`
-11. [ ] If this task adds or removes files, update `projectStructure.md` after finishing those file changes.
+11. [ ] Update `design.md` with ingest pipeline flow changes and Mermaid diagram(s) for no-change early return and cancel boundary behavior.
+   - Starter snippet (adapt names to exact existing symbols): `Add Mermaid flowchart covering delta decision point, no-change short-circuit before AST/embedding, deletion-only success path, and cancellation boundary producing one terminal outcome.`
+   - Verification command after this subtask: `npm run format:check --workspaces`
+   - Dependency note: execute this after Task 6 implementation/tests so the diagram reflects final ingest control flow.
+   - Docs: https://context7.com/mermaid-js/mermaid/llms.txt | https://cucumber.io/docs/guides/
+   - Acceptance criteria focus: AC22 documentation completeness plus AC16/AC17 flow clarity.
+   - Files to read/edit: `design.md`, `server/src/ingest/ingestJob.ts`, `server/src/ingest/reingestService.ts`, `server/src/test/features/ingest-delta-reembed.feature`
+12. [ ] If this task adds or removes files, update `projectStructure.md` after finishing those file changes.
    - Starter snippet (adapt names to exact existing symbols): `Add entries for any new/removed files introduced by Task 6 in ingest pipeline and BDD/unit test paths.`
    - Verification command after this subtask: `npm run format:check --workspaces`
    - Dependency note: execute this after all file add/remove subtasks in Task 6 and before moving to the next task.
@@ -1425,6 +1457,7 @@ Align Ingest page data normalization/rendering with server contract updates so a
 - Verified on 2026-03-02: TypeScript 5.9 release notes to align syntax/typing assumptions with repo toolchain: https://www.typescriptlang.org/docs/handbook/release-notes/typescript-5-9.html
 - Verified on 2026-03-02: React Testing Library intro for UI-level status/phase rendering assertions: https://testing-library.com/docs/react-testing-library/intro
 - Verified on 2026-03-02 via Context7 MCP (`/jestjs/jest`): Jest documentation for hook-normalization and render-contract assertions in ingest UI tests: https://context7.com/jestjs/jest/llms.txt
+- Verified on 2026-03-02 via Context7 MCP (`/mermaid-js/mermaid`): Mermaid flowchart syntax for documenting ingest UI status/phase rendering flow in `design.md`: https://context7.com/mermaid-js/mermaid/llms.txt
 
 #### Subtasks
 
@@ -1543,7 +1576,14 @@ Align Ingest page data normalization/rendering with server contract updates so a
    - Docs: https://react.dev/learn/synchronizing-with-effects | https://llms.mui.com/material-ui/6.4.12/llms.txt | https://www.typescriptlang.org/docs/handbook/2/narrowing.html | https://www.typescriptlang.org/docs/handbook/release-notes/typescript-5-9.html
    - Acceptance criteria focus: AC11, AC12, AC14, AC15, AC25, AC28.
    - Files to read/edit: `common/src/lmstudio.ts`, `client/src/hooks/useIngestRoots.ts`, `client/src/components/ingest/RootsTable.tsx`, `client/src/components/ingest/ActiveRunCard.tsx`, `client/src/pages/IngestPage.tsx`, `client/src/test/ingest*.test.tsx`
-13. [ ] If this task adds or removes files, update `projectStructure.md` after finishing those file changes.
+13. [ ] Update `design.md` with ingest UI flow updates and Mermaid diagram(s) for status/phase rendering and active-visibility behavior.
+   - Starter snippet (adapt names to exact existing symbols): `Add Mermaid flowchart showing ingest roots payload -> client normalization -> UI render decisions for ingesting vs terminal states (phase omitted for terminal).`
+   - Verification command after this subtask: `npm run format:check --workspaces`
+   - Dependency note: execute this after Task 7 implementation/tests so diagram and text reflect final UI behavior.
+   - Docs: https://context7.com/mermaid-js/mermaid/llms.txt | https://react.dev/learn/synchronizing-with-effects
+   - Acceptance criteria focus: AC22 documentation completeness plus AC11/AC15 UI flow clarity.
+   - Files to read/edit: `design.md`, `client/src/hooks/useIngestRoots.ts`, `client/src/components/ingest/RootsTable.tsx`, `client/src/pages/IngestPage.tsx`
+14. [ ] If this task adds or removes files, update `projectStructure.md` after finishing those file changes.
    - Starter snippet (adapt names to exact existing symbols): `Add entries for any new/removed files introduced by Task 7 in common/client ingest hooks, components, pages, and tests.`
    - Verification command after this subtask: `npm run format:check --workspaces`
    - Dependency note: execute this after all file add/remove subtasks in Task 7 and before moving to the next task.
@@ -1574,39 +1614,38 @@ Update story-adjacent documentation so junior developers can understand final st
 
 #### Documentation Locations (External References Only)
 
-- Verified on 2026-03-02: Mermaid intro and syntax references for updating architecture/flow diagrams without syntax drift: https://mermaid.js.org/intro/
-- Verified on 2026-03-02: Mermaid flowchart syntax details for contract-flow updates in `design.md`: https://mermaid.js.org/syntax/flowchart.html
+- Verified on 2026-03-02 via Context7 MCP (`/mermaid-js/mermaid`): Mermaid documentation index and syntax references for architecture/flow diagrams in `design.md`: https://context7.com/mermaid-js/mermaid/llms.txt
 - Verified on 2026-03-02: MCP tools specification for documenting terminal-only reingest response semantics accurately: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
 - Verified on 2026-03-02: JSON-RPC spec to document pre-run protocol-error boundaries correctly: https://www.jsonrpc.org/specification
 
 #### Subtasks
 
-1. [ ] Update `design.md` with final stop-race handling, blocking reingest contract flow, and status/phase mapper behavior.
+1. [ ] Update `design.md` with final stop-race handling, blocking reingest contract flow, and status/phase mapper behavior, including Mermaid diagrams.
    - Starter snippet (adapt names to exact existing symbols): `Document final contract JSON examples and changed file paths in design.md/projectStructure.md/story notes.`
    - Verification command after this subtask: `npm run format:check --workspaces`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
-   - Docs: https://mermaid.js.org/intro/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://www.jsonrpc.org/specification
+   - Docs: https://context7.com/mermaid-js/mermaid/llms.txt | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://www.jsonrpc.org/specification
    - Acceptance criteria focus: AC22 and cross-check of all implemented AC behavior.
    - Files to read/edit: `design.md`
 2. [ ] Update `projectStructure.md` with all files added/removed/renamed across this story’s implementation tasks.
    - Starter snippet (adapt names to exact existing symbols): `Document final contract JSON examples and changed file paths in design.md/projectStructure.md/story notes.`
    - Verification command after this subtask: `npm run format:check --workspaces`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
-   - Docs: https://mermaid.js.org/intro/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://www.jsonrpc.org/specification
+   - Docs: https://context7.com/mermaid-js/mermaid/llms.txt | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://www.jsonrpc.org/specification
    - Acceptance criteria focus: AC22 and cross-check of all implemented AC behavior.
    - Files to read/edit: `projectStructure.md`
 3. [ ] Update this story plan’s Implementation Notes sections as each task completes, including key decisions and deviations.
    - Starter snippet (adapt names to exact existing symbols): `Document final contract JSON examples and changed file paths in design.md/projectStructure.md/story notes.`
    - Verification command after this subtask: `npm run format:check --workspaces`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
-   - Docs: https://mermaid.js.org/intro/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://www.jsonrpc.org/specification
+   - Docs: https://context7.com/mermaid-js/mermaid/llms.txt | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://www.jsonrpc.org/specification
    - Acceptance criteria focus: AC22 and cross-check of all implemented AC behavior.
    - Files to read/edit: `planning/0000038-agent-ux-stop-and-ingest-status.md`
 4. [ ] Run `npm run format:check --workspaces` and fix markdown/style issues if needed.
    - Starter snippet (adapt names to exact existing symbols): `Document final contract JSON examples and changed file paths in design.md/projectStructure.md/story notes.`
    - Verification command after this subtask: `npm run format:check --workspaces`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
-   - Docs: https://mermaid.js.org/intro/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://www.jsonrpc.org/specification
+   - Docs: https://context7.com/mermaid-js/mermaid/llms.txt | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://www.jsonrpc.org/specification
    - Acceptance criteria focus: AC22 and cross-check of all implemented AC behavior.
    - Files to read/edit: `design.md`, `projectStructure.md`, `planning/0000038-agent-ux-stop-and-ingest-status.md`
 

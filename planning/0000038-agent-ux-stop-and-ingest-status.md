@@ -875,7 +875,7 @@ Limit active-run UI restrictions to submit/execute controls only. Keep instructi
 
 ### 4. Server Message Contract: make `reingest_repository` blocking and terminal-only (classic + MCP v2 parity)
 
-- Task Status: ****done****
+- Task Status: **__done__**
 - Git Commits: `972027a`
 
 #### Overview
@@ -1254,7 +1254,7 @@ Replace immediate `status: started` reingest results with one terminal payload r
 
 ### 5. Server Message Contract: normalize ingest listing status/phase mapping and active overlay visibility
 
-- Task Status: ****done****
+- Task Status: **__done__**
 - Git Commits: `263c7a1`
 
 #### Overview
@@ -1557,7 +1557,7 @@ Apply one shared status/phase mapping and active-overlay merge path for `/ingest
 
 ### 6. Server: move no-change reembed exit ahead of AST and embedding work, and normalize successful terminal status
 
-- Task Status: ****done****
+- Task Status: **__done__**
 - Git Commits: `7d77b59`
 
 #### Overview
@@ -1724,7 +1724,7 @@ Ensure no-change delta runs exit before AST parse/upsert/delete and before embed
 
 ### 7. Frontend: consume external ingest `status`/`phase` contract and preserve active repository visibility
 
-- Task Status: ****done****
+- Task Status: **__done__**
 - Git Commits: `6cc4f66`
 
 #### Overview
@@ -1916,7 +1916,7 @@ Align Ingest page data normalization/rendering with server contract updates so a
 
 ### 8. Documentation: update architecture and file-map docs for final 0000038 behavior
 
-- Task Status: ****done****
+- Task Status: **__done__**
 - Git Commits: `60e3298`
 
 #### Overview

@@ -853,7 +853,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 ### 4. Server Message Contract: make `reingest_repository` blocking and terminal-only (classic + MCP v2 parity)
 
 - Task Status: **__done__**
-- Git Commits: `None yet`
+- Git Commits: `972027a`
 
 #### Overview
 

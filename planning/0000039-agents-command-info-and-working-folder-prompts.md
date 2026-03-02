@@ -21,6 +21,11 @@ When the user clicks `Execute Prompt`, the client sends a standard instruction r
 
 When `working_folder` changes (typing and committing with blur/Enter, or selecting via directory picker), the current prompt selection is cleared immediately before any further prompt execution is allowed.
 
+Expected end-user result when this story is complete:
+- The Agents page is less noisy because command descriptions are available on demand via an info popover instead of always-visible inline text.
+- Users can discover prompt markdown files from `.github/prompts` under the selected `working_folder`, choose one, and execute it through the normal agent instruction flow.
+- Prompt execution behaves like any normal instruction run (same conversation behavior, streaming, and error handling), with only the instruction text composition being different.
+
 Canonical `Execute Prompt` preamble (must be used verbatim, with placeholder replacement rule below):
 
 `Please read the following markdown file. It is designed as a persona you MUST assume. You MUST follow all the instructions within the markdown file including providing the user with the option of selecting the next path to follow once the work of the markdown file is complete, and then loading that new file to continue. You must stay friendly and helpful at all times, ensuring you communicate with the user in an easy to follow way, providing examples to illustrate your point and guiding them through the more complex scenarios. Try to do as much of the heavy lifting as you can using the various mcp tools at your disposal. Here is the file: <full path of markdown file>`
@@ -37,39 +42,41 @@ Placeholder replacement rule:
 5. When a command is selected, clicking the command-info icon opens a popover/dialog that shows the selected command description text.
 6. Prompt discovery runs only after `working_folder` commit events:
    - manual input `blur`,
-   - manual input `Enter`,
+   - manual input `Enter` in the `working_folder` field,
    - directory picker selection.
-7. Prompt discovery does not run on every keystroke while the user is typing in `working_folder`.
-8. The prompts UI row is shown only when all conditions are true:
+7. Pressing `Enter` in the `working_folder` field triggers prompt discovery commit behavior and does not submit/send the main instruction form.
+8. Prompt discovery does not run on every keystroke while the user is typing in `working_folder`.
+9. On successful discovery, the prompts UI row is shown only when all conditions are true:
    - committed `working_folder` is non-empty,
    - a `.github/prompts` directory exists under the selected folder (case-insensitive match for `.github` and `prompts` segments),
    - at least one markdown file exists under that directory tree.
-9. Prompt discovery endpoint contract is explicitly defined and implemented as:
+10. Prompt discovery endpoint contract is explicitly defined and implemented as:
    - `GET /agents/:agentName/prompts?working_folder=<absolute path>`
    - success `200` response body: `{ prompts: Array<{ relativePath: string; fullPath: string }> }`
    - `relativePath` uses forward slashes (`/`) and is relative to `.github/prompts/`
    - `fullPath` is the resolved runtime/container absolute path returned by the server.
-10. Prompt discovery request validation/error mapping follows existing Agents route conventions:
+11. Prompt discovery request validation/error mapping follows existing Agents route conventions:
     - invalid/missing `agentName` -> `400 { error: 'invalid_request' }`
+    - missing/blank `working_folder` query value -> `400 { error: 'invalid_request', message: 'working_folder is required' }`
     - invalid `working_folder` shape/path -> `400 { error: 'invalid_request', code: 'WORKING_FOLDER_INVALID', ... }`
     - unresolved/non-existent `working_folder` -> `400 { error: 'invalid_request', code: 'WORKING_FOLDER_NOT_FOUND', ... }`
     - agent not found -> `404 { error: 'not_found' }`
     - unexpected failures -> `500 { error: 'agent_prompts_failed' }`.
-11. Prompt discovery is recursive below `.github/prompts`, includes markdown files with case-insensitive extension handling (`.md`, `.MD`, including names like `foo.prompt.md`), and excludes non-markdown files.
-12. Prompt discovery output is deterministic: prompt entries are sorted ascending by normalized `relativePath` before returning to the client.
-13. Symlink safety is defined: discovery does not follow symlink directories/files when walking prompt trees, preventing traversal loops and cross-root escapes.
-14. Prompt option labels are relative paths from `.github/prompts/` (for example, `onboarding/start.md`), never absolute host/runtime paths.
-15. The prompts dropdown includes an explicit empty option so users can clear selection after previously choosing a prompt.
-16. `Execute Prompt` is displayed in the prompts row and is disabled unless a valid prompt is selected.
-17. If prompt discovery fails for a committed non-empty `working_folder`, the prompts row is shown with an inline error message and does not silently hide the failure.
-18. If discovery succeeds with zero markdown prompt files, the prompts row is hidden (no error state).
-19. Changing `working_folder` clears previously discovered prompt selection immediately and keeps `Execute Prompt` disabled until a new valid prompt is selected.
-20. Clicking `Execute Prompt` uses the existing instruction run path (`POST /agents/:agentName/run`) and does not use command-run execution.
-21. The outbound `instruction` string equals:
+12. Prompt discovery is recursive below `.github/prompts`, includes markdown files with case-insensitive extension handling (`.md`, `.MD`, including names like `foo.prompt.md`), and excludes non-markdown files.
+13. Prompt discovery output is deterministic: prompt entries are sorted ascending by normalized `relativePath` before returning to the client.
+14. Symlink safety is defined: discovery does not follow symlink directories/files when walking prompt trees, preventing traversal loops and cross-root escapes.
+15. Prompt option labels are relative paths from `.github/prompts/` (for example, `onboarding/start.md`), never absolute host/runtime paths.
+16. The prompts dropdown includes an explicit empty option so users can clear selection after previously choosing a prompt.
+17. `Execute Prompt` is displayed in the prompts row and is disabled unless a valid prompt is selected.
+18. If prompt discovery fails for a committed non-empty `working_folder`, the prompts row is shown with an inline error message and does not silently hide the failure.
+19. If discovery succeeds with zero markdown prompt files, the prompts row is hidden (no error state).
+20. Changing `working_folder` clears previously discovered prompt selection immediately (for both text commit and picker selection) and keeps `Execute Prompt` disabled until a new valid prompt is selected.
+21. Clicking `Execute Prompt` uses the existing instruction run path (`POST /agents/:agentName/run`) and does not use command-run execution.
+22. The outbound `instruction` string equals:
     - canonical preamble text from this plan, with `<full path of markdown file>` replaced by the selected prompt runtime/container full path.
-22. The path inserted into the preamble is the runtime/container-resolved full path returned by discovery, not a host-only path string.
-23. Existing agent run behavior remains unchanged for conversation reuse/new conversation creation, run state transitions, transcript streaming, and error handling.
-24. Automated tests must cover:
+23. The path inserted into the preamble is the runtime/container-resolved full path returned by discovery, not a host-only path string.
+24. Existing agent run behavior remains unchanged for conversation reuse/new conversation creation, run state transitions, transcript streaming, and error handling.
+25. Automated tests must cover:
     - command-info visibility, disabled state with no command, and popover opening with selected command,
     - removal of inline command description/default text,
     - prompt discovery endpoint contract (status codes, payload shape, and error mapping),
@@ -88,6 +95,9 @@ Placeholder replacement rule:
 1. New REST contract required by this story
 - Endpoint: `GET /agents/:agentName/prompts?working_folder=<absolute path>`
 - Purpose: discover markdown prompt files under `.github/prompts` for a committed `working_folder` and return runtime/container paths for execution composition.
+- Query requirements:
+- `working_folder` is required for this endpoint.
+- `working_folder` must be absolute (POSIX or Windows style), following existing server-side validation behavior.
 - Success response shape (`200`):
 ```json
 {
@@ -102,6 +112,12 @@ Placeholder replacement rule:
 - Error response mapping (matches existing Agents REST conventions):
 ```json
 { "error": "invalid_request" }
+```
+```json
+{
+  "error": "invalid_request",
+  "message": "working_folder is required"
+}
 ```
 ```json
 {
@@ -175,6 +191,7 @@ Use a single end-to-end approach that reuses existing Agents route/service patte
 - Keep endpoint under the existing commands router namespace (mounted at `/agents`) to match current read-only list route patterns.
 - Accept `working_folder` as a query parameter and validate it with the same strictness used in existing routes (string, non-empty after trim).
 - Return `200 { prompts: [...] }` on success and map typed service errors to existing route conventions (`invalid_request`, `not_found`, `500` fallback).
+- Return `400 invalid_request` when `working_folder` query is missing/blank so endpoint behavior is explicit and testable.
 
 2. Server service implementation
 - Add a new service function in [server/src/agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts), for example `listAgentPrompts({ agentName, working_folder })`.
@@ -204,6 +221,7 @@ Use a single end-to-end approach that reuses existing Agents route/service patte
 - working-folder text field `blur`,
 - Enter key in working-folder input,
 - directory picker `onPick`.
+- Ensure Enter handling in `working_folder` field prevents accidental submission of the main instruction form when no prompt action was requested.
 - Do not trigger discovery in `onChange` for every keystroke.
 - On each committed working-folder change:
 - clear selected prompt immediately,

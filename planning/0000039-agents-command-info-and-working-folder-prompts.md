@@ -56,7 +56,8 @@ If the user changes `working_folder` at any point, any selected prompt must be c
 
 ### Questions
 
-None.
+- If prompt discovery fails (for example permission errors, path resolution errors, or inaccessible directories), should the `Prompts` selector stay hidden silently or show a visible inline error state?
+- For manual typing in `working_folder`, when should prompt discovery trigger: live while typing (with debounce), only on blur/Enter, or only after directory picker selection?
 
 ## Implementation Ideas
 

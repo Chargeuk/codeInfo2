@@ -70,7 +70,7 @@ This story is intentionally scoped as a contract-alignment story across existing
 
 ## Message Contracts And Storage Shapes
 
-Validated from current code contracts and persisted metadata usage on 2026-03-02 via `code_info`, `deepwiki`, and `context7`.
+Validated from repository code contracts and dependency manifests on 2026-03-02, with external protocol/library assumptions cross-checked against official documentation links listed in this story.
 
 ### Contract Changes Required
 
@@ -143,7 +143,7 @@ None. Open planning questions captured so far are resolved and this story is rea
 
 ## Implementation Ideas
 
-Validated using repository analysis (`code_info`) plus protocol cross-checks (`deepwiki`, `context7`) on 2026-03-02.
+Validated using repository source analysis and official protocol/library documentation on 2026-03-02.
 
 ### Rough Change Plan (No Task Breakdown)
 
@@ -194,7 +194,7 @@ Validated using repository analysis (`code_info`) plus protocol cross-checks (`d
 
 ## Edge Cases and Failure Modes
 
-Validated from existing code behavior and tests (2026-03-02) using `code_info`, `deepwiki`, and `context7`.
+Validated from existing repository behavior/tests and official documentation references on 2026-03-02.
 
 ### Agents Stop and Command Runs
 
@@ -342,9 +342,9 @@ Validated from existing code behavior and tests (2026-03-02) using `code_info`, 
   - JSON-RPC protocol errors remain appropriate for malformed/invalid requests.
   - For this story, we intentionally do not add protocol-level cancellation handling in this app; GUI cancel remains the cancellation control while MCP waits for terminal response.
   - External references used:
-    - https://modelcontextprotocol.io/specification/2025-06-18/server/tools/
-    - https://modelcontextprotocol.io/specification/2025-06-18/basic/utilities/progress/
-    - https://modelcontextprotocol.io/specification/2025-06-18/basic/utilities/cancellation/
+    - https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
+    - https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/
+    - https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/cancellation/
     - https://www.jsonrpc.org/specification
 
 # Implementation Plan
@@ -374,6 +374,7 @@ Update WebSocket cancel message handling so command-run abort is always attempte
 #### Documentation Locations
 
 - WebSocket protocol overview (message framing and compatibility considerations): https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API
+- ws (Node WebSocket library) docs: https://github.com/websockets/ws
 - Node.js event model basics for request/response timing behavior: https://nodejs.org/api/events.html
 - Jest assertions and test patterns: https://jestjs.io/docs/expect
 
@@ -422,7 +423,7 @@ Consume Task 1’s server message-contract update in the Agents UI so Stop alway
 #### Documentation Locations
 
 - React `useCallback` and event handler state consistency: https://react.dev/reference/react/useCallback
-- MUI input/button patterns: https://llms.mui.com/material-ui/7.2.0/llms.txt
+- MUI input/button patterns: https://llms.mui.com/material-ui/6.4.12/llms.txt
 - React Testing Library interactions: https://testing-library.com/docs/react-testing-library/intro
 
 #### Subtasks
@@ -462,7 +463,8 @@ Limit active-run UI restrictions to submit/execute controls only. Keep instructi
 #### Documentation Locations
 
 - React state derivation and conditional rendering: https://react.dev/learn/conditional-rendering
-- MUI Drawer/List/interaction patterns: https://llms.mui.com/material-ui/7.2.0/llms.txt
+- MUI Drawer/List/interaction patterns: https://llms.mui.com/material-ui/6.4.12/llms.txt
+- React Router docs (v7): https://reactrouter.com/
 - Accessibility and keyboard interaction expectations: https://www.w3.org/WAI/ARIA/apg/
 
 #### Subtasks
@@ -501,9 +503,10 @@ Replace immediate `status: started` reingest results with one terminal payload r
 
 #### Documentation Locations
 
-- MCP tools contract semantics: https://modelcontextprotocol.io/specification/2025-06-18/server/tools/
-- MCP progress/long-running call guidance: https://modelcontextprotocol.io/specification/2025-06-18/basic/utilities/progress/
+- MCP tools contract semantics: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
+- MCP progress/long-running call guidance: https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/
 - JSON-RPC error envelope rules: https://www.jsonrpc.org/specification
+- Express 5 migration guide: https://expressjs.com/en/guide/migrating-5.html
 
 #### Subtasks
 
@@ -515,7 +518,7 @@ Replace immediate `status: started` reingest results with one terminal payload r
    - Required behavior: after `reembed(...)` returns `runId`, wait until terminal state (`completed|cancelled|error|skipped`), map internal `skipped` to external `completed`, and populate terminal counters/errorCode/duration deterministically.
 3. [ ] Keep pre-run validation failures in JSON-RPC/protocol error envelopes and keep input shape `sourceId`-only.
    - Files: `server/src/ingest/reingestService.ts`, `server/src/mcp/server.ts`, `server/src/mcp2/tools/reingestRepository.ts`
-   - Required behavior: invalid `sourceId`/unknown root/busy-before-start remain protocol errors; only post-start outcomes use terminal result payload. Do not add `wait`, `blocking`, or similar request flags.
+   - Required behavior: invalid `sourceId`/unknown root/busy-before-start remain protocol errors; only post-start outcomes use terminal result payload. Do not add `wait`, `blocking`, or similar request flags. This story intentionally keeps existing JSON-RPC protocol-error behavior for pre-run validation (no migration to `result.isError` in scope).
 4. [ ] Update classic MCP tool schema and runtime mapping away from `status: started`.
    - Files: `server/src/mcp/server.ts`
    - Required behavior: output schema and emitted payload match terminal-only contract.
@@ -557,7 +560,7 @@ Apply one shared status/phase mapping and active-overlay merge path for `/ingest
 #### Documentation Locations
 
 - JSON schema conventions for API payload updates: https://json-schema.org/understanding-json-schema/
-- MCP tool output consistency principles: https://modelcontextprotocol.io/specification/2025-06-18/server/tools/
+- MCP tool output consistency principles: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
 - Node.js object/array data handling references: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
 
 #### Subtasks
@@ -609,7 +612,9 @@ Ensure no-change delta runs exit before AST parse/upsert/delete and before embed
 #### Documentation Locations
 
 - Tree-sitter project references for AST pipeline context: https://tree-sitter.github.io/tree-sitter/
+- Tree-sitter TypeScript grammar package (used by this repo): https://github.com/tree-sitter/tree-sitter-typescript
 - Node.js performance considerations for early-return pipelines: https://nodejs.org/en/learn/asynchronous-work/dont-block-the-event-loop
+- Mongoose docs (v9): https://mongoosejs.com/docs/
 - Jest test organization patterns: https://jestjs.io/docs/getting-started
 
 #### Subtasks
@@ -650,8 +655,9 @@ Align Ingest page data normalization/rendering with server contract updates so a
 #### Documentation Locations
 
 - React data-fetching and state synchronization patterns: https://react.dev/learn/synchronizing-with-effects
-- MUI table/status UI patterns: https://llms.mui.com/material-ui/7.2.0/llms.txt
+- MUI table/status UI patterns: https://llms.mui.com/material-ui/6.4.12/llms.txt
 - TypeScript discriminated unions for status models: https://www.typescriptlang.org/docs/handbook/2/narrowing.html
+- TypeScript 5.9 release notes: https://www.typescriptlang.org/docs/handbook/release-notes/typescript-5-9.html
 
 #### Subtasks
 
@@ -689,7 +695,7 @@ Update story-adjacent documentation so junior developers can understand final st
 #### Documentation Locations
 
 - Mermaid docs for diagram updates: https://mermaid.js.org/intro/
-- MCP specification references for behavior text: https://modelcontextprotocol.io/specification/2025-06-18/server/tools/
+- MCP specification references for behavior text: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
 - JSON-RPC reference for error-boundary documentation: https://www.jsonrpc.org/specification
 
 #### Subtasks
@@ -725,7 +731,7 @@ Perform end-to-end verification of all acceptance criteria after Tasks 1-8 are c
 
 - Docker Compose docs: https://docs.docker.com/compose/
 - Playwright docs: https://playwright.dev/docs/intro
-- MCP tool call semantics: https://modelcontextprotocol.io/specification/2025-06-18/server/tools/
+- MCP tool call semantics: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
 
 #### Subtasks
 

@@ -522,12 +522,34 @@ Update WebSocket cancel message handling so command-run abort is always attempte
    - Document location: `projectStructure.md`.
    - Document description: record Task 1 file additions/removals in WS and related test directories.
    - Document purpose: maintain an accurate repository file map for implementation and onboarding.
+15. [ ] Add WS handler unit test: conversation-only `cancel_inflight` still attempts command-run abort by `conversationId`.
+   - Starter snippet (adapt names to exact existing symbols): `expect(abortAgentCommandRunSpy).toHaveBeenCalledWith(conversationId);`
+   - Verification command after this subtask: `npm run test --workspace server -- ws`
+   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+   - Docs: https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API | https://github.com/websockets/ws | https://nodejs.org/api/events.html | https://jestjs.io/docs/expect
+   - Acceptance criteria focus: AC4, AC23.
+   - Files to read/edit: `server/src/test/unit/ws-server.test.ts`, `server/src/ws/server.ts`
+   - Test type: Unit (conversation-authoritative stop behavior).
+   - Test location: `server/src/test/unit/ws-server.test.ts`.
+   - Test description: send `cancel_inflight` with `conversationId` only and assert command abort is attempted for that conversation.
+   - Test purpose: directly verify stop-race behavior before inflight id assignment.
+16. [ ] Add WS handler unit test: stale `inflightId` path still attempts command-run abort by `conversationId`.
+   - Starter snippet (adapt names to exact existing symbols): `expect(abortAgentCommandRunSpy).toHaveBeenCalledWith(conversationId);`
+   - Verification command after this subtask: `npm run test --workspace server -- ws`
+   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+   - Docs: https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API | https://github.com/websockets/ws | https://nodejs.org/api/events.html | https://jestjs.io/docs/expect
+   - Acceptance criteria focus: AC3, AC23.
+   - Files to read/edit: `server/src/test/unit/ws-chat-stream.test.ts`, `server/src/test/unit/ws-server.test.ts`, `server/src/ws/server.ts`
+   - Test type: Unit (mismatch corner-case behavior).
+   - Test location: `server/src/test/unit/ws-chat-stream.test.ts` and `server/src/test/unit/ws-server.test.ts`.
+   - Test description: send `cancel_inflight` with stale `inflightId`; assert mismatch semantics remain and command abort is still attempted by conversation.
+   - Test purpose: ensure stale inflight identifiers do not bypass conversation-authoritative stop.
 
 #### Testing
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run test --workspace server`
-3. [ ] Run targeted WS tests for parser validation, chat mismatch semantics, command-step stop boundary, retry suppression, and duplicate-stop idempotence; confirm pass.
+3. [ ] Run targeted WS tests for parser validation, chat mismatch semantics, conversation-authoritative abort attempts (with and without inflight id), command-step stop boundary, retry suppression, and duplicate-stop idempotence; confirm pass.
 
 #### Implementation notes
 
@@ -1088,12 +1110,45 @@ Replace immediate `status: started` reingest results with one terminal payload r
    - Test location: `server/src/test/unit/reingestService.test.ts`, `server/src/test/unit/mcp.reingest.classic.test.ts`, and `server/src/test/unit/mcp2.reingest.tool.test.ts`.
    - Test description: simulate run started then runtime status missing; assert both MCP surfaces emit one terminal error result payload with stable shape.
    - Test purpose: prevent undefined/null run-state handling from causing hangs or protocol-channel regressions.
+29. [ ] Add terminal-field constraint test: `completed` and `cancelled` payloads emit `errorCode=null`.
+   - Starter snippet (adapt names to exact existing symbols): `expect(payload.errorCode).toBeNull();`
+   - Verification command after this subtask: `npm run test --workspace server -- reingest`
+   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+   - Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://www.jsonrpc.org/specification | https://context7.com/jestjs/jest/llms.txt
+   - Acceptance criteria focus: AC19.
+   - Files to read/edit: `server/src/test/unit/reingestService.test.ts`, `server/src/test/unit/mcp.reingest.classic.test.ts`, `server/src/test/unit/mcp2.reingest.tool.test.ts`
+   - Test type: Unit + contract test.
+   - Test location: `server/src/test/unit/reingestService.test.ts`, `server/src/test/unit/mcp.reingest.classic.test.ts`, and `server/src/test/unit/mcp2.reingest.tool.test.ts`.
+   - Test description: assert `errorCode` is null for successful and cancelled terminal results across service and both MCP surfaces.
+   - Test purpose: lock field-level terminal constraints so clients can trust result semantics.
+30. [ ] Add cancelled-counter retention test: cancelled terminal payload returns last-known counters when available.
+   - Starter snippet (adapt names to exact existing symbols): `expect(payload).toMatchObject({ status: 'cancelled', files: lastKnown.files, chunks: lastKnown.chunks, embedded: lastKnown.embedded });`
+   - Verification command after this subtask: `npm run test --workspace server -- reingest`
+   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+   - Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://context7.com/jestjs/jest/llms.txt
+   - Acceptance criteria focus: AC10, AC19.
+   - Files to read/edit: `server/src/test/unit/reingestService.test.ts`, `server/src/test/unit/mcp.reingest.classic.test.ts`, `server/src/test/unit/mcp2.reingest.tool.test.ts`, `server/src/ingest/reingestService.ts`
+   - Test type: Unit + contract edge-case test.
+   - Test location: `server/src/test/unit/reingestService.test.ts`, `server/src/test/unit/mcp.reingest.classic.test.ts`, and `server/src/test/unit/mcp2.reingest.tool.test.ts`.
+   - Test description: cancel during active progress and assert returned counters match last-known runtime values rather than reset/empty defaults.
+   - Test purpose: preserve deterministic cancellation summaries for AI/client consumers.
+31. [ ] Add request-shape guard tests: extra `wait`/`blocking` flags are rejected on both MCP surfaces.
+   - Starter snippet (adapt names to exact existing symbols): `expect(response.error).toBeDefined(); expect(response.error.code).toBe(-32602);`
+   - Verification command after this subtask: `npm run test --workspace server -- reingest`
+   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+   - Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://www.jsonrpc.org/specification | https://context7.com/jestjs/jest/llms.txt
+   - Acceptance criteria focus: AC6, AC24.
+   - Files to read/edit: `server/src/test/unit/mcp.reingest.classic.test.ts`, `server/src/test/unit/mcp2.reingest.tool.test.ts`, `server/src/mcp/server.ts`, `server/src/mcp2/tools/reingestRepository.ts`
+   - Test type: Contract validation test.
+   - Test location: `server/src/test/unit/mcp.reingest.classic.test.ts` and `server/src/test/unit/mcp2.reingest.tool.test.ts`.
+   - Test description: call `reingest_repository` with unsupported `wait`/`blocking` arguments and assert protocol-level invalid-params errors.
+   - Test purpose: enforce non-configurable blocking behavior and prevent interface drift.
 
 #### Testing
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run test --workspace server`
-3. [ ] Run targeted reingest tests for terminal wait, timeout/missing-run boundaries, status mapping, parity, protocol boundaries, keepalive resilience, and terminal payload schema constraints; confirm pass.
+3. [ ] Run targeted reingest tests for terminal wait, timeout/missing-run boundaries, status mapping, parity, protocol boundaries, request-shape guards (`wait`/`blocking` rejection), cancelled-counter retention, keepalive resilience, and terminal payload schema constraints; confirm pass.
 
 #### Implementation notes
 
@@ -2035,6 +2090,28 @@ Perform end-to-end verification of all acceptance criteria after Tasks 1-8 are c
    - Document location: `planning/0000038-agent-ux-stop-and-ingest-status.md`.
    - Document description: validate story-level verification notes and acceptance evidence entries.
    - Document purpose: keep the story record internally consistent for release and audit traceability.
+22. [ ] Execute AC21 automated-coverage audit: confirm every AC1-AC28 maps to at least one passing automated test reference in this story.
+   - Starter snippet (adapt names to exact existing symbols): `For each AC, record at least one automated test file + test name + command output reference; mark any missing coverage as a blocking defect.`
+   - Verification command after this subtask: `npm run test --workspace server && npm run test --workspace client`
+   - Dependency note: execute after all automated test suites complete so evidence reflects final pass state.
+   - Docs: https://docs.docker.com/compose/ | https://playwright.dev/docs/intro | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
+   - Acceptance criteria focus: AC21.
+   - Files to read/edit: `planning/0000038-agent-ux-stop-and-ingest-status.md`, `test-results/screenshots/*`
+   - Test type: Coverage-audit verification test.
+   - Test location: Story AC matrix and recorded automated command outputs/artifacts.
+   - Test description: verify each acceptance criterion has explicit automated coverage evidence (happy/error/edge where applicable) and no unmapped criteria remain.
+   - Test purpose: guarantee the story’s automated test plan is complete rather than implicit.
+23. [ ] Execute AC21 parity/no-change automation gate: run and record parity plus no-change targeted suites as explicit evidence.
+   - Starter snippet (adapt names to exact existing symbols): `Record passing outputs for MCP classic/v2 parity tests and no-change early-return suites with command names and artifact links.`
+   - Verification command after this subtask: `npm run test --workspace server -- reingest && npm run test --workspace server -- ingest-ast`
+   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+   - Docs: https://docs.docker.com/compose/ | https://playwright.dev/docs/intro | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
+   - Acceptance criteria focus: AC21.
+   - Files to read/edit: `planning/0000038-agent-ux-stop-and-ingest-status.md`, `test-results/screenshots/*`
+   - Test type: Automated regression gate.
+   - Test location: Server targeted test command outputs and linked artifacts.
+   - Test description: run parity-focused reingest suites and no-change early-return suites, then record evidence in the AC matrix.
+   - Test purpose: ensure the highest-risk cross-surface and early-return paths are explicitly covered by passing automation.
 
 #### Testing
 

@@ -189,8 +189,8 @@ Use a single end-to-end approach that reuses existing Agents route/service patte
 1. Server routing and API surface
 - Extend [server/src/routes/agentsCommands.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/agentsCommands.ts) with `GET /:agentName/prompts`.
 - Keep endpoint under the existing commands router namespace (mounted at `/agents`) to match current read-only list route patterns.
-- Accept `working_folder` as a query parameter and validate it with the same strictness used in existing routes (string, non-empty after trim).
-- Return `200 { prompts: [...] }` on success and map typed service errors to existing route conventions (`invalid_request`, `not_found`, `500` fallback).
+- Accept `working_folder` as a query parameter and validate it as required, non-empty, and absolute via existing working-folder validation behavior.
+- Return `200 { prompts: [...] }` on success and map typed service errors to existing route conventions (`invalid_request`, `not_found`, `500 { error: 'agent_prompts_failed' }`).
 - Return `400 invalid_request` when `working_folder` query is missing/blank so endpoint behavior is explicit and testable.
 
 2. Server service implementation
@@ -227,8 +227,10 @@ Use a single end-to-end approach that reuses existing Agents route/service patte
 - clear selected prompt immediately,
 - clear old prompt list,
 - run discovery only when committed value is non-empty.
-- Render a `Prompts` selector row only when discovery returns at least one prompt.
-- Render inline error in that row when discovery fails for a non-empty committed folder.
+- Render the prompts area when either:
+- discovery returns at least one prompt (show selector + Execute Prompt button), or
+- discovery fails for a committed non-empty `working_folder` (show inline error state).
+- Hide the prompts area when there is no committed `working_folder` or discovery succeeds with zero prompts.
 - Keep `Execute Prompt` disabled unless a valid prompt is selected.
 
 5. Prompt execution behavior

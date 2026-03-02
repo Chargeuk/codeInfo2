@@ -11,7 +11,7 @@ Monorepo for client (React 19 + MUI), server (Express), and shared common packag
 
 ## Quick Setup
 
-### WSL Prerequisits
+### WSL Prerequisites
 #### Configure WSL Git to use Windows Git Credential Manager.
 Reference: https://github.com/git-ecosystem/git-credential-manager/blob/main/docs/wsl.md
 1. Install Git for Windows on the host machine.
@@ -134,7 +134,7 @@ codex_agents/<agentName>/
 ## Common Usage
 
 1. Start the local stack: `npm run compose:local`.
-2. Open the client app: `http://localhost:5001`.
+2. Open the client app: `http://localhost:5501`.
 3. Use **Chat** (`/chat`) for model conversations and repository tooling.
 4. Use **Agents** (`/agents`) for specialized agent-driven work and command macros.
 5. Use **Flows** (`/flows`) for repeatable multi-step automations.

@@ -14,7 +14,7 @@
     {
       "type": "message",
       "role": "user",
-      "content": ["Without actually tasking up, can you create a rough plan, or update an existing one if it is there, on what will need to be changed in order to implement this story. Please double check your thoughts using the code_info, deepwiki and context7 mcp tools. Place the information into a section named Implementation Ideas within the plan. Remember to give the repository path to the code_info tool as part of your question so it uses the correct repository. Do not provide options, just make the best changes you can based on what you found while researching. Commit after making any changes."]
+      "content": ["Without actually tasking up, can you create a rough plan, or update an existing one if it is there, on what will need to be changed in order to implement this story. Please double check your thoughts using the code_info, deepwiki and context7 mcp tools. Place the information into a section named `## Implementation Ideas` within the plan. Remember to give the repository path to the code_info tool as part of your question so it uses the correct repository. Do not provide options, just make the best changes you can based on what you found while researching. Commit after making any changes."]
     },
     {
       "type": "message",

@@ -2,7 +2,7 @@
 
 <Previous Story Information>
 
-## Instructions
+## Implementation Plan Instructions
 
 This is a list of steps that must be copied into each new plan. It instructs how a developer work through the tasks.
 This should only be started once all the above sections are clear and understood AND all tasks have been created to a level that a very junior, inexperienced developer could work through without asking for help from a senior developer.

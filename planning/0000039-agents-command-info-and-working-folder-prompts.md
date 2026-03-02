@@ -1,6 +1,6 @@
 # Story 0000039 – Agents Command Info Popover and Working-Folder Prompts
 
-## Implementation Plan Instructions
+## Implementation Plan
 
 This is a list of steps that must be followed whilst working on a story. The first step of any plan is to copy this file to a new markdown document that starts with an index padded with zeroes starting at 1 and the title of the story. eg: ./planning/0000001-initial-skeleton-setup.md
 Create (or reuse if it already exists) the feature branch for this phase using the established naming convention (for example `feature/<number>-<Title>`).

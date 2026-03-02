@@ -225,4 +225,158 @@ describe('Agents page - navigate away keeps run', () => {
 
     await screen.findByText('Final answer');
   });
+
+  it('keeps instruction input editable and draft text stable while an active run is in progress', async () => {
+    const user = userEvent.setup();
+    const wsRegistry = (
+      globalThis as unknown as {
+        __wsMock?: {
+          last: () => { _receive: (d: unknown) => void } | null;
+        };
+      }
+    ).__wsMock;
+
+    mockFetch.mockImplementation((url: RequestInfo | URL) => {
+      const target = typeof url === 'string' ? url : url.toString();
+
+      if (target.includes('/health')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ mongoConnected: true }),
+        } as Response);
+      }
+
+      if (target.endsWith('/agents')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ agents: [{ name: 'a1' }] }),
+        } as Response);
+      }
+
+      if (target.includes('/agents/a1/commands') && !target.includes('/run')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            commands: [
+              { name: 'improve_plan', description: 'Improve', disabled: false },
+            ],
+          }),
+        } as Response);
+      }
+
+      if (target.includes('/conversations/') && target.includes('/turns')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({ items: [], inflight: null }),
+        } as Response);
+      }
+
+      if (target.includes('/conversations')) {
+        const hasAgentParam = target.includes('agentName=a1');
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({
+            items: hasAgentParam
+              ? [
+                  {
+                    conversationId: 'c1',
+                    title: 'T',
+                    provider: 'codex',
+                    model: 'gpt-5.1-codex-max',
+                    lastMessageAt: '2025-01-01T00:00:00.000Z',
+                  },
+                ]
+              : [],
+          }),
+        } as Response);
+      }
+
+      if (target.includes('/agents/a1/commands/run')) {
+        return Promise.resolve({
+          ok: true,
+          status: 202,
+          json: async () => ({
+            status: 'started',
+            agentName: 'a1',
+            commandName: 'improve_plan',
+            conversationId: 'c1',
+            modelId: 'gpt-5.1-codex-max',
+          }),
+        } as Response);
+      }
+
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({}),
+      } as Response);
+    });
+
+    const router = createMemoryRouter(routes, { initialEntries: ['/agents'] });
+    render(<RouterProvider router={router} />);
+
+    const row = await screen.findByTestId('conversation-row');
+    await act(async () => {
+      await user.click(row);
+    });
+
+    const commandSelect = await screen.findByRole('combobox', {
+      name: /command/i,
+    });
+    await waitFor(() => expect(commandSelect).toBeEnabled());
+    await act(async () => {
+      await user.click(commandSelect);
+    });
+    const option = await screen.findByTestId(
+      'agent-command-option-improve_plan::local',
+    );
+    await act(async () => {
+      await user.click(option);
+    });
+
+    await act(async () => {
+      await user.click(screen.getByTestId('agent-command-execute'));
+    });
+
+    const ws = wsRegistry?.last();
+    if (!ws) throw new Error('missing WS instance after run start');
+    act(() => {
+      ws._receive({
+        protocolVersion: 'v1',
+        type: 'inflight_snapshot',
+        conversationId: 'c1',
+        seq: 1,
+        inflight: {
+          inflightId: 'i1',
+          assistantText: '',
+          assistantThink: '',
+          toolEvents: [],
+          startedAt: '2025-01-01T00:00:00.000Z',
+        },
+      });
+    });
+
+    const input = await screen.findByTestId('agent-input');
+    await waitFor(() => expect(input).toBeEnabled());
+    await user.type(input, 'draft text');
+    expect(input).toHaveValue('draft text');
+
+    act(() => {
+      ws._receive({
+        protocolVersion: 'v1',
+        type: 'assistant_delta',
+        conversationId: 'c1',
+        seq: 2,
+        inflightId: 'i1',
+        delta: 'still running',
+      });
+    });
+    expect(input).toHaveValue('draft text');
+    expect(screen.getByTestId('agent-command-execute')).toBeDisabled();
+  });
 });

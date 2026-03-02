@@ -716,7 +716,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 
 ### 3. Frontend: unblock Agents input editing and sidebar navigation during active runs
 
-- Task Status: **__to_do__**
+- Task Status: **__completed__**
 - Git Commits: `None yet`
 
 #### Overview
@@ -736,28 +736,28 @@ Limit active-run UI restrictions to submit/execute controls only. Keep instructi
 
 #### Subtasks
 
-1. [ ] Introduce explicit UI gating flags for “run-active submission lock” versus “input editability”.
+1. [x] Introduce explicit UI gating flags for “run-active submission lock” versus “input editability”.
    - Starter snippet (adapt names to exact existing symbols): `const disableSubmit = isRunActive; const disableInput = false; const disableSidebar = false;`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://react.dev/learn/conditional-rendering | https://llms.mui.com/material-ui/6.4.12/llms.txt | https://reactrouter.com/ | https://www.w3.org/WAI/ARIA/apg/
    - Acceptance criteria focus: AC1, AC2.
    - Files to read/edit: `client/src/pages/AgentsPage.tsx`
    - Required behavior: run-active state disables submit/execute actions only; no input lock and no sidebar lock from the same flag.
-2. [ ] Update instruction input wiring to use the new editability flag and preserve draft text during active runs.
+2. [x] Update instruction input wiring to use the new editability flag and preserve draft text during active runs.
    - Starter snippet (adapt names to exact existing symbols): `const disableSubmit = isRunActive; const disableInput = false; const disableSidebar = false;`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://react.dev/learn/conditional-rendering | https://llms.mui.com/material-ui/6.4.12/llms.txt | https://reactrouter.com/ | https://www.w3.org/WAI/ARIA/apg/
    - Acceptance criteria focus: AC1, AC2.
    - Files to read/edit: `client/src/pages/AgentsPage.tsx`
    - Required behavior: input remains editable and draft text is preserved while run is active.
-3. [ ] Update sidebar interaction gating so conversation list remains clickable during active run.
+3. [x] Update sidebar interaction gating so conversation list remains clickable during active run.
    - Starter snippet (adapt names to exact existing symbols): `const disableSubmit = isRunActive; const disableInput = false; const disableSidebar = false;`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://react.dev/learn/conditional-rendering | https://llms.mui.com/material-ui/6.4.12/llms.txt | https://reactrouter.com/ | https://www.w3.org/WAI/ARIA/apg/
    - Acceptance criteria focus: AC1, AC2.
    - Files to read/edit: `client/src/pages/AgentsPage.tsx`, `client/src/components/chat/ConversationList.tsx`
    - Required behavior: conversation switching works while run is active; no overlay blocks clicks.
-4. [ ] Add Agents UI component test: instruction input remains editable while run is active.
+4. [x] Add Agents UI component test: instruction input remains editable while run is active.
    - Starter snippet (adapt names to exact existing symbols): `expect(input).not.toBeDisabled();`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://react.dev/learn/conditional-rendering | https://llms.mui.com/material-ui/6.4.12/llms.txt | https://reactrouter.com/ | https://www.w3.org/WAI/ARIA/apg/
@@ -767,7 +767,7 @@ Limit active-run UI restrictions to submit/execute controls only. Keep instructi
    - Test location: `client/src/test/agentsPage.navigateAway.keepsRun.test.tsx`, `client/src/test/agentsPage.conversationSelection.test.tsx`.
    - Test description: render active-run state and assert instruction input is still editable.
    - Test purpose: prevent regressions where run-active state accidentally locks typing.
-5. [ ] Add Agents UI component test: draft text persists across active-run state updates.
+5. [x] Add Agents UI component test: draft text persists across active-run state updates.
    - Starter snippet (adapt names to exact existing symbols): `expect(input).toHaveValue('draft text');`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://react.dev/learn/conditional-rendering | https://llms.mui.com/material-ui/6.4.12/llms.txt | https://reactrouter.com/ | https://www.w3.org/WAI/ARIA/apg/
@@ -777,7 +777,7 @@ Limit active-run UI restrictions to submit/execute controls only. Keep instructi
    - Test location: `client/src/test/agentsPage.navigateAway.keepsRun.test.tsx`, `client/src/test/agentsPage.conversationSelection.test.tsx`.
    - Test description: enter draft, simulate active-run updates/ticks, assert draft value is unchanged.
    - Test purpose: guarantee users can prepare next instruction without losing input.
-6. [ ] Add Agents UI component test: sidebar conversation switch works during active run.
+6. [x] Add Agents UI component test: sidebar conversation switch works during active run.
    - Starter snippet (adapt names to exact existing symbols): `await user.click(conversationItem); expect(selectedConversationId).toBe(targetId);`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://react.dev/learn/conditional-rendering | https://llms.mui.com/material-ui/6.4.12/llms.txt | https://reactrouter.com/ | https://www.w3.org/WAI/ARIA/apg/
@@ -787,7 +787,7 @@ Limit active-run UI restrictions to submit/execute controls only. Keep instructi
    - Test location: `client/src/test/agentsPage.navigateAway.keepsRun.test.tsx`, `client/src/test/agentsPage.conversationSelection.test.tsx`.
    - Test description: while run is active, click a different conversation and assert selection changes.
    - Test purpose: enforce non-blocking multi-conversation workflow during active runs.
-7. [ ] Add Agents UI component test: submit/execute controls remain disabled while run is active.
+7. [x] Add Agents UI component test: submit/execute controls remain disabled while run is active.
    - Starter snippet (adapt names to exact existing symbols): `expect(submitButton).toBeDisabled();`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://react.dev/learn/conditional-rendering | https://llms.mui.com/material-ui/6.4.12/llms.txt | https://reactrouter.com/ | https://www.w3.org/WAI/ARIA/apg/
@@ -797,7 +797,7 @@ Limit active-run UI restrictions to submit/execute controls only. Keep instructi
    - Test location: `client/src/test/agentsPage.navigateAway.keepsRun.test.tsx`, `client/src/test/agentsPage.conversationSelection.test.tsx`.
    - Test description: assert send/execute controls are disabled during active run while input/sidebar remain usable.
    - Test purpose: keep the intended lock scope limited to submission actions only.
-8. [ ] If this task adds or removes files, update `projectStructure.md` after finishing those file changes.
+8. [x] If this task adds or removes files, update `projectStructure.md` after finishing those file changes.
    - Starter snippet (adapt names to exact existing symbols): `Add entries for any new/removed files introduced by Task 3 under client pages/components/tests.`
    - Dependency note: execute this after all file add/remove subtasks in Task 3 and before moving to the next task.
    - Docs: https://www.markdownguide.org/basic-syntax/
@@ -808,7 +808,7 @@ Limit active-run UI restrictions to submit/execute controls only. Keep instructi
    - Document description: record Task 3 file additions/removals in Agents page, conversation components, and tests.
    - Document purpose: preserve an accurate project file inventory for active-run UX changes.
    - Required behavior: update `projectStructure.md` with every file path added or removed by Task 3 (no wildcard summaries), and remove entries for deleted files.
-9. [ ] Add deterministic active-run UX logs for manual console verification.
+9. [x] Add deterministic active-run UX logs for manual console verification.
    - Starter snippet (adapt names to exact existing symbols): `console.info('[DEV-0000038][T3] AGENTS_INPUT_EDITABLE_WHILE_ACTIVE runActive=%s', isRunActive);`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://developer.mozilla.org/en-US/docs/Web/API/Console/info_static | https://react.dev/learn/conditional-rendering
@@ -817,21 +817,36 @@ Limit active-run UI restrictions to submit/execute controls only. Keep instructi
    - Required log line: `[DEV-0000038][T3] AGENTS_INPUT_EDITABLE_WHILE_ACTIVE runActive=true`.
    - Required log line: `[DEV-0000038][T3] AGENTS_CONVERSATION_SWITCH_ALLOWED from=<id> to=<id>`.
    - Required behavior: emit logs when editing during active run and when switching conversations while run is active.
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+10. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
-1. [ ] `npm run build:summary:client` - If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` and resolve errors.
-2. [ ] `npm run test:summary:client` - If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`) and resolve listed failures.
-3. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find failing target(s).
-4. [ ] `npm run compose:up`
-5. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`; verify `[DEV-0000038][T3] AGENTS_INPUT_EDITABLE_WHILE_ACTIVE runActive=true` appears when editing during active run and `[DEV-0000038][T3] AGENTS_CONVERSATION_SWITCH_ALLOWED from=<id> to=<id>` appears on sidebar switch, capture screenshots proving editable input and successful sidebar switch while run remains active, review screenshots against expected lock-scope behavior (submit disabled while input/sidebar remain usable), save screenshots under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped via `docker-compose.local.yml`), and verify browser debug console has no unexpected errors.
-6. [ ] `npm run compose:down`
+1. [x] `npm run build:summary:client` - If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` and resolve errors.
+2. [x] `npm run test:summary:client` - If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`) and resolve listed failures.
+3. [x] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find failing target(s).
+4. [x] `npm run compose:up`
+5. [x] Manual Playwright-MCP check at `http://host.docker.internal:5001`; verify `[DEV-0000038][T3] AGENTS_INPUT_EDITABLE_WHILE_ACTIVE runActive=true` appears when editing during active run and `[DEV-0000038][T3] AGENTS_CONVERSATION_SWITCH_ALLOWED from=<id> to=<id>` appears on sidebar switch, capture screenshots proving editable input and successful sidebar switch while run remains active, review screenshots against expected lock-scope behavior (submit disabled while input/sidebar remain usable), save screenshots under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped via `docker-compose.local.yml`), and verify browser debug console has no unexpected errors.
+6. [x] `npm run compose:down`
 Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
 #### Implementation notes
 
-- Pending implementation.
+- Subtask 1: Added explicit AgentsPage flags to separate run-active submit locking from input/sidebar interactivity state (`submitDisabledForRun`, `inputEditableDuringRun`, `sidebarSelectableDuringRun`) and stopped coupling conversation-list disabling to run-active state.
+- Subtask 2: Updated instruction input disabled wiring in `AgentsPage` to use a dedicated editability flag (`isInstructionInputDisabled`), keeping typing available during active runs while preserving existing websocket/agent-disabled guards.
+- Subtask 3: Removed forced `stop()` from conversation selection and kept sidebar disabling independent of run-active state so conversation switching remains available during active runs.
+- Subtask 4: Added active-run test assertions in `agentsPage.navigateAway.keepsRun.test.tsx` and `agentsPage.conversationSelection.test.tsx` verifying `agent-input` remains enabled while inflight snapshots are active.
+- Subtask 5: Added draft persistence assertions across active-run websocket updates (`inflight_snapshot`/`assistant_delta`) so typed instruction text remains unchanged.
+- Subtask 6: Added active-run conversation switching coverage in `agentsPage.conversationSelection.test.tsx`, asserting a second `subscribe_conversation` is emitted for a different conversation while run activity remains present.
+- Subtask 7: Added lock-scope assertions ensuring `agent-command-execute` remains disabled while run-active state is present, with run-active action-slot behavior still rendered.
+- Subtask 8: No files were added or removed during Task 3, so `projectStructure.md` required no updates.
+- Subtask 9: Added deterministic Task 3 console markers in `AgentsPage` for active-run editability and allowed conversation switches (`AGENTS_INPUT_EDITABLE_WHILE_ACTIVE`, `AGENTS_CONVERSATION_SWITCH_ALLOWED`).
+- Subtask 10: Ran `npm run lint --workspaces` (passed with existing unrelated server import-order warnings) and `npm run format:check --workspaces`; format check initially failed for two edited client files, then passed after running Prettier write on those files.
+- Testing 1: `npm run build:summary:client` passed; reviewed `logs/test-summaries/build-client-latest.log` and confirmed the single warning is the expected Vite chunk-size advisory.
+- Testing 2: `npm run test:summary:client` initially reported one failing sidebar-availability test; updated `agentsPage.sidebarActions.test.tsx` to wait for async persistence-state disablement, then reran and passed (`tests run: 392`, `failed: 0`) with log `test-results/client-tests-2026-03-02T09-47-17-232Z.log`.
+- Testing 3: `npm run compose:build:summary` passed (`items passed: 2`, `items failed: 0`) with log `logs/test-summaries/compose-build-latest.log`.
+- Testing 4: `npm run compose:up` completed successfully; compose services (client/server/chroma/mongo/playwright-mcp plus observability sidecars) started healthy.
+- Testing 5: Manual runtime validation at `http://host.docker.internal:5001/agents` confirmed both required console markers (`AGENTS_INPUT_EDITABLE_WHILE_ACTIVE runActive=true` while editing and `AGENTS_CONVERSATION_SWITCH_ALLOWED from=<id> to=<id>` on sidebar switch), with no browser-console errors; screenshots saved to `playwright-output-local/task3-editable-input-active-run.png` and `playwright-output-local/task3-sidebar-switch-during-active-run.png`.
+- Testing 6: `npm run compose:down` completed successfully and removed compose services/network.
 
 ---
 

@@ -201,8 +201,9 @@ describe('AgentsPage sidebar actions', () => {
     render(<RouterProvider router={router} />);
 
     await screen.findByTestId('agents-page');
-
-    expect(screen.getByTestId('conversation-filter-active')).toBeDisabled();
-    expect(screen.getByTestId('conversation-refresh')).toBeDisabled();
+    await waitFor(() => {
+      expect(screen.getByTestId('conversation-filter-active')).toBeDisabled();
+      expect(screen.getByTestId('conversation-refresh')).toBeDisabled();
+    });
   });
 });

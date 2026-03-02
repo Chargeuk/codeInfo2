@@ -13,6 +13,15 @@ beforeAll(() => {
 
 beforeEach(() => {
   mockFetch.mockReset();
+  (
+    globalThis as unknown as {
+      __codeinfoDebug?: { dev0000038Markers?: boolean };
+    }
+  ).__codeinfoDebug = undefined;
+});
+
+afterEach(() => {
+  jest.restoreAllMocks();
 });
 
 function HookHarness() {
@@ -378,6 +387,67 @@ describe('RootsTable', () => {
     expect(
       within(row).queryByText(/\(queued\)|\(scanning\)|\(embedding\)/i),
     ).not.toBeInTheDocument();
+  });
+
+  it('does not emit DEV-0000038 T7 row markers by default', async () => {
+    const infoSpy = jest.spyOn(console, 'info').mockImplementation(() => {});
+    render(
+      <RootsTable
+        roots={[
+          {
+            ...root,
+            path: '/repo-default-marker-gate',
+            name: 'repo-default-marker-gate',
+            status: 'ingesting',
+            phase: 'scanning',
+          },
+        ]}
+        lockedModelId={undefined}
+        isLoading={false}
+        error={undefined}
+        disabled={false}
+        onRefresh={() => Promise.resolve()}
+      />,
+    );
+
+    await screen.findByRole('row', { name: /repo-default-marker-gate/i });
+    const markerCalls = infoSpy.mock.calls.filter((call) =>
+      String(call[0] ?? '').includes('[DEV-0000038][T7]'),
+    );
+    expect(markerCalls).toHaveLength(0);
+  });
+
+  it('emits DEV-0000038 T7 row markers when debug gate is enabled', async () => {
+    (
+      globalThis as unknown as {
+        __codeinfoDebug?: { dev0000038Markers?: boolean };
+      }
+    ).__codeinfoDebug = { dev0000038Markers: true };
+    const infoSpy = jest.spyOn(console, 'info').mockImplementation(() => {});
+    render(
+      <RootsTable
+        roots={[
+          {
+            ...root,
+            path: '/repo-enabled-marker-gate',
+            name: 'repo-enabled-marker-gate',
+            status: 'completed',
+            phase: undefined,
+          },
+        ]}
+        lockedModelId={undefined}
+        isLoading={false}
+        error={undefined}
+        disabled={false}
+        onRefresh={() => Promise.resolve()}
+      />,
+    );
+
+    await screen.findByRole('row', { name: /repo-enabled-marker-gate/i });
+    const markerCalls = infoSpy.mock.calls.filter((call) =>
+      String(call[0] ?? '').includes('[DEV-0000038][T7]'),
+    );
+    expect(markerCalls.length).toBeGreaterThanOrEqual(2);
   });
 });
 

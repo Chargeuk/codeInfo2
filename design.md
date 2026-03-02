@@ -861,6 +861,18 @@ flowchart LR
 | T7   | `[DEV-0000038][T7] INGEST_UI_TERMINAL_PHASE_HIDDEN sourceId=<id> status=<completed                       | cancelled                                                                 | error>`                                                         | Confirms terminal rows hide phase details. |
 | T8   | `[DEV-0000038][T8] DOC_LOG_REFERENCE_VALIDATED marker=<T1                                                | T2                                                                        | T3                                                              | T4                                         | T5                                                | T6  | T7>` | Evidence line recorded during documentation validation pass. |
 
+### Marker Debug Gating (Task 11)
+
+- High-volume Task 5/7 marker families are now gated and are disabled by default in normal runtime paths.
+- Server marker gate for `[DEV-0000038][T5]`:
+  - Set `DEV_0000038_MARKERS=true` to emit Task 5 marker logs from `/ingest/roots` and classic listing mapping paths.
+- Client marker gate for `[DEV-0000038][T2]`, `[DEV-0000038][T3]`, `[DEV-0000038][T7]`:
+  - Enable via any one of:
+    - `VITE_DEV_0000038_MARKERS=true` at build/start time.
+    - `window.__codeinfoDebug = { dev0000038Markers: true }` in browser console.
+    - `localStorage.setItem('codeinfo.dev0000038.markers', 'true')` then reload.
+- Functional behavior must remain unchanged regardless of gate state; markers are observability-only.
+
 ## Flows (schema)
 
 - Flow definitions live under `flows/<flowName>.json` and are validated with a strict Zod schema before use.

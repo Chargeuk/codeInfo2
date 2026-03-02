@@ -14,6 +14,15 @@ beforeEach(() => {
   (
     globalThis as unknown as { __wsMock?: { reset: () => void } }
   ).__wsMock?.reset();
+  (
+    globalThis as unknown as {
+      __codeinfoDebug?: { dev0000038Markers?: boolean };
+    }
+  ).__codeinfoDebug = undefined;
+});
+
+afterEach(() => {
+  jest.restoreAllMocks();
 });
 
 const { default: App } = await import('../App');
@@ -34,6 +43,7 @@ const routes = [
 describe('Agents page - abort command execute', () => {
   it('Stop sends WS cancel_inflight but does not abort the command start request', async () => {
     const user = userEvent.setup();
+    const infoSpy = jest.spyOn(console, 'info').mockImplementation(() => {});
     const wsRegistry = (
       globalThis as unknown as {
         __wsMock?: {
@@ -192,12 +202,23 @@ describe('Agents page - abort command execute', () => {
           msg.inflightId === 'i1',
       ),
     ).toBe(true);
+    const markerCalls = infoSpy.mock.calls.filter((call) =>
+      String(call[0] ?? '').includes('[DEV-0000038][T2]'),
+    );
+    expect(markerCalls).toHaveLength(0);
+    infoSpy.mockRestore();
   });
 
   it('Stop before inflight id is known sends WS cancel_inflight by conversation only', async () => {
     let resolveCommandStart: ((res: Response) => void) | null = null;
 
     const user = userEvent.setup();
+    const infoSpy = jest.spyOn(console, 'info').mockImplementation(() => {});
+    (
+      globalThis as unknown as {
+        __codeinfoDebug?: { dev0000038Markers?: boolean };
+      }
+    ).__codeinfoDebug = { dev0000038Markers: true };
     const wsRegistry = (
       globalThis as unknown as {
         __wsMock?: { instances: Array<{ sent: string[] }> };
@@ -325,6 +346,11 @@ describe('Agents page - abort command execute', () => {
       conversationId,
     });
     expect(cancelMessage).not.toHaveProperty('inflightId');
+    const markerCalls = infoSpy.mock.calls.filter((call) =>
+      String(call[0] ?? '').includes('[DEV-0000038][T2]'),
+    );
+    expect(markerCalls.length).toBeGreaterThanOrEqual(2);
+    infoSpy.mockRestore();
   });
 
   it('Stop with no active conversation does not send cancel_inflight and does not throw', async () => {

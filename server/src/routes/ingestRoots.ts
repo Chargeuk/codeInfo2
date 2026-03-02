@@ -13,6 +13,7 @@ import {
 import { getActiveRunContexts } from '../ingest/ingestJob.js';
 import {
   INGEST_REPO_SCHEMA_VERSION,
+  isDev0000038MarkerGateEnabled,
   mapInternalStateToExternal,
 } from '../lmstudio/toolService.js';
 import { append as appendLog } from '../logStore.js';
@@ -337,15 +338,17 @@ export function createIngestRootsRouter(deps: Partial<Deps> = {}) {
             modelId: embeddingModel,
           };
           const external = mapInternalStateToExternal(m.state);
-          baseLogger.info(
-            {
-              sourceId: typeof m.root === 'string' ? m.root : '',
-              internal: typeof m.state === 'string' ? m.state : 'unknown',
-              status: external.status,
-              phase: external.phase ?? 'none',
-            },
-            '[DEV-0000038][T5] INGEST_LIST_STATUS_MAPPED',
-          );
+          if (isDev0000038MarkerGateEnabled()) {
+            baseLogger.info(
+              {
+                sourceId: typeof m.root === 'string' ? m.root : '',
+                internal: typeof m.state === 'string' ? m.state : 'unknown',
+                status: external.status,
+                phase: external.phase ?? 'none',
+              },
+              '[DEV-0000038][T5] INGEST_LIST_STATUS_MAPPED',
+            );
+          }
           return {
             runId: typeof ids[idx] === 'string' ? ids[idx] : `run-${idx}`,
             name: typeof m.name === 'string' ? m.name : '',
@@ -406,19 +409,21 @@ export function createIngestRootsRouter(deps: Partial<Deps> = {}) {
         }
         root.counts = { ...active.counts };
         root.runId = active.runId;
-        baseLogger.info(
-          {
-            sourceId: root.path,
-            internal: active.state,
-            status: mapped.status,
-            phase: mapped.phase ?? 'none',
-          },
-          '[DEV-0000038][T5] INGEST_LIST_STATUS_MAPPED',
-        );
-        baseLogger.info(
-          { sourceId: root.path, synthesized: false },
-          '[DEV-0000038][T5] INGEST_ACTIVE_OVERLAY_APPLIED',
-        );
+        if (isDev0000038MarkerGateEnabled()) {
+          baseLogger.info(
+            {
+              sourceId: root.path,
+              internal: active.state,
+              status: mapped.status,
+              phase: mapped.phase ?? 'none',
+            },
+            '[DEV-0000038][T5] INGEST_LIST_STATUS_MAPPED',
+          );
+          baseLogger.info(
+            { sourceId: root.path, synthesized: false },
+            '[DEV-0000038][T5] INGEST_ACTIVE_OVERLAY_APPLIED',
+          );
+        }
         activeByPath.delete(root.path);
       }
 
@@ -450,19 +455,21 @@ export function createIngestRootsRouter(deps: Partial<Deps> = {}) {
           counts: { ...active.counts },
           lastError: null,
         });
-        baseLogger.info(
-          {
-            sourceId,
-            internal: active.state,
-            status: mapped.status,
-            phase: mapped.phase ?? 'none',
-          },
-          '[DEV-0000038][T5] INGEST_LIST_STATUS_MAPPED',
-        );
-        baseLogger.info(
-          { sourceId, synthesized: true },
-          '[DEV-0000038][T5] INGEST_ACTIVE_OVERLAY_APPLIED',
-        );
+        if (isDev0000038MarkerGateEnabled()) {
+          baseLogger.info(
+            {
+              sourceId,
+              internal: active.state,
+              status: mapped.status,
+              phase: mapped.phase ?? 'none',
+            },
+            '[DEV-0000038][T5] INGEST_LIST_STATUS_MAPPED',
+          );
+          baseLogger.info(
+            { sourceId, synthesized: true },
+            '[DEV-0000038][T5] INGEST_ACTIVE_OVERLAY_APPLIED',
+          );
+        }
       }
       deduped.sort((a, b) => {
         const aTs = a.lastIngestAt ? Date.parse(a.lastIngestAt) : 0;

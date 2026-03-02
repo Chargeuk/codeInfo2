@@ -7,10 +7,12 @@ import {
   __setJobInputForTest,
   __setStatusForTest,
 } from '../../ingest/ingestJob.js';
+import { baseLogger } from '../../logger.js';
 import { createToolsIngestedReposRouter } from '../../routes/toolsIngestedRepos.js';
 
 const ORIGINAL_HOST = process.env.HOST_INGEST_DIR;
 const ORIGINAL_NODE_ENV = process.env.NODE_ENV;
+const ORIGINAL_DEV_0000038_MARKERS = process.env.DEV_0000038_MARKERS;
 
 beforeEach(() => {
   delete process.env.HOST_INGEST_DIR;
@@ -28,6 +30,11 @@ afterEach(() => {
     delete process.env.NODE_ENV;
   } else {
     process.env.NODE_ENV = ORIGINAL_NODE_ENV;
+  }
+  if (ORIGINAL_DEV_0000038_MARKERS === undefined) {
+    delete process.env.DEV_0000038_MARKERS;
+  } else {
+    process.env.DEV_0000038_MARKERS = ORIGINAL_DEV_0000038_MARKERS;
   }
 });
 
@@ -294,4 +301,54 @@ test('synthesizes active entry when persisted metadata is missing', async () => 
   assert.equal(repo.hostPath, '/host/base/container/missing/repo');
   assert.equal(repo.status, 'ingesting');
   assert.equal(repo.phase, 'queued');
+});
+
+test('suppresses DEV-0000038 T5 marker logs by default and emits them when the marker gate is enabled', async () => {
+  const originalInfo = baseLogger.info;
+  const loggedMessages: string[] = [];
+  baseLogger.info = ((...args: unknown[]) => {
+    const message = args.find((arg) => typeof arg === 'string') as
+      | string
+      | undefined;
+    if (message) loggedMessages.push(message);
+  }) as typeof baseLogger.info;
+
+  try {
+    delete process.env.DEV_0000038_MARKERS;
+    const defaultResponse = await request(
+      buildApp(
+        {
+          ids: ['run-1'],
+          metadatas: [{ root: '/data/repo-one', name: 'repo-one' }],
+        },
+        'text-embed',
+      ),
+    ).get('/tools/ingested-repos');
+    assert.equal(defaultResponse.status, 200);
+    assert.equal(
+      loggedMessages.some((entry) => entry.includes('[DEV-0000038][T5]')),
+      false,
+    );
+
+    loggedMessages.length = 0;
+    process.env.DEV_0000038_MARKERS = 'true';
+    const debugResponse = await request(
+      buildApp(
+        {
+          ids: ['run-2'],
+          metadatas: [{ root: '/data/repo-two', name: 'repo-two' }],
+        },
+        'text-embed',
+      ),
+    ).get('/tools/ingested-repos');
+    assert.equal(debugResponse.status, 200);
+    assert.equal(
+      loggedMessages.some((entry) =>
+        entry.includes('[DEV-0000038][T5] INGEST_LIST_STATUS_MAPPED'),
+      ),
+      true,
+    );
+  } finally {
+    baseLogger.info = originalInfo;
+  }
 });

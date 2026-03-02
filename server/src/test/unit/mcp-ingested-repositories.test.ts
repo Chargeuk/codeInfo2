@@ -7,9 +7,11 @@ import {
   __setJobInputForTest,
   __setStatusForTest,
 } from '../../ingest/ingestJob.js';
+import { baseLogger } from '../../logger.js';
 import { createMcpRouter } from '../../mcp/server.js';
 
 const ORIGINAL_NODE_ENV = process.env.NODE_ENV;
+const ORIGINAL_DEV_0000038_MARKERS = process.env.DEV_0000038_MARKERS;
 
 function createMcpApp({ lockedModelId }: { lockedModelId: string | null }) {
   const app = express();
@@ -52,6 +54,11 @@ test.afterEach(() => {
     delete process.env.NODE_ENV;
   } else {
     process.env.NODE_ENV = ORIGINAL_NODE_ENV;
+  }
+  if (ORIGINAL_DEV_0000038_MARKERS === undefined) {
+    delete process.env.DEV_0000038_MARKERS;
+  } else {
+    process.env.DEV_0000038_MARKERS = ORIGINAL_DEV_0000038_MARKERS;
   }
 });
 
@@ -257,4 +264,49 @@ test('ListIngestedRepositories synthesizes active-only entries', async () => {
   );
   assert.equal(synthesized?.status, 'ingesting');
   assert.equal(synthesized?.phase, 'scanning');
+});
+
+test('ListIngestedRepositories marker logs are gated behind DEV_0000038_MARKERS', async () => {
+  const originalInfo = baseLogger.info;
+  const loggedMessages: string[] = [];
+  baseLogger.info = ((...args: unknown[]) => {
+    const message = args.find((arg) => typeof arg === 'string') as
+      | string
+      | undefined;
+    if (message) loggedMessages.push(message);
+  }) as typeof baseLogger.info;
+
+  const app = createMcpApp({ lockedModelId: 'text-embedding-openai' });
+  const payload = {
+    jsonrpc: '2.0',
+    id: 'marker-gate',
+    method: 'tools/call',
+    params: {
+      name: 'ListIngestedRepositories',
+      arguments: {},
+    },
+  };
+
+  try {
+    delete process.env.DEV_0000038_MARKERS;
+    const defaultResponse = await request(app).post('/mcp').send(payload);
+    assert.equal(defaultResponse.status, 200);
+    assert.equal(
+      loggedMessages.some((entry) => entry.includes('[DEV-0000038][T5]')),
+      false,
+    );
+
+    loggedMessages.length = 0;
+    process.env.DEV_0000038_MARKERS = 'true';
+    const debugResponse = await request(app).post('/mcp').send(payload);
+    assert.equal(debugResponse.status, 200);
+    assert.equal(
+      loggedMessages.some((entry) =>
+        entry.includes('[DEV-0000038][T5] INGEST_LIST_STATUS_MAPPED'),
+      ),
+      true,
+    );
+  } finally {
+    baseLogger.info = originalInfo;
+  }
 });

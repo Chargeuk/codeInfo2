@@ -2484,7 +2484,7 @@ Harden runtime config validation so forward-compatible unknown-key preservation 
 
 ### 11. Performance/operability hardening: gate high-volume DEV-0000038 marker logs behind explicit debug controls
 
-- Task Status: **__to_do__**
+- Task Status: **__done__**
 - Git Commits: `_pending_`
 
 #### Overview
@@ -2493,30 +2493,39 @@ Reduce production log/console noise introduced by per-row/per-render DEV-0000038
 
 #### Subtasks
 
-1. [ ] Add a server-side log gate (env/config switch) for `[DEV-0000038][T5]` high-frequency markers used in ingest listing overlays.
+1. [x] Add a server-side log gate (env/config switch) for `[DEV-0000038][T5]` high-frequency markers used in ingest listing overlays.
    - Files to read/edit: `server/src/lmstudio/toolService.ts`, `server/src/routes/ingestRoots.ts`.
    - Required behavior: default runtime path does not emit per-entry marker logs; enabling the gate restores markers unchanged.
-2. [ ] Add a client-side debug gate for `[DEV-0000038][T2]`, `[DEV-0000038][T3]`, and `[DEV-0000038][T7]` `console.info` markers.
+2. [x] Add a client-side debug gate for `[DEV-0000038][T2]`, `[DEV-0000038][T3]`, and `[DEV-0000038][T7]` `console.info` markers.
    - Files to read/edit: `client/src/hooks/useChatWs.ts`, `client/src/pages/AgentsPage.tsx`, `client/src/components/ingest/RootsTable.tsx`.
    - Required behavior: default runtime path suppresses marker spam; explicit debug enablement emits markers with existing text.
-3. [ ] Update/extend tests to assert functional behavior does not depend on these marker logs and that gated paths keep existing product behavior unchanged.
+3. [x] Update/extend tests to assert functional behavior does not depend on these marker logs and that gated paths keep existing product behavior unchanged.
    - Files to read/edit: `server/src/test/unit/tools-ingested-repos.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`, `client/src/test/agentsPage.commandsRun.abort.test.tsx`, `client/src/test/ingestRoots.test.tsx`.
    - Test type: Unit/component regression.
    - Test purpose: ensure observability-gating does not alter acceptance behavior.
-4. [ ] Update documentation (`design.md`) with the debug-gating approach for manual QA marker collection.
-5. [ ] If this task adds or removes files, update `projectStructure.md` after finishing those file changes.
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
+4. [x] Update documentation (`design.md`) with the debug-gating approach for manual QA marker collection.
+5. [x] If this task adds or removes files, update `projectStructure.md` after finishing those file changes.
+6. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
 
 #### Testing
 
-1. [ ] `npm run build:summary:server`
-2. [ ] `npm run build:summary:client`
-3. [ ] `npm run test:summary:server`
-4. [ ] `npm run test:summary:client`
+1. [x] `npm run build:summary:server`
+2. [x] `npm run build:summary:client`
+3. [x] `npm run test:summary:server`
+4. [x] `npm run test:summary:client`
 
 #### Implementation notes
 
-- Pending.
+- Subtask 1: Added server marker gate `DEV_0000038_MARKERS` (default off) and applied it to Task 5 marker emission in both `toolService` and `/ingest/roots`; existing marker text is preserved when enabled.
+- Subtask 2: Added client marker gate evaluation (`VITE_DEV_0000038_MARKERS`, `window.__codeinfoDebug.dev0000038Markers`, or `localStorage['codeinfo.dev0000038.markers']`) and gated Task 2/3/7 `console.info` markers without changing stop/switch/input behavior.
+- Subtask 3: Extended server and client tests to verify default marker suppression and explicit marker emission when debug gate is enabled, while preserving existing functional assertions.
+- Subtask 4: Updated `design.md` with a dedicated Task 11 marker-gating section, including exact server/client enablement paths for manual QA collection.
+- Subtask 5: No files were added or removed during Task 11 implementation, so `projectStructure.md` did not require updates.
+- Subtask 6: Ran `npm run lint --workspaces` and `npm run format:check --workspaces`; initial format check failed on two updated server test files, fixed via `npm run format --workspace server`, then re-ran checks to pass (lint remains the existing 49-warning import-order baseline).
+- Testing 1: `npm run build:summary:server` passed (`warnings: 0`), log `logs/test-summaries/build-server-latest.log`.
+- Testing 2: `npm run build:summary:client` passed (`warnings: 1`), log `logs/test-summaries/build-client-latest.log`; warning remains the expected Vite chunk-size advisory baseline.
+- Testing 3: `npm run test:summary:server` passed (`tests run: 960`, `failed: 0`), log `test-results/server-tests-2026-03-02T16-30-26-873Z.log`.
+- Testing 4: `npm run test:summary:client` initially failed because test runtime does not always populate `import.meta.env`; updated marker-gate env access to be null-safe, then reran and passed (`tests run: 403`, `failed: 0`), log `test-results/client-tests-2026-03-02T16-41-42-945Z.log`.
 
 ---
 

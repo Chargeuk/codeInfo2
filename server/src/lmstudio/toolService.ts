@@ -68,6 +68,21 @@ export type ListReposResult = {
 
 export const INGEST_REPO_SCHEMA_VERSION = '0000038-status-phase-v1';
 
+function parseDev0000038MarkerGate(value: string | undefined): boolean {
+  if (typeof value !== 'string') return false;
+  const normalized = value.trim().toLowerCase();
+  return (
+    normalized === '1' ||
+    normalized === 'true' ||
+    normalized === 'yes' ||
+    normalized === 'on'
+  );
+}
+
+export function isDev0000038MarkerGateEnabled(): boolean {
+  return parseDev0000038MarkerGate(process.env.DEV_0000038_MARKERS);
+}
+
 export type RepoEmbeddingIdentity = {
   embeddingProvider: EmbeddingProviderId;
   embeddingModel: string;
@@ -334,6 +349,9 @@ function logStatusMapped(args: {
   status: ExternalIngestStatus;
   phase?: ExternalIngestPhase;
 }) {
+  if (!isDev0000038MarkerGateEnabled()) {
+    return;
+  }
   baseLogger.info(
     {
       sourceId: args.sourceId,
@@ -347,6 +365,9 @@ function logStatusMapped(args: {
 }
 
 function logOverlayApplied(sourceId: string, synthesized: boolean) {
+  if (!isDev0000038MarkerGateEnabled()) {
+    return;
+  }
   baseLogger.info(
     { sourceId, synthesized },
     '[DEV-0000038][T5] INGEST_ACTIVE_OVERLAY_APPLIED',

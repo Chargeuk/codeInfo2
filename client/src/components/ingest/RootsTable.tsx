@@ -16,6 +16,7 @@ import {
 } from '@mui/material';
 import { useEffect, useMemo, useState } from 'react';
 import { getApiBaseUrl } from '../../api/baseUrl';
+import { isDev0000038MarkerGateEnabled } from '../../hooks/useChatWs';
 import type { IngestRoot } from '../../hooks/useIngestRoots';
 import { createLogger } from '../../logging';
 
@@ -203,6 +204,9 @@ export default function RootsTable({
   }, [log, lockModel, lockedProvider]);
 
   useEffect(() => {
+    if (!isDev0000038MarkerGateEnabled()) {
+      return;
+    }
     for (const root of roots) {
       const sourceId = root.path || 'unknown';
       const phase = root.status === 'ingesting' ? root.phase : undefined;

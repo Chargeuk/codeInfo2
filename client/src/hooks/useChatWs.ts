@@ -5,6 +5,7 @@ import { createLogger } from '../logging/logger';
 const API_BASE = getApiBaseUrl();
 
 const WS_PROTOCOL_VERSION = 'v1' as const;
+const DEV_0000038_MARKERS_STORAGE_KEY = 'codeinfo.dev0000038.markers';
 
 type WsProtocolVersion = typeof WS_PROTOCOL_VERSION;
 
@@ -258,6 +259,45 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function inflightKey(conversationId: string, inflightId: string) {
   return `${conversationId}:${inflightId}`;
+}
+
+function parseMarkerGate(value: unknown): boolean {
+  if (typeof value !== 'string') return false;
+  const normalized = value.trim().toLowerCase();
+  return (
+    normalized === '1' ||
+    normalized === 'true' ||
+    normalized === 'yes' ||
+    normalized === 'on'
+  );
+}
+
+export function isDev0000038MarkerGateEnabled(): boolean {
+  const env = (import.meta as ImportMeta & { env?: Record<string, unknown> })
+    .env;
+  const envFlag = parseMarkerGate(
+    typeof env?.VITE_DEV_0000038_MARKERS === 'string'
+      ? env.VITE_DEV_0000038_MARKERS
+      : undefined,
+  );
+  if (envFlag) return true;
+
+  if (typeof window === 'undefined') return false;
+
+  const globalFlag = (
+    window as unknown as {
+      __codeinfoDebug?: { dev0000038Markers?: boolean };
+    }
+  ).__codeinfoDebug?.dev0000038Markers;
+  if (globalFlag === true) return true;
+
+  try {
+    return parseMarkerGate(
+      window.localStorage?.getItem(DEV_0000038_MARKERS_STORAGE_KEY),
+    );
+  } catch {
+    return false;
+  }
 }
 
 export function useChatWs(params?: UseChatWsParams): UseChatWsState {
@@ -674,11 +714,13 @@ export function useChatWs(params?: UseChatWsParams): UseChatWsState {
         conversationId,
         ...(inflightId ? { inflightId } : {}),
       });
-      console.info(
-        '[DEV-0000038][T2] CANCEL_INFLIGHT_SENT conversationId=%s inflightId=%s',
-        conversationId,
-        inflightId ?? 'none',
-      );
+      if (isDev0000038MarkerGateEnabled()) {
+        console.info(
+          '[DEV-0000038][T2] CANCEL_INFLIGHT_SENT conversationId=%s inflightId=%s',
+          conversationId,
+          inflightId ?? 'none',
+        );
+      }
       if (connectionState === 'closed') {
         connectNowRef.current();
       }

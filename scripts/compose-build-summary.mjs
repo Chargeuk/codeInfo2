@@ -13,7 +13,10 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const rootDir = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '..',
+);
 const resultsDir = path.join(rootDir, 'logs', 'test-summaries');
 const logPath = path.join(resultsDir, 'compose-build-latest.log');
 
@@ -28,13 +31,24 @@ const run = (cmd, args, cwd) =>
     });
 
     let output = '';
+    let settled = false;
+    const finish = (code) => {
+      if (settled) return;
+      settled = true;
+      resolve({ code: code ?? 1, output });
+    };
     child.stdout.on('data', (chunk) => {
       output += chunk.toString();
     });
     child.stderr.on('data', (chunk) => {
       output += chunk.toString();
     });
-    child.on('close', (code) => resolve({ code: code ?? 1, output }));
+    child.on('error', (err) => {
+      const message = err?.message ?? String(err);
+      output += `\nSpawn error: ${message}\n`;
+      finish(1);
+    });
+    child.on('close', (code) => finish(code));
   });
 
 const stripAnsi = (value) => value.replace(/\x1B\[[0-?]*[ -/]*[@-~]/g, '');
@@ -48,13 +62,17 @@ const parseComposeBuildSummary = (rawOutput) => {
     const text = line.trim();
     if (!text) continue;
 
-    const imagePassed = text.match(/^Image\s+(.+?)\s+(Built|CACHED|Loaded)\s*$/i);
+    const imagePassed = text.match(
+      /^Image\s+(.+?)\s+(Built|CACHED|Loaded)\s*$/i,
+    );
     if (imagePassed) {
       passed.add(imagePassed[1]);
       continue;
     }
 
-    const imageFailed = text.match(/^Image\s+(.+?)\s+(Error|Failed|Canceled|Cancelled)\b/i);
+    const imageFailed = text.match(
+      /^Image\s+(.+?)\s+(Error|Failed|Canceled|Cancelled)\b/i,
+    );
     if (imageFailed) {
       failed.add(imageFailed[1]);
       continue;
@@ -78,7 +96,9 @@ const parseComposeBuildSummary = (rawOutput) => {
       continue;
     }
 
-    const targetFailed = text.match(/^target\s+([a-zA-Z0-9_.-]+):\s+failed to solve:/i);
+    const targetFailed = text.match(
+      /^target\s+([a-zA-Z0-9_.-]+):\s+failed to solve:/i,
+    );
     if (targetFailed) {
       failed.add(targetFailed[1]);
       continue;
@@ -101,8 +121,14 @@ writeFileSync(logPath, result.output, 'utf8');
 
 const parsed = parseComposeBuildSummary(result.output);
 const status = result.code === 0 ? 'passed' : 'failed';
-const passedLabel = parsed.passedCount > 0 ? String(parsed.passedCount) : 'unknown';
-const failedLabel = parsed.failedCount > 0 ? String(parsed.failedCount) : result.code === 0 ? '0' : 'unknown';
+const passedLabel =
+  parsed.passedCount > 0 ? String(parsed.passedCount) : 'unknown';
+const failedLabel =
+  parsed.failedCount > 0
+    ? String(parsed.failedCount)
+    : result.code === 0
+      ? '0'
+      : 'unknown';
 
 console.log(`[compose:build] status: ${status}`);
 console.log(`[compose:build] items passed: ${passedLabel}`);

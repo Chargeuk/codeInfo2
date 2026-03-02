@@ -10,9 +10,15 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const rootDir = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '..',
+);
 const resultsDir = path.join(rootDir, 'test-results');
-const timestamp = new Date().toISOString().replaceAll(':', '-').replaceAll('.', '-');
+const timestamp = new Date()
+  .toISOString()
+  .replaceAll(':', '-')
+  .replaceAll('.', '-');
 const logPath = path.join(resultsDir, `server-tests-${timestamp}.log`);
 
 mkdirSync(resultsDir, { recursive: true });
@@ -26,24 +32,40 @@ const run = (cmd, args, cwd) =>
     });
 
     let output = '';
+    let settled = false;
+    const finish = (code) => {
+      if (settled) return;
+      settled = true;
+      resolve({ code: code ?? 1, output });
+    };
     child.stdout.on('data', (chunk) => {
       output += chunk.toString();
     });
     child.stderr.on('data', (chunk) => {
       output += chunk.toString();
     });
-    child.on('close', (code) => resolve({ code: code ?? 1, output }));
+    child.on('error', (err) => {
+      const message = err?.message ?? String(err);
+      output += `\nSpawn error: ${message}\n`;
+      finish(1);
+    });
+    child.on('close', (code) => finish(code));
   });
 
 const sumFromMatches = (output, pattern) =>
-  [...output.matchAll(pattern)].reduce((sum, match) => sum + Number(match[1]), 0);
+  [...output.matchAll(pattern)].reduce(
+    (sum, match) => sum + Number(match[1]),
+    0,
+  );
 
 const parseCucumberScenarioCounts = (output) => {
   let scenariosTotal = 0;
   let scenariosPassed = 0;
   let scenariosFailed = 0;
 
-  const scenarioLines = [...output.matchAll(/(\d+)\s+scenarios?\s+\(([^)]+)\)/gim)];
+  const scenarioLines = [
+    ...output.matchAll(/(\d+)\s+scenarios?\s+\(([^)]+)\)/gim),
+  ];
   for (const line of scenarioLines) {
     scenariosTotal += Number(line[1]);
     const breakdown = line[2];
@@ -62,20 +84,27 @@ const parseFailureNames = (output) => {
   for (const match of output.matchAll(/not ok \d+ - (.+)$/gim)) {
     names.add(match[1].trim());
   }
-  for (const match of output.matchAll(/^[ \t]*✖[ \t]+(.+?)(?: \(\d+(?:\.\d+)?ms\))?$/gm)) {
+  for (const match of output.matchAll(
+    /^[ \t]*✖[ \t]+(.+?)(?: \(\d+(?:\.\d+)?ms\))?$/gm,
+  )) {
     names.add(match[1].trim());
   }
 
   return [...names];
 };
 
-const result = await run('npm', ['run', 'test', '--workspace', 'server'], rootDir);
+const result = await run(
+  'npm',
+  ['run', 'test', '--workspace', 'server'],
+  rootDir,
+);
 writeFileSync(logPath, result.output, 'utf8');
 
 const unitTestsTotal = sumFromMatches(result.output, /^# tests (\d+)$/gim);
 const unitTestsPassed = sumFromMatches(result.output, /^# pass (\d+)$/gim);
 const unitTestsFailed = sumFromMatches(result.output, /^# fail (\d+)$/gim);
-const { scenariosTotal, scenariosPassed, scenariosFailed } = parseCucumberScenarioCounts(result.output);
+const { scenariosTotal, scenariosPassed, scenariosFailed } =
+  parseCucumberScenarioCounts(result.output);
 
 const total = unitTestsTotal + scenariosTotal;
 const passed = unitTestsPassed + scenariosPassed;

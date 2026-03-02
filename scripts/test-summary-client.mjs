@@ -10,9 +10,15 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const rootDir = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '..',
+);
 const resultsDir = path.join(rootDir, 'test-results');
-const timestamp = new Date().toISOString().replaceAll(':', '-').replaceAll('.', '-');
+const timestamp = new Date()
+  .toISOString()
+  .replaceAll(':', '-')
+  .replaceAll('.', '-');
 const logPath = path.join(resultsDir, `client-tests-${timestamp}.log`);
 const jsonPath = path.join(resultsDir, `client-tests-${timestamp}.json`);
 
@@ -27,18 +33,38 @@ const run = (cmd, args, cwd) =>
     });
 
     let output = '';
+    let settled = false;
+    const finish = (code) => {
+      if (settled) return;
+      settled = true;
+      resolve({ code: code ?? 1, output });
+    };
     child.stdout.on('data', (chunk) => {
       output += chunk.toString();
     });
     child.stderr.on('data', (chunk) => {
       output += chunk.toString();
     });
-    child.on('close', (code) => resolve({ code: code ?? 1, output }));
+    child.on('error', (err) => {
+      const message = err?.message ?? String(err);
+      output += `\nSpawn error: ${message}\n`;
+      finish(1);
+    });
+    child.on('close', (code) => finish(code));
   });
 
 const result = await run(
   'npm',
-  ['run', 'test', '--workspace', 'client', '--', '--json', '--outputFile', jsonPath],
+  [
+    'run',
+    'test',
+    '--workspace',
+    'client',
+    '--',
+    '--json',
+    '--outputFile',
+    jsonPath,
+  ],
   rootDir,
 );
 

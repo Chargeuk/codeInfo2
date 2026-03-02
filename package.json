@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "test:summary:server": "node ./scripts/test-summary-server.mjs",
+    "test:summary:server:unit": "node ./scripts/test-summary-server-unit.mjs",
+    "test:summary:server:cucumber": "node ./scripts/test-summary-server-cucumber.mjs",
     "test:summary:client": "node ./scripts/test-summary-client.mjs",
     "test:summary:e2e": "node ./scripts/test-summary-e2e.mjs",
     "build:summary:server": "node ./scripts/build-summary-server.mjs",

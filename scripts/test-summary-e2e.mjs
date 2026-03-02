@@ -4,6 +4,9 @@
 // Behavior: runs compose build/up, executes Playwright e2e tests with JSON reporter, always performs teardown,
 // and prints only total/passed/failed counts plus failing test names.
 // Logging: writes full output to logs/test-summaries/e2e-tests-latest.log on every run (overwrites previous run).
+// Optional targeting:
+//   --file <path>  repeatable; forwarded as Playwright test file selectors.
+//   --grep <expr>  forwarded to Playwright --grep.
 // Why: this keeps routine AI-assisted runs low-noise while still preserving full logs when failures need diagnosis.
 
 import { spawn } from 'node:child_process';
@@ -20,6 +23,44 @@ const logPath = path.join(resultsDir, 'e2e-tests-latest.log');
 
 mkdirSync(resultsDir, { recursive: true });
 const logStream = createWriteStream(logPath, { flags: 'w' });
+
+const args = process.argv.slice(2);
+const options = {
+  files: [],
+  grep: undefined,
+};
+
+for (let i = 0; i < args.length; i += 1) {
+  const arg = args[i];
+  if (arg === '--file') {
+    const value = args[i + 1];
+    if (!value) {
+      console.error('Missing value for --file');
+      process.exit(1);
+    }
+    options.files.push(value);
+    i += 1;
+    continue;
+  }
+  if (arg === '--grep') {
+    const value = args[i + 1];
+    if (!value) {
+      console.error('Missing value for --grep');
+      process.exit(1);
+    }
+    options.grep = value;
+    i += 1;
+    continue;
+  }
+  if (arg === '--help') {
+    console.log(
+      'Usage: npm run test:summary:e2e -- [--file <path>] [--grep <pattern>]',
+    );
+    process.exit(0);
+  }
+  console.error(`Unknown argument: ${arg}`);
+  process.exit(1);
+}
 
 const writeLog = (text) => {
   logStream.write(text.endsWith('\n') ? text : `${text}\n`);
@@ -144,6 +185,21 @@ const collectSummary = (report) => {
   };
 };
 
+const normalizeE2ePath = (value) => {
+  if (path.isAbsolute(value)) return value;
+  const normalized = value.replace(/\\/g, '/');
+  if (normalized.startsWith('e2e/')) return normalized;
+  if (normalized.endsWith('.spec.ts')) return `e2e/${normalized}`;
+  return normalized;
+};
+
+const playwrightArgs = [
+  ...options.files.map((file) => normalizeE2ePath(file)),
+];
+if (options.grep) {
+  playwrightArgs.push('--grep', options.grep);
+}
+
 let testExitCode = 1;
 let summary = { total: 0, passed: 0, failed: 0, failingNames: [] };
 let setupFailed = false;
@@ -160,7 +216,7 @@ try {
     } else {
       const testResult = await run(
         'npm',
-        ['run', 'e2e:test', '--', '--reporter=json'],
+        ['run', 'e2e:test', '--', '--reporter=json', ...playwrightArgs],
         { collectStdout: true },
       );
       testExitCode = testResult.code;

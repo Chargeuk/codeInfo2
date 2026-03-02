@@ -3,6 +3,10 @@
 // Use: `npm run test:summary:client` from the repository root.
 // Behavior: executes the existing client workspace test command, writes full output to test-results/ for inspection,
 // and prints only total/passed/failed counts plus failing test names when present.
+// Optional targeting:
+//   --file <path>       repeatable; mapped to Jest --runTestsByPath
+//   --subset <pattern>  mapped to Jest --testPathPatterns
+//   --test-name <expr>  mapped to Jest --testNamePattern
 // Why: this keeps routine AI-assisted runs low-noise while still preserving full logs when failures need diagnosis.
 
 import { spawn } from 'node:child_process';
@@ -23,6 +27,78 @@ const logPath = path.join(resultsDir, `client-tests-${timestamp}.log`);
 const jsonPath = path.join(resultsDir, `client-tests-${timestamp}.json`);
 
 mkdirSync(resultsDir, { recursive: true });
+
+const args = process.argv.slice(2);
+const options = {
+  files: [],
+  subset: undefined,
+  testName: undefined,
+};
+
+for (let i = 0; i < args.length; i += 1) {
+  const arg = args[i];
+  if (arg === '--file') {
+    const value = args[i + 1];
+    if (!value) {
+      console.error('Missing value for --file');
+      process.exit(1);
+    }
+    options.files.push(value);
+    i += 1;
+    continue;
+  }
+  if (arg === '--subset') {
+    const value = args[i + 1];
+    if (!value) {
+      console.error('Missing value for --subset');
+      process.exit(1);
+    }
+    options.subset = value;
+    i += 1;
+    continue;
+  }
+  if (arg === '--test-name') {
+    const value = args[i + 1];
+    if (!value) {
+      console.error('Missing value for --test-name');
+      process.exit(1);
+    }
+    options.testName = value;
+    i += 1;
+    continue;
+  }
+  if (arg === '--help') {
+    console.log(
+      'Usage: npm run test:summary:client -- [--file <path>] [--subset <pattern>] [--test-name <pattern>]',
+    );
+    process.exit(0);
+  }
+  console.error(`Unknown argument: ${arg}`);
+  process.exit(1);
+}
+
+const normalizeClientPath = (value) => {
+  if (path.isAbsolute(value)) return value;
+  const normalized = value.replace(/\\/g, '/');
+  if (normalized.startsWith('client/')) {
+    return normalized.slice('client/'.length);
+  }
+  return normalized;
+};
+
+const jestArgs = [];
+if (options.files.length > 0) {
+  jestArgs.push(
+    '--runTestsByPath',
+    ...options.files.map((file) => normalizeClientPath(file)),
+  );
+}
+if (options.subset) {
+  jestArgs.push('--testPathPatterns', options.subset);
+}
+if (options.testName) {
+  jestArgs.push('--testNamePattern', options.testName);
+}
 
 const run = (cmd, args, cwd) =>
   new Promise((resolve) => {
@@ -61,6 +137,7 @@ const result = await run(
     '--workspace',
     'client',
     '--',
+    ...jestArgs,
     '--json',
     '--outputFile',
     jsonPath,

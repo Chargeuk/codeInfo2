@@ -74,8 +74,12 @@ const waitForTerminal = async (runId: string) => {
 };
 
 const buildDeps = () => {
+  let embedCalls = 0;
   const embeddingModel = {
-    embed: async () => ({ embedding: [0.1, 0.2, 0.3] }),
+    embed: async () => {
+      embedCalls += 1;
+      return { embedding: [0.1, 0.2, 0.3] };
+    },
     getContextLength: async () => 256,
     countTokens: async (text: string) =>
       text.split(/\s+/).filter(Boolean).length,
@@ -88,6 +92,7 @@ const buildDeps = () => {
           model: async () => embeddingModel,
         },
       }) as unknown as LMStudioClient,
+    getEmbedCalls: () => embedCalls,
   };
 };
 
@@ -366,7 +371,7 @@ test('reembed still attempts AST parsing for new languages', async () => {
         'cpp/sample.h',
       ].map(async (relPath) => ({
         relPath,
-        fileHash: await hashFile(path.join(root, relPath)),
+        fileHash: `old-${relPath}`,
       })),
     );
     mongoMocks.setIngestFileRows(rows);
@@ -752,9 +757,10 @@ test('delta reembed skips unchanged files', async () => {
   }
 });
 
-test('delta reembed skips when no changes', async () => {
+test('delta reembed no-change returns completed before AST parse and embedding calls', async () => {
   const repoMocks = mongoMocks;
   const parseMock = mockParseAstSource();
+  const deps = buildDeps();
   const { root, cleanup } = await createTempRepo({
     'src/unchanged.ts': 'export const unchanged = 1;\n',
   });
@@ -767,13 +773,107 @@ test('delta reembed skips when no changes', async () => {
 
     const runId = await startIngest(
       { path: root, name: 'repo', model: 'embed-model', operation: 'reembed' },
-      buildDeps(),
+      deps,
     );
     const status = await waitForTerminal(runId);
 
-    assert.equal(status.state, 'skipped');
-    assert.equal(parseMock.mock.calls.length, 1);
-    assert.equal(repoMocks.astCoverageUpdateOne.mock.calls.length, 1);
+    assert.equal(status.state, 'completed');
+    assert.match(String(status.message ?? ''), /no changes/i);
+    assert.equal(parseMock.mock.calls.length, 0);
+    assert.equal(repoMocks.astCoverageUpdateOne.mock.calls.length, 0);
+    assert.equal(deps.getEmbedCalls(), 0);
+    const earlyReturnLogs = query({
+      text: '[DEV-0000038][T6] REEMBED_NO_CHANGE_EARLY_RETURN',
+    });
+    assert.ok(earlyReturnLogs.length > 0);
+    const deltaPathLogs = query({
+      text: '[DEV-0000038][T6] REEMBED_DELTA_PATH',
+    });
+    assert.equal(deltaPathLogs.length, 0);
+  } finally {
+    await cleanup();
+  }
+});
+
+test('delta reembed deletions-only returns completed and does not claim no changes', async () => {
+  const { root, cleanup } = await createTempRepo({
+    'src/deleted.ts': 'export const deleted = 1;\n',
+  });
+
+  try {
+    const deletedHash = await hashFile(path.join(root, 'src/deleted.ts'));
+    mongoMocks.setIngestFileRows([
+      { relPath: 'src/deleted.ts', fileHash: deletedHash },
+    ]);
+    await fs.rm(path.join(root, 'src/deleted.ts'));
+    process.env.INGEST_TEST_GIT_PATHS = '';
+
+    const runId = await startIngest(
+      { path: root, name: 'repo', model: 'embed-model', operation: 'reembed' },
+      buildDeps(),
+    );
+    const status = await waitForTerminal(runId);
+    assert.equal(status.state, 'completed');
+    assert.notEqual(status.message, 'No changes detected');
+    const deltaPathLogs = query({
+      text: '[DEV-0000038][T6] REEMBED_DELTA_PATH',
+    });
+    assert.ok(deltaPathLogs.length > 0);
+  } finally {
+    await cleanup();
+  }
+});
+
+test('delta reembed mixed changes returns completed', async () => {
+  const { root, cleanup } = await createTempRepo({
+    'src/mixed.ts': 'export const mixed = 1;\n',
+  });
+
+  try {
+    mongoMocks.setIngestFileRows([
+      { relPath: 'src/mixed.ts', fileHash: 'old' },
+    ]);
+    await fs.writeFile(
+      path.join(root, 'src/mixed.ts'),
+      'export const mixed = 2;\n',
+    );
+
+    const runId = await startIngest(
+      { path: root, name: 'repo', model: 'embed-model', operation: 'reembed' },
+      buildDeps(),
+    );
+    const status = await waitForTerminal(runId);
+    assert.equal(status.state, 'completed');
+    const deltaPathLogs = query({
+      text: '[DEV-0000038][T6] REEMBED_DELTA_PATH',
+    });
+    assert.ok(deltaPathLogs.length > 0);
+  } finally {
+    await cleanup();
+  }
+});
+
+test('delta reembed changed-file AST parse failures remain non-terminal and preserve completed status', async () => {
+  mockParseAstSource(async () => ({
+    status: 'failed' as const,
+    language: 'typescript' as const,
+    error: 'parse error',
+  }));
+  const { root, cleanup } = await createTempRepo({
+    'src/changed.ts': 'export const changed = 1;\n',
+  });
+
+  try {
+    mongoMocks.setIngestFileRows([
+      { relPath: 'src/changed.ts', fileHash: 'old' },
+    ]);
+    const runId = await startIngest(
+      { path: root, name: 'repo', model: 'embed-model', operation: 'reembed' },
+      buildDeps(),
+    );
+    const status = await waitForTerminal(runId);
+    assert.equal(status.state, 'completed');
+    assert.equal(status.ast?.failedFileCount, 1);
   } finally {
     await cleanup();
   }

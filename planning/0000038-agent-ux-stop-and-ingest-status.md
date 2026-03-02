@@ -1459,7 +1459,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 
 ### 6. Server: move no-change reembed exit ahead of AST and embedding work, and normalize successful terminal status
 
-- Task Status: **__to_do__**
+- Task Status: **__done__**
 - Git Commits: `None yet`
 
 #### Overview
@@ -1479,27 +1479,27 @@ Ensure no-change delta runs exit before AST parse/upsert/delete and before embed
 
 #### Subtasks
 
-1. [ ] Refactor reembed delta flow to compute no-change decision before AST parsing/writing and embedding loops.
+1. [x] Refactor reembed delta flow to compute no-change decision before AST parsing/writing and embedding loops.
    - Starter snippet (adapt names to exact existing symbols): `if (delta.added === 0 && delta.modified === 0 && delta.deleted === 0) return completedNoChangeResult();`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://tree-sitter.github.io/tree-sitter/ | https://github.com/tree-sitter/tree-sitter-typescript | https://nodejs.org/en/learn/asynchronous-work/dont-block-the-event-loop | https://mongoosejs.com/docs/ | https://jestjs.io/docs/getting-started
    - Acceptance criteria focus: AC16, AC17.
    - Files to read/edit: `server/src/ingest/ingestJob.ts`
    - Required behavior: no-change path exits without AST parse/upsert/delete and without embedding calls.
-2. [ ] Keep deletion-only delta cleanup logic simple and unchanged except for terminal contract normalization.
+2. [x] Keep deletion-only delta cleanup logic simple and unchanged except for terminal contract normalization.
    - Starter snippet (adapt names to exact existing symbols): `if (delta.added === 0 && delta.modified === 0 && delta.deleted === 0) return completedNoChangeResult();`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://tree-sitter.github.io/tree-sitter/ | https://github.com/tree-sitter/tree-sitter-typescript | https://nodejs.org/en/learn/asynchronous-work/dont-block-the-event-loop | https://mongoosejs.com/docs/ | https://jestjs.io/docs/getting-started
    - Acceptance criteria focus: AC16, AC17.
    - Files to read/edit: `server/src/ingest/ingestJob.ts`
    - Required behavior: deletion-only successful path keeps existing cleanup behavior and avoids broad control-flow rewrites.
-3. [ ] Ensure successful no-change and deletion-only paths resolve as external-success `completed`.
+3. [x] Ensure successful no-change and deletion-only paths resolve as external-success `completed`.
    - Starter snippet (adapt names to exact existing symbols): `if (delta.added === 0 && delta.modified === 0 && delta.deleted === 0) return completedNoChangeResult();`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://tree-sitter.github.io/tree-sitter/ | https://github.com/tree-sitter/tree-sitter-typescript | https://nodejs.org/en/learn/asynchronous-work/dont-block-the-event-loop | https://mongoosejs.com/docs/ | https://jestjs.io/docs/getting-started
    - Acceptance criteria focus: AC16, AC17.
    - Files to read/edit: `server/src/ingest/ingestJob.ts`, `server/src/ingest/reingestService.ts`
-4. [ ] Add unit test: no-change delta path skips AST parsing/indexing operations.
+4. [x] Add unit test: no-change delta path skips AST parsing/indexing operations.
    - Starter snippet (adapt names to exact existing symbols): `expect(astParseSpy).not.toHaveBeenCalled();`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://tree-sitter.github.io/tree-sitter/ | https://github.com/tree-sitter/tree-sitter-typescript | https://nodejs.org/en/learn/asynchronous-work/dont-block-the-event-loop | https://mongoosejs.com/docs/ | https://jestjs.io/docs/getting-started
@@ -1509,7 +1509,7 @@ Ensure no-change delta runs exit before AST parse/upsert/delete and before embed
    - Test location: `server/src/test/unit/ingest-ast-indexing.test.ts`.
    - Test description: execute a no-change delta run and assert AST parse/index helpers are never invoked.
    - Test purpose: enforce early no-op exit before AST work.
-5. [ ] Add unit test: no-change delta path skips embedding calls.
+5. [x] Add unit test: no-change delta path skips embedding calls.
    - Starter snippet (adapt names to exact existing symbols): `expect(embedSpy).not.toHaveBeenCalled();`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://tree-sitter.github.io/tree-sitter/ | https://github.com/tree-sitter/tree-sitter-typescript | https://nodejs.org/en/learn/asynchronous-work/dont-block-the-event-loop | https://mongoosejs.com/docs/ | https://jestjs.io/docs/getting-started
@@ -1519,7 +1519,7 @@ Ensure no-change delta runs exit before AST parse/upsert/delete and before embed
    - Test location: `server/src/test/unit/ingest-ast-indexing.test.ts` and `server/src/test/unit/reingestService.test.ts`.
    - Test description: execute a no-change delta run and assert no embedding provider calls occur.
    - Test purpose: verify no unnecessary embedding work is performed on no-change runs.
-6. [ ] Add unit test: deletion-only successful delta still returns external terminal `completed`.
+6. [x] Add unit test: deletion-only successful delta still returns external terminal `completed`.
    - Starter snippet (adapt names to exact existing symbols): `if (delta.added === 0 && delta.modified === 0 && delta.deleted === 0) return completedNoChangeResult();`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://tree-sitter.github.io/tree-sitter/ | https://github.com/tree-sitter/tree-sitter-typescript | https://nodejs.org/en/learn/asynchronous-work/dont-block-the-event-loop | https://mongoosejs.com/docs/ | https://jestjs.io/docs/getting-started
@@ -1529,7 +1529,7 @@ Ensure no-change delta runs exit before AST parse/upsert/delete and before embed
    - Test location: `server/src/test/unit/reingestService.test.ts` and `server/src/test/unit/ingest-ast-indexing.test.ts`.
    - Test description: run a deletion-only successful reembed and assert external terminal status is `completed`.
    - Test purpose: keep successful deletion-only paths aligned with completed-success semantics.
-7. [ ] Add race regression test: cancellation near early-return boundary emits exactly one terminal outcome.
+7. [x] Add race regression test: cancellation near early-return boundary emits exactly one terminal outcome.
    - Starter snippet (adapt names to exact existing symbols): `if (delta.added === 0 && delta.modified === 0 && delta.deleted === 0) return completedNoChangeResult();`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://tree-sitter.github.io/tree-sitter/ | https://github.com/tree-sitter/tree-sitter-typescript | https://nodejs.org/en/learn/asynchronous-work/dont-block-the-event-loop | https://mongoosejs.com/docs/ | https://jestjs.io/docs/getting-started
@@ -1539,7 +1539,7 @@ Ensure no-change delta runs exit before AST parse/upsert/delete and before embed
    - Test location: `server/src/test/features/ingest-delta-reembed.feature` and `server/src/test/steps/ingest-delta-reembed.steps.ts`.
    - Test description: trigger cancellation at the no-change boundary and assert only one terminal state is emitted.
    - Test purpose: prevent duplicate/contradictory terminal outcomes in cancellation races.
-8. [ ] Add unit test: mixed-delta successful path returns external terminal status `completed`.
+8. [x] Add unit test: mixed-delta successful path returns external terminal status `completed`.
    - Starter snippet (adapt names to exact existing symbols): `expect(result.status).toBe('completed');`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://tree-sitter.github.io/tree-sitter/ | https://github.com/tree-sitter/tree-sitter-typescript | https://nodejs.org/en/learn/asynchronous-work/dont-block-the-event-loop | https://mongoosejs.com/docs/ | https://jestjs.io/docs/getting-started
@@ -1549,7 +1549,7 @@ Ensure no-change delta runs exit before AST parse/upsert/delete and before embed
    - Test location: `server/src/test/unit/reingestService.test.ts` and `server/src/test/unit/ingest-ast-indexing.test.ts`.
    - Test description: run a delta containing adds/modifies/deletes and assert external terminal status resolves to `completed`.
    - Test purpose: verify successful mixed-delta runs keep stable success semantics.
-9. [ ] Add regression test: changed-file AST parse failure semantics remain unchanged.
+9. [x] Add regression test: changed-file AST parse failure semantics remain unchanged.
    - Starter snippet (adapt names to exact existing symbols): `expect(result.status).toBe('error');`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://tree-sitter.github.io/tree-sitter/ | https://github.com/tree-sitter/tree-sitter-typescript | https://nodejs.org/en/learn/asynchronous-work/dont-block-the-event-loop | https://mongoosejs.com/docs/ | https://jestjs.io/docs/getting-started
@@ -1559,7 +1559,7 @@ Ensure no-change delta runs exit before AST parse/upsert/delete and before embed
    - Test location: `server/src/test/unit/ingest-ast-indexing.test.ts` and `server/src/test/unit/reingestService.test.ts`.
    - Test description: force AST parse failure on changed files and assert failure outcome/shape matches pre-story behavior.
    - Test purpose: ensure this story does not alter non-no-change AST error semantics.
-10. [ ] Update `design.md` with ingest pipeline flow changes and Mermaid diagram(s) for no-change early return and cancel boundary behavior.
+10. [x] Update `design.md` with ingest pipeline flow changes and Mermaid diagram(s) for no-change early return and cancel boundary behavior.
    - Starter snippet (adapt names to exact existing symbols): `Add Mermaid flowchart covering delta decision point, no-change short-circuit before AST/embedding, deletion-only success path, and cancellation boundary producing one terminal outcome.`
    - Dependency note: execute this after Task 6 implementation/tests so the diagram reflects final ingest control flow.
    - Docs: https://context7.com/mermaid-js/mermaid/llms.txt | https://cucumber.io/docs/guides/
@@ -1569,7 +1569,7 @@ Ensure no-change delta runs exit before AST parse/upsert/delete and before embed
    - Document location: `design.md`.
    - Document description: document no-change early-return and cancellation boundary flows with Mermaid diagrams.
    - Document purpose: preserve a clear architectural reference for ingest control-flow and terminal-state behavior.
-11. [ ] If this task adds or removes files, update `projectStructure.md` after finishing those file changes.
+11. [x] If this task adds or removes files, update `projectStructure.md` after finishing those file changes.
    - Starter snippet (adapt names to exact existing symbols): `Add entries for any new/removed files introduced by Task 6 in ingest pipeline and BDD/unit test paths.`
    - Dependency note: execute this after all file add/remove subtasks in Task 6 and before moving to the next task.
    - Docs: https://www.markdownguide.org/basic-syntax/
@@ -1580,7 +1580,7 @@ Ensure no-change delta runs exit before AST parse/upsert/delete and before embed
    - Document description: record Task 6 file additions/removals across ingest pipeline and BDD/unit test paths.
    - Document purpose: keep the repository structure reference current for ingest-pipeline changes.
    - Required behavior: update `projectStructure.md` with every file path added or removed by Task 6 (no wildcard summaries), and remove entries for deleted files.
-12. [ ] Add deterministic delta-path logs for no-change and changed-run manual verification.
+12. [x] Add deterministic delta-path logs for no-change and changed-run manual verification.
    - Starter snippet (adapt names to exact existing symbols): `logger.info('[DEV-0000038][T6] REEMBED_NO_CHANGE_EARLY_RETURN sourceId=%s runId=%s', sourceId, runId);`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://nodejs.org/api/console.html | https://tree-sitter.github.io/tree-sitter/
@@ -1589,21 +1589,32 @@ Ensure no-change delta runs exit before AST parse/upsert/delete and before embed
    - Required log line: `[DEV-0000038][T6] REEMBED_NO_CHANGE_EARLY_RETURN sourceId=<id> runId=<id>`.
    - Required log line: `[DEV-0000038][T6] REEMBED_DELTA_PATH deltaAdded=<n> deltaModified=<n> deltaDeleted=<n>`.
    - Required behavior: no-change runs emit only EARLY_RETURN; changed runs emit DELTA_PATH.
-13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+13. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
-1. [ ] `npm run build:summary:server` - If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` and resolve errors.
-2. [ ] `npm run test:summary:server` - If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/server-tests-*.log`) and resolve listed failures.
-3. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find failing target(s).
-4. [ ] `npm run compose:up`
-5. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001` for no-change and changed-delta flows; verify in compose server logs that no-change runs emit `[DEV-0000038][T6] REEMBED_NO_CHANGE_EARLY_RETURN ...` without `REEMBED_DELTA_PATH`, and changed runs emit `[DEV-0000038][T6] REEMBED_DELTA_PATH ...`, then verify browser debug console has no unexpected errors.
-6. [ ] `npm run compose:down`
+1. [x] `npm run build:summary:server` - If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` and resolve errors.
+2. [x] `npm run test:summary:server` - If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/server-tests-*.log`) and resolve listed failures.
+3. [x] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find failing target(s).
+4. [x] `npm run compose:up`
+5. [x] Manual Playwright-MCP check at `http://host.docker.internal:5001` for no-change and changed-delta flows; verify in compose server logs that no-change runs emit `[DEV-0000038][T6] REEMBED_NO_CHANGE_EARLY_RETURN ...` without `REEMBED_DELTA_PATH`, and changed runs emit `[DEV-0000038][T6] REEMBED_DELTA_PATH ...`, then verify browser debug console has no unexpected errors.
+6. [x] `npm run compose:down`
 Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
 #### Implementation notes
 
-- Pending implementation.
+- Subtasks 1-3, 12: Refactored `ingestJob.ts` reembed delta path to early-return before AST/embedding on no-change and deletions-only runs, normalized successful reembed terminal state to `completed`, and added T6 delta logs (`REEMBED_NO_CHANGE_EARLY_RETURN`, `REEMBED_DELTA_PATH`).
+- Subtasks 4-6, 8-9: Updated unit coverage in `ingest-ast-indexing.test.ts` and `reingestService.test.ts` for no-change AST/embedding bypass, deletion-only/mixed-delta `completed` semantics, and changed-file AST parse failure regression behavior.
+- Subtask 7: Added BDD race scenario plus step wiring in `ingest-delta-reembed.feature`/`ingest-delta-reembed.steps.ts` to verify cancellation near no-change boundary stabilizes to one terminal state.
+- Subtask 10: Added Task 6 architecture/documentation section with Mermaid diagrams in `design.md`.
+- Subtask 11: No files added or removed in Task 6; `projectStructure.md` update not required.
+- Subtask 13: Ran `npm run lint --workspaces` (pass with existing unrelated import-order warnings) and `npm run format:check --workspaces`; formatting initially failed for three Task 6 files, then passed after Prettier write.
+- Testing 1: `npm run build:summary:server` passed (`warnings: 0`), log `logs/test-summaries/build-server-latest.log`.
+- Testing 2: `npm run test:summary:server` passed (`tests run: 956`, `failed: 0`), log `test-results/server-tests-2026-03-02T13-28-56-239Z.log`; initial timeout-guarded attempt at 10m was rerun with a 20m guard to completion.
+- Testing 3: `npm run compose:build:summary` passed (`items passed: 2`, `items failed: 0`), log `logs/test-summaries/compose-build-latest.log`.
+- Testing 4: `npm run compose:up` completed successfully; compose services started healthy (including `server`, `client`, `chroma`, `mongo`, and `playwright-mcp`).
+- Testing 5: Manual host-mapped verification used `http://host.docker.internal:5001/ingest` (Playwright) plus `http://host.docker.internal:5010` reembed API calls; changed run `b8cfcf0e-a7c7-4b47-8070-1791213950a2` emitted `[DEV-0000038][T6] REEMBED_DELTA_PATH ...` and no-change run `70dcd195-f07b-4529-a86d-c9b3939774b0` emitted `[DEV-0000038][T6] REEMBED_NO_CHANGE_EARLY_RETURN ...` without `REEMBED_DELTA_PATH` for that run, verified in `logs/server.1.log`, and Playwright `browser_console_messages(level:error)` returned no errors.
+- Testing 6: `npm run compose:down` completed successfully; compose services and network were removed cleanly.
 
 ---
 

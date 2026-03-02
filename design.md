@@ -724,6 +724,49 @@ flowchart LR
   N --> L[Task 5 mapping/overlay logs]
 ```
 
+## Story 0000038 Task 6: reembed no-change early return before AST and embedding
+
+- Reembed delta control flow now makes the no-change decision before any AST parse/index writes and before embedding loops.
+- No-change (`added=0`, `changed=0`, `deleted=0`) exits immediately with terminal `completed` status and a no-change message.
+- Deletions-only (`deleted>0`, no added/changed work files) performs deletion cleanup and then exits immediately with terminal `completed` status.
+- Changed delta paths emit deterministic delta-path logs and continue through normal AST/embedding work.
+- Cancellation near the no-change boundary is race-safe: only one terminal state is retained.
+- Task 6 logs:
+  - `[DEV-0000038][T6] REEMBED_NO_CHANGE_EARLY_RETURN sourceId=<id> runId=<id>`
+  - `[DEV-0000038][T6] REEMBED_DELTA_PATH deltaAdded=<n> deltaModified=<n> deltaDeleted=<n>`
+
+```mermaid
+flowchart TD
+  A[reembed delta plan built] --> B{added+changed+deleted == 0?}
+  B -- yes --> C[Log REEMBED_NO_CHANGE_EARLY_RETURN]
+  C --> D[Write terminal completed metadata]
+  D --> E[Return before AST parse and embedding]
+  B -- no --> F[Log REEMBED_DELTA_PATH]
+  F --> G{deletions-only?}
+  G -- yes --> H[Delete vectors/index rows and complete]
+  H --> I[Return before AST parse and embedding]
+  G -- no --> J[Proceed with AST parse and embedding loop]
+```
+
+```mermaid
+sequenceDiagram
+  participant R as Reembed Run
+  participant C as Cancel
+  participant S as Status Store
+
+  R->>S: non-terminal run status
+  par no-change branch
+    R->>R: evaluate early-return boundary
+  and cancel branch
+    C->>S: request cancel
+  end
+  alt cancel observed first
+    S-->>R: terminal cancelled retained
+  else no-change observed first
+    R->>S: terminal completed retained
+  end
+```
+
 ## Flows (schema)
 
 - Flow definitions live under `flows/<flowName>.json` and are validated with a strict Zod schema before use.

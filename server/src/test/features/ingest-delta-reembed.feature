@@ -27,7 +27,7 @@ Feature: Ingest delta re-embed
     Then ingest delta status for the last run becomes "completed"
     When I delete ingest delta temp file "a.ts"
     And I POST ingest reembed for the delta repo
-    Then ingest delta status for the last run becomes "skipped"
+    Then ingest delta status for the last run becomes "completed"
     And ingest delta vectors for "a.ts" should be absent
     And ingest delta ingest_files row for "a.ts" should be absent
 
@@ -62,18 +62,18 @@ Feature: Ingest delta re-embed
     When I delete ingest delta temp file "a.ts"
     And ingest delta discovery for the delta repo should find 0 eligible files
     And I POST ingest reembed for the delta repo
-    Then ingest delta status for the last run becomes "skipped"
+    Then ingest delta status for the last run becomes "completed"
     And ingest delta vectors for "a.ts" should be absent
     And ingest delta ingest_files row for "a.ts" should be absent
 
   @mongo
-  Scenario: Corner case no-op re-embed returns skipped with a clear message
+  Scenario: Corner case no-op re-embed returns completed with a clear message
     Given ingest delta temp repo with file "a.ts" containing "export const a=1;"
     When I POST ingest start for the delta repo with model "embed-1"
     Then ingest delta status for the last run becomes "completed"
     And I remember ingest delta vector count for the delta repo
     When I POST ingest reembed for the delta repo
-    Then ingest delta status for the last run becomes "skipped"
+    Then ingest delta status for the last run becomes "completed"
     And ingest delta last status message should mention no changes
     And ingest delta vector count for the delta repo should be unchanged
 
@@ -85,9 +85,18 @@ Feature: Ingest delta re-embed
     Then ingest delta status for the last run becomes "completed"
     When I delete ingest delta temp file "b.ts"
     And I POST ingest reembed for the delta repo
-    Then ingest delta status for the last run becomes "skipped"
+    Then ingest delta status for the last run becomes "completed"
     And ingest delta last status message should not be "No changes detected"
     And ingest delta vectors for "b.ts" should be absent
+
+  @mongo
+  Scenario: Cancellation near no-change boundary yields one terminal outcome
+    Given ingest delta temp repo with file "a.ts" containing "export const a=1;"
+    When I POST ingest start for the delta repo with model "embed-1"
+    Then ingest delta status for the last run becomes "completed"
+    When I POST ingest reembed for the delta repo
+    And I POST ingest delta cancel for the last run
+    Then ingest delta terminal outcome should stabilize as a single terminal state
 
   Scenario: No-Mongo corner case re-embed works when Mongo is disconnected
     Given ingest delta temp repo with file "a.ts" containing "export const a=1;"
@@ -119,4 +128,3 @@ Feature: Ingest delta re-embed
     When I POST ingest reembed for the delta repo
     Then ingest delta status for the last run becomes "completed"
     And ingest roots for the delta repo should have name "new-name"
-

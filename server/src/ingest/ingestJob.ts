@@ -658,6 +658,7 @@ async function processRun(runId: string, input: IngestJobInput) {
         etaMs,
       });
     };
+    const astWritesEnabled = !dryRun && mongoose.connection.readyState === 1;
 
     if (operation === 'reembed') {
       if (deltaMode === 'degraded_full') {
@@ -668,11 +669,175 @@ async function processRun(runId: string, input: IngestJobInput) {
       } else if (deltaMode === 'delta' && deltaPlan) {
         if ((deltaWorkCount ?? 0) === 0) {
           logLifecycle('info', '0000020 ingest delta no-op skipped', { root });
+          logLifecycle(
+            'info',
+            `[DEV-0000038][T6] REEMBED_NO_CHANGE_EARLY_RETURN sourceId=${root} runId=${runId}`,
+            { sourceId: root, runId },
+          );
+          if (cancelledRuns.has(runId)) {
+            return;
+          }
+
+          const counts = { files: 0, chunks: 0, embedded: 0 };
+          const rootEmbeddingDim = await resolveRootEmbeddingDim({
+            existingRootDim,
+            vectorDim,
+            modelKey: toProviderQualifiedModelId(requestedSelection),
+          });
+          const rootMetadata: Metadata = {
+            runId,
+            root,
+            name,
+            model: embeddingModel,
+            embeddingProvider,
+            embeddingModel,
+            embeddingDimensions: rootEmbeddingDim,
+            files: counts.files,
+            chunks: counts.chunks,
+            embedded: counts.embedded,
+            state: 'completed',
+            lastIngestAt: new Date().toISOString(),
+            ingestedAtMs,
+          };
+          attachAstMetadata(rootMetadata);
+          if (description) rootMetadata.description = description;
+          await roots.add({
+            ids: [runId],
+            embeddings: [Array(rootEmbeddingDim).fill(0)],
+            metadatas: [rootMetadata],
+          });
+          setStatusAndPublish(runId, {
+            runId,
+            state: 'completed',
+            counts,
+            ast: astCounts,
+            message: `No changes detected for ${root}`,
+            lastError: null,
+            error: null,
+            fileIndex: 0,
+            fileTotal: 0,
+            percent: 100,
+            etaMs: 0,
+          });
+          logLifecycle('info', 'ingest completed', {
+            runId,
+            operation,
+            path: startPath,
+            root,
+            model: embeddingModel,
+            embeddingProvider,
+            embeddingModel,
+            name,
+            description,
+            state: 'completed',
+            counts,
+          });
+          return;
+        }
+        logLifecycle(
+          'info',
+          `[DEV-0000038][T6] REEMBED_DELTA_PATH deltaAdded=${deltaPlan.added.length} deltaModified=${deltaPlan.changed.length} deltaDeleted=${deltaPlan.deleted.length}`,
+          {
+            deltaAdded: deltaPlan.added.length,
+            deltaModified: deltaPlan.changed.length,
+            deltaDeleted: deltaPlan.deleted.length,
+          },
+        );
+        if (deltaPlan.deleted.length > 0 && workFiles.length === 0) {
+          logLifecycle('info', '0000020 ingest delta deletions-only', {
+            root,
+            deleted: deltaPlan.deleted.length,
+          });
+          const message = `Removed vectors for ${deltaPlan.deleted.length} deleted file(s)`;
+          if (cancelledRuns.has(runId)) {
+            return;
+          }
+          for (const file of deltaPlan.deleted) {
+            await deleteVectors({
+              where: { $and: [{ root }, { relPath: file.relPath }] },
+            });
+          }
+          await deleteIngestFilesByRelPaths({
+            root,
+            relPaths: deltaPlan.deleted.map((f) => f.relPath),
+          });
+          if (astWritesEnabled) {
+            const deletedPaths = deltaPlan.deleted.map((file) => file.relPath);
+            if (deletedPaths.length > 0) {
+              await deleteAstSymbolsByRelPaths({
+                root,
+                relPaths: deletedPaths,
+              });
+              await deleteAstEdgesByRelPaths({ root, relPaths: deletedPaths });
+              await deleteAstReferencesByRelPaths({
+                root,
+                relPaths: deletedPaths,
+              });
+              await deleteAstModuleImportsByRelPaths({
+                root,
+                relPaths: deletedPaths,
+              });
+            }
+          }
+          const counts = { files: 0, chunks: 0, embedded: 0 };
+          const rootEmbeddingDim = await resolveRootEmbeddingDim({
+            existingRootDim,
+            vectorDim,
+            modelKey: toProviderQualifiedModelId(requestedSelection),
+          });
+          const rootMetadata: Metadata = {
+            runId,
+            root,
+            name,
+            model: embeddingModel,
+            embeddingProvider,
+            embeddingModel,
+            embeddingDimensions: rootEmbeddingDim,
+            files: counts.files,
+            chunks: counts.chunks,
+            embedded: counts.embedded,
+            state: 'completed',
+            lastIngestAt: new Date().toISOString(),
+            ingestedAtMs,
+          };
+          attachAstMetadata(rootMetadata);
+          if (description) rootMetadata.description = description;
+          await roots.add({
+            ids: [runId],
+            embeddings: [Array(rootEmbeddingDim).fill(0)],
+            metadatas: [rootMetadata],
+          });
+          setStatusAndPublish(runId, {
+            runId,
+            state: 'completed',
+            counts,
+            ast: astCounts,
+            message,
+            lastError: null,
+            error: null,
+            fileIndex: 0,
+            fileTotal: 0,
+            percent: 100,
+            etaMs: 0,
+          });
+          logLifecycle('info', 'ingest completed', {
+            runId,
+            operation,
+            path: startPath,
+            root,
+            model: embeddingModel,
+            embeddingProvider,
+            embeddingModel,
+            name,
+            description,
+            state: 'completed',
+            counts,
+          });
+          return;
         }
       }
     }
 
-    const astWritesEnabled = !dryRun && mongoose.connection.readyState === 1;
     if (!astWritesEnabled && !dryRun) {
       logWarning('AST indexing skipped; MongoDB is unavailable', {
         root,
@@ -704,24 +869,7 @@ async function processRun(runId: string, input: IngestJobInput) {
     }
 
     if (operation === 'reembed' && deltaMode === 'delta' && deltaPlan) {
-      if (deltaPlan.deleted.length > 0 && workFiles.length === 0) {
-        logLifecycle('info', '0000020 ingest delta deletions-only', {
-          root,
-          deleted: deltaPlan.deleted.length,
-        });
-        finalSkipMessage = `Removed vectors for ${deltaPlan.deleted.length} deleted file(s)`;
-
-        for (const file of deltaPlan.deleted) {
-          await deleteVectors({
-            where: { $and: [{ root }, { relPath: file.relPath }] },
-          });
-        }
-
-        await deleteIngestFilesByRelPaths({
-          root,
-          relPaths: deltaPlan.deleted.map((f) => f.relPath),
-        });
-      }
+      finalSkipMessage = undefined;
     }
 
     const handleCancellation = async (
@@ -943,7 +1091,9 @@ async function processRun(runId: string, input: IngestJobInput) {
     }
 
     const resultState =
-      !dryRun && counts.embedded === 0 ? 'skipped' : 'completed';
+      operation === 'reembed' || dryRun || counts.embedded > 0
+        ? 'completed'
+        : 'skipped';
     const rootEmbeddingDim = await resolveRootEmbeddingDim({
       existingRootDim,
       vectorDim,

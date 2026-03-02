@@ -385,3 +385,33 @@ test('success result contract omits top-level message field', async () => {
   const payload = result.value as ReingestSuccess & { message?: unknown };
   assert.equal(Object.hasOwn(payload, 'message'), false);
 });
+
+test('no-change terminal completed payload remains external completed with zero counters', async () => {
+  const result = await runReingestRepository(
+    { sourceId: '/data/repo-a' },
+    {
+      ...buildDeps(),
+      waitForTerminalIngestStatus: async () => ({
+        reason: 'terminal',
+        status: buildTerminal('completed', {
+          files: 0,
+          chunks: 0,
+          embedded: 0,
+        }),
+        lastKnown: buildTerminal('completed', {
+          files: 0,
+          chunks: 0,
+          embedded: 0,
+        }),
+      }),
+    },
+  );
+
+  assert.equal(result.ok, true);
+  if (!result.ok) return;
+  assert.equal(result.value.status, 'completed');
+  assert.equal(result.value.files, 0);
+  assert.equal(result.value.chunks, 0);
+  assert.equal(result.value.embedded, 0);
+  assert.equal(result.value.errorCode, null);
+});

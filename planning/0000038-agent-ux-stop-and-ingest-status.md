@@ -2436,3 +2436,113 @@ Perform end-to-end verification of all acceptance criteria after Tasks 1-8 are c
 - `[DEV-0000038][T9] FINAL_REGRESSION_LOG_ASSERTION_PASSED markerFamily=T6 count=2`
 - `[DEV-0000038][T9] FINAL_REGRESSION_LOG_ASSERTION_PASSED markerFamily=T7 count=13`
 - Testing 9: `npm run compose:down` completed successfully and removed compose services/network.
+
+---
+
+### 10. Security hardening: prevent prototype-pollution keys while preserving unknown runtime config fields
+
+- Task Status: **__to_do__**
+- Git Commits: `_pending_`
+
+#### Overview
+
+Harden runtime config validation so forward-compatible unknown-key preservation cannot mutate object prototypes (for example via `__proto__`, `constructor`, or `prototype` keys), while preserving the intended behavior of retaining safe unknown keys.
+
+#### Subtasks
+
+1. [ ] Introduce a shared guard/helper for unsafe object keys (`__proto__`, `prototype`, `constructor`) and use it for top-level, `tools`, `features`, and `projects.<path>` unknown-key preservation paths.
+   - Files to read/edit: `server/src/config/runtimeConfig.ts`.
+   - Required behavior: unsafe keys are ignored with explicit warnings; safe unknown keys continue to be preserved.
+2. [ ] Ensure preserved unknown keys are copied into null-prototype maps (or equivalent safe structure) before normalization.
+   - Files to read/edit: `server/src/config/runtimeConfig.ts`.
+   - Required behavior: preserved unknown-key handling cannot alter object prototype chains.
+3. [ ] Add/extend unit tests that prove unsafe keys are rejected and safe unknown keys are preserved.
+   - Files to read/edit: `server/src/test/unit/runtimeConfig.test.ts`.
+   - Test type: Unit.
+   - Test location: `server/src/test/unit/runtimeConfig.test.ts`.
+   - Test description: cover top-level and nested unknown-key paths for both safe and unsafe key names.
+   - Test purpose: lock in secure forward-compat behavior.
+4. [ ] If this task adds or removes files, update `projectStructure.md` after finishing those file changes.
+5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run test:summary:server`
+
+#### Implementation notes
+
+- Pending.
+
+---
+
+### 11. Performance/operability hardening: gate high-volume DEV-0000038 marker logs behind explicit debug controls
+
+- Task Status: **__to_do__**
+- Git Commits: `_pending_`
+
+#### Overview
+
+Reduce production log/console noise introduced by per-row/per-render DEV-0000038 markers in ingest listing and agents UI paths by gating these markers behind explicit debug controls while keeping deterministic observability available for manual verification when needed.
+
+#### Subtasks
+
+1. [ ] Add a server-side log gate (env/config switch) for `[DEV-0000038][T5]` high-frequency markers used in ingest listing overlays.
+   - Files to read/edit: `server/src/lmstudio/toolService.ts`, `server/src/routes/ingestRoots.ts`.
+   - Required behavior: default runtime path does not emit per-entry marker logs; enabling the gate restores markers unchanged.
+2. [ ] Add a client-side debug gate for `[DEV-0000038][T2]`, `[DEV-0000038][T3]`, and `[DEV-0000038][T7]` `console.info` markers.
+   - Files to read/edit: `client/src/hooks/useChatWs.ts`, `client/src/pages/AgentsPage.tsx`, `client/src/components/ingest/RootsTable.tsx`.
+   - Required behavior: default runtime path suppresses marker spam; explicit debug enablement emits markers with existing text.
+3. [ ] Update/extend tests to assert functional behavior does not depend on these marker logs and that gated paths keep existing product behavior unchanged.
+   - Files to read/edit: `server/src/test/unit/tools-ingested-repos.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`, `client/src/test/agentsPage.commandsRun.abort.test.tsx`, `client/src/test/ingestRoots.test.tsx`.
+   - Test type: Unit/component regression.
+   - Test purpose: ensure observability-gating does not alter acceptance behavior.
+4. [ ] Update documentation (`design.md`) with the debug-gating approach for manual QA marker collection.
+5. [ ] If this task adds or removes files, update `projectStructure.md` after finishing those file changes.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run test:summary:server`
+4. [ ] `npm run test:summary:client`
+
+#### Implementation notes
+
+- Pending.
+
+---
+
+### 12. Final verification (re-run): full acceptance and regression gate after Tasks 10-11
+
+- Task Status: **__to_do__**
+- Git Commits: `_pending_`
+
+#### Overview
+
+Re-run end-to-end verification of AC1-AC28 after post-review hardening tasks complete, and refresh evidence so release confidence is based on the latest branch state.
+
+#### Subtasks
+
+1. [ ] Refresh the AC-by-AC verification matrix for AC1-AC28 with updated evidence pointers from post-review changes.
+2. [ ] Re-run targeted manual checks for stop race, blocking reingest terminal semantics (classic + v2), ingest listing visibility/status mapping, and no-change early return behavior.
+3. [ ] Re-run final documentation consistency checks across `design.md`, `projectStructure.md`, and this story plan.
+4. [ ] Record final verification artifacts under `test-results/screenshots` with `0000038-task12-*` prefixes.
+5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts and manually resolve remaining issues.
+
+#### Testing
+
+1. [ ] `npm run build:summary:server`
+2. [ ] `npm run build:summary:client`
+3. [ ] `npm run test:summary:server`
+4. [ ] `npm run test:summary:client`
+5. [ ] `timeout 7m npm run test:summary:e2e`
+6. [ ] `npm run compose:build:summary`
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`; re-validate AC-critical flows and record fresh marker/count evidence where debug gate is enabled.
+9. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Pending.

@@ -383,23 +383,26 @@ Update WebSocket cancel message handling so command-run abort is always attempte
    - Files: `server/src/ws/types.ts`
    - Required behavior: payloads with only `conversationId` are valid for `cancel_inflight`; other message shapes remain unchanged.
 2. [ ] Update WS cancel handler so `abortAgentCommandRun(conversationId)` is always attempted, regardless of `abortInflight` success.
-   - Files: `server/src/ws/server.ts`, `server/src/agents/commandsRunner.ts` (read/update only if required for deterministic idempotence)
+   - Files: `server/src/ws/server.ts` (`server/src/agents/commandsRunner.ts` read-only unless deterministic idempotence fix is required)
    - Required behavior: command retries/steps are blocked after stop request time in both inflight-id and no-inflight-id paths.
 3. [ ] Keep chat-stream cancellation semantics deterministic when `inflightId` is supplied but not found.
    - Files: `server/src/ws/server.ts`
-   - Required behavior: preserve existing `INFLIGHT_NOT_FOUND` turn-final behavior for chat stream cancellation mismatch, while still aborting command runs by conversation.
+   - Required behavior: preserve existing `INFLIGHT_NOT_FOUND` turn-final behavior for chat stream cancellation mismatch when a non-empty `inflightId` is supplied, while still aborting command runs by conversation. When `inflightId` is omitted, do not emit `INFLIGHT_NOT_FOUND`.
 4. [ ] Add/extend unit tests for WS parsing and cancel handler race paths.
    - Files: `server/src/test/unit/ws-*.test.ts` (existing WS parser/handler suites)
-   - Required coverage: `conversationId`-only cancel, `conversationId+inflightId` cancel, stale inflight id, duplicate stop.
+   - Required coverage: `conversationId`-only cancel, `conversationId+inflightId` cancel, stale inflight id, duplicate stop, and no `turn_final` failure event for conversation-only cancel.
 5. [ ] Add/extend command-run regression test proving no further command step/retry starts after stop request.
    - Files: `server/src/test/unit/agents-commands*.test.ts` and/or integration suites covering command-run stop flow.
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; resolve any issues introduced by this task.
+6. [ ] Add/extend chat cancellation regression tests to ensure existing chat mismatch semantics are unchanged.
+   - Files: `server/src/test/unit/ws-chat-stream.test.ts`, `server/src/test/features/chat_cancellation.feature`, `server/src/test/steps/chat_cancellation.steps.ts`
+   - Required coverage: mismatched/stale `inflightId` still yields `INFLIGHT_NOT_FOUND` turn-final for chat-stream cancellation.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; resolve any issues introduced by this task.
 
 #### Testing
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run test --workspace server`
-3. [ ] Run targeted WS cancel + command-run stop race tests and confirm pass.
+3. [ ] Run targeted WS cancel + command-run stop race tests and chat cancel regression tests; confirm pass.
 
 #### Implementation notes
 
@@ -507,28 +510,34 @@ Replace immediate `status: started` reingest results with one terminal payload r
 1. [ ] Update shared reingest service result shape to terminal-only output.
    - Files: `server/src/ingest/reingestService.ts`
    - Required behavior: success payload uses terminal `status` (`completed|cancelled|error`) and required fields (`status`, `operation`, `runId`, `sourceId`, `durationMs`, `files`, `chunks`, `embedded`, `errorCode`).
-2. [ ] Keep pre-run validation failures in JSON-RPC/protocol error envelopes.
+2. [ ] Implement blocking terminal wait in reingest service using ingest runtime status.
+   - Files: `server/src/ingest/reingestService.ts`, `server/src/ingest/ingestJob.ts` (only if small runtime helper export is required)
+   - Required behavior: after `reembed(...)` returns `runId`, wait until terminal state (`completed|cancelled|error|skipped`), map internal `skipped` to external `completed`, and populate terminal counters/errorCode/duration deterministically.
+3. [ ] Keep pre-run validation failures in JSON-RPC/protocol error envelopes and keep input shape `sourceId`-only.
    - Files: `server/src/ingest/reingestService.ts`, `server/src/mcp/server.ts`, `server/src/mcp2/tools/reingestRepository.ts`
-   - Required behavior: invalid `sourceId`/unknown root/busy-before-start remain protocol errors; only post-start outcomes use terminal result payload.
-3. [ ] Update classic MCP tool schema and runtime mapping away from `status: started`.
+   - Required behavior: invalid `sourceId`/unknown root/busy-before-start remain protocol errors; only post-start outcomes use terminal result payload. Do not add `wait`, `blocking`, or similar request flags.
+4. [ ] Update classic MCP tool schema and runtime mapping away from `status: started`.
    - Files: `server/src/mcp/server.ts`
    - Required behavior: output schema and emitted payload match terminal-only contract.
-4. [ ] Update MCP v2 reingest tool to match classic payload semantics.
-   - Files: `server/src/mcp2/tools/reingestRepository.ts`, `server/src/mcp2/router.ts` (if router-level behavior needs alignment)
+5. [ ] Update MCP v2 reingest tool runtime mapping to match classic payload semantics.
+   - Files: `server/src/mcp2/tools/reingestRepository.ts`
    - Required behavior: same field names/status semantics as classic for the same terminal outcome.
-5. [ ] Preserve keep-alive behavior during blocking wait.
+6. [ ] Preserve keep-alive behavior during blocking wait and safe-stop keepalive on disconnect.
    - Files: `server/src/mcp/server.ts`, `server/src/mcp2/router.ts`, `server/src/mcpCommon/keepAlive.ts` (if adjustments needed)
-   - Required behavior: long waits continue heartbeats and do not alter final payload shape.
-6. [ ] Add/extend server tests for completed/cancelled/error terminal payloads and classic/v2 parity.
+   - Required behavior: long waits continue heartbeats and do not alter final payload shape; disconnect/write-failure paths stop keepalive safely without server crash.
+7. [ ] Add/extend server tests for completed/cancelled/error terminal payloads and classic/v2 parity.
    - Files: `server/src/test/unit/mcp-*.test.ts`, `server/src/test/unit/reingest*.test.ts`
-   - Required coverage: no `started` in final result, GUI cancel while waiting returns `status: cancelled`, parity assertions across both MCP surfaces.
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; resolve any issues introduced by this task.
+   - Required coverage: no `started` in final result, GUI cancel while waiting returns `status: cancelled`, parity assertions across both MCP surfaces, `operation === reembed`, `errorCode` null unless `status=error`, cancelled returns last-known counters, pre-run validation failures remain JSON-RPC errors, post-start failure/cancel return terminal result payload (not protocol error), and both surfaces keep transport wrapper `result.content[0].text` as JSON string.
+8. [ ] Add/extend keepalive/disconnect resilience tests for blocking reingest wait.
+   - Files: `server/src/test/unit/mcp.keepalive.helper.test.ts`, `server/src/test/unit/mcp2-router-*.test.ts`, `server/src/test/unit/mcp.reingest.classic.test.ts`
+   - Required coverage: client disconnect/stream close during blocking wait does not crash server and keepalive stops cleanly.
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; resolve any issues introduced by this task.
 
 #### Testing
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run test --workspace server`
-3. [ ] Run targeted reingest contract tests for classic + MCP v2 and confirm pass.
+3. [ ] Run targeted reingest contract tests for classic + MCP v2, including pre-run vs post-start error-boundary and disconnect/keepalive resilience, and confirm pass.
 
 #### Implementation notes
 
@@ -554,26 +563,33 @@ Apply one shared status/phase mapping and active-overlay merge path for `/ingest
 #### Subtasks
 
 1. [ ] Implement one shared mapper from internal ingest states to external `status`/`phase`.
-   - Files: `server/src/lmstudio/toolService.ts` (primary), plus shared helper module if introduced under `server/src/ingest/`
+   - Files: `server/src/ingest/ingestStatusMapper.ts` (new shared helper), `server/src/lmstudio/toolService.ts`, `server/src/routes/ingestRoots.ts`
    - Required behavior: `queued|scanning|embedding -> status=ingesting + phase`; `completed|cancelled|error -> same status and no phase`; `skipped -> completed`.
-2. [ ] Apply the shared mapper to `/ingest/roots` and MCP classic list output.
-   - Files: `server/src/routes/ingestRoots.ts`, `server/src/mcp/server.ts`, `server/src/lmstudio/toolService.ts`
+2. [ ] Expose active ingest run context with identity needed for overlay and synthesized entries.
+   - Files: `server/src/ingest/ingestJob.ts`
+   - Required behavior: expose active run identity/context including run id plus root/source identity and current state/counters so list surfaces can build synthesized entries when persisted metadata is missing.
+3. [ ] Apply the shared mapper to `/ingest/roots` and MCP classic list output.
+   - Files: `server/src/routes/ingestRoots.ts`, `server/src/mcp/server.ts`, `server/src/lmstudio/toolService.ts`, `server/src/routes/toolsIngestedRepos.ts` (if schemaVersion passthrough/update is needed)
    - Required behavior: both surfaces emit identical status semantics and `schemaVersion: "0000038-status-phase-v1"`.
-3. [ ] Implement active overlay precedence and synthesized active entry fallback when persisted metadata is missing.
-   - Files: `server/src/lmstudio/toolService.ts`
-   - Required behavior: active run remains visible with status/phase/runId/counters while last completed metadata is retained where available.
-4. [ ] Update classic MCP `ListIngestedRepositories` output schema for repo-level `status` and optional `phase`.
+4. [ ] Implement active overlay precedence and synthesized active-entry fallback when persisted metadata is missing.
+   - Files: `server/src/lmstudio/toolService.ts`, `server/src/routes/ingestRoots.ts`
+   - Required behavior: active run remains visible with status/phase/runId/counters while last completed metadata is retained where available. Synthesized entries must include identity/path fields (`id`, `containerPath`, `hostPath`) and include `hostPathWarning` when mapping is incomplete.
+5. [ ] Update classic MCP `ListIngestedRepositories` output schema for repo-level `status` and optional `phase`.
    - Files: `server/src/mcp/server.ts`
    - Required behavior: output schema and runtime payload remain aligned.
-5. [ ] Add/extend server tests for active visibility, status/phase mapping, skipped->completed normalization, and schema version bump.
-   - Files: `server/src/test/unit/tools-ingested-repos*.test.ts`, `server/src/test/unit/ingest-roots*.test.ts`, `server/src/test/unit/mcp-list-ingested*.test.ts`
-6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; resolve any issues introduced by this task.
+6. [ ] Update OpenAPI schemas for listing surfaces to document `status`/`phase` semantics.
+   - Files: `openapi.json`
+   - Required behavior: `/ingest/roots` and `/tools/ingested-repos` include external `status` values and optional `phase` with phase omitted for terminal statuses.
+7. [ ] Add/extend server tests for active visibility, status/phase mapping, skipped->completed normalization, schema version bump, and synthesized-entry identity coverage.
+   - Files: `server/src/test/unit/tools-ingested-repos*.test.ts`, `server/src/test/unit/ingest-roots*.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`, `server/src/test/integration/mcp-ingested-repositories.test.ts`, `server/src/test/unit/openapi.contract.test.ts`
+   - Required coverage: active overlays keep repositories visible, terminal states omit phase, synthesized entries include required identity fields (and `hostPathWarning` when needed), and all schemaVersion assertions migrate to `0000038-status-phase-v1`.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; resolve any issues introduced by this task.
 
 #### Testing
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run test --workspace server`
-3. [ ] Run targeted ingest listing/status mapping tests and confirm pass.
+3. [ ] Run targeted ingest listing/status mapping and schema-version migration tests and confirm pass.
 
 #### Implementation notes
 
@@ -605,7 +621,10 @@ Ensure no-change delta runs exit before AST parse/upsert/delete and before embed
    - Files: `server/src/ingest/ingestJob.ts`, `server/src/ingest/reingestService.ts` (if mapping updates are required)
 3. [ ] Add/extend tests proving no-change bypasses AST/embedding and deletion-only success still reports `completed`.
    - Files: `server/src/test/unit/ingest-ast-indexing.test.ts`, `server/src/test/unit/reingest*.test.ts`, related ingest unit suites
-4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; resolve any issues introduced by this task.
+4. [ ] Add/extend race/regression tests for cancellation near early-return boundary and non-no-change AST failure behavior.
+   - Files: `server/src/test/unit/ingest-ast-indexing.test.ts`, `server/src/test/features/ingest-delta-reembed.feature`, `server/src/test/steps/ingest-delta-reembed.steps.ts`
+   - Required coverage: exactly one terminal outcome under cancel/no-change timing race, and existing AST failure behavior for non-no-change paths remains unchanged.
+5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; resolve any issues introduced by this task.
 
 #### Testing
 
@@ -714,8 +733,9 @@ Perform end-to-end verification of all acceptance criteria after Tasks 1-8 are c
 2. [ ] Execute manual stop-race scenario: click Stop before inflight id is known and confirm no command retries/steps start afterward.
 3. [ ] Execute manual MCP reingest scenarios (classic + v2): completed, cancelled (via GUI cancel), and error path; confirm terminal contract parity.
 4. [ ] Execute manual ingest-list visibility scenario: active run remains visible in UI and MCP classic list with `status=ingesting` and valid `phase`.
-5. [ ] Save manual verification artifacts/screenshots into `test-results/screenshots` with story/task-prefixed filenames.
-6. [ ] Ensure final docs (`design.md`, `projectStructure.md`, and this story file) reflect the implemented behavior with no contradictions.
+5. [ ] Execute manual chat-cancel mismatch scenario: cancel with stale/invalid `inflightId` and confirm chat still returns deterministic `INFLIGHT_NOT_FOUND` failure signaling.
+6. [ ] Save manual verification artifacts/screenshots into `test-results/screenshots` with story/task-prefixed filenames.
+7. [ ] Ensure final docs (`design.md`, `projectStructure.md`, and this story file) reflect the implemented behavior with no contradictions.
 
 #### Testing
 

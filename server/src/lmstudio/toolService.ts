@@ -697,10 +697,11 @@ export async function listIngestedRepositories(
   const activeContexts = getActiveRunContexts();
 
   for (const active of activeContexts) {
-    const sourceId = active.sourceId ?? active.rootPath ?? '';
-    if (!sourceId) continue;
+    const sourceIdRaw = active.sourceId ?? active.rootPath ?? '';
+    if (!sourceIdRaw) continue;
+    const normalizedSourceId = mapIngestPath(sourceIdRaw).containerPath;
     const mappedState = mapInternalStateToExternal(active.state);
-    const existing = repoBySourceId.get(sourceId);
+    const existing = repoBySourceId.get(normalizedSourceId);
     if (existing) {
       existing.status = mappedState.status;
       if (mappedState.phase) {
@@ -711,16 +712,16 @@ export async function listIngestedRepositories(
       existing.counts = { ...active.counts };
       existing.id = active.runId;
       logStatusMapped({
-        sourceId,
+        sourceId: normalizedSourceId,
         internalState: active.state,
         status: mappedState.status,
         phase: mappedState.phase,
       });
-      logOverlayApplied(sourceId, false);
+      logOverlayApplied(normalizedSourceId, false);
       continue;
     }
 
-    const mapped = mapIngestPath(sourceId);
+    const mapped = mapIngestPath(normalizedSourceId);
     const repoLock = lock
       ? resolveRepoLock(
           {},
@@ -754,12 +755,12 @@ export async function listIngestedRepositories(
     repos.push(synthesized);
     repoBySourceId.set(mapped.containerPath, synthesized);
     logStatusMapped({
-      sourceId,
+      sourceId: normalizedSourceId,
       internalState: active.state,
       status: mappedState.status,
       phase: mappedState.phase,
     });
-    logOverlayApplied(sourceId, true);
+    logOverlayApplied(normalizedSourceId, true);
   }
 
   logLockResolverState(

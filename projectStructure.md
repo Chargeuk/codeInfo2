@@ -4,7 +4,7 @@
 
 Added files:
 
-- None.
+- `docs/developer-reference.md`
 
 Removed files:
 

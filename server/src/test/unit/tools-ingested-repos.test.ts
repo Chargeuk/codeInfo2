@@ -276,6 +276,49 @@ test('active overlay keeps repo visible and preserves persisted metadata while u
   assert.equal(repo.lastIngestAt, '2026-01-01T00:00:00.000Z');
 });
 
+test('active overlay normalizes source path before matching persisted metadata', async () => {
+  __setStatusForTest('active-run-1-normalized', {
+    runId: 'active-run-1-normalized',
+    state: 'embedding',
+    counts: { files: 4, chunks: 8, embedded: 5 },
+  });
+  __setJobInputForTest('active-run-1-normalized', {
+    path: '/data/repo-one/.',
+    root: '/data/repo-one/.',
+    name: 'repo-one',
+    model: 'text-embed',
+  });
+
+  const res = await request(
+    buildApp(
+      {
+        ids: ['persisted-run'],
+        metadatas: [
+          {
+            root: '/data/repo-one',
+            name: 'repo-one',
+            state: 'completed',
+            lastIngestAt: '2026-01-01T00:00:00.000Z',
+            files: 1,
+            chunks: 2,
+            embedded: 3,
+          },
+        ],
+      },
+      'text-embed',
+    ),
+  ).get('/tools/ingested-repos');
+
+  assert.equal(res.status, 200);
+  assert.equal(res.body.repos.length, 1);
+  const repo = res.body.repos[0];
+  assert.equal(repo.containerPath, '/data/repo-one');
+  assert.equal(repo.id, 'active-run-1-normalized');
+  assert.equal(repo.status, 'ingesting');
+  assert.equal(repo.phase, 'embedding');
+  assert.deepEqual(repo.counts, { files: 4, chunks: 8, embedded: 5 });
+});
+
 test('synthesizes active entry when persisted metadata is missing', async () => {
   process.env.HOST_INGEST_DIR = '/host/base';
   __setStatusForTest('active-run-2', {

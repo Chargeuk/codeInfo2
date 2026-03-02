@@ -108,7 +108,6 @@ Use this document for API contracts, protocol details, and advanced runtime beha
       - Validation errors return 400 `{ "error": "invalid_request", "code": "COMMAND_INVALID" | "WORKING_FOLDER_INVALID" | "WORKING_FOLDER_NOT_FOUND", "message": "..." }`.
       - Concurrent runs return 409 `{ "error": "conflict", "code": "RUN_IN_PROGRESS", "message": "..." }`.
 
-
 ### Agents MCP (JSON-RPC)
 
 - Endpoint: POST JSON-RPC 2.0 to `http://localhost:5012` (Compose exposes it; e2e compose maps to `http://localhost:6012`).
@@ -141,7 +140,7 @@ Use this document for API contracts, protocol details, and advanced runtime beha
 - Classic MCP `reingest_repository` compatibility lock: failures return JSON-RPC `error` envelopes (not `result.isError`) with canonical mappings (`INVALID_PARAMS`, `NOT_FOUND`, `BUSY`).
 - Reingest canonical contract (shared service behavior used by MCP wiring tasks):
   - request args: `{ "sourceId": "<absolute-normalized-container-path>" }`
-  - success payload: `{ "status": "started", "operation": "reembed", "runId": "...", "sourceId": "..." }`
+  - success payload (terminal-only): `{ "status": "completed" | "cancelled" | "error", "operation": "reembed", "runId": "...", "sourceId": "...", "durationMs": <number>, "files": <number>, "chunks": <number>, "embedded": <number>, "errorCode": "<string | null>" }`
   - failure mappings: invalid params -> `error.code=-32602`, `error.message="INVALID_PARAMS"`; unknown root -> `error.code=404`, `error.message="NOT_FOUND"`; busy -> `error.code=429`, `error.message="BUSY"`
   - error retry guidance includes deterministic `fieldErrors.reason` plus `reingestableRepositoryIds` and `reingestableSourceIds`.
 

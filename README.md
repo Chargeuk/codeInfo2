@@ -75,7 +75,7 @@ To keep Windows and WSL in sync, use these settings.
   - ./server/.env.local
   - ./client/.env.local
 6. Run `start-gcf-server.sh` to allow docker from the containers to access your git credentials so it can push from the container.
-7. Run `npm run compose:local`
+7. Run `npm run compose:local` to start the required local services.
 
 # CodeInfo2 Details
 

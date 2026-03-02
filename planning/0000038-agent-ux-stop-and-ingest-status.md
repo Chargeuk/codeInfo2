@@ -427,7 +427,15 @@ Update WebSocket cancel message handling so command-run abort is always attempte
    - Acceptance criteria focus: AC3, AC4, AC23.
    - Files to read/edit: `server/src/test/unit/ws-chat-stream.test.ts`
    - Required coverage: mismatched/stale `inflightId` still yields `INFLIGHT_NOT_FOUND` turn-final for chat-stream cancellation.
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; resolve any issues introduced by this task.
+7. [ ] Add/extend WS parser validation tests for malformed `cancel_inflight` payloads.
+   - Starter snippet (adapt names to exact existing symbols): `if (msg.type === "cancel_inflight" && !msg.conversationId) rejectAsInvalidMessage();`
+   - Verification command after this subtask: `npm run test --workspace server -- ws`
+   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+   - Docs: https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API | https://github.com/websockets/ws | https://nodejs.org/api/events.html | https://jestjs.io/docs/expect
+   - Acceptance criteria focus: AC3, AC4, AC23.
+   - Files to read/edit: `server/src/test/unit/ws-*.test.ts`, `server/src/ws/types.ts`
+   - Required coverage: missing/empty `conversationId`, wrong payload types, and assertion that invalid messages do not trigger `abortAgentCommandRun`.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; resolve any issues introduced by this task.
    - Starter snippet (adapt names to exact existing symbols): `if (msg.type === "cancel_inflight" && msg.conversationId) { abortAgentCommandRun(msg.conversationId); if (msg.inflightId) await abortInflight(msg.inflightId); }`
    - Verification command after this subtask: `npm run test --workspace server -- ws`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
@@ -439,7 +447,7 @@ Update WebSocket cancel message handling so command-run abort is always attempte
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run test --workspace server`
-3. [ ] Run targeted WS cancel + command-run stop race tests and chat cancel regression tests; confirm pass.
+3. [ ] Run targeted WS cancel + command-run stop race tests, malformed cancel payload validation tests, and chat cancel regression tests; confirm pass.
 
 #### Implementation notes
 
@@ -492,7 +500,15 @@ Consume Task 1’s server message-contract update in the Agents UI so Stop alway
    - Acceptance criteria focus: AC3, AC4, AC23.
    - Files to read/edit: `client/src/test/agentsPage.commandsRun.abort.test.tsx`, `client/src/test/chatPage.stop.test.tsx`, `client/src/test/flowsPage.stop.test.tsx`, `client/src/test/useChatWs*.test.ts`
    - Required coverage: payload shape in both paths, no regression to existing Chat/Flows stop behavior, and preservation of existing call-site compatibility.
-4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; resolve any issues introduced by this task.
+4. [ ] Add/extend client stop-click tests for no-active-conversation edge case.
+   - Starter snippet (adapt names to exact existing symbols): `if (!activeConversationId) return;`
+   - Verification command after this subtask: `npm run test --workspace client -- agentsPage.commandsRun.abort`
+   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+   - Docs: https://react.dev/reference/react/useCallback | https://llms.mui.com/material-ui/6.4.12/llms.txt | https://testing-library.com/docs/react-testing-library/intro
+   - Acceptance criteria focus: AC3, AC4, AC23.
+   - Files to read/edit: `client/src/test/agentsPage.commandsRun.abort.test.tsx`, `client/src/test/useChatWs*.test.ts`, `client/src/pages/AgentsPage.tsx`
+   - Required coverage: stop click with no active conversation does not send any WS cancel payload and does not throw.
+5. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; resolve any issues introduced by this task.
    - Starter snippet (adapt names to exact existing symbols): `const cancelInflight = (conversationId, inflightId) => send({ type: "cancel_inflight", conversationId, ...(inflightId ? { inflightId } : {}) });`
    - Verification command after this subtask: `npm run test --workspace client -- agentsPage.commandsRun.abort`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
@@ -504,7 +520,7 @@ Consume Task 1’s server message-contract update in the Agents UI so Stop alway
 
 1. [ ] `npm run build --workspace client`
 2. [ ] `npm run test --workspace client`
-3. [ ] Run targeted Agents stop-path tests and confirm pass.
+3. [ ] Run targeted Agents stop-path tests (including no-active-conversation edge case) and confirm pass.
 
 #### Implementation notes
 
@@ -701,7 +717,23 @@ Replace immediate `status: started` reingest results with one terminal payload r
    - Acceptance criteria focus: AC5, AC6, AC7, AC8, AC9, AC10, AC18, AC19, AC20, AC24.
    - Files to read/edit: `server/src/test/unit/mcp.keepalive.helper.test.ts`, `server/src/test/unit/mcp2-router-*.test.ts`, `server/src/test/unit/mcp.reingest.classic.test.ts`
    - Required coverage: keepalive runs during blocking wait and the response lifecycle completes cleanly on one disconnect/close path.
-12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; resolve any issues introduced by this task.
+12. [ ] Add/extend terminal error-path tests for `errorCode` and required-field completeness.
+   - Starter snippet (adapt names to exact existing symbols): `expect(result.status).toBe('error'); expect(result.errorCode).not.toBeNull();`
+   - Verification command after this subtask: `npm run test --workspace server -- reingest`
+   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+   - Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/ | https://www.jsonrpc.org/specification | https://expressjs.com/en/guide/migrating-5.html
+   - Acceptance criteria focus: AC8, AC9, AC18, AC19.
+   - Files to read/edit: `server/src/test/unit/reingestService.test.ts`, `server/src/test/unit/reingest*.test.ts`, `server/src/test/unit/mcp-*.test.ts`
+   - Required coverage: `status=error` always includes non-null `errorCode` and all required top-level terminal fields on both MCP surfaces.
+13. [ ] Add/extend MCP response-shape tests to prove terminal-only single result without top-level `message`.
+   - Starter snippet (adapt names to exact existing symbols): `expect(payload.status).not.toBe('started'); expect(payload.message).toBeUndefined();`
+   - Verification command after this subtask: `npm run test --workspace server -- reingest`
+   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+   - Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/ | https://www.jsonrpc.org/specification | https://expressjs.com/en/guide/migrating-5.html
+   - Acceptance criteria focus: AC5, AC8, AC9.
+   - Files to read/edit: `server/src/test/unit/mcp-*.test.ts`, `server/src/test/unit/mcp.reingest.classic.test.ts`, `server/src/test/unit/mcp2-router-*.test.ts`
+   - Required coverage: no interim `started` payload is surfaced as the tool result, top-level `message` is absent, and exactly one terminal payload is asserted per call.
+14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; resolve any issues introduced by this task.
    - Starter snippet (adapt names to exact existing symbols): `return { status: mapTerminal(state), operation: "reembed", runId, sourceId, durationMs, files, chunks, embedded, errorCode };`
    - Verification command after this subtask: `npm run test --workspace server -- reingest`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
@@ -713,7 +745,7 @@ Replace immediate `status: started` reingest results with one terminal payload r
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run test --workspace server`
-3. [ ] Run targeted reingest contract tests for classic + MCP v2, including pre-run vs post-start error-boundary and disconnect/keepalive resilience, and confirm pass.
+3. [ ] Run targeted reingest contract tests for classic + MCP v2, including pre-run vs post-start error-boundary, error-path `errorCode` assertions, no-top-level-`message` checks, and disconnect/keepalive resilience; confirm pass.
 
 #### Implementation notes
 
@@ -827,7 +859,23 @@ Apply one shared status/phase mapping and active-overlay merge path for `/ingest
    - Acceptance criteria focus: AC11, AC12, AC13, AC14, AC15, AC25, AC26, AC27, AC28.
    - Files to read/edit: `server/src/test/unit/tools-ingested-repos*.test.ts`, `server/src/test/unit/ingest-roots*.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`
    - Required coverage: active overlays keep repositories visible, terminal states omit phase, synthesized entries include required identity fields (and `hostPathWarning` when needed), and schemaVersion assertions migrate to `0000038-status-phase-v1`.
-12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; resolve any issues introduced by this task.
+12. [ ] Add/extend overlay-precedence regression tests for persisted metadata retention.
+   - Starter snippet (adapt names to exact existing symbols): `expect(repo.lastIngestAt).toBe(previousTerminal.lastIngestAt); expect(repo.status).toBe('ingesting');`
+   - Verification command after this subtask: `npm run test --workspace server -- ingest`
+   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+   - Docs: https://json-schema.org/understanding-json-schema/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
+   - Acceptance criteria focus: AC13, AC26.
+   - Files to read/edit: `server/src/test/unit/tools-ingested-repos*.test.ts`, `server/src/test/unit/ingest-roots*.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`
+   - Required coverage: active overlay replaces run-state fields only, while persisted metadata (`lastIngestAt`, lock/model metadata, last terminal error context) remains present until a newer terminal write occurs.
+13. [ ] Add/extend terminal-status mapping tests for explicit `completed|cancelled|error` phase omission on all listing surfaces.
+   - Starter snippet (adapt names to exact existing symbols): `expect(repo.phase).toBeUndefined();`
+   - Verification command after this subtask: `npm run test --workspace server -- ingest`
+   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+   - Docs: https://json-schema.org/understanding-json-schema/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
+   - Acceptance criteria focus: AC14, AC15, AC25.
+   - Files to read/edit: `server/src/test/unit/tools-ingested-repos*.test.ts`, `server/src/test/unit/ingest-roots*.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`
+   - Required coverage: `completed`, `cancelled`, and `error` outputs all omit `phase` (not null/empty) in both `/ingest/roots` and MCP listing responses.
+14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; resolve any issues introduced by this task.
    - Starter snippet (adapt names to exact existing symbols): `const status = mapStatus(internalState); const phase = status === "ingesting" ? mapPhase(internalState) : undefined;`
    - Verification command after this subtask: `npm run test --workspace server -- ingest`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
@@ -839,7 +887,7 @@ Apply one shared status/phase mapping and active-overlay merge path for `/ingest
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run test --workspace server`
-3. [ ] Run targeted ingest listing/status mapping and schema-version migration tests and confirm pass.
+3. [ ] Run targeted ingest listing/status mapping tests, including overlay-precedence metadata retention and terminal-phase omission for all terminal statuses; confirm pass.
 
 #### Implementation notes
 
@@ -913,7 +961,23 @@ Ensure no-change delta runs exit before AST parse/upsert/delete and before embed
    - Acceptance criteria focus: AC16, AC17.
    - Files to read/edit: `server/src/test/unit/ingest-ast-indexing.test.ts`, `server/src/test/features/ingest-delta-reembed.feature`, `server/src/test/steps/ingest-delta-reembed.steps.ts`
    - Required coverage: exactly one terminal outcome under cancel/no-change timing race.
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; resolve any issues introduced by this task.
+7. [ ] Add/extend mixed-delta success-path tests proving external terminal status remains `completed`.
+   - Starter snippet (adapt names to exact existing symbols): `expect(result.status).toBe('completed');`
+   - Verification command after this subtask: `npm run test --workspace server -- ingest-ast`
+   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+   - Docs: https://tree-sitter.github.io/tree-sitter/ | https://github.com/tree-sitter/tree-sitter-typescript | https://nodejs.org/en/learn/asynchronous-work/dont-block-the-event-loop | https://mongoosejs.com/docs/ | https://jestjs.io/docs/getting-started
+   - Acceptance criteria focus: AC16.
+   - Files to read/edit: `server/src/test/unit/ingest-ast-indexing.test.ts`, `server/src/test/unit/reingest*.test.ts`
+   - Required coverage: mixed delta (adds/modifies/deletes in one run) resolves externally as successful terminal `completed`.
+8. [ ] Add/extend regression tests confirming existing AST failure semantics remain unchanged for changed-file runs.
+   - Starter snippet (adapt names to exact existing symbols): `expect(result.status).toBe('error');`
+   - Verification command after this subtask: `npm run test --workspace server -- ingest-ast`
+   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+   - Docs: https://tree-sitter.github.io/tree-sitter/ | https://github.com/tree-sitter/tree-sitter-typescript | https://nodejs.org/en/learn/asynchronous-work/dont-block-the-event-loop | https://mongoosejs.com/docs/ | https://jestjs.io/docs/getting-started
+   - Acceptance criteria focus: AC17 edge-case boundary protection.
+   - Files to read/edit: `server/src/test/unit/ingest-ast-indexing.test.ts`, `server/src/test/unit/reingest*.test.ts`
+   - Required coverage: changed-file AST parse failures still surface the same failure outcome/shape as before this story (no accidental semantics change).
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; resolve any issues introduced by this task.
    - Starter snippet (adapt names to exact existing symbols): `if (delta.added === 0 && delta.modified === 0 && delta.deleted === 0) return completedNoChangeResult();`
    - Verification command after this subtask: `npm run test --workspace server -- ingest-ast`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
@@ -925,7 +989,7 @@ Ensure no-change delta runs exit before AST parse/upsert/delete and before embed
 
 1. [ ] `npm run build --workspace server`
 2. [ ] `npm run test --workspace server`
-3. [ ] Run targeted no-change/deletion-only ingest tests and confirm pass.
+3. [ ] Run targeted no-change/deletion-only/mixed-delta ingest tests, including unchanged AST-failure semantics regression, and confirm pass.
 
 #### Implementation notes
 
@@ -1001,7 +1065,15 @@ Align Ingest page data normalization/rendering with server contract updates so a
    - Acceptance criteria focus: AC11, AC12, AC14, AC15, AC25, AC28.
    - Files to read/edit: `client/src/test/ingest*.test.tsx`
    - Required coverage: no disappearance during active run, terminal states omit phase display.
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; resolve any issues introduced by this task.
+7. [ ] Add/extend client rendering tests for terminal ingest statuses (`completed`, `cancelled`, `error`) and absent phase text.
+   - Starter snippet (adapt names to exact existing symbols): `expect(screen.queryByText(/phase/i)).not.toBeInTheDocument();`
+   - Verification command after this subtask: `npm run test --workspace client -- ingest`
+   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+   - Docs: https://react.dev/learn/synchronizing-with-effects | https://llms.mui.com/material-ui/6.4.12/llms.txt | https://www.typescriptlang.org/docs/handbook/2/narrowing.html | https://www.typescriptlang.org/docs/handbook/release-notes/typescript-5-9.html
+   - Acceptance criteria focus: AC14, AC15, AC25.
+   - Files to read/edit: `client/src/test/ingest*.test.tsx`, `client/src/components/ingest/RootsTable.tsx`, `client/src/components/ingest/ActiveRunCard.tsx`, `client/src/pages/IngestPage.tsx`
+   - Required coverage: all terminal statuses render correctly in UI and never display stale phase labels.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; resolve any issues introduced by this task.
    - Starter snippet (adapt names to exact existing symbols): `const phase = row.status === "ingesting" ? row.phase : undefined;`
    - Verification command after this subtask: `npm run test --workspace client -- ingest`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
@@ -1013,7 +1085,7 @@ Align Ingest page data normalization/rendering with server contract updates so a
 
 1. [ ] `npm run build --workspace client`
 2. [ ] `npm run test --workspace client`
-3. [ ] Run targeted ingest status UI tests and confirm pass.
+3. [ ] Run targeted ingest status UI tests, including terminal-status display and phase-omission assertions, and confirm pass.
 
 #### Implementation notes
 
@@ -1166,6 +1238,20 @@ Perform end-to-end verification of all acceptance criteria after Tasks 1-8 are c
    - Docs: https://docs.docker.com/compose/ | https://playwright.dev/docs/intro | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
    - Acceptance criteria focus: AC1-AC28 final gate evidence.
    - Files to read/edit: `design.md`, `projectStructure.md`, `planning/0000038-agent-ux-stop-and-ingest-status.md`
+11. [ ] Execute manual pre-run validation boundary scenario for both MCP surfaces and confirm JSON-RPC protocol errors are preserved.
+   - Starter snippet (adapt names to exact existing symbols): `Call reingest_repository with invalid sourceId and assert protocol error envelope, not terminal payload.`
+   - Verification command after this subtask: `npm run e2e`
+   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+   - Docs: https://docs.docker.com/compose/ | https://playwright.dev/docs/intro | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
+   - Acceptance criteria focus: AC24 final gate evidence.
+   - Files to read/edit: `planning/0000038-agent-ux-stop-and-ingest-status.md`, `test-results/screenshots/*`
+12. [ ] Execute manual no-change and mixed-delta reingest scenarios and confirm successful terminal `completed` semantics.
+   - Starter snippet (adapt names to exact existing symbols): `Run no-change reingest then mixed-delta reingest and assert terminal status completed for both MCP surfaces.`
+   - Verification command after this subtask: `npm run e2e`
+   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+   - Docs: https://docs.docker.com/compose/ | https://playwright.dev/docs/intro | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
+   - Acceptance criteria focus: AC16, AC17 final gate evidence.
+   - Files to read/edit: `planning/0000038-agent-ux-stop-and-ingest-status.md`, `test-results/screenshots/*`
 
 #### Testing
 

@@ -717,7 +717,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 ### 3. Frontend: unblock Agents input editing and sidebar navigation during active runs
 
 - Task Status: **__completed__**
-- Git Commits: `None yet`
+- Git Commits: `0c0f764`
 
 #### Overview
 

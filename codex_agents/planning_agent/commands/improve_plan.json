@@ -44,7 +44,7 @@
     {
       "type": "message",
       "role": "user",
-      "content": ["Please create tasks for this story, ensuring that each task only implements one thing that can be tested. Server changes to messages should be tasked separately and prior to the front end changes that rely on them unless changing the server will break the front end. Ensure that each task is detailed enough for a junior developer to work through without the input of a senior. Base the formatting, detail and structure of the tasks on previous story tasks. Do not provide options, just make the best changes you feel would be best. Commit after making any changes."]
+      "content": ["Please create tasks for this story, ensuring that each task only implements one thing that can be tested. Server changes to messages should be tasked separately and prior to the front end changes that rely on them unless changing the server will break the front end. Ensure that each task is detailed enough for a junior developer to work through without the input of a senior. Base the formatting, detail and structure of the tasks on `planning/plan_format.md`. Do not provide options, just make the best changes you feel would be best. Commit after making any changes."]
     }
   ]
 }

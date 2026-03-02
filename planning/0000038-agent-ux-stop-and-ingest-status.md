@@ -588,7 +588,7 @@ Update WebSocket cancel message handling so command-run abort is always attempte
 
 ### 2. Frontend: make Agents stop send `cancel_inflight` by conversation even when `inflightId` is unknown
 
-- Task Status: ****done****
+- Task Status: **__done__**
 - Git Commits: `12e1781`
 
 #### Overview

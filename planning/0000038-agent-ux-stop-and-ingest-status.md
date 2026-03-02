@@ -527,10 +527,9 @@ Update WebSocket cancel message handling so command-run abort is always attempte
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test --workspace server`
-3. [ ] `npm run lint --workspaces` and `npm run format:check --workspaces`
-4. [ ] Run targeted WS tests for parser validation, chat mismatch semantics, conversation-authoritative abort attempts (with and without inflight id), command-step stop boundary, retry suppression, and duplicate-stop idempotence; confirm pass.
+1. [ ] `npm run build:summary:server` - If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` and resolve errors.
+2. [ ] `npm run test:summary:server` - If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/server-tests-*.log`) and resolve listed failures.
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
 #### Implementation notes
 
@@ -649,10 +648,13 @@ Consume Task 1’s server message-contract update in the Agents UI so Stop alway
 
 #### Testing
 
-1. [ ] `npm run build --workspace client`
-2. [ ] `npm run test --workspace client`
-3. [ ] `npm run lint --workspaces` and `npm run format:check --workspaces`
-4. [ ] Run targeted Agents/Chat/Flows stop tests for conversation-only payload, inflight payload, and no-active-conversation negative path; confirm pass.
+1. [ ] `npm run build:summary:client` - If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` and resolve errors.
+2. [ ] `npm run test:summary:client` - If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`) and resolve listed failures.
+3. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find failing target(s).
+4. [ ] `npm run compose:up`
+5. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001` to verify this task’s stop-flow behavior and general regressions, including checking the debug console for logged errors.
+6. [ ] `npm run compose:down`
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
 #### Implementation notes
 
@@ -758,10 +760,13 @@ Limit active-run UI restrictions to submit/execute controls only. Keep instructi
 
 #### Testing
 
-1. [ ] `npm run build --workspace client`
-2. [ ] `npm run test --workspace client`
-3. [ ] `npm run lint --workspaces` and `npm run format:check --workspaces`
-4. [ ] Run targeted Agents active-run UX tests for input editability, draft persistence, sidebar switching, and submit-lock scope; confirm pass.
+1. [ ] `npm run build:summary:client` - If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` and resolve errors.
+2. [ ] `npm run test:summary:client` - If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`) and resolve listed failures.
+3. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find failing target(s).
+4. [ ] `npm run compose:up`
+5. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001` to verify active-run UX behavior and general regressions, including checking the debug console for logged errors.
+6. [ ] `npm run compose:down`
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
 #### Implementation notes
 
@@ -1067,10 +1072,9 @@ Replace immediate `status: started` reingest results with one terminal payload r
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test --workspace server`
-3. [ ] `npm run lint --workspaces` and `npm run format:check --workspaces`
-4. [ ] Run targeted reingest tests for terminal wait, timeout/missing-run boundaries, status mapping, parity, protocol boundaries, request-shape guards (`wait`/`blocking` rejection), cancelled-counter retention, keepalive resilience, and terminal payload schema constraints; confirm pass.
+1. [ ] `npm run build:summary:server` - If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` and resolve errors.
+2. [ ] `npm run test:summary:server` - If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/server-tests-*.log`) and resolve listed failures.
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
 #### Implementation notes
 
@@ -1313,10 +1317,9 @@ Apply one shared status/phase mapping and active-overlay merge path for `/ingest
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test --workspace server`
-3. [ ] `npm run lint --workspaces` and `npm run format:check --workspaces`
-4. [ ] Run targeted ingest listing tests for per-state mapping (`queued|scanning|embedding|skipped|completed|cancelled|error`), synthesized entries, schema version, overlay-precedence retention, and OpenAPI contract assertions; confirm pass.
+1. [ ] `npm run build:summary:server` - If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` and resolve errors.
+2. [ ] `npm run test:summary:server` - If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/server-tests-*.log`) and resolve listed failures.
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
 #### Implementation notes
 
@@ -1451,10 +1454,9 @@ Ensure no-change delta runs exit before AST parse/upsert/delete and before embed
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run test --workspace server`
-3. [ ] `npm run lint --workspaces` and `npm run format:check --workspaces`
-4. [ ] Run targeted no-change/deletion-only/mixed-delta ingest tests, including unchanged AST-failure semantics regression, and confirm pass.
+1. [ ] `npm run build:summary:server` - If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` and resolve errors.
+2. [ ] `npm run test:summary:server` - If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/server-tests-*.log`) and resolve listed failures.
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
 #### Implementation notes
 
@@ -1606,10 +1608,15 @@ Align Ingest page data normalization/rendering with server contract updates so a
 
 #### Testing
 
-1. [ ] `npm run build --workspace client`
-2. [ ] `npm run test --workspace client`
-3. [ ] `npm run lint --workspaces` and `npm run format:check --workspaces`
-4. [ ] Run targeted ingest status UI tests, including terminal-status display and phase-omission assertions, and confirm pass.
+1. [ ] `npm run build:summary:server` - Use because this task changes `common` contracts consumed by server and client. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` and resolve errors.
+2. [ ] `npm run build:summary:client` - If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` and resolve errors.
+3. [ ] `npm run test:summary:server` - If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/server-tests-*.log`) and resolve listed failures.
+4. [ ] `npm run test:summary:client` - If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`) and resolve listed failures.
+5. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find failing target(s).
+6. [ ] `npm run compose:up`
+7. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001` to verify ingest status/phase rendering behavior and general regressions, including checking the debug console for logged errors.
+8. [ ] `npm run compose:down`
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
 #### Implementation notes
 
@@ -1699,7 +1706,11 @@ Update story-adjacent documentation so junior developers can understand final st
 
 #### Testing
 
-1. [ ] Review docs against implemented behavior and acceptance criteria; confirm no contract contradictions remain.
+1. [ ] `npm run build:summary:server` - If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` and resolve errors.
+2. [ ] `npm run build:summary:client` - If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` and resolve errors.
+3. [ ] `npm run test:summary:server` - If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/server-tests-*.log`) and resolve listed failures.
+4. [ ] `npm run test:summary:client` - If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`) and resolve listed failures.
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
 #### Implementation notes
 
@@ -1951,14 +1962,16 @@ Perform end-to-end verification of all acceptance criteria after Tasks 1-8 are c
 
 #### Testing
 
-1. [ ] `npm run build --workspace server`
-2. [ ] `npm run build --workspace client`
-3. [ ] `npm run test --workspace server`
-4. [ ] `npm run test --workspace client`
-5. [ ] `npm run compose:build`
-6. [ ] `npm run compose:up`
-7. [ ] `npm run e2e`
-8. [ ] `npm run compose:down`
+1. [ ] `npm run build:summary:server` - Mandatory final regression check (task is not strictly front end). If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` to resolve errors.
+2. [ ] `npm run build:summary:client` - Mandatory final regression check (task is not strictly back end). If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` to resolve errors.
+3. [ ] `npm run test:summary:server` - Mandatory final regression check (task is not strictly front end). If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/server-tests-*.log`) and resolve listed failures.
+4. [ ] `npm run test:summary:client` - Mandatory final regression check (task is not strictly back end). If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`) and resolve listed failures.
+5. [ ] `timeout 7m npm run test:summary:e2e` - If `failed > 0` OR setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log` and resolve root causes before rerunning.
+6. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
+7. [ ] `npm run compose:up`
+8. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001` to confirm story behavior and general regressions, including verifying no debug-console errors are logged.
+9. [ ] `npm run compose:down`
+Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
 #### Implementation notes
 

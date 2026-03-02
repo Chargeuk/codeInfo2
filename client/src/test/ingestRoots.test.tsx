@@ -13,6 +13,15 @@ beforeAll(() => {
 
 beforeEach(() => {
   mockFetch.mockReset();
+  (
+    globalThis as unknown as {
+      __codeinfoDebug?: { dev0000038Markers?: boolean };
+    }
+  ).__codeinfoDebug = undefined;
+});
+
+afterEach(() => {
+  jest.restoreAllMocks();
 });
 
 function HookHarness() {
@@ -270,6 +279,175 @@ describe('RootsTable', () => {
     expect(
       within(normalizedRow).getByTestId('roots-row-last-error'),
     ).toHaveTextContent('Last error: Normalized table error');
+  });
+
+  it('keeps active ingest rows visible and shows phase text for ingesting status', async () => {
+    render(
+      <RootsTable
+        roots={[
+          {
+            ...root,
+            path: '/repo-active',
+            name: 'repo-active',
+            status: 'ingesting',
+            phase: 'embedding',
+          },
+        ]}
+        lockedModelId={undefined}
+        isLoading={false}
+        error={undefined}
+        disabled={false}
+        onRefresh={() => Promise.resolve()}
+      />,
+    );
+
+    const row = await screen.findByRole('row', { name: /repo-active/i });
+    expect(row).toBeInTheDocument();
+    expect(
+      within(row).getByText(/ingesting \(embedding\)/i),
+    ).toBeInTheDocument();
+  });
+
+  it('hides phase text for completed status rows', async () => {
+    render(
+      <RootsTable
+        roots={[
+          {
+            ...root,
+            path: '/repo-completed',
+            name: 'repo-completed',
+            status: 'completed',
+            phase: undefined,
+          },
+        ]}
+        lockedModelId={undefined}
+        isLoading={false}
+        error={undefined}
+        disabled={false}
+        onRefresh={() => Promise.resolve()}
+      />,
+    );
+
+    const row = await screen.findByRole('row', { name: /repo-completed/i });
+    expect(within(row).getByText(/^completed$/i)).toBeInTheDocument();
+    expect(
+      within(row).queryByText(/\(queued\)|\(scanning\)|\(embedding\)/i),
+    ).not.toBeInTheDocument();
+  });
+
+  it('hides phase text for cancelled status rows', async () => {
+    render(
+      <RootsTable
+        roots={[
+          {
+            ...root,
+            path: '/repo-cancelled',
+            name: 'repo-cancelled',
+            status: 'cancelled',
+            phase: undefined,
+          },
+        ]}
+        lockedModelId={undefined}
+        isLoading={false}
+        error={undefined}
+        disabled={false}
+        onRefresh={() => Promise.resolve()}
+      />,
+    );
+
+    const row = await screen.findByRole('row', { name: /repo-cancelled/i });
+    expect(within(row).getByText(/^cancelled$/i)).toBeInTheDocument();
+    expect(
+      within(row).queryByText(/\(queued\)|\(scanning\)|\(embedding\)/i),
+    ).not.toBeInTheDocument();
+  });
+
+  it('hides phase text for error status rows', async () => {
+    render(
+      <RootsTable
+        roots={[
+          {
+            ...root,
+            path: '/repo-error',
+            name: 'repo-error',
+            status: 'error',
+            phase: undefined,
+          },
+        ]}
+        lockedModelId={undefined}
+        isLoading={false}
+        error={undefined}
+        disabled={false}
+        onRefresh={() => Promise.resolve()}
+      />,
+    );
+
+    const row = await screen.findByRole('row', { name: /repo-error/i });
+    expect(within(row).getByText(/^error$/i)).toBeInTheDocument();
+    expect(
+      within(row).queryByText(/\(queued\)|\(scanning\)|\(embedding\)/i),
+    ).not.toBeInTheDocument();
+  });
+
+  it('does not emit DEV-0000038 T7 row markers by default', async () => {
+    const infoSpy = jest.spyOn(console, 'info').mockImplementation(() => {});
+    render(
+      <RootsTable
+        roots={[
+          {
+            ...root,
+            path: '/repo-default-marker-gate',
+            name: 'repo-default-marker-gate',
+            status: 'ingesting',
+            phase: 'scanning',
+          },
+        ]}
+        lockedModelId={undefined}
+        isLoading={false}
+        error={undefined}
+        disabled={false}
+        onRefresh={() => Promise.resolve()}
+      />,
+    );
+
+    await screen.findByRole('row', { name: /repo-default-marker-gate/i });
+    const markerCalls = infoSpy.mock.calls.filter((call) =>
+      String(call[0] ?? '').includes('[DEV-0000038][T7]'),
+    );
+    expect(markerCalls).toHaveLength(0);
+  });
+
+  it('emits DEV-0000038 T7 row markers when debug gate is enabled', async () => {
+    (
+      globalThis as unknown as {
+        __codeinfoDebug?: { dev0000038Markers?: boolean };
+      }
+    ).__codeinfoDebug = { dev0000038Markers: true };
+    const infoSpy = jest.spyOn(console, 'info').mockImplementation(() => {});
+    render(
+      <RootsTable
+        roots={[
+          {
+            ...root,
+            path: '/repo-enabled-marker-gate',
+            name: 'repo-enabled-marker-gate',
+            status: 'completed',
+            phase: undefined,
+          },
+        ]}
+        lockedModelId={undefined}
+        isLoading={false}
+        error={undefined}
+        disabled={false}
+        onRefresh={() => Promise.resolve()}
+      />,
+    );
+
+    await screen.findByRole('row', { name: /repo-enabled-marker-gate/i });
+    const markerCalls = infoSpy.mock.calls.filter((call) =>
+      String(call[0] ?? '').includes('[DEV-0000038][T7]'),
+    );
+    expect(markerCalls.length).toBeGreaterThanOrEqual(2);
   });
 });
 

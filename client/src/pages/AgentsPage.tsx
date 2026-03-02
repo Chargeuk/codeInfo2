@@ -57,6 +57,7 @@ import useChatStream, {
 import useChatWs, {
   type ChatWsServerEvent,
   type ChatWsTranscriptEvent,
+  isDev0000038MarkerGateEnabled,
 } from '../hooks/useChatWs';
 import useConversationTurns, {
   StoredTurn,
@@ -739,12 +740,19 @@ export default function AgentsPage() {
 
   const handleStopClick = useCallback(() => {
     const inflightId = getInflightId();
+    if (isDev0000038MarkerGateEnabled()) {
+      console.info(
+        '[DEV-0000038][T2] STOP_CLICK conversationId=%s inflightId=%s',
+        activeConversationId ?? 'none',
+        inflightId ?? 'none',
+      );
+    }
     log('info', 'DEV-0000021[T6] agents.stop clicked', {
       conversationId: activeConversationId,
       inflightId,
     });
 
-    if (activeConversationId && inflightId) {
+    if (activeConversationId) {
       cancelInflight(activeConversationId, inflightId);
       log('info', 'DEV-0000021[T6] agents.ws cancel_inflight sent', {
         conversationId: activeConversationId,
@@ -918,7 +926,15 @@ export default function AgentsPage() {
 
   const handleSelectConversation = (conversationId: string) => {
     if (conversationId === activeConversationId) return;
-    stop();
+    if (isRunActive && activeConversationId) {
+      if (isDev0000038MarkerGateEnabled()) {
+        console.info(
+          '[DEV-0000038][T3] AGENTS_CONVERSATION_SWITCH_ALLOWED from=%s to=%s',
+          activeConversationId,
+          conversationId,
+        );
+      }
+    }
     resetTurns();
     setConversation(conversationId, { clearMessages: true });
     const summary = conversations.find(
@@ -1174,19 +1190,21 @@ export default function AgentsPage() {
   ]);
 
   const selectedAgent = agents.find((a) => a.name === selectedAgentName);
-  const isSending = startPending || isStreaming || status === 'sending';
+  const isRunActive = startPending || isStreaming || status === 'sending';
   const controlsDisabled =
-    agentsLoading ||
-    !!agentsError ||
-    !selectedAgentName ||
-    persistenceLoading ||
-    isSending;
+    agentsLoading || !!agentsError || !selectedAgentName || persistenceLoading;
+  const submitDisabledForRun = isRunActive;
+  const inputEditableDuringRun = true;
+  const sidebarSelectableDuringRun = true;
   const isWorkingFolderDisabled =
     controlsDisabled ||
-    isSending ||
+    submitDisabledForRun ||
     !wsTranscriptReady ||
     selectedAgent?.disabled;
-  const conversationListDisabled = controlsDisabled || persistenceUnavailable;
+  const isInstructionInputDisabled =
+    !inputEditableDuringRun || !wsTranscriptReady || selectedAgent?.disabled;
+  const conversationListDisabled =
+    !sidebarSelectableDuringRun || persistenceUnavailable;
 
   const hasFilters = Boolean(setFilterState && refreshConversations);
   const hasBulkActions = Boolean(bulkArchive || bulkRestore || bulkDelete);
@@ -1219,7 +1237,7 @@ export default function AgentsPage() {
   const agentInfoEmptyMessage =
     'No description or warnings are available for this agent yet.';
 
-  const showStop = isSending;
+  const showStop = isRunActive;
   useEffect(() => {
     log('info', 'DEV-0000028[T4] agents action slot state', {
       showStop,
@@ -1927,7 +1945,7 @@ export default function AgentsPage() {
                       size="small"
                       disabled={
                         controlsDisabled ||
-                        isSending ||
+                        submitDisabledForRun ||
                         selectedAgent?.disabled ||
                         commandsLoading
                       }
@@ -1976,7 +1994,7 @@ export default function AgentsPage() {
                       size="small"
                       disabled={
                         !selectedCommandKey ||
-                        isSending ||
+                        submitDisabledForRun ||
                         persistenceUnavailable ||
                         !wsTranscriptReady ||
                         controlsDisabled ||
@@ -2062,13 +2080,15 @@ export default function AgentsPage() {
                       label="Instruction"
                       placeholder="Type your instruction"
                       value={input}
-                      onChange={(event) => setInput(event.target.value)}
-                      disabled={
-                        controlsDisabled ||
-                        isSending ||
-                        !wsTranscriptReady ||
-                        selectedAgent?.disabled
-                      }
+                      onChange={(event) => {
+                        if (isRunActive && isDev0000038MarkerGateEnabled()) {
+                          console.info(
+                            '[DEV-0000038][T3] AGENTS_INPUT_EDITABLE_WHILE_ACTIVE runActive=true',
+                          );
+                        }
+                        setInput(event.target.value);
+                      }}
+                      disabled={isInstructionInputDisabled}
                       inputProps={{ 'data-testid': 'agent-input' }}
                       sx={{ flex: 1 }}
                     />
@@ -2096,7 +2116,7 @@ export default function AgentsPage() {
                             size="small"
                             disabled={
                               controlsDisabled ||
-                              isSending ||
+                              submitDisabledForRun ||
                               !wsTranscriptReady ||
                               !selectedAgentName ||
                               !input.trim() ||

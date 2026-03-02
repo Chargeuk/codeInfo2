@@ -70,6 +70,7 @@ test('ListIngestedRepositories returns canonical and compatibility lock fields',
     schemaVersion: string;
     repos: Array<{
       id: string;
+      status: string;
       embeddingProvider: string;
       embeddingModel: string;
       embeddingDimensions: number;
@@ -81,7 +82,7 @@ test('ListIngestedRepositories returns canonical and compatibility lock fields',
   assert.equal(parsed.lockedModelId, 'text-embedding-openai');
   assert.equal(parsed.lock?.embeddingModel, 'text-embedding-openai');
   assert.equal(parsed.lock?.modelId, 'text-embedding-openai');
-  assert.equal(parsed.schemaVersion, '0000036-t10-canonical-alias-v1');
+  assert.equal(parsed.schemaVersion, '0000038-status-phase-v1');
   assert.equal(parsed.repos.length, 1);
   assert.equal(parsed.repos[0].embeddingProvider, 'lmstudio');
   assert.equal(parsed.repos[0].embeddingModel, 'embed-model');
@@ -90,6 +91,7 @@ test('ListIngestedRepositories returns canonical and compatibility lock fields',
   assert.equal(parsed.repos[0].lock.embeddingModel, 'embed-model');
   assert.equal(parsed.repos[0].lock.modelId, 'embed-model');
   assert.equal(parsed.repos[0].lock.lockedModelId, 'embed-model');
+  assert.equal(parsed.repos[0].status, 'completed');
 });
 
 test('ListIngestedRepositories keeps provider-qualified identity when model ids collide', async () => {

@@ -2,11 +2,17 @@ import assert from 'node:assert/strict';
 import test, { afterEach, beforeEach } from 'node:test';
 import express from 'express';
 import request from 'supertest';
+import {
+  __resetIngestJobsForTest,
+  __setJobInputForTest,
+  __setStatusForTest,
+} from '../../ingest/ingestJob.js';
 import { query, resetStore } from '../../logStore.js';
 import { createIngestRootsRouter } from '../../routes/ingestRoots.js';
 import { dedupeRootsByPath } from '../../routes/ingestRoots.js';
 
 const ORIGINAL_HOST = process.env.HOST_INGEST_DIR;
+const ORIGINAL_NODE_ENV = process.env.NODE_ENV;
 
 function createRootsApp(
   roots: { ids: string[]; metadatas: Record<string, unknown>[] },
@@ -28,7 +34,9 @@ function createRootsApp(
 
 beforeEach(() => {
   process.env.HOST_INGEST_DIR = '/host/base';
+  process.env.NODE_ENV = 'test';
   resetStore();
+  __resetIngestJobsForTest();
 });
 
 afterEach(() => {
@@ -36,6 +44,11 @@ afterEach(() => {
     delete process.env.HOST_INGEST_DIR;
   } else {
     process.env.HOST_INGEST_DIR = ORIGINAL_HOST;
+  }
+  if (ORIGINAL_NODE_ENV === undefined) {
+    delete process.env.NODE_ENV;
+  } else {
+    process.env.NODE_ENV = ORIGINAL_NODE_ENV;
   }
 });
 
@@ -164,6 +177,7 @@ test('GET /ingest/roots returns canonical lock value from the unified resolver',
   assert.equal(response.body.roots[0].model, 'embed-model');
   assert.equal(response.body.roots[0].modelId, 'embed-model');
   assert.equal(response.body.roots[0].lock.embeddingModel, 'embed-model');
+  assert.equal(response.body.schemaVersion, '0000038-status-phase-v1');
 });
 
 test('GET /ingest/roots preserves legacy lastError string and normalized error payload', async () => {
@@ -243,6 +257,127 @@ test('GET /ingest/roots keeps provider-qualified identity when model ids collide
   assert.equal(lmstudioRoot?.embeddingProvider, 'lmstudio');
   assert.equal(lmstudioRoot?.embeddingModel, 'shared-id');
   assert.equal(lmstudioRoot?.modelId, 'shared-id');
+});
+
+test('GET /ingest/roots maps ingesting phase states and omits phase for terminal statuses', async () => {
+  const response = await request(
+    createRootsApp(
+      {
+        ids: ['queued', 'done', 'cancelled', 'errored', 'skipped'],
+        metadatas: [
+          { root: '/data/queued', name: 'queued', state: 'queued' },
+          { root: '/data/done', name: 'done', state: 'completed' },
+          { root: '/data/cancelled', name: 'cancelled', state: 'cancelled' },
+          { root: '/data/errored', name: 'errored', state: 'error' },
+          { root: '/data/skipped', name: 'skipped', state: 'skipped' },
+        ],
+      },
+      'text-embed',
+    ),
+  ).get('/ingest/roots');
+
+  assert.equal(response.status, 200);
+  const roots = response.body.roots as Array<{
+    path: string;
+    status: string;
+    phase?: string;
+  }>;
+  const byPath = new Map(roots.map((root) => [root.path, root]));
+  const queued = byPath.get('/data/queued');
+  const done = byPath.get('/data/done');
+  const cancelled = byPath.get('/data/cancelled');
+  const errored = byPath.get('/data/errored');
+  const skipped = byPath.get('/data/skipped');
+  assert.ok(queued);
+  assert.ok(done);
+  assert.ok(cancelled);
+  assert.ok(errored);
+  assert.ok(skipped);
+  assert.deepEqual(
+    { status: queued.status, phase: queued.phase },
+    { status: 'ingesting', phase: 'queued' },
+  );
+  assert.equal(done.status, 'completed');
+  assert.equal(done.phase, undefined);
+  assert.equal(cancelled.status, 'cancelled');
+  assert.equal(cancelled.phase, undefined);
+  assert.equal(errored.status, 'error');
+  assert.equal(errored.phase, undefined);
+  assert.equal(skipped.status, 'completed');
+  assert.equal(skipped.phase, undefined);
+});
+
+test('GET /ingest/roots applies active overlay and synthesizes missing active roots', async () => {
+  __setStatusForTest('active-root-run', {
+    runId: 'active-root-run',
+    state: 'embedding',
+    counts: { files: 4, chunks: 8, embedded: 2 },
+  });
+  __setJobInputForTest('active-root-run', {
+    path: '/data/repo',
+    root: '/data/repo',
+    name: 'repo',
+    model: 'text-embed',
+  });
+
+  const response = await request(
+    createRootsApp(
+      {
+        ids: ['persisted-run'],
+        metadatas: [
+          {
+            root: '/data/repo',
+            name: 'repo',
+            state: 'completed',
+            lastIngestAt: '2026-01-02T00:00:00.000Z',
+            files: 1,
+            chunks: 2,
+            embedded: 3,
+          },
+        ],
+      },
+      'text-embed',
+    ),
+  ).get('/ingest/roots');
+
+  assert.equal(response.status, 200);
+  const overlaid = response.body.roots.find(
+    (root: { path: string }) => root.path === '/data/repo',
+  );
+  assert.equal(overlaid.status, 'ingesting');
+  assert.equal(overlaid.phase, 'embedding');
+  assert.deepEqual(overlaid.counts, { files: 4, chunks: 8, embedded: 2 });
+  assert.equal(overlaid.lastIngestAt, '2026-01-02T00:00:00.000Z');
+});
+
+test('GET /ingest/roots synthesizes active root when persisted metadata is missing', async () => {
+  __setStatusForTest('active-synth-run', {
+    runId: 'active-synth-run',
+    state: 'scanning',
+    counts: { files: 1, chunks: 1, embedded: 0 },
+  });
+  __setJobInputForTest('active-synth-run', {
+    path: '/data/only-active',
+    root: '/data/only-active',
+    name: 'only-active',
+    model: 'text-embed',
+  });
+
+  const response = await request(
+    createRootsApp(
+      {
+        ids: [],
+        metadatas: [],
+      },
+      'text-embed',
+    ),
+  ).get('/ingest/roots');
+  assert.equal(response.status, 200);
+  assert.equal(response.body.roots.length, 1);
+  assert.equal(response.body.roots[0].status, 'ingesting');
+  assert.equal(response.body.roots[0].phase, 'scanning');
+  assert.equal(response.body.roots[0].runId, 'active-synth-run');
+  assert.equal(response.body.roots[0].path, '/data/only-active');
 });
 
 test('GET /ingest/roots catch path emits structured failure log entry', async () => {

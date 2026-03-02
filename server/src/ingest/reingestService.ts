@@ -7,7 +7,14 @@ import {
 } from '../lmstudio/toolService.js';
 import { append } from '../logStore.js';
 import { toWebSocketUrl } from '../routes/lmstudioUrl.js';
-import { isBusy, reembed } from './ingestJob.js';
+import {
+  getStatus,
+  isBusy,
+  reembed,
+  type WaitForTerminalIngestStatusOptions,
+  type WaitForTerminalIngestStatusResult,
+  waitForTerminalIngestStatus,
+} from './ingestJob.js';
 
 const TOOL_NAME = 'reingest_repository';
 const RETRY_MESSAGE =
@@ -76,11 +83,18 @@ export type ReingestError =
       data: BusyData;
     };
 
+type ReingestTerminalStatus = 'completed' | 'cancelled' | 'error';
+
 export type ReingestSuccess = {
-  status: 'started';
+  status: ReingestTerminalStatus;
   operation: 'reembed';
   runId: string;
   sourceId: string;
+  durationMs: number;
+  files: number;
+  chunks: number;
+  embedded: number;
+  errorCode: string | null;
 };
 
 export type ReingestResult =
@@ -100,6 +114,11 @@ export type ReingestServiceDeps = {
   lmClientFactory?: (baseUrl: string) => LMStudioClient;
   lmBaseUrl?: string;
   appendLog?: (entry: Parameters<typeof append>[0]) => unknown;
+  waitForTerminalIngestStatus?: (
+    runId: string,
+    options: WaitForTerminalIngestStatusOptions,
+  ) => Promise<WaitForTerminalIngestStatusResult>;
+  waitOptions?: Partial<WaitForTerminalIngestStatusOptions>;
 };
 
 function normalizePosixPath(rawPath: string) {
@@ -301,6 +320,11 @@ function createValidationError(
   return null;
 }
 
+function findUnsupportedArgKeys(args: unknown) {
+  if (!isRecord(args)) return [];
+  return Object.keys(args).filter((key) => key !== 'sourceId');
+}
+
 function logValidationEvaluated(
   appendLog: (entry: Parameters<typeof append>[0]) => unknown,
   sourceId: unknown,
@@ -351,6 +375,8 @@ export async function runReingestRepository(
   args: unknown,
   deps: ReingestServiceDeps = {},
 ): Promise<ReingestResult> {
+  const WAIT_TIMEOUT_MS = deps.waitOptions?.timeoutMs ?? 90_000;
+  const WAIT_POLL_MS = deps.waitOptions?.pollMs ?? 100;
   const listRepos = deps.listIngestedRepositories ?? listIngestedRepositories;
   const checkBusy = deps.isBusy ?? isBusy;
   const runReembed = deps.reembed ?? reembed;
@@ -359,12 +385,24 @@ export async function runReingestRepository(
     deps.lmBaseUrl ?? process.env.LMSTUDIO_BASE_URL ?? '',
   );
   const appendLog = deps.appendLog ?? append;
+  const waitForTerminal =
+    deps.waitForTerminalIngestStatus ?? waitForTerminalIngestStatus;
 
   const sourceId = isRecord(args) ? args.sourceId : undefined;
   logValidationEvaluated(appendLog, sourceId);
 
   const repos = await listRepos();
   const retryLists = buildRetryLists(repos);
+
+  const unsupportedArgKeys = findUnsupportedArgKeys(args);
+  if (unsupportedArgKeys.length > 0) {
+    const err = invalidStateError(
+      `Unsupported arguments for reingest_repository: ${unsupportedArgKeys.join(', ')}`,
+      retryLists,
+    );
+    logValidationResult(appendLog, { kind: 'error', error: err });
+    return { ok: false, error: err };
+  }
 
   const validationError = createValidationError(sourceId, retryLists);
   if (validationError) {
@@ -387,17 +425,83 @@ export async function runReingestRepository(
   }
 
   try {
+    const requestStartedAt = Date.now();
     const runId = await runReembed(normalizedSourceId, {
       lmClientFactory,
       baseUrl: lmBaseUrl,
     });
+    appendLog({
+      level: 'info',
+      source: 'server',
+      timestamp: new Date().toISOString(),
+      message: `[DEV-0000038][T4] REINGEST_BLOCKING_WAIT_STARTED sourceId=${normalizedSourceId} runId=${runId}`,
+      context: {
+        sourceId: normalizedSourceId,
+        runId,
+      },
+    });
+
+    const initialStatus = getStatus(runId);
+    const shouldCallWait = Boolean(deps.waitForTerminalIngestStatus)
+      ? true
+      : Boolean(initialStatus);
+    const waitResult = shouldCallWait
+      ? await waitForTerminal(runId, {
+          timeoutMs: WAIT_TIMEOUT_MS,
+          pollMs: WAIT_POLL_MS,
+        })
+      : { reason: 'missing' as const, status: null, lastKnown: null };
+
+    const lastKnownCounts = waitResult.lastKnown?.counts ?? {
+      files: 0,
+      chunks: 0,
+      embedded: 0,
+    };
+
+    let terminalStatus: ReingestTerminalStatus = 'error';
+    let errorCode: string | null = null;
+    if (waitResult.reason === 'timeout') {
+      terminalStatus = 'error';
+      errorCode = 'WAIT_TIMEOUT';
+    } else if (waitResult.reason === 'missing') {
+      terminalStatus = 'error';
+      errorCode = 'RUN_STATUS_MISSING';
+    } else if (waitResult.status?.state === 'cancelled') {
+      terminalStatus = 'cancelled';
+    } else if (waitResult.status?.state === 'completed') {
+      terminalStatus = 'completed';
+    } else if (waitResult.status?.state === 'skipped') {
+      terminalStatus = 'completed';
+    } else if (waitResult.status?.state === 'error') {
+      terminalStatus = 'error';
+      errorCode = waitResult.status.error?.error ?? 'INGEST_ERROR';
+    } else {
+      terminalStatus = 'error';
+      errorCode = 'UNKNOWN_TERMINAL_STATE';
+    }
 
     const success: ReingestSuccess = {
-      status: 'started',
+      status: terminalStatus,
       operation: 'reembed',
       runId,
       sourceId: normalizedSourceId,
+      durationMs: Math.max(0, Date.now() - requestStartedAt),
+      files: lastKnownCounts.files,
+      chunks: lastKnownCounts.chunks,
+      embedded: lastKnownCounts.embedded,
+      errorCode,
     };
+    appendLog({
+      level: 'info',
+      source: 'server',
+      timestamp: new Date().toISOString(),
+      message: `[DEV-0000038][T4] REINGEST_TERMINAL_RESULT status=${success.status} runId=${success.runId} errorCode=${success.errorCode ?? 'null'}`,
+      context: {
+        status: success.status,
+        runId: success.runId,
+        errorCode: success.errorCode,
+      },
+    });
     logValidationResult(appendLog, {
       kind: 'success',
       sourceId: normalizedSourceId,

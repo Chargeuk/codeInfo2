@@ -580,13 +580,27 @@ flowchart TD
 - Shared service `server/src/ingest/reingestService.ts` defines canonical validation and mapping for `reingest_repository` before MCP surface wiring.
 - Validation is strict and field-level for `sourceId`: missing, non-string, empty, non-absolute, non-normalized, ambiguous path forms, and unknown roots are rejected.
 - Reingest is existing-root-only: known roots are derived from `listIngestedRepositories()` container paths and must match exactly after POSIX normalization.
-- Run-start behavior reuses existing ingest semantics (`isBusy()` + `reembed(...)`) and maps outcomes to canonical contracts:
+- Run-start behavior reuses existing ingest semantics (`isBusy()` + `reembed(...)`), then blocks on `waitForTerminalIngestStatus(...)` and maps outcomes to canonical contracts:
   - invalid params -> JSON-RPC error `-32602` / `INVALID_PARAMS`
   - unknown root -> JSON-RPC error `404` / `NOT_FOUND`
   - busy -> JSON-RPC error `429` / `BUSY`
+- Once the run has started, results are terminal-only and summary-only:
+  - `status`: `completed` | `cancelled` | `error`
+  - `operation`: `reembed`
+  - `runId`, `sourceId`, `durationMs`, `files`, `chunks`, `embedded`, `errorCode`
+  - no top-level `message` field.
+- Internal terminal mapping:
+  - internal `completed` -> external `completed`
+  - internal `skipped` -> external `completed`
+  - internal `cancelled` -> external `cancelled` with last-known counters
+  - internal `error` -> external `error` with non-null `errorCode`
+  - missing status after start -> terminal `error` (`RUN_STATUS_MISSING`)
+  - wait timeout -> terminal `error` (`WAIT_TIMEOUT`)
 - Validation/result logs are emitted with stable tags for manual verification:
   - `DEV-0000035:T5:reingest_validation_evaluated`
   - `DEV-0000035:T5:reingest_validation_result`
+  - `[DEV-0000038][T4] REINGEST_BLOCKING_WAIT_STARTED sourceId=<id> runId=<id>`
+  - `[DEV-0000038][T4] REINGEST_TERMINAL_RESULT status=<completed|cancelled|error> runId=<id> errorCode=<code|null>`
 
 ```mermaid
 flowchart TD
@@ -597,13 +611,22 @@ flowchart TD
   C -- yes --> D{ingest lock held?}
   D -- yes --> E3[429 BUSY\\nerror.data BUSY + retry lists]
   D -- no --> F[reembed(sourceId)]
-  F --> G[success payload\\nstatus started, operation reembed, runId, sourceId]
+  F --> G[waitForTerminalIngestStatus(runId)]
+  G --> H{terminal state observed?}
+  H -- completed/skipped --> I[terminal payload\\nstatus completed + required fields]
+  H -- cancelled --> J[terminal payload\\nstatus cancelled + last-known counters]
+  H -- error --> K[terminal payload\\nstatus error + non-null errorCode]
+  H -- timeout --> L[terminal payload\\nstatus error + errorCode WAIT_TIMEOUT]
+  H -- missing --> M[terminal payload\\nstatus error + errorCode RUN_STATUS_MISSING]
 ```
 
 ## Classic MCP reingest wiring
 
 - Classic MCP (`POST /mcp`) now exposes `reingest_repository` in `tools/list` and routes `tools/call` to the shared `runReingestRepository(...)` service.
-- Success path stays in the classic wrapper (`result.content[0].text` JSON string), while failures remain JSON-RPC `error` envelopes for compatibility.
+- Success path stays in the classic wrapper (`result.content[0].text` JSON string), with one terminal payload returned after blocking wait.
+- Protocol boundary remains explicit:
+  - pre-run validation failures return JSON-RPC `error` envelopes.
+  - post-start outcomes return terminal result payloads (`completed|cancelled|error`) in `result.content[0].text`.
 - Classic-MCP-specific manual-verification logs use:
   - `DEV-0000035:T6:classic_reingest_tool_call_evaluated`
   - `DEV-0000035:T6:classic_reingest_tool_call_result`
@@ -620,14 +643,235 @@ sequenceDiagram
   Classic-->>Client: includes reingest_repository
   Client->>Classic: tools/call(reingest_repository, {sourceId})
   Classic->>Service: runReingestRepository(args)
-  alt success
-    Service-->>Classic: {status, operation, runId, sourceId}
-    Classic-->>Client: jsonrpc result.content[0].text(JSON)
-  else validation/not_found/busy
+  alt pre-run validation failure
     Service-->>Classic: {code,message,data}
     Classic-->>Client: jsonrpc error(code,message,data)
+  else run started and wait reaches terminal
+    Service-->>Classic: {status,operation,runId,sourceId,durationMs,files,chunks,embedded,errorCode}
+    Classic-->>Client: jsonrpc result.content[0].text(JSON)
   end
 ```
+
+## Story 0000038 Task 1: race-safe cancel_inflight and conversation-authoritative stop
+
+- `cancel_inflight` accepts `conversationId` with optional `inflightId`.
+- The WS handler always attempts command-run abort by `conversationId` when cancel is received.
+- `INFLIGHT_NOT_FOUND` is preserved only when a non-empty `inflightId` is provided and does not match active inflight state.
+- Conversation-only cancel does not emit chat mismatch `turn_final` failures.
+
+```mermaid
+sequenceDiagram
+  participant UI as Client
+  participant WS as WS /ws
+  participant IR as Inflight Registry
+  participant CR as Commands Runner
+  participant Stream as Chat Stream
+
+  UI->>WS: cancel_inflight(conversationId, inflightId?)
+  WS->>WS: log [DEV-0000038][T1] CANCEL_INFLIGHT_RECEIVED
+  WS->>CR: abortAgentCommandRun(conversationId)
+  WS->>WS: log [DEV-0000038][T1] ABORT_AGENT_RUN_REQUESTED
+
+  alt inflightId omitted
+    WS-->>UI: no INFLIGHT_NOT_FOUND turn_final
+  else inflightId provided
+    WS->>IR: abortInflight(conversationId, inflightId)
+    alt inflight matches
+      IR-->>Stream: abort signal
+      Stream-->>UI: terminal stopped or failed from stream lifecycle
+    else inflight mismatch or missing
+      WS-->>UI: turn_final failed (INFLIGHT_NOT_FOUND)
+    end
+  end
+```
+
+## Story 0000038 Task 5: ingest listing status/phase normalization and active overlay precedence
+
+- External listing status contract for `/ingest/roots` and classic MCP `ListIngestedRepositories` is now normalized from internal ingest states:
+  - `queued|scanning|embedding -> status=ingesting` with matching `phase`.
+  - `completed|cancelled|error -> status` with `phase` omitted.
+  - `skipped -> status=completed`.
+- Shared listing schema version is `0000038-status-phase-v1`.
+- Active overlay precedence is explicit:
+  - active runtime fields (`status`, optional `phase`, `counts`, active `runId`) override persisted listing state while the run is active;
+  - persisted metadata (`lastIngestAt`, lock/model fields, last terminal error context) remains intact unless replaced by a newer terminal write.
+- Synthesized active-entry fallback keeps repos visible when persisted metadata is temporarily missing; synthesized entries still include identity/path fields and mapped host path/warning fields from `mapIngestPath`.
+- Listing instrumentation now emits:
+  - `[DEV-0000038][T5] INGEST_LIST_STATUS_MAPPED sourceId=<id> internal=<state> status=<status> phase=<phase|none>`
+  - `[DEV-0000038][T5] INGEST_ACTIVE_OVERLAY_APPLIED sourceId=<id> synthesized=<true|false>`
+
+```mermaid
+flowchart TD
+  A[Persisted root metadata state] --> B{Internal state}
+  B -- queued/scanning/embedding --> C[status=ingesting + phase]
+  B -- completed/cancelled/error --> D[status matches terminal + no phase]
+  B -- skipped --> E[status=completed + no phase]
+  C --> F[Base listing entry]
+  D --> F
+  E --> F
+  G[Active runtime context] --> H{Matching persisted entry exists?}
+  H -- yes --> I[Overlay runtime fields only]
+  H -- no --> J[Synthesize entry from active context + mapIngestPath]
+  I --> K[Emit listing entry]
+  J --> K
+```
+
+```mermaid
+flowchart LR
+  R[/ingest/roots] --> N[Shared state normalization]
+  M[ListIngestedRepositories] --> N
+  N --> V[schemaVersion=0000038-status-phase-v1]
+  N --> L[Task 5 mapping/overlay logs]
+```
+
+## Story 0000038 Task 6: reembed no-change early return before AST and embedding
+
+- Reembed delta control flow now makes the no-change decision before any AST parse/index writes and before embedding loops.
+- No-change (`added=0`, `changed=0`, `deleted=0`) exits immediately with terminal `completed` status and a no-change message.
+- Deletions-only (`deleted>0`, no added/changed work files) performs deletion cleanup and then exits immediately with terminal `completed` status.
+- Changed delta paths emit deterministic delta-path logs and continue through normal AST/embedding work.
+- Cancellation near the no-change boundary is race-safe: only one terminal state is retained.
+- Task 6 logs:
+  - `[DEV-0000038][T6] REEMBED_NO_CHANGE_EARLY_RETURN sourceId=<id> runId=<id>`
+  - `[DEV-0000038][T6] REEMBED_DELTA_PATH deltaAdded=<n> deltaModified=<n> deltaDeleted=<n>`
+
+```mermaid
+flowchart TD
+  A[reembed delta plan built] --> B{added+changed+deleted == 0?}
+  B -- yes --> C[Log REEMBED_NO_CHANGE_EARLY_RETURN]
+  C --> D[Write terminal completed metadata]
+  D --> E[Return before AST parse and embedding]
+  B -- no --> F[Log REEMBED_DELTA_PATH]
+  F --> G{deletions-only?}
+  G -- yes --> H[Delete vectors/index rows and complete]
+  H --> I[Return before AST parse and embedding]
+  G -- no --> J[Proceed with AST parse and embedding loop]
+```
+
+```mermaid
+sequenceDiagram
+  participant R as Reembed Run
+  participant C as Cancel
+  participant S as Status Store
+
+  R->>S: non-terminal run status
+  par no-change branch
+    R->>R: evaluate early-return boundary
+  and cancel branch
+    C->>S: request cancel
+  end
+  alt cancel observed first
+    S-->>R: terminal cancelled retained
+  else no-change observed first
+    R->>S: terminal completed retained
+  end
+```
+
+## Story 0000038 Task 7: ingest UI external status/phase consumption and visibility
+
+- Client ingest roots normalization now consumes the external listing contract directly:
+  - `status`: `ingesting | completed | cancelled | error`
+  - `phase`: optional and only retained when `status=ingesting`.
+- Terminal rows (`completed|cancelled|error`) explicitly omit phase in the normalized client model and UI rendering.
+- Ingest table rows remain visible for active entries and render `ingesting (<phase>)` when phase is present.
+- Task 7 console markers for manual Playwright checks:
+  - `[DEV-0000038][T7] INGEST_UI_ROW_RENDER sourceId=<id> status=<status> phase=<phase|none>`
+  - `[DEV-0000038][T7] INGEST_UI_TERMINAL_PHASE_HIDDEN sourceId=<id> status=<completed|cancelled|error>`
+
+```mermaid
+flowchart TD
+  A[/ingest/roots payload] --> B[useIngestRoots normalization]
+  B --> C{status}
+  C -- ingesting --> D[retain phase queued|scanning|embedding]
+  C -- completed/cancelled/error --> E[phase undefined]
+  D --> F[RootsTable status label ingesting (phase)]
+  E --> G[RootsTable terminal status only]
+```
+
+```mermaid
+sequenceDiagram
+  participant API as /ingest/roots
+  participant Hook as useIngestRoots
+  participant Table as RootsTable
+  API-->>Hook: roots[] + schemaVersion
+  Hook-->>Table: normalized rows status/phase
+  loop visible rows
+    Table->>Table: render status chip text
+    Table->>Console: [DEV-0000038][T7] INGEST_UI_ROW_RENDER
+    alt terminal row
+      Table->>Console: [DEV-0000038][T7] INGEST_UI_TERMINAL_PHASE_HIDDEN
+    end
+  end
+```
+
+## Story 0000038 Task 8: final documentation cross-check for stop, blocking reingest, and status mapping
+
+- Final stop handling semantics (Tasks 1-3):
+  - `cancel_inflight` is conversation-authoritative on the server side.
+  - stop requests still trigger command-abort-by-conversation when inflight-id lookup misses.
+  - Agents UI keeps input editable and sidebar navigation available while runs are active, while submit/execute actions remain disabled.
+- Final reingest semantics (Task 4):
+  - both MCP surfaces are blocking and return a single terminal summary payload (`completed|cancelled|error`).
+  - pre-run validation failures remain JSON-RPC protocol error envelopes.
+  - post-start terminal outcomes return result payloads, not protocol errors.
+- Final ingest listing semantics (Tasks 5-7):
+  - external status contract is `ingesting|completed|cancelled|error`.
+  - `phase` is retained only for `status=ingesting`; terminal statuses omit phase.
+  - `schemaVersion` for listing compatibility is `0000038-status-phase-v1`.
+
+```mermaid
+flowchart TD
+  A[Stop clicked in Agents UI] --> B[WS cancel_inflight sent with conversationId]
+  B --> C{Inflight id found?}
+  C -- yes --> D[Abort inflight stream]
+  C -- no --> E[Record inflight-not-found branch]
+  D --> F[Always abort command run by conversationId]
+  E --> F
+  F --> G[No new command retries/steps]
+```
+
+```mermaid
+flowchart LR
+  A[reingest_repository request] --> B{Pre-run validation fails?}
+  B -- yes --> C[JSON-RPC error envelope]
+  B -- no --> D[Start run + block until terminal]
+  D --> E{Terminal state}
+  E -- completed --> F[Terminal summary result]
+  E -- cancelled --> F
+  E -- error --> F
+```
+
+## Manual QA Log Markers (DEV-0000038)
+
+| Task | Exact marker text                                                                                        | Expected manual outcome                                                   |
+| ---- | -------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- | --------------------------------------------------------------- | ------------------------------------------ | ------------------------------------------------- | --- | ---- | ------------------------------------------------------------ |
+| T1   | `[DEV-0000038][T1] CANCEL_INFLIGHT_RECEIVED conversationId=<id> inflightId=<id                           | none>`                                                                    | Emitted when WS cancel handler receives stop request.           |
+| T1   | `[DEV-0000038][T1] ABORT_AGENT_RUN_REQUESTED conversationId=<id>`                                        | Emitted when conversation-authoritative command abort is requested.       |
+| T2   | `[DEV-0000038][T2] STOP_CLICK conversationId=<id> inflightId=<id                                         | none>`                                                                    | Emitted in Agents UI on Stop click.                             |
+| T2   | `[DEV-0000038][T2] CANCEL_INFLIGHT_SENT conversationId=<id> inflightId=<id                               | none>`                                                                    | Emitted after UI dispatches cancel frame.                       |
+| T3   | `[DEV-0000038][T3] AGENTS_INPUT_EDITABLE_WHILE_ACTIVE runActive=true`                                    | Confirms draft input remains editable while run is active.                |
+| T3   | `[DEV-0000038][T3] AGENTS_CONVERSATION_SWITCH_ALLOWED from=<id> to=<id>`                                 | Confirms sidebar conversation switch remains enabled while run is active. |
+| T4   | `[DEV-0000038][T4] REINGEST_BLOCKING_WAIT_STARTED sourceId=<id> runId=<id>`                              | Emitted when blocking wait begins for reingest run.                       |
+| T4   | `[DEV-0000038][T4] REINGEST_TERMINAL_RESULT status=<completed                                            | cancelled                                                                 | error> runId=<id> errorCode=<code                               | null>`                                     | Emitted exactly once per terminal result payload. |
+| T5   | `[DEV-0000038][T5] INGEST_LIST_STATUS_MAPPED sourceId=<id> internal=<state> status=<status> phase=<phase | none>`                                                                    | Confirms internal->external status/phase mapping for listings.  |
+| T5   | `[DEV-0000038][T5] INGEST_ACTIVE_OVERLAY_APPLIED sourceId=<id> synthesized=<true                         | false>`                                                                   | Confirms active overlay application and synthesized-entry path. |
+| T6   | `[DEV-0000038][T6] REEMBED_NO_CHANGE_EARLY_RETURN sourceId=<id> runId=<id>`                              | Confirms no-change path exits before AST/embedding work.                  |
+| T6   | `[DEV-0000038][T6] REEMBED_DELTA_PATH deltaAdded=<n> deltaModified=<n> deltaDeleted=<n>`                 | Confirms changed-delta path execution.                                    |
+| T7   | `[DEV-0000038][T7] INGEST_UI_ROW_RENDER sourceId=<id> status=<status> phase=<phase                       | none>`                                                                    | Confirms per-row ingest UI rendering contract.                  |
+| T7   | `[DEV-0000038][T7] INGEST_UI_TERMINAL_PHASE_HIDDEN sourceId=<id> status=<completed                       | cancelled                                                                 | error>`                                                         | Confirms terminal rows hide phase details. |
+| T8   | `[DEV-0000038][T8] DOC_LOG_REFERENCE_VALIDATED marker=<T1                                                | T2                                                                        | T3                                                              | T4                                         | T5                                                | T6  | T7>` | Evidence line recorded during documentation validation pass. |
+
+### Marker Debug Gating (Task 11)
+
+- High-volume Task 5/7 marker families are now gated and are disabled by default in normal runtime paths.
+- Server marker gate for `[DEV-0000038][T5]`:
+  - Set `DEV_0000038_MARKERS=true` to emit Task 5 marker logs from `/ingest/roots` and classic listing mapping paths.
+- Client marker gate for `[DEV-0000038][T2]`, `[DEV-0000038][T3]`, `[DEV-0000038][T7]`:
+  - Enable via any one of:
+    - `VITE_DEV_0000038_MARKERS=true` at build/start time.
+    - `window.__codeinfoDebug = { dev0000038Markers: true }` in browser console.
+    - `localStorage.setItem('codeinfo.dev0000038.markers', 'true')` then reload.
+- Functional behavior must remain unchanged regardless of gate state; markers are observability-only.
 
 ## Flows (schema)
 
@@ -708,6 +952,7 @@ flowchart TD
   H1 -- yes --> I1[Log step_retry_exhausted and fail step]
   H1 -- no --> J1[Success path]
 ```
+
 - `command` steps load `commands/<commandName>.json` for the specified agent and run each command item as a flow instruction; missing/invalid commands return `invalid_request` and emit a failed `turn_final`.
 - Each `llm` message entry is joined into a single instruction string and streamed via the existing WS protocol (no new event types).
 - Flow turns attach `turn.command` metadata with `{ name: 'flow', stepIndex, totalSteps, loopDepth, agentType, identifier, label }` (label defaults to the step type) and log `flows.turn.metadata_attached`.
@@ -1080,6 +1325,7 @@ flowchart LR
   A --> D[Render match rows\nDistance + preview]
   C --> E[Render file list]
 ```
+
 - Errors show a trimmed code/message plus a toggle to reveal the full error payload (including stack/metadata) inside the expanded block.
 - Tool-result delivery: if a provider omits explicit tool completion callbacks, the server synthesizes a completion `tool_event` from the tool resolver output (success or error) and dedupes when native events do arrive. This ensures parameters and payloads always reach the client without duplicate tool rows.
 
@@ -2559,8 +2805,9 @@ sequenceDiagram
 
 - Tool name is identical on both surfaces: `reingest_repository`.
 - Contract parity is explicit for shared success/error mapping:
-  - success: `{ status: "started", operation: "reembed", runId, sourceId }`
-  - errors (compatibility lock): JSON-RPC `error` envelope, not `result.isError`
+  - terminal success/cancel/error payload:
+    - `{ status: "completed"|"cancelled"|"error", operation: "reembed", runId, sourceId, durationMs, files, chunks, embedded, errorCode }`
+  - pre-run failures remain JSON-RPC `error` envelopes, not `result.isError`:
     - `-32602 INVALID_PARAMS`
     - `404 NOT_FOUND`
     - `429 BUSY`
@@ -2576,14 +2823,14 @@ sequenceDiagram
   MCP2-->>Client: includes reingest_repository
   Client->>MCP2: tools/call reingest_repository {sourceId}
   MCP2->>Service: runReingestRepository(args)
-  alt success
-    Service-->>MCP2: {status, operation, runId, sourceId}
-    MCP2-->>Client: result.content[0].text(JSON)
-  else invalid/not-found/busy
+  alt pre-run validation failure
     Service-->>MCP2: {code, message, data}
     MCP2-->>Client: JSON-RPC error(code, message, data)
+  else run started and wait reaches terminal
+    Service-->>MCP2: {status, operation, runId, sourceId, durationMs, files, chunks, embedded, errorCode}
+    MCP2-->>Client: result.content[0].text(JSON)
   end
-  Note over MCP2,Classic: Success and error envelopes intentionally match classic /mcp contracts
+  Note over MCP2,Classic: terminal payload fields and semantics are intentionally identical across both MCP surfaces
 ```
 
 ## End-to-end validation

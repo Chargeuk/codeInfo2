@@ -32,6 +32,7 @@ import { setIngestDeps } from '../../ingest/ingestJob.js';
 import { createRequestLogger } from '../../logger.js';
 import { isMongoConnected } from '../../mongo/connection.js';
 import { IngestFileModel } from '../../mongo/ingestFile.js';
+import { createIngestCancelRouter } from '../../routes/ingestCancel.js';
 import { createIngestReembedRouter } from '../../routes/ingestReembed.js';
 import { createIngestRootsRouter } from '../../routes/ingestRoots.js';
 import { createIngestStartRouter } from '../../routes/ingestStart.js';
@@ -110,6 +111,7 @@ Before(async () => {
         new MockLMStudioClient() as unknown as LMStudioClient,
     }),
   );
+  app.use('/', createIngestCancelRouter());
   app.use('/', createIngestRootsRouter());
 
   await new Promise<void>((resolve) => {
@@ -204,6 +206,17 @@ When('I POST ingest reembed for the delta repo', async () => {
   }
 });
 
+When('I POST ingest delta cancel for the last run', async () => {
+  assert(lastRunId, 'runId missing');
+  const res = await fetch(`${baseUrl}/ingest/cancel/${lastRunId}`, {
+    method: 'POST',
+  });
+  assert.ok(
+    res.status === 200 || res.status === 404,
+    `unexpected cancel status ${res.status}`,
+  );
+});
+
 When(
   'I change ingest delta temp file {string} to {string}',
   async (rel: string, content: string) => {
@@ -265,6 +278,31 @@ Then(
       await new Promise((r) => setTimeout(r, 100));
     }
     assert.fail(`did not reach state ${state}`);
+  },
+);
+
+Then(
+  'ingest delta terminal outcome should stabilize as a single terminal state',
+  async () => {
+    assert(lastRunId, 'runId missing');
+    const terminalStates = new Set(['completed', 'cancelled', 'error']);
+    let observedTerminal: string | null = null;
+    for (let i = 0; i < 40; i += 1) {
+      const res = await fetch(`${baseUrl}/ingest/status/${lastRunId}`);
+      const body = (await res.json()) as { state?: string };
+      const state = String(body.state ?? '');
+      if (!terminalStates.has(state)) {
+        await new Promise((r) => setTimeout(r, 50));
+        continue;
+      }
+      if (!observedTerminal) {
+        observedTerminal = state;
+      } else {
+        assert.equal(state, observedTerminal);
+      }
+      await new Promise((r) => setTimeout(r, 50));
+    }
+    assert(observedTerminal, 'expected one terminal state to be observed');
   },
 );
 

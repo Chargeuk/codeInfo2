@@ -480,6 +480,102 @@ describe('runtimeConfig merge and validation', () => {
     assert.equal('cli_auth_credentials_store' in dataProject, false);
   });
 
+  it('ignores unsafe top-level keys and preserves safe unknown keys', () => {
+    const config = Object.create(null) as Record<string, unknown>;
+    config.model = 'gpt-5.3-codex';
+    config.safe_unknown = { keep: true };
+    config['__proto__'] = { polluted: true };
+    config['constructor'] = { polluted: true };
+    config['prototype'] = { polluted: true };
+
+    const result = validateRuntimeConfig(config);
+
+    assert.equal(result.config.model, 'gpt-5.3-codex');
+    assert.deepEqual(result.config.safe_unknown, { keep: true });
+    assert.equal(Object.hasOwn(result.config, '__proto__'), false);
+    assert.equal(Object.hasOwn(result.config, 'constructor'), false);
+    assert.equal(Object.hasOwn(result.config, 'prototype'), false);
+    assert.equal(({} as { polluted?: boolean }).polluted, undefined);
+    assert.equal(result.warnings.length, 4);
+    assert.ok(
+      result.warnings.some((warning) =>
+        warning.message.includes('Unsafe key runtime.__proto__'),
+      ),
+    );
+  });
+
+  it('ignores unsafe nested unknown keys in tools/features/projects while preserving safe unknown keys', () => {
+    const tools = Object.create(null) as Record<string, unknown>;
+    tools.unknown_tool_field = { nested: true };
+    tools['__proto__'] = { polluted: true };
+
+    const features = Object.create(null) as Record<string, unknown>;
+    features.unknown_feature_flag = true;
+    features['constructor'] = { polluted: true };
+
+    const project = Object.create(null) as Record<string, unknown>;
+    project.trust_level = 'trusted';
+    project.project_unknown = 'preserved';
+    project['prototype'] = { polluted: true };
+
+    const projects = Object.create(null) as Record<string, unknown>;
+    projects['/safe'] = project;
+    projects['__proto__'] = { polluted: true };
+
+    const result = validateRuntimeConfig({
+      model: 'gpt-5.3-codex',
+      tools,
+      features,
+      projects,
+    });
+
+    assert.deepEqual(result.config.tools, {
+      unknown_tool_field: { nested: true },
+    });
+    assert.deepEqual(result.config.features, {
+      unknown_feature_flag: true,
+    });
+    assert.deepEqual(result.config.projects, {
+      '/safe': {
+        trust_level: 'trusted',
+        project_unknown: 'preserved',
+      },
+    });
+    assert.equal(
+      Object.hasOwn(result.config.tools as object, '__proto__'),
+      false,
+    );
+    assert.equal(
+      Object.hasOwn(result.config.features as object, 'constructor'),
+      false,
+    );
+    assert.equal(
+      Object.hasOwn(result.config.projects as object, '__proto__'),
+      false,
+    );
+    assert.equal(({} as { polluted?: boolean }).polluted, undefined);
+    assert.ok(
+      result.warnings.some((warning) =>
+        warning.message.includes('Unsafe key runtime.tools.__proto__'),
+      ),
+    );
+    assert.ok(
+      result.warnings.some((warning) =>
+        warning.message.includes('Unsafe key runtime.features.constructor'),
+      ),
+    );
+    assert.ok(
+      result.warnings.some((warning) =>
+        warning.message.includes('Unsafe key runtime.projects.__proto__'),
+      ),
+    );
+    assert.ok(
+      result.warnings.some((warning) =>
+        warning.message.includes('Unsafe key runtime.projects./safe.prototype'),
+      ),
+    );
+  });
+
   it('hard-fails supported keys with invalid types', () => {
     assert.throws(
       () =>

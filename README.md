@@ -6,13 +6,78 @@ Monorepo for client (React 19 + MUI), server (Express), and shared common packag
 
 - Node.js 22.x and npm 10+
 - Docker 27+ and Docker Compose v2
-- Git, curl
+- Git, Git-lfs, curl
+- Openai Codex
 
-## Install
+## Quick Setup
 
-```sh
-npm install
-```
+### WSL Prerequisites
+#### Configure WSL Git to use Windows Git Credential Manager.
+Reference: https://github.com/git-ecosystem/git-credential-manager/blob/main/docs/wsl.md
+1. Install Git for Windows on the host machine.
+
+2. In WSL, install Git:
+    ```bash
+    sudo apt update && sudo apt install -y git
+    ```
+
+3. In Windows PowerShell, verify Git and Git Credential Manager are available:
+    ```powershell
+    git --version; git credential-manager --version
+    ```
+
+4. In WSL, point Git to the Windows credential helper:
+    ```bash
+    git config --global credential.helper "/mnt/c/Program\ Files/Git/mingw64/bin/git-credential-manager.exe"
+    ```
+
+5. Authenticate once with any HTTPS Git operation (for example `git fetch`); Git Credential Manager will prompt and store credentials in Windows Credential Manager.
+
+#### Configure Executable Bit Access In WSL & Windows Git
+When git repos that are available within WSL and accessed from Windows tools (e.g., SourceTree via `\\wsl$`),
+file mode (executable bit) can appear different even when file contents are identical.
+To keep Windows and WSL in sync, use these settings.
+
+1. Update WSL Git to keep file mode tracking enabled so executable scripts stay correct:
+    ```bash
+    git config --global core.filemode true
+    ```
+
+2. Update Windows Git to disable file mode tracking so `\\wsl$` does not show mode-only changes:
+    ```bash
+    git config --global core.filemode false
+    ```
+
+3. Update Repo-local config ensuring you do not force `core.filemode` in the repo itself. If it exists, remove it:
+    ```bash
+    git config --local --unset core.filemode
+    ```
+
+3. Line endings for each repo checked out to be used within CodeInfo2 should be normalized by `.gitattributes`:
+    ```
+    * text=auto eol=lf
+    ```
+
+3. Quick status checks- Use these to confirm both environments agree:
+    ```bash
+    # WSL or Windows
+    git status --porcelain=v2 -uno
+    git ls-files --eol | head -n 20
+    ```
+
+
+### Mac & WSL That have followed the WSL setup above
+1. Install CLI (host): `npm install -g @openai/codex`.
+2. Ensure host.docker.internal is set to point to your local host
+3. Ensure you create the folder `${HOME}/Documents/dev` and open it in a terminal to procede with the following steps. Note that all repositories must be checked out under `${HOME}/Documents/dev` (or a subfolder of that directory) in order to be visible to CodeInfo2.
+4. Run `git clone https://github.com/Chargeuk/codeInfo2.git`
+5. Within the cloned repo create the following empty files:
+  - ./server/.env.local
+  - ./client/.env.local
+6. Run `start-gcf-server.sh` to allow docker from the containers to access your git credentials so it can push from the container.
+7. Run `npm run compose:local` to start the required local services.
+
+# CodeInfo2 Details
 
 ## MongoDB (conversation history)
 
@@ -27,7 +92,7 @@ npm install
 
 ## Codex (CLI)
 
-- Install CLI (host): `npm install -g @openai/codex`.
+- Install CLI (host): `npm install -g @openai/codex` and log in.
 - Login (host only): run `CODEX_HOME=./codex codex login` (or keep your existing `~/.codex`); Docker Compose mounts `${CODEINFO_HOST_CODEX_HOME:-$HOME/.codex}` to `/host/codex` and copies `auth.json` into `/app/codex` on startup when missing, so a separate container login is not required.
   - Note: `CODEX_HOME` is frequently set by Codex/agent environments; use `CODEINFO_HOST_CODEX_HOME` (not `CODEX_HOME`) when you need Compose to mount a specific host Codex home.
 - Codex home: `CODEINFO_CODEX_HOME=./codex` (mounted to `/app/codex` in Docker); seeded from `config.toml.example` on first start—edit `./codex/config.toml` after seeding to add MCP servers or overrides.
@@ -38,27 +103,6 @@ npm install
 
 - The server container starts a **headless** Chrome instance on boot with remote debugging enabled.
 - `docker-compose.local.yml` exposes the Chrome DevTools endpoint on port `9222` (e.g., `http://localhost:9222`) so the DevTools MCP server can attach.
-
-## WSL + SourceTree (Windows Git)
-
-If SourceTree is pointed at the WSL repo and shows `start-gcf-server.sh` (or other files) as modified while WSL Git shows a clean tree, it is usually a **file mode** mismatch (Windows Git does not track executable bits).
-
-Recommended config:
-
-```sh
-# Windows Git (SourceTree) - ignore file mode changes globally, then clear any repo-local override
-git -C //wsl$/<Distro>/home/<user>/path/to/repo config --global core.filemode false
-git -C //wsl$/<Distro>/home/<user>/path/to/repo config --unset core.filemode
-
-# WSL Git - keep executable bit tracking
-git config --global core.filemode true
-```
-
-After updating, reset the file in Windows Git to clear the status:
-
-```sh
-git -C //wsl$/<Distro>/home/<user>/path/to/repo checkout -- start-gcf-server.sh
-```
 
 ## Codex agents (folder layout)
 
@@ -79,557 +123,38 @@ codex_agents/<agentName>/
 - Docker/Compose: `docker-compose.yml` mounts `./codex_agents` → `/app/codex_agents` (rw) and sets `CODEINFO_CODEX_AGENT_HOME=/app/codex_agents` so agents are discoverable in containers.
 - Agents MCP (port 5012): JSON-RPC endpoint on `http://localhost:5012` (exposed by Compose).
 
-### Agents REST API
+## Features at a Glance
 
-- Agents UI:
-  - Open the **Agents** tab (route `/agents`) to run an instruction against an agent from the browser UI.
-  - To continue a prior agent run, select a conversation from the sidebar history (there is no manual `conversationId` input).
+- Chat workspace with provider/model selection, streaming responses, conversation history, and tool/citation rendering.
+- Agents workspace for running Codex agent instructions and reusable command macros with history and stop/resume controls.
+- Flows workspace to execute JSON-defined multi-step flows and resume interrupted runs.
+- Ingest workspace for embedding repositories, monitoring ingest progress, and managing re-embed/remove operations.
+- Logs workspace for live server/client log inspection and filtering.
 
-- List available agents:
-  - `curl -s http://localhost:5010/agents | jq`
-  - Example response:
-    ```json
-    {
-      "agents": [
-        {
-          "name": "coding_agent",
-          "description": "# My agent\n\nSome details...",
-          "warnings": []
-        }
-      ]
-    }
-    ```
+## Common Usage
 
-- Run an instruction against an agent:
-  - `curl -s -X POST http://localhost:5010/agents/coding_agent/run -H 'content-type: application/json' -d '{"instruction":"Say hello"}' | jq`
-  - Run with an explicit working folder (optional):
-    - `curl -s -X POST http://localhost:5010/agents/coding_agent/run -H 'content-type: application/json' -d '{"instruction":"Say hello","working_folder":"/host/base/repo"}' | jq`
-  - Continue an existing agent conversation (server `conversationId`, not the Codex thread id):
-    - `curl -s -X POST http://localhost:5010/agents/coding_agent/run -H 'content-type: application/json' -d '{"instruction":"Continue","conversationId":"<conversationId>"}' | jq`
-  - Example response (202):
-    ```json
-    {
-      "status": "started",
-      "agentName": "coding_agent",
-      "conversationId": "<conversationId>",
-      "inflightId": "<inflightId>",
-      "modelId": "<modelId>"
-    }
-    ```
-  - Notes:
-    - Agents runs return HTTP `202` immediately and continue executing in the background; transcript updates arrive over WebSocket. Navigating away does **not** cancel the run. Use **Stop** (WS `cancel_inflight`) to cancel.
-    - `working_folder` (optional) requests the working directory for this run and must be an absolute path (POSIX or Windows).
-    - Resolution order: mapped candidate (host path under `HOST_INGEST_DIR` -> joined into `CODEX_WORKDIR`/`CODEINFO_CODEX_WORKDIR`), then literal fallback, else error.
-    - Stable error codes for invalid_request: `WORKING_FOLDER_INVALID` (not absolute/invalid input) and `WORKING_FOLDER_NOT_FOUND` (neither candidate directory exists).
-    - The response `conversationId` is the server conversation id used for history and continuation.
-    - Codex continuation uses an internal thread id persisted as `Conversation.flags.threadId`.
+1. Start the local stack: `npm run compose:local`.
+2. Open the client app: `http://localhost:5501`.
+3. Use **Chat** (`/chat`) for model conversations and repository tooling.
+4. Use **Agents** (`/agents`) for specialized agent-driven work and command macros.
+5. Use **Flows** (`/flows`) for repeatable multi-step automations.
+6. Use **Ingest** (`/ingest`) before repository-aware answers if a repo is not indexed yet.
 
-- Agent Commands (macros):
-  - Commands live alongside an agent under `codex_agents/<agentName>/commands/*.json` (file basename is the command name).
-  - Command file schema (v1):
-    ```json
-    {
-      "Description": "Refine a story plan for clarity and completeness.",
-      "items": [
-        {
-          "type": "message",
-          "role": "user",
-          "content": ["Step 1 prompt...", "Step 1 continues..."]
-        }
-      ]
-    }
-    ```
-  - List available commands for an agent:
-    - `curl -s http://localhost:5010/agents/coding_agent/commands | jq`
-    - Example response:
-      ```json
-      {
-        "commands": [
-          {
-            "name": "improve_plan",
-            "description": "Refine a story plan for clarity and completeness.",
-            "disabled": false
-          }
-        ]
-      }
-      ```
-    - Ingested repo commands include optional `sourceId` and `sourceLabel`; local entries omit both fields.
-    - Agents UI displays ingested commands as `<name> - [sourceLabel]` and includes `sourceId` when executing them.
-  - Run a command:
-    - `curl -s -X POST http://localhost:5010/agents/coding_agent/commands/run -H 'content-type: application/json' -d '{"commandName":"improve_plan"}' | jq`
-    - Optional arguments:
-      - `conversationId` (continue an existing agent conversation)
-      - `working_folder` (absolute path; resolved like `/agents/:agentName/run`)
-      - `sourceId` (ingested repo container path; required to disambiguate ingested commands)
-    - Example request:
-      ```json
-      {
-        "commandName": "improve_plan",
-        "conversationId": "<conversationId>",
-        "working_folder": "/host/base/repo"
-      }
-      ```
-    - Example response:
-      ```json
-      {
-        "status": "started",
-        "agentName": "coding_agent",
-        "commandName": "improve_plan",
-        "conversationId": "<conversationId>",
-        "modelId": "<modelId>"
-      }
-      ```
-    - Error notes:
-      - Missing agent/command returns 404 `{ "error": "not_found" }`.
-      - Validation errors return 400 `{ "error": "invalid_request", "code": "COMMAND_INVALID" | "WORKING_FOLDER_INVALID" | "WORKING_FOLDER_NOT_FOUND", "message": "..." }`.
-      - Concurrent runs return 409 `{ "error": "conflict", "code": "RUN_IN_PROGRESS", "message": "..." }`.
+## Quick Commands
 
+- Start stack: `npm run compose:local`
+- Client dev server: `npm run dev --workspace client`
+- Server dev server: `npm run dev --workspace server`
+- Client tests: `npm run test --workspace client`
+- Server tests: `npm run test --workspace server`
+- E2E tests: `npm run e2e`
 
-### Agents MCP (JSON-RPC)
+## Detailed Documentation
 
-- Endpoint: POST JSON-RPC 2.0 to `http://localhost:5012` (Compose exposes it; e2e compose maps to `http://localhost:6012`).
-- Tools:
-  - `list_agents`
-  - `list_commands`
-  - `run_agent_instruction`
-  - `run_command`
-- `run_agent_instruction` optional arguments: `conversationId` and `working_folder` (absolute path; resolved like REST).
-- Quick smoke (host/compose):
-  - `curl -s -X POST http://localhost:5012 -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"initialize"}' | jq`
-  - `curl -s -X POST http://localhost:5012 -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":2,"method":"tools/list"}' | jq`
-  - `curl -s -X POST http://localhost:5012 -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"list_agents","arguments":{}}}' | jq`
-  - `curl -s -X POST http://localhost:5012 -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"run_agent_instruction","arguments":{"agentName":"coding_agent","instruction":"Say hello"}}}' | jq`
+- Developer reference (APIs, MCP surfaces, runtime details): [docs/developer-reference.md](docs/developer-reference.md)
+- Repository map and file purpose reference: [projectStructure.md](projectStructure.md)
 
-### MCP for Codex
-
-- Endpoint: POST JSON-RPC 2.0 to `http://localhost:5010/mcp` (host) or `http://server:5010/mcp` (docker). CORS matches `/chat`.
-- Note: the server intentionally exposes **two** MCP surfaces:
-  - Express `POST /mcp` (ingest tooling: `ListIngestedRepositories`, `VectorSearch`, `reingest_repository`).
-  - MCP v2 JSON-RPC server on `MCP_PORT` (tooling: `codebase_question`, `reingest_repository`, documented under **MCP v2 tools** below).
-    Their response conventions differ and must remain stable; shared MCP infrastructure lives under `server/src/mcpCommon/`.
-- Config: `config.toml.example` seeds `[mcp_servers]` entries `codeinfo_host` and `codeinfo_docker` pointing at the URLs above when the server first runs.
-- Required methods: `initialize` → `tools/list` → `tools/call`.
-- Quick smoke (host):
-  - `curl -X POST http://localhost:5010/mcp -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}'`
-  - `curl -X POST http://localhost:5010/mcp -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":2,"method":"tools/list"}'`
-  - `curl -X POST http://localhost:5010/mcp -H 'content-type: application/json' -d '{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"VectorSearch","arguments":{"query":"hello"}}}'`
-- Tools exposed: `ListIngestedRepositories` (no params), `VectorSearch` (`query` required, optional `repository`, `limit` capped at 20), and `reingest_repository` (`sourceId` required). Results are returned as `content: [{ type: "text", text: "<json>" }]` (JSON string).
-- Classic MCP `reingest_repository` compatibility lock: failures return JSON-RPC `error` envelopes (not `result.isError`) with canonical mappings (`INVALID_PARAMS`, `NOT_FOUND`, `BUSY`).
-- Reingest canonical contract (shared service behavior used by MCP wiring tasks):
-  - request args: `{ "sourceId": "<absolute-normalized-container-path>" }`
-  - success payload: `{ "status": "started", "operation": "reembed", "runId": "...", "sourceId": "..." }`
-  - failure mappings: invalid params -> `error.code=-32602`, `error.message="INVALID_PARAMS"`; unknown root -> `error.code=404`, `error.message="NOT_FOUND"`; busy -> `error.code=429`, `error.message="BUSY"`
-  - error retry guidance includes deterministic `fieldErrors.reason` plus `reingestableRepositoryIds` and `reingestableSourceIds`.
-
-## Workspace layout
-
-- `client/` — React app (Vite) [workspace]
-- `server/` — Express API [workspace]
-- `common/` — shared TypeScript package [workspace]
-- See `projectStructure.md` for the current repository map and file purposes.
-
-## Client
-
-- Logging: client uses shared `LogEntry` schema with console tee + forwarding toggle (full details coming in the dedicated Logging section from Task 6).
-- Client logging env (set in `client/.env`, override in `.env.local`):
-  ```env
-  VITE_LOG_FORWARD_ENABLED=false
-  ```
-  Tests force-disable network sends when `MODE === 'test'`.
-- `npm run dev --workspace client` (http://localhost:5001)
-- `npm run build --workspace client`
-- `npm run preview --workspace client -- --host --port 5001`
-- `npm run test --workspace client` (Jest + @testing-library/react)
-- Env: `client/.env` sets `VITE_API_URL` (defaults http://localhost:5010); overrides in `.env.local`
-- Styling/layout: MUI `CssBaseline` handles global reset; the `NavBar` AppBar spans the full width and content is constrained to a single `Container` (lg) with top padding so pages start at the top-left (Vite starter centering/dark background removed).
-- **Logs page:** open `/logs` to view combined server/client logs with level/source chips, free-text filter, live SSE toggle (auto-reconnect), manual refresh, and a “Send sample log” button that emits an example entry end-to-end. Opening the page emits `DEV-0000034:T7:logs_page_viewed` for verification. Ingest failure handling now emits frontend-visible `DEV-0000036:T17:ingest_provider_failure` entries for provider and route catch paths (`/ingest/start`, `/ingest/reembed/:root`, `/ingest/cancel/:runId`, `/ingest/roots`) with deterministic context (`runId`, `provider`, `surface`, `operation`, `code`, `message`, `retryable`, `attempt`, `waitMs`, `model`, `path/root`, `currentFile`, `stage`) where retryable failures map to `warn` and non-retryable/terminal failures map to `error`.
-- **Chat page:** open `/chat` to chat with LM Studio or Codex via `POST /chat` (HTTP 202) plus WebSocket streaming at `/ws`. Models come from `/chat/models` (first auto-selects) and are filtered to chat-capable LLMs (embedding/vector models are hidden); the dropdown, input, and Send stay disabled during load/error/empty states or while a response is running. Messages render newest-first near the controls with distinct user/assistant bubbles, and transcript updates arrive via `/ws` events (late subscribers receive an `inflight_snapshot` catch-up). Switching conversations or navigating away unsubscribes from streaming but does not cancel the run server-side; Stop cancels the current in-flight run. Chat history is persisted in Mongo: the left sidebar lists conversations newest-first, supports active/archived/all filtering plus multi-select bulk archive/restore/delete, and turn snapshots come from `GET /conversations/:id/turns` which returns full history plus any in-flight snapshot (no pagination). Conversation listing supports agent scoping via `/conversations?agentName=__none__` (only conversations with no `agentName`) and `/conversations?agentName=<agent>` (exact match). When the provider is OpenAI Codex and available, a **Re-authenticate (device auth)** button opens a dialog that calls `POST /codex/device-auth` and shows the verification URL + user code for re-login.
-- **Chat request defaults:** `POST /chat` now resolves provider/model with one shared order: explicit request value -> `CHAT_DEFAULT_PROVIDER` / `CHAT_DEFAULT_MODEL` -> hardcoded fallback (`codex`, `gpt-5.3-codex`). Committed defaults in `server/.env` and `server/.env.e2e` set those env keys to `codex` and `gpt-5.3-codex`.
-- **Raw input validation contracts:** request payload text is preserved as entered for valid requests, but whitespace-only/newline-only inputs are rejected server-side before provider execution. `POST /chat` returns `400 { status: "error", code: "VALIDATION_FAILED", message: "message must contain at least one non-whitespace character" }`; `POST /agents/:agentName/run` returns `400 { error: "invalid_request", message: "instruction must contain at least one non-whitespace character" }`.
-- **Runtime provider auto-fallback:** chat and MCP `codebase_question` apply the same single-hop runtime fallback. If the selected/default provider is unavailable and the other provider has a selectable model, execution switches once to that other provider. If no selectable fallback model exists, the request keeps the original provider and returns the existing unavailable contract (`POST /chat`: `503 PROVIDER_UNAVAILABLE`; MCP `codebase_question`: JSON-RPC `-32001 CODE_INFO_LLM_UNAVAILABLE`).
-- **Task 14 fallback guardrail:** explicit `provider=lmstudio` requests no longer bypass runtime availability checks; LM Studio is only considered available when runtime model discovery returns at least one selectable chat model.
-- **Conversation metadata persistence:** REST `/chat` and MCP `codebase_question` persist the resolved execution provider/model on the conversation. When execution is not Codex, stale `flags.threadId` is cleared to avoid cross-provider resume mismatches.
-- **Agents page:** open `/agents` to run Codex agents with the same layout + transcript UI as Chat (Drawer sidebar, controls above transcript, WebSocket-driven transcript events). The conversations sidebar matches Chat with filter tabs, per-row archive/restore, and bulk archive/restore (bulk delete only when viewing Archived). History is scoped to the selected agent (`agentName=<agent>`) and updates live via `conversation_upsert` / `conversation_delete` over `/ws`. Controls include agent selection, optional command execution (macros), a working folder override with a **Choose folder** dialog, and Send/Stop/New conversation; agent descriptions + warnings live behind the info popover next to the selector. When an agent is selected and Codex is available, a **Re-authenticate (device auth)** button opens the same device-auth dialog for refreshing that agent’s credentials.
-- **Agents raw send behavior:** the Agents send path preserves valid non-whitespace instruction text exactly as entered (including leading/trailing spaces and multiline newlines) in outbound `POST /agents/:agentName/run` payloads; whitespace-only/newline-only submissions are blocked client-side before dispatch.
-- **Agents user markdown parity:** user bubbles render through the same shared markdown component as assistant bubbles, so lists/code fences/mermaid and sanitization behavior match assistant rendering while preserving the existing Agents bubble layout/chrome.
-- **Agents render purity:** user-markdown rendering in Agents avoids render-time logger side effects so React rerenders/StrictMode do not duplicate instrumentation.
-- **Flows page:** open `/flows` to list available flow definitions and run them end-to-end. The selector shows ingested flows as `<name> - [Repo]` labels (locals remain unlabeled) and keeps duplicates selectable; when an ingested flow is selected the Run action includes its `sourceId`. Optionally set a working folder and custom title, then Run to start (or Resume when a saved `resumeStepPath` exists). The info popover beside the selector shows warnings/Markdown descriptions, and the New Flow button resets the transcript + form fields while keeping the same flow selected. The sidebar lists conversations for the selected flow, while the transcript shows per-step metadata (label + agent type/identifier) plus status chips; Stop sends `cancel_inflight` over `/ws`.
-- **Flows API:** flow definitions live under `flows/<flowName>.json` (resolved as a sibling to `codex_agents` when `CODEINFO_CODEX_AGENT_HOME` is set, or overridden via `FLOWS_DIR`) and are listed via `GET /flows` (ingested entries include optional `sourceId`/`sourceLabel`; local entries omit both); run a flow with `POST /flows/:flowName/run`. Conversation history can be filtered by flow using `GET /conversations?flowName=<name>` or `flowName=__none__` to exclude flow runs. Docker Compose mounts `flows-sandbox` and sets `FLOWS_DIR=/app/flows-sandbox` so the compose stack uses the sandbox flow definitions.
-- **Chat providers:** a Provider dropdown (LM Studio by default) sits to the left of the Model selector. Codex appears as `OpenAI Codex` when the CLI/config/auth are present; when unavailable it stays disabled with inline guidance, and when tools are unavailable the Codex send input remains disabled with an MCP warning. Provider is locked once a conversation starts, while the model can still change. The message input is now multiline beneath the selectors; send/stop live beside it. Tool blocks/citations render only when the active provider advertises `toolsAvailable`.
-- **Codex models:** `/chat/models?provider=codex` uses the `Codex_model_list` CSV env (trimmed, de-duplicated). Defaults in `server/.env` are `gpt-5.1-codex-max,gpt-5.1-codex-mini,gpt-5.1,gpt-5.2,gpt-5.2-codex`; if the env list is empty the server falls back to the same defaults and adds a warning.
-- **Codex flags panel:** when provider=`OpenAI Codex`, a collapsible “Codex flags” panel appears under the Provider/Model row. Defaults are delivered by `GET /chat/models?provider=codex` via `codexDefaults` (sourced from `Codex_*` env values): sandbox mode (`Codex_sandbox_mode`), approval policy (`Codex_approval_policy`), reasoning effort (`Codex_reasoning_effort`), and toggles for **Enable network access** / **Enable web search** (`Codex_network_access_enabled` / `Codex_web_search_enabled`). The current defaults in `server/.env` are `danger-full-access`, `on-failure`, `high`, and `true/true` respectively. If a Codex request omits any flag, the server applies these env defaults. The Codex interface uses the validated flags directly and leaves missing values undefined so Codex config/env defaults can apply. The client omits Codex flags from `/chat` payloads when the selected value matches `codexDefaults`, so only user changes are sent; LM Studio ignores Codex-only flags. `codexWarnings` in the same response surfaces any env or runtime warnings; non-empty warnings render a banner above the flags panel. `xhigh` is accepted and passed through to Codex as `model_reasoning_effort="xhigh"` (via the installed `@openai/codex-sdk`). Example payload fragment: `"sandboxMode": "danger-full-access", "approvalPolicy": "on-request", "modelReasoningEffort": "low", "networkAccessEnabled": false, "webSearchEnabled": false`.
-- **Chat bubble styling:** user and assistant bubbles share a consistent 14px border radius while keeping status chips, tool blocks, and citations aligned.
-- **Bubble metadata headers:** user/assistant bubbles display timestamps, with assistant bubbles optionally showing token usage, timing/rate, and agent step indicators when metadata is available (status/error bubbles are excluded).
-- **Chat tool visibility:** tool calls render closed by default with name + success/failure. Expanding shows a Parameters accordion (default-closed) plus tool-specific details: ListIngestedRepositories lists all repos with expandable metadata; VectorSearch shows an alphabetical, host-path-only file list with highest match value, summed chunk count, and total line count per file. Errors surface trimmed code/message with a toggle to reveal the full payload. The server now synthesizes `tool-result` events when LM Studio omits them and dedupes if native events arrive later, so the UI always receives parameters and payloads, and it suppresses assistant-role messages that merely echo tool payloads so raw tool JSON never appears as the chat reply.
-- **Chat citations:** vector search citations now live inside a default-closed “Citations” accordion under the assistant bubble; expanding reveals `repo/relPath` + host path (when available) and the chunk text that grounded the reply.
-- **Chat system context:** the shared prompt now lives in `common/src/systemContext.ts` and is re-exported in the client; it is prepended to LM Studio payloads client-side and injected server-side on the first Codex turn so the model sees the repo/tool instructions without replaying history.
-- **Thought process reliability:** streamed analysis (`<think>`/Harmony analysis channel) is buffered append-only per turn, so multiple analysis bursts survive final/tool frames; the “Thought process” accordion keeps all received reasoning text.
-- **Stream status & thinking:** assistant bubbles show a status chip (Processing spinner, Complete tick, or Failed cross). Completion now gates on the WebSocket `turn_final` event **and** all pending tool calls finishing; terminal text alone does not flip to Complete if tool calls are still pending. A “Thinking…” inline spinner appears only when the run is still processing, no visible assistant text has arrived for ≥1s, and no tool results are pending; it clears immediately on new text or when the run ends.
-- Tool completion guardrails: if a provider omits tool result callbacks, the server synthesizes missing tool completion events (deduped when real results arrive) and the client marks any remaining `requesting` tools as `done` once the run finishes so spinners never stick.
-- **Ingest page:** open `/ingest` to start an embedding run against a server-accessible folder. The form validates required path/name fields, lets you add an optional description, choose an embedding model (disabled once the shared collection is locked), toggle dry-run, and surfaces inline errors such as “Path is required” or “Select a model.” A banner appears when the embedding model is locked to a specific id. The page now lists embedded folders with per-row actions (Re-embed, Remove, Details), bulk actions, inline action feedback, and a tooltip over the name for descriptions. A Details drawer shows path/model/status, counts, last error, and the include/exclude defaults; the empty state explains that the model locks after the first ingest. Actions are disabled while an ingest is active to avoid conflicts. AST skip/failure banners appear when Tree-sitter indexing skips unsupported files or hits parse failures.
-- **Active ingest card:** the page subscribes to the ingest WebSocket stream when `/ingest` is mounted and receives an immediate snapshot plus live updates (no polling). The card shows state chips (Queued/Scanning/Embedding/Completed/Cancelled/Error), file/chunk counts, any last error, a “Cancel ingest” button that calls `/ingest/cancel/{runId}` (disabled while cancelling), and a “View logs for this run” link (pre-filters logs with the runId). Per-file progress fields include `currentFile`, `fileIndex`, `fileTotal`, `percent` (1dp), and `etaMs` (milliseconds). AST status (supported/skipped/failed counts, last indexed) is shown when available. When the run reaches a terminal state, the card hides (no last-run summary) after refreshing roots/models. If the WebSocket drops, the page shows an explicit error banner instead of falling back to REST.
-  ```json
-  {
-    "runId": "r1",
-    "state": "embedding",
-    "counts": { "files": 3, "chunks": 4, "embedded": 0 },
-    "currentFile": "/repo/file-2.txt",
-    "fileIndex": 2,
-    "fileTotal": 3,
-    "percent": 66.7,
-    "etaMs": 12000
-  }
-  ```
-- Assistant replies that include `<think>...</think>` or OpenAI Harmony channel-tagged analysis (`<|channel|>analysis<|message|>...<|end|>`) collapse immediately while streaming, show a spinner on the “Thought process” header, and can be expanded to watch the reasoning stream. Final content renders separately from the hidden analysis.
-- **Mermaid diagrams:** code fences labeled `mermaid` render inline diagrams client-side; input is sanitized before rendering, and diagrams follow the current light/dark theme while staying within the chat bubble width.
-- Server chat proxy uses LM Studio SDK 1.5 via `client.llm.model(<key>).act(...)` with the LM Studio tools (ListIngestedRepositories, VectorSearch) and AbortController so cancellation works; it now builds a `Chat.from(messages)` history so the model sees the full conversation per request. LM Studio base URL comes from `LMSTUDIO_BASE_URL` and is converted to ws/wss for the SDK.
-- **LM Studio page:** use the NavBar tab to open `/lmstudio`, enter a base URL (defaults to `http://host.docker.internal:1234` or `VITE_LMSTUDIO_URL`), and click “Check status” to fetch via the server proxy—browser never calls LM Studio directly. “Refresh models” re-runs the server call, errors surface inline with focus returning to the URL field, and empty lists show “No models reported by LM Studio.” Base URLs persist in localStorage and can be reset to the default.
-- Docker: `docker build -f client/Dockerfile -t codeinfo2-client .` then `docker run --rm -p 5001:5001 codeinfo2-client`
-
-### End-to-end (Playwright)
-
-- Primary stack: `npm run e2e` uses the dedicated `docker-compose.e2e.yml` (isolated Chroma volume, fixture mount at `/fixtures`) with ports client 6001 / server 6010 / chroma 8800. Individual steps: `npm run compose:e2e:build`, `npm run e2e:up`, `npm run e2e:test`, `npm run e2e:down`.
-- Reset the e2e Chroma volume if metadata becomes corrupted (e.g., after schema tweaks): `docker compose --env-file .env.e2e -f docker-compose.e2e.yml down -v`.
-
-### Story 0000035 final verification
-
-- Full regression command order:
-  - `npm run build --workspace server`
-  - `npm run build --workspace client`
-  - `npm run test --workspace server`
-  - `npm run test --workspace client`
-  - `npm run e2e`
-  - `npm run compose:build`
-  - `npm run compose:up`
-  - `npm run test:unit --workspace server`
-  - `npm run test:integration --workspace server`
-  - `npm run compose:down`
-- Manual verification endpoint for Playwright MCP: `http://host.docker.internal:5001`
-- Manual acceptance log tags (Task 13):
-  - `DEV-0000035:T13:manual_acceptance_check_started`
-  - `DEV-0000035:T13:manual_acceptance_check_completed`
-- Required manual screenshot artifacts (`playwright-output-local/`):
-  - `0000035-13-chat-raw-input-parity.png`
-  - `0000035-13-chat-user-markdown-parity.png`
-  - `0000035-13-agents-raw-input-parity.png`
-  - `0000035-13-agents-user-markdown-parity.png`
-  - `0000035-13-general-regression.png`
-- Tests live in `e2e/` (chat, lmstudio, logs, version, ingest). Ingest specs auto-skip when LM Studio/models are unavailable. E2E env defaults: `E2E_BASE_URL=http://localhost:6001`, `E2E_API_URL=http://localhost:6010`. `e2e/chat-tools.spec.ts` ingests the mounted fixture repo (`/fixtures/repo`), runs a vector search, mocks `POST /chat` (202) + `/ws` transcript events, and asserts inline citations show `repo/relPath` plus the host path. It asks “What does main.txt say about the project?” and expects the fixture text “This is the ingest test fixture for CodeInfo2.”
-
-## Root commands
-
-- `npm run lint --workspaces`
-- `npm run lint:fix --workspaces`
-- `npm run format:check --workspaces`
-- `npm run format --workspaces`
-- `npm run build:all`
-- `npm run clean`
-
-### Quick run order for ingest/Testcontainers work
-
-- `npm run build --workspace server`
-- `npm run build --workspace client`
-- `npm run test --workspace server` (builds then runs unit tests first, followed by Cucumber with Chroma via Testcontainers; Docker required)
-- `npm run test --workspace client`
-- `npm run compose:build`
-- `npm run compose:up`
-- `npm run compose:down`
-- `npm run e2e`
-
-Ingest collection names (`INGEST_COLLECTION`, `INGEST_ROOTS_COLLECTION`) come from `.env`; no test-only embedding env flags are needed.
-
-## Common package
-
-- `npm run lint --workspace common`
-- `npm run format:check --workspace common`
-- `npm run build --workspace common`
-- Exports `getAppInfo(app, version): VersionInfo`
-
-## Server
-
-- Logging: structured pino logger using shared schema; log file at `./logs/server.log` with rotation (expanded in the Logging section added in Task 6).
-- LM Studio clients are pooled per base URL so chat/ingest routes reuse a single connection; SIGINT/SIGTERM triggers the pool to close cleanly before the process exits.
-- Chat execution is unified behind a `ChatInterface` abstraction: the client sends only `{ conversationId, message, provider, model }`, the server loads any stored turns, streams tokens/tool events, and persists user + assistant turns (including `toolCalls`) via MongoDB or an in-memory fallback when Mongo is down. Codex uses its own thread history (only the latest user message is submitted per turn) while LM Studio replays stored history.
-- `npm run dev --workspace server` (default port 5010)
-- `npm run build --workspace server`
-- `npm run start --workspace server`
-- `npm run test --workspace server` (builds + unit tests first, then Cucumber; Chroma comes from the Testcontainers compose hook—no mock CHROMA_URL path)
-- Ingest Cucumber tests run against a real Chroma via Testcontainers; Docker must be running and will publish Chroma on host port 18000 (if busy, the hook falls back to a random host port and logs it). For manual debugging, `docker compose -f server/src/test/compose/docker-compose.chroma.yml up -d` (teardown with `docker compose -f server/src/test/compose/docker-compose.chroma.yml down -v`).
-- Configure `SERVER_PORT` via `server/.env` (override with `server/.env.local` if needed). Runtime still supports legacy `PORT` as a fallback.
-- Env: `SERVER_PORT` (default 5010), `LMSTUDIO_BASE_URL` (default `http://host.docker.internal:1234`), `MCP_PORT` (Codex-only MCP JSON-RPC, default 5011), `MONGO_URI` (default `mongodb://host.docker.internal:27517/db?directConnection=true`)
-- Retrieval tuning: `CODEINFO_RETRIEVAL_DISTANCE_CUTOFF` (default `1.4`), `CODEINFO_RETRIEVAL_FALLBACK_CHUNKS` (default `2`), `CODEINFO_RETRIEVAL_CUTOFF_DISABLED=true` to bypass cutoff, `CODEINFO_TOOL_MAX_CHARS` (default `40000`), `CODEINFO_TOOL_CHUNK_MAX_CHARS` (default `5000`).
-- Docker: `docker build -f server/Dockerfile -t codeinfo2-server .` then `docker run --rm -p 5010:5010 codeinfo2-server`
-- **LM Studio tooling + Zod version pin:** the LM Studio SDK bundles Zod 3.25.76. A Zod 4.x copy pulled in by lint dependencies caused Docker-only tool-call failures (`keyValidator._parse is not a function`) because schemas were built with Zod v4 while the SDK validated with v3. We now pin Zod to `3.25.76` via an npm `overrides` entry in the root `package.json`; the regenerated `package-lock.json` ensures both host and container installs use a single Zod version, eliminating the error.
-
-## MCP v2 tools
-
-- Endpoint: JSON-RPC 2.0 on `http://localhost:${MCP_PORT:-5011}`.
-- `tools/list` is always available for MCP v2 surface discovery; provider availability is resolved inside each tool execution path.
-- Tool: `codebase_question` with params `{ question: string; conversationId?: string; provider?: 'codex' | 'lmstudio'; model?: string }`. Responses are a single `content` item of type `text` containing JSON with `segments` that include only the `answer` type (no reasoning or vector summary), plus `conversationId` and `modelId`. When `provider/model` are omitted, shared defaults resolve to `codex` + `gpt-5.3-codex` (with runtime provider fallback when needed).
-- MCP v2 is provider-aware for `codebase_question`: router-level Codex pre-blocking is removed, so `tools/call(codebase_question)` can execute through LM Studio fallback when Codex is unavailable; terminal unavailable remains JSON-RPC `-32001 CODE_INFO_LLM_UNAVAILABLE` when neither provider can run.
-- Tool: `reingest_repository` with args `{ sourceId: string }` (absolute normalized ingested container path only).
-  - Success payload: `{ status: "started", operation: "reembed", runId, sourceId }` in `result.content[0].text` JSON.
-  - Compatibility lock: failures remain JSON-RPC `error` envelopes (not `result.isError`) with canonical mappings shared with classic MCP: `-32602 INVALID_PARAMS`, `404 NOT_FOUND`, `429 BUSY`, including AI-retry guidance fields in `error.data`.
-- Example call:
-  ```sh
-  curl -s -X POST http://localhost:5011 \
-    -H 'content-type: application/json' \
-    -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"codebase_question","arguments":{"question":"What does this project do?"}}}'
-  ```
-- Example response shape:
-  ```json
-  {
-    "jsonrpc": "2.0",
-    "id": 1,
-    "result": {
-      "content": [
-        {
-          "type": "text",
-          "text": "{\"conversationId\":\"...\",\"modelId\":\"gpt-5.3-codex\",\"segments\":[{\"type\":\"answer\",\"text\":\"...\"}]}"
-        }
-      ]
-    }
-  }
-  ```
-
-### Logging endpoints
-
-- Env: `LOG_LEVEL`, `LOG_BUFFER_MAX` (default 5000), `LOG_MAX_CLIENT_BYTES` (default 32768), `LOG_FILE_PATH` (default `./logs/server.log`), `LOG_FILE_ROTATE` (`true` for daily rotation), `LOG_INGEST_WS_THROTTLE_MS` (default `10000`, throttle for ingest WS broadcast logs). Files write to `./logs` (gitignored/bind-mount later).
-- POST `/logs` accepts a single log entry (32KB cap) and returns 202 with the stored sequence number:
-  ```sh
-  curl -X POST http://localhost:5010/logs \
-    -H 'content-type: application/json' \
-    -d '{"level":"info","message":"hello","timestamp":"2025-01-01T00:00:00.000Z","source":"client"}'
-  ```
-- GET `/logs` supports `level`, `source`, `text`, `since`, `until`, `limit` (max 200) and responds `{ items, lastSequence, hasMore }`:
-  ```sh
-  curl "http://localhost:5010/logs?level=error,info&source=client&limit=50"
-  ```
-- GET `/logs/stream` provides an SSE feed with heartbeats every 15s; resume with `Last-Event-ID` or `?sinceSequence=`. Example: `curl -N http://localhost:5010/logs/stream`.
-
-### Ingest embedding models
-
-- GET `/ingest/models` returns provider-qualified embedding options (`lmstudio` + `openai`) plus canonical lock and provider-status envelopes.
-- OpenAI discovery is enabled only when `OPENAI_EMBEDDING_KEY` is configured (non-empty). OpenAI options are filtered to the server allowlist intersection (`text-embedding-3-small`, `text-embedding-3-large`).
-- Server startup env loading applies `server/.env` then `server/.env.local` for unset keys, while preserving runtime/container-preseeded env values (for example injected `OPENAI_EMBEDDING_KEY`).
-- The endpoint remains `200` even for partial provider failure states; warning/disabled details are surfaced in `openai` / `lmstudio` envelopes:
-  ```json
-  {
-    "models": [
-      {
-        "id": "text-embedding-3-small",
-        "displayName": "text-embedding-3-small",
-        "provider": "openai"
-      },
-      {
-        "id": "text-embedding-nomic-embed-text-v1.5",
-        "displayName": "Nomic Embed Text v1.5",
-        "provider": "lmstudio"
-      }
-    ],
-    "lock": {
-      "embeddingProvider": "openai",
-      "embeddingModel": "text-embedding-3-small",
-      "embeddingDimensions": 1536
-    },
-    "lockedModelId": "text-embedding-3-small",
-    "openai": {
-      "enabled": true,
-      "status": "ok",
-      "statusCode": "OPENAI_OK"
-    },
-    "lmstudio": {
-      "status": "ok",
-      "statusCode": "LMSTUDIO_OK"
-    }
-  }
-  ```
-- Common OpenAI status codes include `OPENAI_DISABLED`, `OPENAI_OK`, `OPENAI_ALLOWLIST_NO_MATCH`, `OPENAI_MODELS_LIST_TEMPORARY_FAILURE`, `OPENAI_MODELS_LIST_AUTH_FAILED`, and `OPENAI_MODELS_LIST_UNAVAILABLE`.
-
-### Ingest start/status
-
-- POST `/ingest/start` starts an ingest job. Canonical request fields are provider-aware:
-  ```json
-  {
-    "path": "/repo",
-    "name": "repo",
-    "description": "optional",
-    "embeddingProvider": "openai",
-    "embeddingModel": "text-embedding-3-small",
-    "dryRun": false
-  }
-  ```
-  Compatibility input `model` is still accepted and mapped to LM Studio behavior when canonical fields are omitted.
-  OpenAI ingest retry budget is controlled by `OPENAI_INGEST_MAX_RETRIES`, where the value is the number of retries after the initial attempt (`maxAttempts = retries + 1`); unset/invalid values fall back to `3`.
-  Parsing is strict positive-integer only after trim (`7` and ` 7 ` are valid; `7abc`, `3.5`, and `1e2` are invalid and use fallback `3`).
-  Responses: `202 {"runId":"..."}` on start; `409 {"status":"error","code":"MODEL_LOCKED","lock":{"embeddingProvider":"...","embeddingModel":"...","embeddingDimensions":...},"lockedModelId":"..."}` when locked to a different provider/model; `429 {"status":"error","code":"BUSY"}` when ingest is active; `400` on validation errors.
-- GET `/ingest/status/{runId}` returns current state:
-  ```json
-  {"runId":"r1","state":"scanning","counts":{"files":3,"chunks":0,"embedded":0},"message":"Walking repo"}
-  {"runId":"r1","state":"completed","counts":{"files":3,"chunks":12,"embedded":12}}
-  {"runId":"r1","state":"skipped","counts":{"files":0},"message":"No changes detected"}
-  {"runId":"r1","state":"error","counts":{"files":1,"chunks":2,"embedded":0},"lastError":"Chroma unavailable"}
-  ```
-- Model lock: first successful ingest stores canonical lock identity (`embeddingProvider`, `embeddingModel`, `embeddingDimensions`); subsequent ingest/re-embed/query operations must use the same lock identity while vectors exist.
-
-### Ingest directory picker
-
-- GET `/ingest/dirs?path=<absolute server path>` lists child directories under the configured base path.
-  - Base defaults to `HOST_INGEST_DIR` (falls back to `/data`).
-  - Response: `{ "base": "/data", "path": "/data/projects", "dirs": ["repo-a", "repo-b"] }`.
-  - Errors: `{ "status": "error", "code": "OUTSIDE_BASE" | "NOT_FOUND" | "NOT_DIRECTORY" }`.
-- The `/ingest` UI uses this endpoint for the “Choose folder…” modal; the Folder path field remains editable.
-
-### Ingest cancel / re-embed / remove
-
-- POST `/ingest/cancel/{runId}` cancels the active ingest run, purges any partial vectors tagged with the runId, updates the roots entry to `cancelled`, and responds `{ "status": "ok", "cleanup": "complete" }`. Example: `curl -X POST http://localhost:5010/ingest/cancel/<runId>`.
-- POST `/ingest/reembed/{root}` re-runs ingest for the stored root path in **delta** mode using per-file SHA-256 hashes stored in Mongo (`ingest_files`).
-  - Unchanged files are skipped (existing vectors remain intact).
-  - Deleted files have their vectors removed.
-  - Legacy roots (no `ingest_files` records) fall back to a full rebuild (delete all vectors, then re-ingest).
-  - Uses the existing provider/model lock identity and returns `202 { runId }` or `404 NOT_FOUND` if the root is unknown.
-- POST `/ingest/remove/{root}` deletes vectors and root metadata for the given root; if the vectors collection becomes empty, the locked model is cleared. Responds `{ status: 'ok', unlocked: boolean }`.
-- Single-flight: concurrent ingest/re-embed/remove requests return `429 {code:'BUSY'}` while a run is active. Cancel is allowed to break an active run; the lock is released after cancellation completes.
-
-### Ingest roots listing
-
-- GET `/ingest/roots` returns stored roots in descending `lastIngestAt` order with canonical embedding identity and compatibility aliases:
-  ```json
-  {
-    "roots": [
-      {
-        "runId": "a1",
-        "name": "repo",
-        "description": "project",
-        "path": "/repo",
-        "embeddingProvider": "openai",
-        "embeddingModel": "text-embedding-3-small",
-        "embeddingDimensions": 1536,
-        "model": "text-embedding-3-small",
-        "modelId": "text-embedding-3-small",
-        "lock": {
-          "embeddingProvider": "openai",
-          "embeddingModel": "text-embedding-3-small",
-          "embeddingDimensions": 1536,
-          "lockedModelId": "text-embedding-3-small",
-          "modelId": "text-embedding-3-small"
-        },
-        "status": "completed",
-        "lastIngestAt": "2025-01-01T12:00:00.000Z",
-        "counts": { "files": 3, "chunks": 12, "embedded": 12 },
-        "lastError": null
-      }
-    ],
-    "lock": {
-      "embeddingProvider": "openai",
-      "embeddingModel": "text-embedding-3-small",
-      "embeddingDimensions": 1536,
-      "lockedModelId": "text-embedding-3-small",
-      "modelId": "text-embedding-3-small"
-    },
-    "lockedModelId": "text-embedding-3-small",
-    "schemaVersion": "0000036-t10-canonical-alias-v1"
-  }
-  ```
-
-### Tooling endpoints (LM Studio agent support)
-
-- GET `/tools/ingested-repos` lists ingested repositories for tools and returns canonical embedding identity (`embeddingProvider`, `embeddingModel`, `embeddingDimensions`) plus compatibility aliases (`model`, `modelId`, `lockedModelId`) and top-level canonical `lock` + `schemaVersion`. Paths stored under `/data/<repo>/...` are rewritten to host paths using `HOST_INGEST_DIR` (defaults to `/data`) and include `hostPathWarning` when that env var is unset.
-- POST `/tools/vector-search` accepts `{ "query": string, "repository"?: string, "limit"?: number }`, validates input (`query` required, `limit` default 5/max 20, optional `repository` constrained to known repo id), and queries Chroma using the locked provider/model embedding function. Responses include ordered `results` (`repo`, `relPath`, `containerPath`, `hostPath`, `chunk`, `chunkId`, `score`, `modelId`) plus top-level `modelId`. Deterministic error contracts include `400 VALIDATION_FAILED`, `404 REPO_NOT_FOUND`, `409 INGEST_REQUIRED` (no lock), normalized provider errors (for example `OPENAI_*`), and `EMBEDDING_DIMENSION_MISMATCH` when generated query vectors differ from lock dimensions.
-
-## Logging
-
-- Quick API calls:
-
-  ```sh
-  # POST one entry
-  curl -X POST http://localhost:5010/logs \
-    -H 'content-type: application/json' \
-    -d '{"level":"info","message":"demo","timestamp":"2025-01-01T00:00:00.000Z","source":"client"}'
-
-  # GET filtered history
-  curl "http://localhost:5010/logs?level=error,info&source=client&limit=50"
-
-  # Stream live with SSE + heartbeats
-  curl -N http://localhost:5010/logs/stream
-  ```
-
-- Env keys  
-  Server: `LOG_LEVEL`, `LOG_BUFFER_MAX`, `LOG_MAX_CLIENT_BYTES`, `LOG_FILE_PATH=./logs/server.log`, `LOG_FILE_ROTATE=true`, `LOG_INGEST_WS_THROTTLE_MS=10000`  
-  Client: `VITE_LOG_LEVEL`, `VITE_LOG_FORWARD_ENABLED`, `VITE_LOG_MAX_BYTES`, `VITE_LOG_STREAM_ENABLED`
-- Chat tool logs: client emits tool lifecycle entries with `source: client` and `context.channel = "client-chat"` so `/logs` accepts them while keeping chat telemetry filterable.
-- File + compose: logs write to `/app/logs/server.log` (host `./logs` is mounted to `/app/logs` in `docker-compose.yml`).
-- Disable client forwarding by setting in `.env.local`:
-  ```env
-  VITE_LOG_FORWARD_ENABLED=false
-  ```
-- LM Studio actions: client logs status/refresh/reset actions with redacted base URLs; server logs inbound LM Studio proxy calls (requestId, base URL origin, model count or error). Secrets in URLs are stripped before logging.
-
-### LM Studio proxy
-
-- Endpoint: `GET /lmstudio/status?baseUrl=http://host.docker.internal:1234` (query optional; falls back to `LMSTUDIO_BASE_URL`).
-- Success example:
-  ```json
-  {
-    "status": "ok",
-    "baseUrl": "http://host.docker.internal:1234",
-    "models": [{ "modelKey": "...", "displayName": "...", "type": "gguf" }]
-  }
-  ```
-- Error example: `{ "status": "error", "baseUrl": "http://bad", "error": "Invalid baseUrl" }` (timeout/SDK errors return 502 with `status: "error"`).
-- Env: `LMSTUDIO_BASE_URL` default `http://host.docker.internal:1234` (override in `server/.env.local`). Curl: `curl "http://localhost:5010/lmstudio/status?baseUrl=http://host.docker.internal:1234"`.
-
-### Chat models (LM Studio)
-
-- Endpoint: `GET /chat/models?provider=lmstudio` (uses `LMSTUDIO_BASE_URL`). Returns `[ { "key": "llama-3", "displayName": "Llama 3 Instruct", "type": "gguf" } ]` shaped items.
-- Failure: if LM Studio is unreachable/invalid, responds `503 { "error": "lmstudio unavailable" }`.
-- The chat UI selects the first item by default when no model is chosen; callers should treat an empty array as “no models available”.
-- Logging: start/success/failure log entries include the base URL origin and model count on success; errors log the sanitized origin only.
-- Codex requests use `GET /chat/models?provider=codex` and include `codexDefaults` (server env defaults) plus `codexWarnings` (env warnings) in the response; non-Codex responses omit these optional fields.
-
-### Chat streaming
-
-- Endpoint: `POST /chat` starts a run and returns immediately (HTTP 202). Body: `{ "conversationId": "<uuid>", "message": "hello", "provider"?: "lmstudio|codex", "model"?: "<key>" }`.
-- Provider/model are optional; when omitted, the server applies shared default resolution (`request -> CHAT_DEFAULT_* env -> codex/gpt-5.3-codex fallback`).
-- Response (202): `{ "status": "started", "conversationId": "<uuid>", "inflightId": "<uuid>", "provider": "...", "model": "..." }`.
-- Transcript streaming is **WebSocket-only** at `ws://localhost:5010/ws` (or `wss://.../ws`). Clients subscribe with `subscribe_conversation` and receive: `inflight_snapshot` (catch-up), then `assistant_delta`/`analysis_delta`/`tool_event`, finishing with `turn_final`.
-- Chat UI send-path preserves raw non-whitespace user input exactly as entered (including leading/trailing spaces and multiline newlines) in outbound `POST /chat` payloads; whitespace-only/newline-only submissions are blocked client-side and rejected server-side.
-- Example: `curl -s -X POST http://localhost:5010/chat -H 'content-type: application/json' -d '{"provider":"lmstudio","model":"llama-3","conversationId":"00000000-0000-0000-0000-000000000000","message":"hello"}'`.
-- Logging: server records `chat.run.started` plus WS publish milestones (`chat.stream.*`) and tool lifecycle metadata (name/callId only, no args/results); payloads respect `LOG_MAX_CLIENT_BYTES`.
-- Tooling: chat registers LM Studio tools `ListIngestedRepositories` and `VectorSearch` (see `server/src/lmstudio/tools.ts`) that reuse the `/tools/ingested-repos` and `/tools/vector-search` logic. Tool responses include repo id, relPath, containerPath, hostPath, chunk text/score, and model id for citations; repo-not-found/validation errors surface as tool errors. VectorSearch now derives its embedding function from the collection’s locked model; if no lock exists it surfaces `INGEST_REQUIRED`, and if the locked model is missing in LM Studio it surfaces `EMBED_MODEL_MISSING`. Usage is logged without persisting payload bodies.
-- Tool lifecycle entries are pushed into the server log buffer (visible on `/logs`/Logs page) but are not rendered in the chat transcript; the client still logs the metadata for observability.
-- Rendering: assistant and user bubbles use the same sanitized React Markdown pipeline (`react-markdown` + `remark-gfm` + `rehype-sanitize`) so GFM lists/links/code fences and mermaid fences render with parity while tool blocks and citations stay plain JSX; code fences render in styled `<pre><code>` blocks and links open in a new tab.
-- Cancellation: Stop sends a `cancel_inflight` message over `/ws` to abort the current run (responses may truncate). Switching conversations/unmounting unsubscribes from streaming but does not cancel the run server-side.
-- Persistence: chat history is stored in MongoDB. If Mongo is unreachable, the UI falls back to stateless mode and bulk/archive controls are disabled.
-
-## Docker Compose
-
-- Build both images: `npm run compose:build`
-- Start stack: `npm run compose:up` (client on http://localhost:5001, server on http://localhost:5010)
-- Tail logs: `npm run compose:logs`
-- Stop stack: `npm run compose:down`
-- Compose loads env from `client/.env[.local]` and `server/.env[.local]` via `env_file`, so those files remain the single source of truth for both local and compose runs (create empty `.env.local` files to silence warnings if you don't need overrides).
-- Client uses `VITE_API_URL=http://server:5010` inside compose; override ports via `PORT` and `VITE_API_URL` if needed.
-
-### Observability (Chroma traces)
-
-- Compose stacks now run an OpenTelemetry Collector (`otel-collector`, ports 4317/4318) plus Zipkin (`zipkin`, port 9411). The collector loads `observability/otel-collector-config.yaml` and exports traces to Zipkin and a debug logger.
-- Chroma containers point to the collector via `OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318`, `OTEL_EXPORTER_OTLP_TRACES_PROTOCOL=http`, and `OTEL_SERVICE_NAME=chroma` so ingest traffic is captured.
-- View traces at http://localhost:9411 after generating activity (e.g., start an ingest). If nothing appears, check collector logs: `docker compose logs otel-collector`.
-- Cleanup: `docker compose down -v` tears down collector/zipkin/chroma volumes; remove any lingering volumes with `docker volume ls | grep codeinfo2` if ports/telemetry state need a full reset.
-
-## End-to-end (Playwright)
-
-- One-time: `npx playwright install --with-deps`
-- Start stack: `npm run e2e:up`
-- Run test: `npm run e2e:test` (runs all specs; uses `E2E_BASE_URL` or defaults to http://localhost:5001 and `E2E_API_URL` default http://localhost:5010 for the proxy)
-- LM Studio spec hits live data via the server proxy; start LM Studio on `LMSTUDIO_BASE_URL` (default `http://host.docker.internal:1234`) before running. The test will `test.skip` if the proxy or LM Studio is unreachable, but the client still needs to be up.
-- Chat spec (`e2e/chat.spec.ts`) covers model selection, a two-turn streaming conversation, raw outbound payload preservation (surrounding whitespace + newlines), and whitespace-only submit blocking; it skips automatically if `/chat/models` is unreachable or empty.
-- Agents spec (`e2e/agents.spec.ts`) validates raw outbound instruction payload preservation, whitespace-only submit blocking, and hydrated user/assistant markdown parity (lists/code/mermaid + malformed-mermaid fallback) on `/agents`.
-- Full flow: `npm run e2e`
-- Shut down after tests: `npm run e2e:down`
-
-## Environment policy
+## Environment Policy
 
 - Commit `.env` files with safe defaults.
 - Keep secrets in `.env.local` (git-ignored) when needed.

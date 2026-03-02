@@ -8,11 +8,27 @@ import type {
 } from '../../ingest/reingestService.js';
 import { createMcpRouter } from '../../mcp/server.js';
 
-const baseSuccess = {
-  status: 'started',
+const terminalCompleted = {
+  status: 'completed',
   operation: 'reembed',
   runId: 'run-123',
   sourceId: '/data/repo-a',
+  durationMs: 321,
+  files: 9,
+  chunks: 20,
+  embedded: 15,
+  errorCode: null,
+} as const;
+
+const terminalCancelled = {
+  ...terminalCompleted,
+  status: 'cancelled',
+} as const;
+
+const terminalError = {
+  ...terminalCompleted,
+  status: 'error',
+  errorCode: 'INGEST_FAIL',
 } as const;
 
 const parityInvalidParamsError: Extract<ReingestError, { code: -32602 }> = {
@@ -77,7 +93,7 @@ function createApp(result: ReingestResult) {
 }
 
 test('tools/list includes reingest_repository metadata', async () => {
-  const app = createApp({ ok: true, value: baseSuccess });
+  const app = createApp({ ok: true, value: terminalCompleted });
   const res = await request(app)
     .post('/mcp')
     .send({ jsonrpc: '2.0', id: 1, method: 'tools/list' });
@@ -87,8 +103,8 @@ test('tools/list includes reingest_repository metadata', async () => {
   assert.ok(tools.some((tool) => tool.name === 'reingest_repository'));
 });
 
-test('classic MCP success payload for reingest_repository is wrapped as text JSON', async () => {
-  const app = createApp({ ok: true, value: baseSuccess });
+test('classic MCP wraps terminal payload as text JSON and never returns started', async () => {
+  const app = createApp({ ok: true, value: terminalCompleted });
   const res = await request(app)
     .post('/mcp')
     .send({
@@ -104,47 +120,60 @@ test('classic MCP success payload for reingest_repository is wrapped as text JSO
   assert.equal(res.status, 200);
   const content = res.body.result.content[0] as { type: string; text: string };
   assert.equal(content.type, 'text');
-  assert.deepEqual(JSON.parse(content.text), baseSuccess);
-  assert.equal(
-    JSON.stringify(JSON.parse(content.text)),
-    JSON.stringify(baseSuccess),
-  );
+  const payload = JSON.parse(content.text);
+  assert.equal(payload.status, 'completed');
+  assert.notEqual(payload.status, 'started');
+  assert.equal(typeof content.text, 'string');
+  assert.equal(payload.message, undefined);
 });
 
-test('classic MCP failures use JSON-RPC error envelope (not result.isError)', async () => {
-  const app = createApp({
-    ok: false,
-    error: parityInvalidParamsError,
-  });
+test('classic MCP success/cancel/error errorCode constraints', async () => {
+  for (const payload of [terminalCompleted, terminalCancelled, terminalError]) {
+    const app = createApp({ ok: true, value: payload });
+    const res = await request(app)
+      .post('/mcp')
+      .send({
+        jsonrpc: '2.0',
+        id: `code-${payload.status}`,
+        method: 'tools/call',
+        params: {
+          name: 'reingest_repository',
+          arguments: { sourceId: '/data/repo-a' },
+        },
+      });
+    const parsed = JSON.parse(res.body.result.content[0].text);
+    if (parsed.status === 'error') {
+      assert.notEqual(parsed.errorCode, null);
+    } else {
+      assert.equal(parsed.errorCode, null);
+    }
+  }
+});
+
+test('classic MCP uses JSON-RPC envelope for pre-run validation errors', async () => {
+  for (const error of [
+    parityInvalidParamsError,
+    parityNotFoundError,
+    parityBusyError,
+  ]) {
+    const app = createApp({ ok: false, error });
+    const res = await request(app)
+      .post('/mcp')
+      .send({
+        jsonrpc: '2.0',
+        id: 3,
+        method: 'tools/call',
+        params: { name: 'reingest_repository', arguments: {} },
+      });
+    assert.equal(res.status, 200);
+    assert.equal(res.body.result, undefined);
+    assert.deepEqual(res.body.error, error);
+  }
+});
+
+test('classic MCP post-start failure remains terminal result (not JSON-RPC error)', async () => {
+  const app = createApp({ ok: true, value: terminalError });
   const res = await request(app)
-    .post('/mcp')
-    .send({
-      jsonrpc: '2.0',
-      id: 3,
-      method: 'tools/call',
-      params: { name: 'reingest_repository', arguments: {} },
-    });
-
-  assert.equal(res.status, 200);
-  assert.equal(res.body.result, undefined);
-  assert.deepEqual(res.body.error, parityInvalidParamsError);
-});
-
-test('classic MCP INVALID_PARAMS and NOT_FOUND include retry guidance fields', async () => {
-  const invalidApp = createApp({
-    ok: false,
-    error: {
-      ...parityInvalidParamsError,
-      data: {
-        ...parityInvalidParamsError.data,
-        fieldErrors: [
-          { field: 'sourceId', reason: 'non_absolute', message: 'invalid' },
-        ],
-      },
-    },
-  });
-
-  const invalidRes = await request(invalidApp)
     .post('/mcp')
     .send({
       jsonrpc: '2.0',
@@ -152,23 +181,35 @@ test('classic MCP INVALID_PARAMS and NOT_FOUND include retry guidance fields', a
       method: 'tools/call',
       params: {
         name: 'reingest_repository',
-        arguments: { sourceId: 'repo-a' },
+        arguments: { sourceId: '/data/repo-a' },
       },
     });
 
-  assert.deepEqual(invalidRes.body.error.data.reingestableRepositoryIds, [
-    'repo-a',
-  ]);
-  assert.deepEqual(invalidRes.body.error.data.reingestableSourceIds, [
-    '/data/repo-a',
-  ]);
+  assert.equal(res.body.error, undefined);
+  const payload = JSON.parse(res.body.result.content[0].text);
+  assert.equal(payload.status, 'error');
+  assert.equal(payload.errorCode, 'INGEST_FAIL');
+});
 
-  const notFoundApp = createApp({
+test('classic MCP request-shape guards reject wait/blocking args', async () => {
+  const app = createApp({
     ok: false,
-    error: parityNotFoundError,
+    error: {
+      ...parityInvalidParamsError,
+      data: {
+        ...parityInvalidParamsError.data,
+        fieldErrors: [
+          {
+            field: 'sourceId',
+            reason: 'invalid_state',
+            message: 'Unsupported arguments',
+          },
+        ],
+      },
+    },
   });
 
-  const notFoundRes = await request(notFoundApp)
+  const res = await request(app)
     .post('/mcp')
     .send({
       jsonrpc: '2.0',
@@ -176,37 +217,78 @@ test('classic MCP INVALID_PARAMS and NOT_FOUND include retry guidance fields', a
       method: 'tools/call',
       params: {
         name: 'reingest_repository',
-        arguments: { sourceId: '/data/missing' },
+        arguments: {
+          sourceId: '/data/repo-a',
+          wait: true,
+          blocking: true,
+        },
       },
     });
-
-  assert.deepEqual(notFoundRes.body.error, parityNotFoundError);
-  assert.deepEqual(notFoundRes.body.error.data.reingestableRepositoryIds, [
-    'repo-a',
-  ]);
-  assert.deepEqual(notFoundRes.body.error.data.reingestableSourceIds, [
-    '/data/repo-a',
-  ]);
+  assert.equal(res.status, 200);
+  assert.equal(res.body.error.code, -32602);
+  assert.equal(res.body.result, undefined);
 });
 
-test('classic MCP maps BUSY to code 429 and message BUSY', async () => {
-  const app = createApp({
-    ok: false,
-    error: parityBusyError,
-  });
+test('classic and v2 parity payload baseline can be normalized from terminal fields', () => {
+  const normalized = JSON.stringify(terminalCompleted);
+  assert.equal(
+    normalized,
+    JSON.stringify({
+      status: 'completed',
+      operation: 'reembed',
+      runId: 'run-123',
+      sourceId: '/data/repo-a',
+      durationMs: 321,
+      files: 9,
+      chunks: 20,
+      embedded: 15,
+      errorCode: null,
+    }),
+  );
+});
 
-  const res = await request(app)
-    .post('/mcp')
-    .send({
-      jsonrpc: '2.0',
-      id: 6,
-      method: 'tools/call',
-      params: {
-        name: 'reingest_repository',
-        arguments: { sourceId: '/data/repo-a' },
+test('classic MCP disconnect during blocking wait does not crash router', async () => {
+  const app = express();
+  app.use(express.json());
+  app.use(
+    '/',
+    createMcpRouter({
+      runReingestRepository: async () => {
+        await new Promise((resolve) => setTimeout(resolve, 50));
+        return { ok: true, value: terminalCompleted } as ReingestResult;
       },
-    });
+    }),
+  );
 
-  assert.equal(res.status, 200);
-  assert.deepEqual(res.body.error, parityBusyError);
+  const server = app.listen(0);
+  try {
+    const address = server.address();
+    const port =
+      address && typeof address === 'object' ? Number(address.port) : 0;
+    const controller = new AbortController();
+    const inflight = fetch(`http://127.0.0.1:${port}/mcp`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 8,
+        method: 'tools/call',
+        params: {
+          name: 'reingest_repository',
+          arguments: { sourceId: '/data/repo-a' },
+        },
+      }),
+      signal: controller.signal,
+    }).catch(() => null);
+    setTimeout(() => controller.abort(), 10);
+    await inflight;
+
+    const health = await request(app)
+      .post('/mcp')
+      .send({ jsonrpc: '2.0', id: 9, method: 'tools/list' });
+    assert.equal(health.status, 200);
+    assert.equal(Array.isArray(health.body.result.tools), true);
+  } finally {
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  }
 });

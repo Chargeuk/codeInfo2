@@ -11,7 +11,10 @@ import { createWriteStream, mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const rootDir = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '..',
+);
 const resultsDir = path.join(rootDir, 'logs', 'test-summaries');
 const logPath = path.join(resultsDir, 'e2e-tests-latest.log');
 
@@ -31,6 +34,12 @@ const run = (cmd, args, { collectStdout = false } = {}) =>
     });
 
     let stdout = '';
+    let settled = false;
+    const finish = (code) => {
+      if (settled) return;
+      settled = true;
+      resolve({ code: code ?? 1, stdout });
+    };
     writeLog(`\n$ ${cmd} ${args.join(' ')}`);
 
     child.stdout.on('data', (chunk) => {
@@ -41,7 +50,12 @@ const run = (cmd, args, { collectStdout = false } = {}) =>
     child.stderr.on('data', (chunk) => {
       writeLog(chunk.toString());
     });
-    child.on('close', (code) => resolve({ code: code ?? 1, stdout }));
+    child.on('error', (err) => {
+      const message = err?.message ?? String(err);
+      writeLog(`Spawn error: ${message}`);
+      finish(1);
+    });
+    child.on('close', (code) => finish(code));
   });
 
 const parsePlaywrightJson = (stdout) => {
@@ -82,8 +96,10 @@ const classifyTest = (test) => {
 
   if (finalStatus === 'passed' && hasFailure) return 'flaky';
   if (finalStatus === 'passed') return 'passed';
-  if (finalStatus === 'skipped' || test?.expectedStatus === 'skipped') return 'skipped';
-  if (['failed', 'timedOut', 'interrupted'].includes(finalStatus)) return 'failed';
+  if (finalStatus === 'skipped' || test?.expectedStatus === 'skipped')
+    return 'skipped';
+  if (['failed', 'timedOut', 'interrupted'].includes(finalStatus))
+    return 'failed';
   return 'failed';
 };
 
@@ -94,7 +110,9 @@ const collectSummary = (report) => {
 
   const walkSuites = (suites, parents = []) => {
     for (const suite of suites ?? []) {
-      const suiteParts = suite?.title ? [...parents, suite.title] : [...parents];
+      const suiteParts = suite?.title
+        ? [...parents, suite.title]
+        : [...parents];
       walkSuites(suite?.suites ?? [], suiteParts);
 
       for (const spec of suite?.specs ?? []) {
@@ -107,7 +125,9 @@ const collectSummary = (report) => {
             passed += 1;
           } else if (outcome === 'failed' || outcome === 'flaky') {
             failed += 1;
-            const projectPrefix = test?.projectName ? `[${test.projectName}] ` : '';
+            const projectPrefix = test?.projectName
+              ? `[${test.projectName}] `
+              : '';
             failingNames.add(`${projectPrefix}${fullTitle}`.trim());
           }
         }
@@ -116,7 +136,12 @@ const collectSummary = (report) => {
   };
 
   walkSuites(report?.suites ?? []);
-  return { total: passed + failed, passed, failed, failingNames: [...failingNames] };
+  return {
+    total: passed + failed,
+    passed,
+    failed,
+    failingNames: [...failingNames],
+  };
 };
 
 let testExitCode = 1;
@@ -141,10 +166,16 @@ try {
       testExitCode = testResult.code;
       try {
         const report = parsePlaywrightJson(testResult.stdout);
-        if (!report) throw new Error('Playwright JSON report not found in stdout');
+        if (!report)
+          throw new Error('Playwright JSON report not found in stdout');
         summary = collectSummary(report);
       } catch {
-        summary = { total: 0, passed: 0, failed: testExitCode === 0 ? 0 : 1, failingNames: [] };
+        summary = {
+          total: 0,
+          passed: 0,
+          failed: testExitCode === 0 ? 0 : 1,
+          failingNames: [],
+        };
       }
     }
   }
@@ -153,12 +184,17 @@ try {
   if (downResult.code !== 0) {
     teardownFailed = true;
   }
-  logStream.end();
+  await new Promise((resolve) => logStream.end(resolve));
 }
 
 const exitCode = setupFailed || teardownFailed ? 1 : testExitCode;
 if (setupFailed) {
-  summary = { total: 0, passed: 0, failed: 1, failingNames: ['e2e setup failed'] };
+  summary = {
+    total: 0,
+    passed: 0,
+    failed: 1,
+    failingNames: ['e2e setup failed'],
+  };
 }
 if (teardownFailed && !summary.failingNames.includes('e2e teardown failed')) {
   summary.failed += 1;

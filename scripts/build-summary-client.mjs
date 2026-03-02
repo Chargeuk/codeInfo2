@@ -11,7 +11,10 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const rootDir = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '..',
+);
 const resultsDir = path.join(rootDir, 'logs', 'test-summaries');
 const logPath = path.join(resultsDir, 'build-client-latest.log');
 
@@ -26,13 +29,24 @@ const run = (cmd, args, cwd) =>
     });
 
     let output = '';
+    let settled = false;
+    const finish = (code) => {
+      if (settled) return;
+      settled = true;
+      resolve({ code: code ?? 1, output });
+    };
     child.stdout.on('data', (chunk) => {
       output += chunk.toString();
     });
     child.stderr.on('data', (chunk) => {
       output += chunk.toString();
     });
-    child.on('close', (code) => resolve({ code: code ?? 1, output }));
+    child.on('error', (err) => {
+      const message = err?.message ?? String(err);
+      output += `\nSpawn error: ${message}\n`;
+      finish(1);
+    });
+    child.on('close', (code) => finish(code));
   });
 
 const stripAnsi = (value) => value.replace(/\x1B\[[0-?]*[ -/]*[@-~]/g, '');
@@ -44,7 +58,11 @@ const countWarnings = (output) => {
   for (const rawLine of lines) {
     const line = rawLine.trim();
     if (!line) continue;
-    if (/\bwarning\b/i.test(line) || /warning TS\d+:/i.test(line) || /\bnpm warn\b/i.test(line)) {
+    if (
+      /\bwarning\b/i.test(line) ||
+      /warning TS\d+:/i.test(line) ||
+      /\bnpm warn\b/i.test(line)
+    ) {
       warningLines.add(line);
     }
   }
@@ -52,7 +70,11 @@ const countWarnings = (output) => {
   return warningLines.size;
 };
 
-const result = await run('npm', ['run', 'build', '--workspace', 'client'], rootDir);
+const result = await run(
+  'npm',
+  ['run', 'build', '--workspace', 'client'],
+  rootDir,
+);
 writeFileSync(logPath, result.output, 'utf8');
 
 const warningCount = countWarnings(result.output);

@@ -646,6 +646,11 @@ test('cancel_inflight with invalid inflightId yields turn_final failed INFLIGHT_
 
     assert.equal(final.status, 'failed');
     assert.equal(final.error?.code, 'INFLIGHT_NOT_FOUND');
+    assert.ok(
+      query({
+        text: `[DEV-0000038][T1] ABORT_AGENT_RUN_REQUESTED conversationId=${conversationId}`,
+      }).length > 0,
+    );
   } finally {
     await closeWs(ws);
     await stopServer(server);

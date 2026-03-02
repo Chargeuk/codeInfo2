@@ -1240,20 +1240,16 @@ test('T18 unknown-key policy is warning+pass-through across REST, flow, and MCP 
       'ignored',
     );
     assert.equal(
-      (
-        (baselineRuntimeConfig.features as Record<string, unknown> | undefined)
-          ?.unknown_feature_flag as boolean | undefined
-      ) ?? undefined,
+      ((baselineRuntimeConfig.features as Record<string, unknown> | undefined)
+        ?.unknown_feature_flag as boolean | undefined) ?? undefined,
       true,
     );
     assert.equal(
-      (
-        (
-          baselineRuntimeConfig.projects as
-            | Record<string, Record<string, unknown>>
-            | undefined
-        )?.['/shared']?.project_unknown as string | undefined
-      ) ?? undefined,
+      ((
+        baselineRuntimeConfig.projects as
+          | Record<string, Record<string, unknown>>
+          | undefined
+      )?.['/shared']?.project_unknown as string | undefined) ?? undefined,
       'ignored',
     );
     assert.deepEqual(

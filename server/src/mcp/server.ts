@@ -249,6 +249,7 @@ const baseToolDefinitions = [
               'id',
               'containerPath',
               'hostPath',
+              'status',
               'counts',
               'embeddingProvider',
               'embeddingModel',
@@ -263,6 +264,14 @@ const baseToolDefinitions = [
               containerPath: { type: 'string' },
               hostPath: { type: 'string' },
               hostPathWarning: { type: 'string' },
+              status: {
+                type: 'string',
+                enum: ['ingesting', 'completed', 'cancelled', 'error'],
+              },
+              phase: {
+                type: 'string',
+                enum: ['queued', 'scanning', 'embedding'],
+              },
               lastIngestAt: { type: ['string', 'null'], format: 'date-time' },
               embeddingProvider: {
                 type: 'string',
@@ -334,7 +343,7 @@ const baseToolDefinitions = [
   {
     name: 'reingest_repository',
     description:
-      'Start a re-embed run for an already ingested repository root by sourceId.',
+      'Run a blocking re-embed for an already ingested repository root by sourceId and return terminal status.',
     inputSchema: {
       type: 'object',
       additionalProperties: false,
@@ -349,12 +358,27 @@ const baseToolDefinitions = [
     },
     outputSchema: {
       type: 'object',
-      required: ['status', 'operation', 'runId', 'sourceId'],
+      required: [
+        'status',
+        'operation',
+        'runId',
+        'sourceId',
+        'durationMs',
+        'files',
+        'chunks',
+        'embedded',
+        'errorCode',
+      ],
       properties: {
-        status: { type: 'string', enum: ['started'] },
+        status: { type: 'string', enum: ['completed', 'cancelled', 'error'] },
         operation: { type: 'string', enum: ['reembed'] },
         runId: { type: 'string' },
         sourceId: { type: 'string' },
+        durationMs: { type: 'number', minimum: 0 },
+        files: { type: 'number' },
+        chunks: { type: 'number' },
+        embedded: { type: 'number' },
+        errorCode: { type: ['string', 'null'] },
       },
       additionalProperties: false,
     },
@@ -716,8 +740,24 @@ export function createMcpRouter(
                     payload.schemaVersion ?? INGEST_REPO_SCHEMA_VERSION,
                 },
               });
+              const normalizedPayload = {
+                ...payload,
+                repos: payload.repos.map((repo) => {
+                  const status = repo.status ?? 'completed';
+                  const phase = status === 'ingesting' ? repo.phase : undefined;
+                  return {
+                    ...repo,
+                    status,
+                    ...(phase ? { phase } : {}),
+                  };
+                }),
+                schemaVersion:
+                  payload.schemaVersion ?? INGEST_REPO_SCHEMA_VERSION,
+              };
               return jsonRpcResult(id as never, {
-                content: [{ type: 'text', text: JSON.stringify(payload) }],
+                content: [
+                  { type: 'text', text: JSON.stringify(normalizedPayload) },
+                ],
               }) as JsonRpcLikeResponse;
             }
 

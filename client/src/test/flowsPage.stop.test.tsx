@@ -282,7 +282,7 @@ describe('Flows page stop control', () => {
     });
   });
 
-  it('sends cancel_inflight over WS when stopping a flow run', async () => {
+  it('sends cancel_inflight over WS with inflightId when stopping a flow run', async () => {
     const user = userEvent.setup();
     const now = new Date().toISOString();
 

@@ -286,6 +286,167 @@ test('WS subscribe_conversation missing conversationId is rejected', async () =>
   }
 });
 
+test('WS cancel_inflight accepts payload with conversationId only', async () => {
+  const server = await startServer();
+  const baseUrl = `http://127.0.0.1:${server.port}`;
+  const ws = await connectWs({ baseUrl });
+
+  try {
+    sendJson(ws, { type: 'subscribe_conversation', conversationId: 'c-only' });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    sendJson(ws, {
+      type: 'cancel_inflight',
+      conversationId: 'c-only',
+    });
+
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    assert.equal(ws.readyState, WebSocket.OPEN);
+    assert.ok(
+      query({
+        text: '[DEV-0000038][T1] CANCEL_INFLIGHT_RECEIVED conversationId=c-only inflightId=none',
+      }).length > 0,
+    );
+  } finally {
+    await closeWs(ws);
+    await stopServer(server);
+  }
+});
+
+test('WS cancel_inflight accepts payload with conversationId and inflightId', async () => {
+  const server = await startServer();
+  const baseUrl = `http://127.0.0.1:${server.port}`;
+  const ws = await connectWs({ baseUrl });
+
+  try {
+    sendJson(ws, { type: 'subscribe_conversation', conversationId: 'c-both' });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    sendJson(ws, {
+      type: 'cancel_inflight',
+      conversationId: 'c-both',
+      inflightId: 'i-both',
+    });
+
+    const final = await waitForEvent({
+      ws,
+      predicate: (
+        payload,
+      ): payload is { type: string; error?: { code?: string } } =>
+        typeof payload === 'object' &&
+        payload !== null &&
+        (payload as { type?: string }).type === 'turn_final',
+      timeoutMs: 1000,
+    });
+    assert.equal(final.error?.code, 'INFLIGHT_NOT_FOUND');
+  } finally {
+    await closeWs(ws);
+    await stopServer(server);
+  }
+});
+
+test('WS cancel_inflight rejects malformed payloads', async () => {
+  {
+    const server = await startServer();
+    const ws = new WebSocket(`ws://127.0.0.1:${server.port}/ws`);
+    try {
+      await new Promise<void>((resolve, reject) => {
+        ws.once('open', () => resolve());
+        ws.once('error', reject);
+      });
+      ws.send(
+        JSON.stringify({
+          protocolVersion: 'v1',
+          requestId: 'req-malformed-1',
+          type: 'cancel_inflight',
+        }),
+      );
+      const closed = await waitForClose(ws);
+      assert.equal(closed.code, 1008);
+    } finally {
+      await stopServer(server);
+    }
+  }
+
+  {
+    const server = await startServer();
+    const ws = new WebSocket(`ws://127.0.0.1:${server.port}/ws`);
+    try {
+      await new Promise<void>((resolve, reject) => {
+        ws.once('open', () => resolve());
+        ws.once('error', reject);
+      });
+      ws.send(
+        JSON.stringify({
+          protocolVersion: 'v1',
+          requestId: 'req-malformed-2',
+          type: 'cancel_inflight',
+          conversationId: 'c1',
+          inflightId: '',
+        }),
+      );
+      const closed = await waitForClose(ws);
+      assert.equal(closed.code, 1008);
+    } finally {
+      await stopServer(server);
+    }
+  }
+});
+
+test('WS conversation-only cancel does not emit INFLIGHT_NOT_FOUND turn_final', async () => {
+  const server = await startServer();
+  const baseUrl = `http://127.0.0.1:${server.port}`;
+  const ws = await connectWs({ baseUrl });
+  const conversationId = 'c-no-inflight-final';
+
+  try {
+    sendJson(ws, { type: 'subscribe_conversation', conversationId });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    sendJson(ws, { type: 'cancel_inflight', conversationId });
+
+    await assert.rejects(
+      waitForEvent({
+        ws,
+        predicate: (
+          payload,
+        ): payload is { type: string; error?: { code?: string } } =>
+          typeof payload === 'object' &&
+          payload !== null &&
+          (payload as { type?: string }).type === 'turn_final',
+        timeoutMs: 300,
+      }),
+    );
+  } finally {
+    await closeWs(ws);
+    await stopServer(server);
+  }
+});
+
+test('WS conversation-only cancel attempts command abort by conversationId', async () => {
+  const server = await startServer();
+  const baseUrl = `http://127.0.0.1:${server.port}`;
+  const ws = await connectWs({ baseUrl });
+  const conversationId = 'c-conversation-only-abort';
+
+  try {
+    sendJson(ws, { type: 'subscribe_conversation', conversationId });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    sendJson(ws, { type: 'cancel_inflight', conversationId });
+    await new Promise((resolve) => setTimeout(resolve, 25));
+
+    assert.ok(
+      query({
+        text: `[DEV-0000038][T1] ABORT_AGENT_RUN_REQUESTED conversationId=${conversationId}`,
+      }).length > 0,
+    );
+  } finally {
+    await closeWs(ws);
+    await stopServer(server);
+  }
+});
+
 test('publishTurnFinal omits usage/timing when not provided', async () => {
   const server = await startServer();
   const baseUrl = `http://127.0.0.1:${server.port}`;

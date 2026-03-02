@@ -14,6 +14,15 @@ beforeEach(() => {
   (
     globalThis as unknown as { __wsMock?: { reset: () => void } }
   ).__wsMock?.reset();
+  (
+    globalThis as unknown as {
+      __codeinfoDebug?: { dev0000038Markers?: boolean };
+    }
+  ).__codeinfoDebug = undefined;
+});
+
+afterEach(() => {
+  jest.restoreAllMocks();
 });
 
 const { default: App } = await import('../App');
@@ -34,6 +43,7 @@ const routes = [
 describe('Agents page - abort command execute', () => {
   it('Stop sends WS cancel_inflight but does not abort the command start request', async () => {
     const user = userEvent.setup();
+    const infoSpy = jest.spyOn(console, 'info').mockImplementation(() => {});
     const wsRegistry = (
       globalThis as unknown as {
         __wsMock?: {
@@ -192,12 +202,23 @@ describe('Agents page - abort command execute', () => {
           msg.inflightId === 'i1',
       ),
     ).toBe(true);
+    const markerCalls = infoSpy.mock.calls.filter((call) =>
+      String(call[0] ?? '').includes('[DEV-0000038][T2]'),
+    );
+    expect(markerCalls).toHaveLength(0);
+    infoSpy.mockRestore();
   });
 
-  it('Stop before inflight id is known does not send WS cancel_inflight', async () => {
+  it('Stop before inflight id is known sends WS cancel_inflight by conversation only', async () => {
     let resolveCommandStart: ((res: Response) => void) | null = null;
 
     const user = userEvent.setup();
+    const infoSpy = jest.spyOn(console, 'info').mockImplementation(() => {});
+    (
+      globalThis as unknown as {
+        __codeinfoDebug?: { dev0000038Markers?: boolean };
+      }
+    ).__codeinfoDebug = { dev0000038Markers: true };
     const wsRegistry = (
       globalThis as unknown as {
         __wsMock?: { instances: Array<{ sent: string[] }> };
@@ -310,6 +331,155 @@ describe('Agents page - abort command execute', () => {
         return {};
       }
     });
-    expect(sent.some((msg) => msg.type === 'cancel_inflight')).toBe(false);
+    const subscribeMsg = sent.find(
+      (msg) => msg.type === 'subscribe_conversation',
+    );
+    const conversationId =
+      subscribeMsg && typeof subscribeMsg.conversationId === 'string'
+        ? subscribeMsg.conversationId
+        : '';
+    expect(conversationId).toBeTruthy();
+
+    const cancelMessage = sent.find((msg) => msg.type === 'cancel_inflight');
+    expect(cancelMessage).toMatchObject({
+      type: 'cancel_inflight',
+      conversationId,
+    });
+    expect(cancelMessage).not.toHaveProperty('inflightId');
+    const markerCalls = infoSpy.mock.calls.filter((call) =>
+      String(call[0] ?? '').includes('[DEV-0000038][T2]'),
+    );
+    expect(markerCalls.length).toBeGreaterThanOrEqual(2);
+    infoSpy.mockRestore();
+  });
+
+  it('Stop with no active conversation does not send cancel_inflight and does not throw', async () => {
+    let resolveCommandStart: ((res: Response) => void) | null = null;
+    const user = userEvent.setup();
+    const wsRegistry = (
+      globalThis as unknown as {
+        __wsMock?: {
+          instances: Array<{ sent: string[] }>;
+        };
+      }
+    ).__wsMock;
+    const randomUuidSpy = jest
+      .spyOn(globalThis.crypto, 'randomUUID')
+      .mockReturnValue('');
+
+    mockFetch.mockImplementation(
+      (url: RequestInfo | URL, init?: RequestInit) => {
+        void init;
+        const target = typeof url === 'string' ? url : url.toString();
+
+        if (target.includes('/health')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ mongoConnected: true }),
+          } as Response);
+        }
+
+        if (target.includes('/agents') && !target.includes('/commands')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ agents: [{ name: 'a1' }] }),
+          } as Response);
+        }
+
+        if (
+          target.includes('/agents/a1/commands') &&
+          !target.includes('/run')
+        ) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({
+              commands: [
+                {
+                  name: 'improve_plan',
+                  description: 'd',
+                  disabled: false,
+                },
+              ],
+            }),
+          } as Response);
+        }
+
+        if (target.includes('/agents/a1/commands/run')) {
+          return new Promise((resolve) => {
+            resolveCommandStart = resolve;
+          });
+        }
+
+        if (target.includes('/conversations')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: async () => ({ items: [] }),
+          } as Response);
+        }
+
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: async () => ({}),
+        } as Response);
+      },
+    );
+
+    try {
+      const router = createMemoryRouter(routes, {
+        initialEntries: ['/agents'],
+      });
+      render(<RouterProvider router={router} />);
+
+      const commandSelect = await screen.findByRole('combobox', {
+        name: /command/i,
+      });
+      await waitFor(() => expect(commandSelect).toBeEnabled());
+      await user.click(commandSelect);
+      const option = await screen.findByTestId(
+        'agent-command-option-improve_plan::local',
+      );
+      await user.click(option);
+      await user.keyboard('{Escape}');
+
+      const execute = await screen.findByTestId('agent-command-execute');
+      await waitFor(() => expect(execute).toBeEnabled());
+      await user.click(execute);
+
+      const stopButton = await screen.findByTestId('agent-stop');
+      await waitFor(() => expect(stopButton).toBeEnabled());
+      await expect(user.click(stopButton)).resolves.toBeUndefined();
+
+      expect(resolveCommandStart).not.toBeNull();
+      await act(async () => {
+        resolveCommandStart?.({
+          ok: true,
+          status: 202,
+          json: async () => ({
+            status: 'started',
+            agentName: 'a1',
+            commandName: 'improve_plan',
+            conversationId: '',
+            modelId: 'm1',
+          }),
+        } as Response);
+      });
+
+      const ws = wsRegistry?.instances?.at(-1);
+      const sent = (ws?.sent ?? []).map((entry) => {
+        try {
+          return JSON.parse(entry) as Record<string, unknown>;
+        } catch {
+          return {};
+        }
+      });
+      expect(sent.some((msg) => msg.type === 'cancel_inflight')).toBe(false);
+    } finally {
+      randomUuidSpy.mockRestore();
+    }
   });
 });

@@ -1,5 +1,66 @@
 ﻿# Project Structure (full tree)
 
+## Story 0000038 Tasks 1-7 structural change ledger
+
+Added files:
+
+- `docs/developer-reference.md`
+
+Removed files:
+
+- None.
+
+Renamed files:
+
+- None.
+
+Modified files (implementation traceability):
+
+- `client/src/components/ingest/RootsTable.tsx`
+- `client/src/hooks/useChatWs.ts`
+- `client/src/hooks/useIngestRoots.ts`
+- `client/src/pages/AgentsPage.tsx`
+- `client/src/test/agentsPage.commandsRun.abort.test.tsx`
+- `client/src/test/agentsPage.conversationSelection.test.tsx`
+- `client/src/test/agentsPage.navigateAway.keepsRun.test.tsx`
+- `client/src/test/agentsPage.sidebarActions.test.tsx`
+- `client/src/test/chatPage.stop.test.tsx`
+- `client/src/test/flowsPage.stop.test.tsx`
+- `client/src/test/ingestRoots.test.tsx`
+- `client/src/test/ingestStatus.test.tsx`
+- `client/src/test/useChatWs.test.ts`
+- `client/src/test/useIngestRoots.test.tsx`
+- `common/src/lmstudio.ts`
+- `design.md`
+- `openapi.json`
+- `server/src/agents/commandsRunner.ts`
+- `server/src/ingest/ingestJob.ts`
+- `server/src/ingest/reingestService.ts`
+- `server/src/lmstudio/toolService.ts`
+- `server/src/mcp/server.ts`
+- `server/src/mcp2/tools/reingestRepository.ts`
+- `server/src/routes/ingestRoots.ts`
+- `server/src/test/features/ingest-delta-reembed.feature`
+- `server/src/test/features/ingest-logging.feature`
+- `server/src/test/integration/agents-run-client-conversation-id.test.ts`
+- `server/src/test/integration/mcp-ingested-repositories.test.ts`
+- `server/src/test/steps/ingest-delta-reembed.steps.ts`
+- `server/src/test/steps/ingest-manage.steps.ts`
+- `server/src/test/unit/agent-commands-runner-abort-retry.test.ts`
+- `server/src/test/unit/ingest-ast-indexing.test.ts`
+- `server/src/test/unit/ingest-roots-dedupe.test.ts`
+- `server/src/test/unit/mcp-ingested-repositories.test.ts`
+- `server/src/test/unit/mcp.keepalive.helper.test.ts`
+- `server/src/test/unit/mcp.reingest.classic.test.ts`
+- `server/src/test/unit/mcp2.reingest.tool.test.ts`
+- `server/src/test/unit/openapi.contract.test.ts`
+- `server/src/test/unit/reingestService.test.ts`
+- `server/src/test/unit/tools-ingested-repos.test.ts`
+- `server/src/test/unit/ws-chat-stream.test.ts`
+- `server/src/test/unit/ws-server.test.ts`
+- `server/src/ws/server.ts`
+- `server/src/ws/types.ts`
+
 Tree covers all tracked files (excluding `.git`, `node_modules`, `dist`). Keep this in sync whenever files are added/removed/renamed; each line has a brief comment.
 
 ```

@@ -44,7 +44,7 @@ export type WsClientUnsubscribeConversation = WsClientBase & {
 export type WsClientCancelInflight = WsClientBase & {
   type: 'cancel_inflight';
   conversationId: string;
-  inflightId: string;
+  inflightId?: string;
 };
 
 export type WsClientKnownMessage =
@@ -195,11 +195,15 @@ export function parseClientMessage(payload: unknown): WsParseResult {
           message: 'conversationId is required for cancel_inflight.',
         };
       }
-      if (!nonEmptyString(parsed.inflightId)) {
+      if (
+        parsed.inflightId !== undefined &&
+        !nonEmptyString(parsed.inflightId)
+      ) {
         return {
           ok: false,
           code: 'VALIDATION_FAILED',
-          message: 'inflightId is required for cancel_inflight.',
+          message:
+            'inflightId must be a non-empty string when provided for cancel_inflight.',
         };
       }
       return {
@@ -208,7 +212,9 @@ export function parseClientMessage(payload: unknown): WsParseResult {
           ...base,
           type: 'cancel_inflight',
           conversationId: parsed.conversationId,
-          inflightId: parsed.inflightId,
+          ...(parsed.inflightId !== undefined
+            ? { inflightId: parsed.inflightId }
+            : {}),
         },
       };
     }

@@ -67,6 +67,53 @@ This story is intentionally scoped as a contract-alignment story across existing
 26. Active overlay precedence is explicit: when a run is active, overlay fields (`status`, `phase`, live counters, active `runId`) come from active runtime status, while last completed metadata (`lastIngestAt`, lock/model metadata, last terminal error context) remains from persisted root metadata unless replaced by a newer terminal write.
 27. If persisted root metadata is temporarily absent during re-embed but an active run exists for that root path/sourceId, listings still include that repository using a synthesized entry plus active overlay fields.
 
+## Message Contracts And Storage Shapes
+
+Validated from current code contracts and persisted metadata usage on 2026-03-02 via `code_info`, `deepwiki`, and `context7`.
+
+### Contract Changes Required
+
+1. MCP tool `reingest_repository` success result (classic MCP and MCP v2):
+   - Change from immediate non-terminal payload:
+     - `{ status: "started", operation: "reembed", runId, sourceId }`
+   - To terminal-only payload:
+     - `status: "completed" | "cancelled" | "error"`
+     - `operation: "reembed"`
+     - `runId: string`
+     - `sourceId: string`
+     - `durationMs: number`
+     - `files: number`
+     - `chunks: number`
+     - `embedded: number`
+     - `errorCode: string | null` (`null` unless `status="error"`)
+   - Pre-run validation errors remain protocol-level JSON-RPC errors (`INVALID_PARAMS`, `NOT_FOUND`, `BUSY`) and are not converted in this story.
+
+2. Repository listing payloads (`/ingest/roots` and MCP `ListIngestedRepositories`):
+   - Introduce explicit external run-state fields for both surfaces:
+     - `status: "ingesting" | "completed" | "cancelled" | "error"`
+     - `phase?: "queued" | "scanning" | "embedding"` (present only when `status="ingesting"`)
+   - Active overlay fields come from runtime status (`status`, `phase`, live counters, active `runId`) while last completed metadata remains from persisted roots metadata.
+   - Internal terminal `skipped` is not emitted externally; map it to external `status: "completed"`.
+   - `phase` is omitted (not null/empty) for terminal statuses.
+
+3. Schema version signaling:
+   - Bump ingest listing `schemaVersion` (shared constant used by `/ingest/roots` and MCP `ListIngestedRepositories`) to represent status/phase contract expansion.
+
+### Contracts That Stay Unchanged
+
+- WS ingest event envelope remains unchanged:
+  - `ingest_snapshot` / `ingest_update` with `status: IngestJobStatus | null`.
+- MCP keep-alive transport behavior remains unchanged (heartbeat during long-running `tools/call`).
+- `reingest_repository` input shape remains unchanged (`sourceId` only).
+
+### Storage Shape Impact
+
+- No new persistent store/table/collection is required for this story.
+- Existing persisted ingest root metadata shape is reused (`root`, `state`, counters, timestamps, lock/model fields, error fields, AST counters).
+- Compatibility rule for existing persisted rows:
+  - legacy persisted `state: "skipped"` is normalized to external `status: "completed"` at read/contract mapping time.
+- If active runtime status exists while persisted root metadata is temporarily absent, listing responses synthesize the repository entry from active runtime state plus known root/source identity (no new persistent schema required).
+
 ### Out Of Scope
 
 - Introducing user-selectable MCP options for blocking vs non-blocking re-embed.

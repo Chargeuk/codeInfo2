@@ -2607,3 +2607,34 @@ Re-run end-to-end verification of AC1-AC28 after post-review hardening tasks com
 - Testing 7: `npm run compose:up` completed successfully; compose services were confirmed running and healthy for final host-mapped manual verification.
 - Testing 8: Manual host-mapped verification completed at `http://host.docker.internal:5001` with debug gate enabled (`localStorage['codeinfo.dev0000038.markers']='true'` and `window.__codeinfoDebug.dev0000038Markers=true`); fresh artifacts captured at `test-results/screenshots/0000038-task12-agents-active-edit.png`, `test-results/screenshots/0000038-task12-ingest-page.png`, `test-results/screenshots/0000038-task12-mcp-classic-terminal.json`, `test-results/screenshots/0000038-task12-mcp-v2-terminal.json`, and `test-results/screenshots/0000038-task12-marker-evidence.log`. Console evidence included fresh T2/T3/T7 markers (`STOP_CLICK`/`CANCEL_INFLIGHT_SENT`, `AGENTS_INPUT_EDITABLE_WHILE_ACTIVE`, `AGENTS_CONVERSATION_SWITCH_ALLOWED`, `INGEST_UI_ROW_RENDER`, `INGEST_UI_TERMINAL_PHASE_HIDDEN`) and only baseline resource-load errors (`ERR_SOCKET_NOT_CONNECTED`/`ERR_CONNECTION_REFUSED`/favicon 404) with no app crash exceptions.
 - Testing 9: `npm run compose:down` completed successfully; compose containers and network were removed cleanly after final manual verification.
+
+---
+
+## Post-Implementation Code Review (2026-03-02)
+
+### Review Scope
+
+- Compared this branch against `main` using file-level and hunk-level diff review (`git diff main...HEAD`) across server, client, common contracts, OpenAPI, tests, scripts, and planning/docs updates.
+- Reviewed acceptance-critical surfaces directly in code:
+  - Agents stop/cancel race handling (`server/src/ws/*`, `server/src/agents/commandsRunner.ts`, `client/src/hooks/useChatWs.ts`, `client/src/pages/AgentsPage.tsx`).
+  - Blocking `reingest_repository` contract and MCP classic/v2 parity (`server/src/ingest/reingestService.ts`, `server/src/mcp/server.ts`, `server/src/mcp2/*`).
+  - Ingest listing overlay/status-phase mapping and schema signaling (`server/src/lmstudio/toolService.ts`, `server/src/routes/ingestRoots.ts`, `common/src/lmstudio.ts`, `openapi.json`, `client/src/hooks/useIngestRoots.ts`, `client/src/components/ingest/RootsTable.tsx`).
+  - No-change early return and successful terminal normalization (`server/src/ingest/ingestJob.ts`).
+  - Post-review hardening deltas for runtime-config safety and marker gating (`server/src/config/runtimeConfig.ts`, related tests, and client/server marker-gate usage).
+
+### Quality, Security, and Maintainability Assessment
+
+- No blocking code-quality, security, or acceptance-criteria regressions were identified in the current branch state.
+- Runtime-config hardening now guards unsafe object keys and uses null-prototype records in the targeted forward-compat preservation paths.
+- High-volume DEV-0000038 marker logging is gated behind explicit debug controls on both server and client paths, reducing default runtime noise while preserving deterministic QA visibility when enabled.
+- MCP classic and MCP v2 `reingest_repository` terminal contracts remain aligned with terminal-only behavior and pre-run protocol-error boundaries.
+- Ingest status/phase external mapping and schema-version signaling remain consistent between `/ingest/roots` and classic listing surfaces.
+
+### Acceptance Criteria Review Result
+
+- AC1-AC28 are considered satisfied based on implemented code paths and the existing completed Task 9 + Task 12 verification evidence recorded in this plan.
+- No additional remediation tasks were added from this review.
+
+### Notes
+
+- This review is a static code-and-contract review pass against branch diffs and recorded verification evidence; no new test executions were run as part of this specific review step.

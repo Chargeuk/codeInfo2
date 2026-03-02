@@ -674,7 +674,7 @@ Consume Task 1’s server message-contract update in the Agents UI so Stop alway
 2. [ ] `npm run test:summary:client` - If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`) and resolve listed failures.
 3. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find failing target(s).
 4. [ ] `npm run compose:up`
-5. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`; verify `[DEV-0000038][T2] STOP_CLICK ...` and `[DEV-0000038][T2] CANCEL_INFLIGHT_SENT ...` appear once per stop click, with `inflightId=none` when missing and populated `inflightId` when present, and verify browser debug console has no unexpected errors.
+5. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`; verify `[DEV-0000038][T2] STOP_CLICK ...` and `[DEV-0000038][T2] CANCEL_INFLIGHT_SENT ...` appear once per stop click, with `inflightId=none` when missing and populated `inflightId` when present, capture screenshots showing both no-inflight-id and inflight-id-present stop states, review those screenshots against expected UI/button state and message flow, save screenshots under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped via `docker-compose.local.yml`), and verify browser debug console has no unexpected errors.
 6. [ ] `npm run compose:down`
 Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
@@ -795,7 +795,7 @@ Limit active-run UI restrictions to submit/execute controls only. Keep instructi
 2. [ ] `npm run test:summary:client` - If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`) and resolve listed failures.
 3. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find failing target(s).
 4. [ ] `npm run compose:up`
-5. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`; verify `[DEV-0000038][T3] AGENTS_INPUT_EDITABLE_WHILE_ACTIVE runActive=true` appears when editing during active run and `[DEV-0000038][T3] AGENTS_CONVERSATION_SWITCH_ALLOWED from=<id> to=<id>` appears on sidebar switch, and verify browser debug console has no unexpected errors.
+5. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`; verify `[DEV-0000038][T3] AGENTS_INPUT_EDITABLE_WHILE_ACTIVE runActive=true` appears when editing during active run and `[DEV-0000038][T3] AGENTS_CONVERSATION_SWITCH_ALLOWED from=<id> to=<id>` appears on sidebar switch, capture screenshots proving editable input and successful sidebar switch while run remains active, review screenshots against expected lock-scope behavior (submit disabled while input/sidebar remain usable), save screenshots under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped via `docker-compose.local.yml`), and verify browser debug console has no unexpected errors.
 6. [ ] `npm run compose:down`
 Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
@@ -1693,7 +1693,7 @@ Align Ingest page data normalization/rendering with server contract updates so a
 4. [ ] `npm run test:summary:client` - If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`) and resolve listed failures.
 5. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find failing target(s).
 6. [ ] `npm run compose:up`
-7. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`; verify `[DEV-0000038][T7] INGEST_UI_ROW_RENDER ...` is emitted for active and terminal rows, verify `[DEV-0000038][T7] INGEST_UI_TERMINAL_PHASE_HIDDEN ...` appears for `completed|cancelled|error`, and verify browser debug console has no unexpected errors.
+7. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`; verify `[DEV-0000038][T7] INGEST_UI_ROW_RENDER ...` is emitted for active and terminal rows, verify `[DEV-0000038][T7] INGEST_UI_TERMINAL_PHASE_HIDDEN ...` appears for `completed|cancelled|error`, capture screenshots for ingesting, completed, cancelled, and error UI states, review screenshots to confirm phase is shown only for ingesting and hidden for terminal statuses, save screenshots under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped via `docker-compose.local.yml`), and verify browser debug console has no unexpected errors.
 8. [ ] `npm run compose:down`
 Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
@@ -1800,7 +1800,7 @@ Update story-adjacent documentation so junior developers can understand final st
 4. [ ] `npm run test:summary:client` - If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`) and resolve listed failures.
 5. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find failing target(s).
 6. [ ] `npm run compose:up`
-7. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`; execute one representative stop flow and one ingest flow, verify each documented marker from `[DEV-0000038][T1]` through `[DEV-0000038][T7]` appears with expected fields/counts, and record `[DEV-0000038][T8] DOC_LOG_REFERENCE_VALIDATED marker=<...>` entries in verification evidence for each validated marker family.
+7. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`; execute one representative stop flow and one ingest flow, verify each documented marker from `[DEV-0000038][T1]` through `[DEV-0000038][T7]` appears with expected fields/counts, capture one screenshot per representative GUI flow and review it against the documentation expectations being validated, save screenshots under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped via `docker-compose.local.yml`), and record `[DEV-0000038][T8] DOC_LOG_REFERENCE_VALIDATED marker=<...>` entries in verification evidence for each validated marker family.
 8. [ ] `npm run compose:down`
 Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
@@ -2070,7 +2070,7 @@ Perform end-to-end verification of all acceptance criteria after Tasks 1-8 are c
 5. [ ] `timeout 7m npm run test:summary:e2e` - If `failed > 0` OR setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log` and resolve root causes before rerunning.
 6. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`; validate final regression checklist by asserting all marker families `[DEV-0000038][T1]` to `[DEV-0000038][T7]` appear in the expected flows with correct ids/status fields and expected counts, record `[DEV-0000038][T9] FINAL_REGRESSION_LOG_ASSERTION_PASSED markerFamily=<...> count=<n>` entries in verification evidence, and verify no unexpected browser debug-console errors are logged.
+8. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`; validate final regression checklist by asserting all marker families `[DEV-0000038][T1]` to `[DEV-0000038][T7]` appear in the expected flows with correct ids/status fields and expected counts, capture screenshots for every acceptance criterion that is GUI-verifiable (including happy path, error states, and corner cases), review each screenshot against the expected UI outcomes in this story, save screenshots under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped via `docker-compose.local.yml`), record `[DEV-0000038][T9] FINAL_REGRESSION_LOG_ASSERTION_PASSED markerFamily=<...> count=<n>` entries in verification evidence, and verify no unexpected browser debug-console errors are logged.
 9. [ ] `npm run compose:down`
 Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 

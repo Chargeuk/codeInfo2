@@ -17,3 +17,86 @@ Note that the following steps only need to be performed when you are first worki
 - Create a feature branch for each story (`feature/<number>-<short-description>`) from the currently checked out loction.
 - Each commit should be prefixed with DEV-[Number] - and contain a brief description consisting of 4 or 5 sentences explaining what changed and why.
 - Work only within that branch until every task in the story is complete and working.
+
+## Builds
+### Wrapper-First Workflow
+- Build wrappers exist to keep terminal output compact while preserving complete logs.
+- Use wrapper commands as the default path for day-to-day build checks.
+- Raw underlying commands are documented in header comments in `scripts/*.mjs`; this is reference material for wrapper maintenance and should not normally be needed.
+
+### Build Wrappers
+- `npm run build:summary:server`
+  - Builds the server workspace with compact summary output.
+  - Full log file: `logs/test-summaries/build-server-latest.log`.
+- `npm run build:summary:client`
+  - Builds the client workspace with compact summary output.
+  - Full log file: `logs/test-summaries/build-client-latest.log`.
+- `npm run compose:build:summary`
+  - Runs Docker Compose build with compact summary output.
+  - Full log file: `logs/test-summaries/compose-build-latest.log`.
+
+### Build Failure Diagnosis
+1. Run the relevant wrapper and capture the log path from summary output.
+2. Open the log file and inspect the failing command output.
+3. Fix the failing dependency/config/code and re-run the same wrapper.
+4. If Docker/Compose builds fail due to transient network/cache issues, retry once before deeper investigation.
+
+## Run System
+### Wrapper-First Workflow
+- Compose wrappers are the default way to start/stop local runtime stacks.
+- These wrappers centralize env-file handling and Docker socket/runtime compatibility through `scripts/docker-compose-with-env.sh`.
+- Raw underlying commands are documented in `package.json` scripts and `scripts/docker-compose-with-env.sh`.
+
+### Run Wrappers
+- `npm run compose`
+  - Builds and starts the testing stack using `docker-compose.yml`.
+- `npm run compose:up`
+  - Starts the testing stack (assumes images are already built).
+- `npm run compose:down`
+  - Stops the testing stack.
+- `npm run compose:logs`
+  - Tails testing stack logs.
+
+### Start Full Testing Docker Environment (Preferred Sequence)
+Run these commands from repo root in this order:
+1. `npm run compose:build`
+2. `npm run compose:up`
+
+Shortcut:
+- `npm run compose` (equivalent build + up sequence).
+
+### Stop Full Testing Docker Environment
+Run this command from repo root:
+1. `npm run compose:down`
+
+### Run Failure Diagnosis
+1. Re-run the relevant compose wrapper and capture terminal output.
+2. Tail logs with `npm run compose:logs`
+3. Fix the failing container/config/env issue and re-run the same wrapper.
+
+## Testing
+### Wrapper-First Workflow
+- Test wrappers keep terminal output compact while preserving complete logs for diagnosis.
+- Use wrapper commands as the default test execution path.
+- Raw underlying commands are documented in header comments in `scripts/*.mjs`; this is reference material for wrapper maintenance and should not normally be needed.
+
+### Test Wrappers
+- `npm run test:summary:client`
+  - Runs client test suite with compact summary output.
+  - Full log file: `test-results/client-tests-<timestamp>.log`.
+  - JSON results file: `test-results/client-tests-<timestamp>.json`.
+- `npm run test:summary:server`
+  - Runs server test suite with compact summary output.
+  - Full log file: `test-results/server-tests-<timestamp>.log`.
+- `npm run test:summary:e2e`
+  - Runs e2e flow with setup/build, tests, and teardown.
+  - Full log file: `logs/test-summaries/e2e-tests-latest.log`.
+
+### Targeted Test Runs Policy
+- Summary wrappers do not currently expose targeted file/tag/name arguments.
+- Neither do the underlying scripts, so for now, ALWAYS run the Summary wrappers
+
+### Test Failure Diagnosis
+1. Run the relevant wrapper and capture the log path from summary output.
+2. Open the full log file and locate the failing test block.
+3. Fix the failing code/config/dependency and re-run the full relevant summary wrapper(s).

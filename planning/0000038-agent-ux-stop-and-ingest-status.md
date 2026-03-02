@@ -371,7 +371,7 @@ Validated from existing repository behavior/tests and official documentation ref
 
 ### 1. Server Message Contract: make `cancel_inflight` race-safe and conversation-authoritative
 
-- Task Status: \***\*done\*\***
+- Task Status: **__done__**
 - Git Commits: `672573a`
 
 #### Overview
@@ -588,7 +588,7 @@ Update WebSocket cancel message handling so command-run abort is always attempte
 
 ### 2. Frontend: make Agents stop send `cancel_inflight` by conversation even when `inflightId` is unknown
 
-- Task Status: \***\*done\*\***
+- Task Status: **__done__**
 - Git Commits: `12e1781`
 
 #### Overview
@@ -739,7 +739,7 @@ Consume Task 1’s server message-contract update in the Agents UI so Stop alway
 
 ### 3. Frontend: unblock Agents input editing and sidebar navigation during active runs
 
-- Task Status: \***\*done\*\***
+- Task Status: **__done__**
 - Git Commits: `0c0f764`
 
 #### Overview
@@ -875,7 +875,7 @@ Limit active-run UI restrictions to submit/execute controls only. Keep instructi
 
 ### 4. Server Message Contract: make `reingest_repository` blocking and terminal-only (classic + MCP v2 parity)
 
-- Task Status: \***\*done\*\***
+- Task Status: **__done__**
 - Git Commits: `972027a`
 
 #### Overview
@@ -1254,7 +1254,7 @@ Replace immediate `status: started` reingest results with one terminal payload r
 
 ### 5. Server Message Contract: normalize ingest listing status/phase mapping and active overlay visibility
 
-- Task Status: \***\*done\*\***
+- Task Status: **__done__**
 - Git Commits: `263c7a1`
 
 #### Overview
@@ -1557,7 +1557,7 @@ Apply one shared status/phase mapping and active-overlay merge path for `/ingest
 
 ### 6. Server: move no-change reembed exit ahead of AST and embedding work, and normalize successful terminal status
 
-- Task Status: \***\*done\*\***
+- Task Status: **__done__**
 - Git Commits: `7d77b59`
 
 #### Overview
@@ -1724,7 +1724,7 @@ Ensure no-change delta runs exit before AST parse/upsert/delete and before embed
 
 ### 7. Frontend: consume external ingest `status`/`phase` contract and preserve active repository visibility
 
-- Task Status: \***\*done\*\***
+- Task Status: **__done__**
 - Git Commits: `6cc4f66`
 
 #### Overview
@@ -2063,7 +2063,7 @@ Update story-adjacent documentation so junior developers can understand final st
 
 ### 9. Final verification: full acceptance and regression gate for story 0000038
 
-- Task Status: \***\*to_do\*\***
+- Task Status: **__to_do__**
 - Git Commits: `None yet`
 
 #### Overview

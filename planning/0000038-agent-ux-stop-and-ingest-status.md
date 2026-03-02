@@ -523,6 +523,7 @@ Update WebSocket cancel message handling so command-run abort is always attempte
    - Test location: `server/src/test/unit/ws-chat-stream.test.ts` and `server/src/test/unit/ws-server.test.ts`.
    - Test description: send `cancel_inflight` with stale `inflightId`; assert mismatch semantics remain and command abort is still attempted by conversation.
    - Test purpose: ensure stale inflight identifiers do not bypass conversation-authoritative stop.
+16. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -644,6 +645,7 @@ Consume Task 1’s server message-contract update in the Agents UI so Stop alway
    - Document description: record Task 2 file additions/removals in client hook/page/test paths.
    - Document purpose: keep the repository structure documentation aligned with stop payload implementation changes.
    - Required behavior: update `projectStructure.md` with every file path added or removed by Task 2 (no wildcard summaries), and remove entries for deleted files.
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -752,6 +754,7 @@ Limit active-run UI restrictions to submit/execute controls only. Keep instructi
    - Document description: record Task 3 file additions/removals in Agents page, conversation components, and tests.
    - Document purpose: preserve an accurate project file inventory for active-run UX changes.
    - Required behavior: update `projectStructure.md` with every file path added or removed by Task 3 (no wildcard summaries), and remove entries for deleted files.
+9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -1060,6 +1063,7 @@ Replace immediate `status: started` reingest results with one terminal payload r
    - Test location: `server/src/test/unit/mcp.reingest.classic.test.ts` and `server/src/test/unit/mcp2.reingest.tool.test.ts`.
    - Test description: call `reingest_repository` with unsupported `wait`/`blocking` arguments and assert protocol-level invalid-params errors.
    - Test purpose: enforce non-configurable blocking behavior and prevent interface drift.
+31. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -1305,6 +1309,7 @@ Apply one shared status/phase mapping and active-overlay merge path for `/ingest
    - Test location: `server/src/test/unit/openapi.contract.test.ts`.
    - Test description: assert `/ingest/roots` and `/tools/ingested-repos` OpenAPI schemas include `status`, optional `phase` semantics, and `schemaVersion` expectations aligned with story contract.
    - Test purpose: prevent documentation/runtime drift for external listing contracts.
+25. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -1442,6 +1447,7 @@ Ensure no-change delta runs exit before AST parse/upsert/delete and before embed
    - Document description: record Task 6 file additions/removals across ingest pipeline and BDD/unit test paths.
    - Document purpose: keep the repository structure reference current for ingest-pipeline changes.
    - Required behavior: update `projectStructure.md` with every file path added or removed by Task 6 (no wildcard summaries), and remove entries for deleted files.
+12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -1596,6 +1602,7 @@ Align Ingest page data normalization/rendering with server contract updates so a
    - Document description: record Task 7 file additions/removals across common/client ingest hooks, components, pages, and tests.
    - Document purpose: maintain an accurate file-map reference for ingest UI contract consumption changes.
    - Required behavior: update `projectStructure.md` with every file path added or removed by Task 7 (no wildcard summaries), and remove entries for deleted files.
+14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -1688,6 +1695,7 @@ Update story-adjacent documentation so junior developers can understand final st
    - Document location: `planning/0000038-agent-ux-stop-and-ingest-status.md`.
    - Document description: apply markdown style/format corrections to final story notes.
    - Document purpose: keep planning documentation consistent and machine/human readable.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -1939,6 +1947,7 @@ Perform end-to-end verification of all acceptance criteria after Tasks 1-8 are c
    - Test location: Server targeted test command outputs and linked artifacts.
    - Test description: run parity-focused reingest suites and no-change early-return suites, then record evidence in the AC matrix.
    - Test purpose: ensure the highest-risk cross-surface and early-return paths are explicitly covered by passing automation.
+24. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 

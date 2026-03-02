@@ -88,19 +88,26 @@ Run this command from repo root:
   - Runs client test suite with compact summary output.
   - Full log file: `test-results/client-tests-<timestamp>.log`.
   - JSON results file: `test-results/client-tests-<timestamp>.json`.
-- `npm run test:summary:server`
-  - Runs server test suite with compact summary output.
-  - Full log file: `test-results/server-tests-<timestamp>.log`.
+- `npm run test:summary:server:unit`
+  - Runs server node:test unit/integration suites with compact summary output.
+  - Full log file: `test-results/server-unit-tests-<timestamp>.log`.
+- `npm run test:summary:server:cucumber`
+  - Runs server cucumber feature suites with compact summary output.
+  - Full log file: `test-results/server-cucumber-tests-<timestamp>.log`.
 - `npm run test:summary:e2e`
   - Runs e2e flow with setup/build, tests, and teardown.
   - Full log file: `logs/test-summaries/e2e-tests-latest.log`.
 
 ### Targeted Test Runs Policy
-- Summary wrappers do not currently expose targeted file/tag/name arguments.
-- The underlying test commands in this repository also do not currently support reliable targeted execution; attempted targeted runs still execute full suites.
-- Until targeted execution is fixed, always run the full summary wrappers.
+- Summary wrappers support targeted runs for faster diagnosis:
+  - Client Jest: `--file`, `--subset`, `--test-name`
+  - Server node:test: `test:summary:server:unit` with `--file`, `--test-name`
+  - Server Cucumber: `test:summary:server:cucumber` with `--tags`, `--feature`, `--scenario`
+  - E2E Playwright: `--file`, `--grep`
+- For final validation, run full wrappers with no targeted args.
 
 ### Test Failure Diagnosis
 1. Run the relevant wrapper and capture the log path from summary output.
 2. Open the full log file and locate the failing test block.
-3. Fix the failing code/config/dependency and re-run the full relevant summary wrapper(s).
+3. Fix the failing code/config/dependency and re-run targeted wrappers for diagnosis.
+4. After fixes, re-run full relevant summary wrapper(s) without targeted args.

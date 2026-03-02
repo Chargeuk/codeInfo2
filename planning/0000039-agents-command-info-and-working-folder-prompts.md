@@ -33,6 +33,8 @@ If the user changes `working_folder` at any point, any selected prompt must be c
 - The prompt selector includes an explicit empty option so users can clear/de-select the selected prompt.
 - `Execute Prompt` appears at the end of the prompt selector row and is only enabled when a valid prompt file is selected.
 - Changing the `working_folder` clears any selected prompt immediately before any subsequent execution.
+- If prompt discovery fails (for example permission, path resolution, or inaccessible-directory errors), the `Prompts` area shows a visible inline error state instead of silently hiding the failure.
+- Prompt discovery trigger timing for manually typed `working_folder` values is restricted to blur/Enter events (not live per-keystroke discovery), and discovery also runs after directory picker selection.
 - Executing a prompt sends a user instruction to the selected agent conversation using existing agent run behavior.
 - The executed instruction prepends the exact required preamble text and appends `Here is the file: <full path>` where `<full path>` is the resolved runtime/container path.
 - The prompt file path used for execution is the runtime/container-resolved path (not host-only path text).
@@ -56,8 +58,7 @@ If the user changes `working_folder` at any point, any selected prompt must be c
 
 ### Questions
 
-- If prompt discovery fails (for example permission errors, path resolution errors, or inaccessible directories), should the `Prompts` selector stay hidden silently or show a visible inline error state?
-- For manual typing in `working_folder`, when should prompt discovery trigger: live while typing (with debounce), only on blur/Enter, or only after directory picker selection?
+None.
 
 ## Implementation Ideas
 
@@ -66,6 +67,8 @@ If the user changes `working_folder` at any point, any selected prompt must be c
 - Reuse existing `working_folder` resolution logic to compute runtime/container paths and avoid duplicating host/container mapping logic in the client.
 - Implement case-insensitive `.github/prompts` folder matching by scanning directory entries and matching each segment in a normalized manner.
 - Implement recursive markdown discovery beneath the matched prompts root and return payload entries shaped as `{ relativePath, fullPath }`.
+- Trigger prompt discovery only on `working_folder` blur/Enter and directory-picker selection events; avoid per-keystroke scans to keep UI stable and reduce filesystem churn.
+- Surface prompt discovery failures inline in the prompts UI block so users can distinguish “no prompts found” from “prompt lookup failed.”
 - Keep prompt execution in the client as a thin composition layer: construct instruction text from the fixed preamble + selected `fullPath`, then call existing `runAgentInstruction`.
 - Ensure working-folder edits trigger prompt list refresh and selected prompt invalidation, including manual text edits and directory-picker changes.
 - Add focused client tests for UI gating/interaction and API payload composition, plus server unit tests for prompt discovery and path-handling edge cases.

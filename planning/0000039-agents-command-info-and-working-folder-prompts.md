@@ -15,6 +15,8 @@ This story also adds a prompt-assisted instruction flow based on the selected `w
 
 Prompt files are discovered from the server (not directly from the browser filesystem) so path checks and host/container path resolution happen in one trusted place. The UI only displays prompt paths relative to `.github/prompts/` but stores the resolved runtime/container full path for execution.
 
+Prompt discovery uses a read-only Agents endpoint so the contract stays consistent with existing list-style routes. The endpoint accepts `working_folder` as a query parameter and returns prompt entries shaped as `{ relativePath, fullPath }`, where `relativePath` is UI-safe display text and `fullPath` is runtime/container path used for execution.
+
 When the user clicks `Execute Prompt`, the client sends a standard instruction run using the existing agent run API. The instruction text is the canonical preamble in this plan with `<full path of markdown file>` replaced by the resolved runtime/container path of the selected prompt file.
 
 When `working_folder` changes (typing and committing with blur/Enter, or selecting via directory picker), the current prompt selection is cleared immediately before any further prompt execution is allowed.
@@ -42,24 +44,42 @@ Placeholder replacement rule:
    - committed `working_folder` is non-empty,
    - a `.github/prompts` directory exists under the selected folder (case-insensitive match for `.github` and `prompts` segments),
    - at least one markdown file exists under that directory tree.
-9. Prompt discovery is recursive below `.github/prompts` and includes `.md` files with case-insensitive extension handling (for example, `.md` and `.MD`).
-10. Prompt option labels are relative paths from `.github/prompts/` (for example, `onboarding/start.md`), never absolute host/runtime paths.
-11. The prompts dropdown includes an explicit empty option so users can clear selection after previously choosing a prompt.
-12. `Execute Prompt` is displayed in the prompts row and is disabled unless a valid prompt is selected.
-13. If prompt discovery fails, the prompts row shows an inline error message and does not silently hide the failure.
-14. Changing `working_folder` clears previously discovered prompt selection immediately and keeps `Execute Prompt` disabled until a new valid prompt is selected.
-15. Clicking `Execute Prompt` uses the existing instruction run path (`POST /agents/:agentName/run`) and does not use command-run execution.
-16. The outbound `instruction` string equals:
+9. Prompt discovery endpoint contract is explicitly defined and implemented as:
+   - `GET /agents/:agentName/prompts?working_folder=<absolute path>`
+   - success `200` response body: `{ prompts: Array<{ relativePath: string; fullPath: string }> }`
+   - `relativePath` uses forward slashes (`/`) and is relative to `.github/prompts/`
+   - `fullPath` is the resolved runtime/container absolute path returned by the server.
+10. Prompt discovery request validation/error mapping follows existing Agents route conventions:
+    - invalid/missing `agentName` -> `400 { error: 'invalid_request' }`
+    - invalid `working_folder` shape/path -> `400 { error: 'invalid_request', code: 'WORKING_FOLDER_INVALID', ... }`
+    - unresolved/non-existent `working_folder` -> `400 { error: 'invalid_request', code: 'WORKING_FOLDER_NOT_FOUND', ... }`
+    - agent not found -> `404 { error: 'not_found' }`
+    - unexpected failures -> `500` with existing route-level server error pattern.
+11. Prompt discovery is recursive below `.github/prompts`, includes markdown files with case-insensitive extension handling (`.md`, `.MD`, including names like `foo.prompt.md`), and excludes non-markdown files.
+12. Prompt discovery output is deterministic: prompt entries are sorted ascending by normalized `relativePath` before returning to the client.
+13. Symlink safety is defined: discovery does not follow symlink directories/files when walking prompt trees, preventing traversal loops and cross-root escapes.
+14. Prompt option labels are relative paths from `.github/prompts/` (for example, `onboarding/start.md`), never absolute host/runtime paths.
+15. The prompts dropdown includes an explicit empty option so users can clear selection after previously choosing a prompt.
+16. `Execute Prompt` is displayed in the prompts row and is disabled unless a valid prompt is selected.
+17. If prompt discovery fails for a committed non-empty `working_folder`, the prompts row is shown with an inline error message and does not silently hide the failure.
+18. If discovery succeeds with zero markdown prompt files, the prompts row is hidden (no error state).
+19. Changing `working_folder` clears previously discovered prompt selection immediately and keeps `Execute Prompt` disabled until a new valid prompt is selected.
+20. Clicking `Execute Prompt` uses the existing instruction run path (`POST /agents/:agentName/run`) and does not use command-run execution.
+21. The outbound `instruction` string equals:
     - canonical preamble text from this plan, with `<full path of markdown file>` replaced by the selected prompt runtime/container full path.
-17. The path inserted into the preamble is the runtime/container-resolved full path returned by discovery, not a host-only path string.
-18. Existing agent run behavior remains unchanged for conversation reuse/new conversation creation, run state transitions, transcript streaming, and error handling.
-19. Automated tests must cover:
+22. The path inserted into the preamble is the runtime/container-resolved full path returned by discovery, not a host-only path string.
+23. Existing agent run behavior remains unchanged for conversation reuse/new conversation creation, run state transitions, transcript streaming, and error handling.
+24. Automated tests must cover:
     - command-info visibility, disabled state with no command, and popover opening with selected command,
     - removal of inline command description/default text,
+    - prompt discovery endpoint contract (status codes, payload shape, and error mapping),
     - prompt discovery trigger timing (blur/Enter/picker only),
     - case-insensitive `.github/prompts` detection and recursive markdown discovery,
+    - deterministic sort order of returned prompt entries,
+    - symlink ignore behavior in recursive discovery,
     - relative-path label rendering,
     - execute button enable/disable rules,
+    - explicit behavior split for discovery failure vs zero results,
     - prompt reset on `working_folder` change,
     - outbound instruction payload containing the exact preamble text and resolved runtime full path.
 
@@ -67,6 +87,7 @@ Placeholder replacement rule:
 
 - Editing, creating, renaming, or deleting prompt files from the UI.
 - Supporting non-markdown prompt file types.
+- Supporting GitHub Copilot-specific prompt metadata/validation beyond markdown-file discovery and execution path insertion.
 - Prompt versioning, tagging, or search/filter UX beyond the dropdown list.
 - Changes to agent command-file schema or command execution sequencing.
 - Introducing a new protocol distinct from the existing Agents run contract for prompt execution.
@@ -75,6 +96,16 @@ Placeholder replacement rule:
 ### Questions
 
 None.
+
+### Research Findings (2026-03-02)
+
+- Node.js `fs.readdir` supports `recursive` and `withFileTypes` in current repo runtime (`node >=22`), which keeps prompt discovery implementation simple without extra dependencies.
+- Node.js documents `fs.Dirent.parentPath` for recursive dirent traversal and deprecates `dirent.path`; implementation should use `parentPath`.
+- POSIX `readdir()` does not guarantee sorted order, so deterministic sorting must be explicit in service code before returning prompt lists.
+- Node.js `path` docs confirm POSIX vs Windows path semantics differ; prompt discovery should continue using existing server-side working-folder resolution rather than client-side path conversion.
+- MUI Popover is already used in `AgentsPage` and is built on Modal with click-away/scroll lock behavior, so reusing existing popover interaction is consistent with current UI patterns.
+- GitHub documentation uses `.github/prompts` for prompt files (often `.prompt.md`), but this story intentionally supports all markdown files (`.md`, case-insensitive) under that tree for simpler, project-local behavior.
+- DeepWiki and Context7 MCP research attempts were unavailable in this environment (repository not indexed in DeepWiki; Context7 API key unavailable), so decisions were cross-checked with repo code and official Node/MUI/GitHub web documentation.
 
 ## Implementation Ideas
 

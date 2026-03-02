@@ -87,6 +87,9 @@ Placeholder replacement rule:
     - relative-path label rendering,
     - execute button enable/disable rules,
     - explicit behavior split for discovery failure vs zero results,
+    - stale discovery response handling when `working_folder` is changed quickly (latest committed folder wins),
+    - run-lock conflict behavior (`409 RUN_IN_PROGRESS`) when Execute Prompt is triggered against a conversation already running,
+    - execution behavior when a prompt file is deleted or moved after discovery but before Execute Prompt is clicked (surface run error, no crash),
     - prompt reset on `working_folder` change,
     - outbound instruction payload containing the exact preamble text and resolved runtime full path.
 
@@ -156,6 +159,52 @@ Placeholder replacement rule:
 - `Turn` document shape remains unchanged (`command`, `usage`, `timing`, etc.); prompt execution records as standard user/assistant turns through existing flow.
 - No data migration/backfill is required.
 - Prompt selection/discovery UI state is ephemeral client state and is not persisted server-side.
+
+### Edge Cases and Failure Modes
+
+1. Missing `working_folder` query on prompt discovery
+- Failure mode: client calls `GET /agents/:agentName/prompts` without `working_folder` or with blank value.
+- Expected behavior: server returns `400 { error: 'invalid_request', message: 'working_folder is required' }`; UI shows inline prompts error for committed non-empty folder attempts.
+
+2. Non-absolute or invalid `working_folder` path
+- Failure mode: relative path or malformed value.
+- Expected behavior: server returns `400` with `code: 'WORKING_FOLDER_INVALID'`; no discovery results are shown.
+
+3. `working_folder` does not exist or is not accessible
+- Failure mode: folder removed, inaccessible, or not mounted in runtime container.
+- Expected behavior: server returns `400` with `code: 'WORKING_FOLDER_NOT_FOUND'`; prompts area shows inline error state.
+
+4. `.github/prompts` exists with mixed-case folder names
+- Failure mode: folder exists as `.GITHUB/Prompts` (or similar case variants).
+- Expected behavior: discovery still succeeds due to case-insensitive segment matching.
+
+5. `.github/prompts` exists but contains no markdown files
+- Failure mode: directory tree has only non-markdown files.
+- Expected behavior: discovery returns empty list and prompts area is hidden (not an error state).
+
+6. Recursive traversal encounters symlinks
+- Failure mode: symlink to external folders or recursive loops under prompts tree.
+- Expected behavior: symlink entries are ignored; traversal does not follow links; discovery remains bounded and safe.
+
+7. Rapid `working_folder` changes cause out-of-order discovery responses
+- Failure mode: older request resolves after a newer request and overwrites newer results.
+- Expected behavior: UI applies only the latest committed-folder response; stale responses are discarded.
+
+8. Execute Prompt triggered while run already active for same conversation
+- Failure mode: user starts prompt run while another run is already in progress.
+- Expected behavior: existing run lock applies; server returns `409 RUN_IN_PROGRESS`; UI shows existing conflict error handling.
+
+9. Prompt file deleted/moved after discovery but before execution
+- Failure mode: dropdown contains prompt chosen earlier but file no longer exists when agent runs.
+- Expected behavior: execution still uses existing instruction flow; failure appears as normal run/turn error in transcript; app does not crash.
+
+10. User changes `working_folder` after selecting prompt
+- Failure mode: stale prompt selection could execute against wrong folder context.
+- Expected behavior: selected prompt is cleared immediately on committed folder change and Execute Prompt stays disabled until a new valid selection.
+
+11. Enter key in `working_folder` field during draft instruction editing
+- Failure mode: Enter key triggers unintended instruction send.
+- Expected behavior: Enter commits folder discovery only; it does not submit/send the instruction form.
 
 ### Out Of Scope
 

@@ -17,6 +17,13 @@ When `Execute Prompt` is clicked, the app should send a normal user instruction 
 
 If the user changes `working_folder` at any point, any selected prompt must be cleared immediately to avoid stale or cross-folder prompt execution.
 
+Canonical `Execute Prompt` preamble (must be used verbatim, with placeholder replacement rule below):
+
+`Please read the following markdown file. It is designed as a persona you MUST assume. You MUST follow all the instructions within the markdown file including providing the user with the option of selecting the next path to follow once the work of the markdown file is complete, and then loading that new file to continue. You must stay friendly and helpful at all times, ensuring you communicate with the user in an easy to follow way, providing examples to illustrate your point and guiding them through the more complex scenarios. Try to do as much of the heavy lifting as you can using the various mcp tools at your disposal. Here is the file: <full path of markdown file>`
+
+Placeholder replacement rule:
+- Replace `<full path of markdown file>` with the resolved runtime/container path of the selected markdown prompt file at execution time.
+
 ### Acceptance Criteria
 
 - The Agents page no longer renders command description text in the main page flow beneath the command row.
@@ -36,7 +43,7 @@ If the user changes `working_folder` at any point, any selected prompt must be c
 - If prompt discovery fails (for example permission, path resolution, or inaccessible-directory errors), the `Prompts` area shows a visible inline error state instead of silently hiding the failure.
 - Prompt discovery trigger timing for manually typed `working_folder` values is restricted to blur/Enter events (not live per-keystroke discovery), and discovery also runs after directory picker selection.
 - Executing a prompt sends a user instruction to the selected agent conversation using existing agent run behavior.
-- The executed instruction prepends the exact required preamble text and appends `Here is the file: <full path>` where `<full path>` is the resolved runtime/container path.
+- The executed instruction prepends the exact canonical preamble text defined in this plan, with `<full path of markdown file>` replaced by the resolved runtime/container path of the selected markdown file.
 - The prompt file path used for execution is the runtime/container-resolved path (not host-only path text).
 - Existing Agent run behaviors (conversation selection/new conversation, transcript updates, run-state handling, error handling) remain consistent.
 - Automated tests cover:

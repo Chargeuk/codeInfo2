@@ -2063,7 +2063,7 @@ Update story-adjacent documentation so junior developers can understand final st
 
 ### 9. Final verification: full acceptance and regression gate for story 0000038
 
-- Task Status: ****done****
+- Task Status: **__done__**
 - Git Commits: `f3e5eaa`
 
 #### Overview

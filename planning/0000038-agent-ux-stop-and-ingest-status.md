@@ -514,7 +514,7 @@ Update WebSocket cancel message handling so command-run abort is always attempte
 14. [ ] If this task adds or removes files, update `projectStructure.md` after finishing those file changes.
    - Starter snippet (adapt names to exact existing symbols): `Add entries for any new/removed files introduced by Task 1, grouped under server WS and server test directories.`
    - Verification command after this subtask: `npm run format:check --workspaces`
-   - Dependency note: execute this after all file add/remove subtasks in Task 1 and before moving to the next task.
+   - Dependency note: execute this after all file add/remove subtasks in Task 1 (including later subtasks 15 and 16) and before moving to the next task.
    - Docs: https://www.markdownguide.org/basic-syntax/
    - Acceptance criteria focus: AC22 documentation completeness.
    - Files to read/edit: `projectStructure.md`, `server/src/ws/*`, `server/src/test/unit/*`
@@ -522,6 +522,7 @@ Update WebSocket cancel message handling so command-run abort is always attempte
    - Document location: `projectStructure.md`.
    - Document description: record Task 1 file additions/removals in WS and related test directories.
    - Document purpose: maintain an accurate repository file map for implementation and onboarding.
+   - Required behavior: update `projectStructure.md` with every file path added or removed by Task 1 (no wildcard summaries), and remove entries for deleted files.
 15. [ ] Add WS handler unit test: conversation-only `cancel_inflight` still attempts command-run abort by `conversationId`.
    - Starter snippet (adapt names to exact existing symbols): `expect(abortAgentCommandRunSpy).toHaveBeenCalledWith(conversationId);`
    - Verification command after this subtask: `npm run test --workspace server -- ws`
@@ -679,6 +680,7 @@ Consume Task 1’s server message-contract update in the Agents UI so Stop alway
    - Document location: `projectStructure.md`.
    - Document description: record Task 2 file additions/removals in client hook/page/test paths.
    - Document purpose: keep the repository structure documentation aligned with stop payload implementation changes.
+   - Required behavior: update `projectStructure.md` with every file path added or removed by Task 2 (no wildcard summaries), and remove entries for deleted files.
 
 #### Testing
 
@@ -800,6 +802,7 @@ Limit active-run UI restrictions to submit/execute controls only. Keep instructi
    - Document location: `projectStructure.md`.
    - Document description: record Task 3 file additions/removals in Agents page, conversation components, and tests.
    - Document purpose: preserve an accurate project file inventory for active-run UX changes.
+   - Required behavior: update `projectStructure.md` with every file path added or removed by Task 3 (no wildcard summaries), and remove entries for deleted files.
 
 #### Testing
 
@@ -1072,7 +1075,7 @@ Replace immediate `status: started` reingest results with one terminal payload r
 25. [ ] If this task adds or removes files, update `projectStructure.md` after finishing those file changes.
    - Starter snippet (adapt names to exact existing symbols): `Add entries for any new/removed files introduced by Task 4 across server ingest, MCP, and server test suites.`
    - Verification command after this subtask: `npm run format:check --workspaces`
-   - Dependency note: execute this after all file add/remove subtasks in Task 4 and before moving to the next task.
+   - Dependency note: execute this after all file add/remove subtasks in Task 4, including subtasks 26-31, and before moving to the next task.
    - Docs: https://www.markdownguide.org/basic-syntax/
    - Acceptance criteria focus: AC22 documentation completeness.
    - Files to read/edit: `projectStructure.md`, `server/src/ingest/*`, `server/src/mcp/*`, `server/src/mcp2/*`, `server/src/test/unit/*`
@@ -1080,6 +1083,7 @@ Replace immediate `status: started` reingest results with one terminal payload r
    - Document location: `projectStructure.md`.
    - Document description: record Task 4 file additions/removals across ingest, MCP classic/v2, and related tests.
    - Document purpose: keep file-map documentation consistent with reingest contract implementation changes.
+   - Required behavior: update `projectStructure.md` with every file path added or removed by Task 4 (no wildcard summaries), and remove entries for deleted files.
 26. [ ] Add bounded wait guard in reingest service so blocking calls cannot hang indefinitely.
    - Starter snippet (adapt names to exact existing symbols): `const terminal = await waitForTerminalIngestStatus(runId, { timeoutMs, pollMs });`
    - Verification command after this subtask: `npm run test --workspace server -- reingest`
@@ -1390,7 +1394,7 @@ Apply one shared status/phase mapping and active-overlay merge path for `/ingest
 23. [ ] If this task adds or removes files, update `projectStructure.md` after finishing those file changes.
    - Starter snippet (adapt names to exact existing symbols): `Add entries for any new/removed files introduced by Task 5 in server listing routes/services and ingest listing test suites.`
    - Verification command after this subtask: `npm run format:check --workspaces`
-   - Dependency note: execute this after all file add/remove subtasks in Task 5 and before moving to the next task.
+   - Dependency note: execute this after all file add/remove subtasks in Task 5, including subtasks 24 and 25, and before moving to the next task.
    - Docs: https://www.markdownguide.org/basic-syntax/
    - Acceptance criteria focus: AC22 documentation completeness.
    - Files to read/edit: `projectStructure.md`, `server/src/lmstudio/*`, `server/src/routes/*`, `server/src/mcp/*`, `server/src/test/unit/*`
@@ -1398,6 +1402,7 @@ Apply one shared status/phase mapping and active-overlay merge path for `/ingest
    - Document location: `projectStructure.md`.
    - Document description: record Task 5 file additions/removals across listing services/routes and associated tests.
    - Document purpose: ensure structural documentation matches ingest visibility and mapping implementation artifacts.
+   - Required behavior: update `projectStructure.md` with every file path added or removed by Task 5 (no wildcard summaries), and remove entries for deleted files.
 24. [ ] Update external OpenAPI document for `/ingest/roots` and `/tools/ingested-repos` to match `status`/optional `phase` and `0000038-status-phase-v1`.
    - Starter snippet (adapt names to exact existing symbols): `Update OpenAPI schemas so active states emit status=ingesting + phase, terminal states omit phase, and schemaVersion matches 0000038-status-phase-v1.`
    - Verification command after this subtask: `npm run test --workspace server -- openapi.contract`
@@ -1570,6 +1575,7 @@ Ensure no-change delta runs exit before AST parse/upsert/delete and before embed
    - Document location: `projectStructure.md`.
    - Document description: record Task 6 file additions/removals across ingest pipeline and BDD/unit test paths.
    - Document purpose: keep the repository structure reference current for ingest-pipeline changes.
+   - Required behavior: update `projectStructure.md` with every file path added or removed by Task 6 (no wildcard summaries), and remove entries for deleted files.
 
 #### Testing
 
@@ -1742,6 +1748,7 @@ Align Ingest page data normalization/rendering with server contract updates so a
    - Document location: `projectStructure.md`.
    - Document description: record Task 7 file additions/removals across common/client ingest hooks, components, pages, and tests.
    - Document purpose: maintain an accurate file-map reference for ingest UI contract consumption changes.
+   - Required behavior: update `projectStructure.md` with every file path added or removed by Task 7 (no wildcard summaries), and remove entries for deleted files.
 
 #### Testing
 
@@ -1794,6 +1801,7 @@ Update story-adjacent documentation so junior developers can understand final st
    - Document location: `projectStructure.md`.
    - Document description: list story-specific structural changes to repository files and paths.
    - Document purpose: keep project structure documentation accurate for developers navigating the codebase.
+   - Required behavior: include a complete explicit path list of all files added/removed/renamed across Tasks 1-7, and ensure no stale entries remain for removed files.
 3. [ ] Update this story plan’s Implementation Notes sections as each task completes, including key decisions and deviations.
    - Starter snippet (adapt names to exact existing symbols): `Record per-task implementation outcomes, deviations, and important decisions in the story notes sections.`
    - Verification command after this subtask: `npm run format:check --workspaces`

@@ -271,6 +271,114 @@ describe('RootsTable', () => {
       within(normalizedRow).getByTestId('roots-row-last-error'),
     ).toHaveTextContent('Last error: Normalized table error');
   });
+
+  it('keeps active ingest rows visible and shows phase text for ingesting status', async () => {
+    render(
+      <RootsTable
+        roots={[
+          {
+            ...root,
+            path: '/repo-active',
+            name: 'repo-active',
+            status: 'ingesting',
+            phase: 'embedding',
+          },
+        ]}
+        lockedModelId={undefined}
+        isLoading={false}
+        error={undefined}
+        disabled={false}
+        onRefresh={() => Promise.resolve()}
+      />,
+    );
+
+    const row = await screen.findByRole('row', { name: /repo-active/i });
+    expect(row).toBeInTheDocument();
+    expect(
+      within(row).getByText(/ingesting \(embedding\)/i),
+    ).toBeInTheDocument();
+  });
+
+  it('hides phase text for completed status rows', async () => {
+    render(
+      <RootsTable
+        roots={[
+          {
+            ...root,
+            path: '/repo-completed',
+            name: 'repo-completed',
+            status: 'completed',
+            phase: undefined,
+          },
+        ]}
+        lockedModelId={undefined}
+        isLoading={false}
+        error={undefined}
+        disabled={false}
+        onRefresh={() => Promise.resolve()}
+      />,
+    );
+
+    const row = await screen.findByRole('row', { name: /repo-completed/i });
+    expect(within(row).getByText(/^completed$/i)).toBeInTheDocument();
+    expect(
+      within(row).queryByText(/\(queued\)|\(scanning\)|\(embedding\)/i),
+    ).not.toBeInTheDocument();
+  });
+
+  it('hides phase text for cancelled status rows', async () => {
+    render(
+      <RootsTable
+        roots={[
+          {
+            ...root,
+            path: '/repo-cancelled',
+            name: 'repo-cancelled',
+            status: 'cancelled',
+            phase: undefined,
+          },
+        ]}
+        lockedModelId={undefined}
+        isLoading={false}
+        error={undefined}
+        disabled={false}
+        onRefresh={() => Promise.resolve()}
+      />,
+    );
+
+    const row = await screen.findByRole('row', { name: /repo-cancelled/i });
+    expect(within(row).getByText(/^cancelled$/i)).toBeInTheDocument();
+    expect(
+      within(row).queryByText(/\(queued\)|\(scanning\)|\(embedding\)/i),
+    ).not.toBeInTheDocument();
+  });
+
+  it('hides phase text for error status rows', async () => {
+    render(
+      <RootsTable
+        roots={[
+          {
+            ...root,
+            path: '/repo-error',
+            name: 'repo-error',
+            status: 'error',
+            phase: undefined,
+          },
+        ]}
+        lockedModelId={undefined}
+        isLoading={false}
+        error={undefined}
+        disabled={false}
+        onRefresh={() => Promise.resolve()}
+      />,
+    );
+
+    const row = await screen.findByRole('row', { name: /repo-error/i });
+    expect(within(row).getByText(/^error$/i)).toBeInTheDocument();
+    expect(
+      within(row).queryByText(/\(queued\)|\(scanning\)|\(embedding\)/i),
+    ).not.toBeInTheDocument();
+  });
 });
 
 describe('RootDetailsDrawer', () => {

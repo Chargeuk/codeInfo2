@@ -72,3 +72,13 @@ export type ChatModelsResponse = {
   codexWarnings?: string[];
   reason?: string;
 };
+
+export const INGEST_ROOTS_SCHEMA_VERSION = '0000038-status-phase-v1' as const;
+
+export type ExternalIngestStatus =
+  | 'ingesting'
+  | 'completed'
+  | 'cancelled'
+  | 'error';
+
+export type ExternalIngestPhase = 'queued' | 'scanning' | 'embedding';

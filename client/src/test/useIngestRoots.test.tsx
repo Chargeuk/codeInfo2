@@ -1,5 +1,6 @@
 import { jest } from '@jest/globals';
 import { renderHook, waitFor } from '@testing-library/react';
+import { INGEST_ROOTS_SCHEMA_VERSION } from '@codeinfo2/common';
 import useIngestRoots from '../hooks/useIngestRoots';
 
 const mockFetch = global.fetch as jest.Mock;
@@ -112,5 +113,82 @@ describe('useIngestRoots', () => {
     expect(result.current.roots[0]?.error?.code).toBe('OPENAI_TIMEOUT');
     expect(result.current.roots[0]?.lastError).toBe('Timed out');
     expect(result.current.roots[1]?.lastError).toBe('Legacy error message');
+  });
+
+  it('preserves ingesting phase values from external listing contract', async () => {
+    mockRootsResponse({
+      roots: [
+        {
+          runId: 'run-phase',
+          name: 'repo-phase',
+          path: '/repo-phase',
+          status: 'ingesting',
+          phase: 'embedding',
+          model: 'embed-model',
+          lastError: null,
+        },
+      ],
+    });
+
+    const { result } = renderHook(() => useIngestRoots());
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.roots[0]).toMatchObject({
+      status: 'ingesting',
+      phase: 'embedding',
+    });
+  });
+
+  it('omits phase for terminal statuses', async () => {
+    mockRootsResponse({
+      roots: [
+        {
+          runId: 'run-completed',
+          name: 'repo-completed',
+          path: '/repo-completed',
+          status: 'completed',
+          phase: 'embedding',
+          model: 'embed-model',
+          lastError: null,
+        },
+        {
+          runId: 'run-cancelled',
+          name: 'repo-cancelled',
+          path: '/repo-cancelled',
+          status: 'cancelled',
+          phase: 'queued',
+          model: 'embed-model',
+          lastError: null,
+        },
+        {
+          runId: 'run-error',
+          name: 'repo-error',
+          path: '/repo-error',
+          status: 'error',
+          phase: 'scanning',
+          model: 'embed-model',
+          lastError: 'boom',
+        },
+      ],
+    });
+
+    const { result } = renderHook(() => useIngestRoots());
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.roots[0]?.phase).toBeUndefined();
+    expect(result.current.roots[1]?.phase).toBeUndefined();
+    expect(result.current.roots[2]?.phase).toBeUndefined();
+  });
+
+  it('accepts and exposes schemaVersion 0000038-status-phase-v1', async () => {
+    mockRootsResponse({
+      schemaVersion: '0000038-status-phase-v1',
+      roots: [],
+    });
+
+    const { result } = renderHook(() => useIngestRoots());
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.schemaVersion).toBe(INGEST_ROOTS_SCHEMA_VERSION);
   });
 });

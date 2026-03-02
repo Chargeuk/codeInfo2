@@ -1,4 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type {
+  ExternalIngestPhase,
+  ExternalIngestStatus,
+} from '@codeinfo2/common';
+import { INGEST_ROOTS_SCHEMA_VERSION } from '@codeinfo2/common';
 import { getApiBaseUrl } from '../api/baseUrl';
 import { createLogger } from '../logging';
 
@@ -32,7 +37,8 @@ export type IngestRoot = {
     lockedModelId?: string;
     modelId?: string;
   };
-  status: string;
+  status: ExternalIngestStatus;
+  phase?: ExternalIngestPhase;
   lastIngestAt?: string | null;
   counts?: {
     files?: number;
@@ -51,6 +57,7 @@ export type IngestRoot = {
 
 type RootsResponse = {
   roots?: Array<Record<string, unknown>>;
+  schemaVersion?: string;
   lockedModelId?: string;
   lock?: {
     embeddingProvider?: string;
@@ -63,6 +70,7 @@ type RootsResponse = {
 
 type State = {
   roots: IngestRoot[];
+  schemaVersion?: string;
   lockedModelId?: string;
   isLoading: boolean;
   isError: boolean;
@@ -107,6 +115,21 @@ function normalizeLastError(
 }
 
 function normalizeRoot(entry: Record<string, unknown>): IngestRoot {
+  const status =
+    entry.status === 'ingesting' ||
+    entry.status === 'completed' ||
+    entry.status === 'cancelled' ||
+    entry.status === 'error'
+      ? entry.status
+      : 'completed';
+  const phase =
+    status === 'ingesting' &&
+    (entry.phase === 'queued' ||
+      entry.phase === 'scanning' ||
+      entry.phase === 'embedding')
+      ? entry.phase
+      : undefined;
+
   const error = normalizeError(entry.error);
   const embeddingModel =
     typeof entry.embeddingModel === 'string'
@@ -165,7 +188,8 @@ function normalizeRoot(entry: Record<string, unknown>): IngestRoot {
             typeof lockObj?.modelId === 'string' ? lockObj.modelId : lockModel,
         }
       : undefined,
-    status: typeof entry.status === 'string' ? entry.status : 'unknown',
+    status,
+    phase,
     lastIngestAt:
       typeof entry.lastIngestAt === 'string' ? entry.lastIngestAt : null,
     counts:
@@ -220,6 +244,7 @@ function normalizeRoot(entry: Record<string, unknown>): IngestRoot {
 export function useIngestRoots(): State {
   const log = useMemo(() => createLogger('client'), []);
   const [roots, setRoots] = useState<IngestRoot[]>([]);
+  const [schemaVersion, setSchemaVersion] = useState<string | undefined>();
   const [lockedModelId, setLockedModelId] = useState<string | undefined>();
   const [isLoading, setIsLoading] = useState(false);
   const [isError, setIsError] = useState(false);
@@ -248,6 +273,8 @@ export function useIngestRoots(): State {
             )
             .map((entry) => normalizeRoot(entry))
         : [];
+      const normalizedSchemaVersion =
+        typeof data.schemaVersion === 'string' ? data.schemaVersion : undefined;
       const lockModelAlias =
         typeof data.lockedModelId === 'string'
           ? data.lockedModelId
@@ -270,9 +297,13 @@ export function useIngestRoots(): State {
       const aliasFallbackUsed = !lockModelCanonical && Boolean(lockModelAlias);
 
       setRoots(normalizedRoots);
+      setSchemaVersion(normalizedSchemaVersion);
       setLockedModelId(resolvedLockModel);
       log('info', 'DEV-0000036:T12:useIngestRoots_normalized', {
         rootCount: normalizedRoots.length,
+        schemaVersion: normalizedSchemaVersion ?? null,
+        schemaVersionAccepted:
+          normalizedSchemaVersion === INGEST_ROOTS_SCHEMA_VERSION,
         canonicalLockProvider: lockProvider ?? null,
         canonicalLockModel: resolvedLockModel ?? null,
         aliasFallbackUsed,
@@ -304,8 +335,16 @@ export function useIngestRoots(): State {
   }, [fetchRoots]);
 
   return useMemo(
-    () => ({ roots, lockedModelId, isLoading, isError, error, refetch }),
-    [roots, lockedModelId, isLoading, isError, error, refetch],
+    () => ({
+      roots,
+      schemaVersion,
+      lockedModelId,
+      isLoading,
+      isError,
+      error,
+      refetch,
+    }),
+    [roots, schemaVersion, lockedModelId, isLoading, isError, error, refetch],
   );
 }
 

@@ -1620,7 +1620,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 
 ### 7. Frontend: consume external ingest `status`/`phase` contract and preserve active repository visibility
 
-- Task Status: **__to_do__**
+- Task Status: **__done__**
 - Git Commits: `None yet`
 
 #### Overview
@@ -1640,34 +1640,34 @@ Align Ingest page data normalization/rendering with server contract updates so a
 
 #### Subtasks
 
-1. [ ] Update ingest API/client types for external `status` and optional `phase` fields.
+1. [x] Update ingest API/client types for external `status` and optional `phase` fields.
    - Starter snippet (adapt names to exact existing symbols): `const phase = row.status === "ingesting" ? row.phase : undefined;`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://react.dev/learn/synchronizing-with-effects | https://llms.mui.com/material-ui/6.4.12/llms.txt | https://www.typescriptlang.org/docs/handbook/2/narrowing.html | https://www.typescriptlang.org/docs/handbook/release-notes/typescript-5-9.html
    - Acceptance criteria focus: AC11, AC12, AC14, AC15, AC25, AC28.
    - Files to read/edit: `common/src/lmstudio.ts`, `client/src/hooks/useIngestRoots.ts`
-2. [ ] Update ingest root normalization logic to parse external `status` and optional `phase`.
+2. [x] Update ingest root normalization logic to parse external `status` and optional `phase`.
    - Starter snippet (adapt names to exact existing symbols): `const phase = row.status === "ingesting" ? row.phase : undefined;`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://react.dev/learn/synchronizing-with-effects | https://llms.mui.com/material-ui/6.4.12/llms.txt | https://www.typescriptlang.org/docs/handbook/2/narrowing.html | https://www.typescriptlang.org/docs/handbook/release-notes/typescript-5-9.html
    - Acceptance criteria focus: AC11, AC12, AC14, AC15, AC25, AC28.
    - Files to read/edit: `client/src/hooks/useIngestRoots.ts`
    - Required behavior: normalized client model preserves status/phase semantics and terminal phase omission.
-3. [ ] Update ingest list/table components to render active status from new external fields.
+3. [x] Update ingest list/table components to render active status from new external fields.
    - Starter snippet (adapt names to exact existing symbols): `const phase = row.status === "ingesting" ? row.phase : undefined;`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://react.dev/learn/synchronizing-with-effects | https://llms.mui.com/material-ui/6.4.12/llms.txt | https://www.typescriptlang.org/docs/handbook/2/narrowing.html | https://www.typescriptlang.org/docs/handbook/release-notes/typescript-5-9.html
    - Acceptance criteria focus: AC11, AC12, AC14, AC15, AC25, AC28.
    - Files to read/edit: `client/src/components/ingest/RootsTable.tsx`, `client/src/pages/IngestPage.tsx`
    - Required behavior: active repos stay visible with `status=ingesting`; phase shown only when present.
-4. [ ] Update ingest detail/status components to render phase only for active statuses.
+4. [x] Update ingest detail/status components to render phase only for active statuses.
    - Starter snippet (adapt names to exact existing symbols): `const phase = row.status === "ingesting" ? row.phase : undefined;`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://react.dev/learn/synchronizing-with-effects | https://llms.mui.com/material-ui/6.4.12/llms.txt | https://www.typescriptlang.org/docs/handbook/2/narrowing.html | https://www.typescriptlang.org/docs/handbook/release-notes/typescript-5-9.html
    - Acceptance criteria focus: AC11, AC12, AC14, AC15, AC25, AC28.
    - Files to read/edit: `client/src/components/ingest/RootsTable.tsx`, `client/src/components/ingest/ActiveRunCard.tsx`, `client/src/pages/IngestPage.tsx`
    - Required behavior: active repos stay visible with `status=ingesting`; phase shown only when present.
-5. [ ] Add hook normalization test: `status=ingesting` rows preserve allowed `phase` values.
+5. [x] Add hook normalization test: `status=ingesting` rows preserve allowed `phase` values.
    - Starter snippet (adapt names to exact existing symbols): `expect(normalized).toMatchObject({ status: 'ingesting', phase: 'embedding' });`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://react.dev/learn/synchronizing-with-effects | https://llms.mui.com/material-ui/6.4.12/llms.txt | https://www.typescriptlang.org/docs/handbook/2/narrowing.html | https://www.typescriptlang.org/docs/handbook/release-notes/typescript-5-9.html
@@ -1677,7 +1677,7 @@ Align Ingest page data normalization/rendering with server contract updates so a
    - Test location: `client/src/test/ingestRoots.test.tsx`, `client/src/test/ingestStatus.test.tsx`, `client/src/test/ingestStatus.progress.test.tsx`.
    - Test description: feed ingesting payload rows through normalization and assert `phase` remains present and valid.
    - Test purpose: guarantee client keeps active ingest phase information visible.
-6. [ ] Add hook normalization test: terminal rows (`completed`, `cancelled`, `error`) omit `phase`.
+6. [x] Add hook normalization test: terminal rows (`completed`, `cancelled`, `error`) omit `phase`.
    - Starter snippet (adapt names to exact existing symbols): `expect(normalized.phase).toBeUndefined();`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://react.dev/learn/synchronizing-with-effects | https://llms.mui.com/material-ui/6.4.12/llms.txt | https://www.typescriptlang.org/docs/handbook/2/narrowing.html | https://www.typescriptlang.org/docs/handbook/release-notes/typescript-5-9.html
@@ -1687,7 +1687,7 @@ Align Ingest page data normalization/rendering with server contract updates so a
    - Test location: `client/src/test/ingestRoots.test.tsx`, `client/src/test/ingestStatus.test.tsx`, `client/src/test/ingestStatus.progress.test.tsx`.
    - Test description: normalize terminal rows and assert `phase` is omitted from client model.
    - Test purpose: prevent stale or invalid phase rendering for terminal states.
-7. [ ] Add hook normalization test: ingest roots `schemaVersion` accepts `0000038-status-phase-v1`.
+7. [x] Add hook normalization test: ingest roots `schemaVersion` accepts `0000038-status-phase-v1`.
    - Starter snippet (adapt names to exact existing symbols): `expect(result.schemaVersion).toBe('0000038-status-phase-v1');`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://react.dev/learn/synchronizing-with-effects | https://llms.mui.com/material-ui/6.4.12/llms.txt | https://www.typescriptlang.org/docs/handbook/2/narrowing.html | https://www.typescriptlang.org/docs/handbook/release-notes/typescript-5-9.html
@@ -1697,7 +1697,7 @@ Align Ingest page data normalization/rendering with server contract updates so a
    - Test location: `client/src/test/ingestRoots.test.tsx`, `client/src/test/ingestStatus.test.tsx`, `client/src/test/ingestStatus.progress.test.tsx`.
    - Test description: verify ingest roots parsing/typing accepts and preserves schema version `0000038-status-phase-v1`.
    - Test purpose: lock client compatibility to the updated server listing contract version.
-8. [ ] Add UI rendering test: active ingest row remains visible with `status=ingesting` and phase text.
+8. [x] Add UI rendering test: active ingest row remains visible with `status=ingesting` and phase text.
    - Starter snippet (adapt names to exact existing symbols): `expect(screen.getByText(/ingesting/i)).toBeInTheDocument();`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://react.dev/learn/synchronizing-with-effects | https://llms.mui.com/material-ui/6.4.12/llms.txt | https://www.typescriptlang.org/docs/handbook/2/narrowing.html | https://www.typescriptlang.org/docs/handbook/release-notes/typescript-5-9.html
@@ -1707,7 +1707,7 @@ Align Ingest page data normalization/rendering with server contract updates so a
    - Test location: `client/src/test/ingestRoots.test.tsx`, `client/src/test/ingestStatus.test.tsx`, `client/src/test/ingestStatus.progress.test.tsx`.
    - Test description: render active ingest state and assert repository row remains present with ingesting status and displayed phase.
    - Test purpose: prevent active repository disappearance in UI.
-9. [ ] Add UI rendering test: `completed` status shows no phase label.
+9. [x] Add UI rendering test: `completed` status shows no phase label.
    - Starter snippet (adapt names to exact existing symbols): `expect(screen.queryByText(/phase/i)).not.toBeInTheDocument();`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://react.dev/learn/synchronizing-with-effects | https://llms.mui.com/material-ui/6.4.12/llms.txt | https://www.typescriptlang.org/docs/handbook/2/narrowing.html | https://www.typescriptlang.org/docs/handbook/release-notes/typescript-5-9.html
@@ -1717,7 +1717,7 @@ Align Ingest page data normalization/rendering with server contract updates so a
    - Test location: `client/src/test/ingestRoots.test.tsx`, `client/src/test/ingestStatus.test.tsx`, `client/src/test/ingestStatus.progress.test.tsx`.
    - Test description: render completed ingest row/card and assert phase label/text is absent.
    - Test purpose: enforce terminal phase omission in UI for completed state.
-10. [ ] Add UI rendering test: `cancelled` status shows no phase label.
+10. [x] Add UI rendering test: `cancelled` status shows no phase label.
    - Starter snippet (adapt names to exact existing symbols): `expect(screen.queryByText(/phase/i)).not.toBeInTheDocument();`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://react.dev/learn/synchronizing-with-effects | https://llms.mui.com/material-ui/6.4.12/llms.txt | https://www.typescriptlang.org/docs/handbook/2/narrowing.html | https://www.typescriptlang.org/docs/handbook/release-notes/typescript-5-9.html
@@ -1727,7 +1727,7 @@ Align Ingest page data normalization/rendering with server contract updates so a
    - Test location: `client/src/test/ingestRoots.test.tsx`, `client/src/test/ingestStatus.test.tsx`, `client/src/test/ingestStatus.progress.test.tsx`.
    - Test description: render cancelled ingest row/card and assert phase label/text is absent.
    - Test purpose: enforce terminal phase omission in UI for cancelled state.
-11. [ ] Add UI rendering test: `error` status shows no phase label.
+11. [x] Add UI rendering test: `error` status shows no phase label.
    - Starter snippet (adapt names to exact existing symbols): `expect(screen.queryByText(/phase/i)).not.toBeInTheDocument();`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://react.dev/learn/synchronizing-with-effects | https://llms.mui.com/material-ui/6.4.12/llms.txt | https://www.typescriptlang.org/docs/handbook/2/narrowing.html | https://www.typescriptlang.org/docs/handbook/release-notes/typescript-5-9.html
@@ -1737,7 +1737,7 @@ Align Ingest page data normalization/rendering with server contract updates so a
    - Test location: `client/src/test/ingestRoots.test.tsx`, `client/src/test/ingestStatus.test.tsx`, `client/src/test/ingestStatus.progress.test.tsx`.
    - Test description: render error ingest row/card and assert phase label/text is absent.
    - Test purpose: enforce terminal phase omission in UI for error state.
-12. [ ] Update `design.md` with ingest UI flow updates and Mermaid diagram(s) for status/phase rendering and active-visibility behavior.
+12. [x] Update `design.md` with ingest UI flow updates and Mermaid diagram(s) for status/phase rendering and active-visibility behavior.
    - Starter snippet (adapt names to exact existing symbols): `Add Mermaid flowchart showing ingest roots payload -> client normalization -> UI render decisions for ingesting vs terminal states (phase omitted for terminal).`
    - Dependency note: execute this after Task 7 implementation/tests so diagram and text reflect final UI behavior.
    - Docs: https://context7.com/mermaid-js/mermaid/llms.txt | https://react.dev/learn/synchronizing-with-effects
@@ -1747,7 +1747,7 @@ Align Ingest page data normalization/rendering with server contract updates so a
    - Document location: `design.md`.
    - Document description: document ingest UI normalization/rendering flow and terminal phase-omission rules with Mermaid diagrams.
    - Document purpose: provide a maintained architecture view of client-side ingest status behavior.
-13. [ ] If this task adds or removes files, update `projectStructure.md` after finishing those file changes.
+13. [x] If this task adds or removes files, update `projectStructure.md` after finishing those file changes.
    - Starter snippet (adapt names to exact existing symbols): `Add entries for any new/removed files introduced by Task 7 in common/client ingest hooks, components, pages, and tests.`
    - Dependency note: execute this after all file add/remove subtasks in Task 7 and before moving to the next task.
    - Docs: https://www.markdownguide.org/basic-syntax/
@@ -1758,7 +1758,7 @@ Align Ingest page data normalization/rendering with server contract updates so a
    - Document description: record Task 7 file additions/removals across common/client ingest hooks, components, pages, and tests.
    - Document purpose: maintain an accurate file-map reference for ingest UI contract consumption changes.
    - Required behavior: update `projectStructure.md` with every file path added or removed by Task 7 (no wildcard summaries), and remove entries for deleted files.
-14. [ ] Add deterministic ingest UI rendering logs for Playwright-MCP console assertions.
+14. [x] Add deterministic ingest UI rendering logs for Playwright-MCP console assertions.
    - Starter snippet (adapt names to exact existing symbols): `console.info('[DEV-0000038][T7] INGEST_UI_ROW_RENDER sourceId=%s status=%s phase=%s', sourceId, status, phase ?? 'none');`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://developer.mozilla.org/en-US/docs/Web/API/Console/info_static | https://react.dev/learn/synchronizing-with-effects
@@ -1767,23 +1767,36 @@ Align Ingest page data normalization/rendering with server contract updates so a
    - Required log line: `[DEV-0000038][T7] INGEST_UI_ROW_RENDER sourceId=<id> status=<status> phase=<phase|none>`.
    - Required log line: `[DEV-0000038][T7] INGEST_UI_TERMINAL_PHASE_HIDDEN sourceId=<id> status=<completed|cancelled|error>`.
    - Required behavior: emit row-render log for visible entries and phase-hidden log for terminal-state rendering.
-15. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+15. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
-1. [ ] `npm run build:summary:server` - Use because this task changes `common` contracts consumed by server and client. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` and resolve errors.
-2. [ ] `npm run build:summary:client` - If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` and resolve errors.
-3. [ ] `npm run test:summary:server` - If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/server-tests-*.log`) and resolve listed failures.
-4. [ ] `npm run test:summary:client` - If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`) and resolve listed failures.
-5. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find failing target(s).
-6. [ ] `npm run compose:up`
-7. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`; verify `[DEV-0000038][T7] INGEST_UI_ROW_RENDER ...` is emitted for active and terminal rows, verify `[DEV-0000038][T7] INGEST_UI_TERMINAL_PHASE_HIDDEN ...` appears for `completed|cancelled|error`, capture screenshots for ingesting, completed, cancelled, and error UI states, review screenshots to confirm phase is shown only for ingesting and hidden for terminal statuses, save screenshots under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped via `docker-compose.local.yml`), and verify browser debug console has no unexpected errors.
-8. [ ] `npm run compose:down`
+1. [x] `npm run build:summary:server` - Use because this task changes `common` contracts consumed by server and client. If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` and resolve errors.
+2. [x] `npm run build:summary:client` - If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` and resolve errors.
+3. [x] `npm run test:summary:server` - If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/server-tests-*.log`) and resolve listed failures.
+4. [x] `npm run test:summary:client` - If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`) and resolve listed failures.
+5. [x] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find failing target(s).
+6. [x] `npm run compose:up`
+7. [x] Manual Playwright-MCP check at `http://host.docker.internal:5001`; verify `[DEV-0000038][T7] INGEST_UI_ROW_RENDER ...` is emitted for active and terminal rows, verify `[DEV-0000038][T7] INGEST_UI_TERMINAL_PHASE_HIDDEN ...` appears for `completed|cancelled|error`, capture screenshots for ingesting, completed, cancelled, and error UI states, review screenshots to confirm phase is shown only for ingesting and hidden for terminal statuses, save screenshots under `/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/playwright-output-local` (mapped via `docker-compose.local.yml`), and verify browser debug console has no unexpected errors.
+8. [x] `npm run compose:down`
 Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
 #### Implementation notes
 
-- Pending implementation.
+- Subtasks 1-2: Added shared external ingest status/phase types plus schema-version constant in `common/src/lmstudio.ts`, then updated `useIngestRoots` to normalize `status`/`phase` under the new external contract and preserve `schemaVersion` from `/ingest/roots`.
+- Subtasks 3-4, 14: Updated `RootsTable` status rendering to show `status=ingesting` with optional phase text, keep terminal rows phase-free, and emit deterministic Task 7 console markers (`INGEST_UI_ROW_RENDER`, `INGEST_UI_TERMINAL_PHASE_HIDDEN`) for manual Playwright assertions.
+- Subtasks 5-11: Added hook and UI regression coverage across `useIngestRoots`, `RootsTable`, and `IngestPage` tests for ingesting-phase preservation, terminal phase omission (`completed|cancelled|error`), and schemaVersion compatibility (`0000038-status-phase-v1`).
+- Subtask 12: Added a dedicated Task 7 section in `design.md` with Mermaid diagrams covering `/ingest/roots` normalization and ingesting-vs-terminal phase render rules.
+- Subtask 13: No files were added or removed for Task 7, so `projectStructure.md` required no changes.
+- Subtask 15: Ran `npm run lint --workspaces` (pass with existing unrelated server import-order warnings) and `npm run format:check --workspaces`; format check initially failed on four Task 7 client files, then passed after `npm run format --workspaces`.
+- Testing 1: `npm run build:summary:server` passed (`warnings: 0`), log `logs/test-summaries/build-server-latest.log`.
+- Testing 2: `npm run build:summary:client` passed (`warnings: 1`), log `logs/test-summaries/build-client-latest.log`; warning is the existing Vite chunk-size warning.
+- Testing 3: `npm run test:summary:server` passed (`tests run: 956`, `failed: 0`), log `test-results/server-tests-2026-03-02T13-55-40-043Z.log`.
+- Testing 4: `npm run test:summary:client` passed (`tests run: 401`, `failed: 0`), log `test-results/client-tests-2026-03-02T14-06-01-617Z.log`.
+- Testing 5: `npm run compose:build:summary` passed (`items passed: 2`, `items failed: 0`), log `logs/test-summaries/compose-build-latest.log`.
+- Testing 6: `npm run compose:up` completed successfully; compose services started healthy (including `server`, `client`, `chroma`, `mongo`, and `playwright-mcp`).
+- Testing 7: Manual host-mapped verification executed against `http://host.docker.internal:5001/ingest`; screenshots captured at `playwright-output-local/0000038-task7-{ingesting,completed,cancelled,error}.png`; console marker assertions from Playwright run were `STATE=ingesting ROW=1 HIDDEN=0`, `STATE=completed ROW=1 HIDDEN=1`, `STATE=cancelled ROW=1 HIDDEN=1`, `STATE=error ROW=1 HIDDEN=1`, and `ERROR_LOG_COUNT=0`, confirming phase shown only for ingesting and hidden for terminal statuses. (Playwright-MCP tool calls timed out in this environment, so equivalent local Playwright automation was used against the same host-mapped URL.)
+- Testing 8: `npm run compose:down` completed successfully and removed compose services/network.
 
 ---
 

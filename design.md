@@ -767,6 +767,43 @@ sequenceDiagram
   end
 ```
 
+## Story 0000038 Task 7: ingest UI external status/phase consumption and visibility
+
+- Client ingest roots normalization now consumes the external listing contract directly:
+  - `status`: `ingesting | completed | cancelled | error`
+  - `phase`: optional and only retained when `status=ingesting`.
+- Terminal rows (`completed|cancelled|error`) explicitly omit phase in the normalized client model and UI rendering.
+- Ingest table rows remain visible for active entries and render `ingesting (<phase>)` when phase is present.
+- Task 7 console markers for manual Playwright checks:
+  - `[DEV-0000038][T7] INGEST_UI_ROW_RENDER sourceId=<id> status=<status> phase=<phase|none>`
+  - `[DEV-0000038][T7] INGEST_UI_TERMINAL_PHASE_HIDDEN sourceId=<id> status=<completed|cancelled|error>`
+
+```mermaid
+flowchart TD
+  A[/ingest/roots payload] --> B[useIngestRoots normalization]
+  B --> C{status}
+  C -- ingesting --> D[retain phase queued|scanning|embedding]
+  C -- completed/cancelled/error --> E[phase undefined]
+  D --> F[RootsTable status label ingesting (phase)]
+  E --> G[RootsTable terminal status only]
+```
+
+```mermaid
+sequenceDiagram
+  participant API as /ingest/roots
+  participant Hook as useIngestRoots
+  participant Table as RootsTable
+  API-->>Hook: roots[] + schemaVersion
+  Hook-->>Table: normalized rows status/phase
+  loop visible rows
+    Table->>Table: render status chip text
+    Table->>Console: [DEV-0000038][T7] INGEST_UI_ROW_RENDER
+    alt terminal row
+      Table->>Console: [DEV-0000038][T7] INGEST_UI_TERMINAL_PHASE_HIDDEN
+    end
+  end
+```
+
 ## Flows (schema)
 
 - Flow definitions live under `flows/<flowName>.json` and are validated with a strict Zod schema before use.

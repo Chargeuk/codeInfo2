@@ -219,6 +219,98 @@ describe('IngestPage realtime status UI', () => {
     render(<RouterProvider router={router} />);
   };
 
+  it('renders ingesting roots with phase from /ingest/roots contract', async () => {
+    mockFetch.mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes('/ingest/models')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ models: [], lockedModelId: undefined }),
+        };
+      }
+      if (url.includes('/ingest/roots')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            schemaVersion: '0000038-status-phase-v1',
+            roots: [
+              {
+                runId: 'root-run-1',
+                name: 'repo-ingesting',
+                path: '/repo-ingesting',
+                status: 'ingesting',
+                phase: 'embedding',
+                model: 'embed-1',
+                lastError: null,
+              },
+            ],
+          }),
+        };
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ status: 'ok' }),
+      };
+    });
+
+    renderPage();
+
+    await waitFor(() =>
+      expect(screen.getByText(/ingesting \(embedding\)/i)).toBeInTheDocument(),
+    );
+  });
+
+  it('renders terminal roots without phase text', async () => {
+    mockFetch.mockImplementation(async (input) => {
+      const url = String(input);
+      if (url.includes('/ingest/models')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({ models: [], lockedModelId: undefined }),
+        };
+      }
+      if (url.includes('/ingest/roots')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            schemaVersion: '0000038-status-phase-v1',
+            roots: [
+              {
+                runId: 'root-run-2',
+                name: 'repo-completed',
+                path: '/repo-completed',
+                status: 'completed',
+                model: 'embed-1',
+                lastError: null,
+              },
+            ],
+          }),
+        };
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ status: 'ok' }),
+      };
+    });
+
+    renderPage();
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole('row', { name: /repo-completed/i }),
+      ).toHaveTextContent('completed'),
+    );
+    expect(
+      screen.queryByText(/\(queued\)|\(scanning\)|\(embedding\)/i),
+    ).not.toBeInTheDocument();
+  });
+
   it('renders snapshot status immediately on subscribe', async () => {
     renderPage();
     await openSocket();

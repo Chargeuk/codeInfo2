@@ -45,6 +45,7 @@ const statusColor: Record<
   string,
   'default' | 'info' | 'success' | 'warning' | 'error'
 > = {
+  ingesting: 'info',
   completed: 'success',
   scanning: 'info',
   embedding: 'info',
@@ -201,6 +202,25 @@ export default function RootsTable({
     });
   }, [log, lockModel, lockedProvider]);
 
+  useEffect(() => {
+    for (const root of roots) {
+      const sourceId = root.path || 'unknown';
+      const phase = root.status === 'ingesting' ? root.phase : undefined;
+      console.info(
+        `[DEV-0000038][T7] INGEST_UI_ROW_RENDER sourceId=${sourceId} status=${root.status} phase=${phase ?? 'none'}`,
+      );
+      if (
+        root.status === 'completed' ||
+        root.status === 'cancelled' ||
+        root.status === 'error'
+      ) {
+        console.info(
+          `[DEV-0000038][T7] INGEST_UI_TERMINAL_PHASE_HIDDEN sourceId=${sourceId} status=${root.status}`,
+        );
+      }
+    }
+  }, [roots]);
+
   if (isLoading && !roots.length) {
     return (
       <Stack spacing={2} data-testid="roots-loading">
@@ -305,6 +325,11 @@ export default function RootsTable({
               const rowDisabled = busy || state === 'loading';
               const isSelected = selected.has(root.path);
               const chipColor = statusColor[root.status] ?? 'default';
+              const phase =
+                root.status === 'ingesting' ? root.phase : undefined;
+              const statusLabel = phase
+                ? `${root.status} (${phase})`
+                : root.status;
               const rootModelDisplay =
                 root.embeddingModel && root.embeddingProvider
                   ? `${root.embeddingProvider} / ${root.embeddingModel}`
@@ -339,7 +364,7 @@ export default function RootsTable({
                   </TableCell>
                   <TableCell>{rootModelDisplay}</TableCell>
                   <TableCell>
-                    <Chip label={root.status} color={chipColor} size="small" />
+                    <Chip label={statusLabel} color={chipColor} size="small" />
                   </TableCell>
                   <TableCell>
                     {root.lastIngestAt

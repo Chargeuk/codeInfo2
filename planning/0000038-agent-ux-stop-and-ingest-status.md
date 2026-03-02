@@ -507,6 +507,10 @@ Update WebSocket cancel message handling so command-run abort is always attempte
    - Docs: https://context7.com/mermaid-js/mermaid/llms.txt | https://context7.com/jestjs/jest/llms.txt
    - Acceptance criteria focus: AC22 documentation completeness and AC23 stop-race flow clarity.
    - Files to read/edit: `design.md`, `server/src/ws/server.ts`, `server/src/agents/commandsRunner.ts`
+   - Document name: `design.md`.
+   - Document location: `design.md`.
+   - Document description: update the stop/cancel architecture narrative and Mermaid sequence diagrams for conversation-authoritative cancellation.
+   - Document purpose: keep architecture documentation synchronized with the implemented race-safe WS cancel behavior.
 14. [ ] If this task adds or removes files, update `projectStructure.md` after finishing those file changes.
    - Starter snippet (adapt names to exact existing symbols): `Add entries for any new/removed files introduced by Task 1, grouped under server WS and server test directories.`
    - Verification command after this subtask: `npm run format:check --workspaces`
@@ -514,6 +518,10 @@ Update WebSocket cancel message handling so command-run abort is always attempte
    - Docs: https://www.markdownguide.org/basic-syntax/
    - Acceptance criteria focus: AC22 documentation completeness.
    - Files to read/edit: `projectStructure.md`, `server/src/ws/*`, `server/src/test/unit/*`
+   - Document name: `projectStructure.md`.
+   - Document location: `projectStructure.md`.
+   - Document description: record Task 1 file additions/removals in WS and related test directories.
+   - Document purpose: maintain an accurate repository file map for implementation and onboarding.
 
 #### Testing
 
@@ -645,6 +653,10 @@ Consume Task 1’s server message-contract update in the Agents UI so Stop alway
    - Docs: https://www.markdownguide.org/basic-syntax/
    - Acceptance criteria focus: AC22 documentation completeness.
    - Files to read/edit: `projectStructure.md`, `client/src/hooks/*`, `client/src/pages/*`, `client/src/test/*`
+   - Document name: `projectStructure.md`.
+   - Document location: `projectStructure.md`.
+   - Document description: record Task 2 file additions/removals in client hook/page/test paths.
+   - Document purpose: keep the repository structure documentation aligned with stop payload implementation changes.
 
 #### Testing
 
@@ -762,6 +774,10 @@ Limit active-run UI restrictions to submit/execute controls only. Keep instructi
    - Docs: https://www.markdownguide.org/basic-syntax/
    - Acceptance criteria focus: AC22 documentation completeness.
    - Files to read/edit: `projectStructure.md`, `client/src/pages/*`, `client/src/components/*`, `client/src/test/*`
+   - Document name: `projectStructure.md`.
+   - Document location: `projectStructure.md`.
+   - Document description: record Task 3 file additions/removals in Agents page, conversation components, and tests.
+   - Document purpose: preserve an accurate project file inventory for active-run UX changes.
 
 #### Testing
 
@@ -1027,6 +1043,10 @@ Replace immediate `status: started` reingest results with one terminal payload r
    - Docs: https://context7.com/mermaid-js/mermaid/llms.txt | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
    - Acceptance criteria focus: AC22 documentation completeness plus AC20/AC24 flow-boundary clarity.
    - Files to read/edit: `design.md`, `server/src/ingest/reingestService.ts`, `server/src/mcp/server.ts`, `server/src/mcp2/tools/reingestRepository.ts`, `server/src/mcp2/router.ts`
+   - Document name: `design.md`.
+   - Document location: `design.md`.
+   - Document description: document blocking reingest flow, protocol boundaries, and classic/v2 parity with Mermaid diagrams.
+   - Document purpose: make contract flow behavior and integration boundaries explicit for implementers and reviewers.
 25. [ ] If this task adds or removes files, update `projectStructure.md` after finishing those file changes.
    - Starter snippet (adapt names to exact existing symbols): `Add entries for any new/removed files introduced by Task 4 across server ingest, MCP, and server test suites.`
    - Verification command after this subtask: `npm run format:check --workspaces`
@@ -1034,6 +1054,10 @@ Replace immediate `status: started` reingest results with one terminal payload r
    - Docs: https://www.markdownguide.org/basic-syntax/
    - Acceptance criteria focus: AC22 documentation completeness.
    - Files to read/edit: `projectStructure.md`, `server/src/ingest/*`, `server/src/mcp/*`, `server/src/mcp2/*`, `server/src/test/unit/*`
+   - Document name: `projectStructure.md`.
+   - Document location: `projectStructure.md`.
+   - Document description: record Task 4 file additions/removals across ingest, MCP classic/v2, and related tests.
+   - Document purpose: keep file-map documentation consistent with reingest contract implementation changes.
 
 #### Testing
 
@@ -1274,6 +1298,10 @@ Apply one shared status/phase mapping and active-overlay merge path for `/ingest
    - Docs: https://context7.com/mermaid-js/mermaid/llms.txt | https://json-schema.org/understanding-json-schema/
    - Acceptance criteria focus: AC22 documentation completeness plus AC25/AC26 mapping clarity.
    - Files to read/edit: `design.md`, `server/src/lmstudio/toolService.ts`, `server/src/routes/ingestRoots.ts`, `server/src/mcp/server.ts`
+   - Document name: `design.md`.
+   - Document location: `design.md`.
+   - Document description: document status/phase mapping, synthesized-entry flow, and overlay precedence using Mermaid flow diagrams.
+   - Document purpose: clarify external contract mapping logic across REST and MCP listing surfaces.
 23. [ ] If this task adds or removes files, update `projectStructure.md` after finishing those file changes.
    - Starter snippet (adapt names to exact existing symbols): `Add entries for any new/removed files introduced by Task 5 in server listing routes/services and ingest listing test suites.`
    - Verification command after this subtask: `npm run format:check --workspaces`
@@ -1281,6 +1309,10 @@ Apply one shared status/phase mapping and active-overlay merge path for `/ingest
    - Docs: https://www.markdownguide.org/basic-syntax/
    - Acceptance criteria focus: AC22 documentation completeness.
    - Files to read/edit: `projectStructure.md`, `server/src/lmstudio/*`, `server/src/routes/*`, `server/src/mcp/*`, `server/src/test/unit/*`
+   - Document name: `projectStructure.md`.
+   - Document location: `projectStructure.md`.
+   - Document description: record Task 5 file additions/removals across listing services/routes and associated tests.
+   - Document purpose: ensure structural documentation matches ingest visibility and mapping implementation artifacts.
 
 #### Testing
 
@@ -1419,6 +1451,10 @@ Ensure no-change delta runs exit before AST parse/upsert/delete and before embed
    - Docs: https://context7.com/mermaid-js/mermaid/llms.txt | https://cucumber.io/docs/guides/
    - Acceptance criteria focus: AC22 documentation completeness plus AC16/AC17 flow clarity.
    - Files to read/edit: `design.md`, `server/src/ingest/ingestJob.ts`, `server/src/ingest/reingestService.ts`, `server/src/test/features/ingest-delta-reembed.feature`
+   - Document name: `design.md`.
+   - Document location: `design.md`.
+   - Document description: document no-change early-return and cancellation boundary flows with Mermaid diagrams.
+   - Document purpose: preserve a clear architectural reference for ingest control-flow and terminal-state behavior.
 12. [ ] If this task adds or removes files, update `projectStructure.md` after finishing those file changes.
    - Starter snippet (adapt names to exact existing symbols): `Add entries for any new/removed files introduced by Task 6 in ingest pipeline and BDD/unit test paths.`
    - Verification command after this subtask: `npm run format:check --workspaces`
@@ -1426,6 +1462,10 @@ Ensure no-change delta runs exit before AST parse/upsert/delete and before embed
    - Docs: https://www.markdownguide.org/basic-syntax/
    - Acceptance criteria focus: AC22 documentation completeness.
    - Files to read/edit: `projectStructure.md`, `server/src/ingest/*`, `server/src/test/unit/*`, `server/src/test/features/*`, `server/src/test/steps/*`
+   - Document name: `projectStructure.md`.
+   - Document location: `projectStructure.md`.
+   - Document description: record Task 6 file additions/removals across ingest pipeline and BDD/unit test paths.
+   - Document purpose: keep the repository structure reference current for ingest-pipeline changes.
 
 #### Testing
 
@@ -1583,6 +1623,10 @@ Align Ingest page data normalization/rendering with server contract updates so a
    - Docs: https://context7.com/mermaid-js/mermaid/llms.txt | https://react.dev/learn/synchronizing-with-effects
    - Acceptance criteria focus: AC22 documentation completeness plus AC11/AC15 UI flow clarity.
    - Files to read/edit: `design.md`, `client/src/hooks/useIngestRoots.ts`, `client/src/components/ingest/RootsTable.tsx`, `client/src/pages/IngestPage.tsx`
+   - Document name: `design.md`.
+   - Document location: `design.md`.
+   - Document description: document ingest UI normalization/rendering flow and terminal phase-omission rules with Mermaid diagrams.
+   - Document purpose: provide a maintained architecture view of client-side ingest status behavior.
 14. [ ] If this task adds or removes files, update `projectStructure.md` after finishing those file changes.
    - Starter snippet (adapt names to exact existing symbols): `Add entries for any new/removed files introduced by Task 7 in common/client ingest hooks, components, pages, and tests.`
    - Verification command after this subtask: `npm run format:check --workspaces`
@@ -1590,6 +1634,10 @@ Align Ingest page data normalization/rendering with server contract updates so a
    - Docs: https://www.markdownguide.org/basic-syntax/
    - Acceptance criteria focus: AC22 documentation completeness.
    - Files to read/edit: `projectStructure.md`, `common/src/*`, `client/src/hooks/*`, `client/src/components/ingest/*`, `client/src/pages/*`, `client/src/test/*`
+   - Document name: `projectStructure.md`.
+   - Document location: `projectStructure.md`.
+   - Document description: record Task 7 file additions/removals across common/client ingest hooks, components, pages, and tests.
+   - Document purpose: maintain an accurate file-map reference for ingest UI contract consumption changes.
 
 #### Testing
 
@@ -1621,33 +1669,71 @@ Update story-adjacent documentation so junior developers can understand final st
 #### Subtasks
 
 1. [ ] Update `design.md` with final stop-race handling, blocking reingest contract flow, and status/phase mapper behavior, including Mermaid diagrams.
-   - Starter snippet (adapt names to exact existing symbols): `Document final contract JSON examples and changed file paths in design.md/projectStructure.md/story notes.`
+   - Starter snippet (adapt names to exact existing symbols): `Document final stop-race, blocking reingest, and status/phase architecture flows with valid Mermaid diagrams.`
    - Verification command after this subtask: `npm run format:check --workspaces`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://context7.com/mermaid-js/mermaid/llms.txt | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://www.jsonrpc.org/specification
    - Acceptance criteria focus: AC22 and cross-check of all implemented AC behavior.
    - Files to read/edit: `design.md`
+   - Document name: `design.md`.
+   - Document location: `design.md`.
+   - Document description: capture final architecture behavior and flow diagrams for stop handling, blocking reingest, and ingest status mapping.
+   - Document purpose: provide the authoritative technical design reference for this story.
 2. [ ] Update `projectStructure.md` with all files added/removed/renamed across this story’s implementation tasks.
-   - Starter snippet (adapt names to exact existing symbols): `Document final contract JSON examples and changed file paths in design.md/projectStructure.md/story notes.`
+   - Starter snippet (adapt names to exact existing symbols): `Document all file additions/removals/renames produced by story 0000038 tasks.`
    - Verification command after this subtask: `npm run format:check --workspaces`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://context7.com/mermaid-js/mermaid/llms.txt | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://www.jsonrpc.org/specification
    - Acceptance criteria focus: AC22 and cross-check of all implemented AC behavior.
    - Files to read/edit: `projectStructure.md`
+   - Document name: `projectStructure.md`.
+   - Document location: `projectStructure.md`.
+   - Document description: list story-specific structural changes to repository files and paths.
+   - Document purpose: keep project structure documentation accurate for developers navigating the codebase.
 3. [ ] Update this story plan’s Implementation Notes sections as each task completes, including key decisions and deviations.
-   - Starter snippet (adapt names to exact existing symbols): `Document final contract JSON examples and changed file paths in design.md/projectStructure.md/story notes.`
+   - Starter snippet (adapt names to exact existing symbols): `Record per-task implementation outcomes, deviations, and important decisions in the story notes sections.`
    - Verification command after this subtask: `npm run format:check --workspaces`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://context7.com/mermaid-js/mermaid/llms.txt | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://www.jsonrpc.org/specification
    - Acceptance criteria focus: AC22 and cross-check of all implemented AC behavior.
    - Files to read/edit: `planning/0000038-agent-ux-stop-and-ingest-status.md`
-4. [ ] Run `npm run format:check --workspaces` and fix markdown/style issues if needed.
-   - Starter snippet (adapt names to exact existing symbols): `Document final contract JSON examples and changed file paths in design.md/projectStructure.md/story notes.`
+   - Document name: `0000038-agent-ux-stop-and-ingest-status.md`.
+   - Document location: `planning/0000038-agent-ux-stop-and-ingest-status.md`.
+   - Document description: update per-task Implementation Notes with concrete completion details.
+   - Document purpose: preserve execution traceability and reduce handover ambiguity for future contributors.
+4. [ ] Run markdown format check and fix markdown/style issues in `design.md` if required.
+   - Starter snippet (adapt names to exact existing symbols): `Apply any markdown formatting fixes needed in design.md after running format checks.`
    - Verification command after this subtask: `npm run format:check --workspaces`
-   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
-   - Docs: https://context7.com/mermaid-js/mermaid/llms.txt | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://www.jsonrpc.org/specification
-   - Acceptance criteria focus: AC22 and cross-check of all implemented AC behavior.
-   - Files to read/edit: `design.md`, `projectStructure.md`, `planning/0000038-agent-ux-stop-and-ingest-status.md`
+   - Dependency note: execute this after Subtask 1 content updates.
+   - Docs: https://context7.com/mermaid-js/mermaid/llms.txt
+   - Acceptance criteria focus: AC22 documentation quality.
+   - Files to read/edit: `design.md`
+   - Document name: `design.md`.
+   - Document location: `design.md`.
+   - Document description: apply markdown style/format corrections after architecture updates.
+   - Document purpose: keep design documentation readable and standards-compliant.
+5. [ ] Run markdown format check and fix markdown/style issues in `projectStructure.md` if required.
+   - Starter snippet (adapt names to exact existing symbols): `Apply any markdown formatting fixes needed in projectStructure.md after running format checks.`
+   - Verification command after this subtask: `npm run format:check --workspaces`
+   - Dependency note: execute this after Subtask 2 content updates.
+   - Docs: https://context7.com/mermaid-js/mermaid/llms.txt
+   - Acceptance criteria focus: AC22 documentation quality.
+   - Files to read/edit: `projectStructure.md`
+   - Document name: `projectStructure.md`.
+   - Document location: `projectStructure.md`.
+   - Document description: apply markdown style/format corrections after file-map updates.
+   - Document purpose: ensure structure documentation stays clean and consistent.
+6. [ ] Run markdown format check and fix markdown/style issues in this story plan file if required.
+   - Starter snippet (adapt names to exact existing symbols): `Apply any markdown formatting fixes needed in planning/0000038-agent-ux-stop-and-ingest-status.md after running format checks.`
+   - Verification command after this subtask: `npm run format:check --workspaces`
+   - Dependency note: execute this after Subtask 3 content updates.
+   - Docs: https://context7.com/mermaid-js/mermaid/llms.txt
+   - Acceptance criteria focus: AC22 documentation quality.
+   - Files to read/edit: `planning/0000038-agent-ux-stop-and-ingest-status.md`
+   - Document name: `0000038-agent-ux-stop-and-ingest-status.md`.
+   - Document location: `planning/0000038-agent-ux-stop-and-ingest-status.md`.
+   - Document description: apply markdown style/format corrections to final story notes.
+   - Document purpose: keep planning documentation consistent and machine/human readable.
 
 #### Testing
 
@@ -1867,13 +1953,39 @@ Perform end-to-end verification of all acceptance criteria after Tasks 1-8 are c
    - Docs: https://docs.docker.com/compose/ | https://playwright.dev/docs/intro | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
    - Acceptance criteria focus: AC1-AC28 final gate evidence.
    - Files to read/edit: `test-results/screenshots/*`
-19. [ ] Ensure final docs (`design.md`, `projectStructure.md`, and this story file) reflect the implemented behavior with no contradictions.
-   - Starter snippet (adapt names to exact existing symbols): `Record AC-by-AC evidence with command output references and screenshot/log artifact names.`
+19. [ ] Ensure final `design.md` content reflects implemented behavior with no contradictions.
+   - Starter snippet (adapt names to exact existing symbols): `Cross-check design.md architecture text and Mermaid diagrams against final implemented stop/reingest/status behavior.`
    - Verification command after this subtask: `npm run e2e`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://docs.docker.com/compose/ | https://playwright.dev/docs/intro | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
    - Acceptance criteria focus: AC1-AC28 final gate evidence.
-   - Files to read/edit: `design.md`, `projectStructure.md`, `planning/0000038-agent-ux-stop-and-ingest-status.md`
+   - Files to read/edit: `design.md`
+   - Document name: `design.md`.
+   - Document location: `design.md`.
+   - Document description: validate and correct architecture/flow documentation and diagrams against implemented behavior.
+   - Document purpose: prevent architectural documentation drift at final verification.
+20. [ ] Ensure final `projectStructure.md` content reflects implemented file changes with no contradictions.
+   - Starter snippet (adapt names to exact existing symbols): `Cross-check projectStructure.md entries against actual created/removed/renamed files in story implementation.`
+   - Verification command after this subtask: `npm run e2e`
+   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+   - Docs: https://docs.docker.com/compose/ | https://playwright.dev/docs/intro | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
+   - Acceptance criteria focus: AC1-AC28 final gate evidence.
+   - Files to read/edit: `projectStructure.md`
+   - Document name: `projectStructure.md`.
+   - Document location: `projectStructure.md`.
+   - Document description: validate and correct file-map documentation against actual repository changes.
+   - Document purpose: ensure file-structure documentation is accurate for future implementation work.
+21. [ ] Ensure final story plan file reflects implemented behavior and verification evidence with no contradictions.
+   - Starter snippet (adapt names to exact existing symbols): `Cross-check planning/0000038-agent-ux-stop-and-ingest-status.md implementation notes and verification evidence against final outcomes.`
+   - Verification command after this subtask: `npm run e2e`
+   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+   - Docs: https://docs.docker.com/compose/ | https://playwright.dev/docs/intro | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
+   - Acceptance criteria focus: AC1-AC28 final gate evidence.
+   - Files to read/edit: `planning/0000038-agent-ux-stop-and-ingest-status.md`
+   - Document name: `0000038-agent-ux-stop-and-ingest-status.md`.
+   - Document location: `planning/0000038-agent-ux-stop-and-ingest-status.md`.
+   - Document description: validate story-level verification notes and acceptance evidence entries.
+   - Document purpose: keep the story record internally consistent for release and audit traceability.
 
 #### Testing
 

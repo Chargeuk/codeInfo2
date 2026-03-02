@@ -21,44 +21,39 @@ Repository visibility during ingest is also incomplete. Repositories being inges
 
 Finally, re-embed no-op behavior and status semantics need tightening. Successful ingest/re-ingest outcomes should always end in `completed`, including no-change and deletion-only paths. The “no files changed” decision should happen earlier so that no embedding work and no AST parsing/writing occurs when there are no changes, giving a fast early return.
 
+For this story, "deterministic" means:
+- No ambiguous terminal state is returned to callers.
+- No hidden timing race can cause extra command retries/steps after Stop has been requested.
+- Both MCP surfaces exposed by this app return the same terminal contract fields for the same terminal outcome.
+
 ### Acceptance Criteria
 
-- Agents page allows instruction text entry while a run is active (user can prepare next message), but send/execute submission remains disabled until run completion.
-- Agents conversation sidebar remains interactive during active run so users can switch conversations while work is in progress.
-- Stop behavior for command-list/json command runs is deterministic: pressing Stop halts further retries and prevents additional command steps from executing.
-- Stop behavior remains deterministic even if inflight identifiers are not yet available at the exact click moment.
-- MCP `reingest_repository` is blocking by default and by contract (no optional wait flags).
-- Blocking re-embed behavior is implemented consistently across both MCP surfaces exposed by this app (classic MCP and MCP v2 routes).
-- Existing MCP keep-alive behavior is used so long-running blocking tool calls keep the connection alive until final completion response.
-- Blocking MCP re-embed final response includes terminal outcome semantics (success or terminal failure) and does not return `started` while work is still in progress.
-- Blocking MCP re-embed response payload contains final summary data only (no per-phase progress stream/snapshot payload in the final result contract).
-- Final blocking MCP terminal payload does not include a top-level `message` field; terminal meaning is carried by structured fields only.
-- When a blocking MCP re-embed wait is interrupted by user cancellation from the web GUI, MCP returns a normal terminal result payload with `status: cancelled` (not a JSON-RPC error contract).
-- MCP blocking re-embed does not support cancellation via MCP request parameters or MCP cancel contract extensions in this story.
-- Users can still observe active ingest/re-embed progress in the web GUI and can cancel from the existing web ingest controls while MCP callers continue waiting for terminal completion response.
-- During ingest/re-embed, repositories remain visible in Ingest page embedded folder list with an explicit in-progress status value.
-- During ingest/re-embed, repositories remain visible in MCP repository listing with explicit in-progress status value.
-- MCP repository listing for active ingest/re-embed includes last completed ingest metadata plus active-run overlay fields.
-- MCP ListIngestedRepositories schema/contracts are updated to include repository status field(s) required for in-progress visibility.
-- Canonical status model across UI, REST, and MCP uses coarse + detailed fields for active ingestion:
-  - coarse top-level status `ingesting` for all in-progress runs;
-  - detailed phase field exposing current phase (`queued`, `scanning`, `embedding`).
-- For terminal statuses (`completed`, `cancelled`, `error`), `phase` is omitted from payloads.
-- Any successful ingest/re-ingest request is reported as `completed` regardless of internal path taken (full embed, no-change early return, deletion-only delta path, or mixed delta path).
-- Re-embed flow performs file-change delta decision early; when no files changed, the run exits early and performs no embedding and no AST parsing/upsert/delete work.
-- Final blocking MCP terminal payload uses a deterministic top-level contract across statuses with mandatory fields:
-  - `status` (`completed` | `cancelled` | `error`)
-  - `operation` (`reembed`)
-  - `runId`
-  - `sourceId`
-  - `durationMs`
-  - `files`
-  - `chunks`
-  - `embedded`
-  - `errorCode` (nullable; populated only when `status=error`)
-- For `cancelled` terminal results, payload includes last-known counters (`files`, `chunks`, `embedded`) when available.
-- UI and server tests are added/updated for all above behaviors, including MCP classic + MCP v2 parity coverage.
-- Documentation updates (README/design/projectStructure as needed) reflect new stop semantics, blocking MCP re-embed behavior, repository status visibility, and no-change early return behavior.
+1. While an Agents run is active, the instruction input remains editable and preserves typed text, but all submit/execute actions remain disabled until that run reaches a terminal state.
+2. While an Agents run is active, the conversation sidebar remains clickable and switching conversations still works; no run-state overlay blocks navigation.
+3. After the user clicks Stop for a command-list/json command run, no new command step may start and no retry may be scheduled from that point onward.
+4. The Stop guarantee in criterion 3 also holds when Stop is clicked before an inflight run identifier is available (timing race case).
+5. `reingest_repository` behaves as blocking by contract on both MCP surfaces in this app (classic MCP and MCP v2): one tool response is returned only after terminal completion (`completed`, `cancelled`, or `error`).
+6. The blocking behavior in criterion 5 is not configurable in this story: no `wait`, `blocking`, or similar request flags are added.
+7. Existing keep-alive heartbeat behavior continues to run during the blocking wait so long-running MCP calls do not time out before terminal response.
+8. The final blocking MCP response never uses a `started` status and never represents a non-terminal/in-progress state.
+9. The final blocking MCP response is summary-only terminal data and does not include per-phase progress streams, progress snapshots, or a top-level `message` field.
+10. If a user cancels the same ingest run from the web GUI while MCP is waiting, MCP returns a normal terminal tool result with `status: cancelled` (not a JSON-RPC error payload).
+11. During an active ingest/re-embed run, the repository remains visible in the Ingest page list with coarse status `ingesting`.
+12. During an active ingest/re-embed run, the repository remains visible in MCP repository listing with coarse status `ingesting`.
+13. During active ingest/re-embed, active-status overlays are merged with last completed ingest metadata; last completed metadata is not dropped simply because a run is currently active.
+14. For active ingest/re-embed states, the detailed `phase` field is restricted to `queued`, `scanning`, or `embedding`.
+15. For terminal states (`completed`, `cancelled`, `error`), `phase` is omitted from payloads (not null/empty string).
+16. Any successful ingest/re-ingest run returns terminal status `completed` regardless of path (full embed, no-change early return, deletion-only path, or mixed delta path).
+17. No-change decision is made before AST parsing and before embedding work; when no files changed, the run exits without AST parse/upsert/delete and without embedding calls.
+18. Final blocking MCP terminal payload includes the following top-level fields for all terminal statuses: `status`, `operation`, `runId`, `sourceId`, `durationMs`, `files`, `chunks`, `embedded`, `errorCode`.
+19. Field constraints for criterion 18:
+   - `status`: one of `completed`, `cancelled`, `error`
+   - `operation`: literal `reembed`
+   - `errorCode`: `null` unless `status=error`
+   - `files`, `chunks`, `embedded`: numeric counters; for `cancelled`, last-known values are returned when available
+20. MCP classic and MCP v2 return the same field names and status semantics for the same terminal outcome.
+21. Automated tests are added/updated for each behavior above across client and server, including MCP classic + MCP v2 parity and no-change early-return coverage.
+22. Documentation is updated to reflect final behavior: reliable Stop semantics, blocking MCP re-embed contract, in-progress repository visibility, and no-change early return.
 
 ### Out Of Scope
 
@@ -111,3 +106,19 @@ None. Open planning questions captured so far are resolved and this story is rea
   - MCP classic and MCP v2 tests verifying blocking semantics and final response contracts.
   - Ingest route/tool tests for in-progress repository visibility and status fields.
   - Ingest pipeline tests for no-change early return skipping AST + embedding work.
+
+## Contract Example (Terminal MCP Re-embed Result)
+
+```json
+{
+  "status": "completed",
+  "operation": "reembed",
+  "runId": "run_123",
+  "sourceId": "/abs/path/repo",
+  "durationMs": 8123,
+  "files": 42,
+  "chunks": 120,
+  "embedded": 120,
+  "errorCode": null
+}
+```

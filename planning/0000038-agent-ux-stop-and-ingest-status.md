@@ -17,7 +17,7 @@ Stopping an active agent run is also not reliable enough for command-list/json c
 
 On the ingest side, AI-facing behavior needs to be deterministic and simple. The MCP re-embed tool currently returns quickly with a started run id, but not completion, which can cause an AI agent to assume ingest has finished when it has not. For this story, MCP re-embed must block until completion, with no optional toggle parameters, and this must apply consistently across both MCP surfaces exposed by the app. Keep-alive heartbeats should continue to be used so long-running calls remain healthy.
 
-Repository visibility during ingest is also incomplete. Repositories being ingested/re-embedded can disappear from both the Ingest page list and MCP repository listing while processing, which leads users and AIs to believe the repository does not exist. The desired behavior is to always include such repositories with a visible ingest status (for example `ingesting`) in both UI and MCP responses.
+Repository visibility during ingest is also incomplete. Repositories being ingested/re-embedded can disappear from both the Ingest page list and MCP classic `ListIngestedRepositories` listing while processing, which leads users and AIs to believe the repository does not exist. The desired behavior is to always include such repositories with a visible ingest status (for example `ingesting`) in both UI and MCP responses.
 
 Finally, re-embed no-op behavior and status semantics need tightening. Successful ingest/re-ingest outcomes should always end in `completed`, including no-change and deletion-only paths. The “no files changed” decision should happen earlier so that no embedding work and no AST parsing/writing occurs when there are no changes, giving a fast early return.
 
@@ -41,7 +41,7 @@ This story is intentionally scoped as a contract-alignment story across existing
 9. The final blocking MCP response is summary-only terminal data and does not include per-phase progress streams, progress snapshots, or a top-level `message` field.
 10. If a user cancels the same ingest run from the web GUI while MCP is waiting, MCP returns a normal terminal tool result with `status: cancelled` (not a JSON-RPC error payload).
 11. During an active ingest/re-embed run, the repository remains visible in the Ingest page list with coarse status `ingesting`.
-12. During an active ingest/re-embed run, the repository remains visible in MCP repository listing with coarse status `ingesting`.
+12. During an active ingest/re-embed run, the repository remains visible in MCP classic `ListIngestedRepositories` listing with coarse status `ingesting`.
 13. During active ingest/re-embed, active-status overlays are merged with last completed ingest metadata; last completed metadata is not dropped simply because a run is currently active.
 14. For active ingest/re-embed states, the detailed `phase` field is restricted to `queued`, `scanning`, or `embedding`.
 15. For terminal states (`completed`, `cancelled`, `error`), `phase` is omitted from payloads (not null/empty string).
@@ -53,7 +53,7 @@ This story is intentionally scoped as a contract-alignment story across existing
    - `operation`: literal `reembed`
    - `errorCode`: `null` unless `status=error`
    - `files`, `chunks`, `embedded`: numeric counters; for `cancelled`, last-known values are returned when available
-20. MCP classic and MCP v2 return the same field names and status semantics for the same terminal outcome.
+20. MCP classic and MCP v2 return the same field names and status semantics for the same `reingest_repository` terminal outcome.
 21. Automated tests are added/updated for each behavior above across client and server, including MCP classic + MCP v2 parity and no-change early-return coverage.
 22. Documentation is updated to reflect final behavior: reliable Stop semantics, blocking MCP re-embed contract, in-progress repository visibility, and no-change early return.
 23. Stop race behavior is conversation-authoritative: even when `abortInflight` cannot find the inflight id, command execution abort is still attempted by `conversationId`, and no further command retries/steps execute after Stop is requested.
@@ -98,7 +98,7 @@ Validated from current code contracts and persisted metadata usage on 2026-03-02
      - `phase?: "queued" | "scanning" | "embedding"` (present only when `status="ingesting"`)
    - Surface-specific shape rule:
      - `/ingest/roots`: keep existing `status` field name but change its emitted value semantics to the external model above.
-     - MCP `ListIngestedRepositories`: add new `status` and optional `phase` fields to each repo entry.
+     - MCP classic `ListIngestedRepositories`: add new `status` and optional `phase` fields to each repo entry.
    - Active overlay fields come from runtime status (`status`, `phase`, live counters, active `runId`) while last completed metadata remains from persisted roots metadata.
    - Internal terminal `skipped` is not emitted externally; map it to external `status: "completed"`.
    - `phase` is omitted (not null/empty) for terminal statuses.
@@ -108,7 +108,7 @@ Validated from current code contracts and persisted metadata usage on 2026-03-02
      - model/lock metadata: preserve last known values when available, otherwise emit empty/default-safe values already accepted by the current contract.
 
 3. Schema version signaling:
-   - Bump ingest listing `schemaVersion` (shared constant used by `/ingest/roots` and MCP `ListIngestedRepositories`) to represent status/phase contract expansion.
+   - Bump ingest listing `schemaVersion` (shared constant used by `/ingest/roots` and MCP classic `ListIngestedRepositories`) to represent status/phase contract expansion.
    - Target schema version for this story: `0000038-status-phase-v1`.
 
 ### Contracts That Stay Unchanged
@@ -169,11 +169,12 @@ Validated using repository analysis (`code_info`) plus protocol cross-checks (`d
    - Keep pre-run validation failures in JSON-RPC error envelope; use terminal payload for in-run completion outcomes.
 
 4. Repository visibility/status overlay during active ingest (REST + MCP)
-   - Primary files: `server/src/lmstudio/toolService.ts`, `server/src/routes/ingestRoots.ts`, `server/src/ingest/ingestJob.ts`.
+   - Primary files: `server/src/lmstudio/toolService.ts`, `server/src/routes/ingestRoots.ts`, `server/src/ingest/ingestJob.ts`, `server/src/mcp/server.ts`.
    - Add one shared status mapper/overlay path used by both listing surfaces:
      - internal `queued|scanning|embedding` -> external `status: ingesting` + `phase`;
      - internal `completed|cancelled|error` -> same external `status`, no `phase`;
      - internal `skipped` -> external `completed`.
+   - Update MCP classic tool output schema for `ListIngestedRepositories` to include `status` and `phase` in repo entries so runtime payload and declared contract remain aligned.
    - Apply active overlay precedence to status/counters/run id while preserving persisted metadata fields.
    - Ensure synthesized listing entry exists when active runtime state exists but persisted root metadata is temporarily absent.
 
@@ -188,6 +189,7 @@ Validated using repository analysis (`code_info`) plus protocol cross-checks (`d
 - `reingestService` is shared by MCP classic and MCP v2; contract changes must be reflected in both surfaces at the same time.
 - Stop reliability crosses WS inflight cancellation and command runner conversation-abort maps; changing only one side leaves the race unresolved.
 - Status/phase overlay semantics must be identical between `/ingest/roots` and MCP `ListIngestedRepositories`; use one shared mapper path to prevent drift.
+- This story does not add a new MCP v2 repository-listing tool; repository-listing contract changes apply to REST `/ingest/roots` and MCP classic `ListIngestedRepositories`.
 - Keep-alive and terminal payload semantics must remain aligned with MCP transport behavior (long wait with heartbeats, single terminal tool result).
 
 ## Contract Example (Terminal MCP Re-embed Result)

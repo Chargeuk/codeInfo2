@@ -395,7 +395,7 @@ Update WebSocket cancel message handling so command-run abort is always attempte
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API | https://github.com/websockets/ws | https://nodejs.org/api/events.html | https://jestjs.io/docs/expect
    - Acceptance criteria focus: AC3, AC4, AC23.
-   - Files to read/edit: `server/src/ws/server.ts` (`server/src/agents/commandsRunner.ts` read-only unless deterministic idempotence fix is required)
+   - Files to read/edit: `server/src/ws/server.ts`, `server/src/agents/commandsRunner.ts`
    - Required behavior: command retries/steps are blocked after stop request time in both inflight-id and no-inflight-id paths.
 3. [ ] Keep chat-stream cancellation semantics deterministic when `inflightId` is supplied but not found.
    - Starter snippet (adapt names to exact existing symbols): `if (msg.type === "cancel_inflight" && msg.conversationId) { abortAgentCommandRun(msg.conversationId); if (msg.inflightId) await abortInflight(msg.inflightId); }`
@@ -411,9 +411,9 @@ Update WebSocket cancel message handling so command-run abort is always attempte
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API | https://github.com/websockets/ws | https://nodejs.org/api/events.html | https://jestjs.io/docs/expect
    - Acceptance criteria focus: AC4, AC23.
-   - Files to read/edit: `server/src/test/unit/ws-*.test.ts`, `server/src/ws/types.ts`
+   - Files to read/edit: `server/src/test/unit/ws-server.test.ts`, `server/src/ws/types.ts`
    - Test type: Unit (parser contract).
-   - Test location: `server/src/test/unit/ws-*.test.ts`.
+   - Test location: `server/src/test/unit/ws-server.test.ts`.
    - Test description: assert parser accepts `cancel_inflight` with required `conversationId` and omitted `inflightId`.
    - Test purpose: guarantee stop-race path works when inflight id is not yet known.
 5. [ ] Add WS parser unit test: `cancel_inflight` accepts payload with `conversationId` plus `inflightId`.
@@ -422,9 +422,9 @@ Update WebSocket cancel message handling so command-run abort is always attempte
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API | https://github.com/websockets/ws | https://nodejs.org/api/events.html | https://jestjs.io/docs/expect
    - Acceptance criteria focus: AC3, AC23.
-   - Files to read/edit: `server/src/test/unit/ws-*.test.ts`, `server/src/ws/types.ts`
+   - Files to read/edit: `server/src/test/unit/ws-server.test.ts`, `server/src/ws/types.ts`
    - Test type: Unit (parser contract).
-   - Test location: `server/src/test/unit/ws-*.test.ts`.
+   - Test location: `server/src/test/unit/ws-server.test.ts`.
    - Test description: assert parser accepts full `cancel_inflight` payload with both ids.
    - Test purpose: preserve compatibility with existing inflight-aware cancellation callers.
 6. [ ] Add WS parser unit test: malformed `cancel_inflight` payloads are rejected.
@@ -433,9 +433,9 @@ Update WebSocket cancel message handling so command-run abort is always attempte
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API | https://github.com/websockets/ws | https://nodejs.org/api/events.html | https://jestjs.io/docs/expect
    - Acceptance criteria focus: AC3, AC4.
-   - Files to read/edit: `server/src/test/unit/ws-*.test.ts`, `server/src/ws/types.ts`
+   - Files to read/edit: `server/src/test/unit/ws-server.test.ts`, `server/src/ws/types.ts`
    - Test type: Unit (negative parser validation).
-   - Test location: `server/src/test/unit/ws-*.test.ts`.
+   - Test location: `server/src/test/unit/ws-server.test.ts`.
    - Test description: cover missing/empty `conversationId` and wrong field types; assert parser rejects.
    - Test purpose: prevent invalid stop payloads from creating undefined runtime behavior.
 7. [ ] Add WS handler unit test: conversation-only cancel does not emit chat `INFLIGHT_NOT_FOUND` turn-final failure.
@@ -444,9 +444,9 @@ Update WebSocket cancel message handling so command-run abort is always attempte
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API | https://github.com/websockets/ws | https://nodejs.org/api/events.html | https://jestjs.io/docs/expect
    - Acceptance criteria focus: AC4, AC23.
-   - Files to read/edit: `server/src/test/unit/ws-*.test.ts`, `server/src/ws/server.ts`
+   - Files to read/edit: `server/src/test/unit/ws-server.test.ts`, `server/src/ws/server.ts`
    - Test type: Unit (WS handler behavior).
-   - Test location: `server/src/test/unit/ws-*.test.ts`.
+   - Test location: `server/src/test/unit/ws-server.test.ts`.
    - Test description: for cancel payload without `inflightId`, assert no chat mismatch error event is emitted.
    - Test purpose: keep conversation-authoritative stop path clean for race scenarios.
 8. [ ] Add WS handler unit test: stale/mismatched `inflightId` keeps existing chat mismatch semantics.
@@ -601,9 +601,9 @@ Consume Task 1’s server message-contract update in the Agents UI so Stop alway
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://react.dev/reference/react/useCallback | https://llms.mui.com/material-ui/6.4.12/llms.txt | https://testing-library.com/docs/react-testing-library/intro
    - Acceptance criteria focus: AC4, AC23.
-   - Files to read/edit: `client/src/test/useChatWs*.test.ts`, `client/src/hooks/useChatWs.ts`
+   - Files to read/edit: `client/src/test/useChatWs.test.ts`, `client/src/hooks/useChatWs.ts`
    - Test type: Unit (hook payload contract).
-   - Test location: `client/src/test/useChatWs*.test.ts`.
+   - Test location: `client/src/test/useChatWs.test.ts`.
    - Test description: call `cancelInflight(conversationId)` without inflight id and assert payload omits `inflightId`.
    - Test purpose: ensure stop works during race window before inflight id exists.
 4. [ ] Add hook unit test: `cancelInflight` sends full payload when `inflightId` is provided.
@@ -612,9 +612,9 @@ Consume Task 1’s server message-contract update in the Agents UI so Stop alway
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://react.dev/reference/react/useCallback | https://llms.mui.com/material-ui/6.4.12/llms.txt | https://testing-library.com/docs/react-testing-library/intro
    - Acceptance criteria focus: AC3, AC23.
-   - Files to read/edit: `client/src/test/useChatWs*.test.ts`, `client/src/hooks/useChatWs.ts`
+   - Files to read/edit: `client/src/test/useChatWs.test.ts`, `client/src/hooks/useChatWs.ts`
    - Test type: Unit (hook payload contract).
-   - Test location: `client/src/test/useChatWs*.test.ts`.
+   - Test location: `client/src/test/useChatWs.test.ts`.
    - Test description: call `cancelInflight(conversationId, inflightId)` and assert both ids are included.
    - Test purpose: preserve compatibility with existing inflight-aware stop paths.
 5. [ ] Add Agents page UI test: stop click without inflight id still sends conversation-level cancel.
@@ -656,7 +656,7 @@ Consume Task 1’s server message-contract update in the Agents UI so Stop alway
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://react.dev/reference/react/useCallback | https://llms.mui.com/material-ui/6.4.12/llms.txt | https://testing-library.com/docs/react-testing-library/intro
    - Acceptance criteria focus: AC3, AC4, AC23.
-   - Files to read/edit: `client/src/test/agentsPage.commandsRun.abort.test.tsx`, `client/src/test/useChatWs*.test.ts`, `client/src/pages/AgentsPage.tsx`
+   - Files to read/edit: `client/src/test/agentsPage.commandsRun.abort.test.tsx`, `client/src/test/useChatWs.test.ts`, `client/src/pages/AgentsPage.tsx`
    - Required coverage: stop click with no active conversation does not send any WS cancel payload and does not throw.
    - Test type: Component/UI negative-path test.
    - Test location: `client/src/test/agentsPage.commandsRun.abort.test.tsx`.
@@ -668,7 +668,7 @@ Consume Task 1’s server message-contract update in the Agents UI so Stop alway
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://react.dev/reference/react/useCallback | https://llms.mui.com/material-ui/6.4.12/llms.txt | https://testing-library.com/docs/react-testing-library/intro
    - Acceptance criteria focus: AC3, AC4, AC23.
-   - Files to read/edit: `client/src/hooks/useChatWs.ts`, `client/src/pages/AgentsPage.tsx`, `client/src/test/agentsPage.commandsRun.abort.test.tsx`, `client/src/test/chatPage.stop.test.tsx`, `client/src/test/flowsPage.stop.test.tsx`, `client/src/test/useChatWs*.test.ts`
+   - Files to read/edit: `client/src/hooks/useChatWs.ts`, `client/src/pages/AgentsPage.tsx`, `client/src/test/agentsPage.commandsRun.abort.test.tsx`, `client/src/test/chatPage.stop.test.tsx`, `client/src/test/flowsPage.stop.test.tsx`, `client/src/test/useChatWs.test.ts`
 10. [ ] If this task adds or removes files, update `projectStructure.md` after finishing those file changes.
    - Starter snippet (adapt names to exact existing symbols): `Add entries for any new/removed files introduced by Task 2 under client hooks/pages/tests.`
    - Verification command after this subtask: `npm run format:check --workspaces`
@@ -746,9 +746,9 @@ Limit active-run UI restrictions to submit/execute controls only. Keep instructi
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://react.dev/learn/conditional-rendering | https://llms.mui.com/material-ui/6.4.12/llms.txt | https://reactrouter.com/ | https://www.w3.org/WAI/ARIA/apg/
    - Acceptance criteria focus: AC1.
-   - Files to read/edit: `client/src/test/agentsPage*.test.tsx`, `client/src/pages/AgentsPage.tsx`
+   - Files to read/edit: `client/src/test/agentsPage.navigateAway.keepsRun.test.tsx`, `client/src/test/agentsPage.conversationSelection.test.tsx`, `client/src/pages/AgentsPage.tsx`
    - Test type: Component/UI state test.
-   - Test location: `client/src/test/agentsPage*.test.tsx`.
+   - Test location: `client/src/test/agentsPage.navigateAway.keepsRun.test.tsx`, `client/src/test/agentsPage.conversationSelection.test.tsx`.
    - Test description: render active-run state and assert instruction input is still editable.
    - Test purpose: prevent regressions where run-active state accidentally locks typing.
 5. [ ] Add Agents UI component test: draft text persists across active-run state updates.
@@ -757,9 +757,9 @@ Limit active-run UI restrictions to submit/execute controls only. Keep instructi
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://react.dev/learn/conditional-rendering | https://llms.mui.com/material-ui/6.4.12/llms.txt | https://reactrouter.com/ | https://www.w3.org/WAI/ARIA/apg/
    - Acceptance criteria focus: AC1.
-   - Files to read/edit: `client/src/test/agentsPage*.test.tsx`, `client/src/pages/AgentsPage.tsx`
+   - Files to read/edit: `client/src/test/agentsPage.navigateAway.keepsRun.test.tsx`, `client/src/test/agentsPage.conversationSelection.test.tsx`, `client/src/pages/AgentsPage.tsx`
    - Test type: Component/UI persistence test.
-   - Test location: `client/src/test/agentsPage*.test.tsx`.
+   - Test location: `client/src/test/agentsPage.navigateAway.keepsRun.test.tsx`, `client/src/test/agentsPage.conversationSelection.test.tsx`.
    - Test description: enter draft, simulate active-run updates/ticks, assert draft value is unchanged.
    - Test purpose: guarantee users can prepare next instruction without losing input.
 6. [ ] Add Agents UI component test: sidebar conversation switch works during active run.
@@ -768,9 +768,9 @@ Limit active-run UI restrictions to submit/execute controls only. Keep instructi
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://react.dev/learn/conditional-rendering | https://llms.mui.com/material-ui/6.4.12/llms.txt | https://reactrouter.com/ | https://www.w3.org/WAI/ARIA/apg/
    - Acceptance criteria focus: AC2.
-   - Files to read/edit: `client/src/test/agentsPage*.test.tsx`, `client/src/pages/AgentsPage.tsx`, `client/src/components/chat/ConversationList.tsx`
+   - Files to read/edit: `client/src/test/agentsPage.navigateAway.keepsRun.test.tsx`, `client/src/test/agentsPage.conversationSelection.test.tsx`, `client/src/pages/AgentsPage.tsx`, `client/src/components/chat/ConversationList.tsx`
    - Test type: Component/UI navigation test.
-   - Test location: `client/src/test/agentsPage*.test.tsx`.
+   - Test location: `client/src/test/agentsPage.navigateAway.keepsRun.test.tsx`, `client/src/test/agentsPage.conversationSelection.test.tsx`.
    - Test description: while run is active, click a different conversation and assert selection changes.
    - Test purpose: enforce non-blocking multi-conversation workflow during active runs.
 7. [ ] Add Agents UI component test: submit/execute controls remain disabled while run is active.
@@ -779,9 +779,9 @@ Limit active-run UI restrictions to submit/execute controls only. Keep instructi
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://react.dev/learn/conditional-rendering | https://llms.mui.com/material-ui/6.4.12/llms.txt | https://reactrouter.com/ | https://www.w3.org/WAI/ARIA/apg/
    - Acceptance criteria focus: AC1, AC2.
-   - Files to read/edit: `client/src/test/agentsPage*.test.tsx`, `client/src/pages/AgentsPage.tsx`
+   - Files to read/edit: `client/src/test/agentsPage.navigateAway.keepsRun.test.tsx`, `client/src/test/agentsPage.conversationSelection.test.tsx`, `client/src/pages/AgentsPage.tsx`
    - Test type: Component/UI lock-state test.
-   - Test location: `client/src/test/agentsPage*.test.tsx`.
+   - Test location: `client/src/test/agentsPage.navigateAway.keepsRun.test.tsx`, `client/src/test/agentsPage.conversationSelection.test.tsx`.
    - Test description: assert send/execute controls are disabled during active run while input/sidebar remain usable.
    - Test purpose: keep the intended lock scope limited to submission actions only.
 8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; resolve any issues introduced by this task.
@@ -790,7 +790,7 @@ Limit active-run UI restrictions to submit/execute controls only. Keep instructi
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://react.dev/learn/conditional-rendering | https://llms.mui.com/material-ui/6.4.12/llms.txt | https://reactrouter.com/ | https://www.w3.org/WAI/ARIA/apg/
    - Acceptance criteria focus: AC1, AC2.
-   - Files to read/edit: `client/src/pages/AgentsPage.tsx`, `client/src/components/chat/ConversationList.tsx`, `client/src/test/agentsPage*.test.tsx`
+   - Files to read/edit: `client/src/pages/AgentsPage.tsx`, `client/src/components/chat/ConversationList.tsx`, `client/src/test/agentsPage.navigateAway.keepsRun.test.tsx`, `client/src/test/agentsPage.conversationSelection.test.tsx`
 9. [ ] If this task adds or removes files, update `projectStructure.md` after finishing those file changes.
    - Starter snippet (adapt names to exact existing symbols): `Add entries for any new/removed files introduced by Task 3 under client pages/components/tests.`
    - Verification command after this subtask: `npm run format:check --workspaces`
@@ -1257,9 +1257,9 @@ Apply one shared status/phase mapping and active-overlay merge path for `/ingest
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://json-schema.org/understanding-json-schema/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
    - Acceptance criteria focus: AC11, AC14, AC25.
-   - Files to read/edit: `server/src/test/unit/tools-ingested-repos*.test.ts`, `server/src/lmstudio/toolService.ts`
+   - Files to read/edit: `server/src/test/unit/tools-ingested-repos.test.ts`, `server/src/lmstudio/toolService.ts`
    - Test type: Unit (mapping contract).
-   - Test location: `server/src/test/unit/tools-ingested-repos*.test.ts`.
+   - Test location: `server/src/test/unit/tools-ingested-repos.test.ts`.
    - Test description: assert `queued` runtime state maps to external ingesting/queued shape.
    - Test purpose: guarantee deterministic mapping for active queued state.
 11. [ ] Add status-mapping unit test: internal `scanning` maps to external `status=ingesting` with `phase=scanning`.
@@ -1268,9 +1268,9 @@ Apply one shared status/phase mapping and active-overlay merge path for `/ingest
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://json-schema.org/understanding-json-schema/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
    - Acceptance criteria focus: AC11, AC14, AC25.
-   - Files to read/edit: `server/src/test/unit/tools-ingested-repos*.test.ts`, `server/src/lmstudio/toolService.ts`
+   - Files to read/edit: `server/src/test/unit/tools-ingested-repos.test.ts`, `server/src/lmstudio/toolService.ts`
    - Test type: Unit (mapping contract).
-   - Test location: `server/src/test/unit/tools-ingested-repos*.test.ts`.
+   - Test location: `server/src/test/unit/tools-ingested-repos.test.ts`.
    - Test description: assert `scanning` runtime state maps to external ingesting/scanning shape.
    - Test purpose: prevent phase drift for scanning state.
 12. [ ] Add status-mapping unit test: internal `embedding` maps to external `status=ingesting` with `phase=embedding`.
@@ -1279,9 +1279,9 @@ Apply one shared status/phase mapping and active-overlay merge path for `/ingest
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://json-schema.org/understanding-json-schema/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
    - Acceptance criteria focus: AC11, AC14, AC25.
-   - Files to read/edit: `server/src/test/unit/tools-ingested-repos*.test.ts`, `server/src/lmstudio/toolService.ts`
+   - Files to read/edit: `server/src/test/unit/tools-ingested-repos.test.ts`, `server/src/lmstudio/toolService.ts`
    - Test type: Unit (mapping contract).
-   - Test location: `server/src/test/unit/tools-ingested-repos*.test.ts`.
+   - Test location: `server/src/test/unit/tools-ingested-repos.test.ts`.
    - Test description: assert `embedding` runtime state maps to external ingesting/embedding shape.
    - Test purpose: keep active embedding status visible and phase-correct.
 13. [ ] Add terminal-mapping unit test: internal `skipped` maps to external `status=completed`.
@@ -1290,9 +1290,9 @@ Apply one shared status/phase mapping and active-overlay merge path for `/ingest
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://json-schema.org/understanding-json-schema/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
    - Acceptance criteria focus: AC15, AC25.
-   - Files to read/edit: `server/src/test/unit/tools-ingested-repos*.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`
+   - Files to read/edit: `server/src/test/unit/tools-ingested-repos.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`
    - Test type: Unit + contract test.
-   - Test location: `server/src/test/unit/tools-ingested-repos*.test.ts` and `server/src/test/unit/mcp-ingested-repositories.test.ts`.
+   - Test location: `server/src/test/unit/tools-ingested-repos.test.ts` and `server/src/test/unit/mcp-ingested-repositories.test.ts`.
    - Test description: assert no external `skipped` value is emitted.
    - Test purpose: normalize success semantics across surfaces.
 14. [ ] Add terminal-phase omission test: `completed` responses omit `phase`.
@@ -1301,9 +1301,9 @@ Apply one shared status/phase mapping and active-overlay merge path for `/ingest
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://json-schema.org/understanding-json-schema/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
    - Acceptance criteria focus: AC15.
-   - Files to read/edit: `server/src/test/unit/ingest-roots*.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`
+   - Files to read/edit: `server/src/test/unit/ingest-roots-dedupe.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`
    - Test type: Contract test (REST + MCP output).
-   - Test location: `server/src/test/unit/ingest-roots*.test.ts` and `server/src/test/unit/mcp-ingested-repositories.test.ts`.
+   - Test location: `server/src/test/unit/ingest-roots-dedupe.test.ts` and `server/src/test/unit/mcp-ingested-repositories.test.ts`.
    - Test description: assert completed entries omit `phase` on both listing surfaces.
    - Test purpose: prevent terminal payload ambiguity.
 15. [ ] Add terminal-phase omission test: `cancelled` responses omit `phase`.
@@ -1312,9 +1312,9 @@ Apply one shared status/phase mapping and active-overlay merge path for `/ingest
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://json-schema.org/understanding-json-schema/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
    - Acceptance criteria focus: AC15.
-   - Files to read/edit: `server/src/test/unit/ingest-roots*.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`
+   - Files to read/edit: `server/src/test/unit/ingest-roots-dedupe.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`
    - Test type: Contract test (REST + MCP output).
-   - Test location: `server/src/test/unit/ingest-roots*.test.ts` and `server/src/test/unit/mcp-ingested-repositories.test.ts`.
+   - Test location: `server/src/test/unit/ingest-roots-dedupe.test.ts` and `server/src/test/unit/mcp-ingested-repositories.test.ts`.
    - Test description: assert cancelled entries omit `phase` on both listing surfaces.
    - Test purpose: keep terminal cancelled payloads deterministic.
 16. [ ] Add terminal-phase omission test: `error` responses omit `phase`.
@@ -1323,9 +1323,9 @@ Apply one shared status/phase mapping and active-overlay merge path for `/ingest
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://json-schema.org/understanding-json-schema/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
    - Acceptance criteria focus: AC15.
-   - Files to read/edit: `server/src/test/unit/ingest-roots*.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`
+   - Files to read/edit: `server/src/test/unit/ingest-roots-dedupe.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`
    - Test type: Contract test (REST + MCP output).
-   - Test location: `server/src/test/unit/ingest-roots*.test.ts` and `server/src/test/unit/mcp-ingested-repositories.test.ts`.
+   - Test location: `server/src/test/unit/ingest-roots-dedupe.test.ts` and `server/src/test/unit/mcp-ingested-repositories.test.ts`.
    - Test description: assert error entries omit `phase` on both listing surfaces.
    - Test purpose: avoid leaking active-state fields into terminal error payloads.
 17. [ ] Add visibility regression test: active overlays keep repository visible during ingest.
@@ -1334,9 +1334,9 @@ Apply one shared status/phase mapping and active-overlay merge path for `/ingest
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://json-schema.org/understanding-json-schema/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
    - Acceptance criteria focus: AC11, AC12, AC27.
-   - Files to read/edit: `server/src/test/unit/tools-ingested-repos*.test.ts`, `server/src/test/unit/ingest-roots*.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`
+   - Files to read/edit: `server/src/test/unit/tools-ingested-repos.test.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`
    - Test type: Integration/contract regression test.
-   - Test location: `server/src/test/unit/tools-ingested-repos*.test.ts`.
+   - Test location: `server/src/test/unit/tools-ingested-repos.test.ts`.
    - Test description: assert active run repository appears in both REST and MCP listings while ingest is in progress.
    - Test purpose: eliminate disappearance bug during active ingest.
 18. [ ] Add synthesized-entry contract test: when persisted metadata is missing, emitted entry still includes required identity fields and `hostPathWarning` when applicable.
@@ -1345,9 +1345,9 @@ Apply one shared status/phase mapping and active-overlay merge path for `/ingest
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://json-schema.org/understanding-json-schema/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
    - Acceptance criteria focus: AC27.
-   - Files to read/edit: `server/src/test/unit/tools-ingested-repos*.test.ts`, `server/src/test/unit/ingest-roots*.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`
+   - Files to read/edit: `server/src/test/unit/tools-ingested-repos.test.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`
    - Test type: Contract edge-case test.
-   - Test location: `server/src/test/unit/tools-ingested-repos*.test.ts`.
+   - Test location: `server/src/test/unit/tools-ingested-repos.test.ts`.
    - Test description: assert synthesized entries are emitted with required identity/path fields and warning behavior.
    - Test purpose: guarantee listing continuity when persistence temporarily lacks root metadata.
 19. [ ] Add schema-version migration test: `/ingest/roots` and MCP classic listing both emit `0000038-status-phase-v1`.
@@ -1356,9 +1356,9 @@ Apply one shared status/phase mapping and active-overlay merge path for `/ingest
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://json-schema.org/understanding-json-schema/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
    - Acceptance criteria focus: AC28.
-   - Files to read/edit: `server/src/test/unit/ingest-roots*.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`, `server/src/routes/ingestRoots.ts`, `server/src/mcp/server.ts`
+   - Files to read/edit: `server/src/test/unit/ingest-roots-dedupe.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`, `server/src/routes/ingestRoots.ts`, `server/src/mcp/server.ts`
    - Test type: Contract versioning test.
-   - Test location: `server/src/test/unit/ingest-roots*.test.ts` and `server/src/test/unit/mcp-ingested-repositories.test.ts`.
+   - Test location: `server/src/test/unit/ingest-roots-dedupe.test.ts` and `server/src/test/unit/mcp-ingested-repositories.test.ts`.
    - Test description: assert both external listing surfaces emit the same updated schema version constant.
    - Test purpose: provide explicit contract-version signal for downstream clients.
 20. [ ] Add overlay-precedence regression test for persisted metadata retention.
@@ -1367,10 +1367,10 @@ Apply one shared status/phase mapping and active-overlay merge path for `/ingest
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://json-schema.org/understanding-json-schema/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
    - Acceptance criteria focus: AC13, AC26.
-   - Files to read/edit: `server/src/test/unit/tools-ingested-repos*.test.ts`, `server/src/test/unit/ingest-roots*.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`
+   - Files to read/edit: `server/src/test/unit/tools-ingested-repos.test.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`
    - Required coverage: active overlay replaces run-state fields only, while persisted metadata (`lastIngestAt`, lock/model metadata, last terminal error context) remains present until a newer terminal write occurs.
    - Test type: Regression test (overlay merge precedence).
-   - Test location: `server/src/test/unit/tools-ingested-repos*.test.ts` and related listing suites.
+   - Test location: `server/src/test/unit/tools-ingested-repos.test.ts` and `server/src/test/unit/ingest-roots-dedupe.test.ts` and `server/src/test/unit/mcp-ingested-repositories.test.ts`.
    - Test description: assert overlay updates run-state fields while retained persisted metadata remains unchanged until newer terminal write.
    - Test purpose: preserve critical metadata continuity during active overlays.
 21. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; resolve any issues introduced by this task.
@@ -1379,7 +1379,7 @@ Apply one shared status/phase mapping and active-overlay merge path for `/ingest
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://json-schema.org/understanding-json-schema/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
    - Acceptance criteria focus: AC11, AC12, AC13, AC14, AC15, AC25, AC26, AC27, AC28.
-   - Files to read/edit: `server/src/lmstudio/toolService.ts`, `server/src/routes/ingestRoots.ts`, `server/src/routes/toolsIngestedRepos.ts`, `server/src/mcp/server.ts`, `server/src/ingest/ingestJob.ts`, `server/src/test/unit/tools-ingested-repos*.test.ts`, `server/src/test/unit/ingest-roots*.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`
+   - Files to read/edit: `server/src/lmstudio/toolService.ts`, `server/src/routes/ingestRoots.ts`, `server/src/routes/toolsIngestedRepos.ts`, `server/src/mcp/server.ts`, `server/src/ingest/ingestJob.ts`, `server/src/test/unit/tools-ingested-repos.test.ts`, `server/src/test/unit/ingest-roots-dedupe.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`
 22. [ ] Update `design.md` with status/phase mapping architecture flow and Mermaid diagram(s) for active-overlay precedence.
    - Starter snippet (adapt names to exact existing symbols): `Add Mermaid flowchart showing internal ingest states -> external status/phase mapping, synthesized entry path, and overlay precedence with persisted metadata retention.`
    - Verification command after this subtask: `npm run format:check --workspaces`
@@ -1479,7 +1479,7 @@ Ensure no-change delta runs exit before AST parse/upsert/delete and before embed
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://tree-sitter.github.io/tree-sitter/ | https://github.com/tree-sitter/tree-sitter-typescript | https://nodejs.org/en/learn/asynchronous-work/dont-block-the-event-loop | https://mongoosejs.com/docs/ | https://jestjs.io/docs/getting-started
    - Acceptance criteria focus: AC16, AC17.
-   - Files to read/edit: `server/src/ingest/ingestJob.ts`, `server/src/ingest/reingestService.ts` (if mapping updates are required)
+   - Files to read/edit: `server/src/ingest/ingestJob.ts`, `server/src/ingest/reingestService.ts`
 4. [ ] Add unit test: no-change delta path skips AST parsing/indexing operations.
    - Starter snippet (adapt names to exact existing symbols): `expect(astParseSpy).not.toHaveBeenCalled();`
    - Verification command after this subtask: `npm run test --workspace server -- ingest-ast`
@@ -1648,9 +1648,9 @@ Align Ingest page data normalization/rendering with server contract updates so a
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://react.dev/learn/synchronizing-with-effects | https://llms.mui.com/material-ui/6.4.12/llms.txt | https://www.typescriptlang.org/docs/handbook/2/narrowing.html | https://www.typescriptlang.org/docs/handbook/release-notes/typescript-5-9.html
    - Acceptance criteria focus: AC11, AC12, AC14, AC25.
-   - Files to read/edit: `client/src/test/ingest*.test.tsx`, `client/src/hooks/useIngestRoots.ts`
+   - Files to read/edit: `client/src/test/ingestRoots.test.tsx`, `client/src/test/ingestStatus.test.tsx`, `client/src/test/ingestStatus.progress.test.tsx`, `client/src/hooks/useIngestRoots.ts`
    - Test type: Unit (hook normalization contract).
-   - Test location: `client/src/test/ingest*.test.tsx`.
+   - Test location: `client/src/test/ingestRoots.test.tsx`, `client/src/test/ingestStatus.test.tsx`, `client/src/test/ingestStatus.progress.test.tsx`.
    - Test description: feed ingesting payload rows through normalization and assert `phase` remains present and valid.
    - Test purpose: guarantee client keeps active ingest phase information visible.
 6. [ ] Add hook normalization test: terminal rows (`completed`, `cancelled`, `error`) omit `phase`.
@@ -1659,9 +1659,9 @@ Align Ingest page data normalization/rendering with server contract updates so a
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://react.dev/learn/synchronizing-with-effects | https://llms.mui.com/material-ui/6.4.12/llms.txt | https://www.typescriptlang.org/docs/handbook/2/narrowing.html | https://www.typescriptlang.org/docs/handbook/release-notes/typescript-5-9.html
    - Acceptance criteria focus: AC15, AC25.
-   - Files to read/edit: `client/src/test/ingest*.test.tsx`, `client/src/hooks/useIngestRoots.ts`
+   - Files to read/edit: `client/src/test/ingestRoots.test.tsx`, `client/src/test/ingestStatus.test.tsx`, `client/src/test/ingestStatus.progress.test.tsx`, `client/src/hooks/useIngestRoots.ts`
    - Test type: Unit (hook terminal-shape contract).
-   - Test location: `client/src/test/ingest*.test.tsx`.
+   - Test location: `client/src/test/ingestRoots.test.tsx`, `client/src/test/ingestStatus.test.tsx`, `client/src/test/ingestStatus.progress.test.tsx`.
    - Test description: normalize terminal rows and assert `phase` is omitted from client model.
    - Test purpose: prevent stale or invalid phase rendering for terminal states.
 7. [ ] Add hook normalization test: ingest roots `schemaVersion` accepts `0000038-status-phase-v1`.
@@ -1670,9 +1670,9 @@ Align Ingest page data normalization/rendering with server contract updates so a
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://react.dev/learn/synchronizing-with-effects | https://llms.mui.com/material-ui/6.4.12/llms.txt | https://www.typescriptlang.org/docs/handbook/2/narrowing.html | https://www.typescriptlang.org/docs/handbook/release-notes/typescript-5-9.html
    - Acceptance criteria focus: AC28.
-   - Files to read/edit: `client/src/test/ingest*.test.tsx`, `client/src/hooks/useIngestRoots.ts`, `common/src/lmstudio.ts`
+   - Files to read/edit: `client/src/test/ingestRoots.test.tsx`, `client/src/test/ingestStatus.test.tsx`, `client/src/test/ingestStatus.progress.test.tsx`, `client/src/hooks/useIngestRoots.ts`, `common/src/lmstudio.ts`
    - Test type: Unit (schema version compatibility).
-   - Test location: `client/src/test/ingest*.test.tsx`.
+   - Test location: `client/src/test/ingestRoots.test.tsx`, `client/src/test/ingestStatus.test.tsx`, `client/src/test/ingestStatus.progress.test.tsx`.
    - Test description: verify ingest roots parsing/typing accepts and preserves schema version `0000038-status-phase-v1`.
    - Test purpose: lock client compatibility to the updated server listing contract version.
 8. [ ] Add UI rendering test: active ingest row remains visible with `status=ingesting` and phase text.
@@ -1681,9 +1681,9 @@ Align Ingest page data normalization/rendering with server contract updates so a
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://react.dev/learn/synchronizing-with-effects | https://llms.mui.com/material-ui/6.4.12/llms.txt | https://www.typescriptlang.org/docs/handbook/2/narrowing.html | https://www.typescriptlang.org/docs/handbook/release-notes/typescript-5-9.html
    - Acceptance criteria focus: AC11, AC12, AC14.
-   - Files to read/edit: `client/src/test/ingest*.test.tsx`, `client/src/components/ingest/RootsTable.tsx`, `client/src/pages/IngestPage.tsx`
+   - Files to read/edit: `client/src/test/ingestRoots.test.tsx`, `client/src/test/ingestStatus.test.tsx`, `client/src/test/ingestStatus.progress.test.tsx`, `client/src/components/ingest/RootsTable.tsx`, `client/src/pages/IngestPage.tsx`
    - Test type: Component/UI visibility test.
-   - Test location: `client/src/test/ingest*.test.tsx`.
+   - Test location: `client/src/test/ingestRoots.test.tsx`, `client/src/test/ingestStatus.test.tsx`, `client/src/test/ingestStatus.progress.test.tsx`.
    - Test description: render active ingest state and assert repository row remains present with ingesting status and displayed phase.
    - Test purpose: prevent active repository disappearance in UI.
 9. [ ] Add UI rendering test: `completed` status shows no phase label.
@@ -1692,9 +1692,9 @@ Align Ingest page data normalization/rendering with server contract updates so a
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://react.dev/learn/synchronizing-with-effects | https://llms.mui.com/material-ui/6.4.12/llms.txt | https://www.typescriptlang.org/docs/handbook/2/narrowing.html | https://www.typescriptlang.org/docs/handbook/release-notes/typescript-5-9.html
    - Acceptance criteria focus: AC15.
-   - Files to read/edit: `client/src/test/ingest*.test.tsx`, `client/src/components/ingest/RootsTable.tsx`, `client/src/components/ingest/ActiveRunCard.tsx`, `client/src/pages/IngestPage.tsx`
+   - Files to read/edit: `client/src/test/ingestRoots.test.tsx`, `client/src/test/ingestStatus.test.tsx`, `client/src/test/ingestStatus.progress.test.tsx`, `client/src/components/ingest/RootsTable.tsx`, `client/src/components/ingest/ActiveRunCard.tsx`, `client/src/pages/IngestPage.tsx`
    - Test type: Component/UI terminal-state test.
-   - Test location: `client/src/test/ingest*.test.tsx`.
+   - Test location: `client/src/test/ingestRoots.test.tsx`, `client/src/test/ingestStatus.test.tsx`, `client/src/test/ingestStatus.progress.test.tsx`.
    - Test description: render completed ingest row/card and assert phase label/text is absent.
    - Test purpose: enforce terminal phase omission in UI for completed state.
 10. [ ] Add UI rendering test: `cancelled` status shows no phase label.
@@ -1703,9 +1703,9 @@ Align Ingest page data normalization/rendering with server contract updates so a
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://react.dev/learn/synchronizing-with-effects | https://llms.mui.com/material-ui/6.4.12/llms.txt | https://www.typescriptlang.org/docs/handbook/2/narrowing.html | https://www.typescriptlang.org/docs/handbook/release-notes/typescript-5-9.html
    - Acceptance criteria focus: AC15.
-   - Files to read/edit: `client/src/test/ingest*.test.tsx`, `client/src/components/ingest/RootsTable.tsx`, `client/src/components/ingest/ActiveRunCard.tsx`, `client/src/pages/IngestPage.tsx`
+   - Files to read/edit: `client/src/test/ingestRoots.test.tsx`, `client/src/test/ingestStatus.test.tsx`, `client/src/test/ingestStatus.progress.test.tsx`, `client/src/components/ingest/RootsTable.tsx`, `client/src/components/ingest/ActiveRunCard.tsx`, `client/src/pages/IngestPage.tsx`
    - Test type: Component/UI terminal-state test.
-   - Test location: `client/src/test/ingest*.test.tsx`.
+   - Test location: `client/src/test/ingestRoots.test.tsx`, `client/src/test/ingestStatus.test.tsx`, `client/src/test/ingestStatus.progress.test.tsx`.
    - Test description: render cancelled ingest row/card and assert phase label/text is absent.
    - Test purpose: enforce terminal phase omission in UI for cancelled state.
 11. [ ] Add UI rendering test: `error` status shows no phase label.
@@ -1714,9 +1714,9 @@ Align Ingest page data normalization/rendering with server contract updates so a
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://react.dev/learn/synchronizing-with-effects | https://llms.mui.com/material-ui/6.4.12/llms.txt | https://www.typescriptlang.org/docs/handbook/2/narrowing.html | https://www.typescriptlang.org/docs/handbook/release-notes/typescript-5-9.html
    - Acceptance criteria focus: AC15.
-   - Files to read/edit: `client/src/test/ingest*.test.tsx`, `client/src/components/ingest/RootsTable.tsx`, `client/src/components/ingest/ActiveRunCard.tsx`, `client/src/pages/IngestPage.tsx`
+   - Files to read/edit: `client/src/test/ingestRoots.test.tsx`, `client/src/test/ingestStatus.test.tsx`, `client/src/test/ingestStatus.progress.test.tsx`, `client/src/components/ingest/RootsTable.tsx`, `client/src/components/ingest/ActiveRunCard.tsx`, `client/src/pages/IngestPage.tsx`
    - Test type: Component/UI terminal-state test.
-   - Test location: `client/src/test/ingest*.test.tsx`.
+   - Test location: `client/src/test/ingestRoots.test.tsx`, `client/src/test/ingestStatus.test.tsx`, `client/src/test/ingestStatus.progress.test.tsx`.
    - Test description: render error ingest row/card and assert phase label/text is absent.
    - Test purpose: enforce terminal phase omission in UI for error state.
 12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; resolve any issues introduced by this task.
@@ -1725,7 +1725,7 @@ Align Ingest page data normalization/rendering with server contract updates so a
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://react.dev/learn/synchronizing-with-effects | https://llms.mui.com/material-ui/6.4.12/llms.txt | https://www.typescriptlang.org/docs/handbook/2/narrowing.html | https://www.typescriptlang.org/docs/handbook/release-notes/typescript-5-9.html
    - Acceptance criteria focus: AC11, AC12, AC14, AC15, AC25, AC28.
-   - Files to read/edit: `common/src/lmstudio.ts`, `client/src/hooks/useIngestRoots.ts`, `client/src/components/ingest/RootsTable.tsx`, `client/src/components/ingest/ActiveRunCard.tsx`, `client/src/pages/IngestPage.tsx`, `client/src/test/ingest*.test.tsx`
+   - Files to read/edit: `common/src/lmstudio.ts`, `client/src/hooks/useIngestRoots.ts`, `client/src/components/ingest/RootsTable.tsx`, `client/src/components/ingest/ActiveRunCard.tsx`, `client/src/pages/IngestPage.tsx`, `client/src/test/ingestRoots.test.tsx`, `client/src/test/ingestStatus.test.tsx`, `client/src/test/ingestStatus.progress.test.tsx`
 13. [ ] Update `design.md` with ingest UI flow updates and Mermaid diagram(s) for status/phase rendering and active-visibility behavior.
    - Starter snippet (adapt names to exact existing symbols): `Add Mermaid flowchart showing ingest roots payload -> client normalization -> UI render decisions for ingesting vs terminal states (phase omitted for terminal).`
    - Verification command after this subtask: `npm run format:check --workspaces`

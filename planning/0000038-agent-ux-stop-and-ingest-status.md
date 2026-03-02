@@ -365,7 +365,7 @@ Validated from existing repository behavior/tests and official documentation ref
 ### 1. Server Message Contract: make `cancel_inflight` race-safe and conversation-authoritative
 
 - Task Status: **__completed__**
-- Git Commits: `None yet`
+- Git Commits: `672573a`
 
 #### Overview
 

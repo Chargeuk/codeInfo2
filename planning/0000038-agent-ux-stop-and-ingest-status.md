@@ -373,10 +373,10 @@ Update WebSocket cancel message handling so command-run abort is always attempte
 
 #### Documentation Locations (External References Only)
 
-- WebSocket protocol overview (message framing and compatibility considerations): https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API
-- ws (Node WebSocket library) docs: https://github.com/websockets/ws
-- Node.js event model basics for request/response timing behavior: https://nodejs.org/api/events.html
-- Jest assertions and test patterns: https://jestjs.io/docs/expect
+- Verified on 2026-03-02: MDN WebSocket API reference for frame lifecycle, close/error semantics, and cancel message delivery timing: https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API
+- Verified on 2026-03-02: `ws` server library documentation (README/API usage) for connection handling and server-side message processing paths: https://github.com/websockets/ws
+- Verified on 2026-03-02: Node.js `events` documentation for EventEmitter ordering/idempotent listener behavior used in race-safe stop handling: https://nodejs.org/api/events.html
+- Verified on 2026-03-02: Jest `expect` assertions for deterministic stop/cancel contract tests and race regression checks: https://jestjs.io/docs/expect
 
 #### Subtasks
 
@@ -458,9 +458,13 @@ Consume Task 1’s server message-contract update in the Agents UI so Stop alway
 
 #### Documentation Locations (External References Only)
 
-- React `useCallback` and event handler state consistency: https://react.dev/reference/react/useCallback
-- MUI input/button patterns: https://llms.mui.com/material-ui/6.4.12/llms.txt
-- React Testing Library interactions: https://testing-library.com/docs/react-testing-library/intro
+- Verified on 2026-03-02: React `useCallback` reference for stable stop handlers and stale-closure avoidance during active runs: https://react.dev/reference/react/useCallback
+- Verified on 2026-03-02: MDN WebSocket API reference for client message-send behavior (`cancel_inflight` payload shape and dispatch timing): https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API
+- Verified on 2026-03-02 via MUI MCP: Material UI v6.4.12 index used in this repo for authoritative component/API docs: https://llms.mui.com/material-ui/6.4.12/llms.txt
+- Verified on 2026-03-02 via MUI MCP: MUI TextField behavior and controlled-input patterns used on Agents page forms: https://llms.mui.com/material-ui/6.4.12/components/text-fields.md
+- Verified on 2026-03-02 via MUI MCP: MUI Button API semantics for stop/submit disabled-state behavior: https://llms.mui.com/material-ui/6.4.12/api/button.md
+- Verified on 2026-03-02: React Testing Library intro for event simulation and DOM assertions on stop-click flows: https://testing-library.com/docs/react-testing-library/intro
+- Verified on 2026-03-02: Jest `expect` assertions for payload-shape and call-argument verification: https://jestjs.io/docs/expect
 
 #### Subtasks
 
@@ -519,10 +523,14 @@ Limit active-run UI restrictions to submit/execute controls only. Keep instructi
 
 #### Documentation Locations (External References Only)
 
-- React state derivation and conditional rendering: https://react.dev/learn/conditional-rendering
-- MUI Drawer/List/interaction patterns: https://llms.mui.com/material-ui/6.4.12/llms.txt
-- React Router docs (v7): https://reactrouter.com/
-- Accessibility and keyboard interaction expectations: https://www.w3.org/WAI/ARIA/apg/
+- Verified on 2026-03-02: React conditional rendering guide for splitting submission lock state from input/sidebar interactivity state: https://react.dev/learn/conditional-rendering
+- Verified on 2026-03-02: React Router docs for safe conversation navigation while a run remains active: https://reactrouter.com/
+- Verified on 2026-03-02 via MUI MCP: Material UI v6.4.12 source index for component-level behavior and prop contracts: https://llms.mui.com/material-ui/6.4.12/llms.txt
+- Verified on 2026-03-02 via MUI MCP: MUI Lists guidance for clickable conversation list behavior and interaction patterns: https://llms.mui.com/material-ui/6.4.12/components/lists.md
+- Verified on 2026-03-02 via MUI MCP: MUI Drawer API for sidebar interaction/disabled-state rules when run-active: https://llms.mui.com/material-ui/6.4.12/api/drawer.md
+- Verified on 2026-03-02: WAI-ARIA Authoring Practices for keyboard and pointer interaction expectations in list navigation: https://www.w3.org/WAI/ARIA/apg/
+- Verified on 2026-03-02: React Testing Library intro for interaction tests on editable input and sidebar switching: https://testing-library.com/docs/react-testing-library/intro
+- Verified on 2026-03-02: Jest `expect` for deterministic UI lock/unlock assertions: https://jestjs.io/docs/expect
 
 #### Subtasks
 
@@ -597,10 +605,11 @@ Replace immediate `status: started` reingest results with one terminal payload r
 
 #### Documentation Locations (External References Only)
 
-- MCP tools contract semantics: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
-- MCP progress/long-running call guidance: https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/
-- JSON-RPC error envelope rules: https://www.jsonrpc.org/specification
-- Express 5 migration guide: https://expressjs.com/en/guide/migrating-5.html
+- Verified on 2026-03-02: MCP tools specification for terminal result contract shape and tool response semantics: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
+- Verified on 2026-03-02: MCP progress/long-running guidance for blocking waits, progress lifecycle, and cancellation expectations: https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/
+- Verified on 2026-03-02: JSON-RPC spec for strict protocol error boundaries (pre-run validation failures vs post-start terminal outcomes): https://www.jsonrpc.org/specification
+- Verified on 2026-03-02: Express 5 migration docs for response/runtime behavior assumptions in server route/tool layers: https://expressjs.com/en/guide/migrating-5.html
+- Verified on 2026-03-02: Jest `expect` assertions for parity tests across classic MCP and MCP v2 surfaces: https://jestjs.io/docs/expect
 
 #### Subtasks
 
@@ -723,9 +732,10 @@ Apply one shared status/phase mapping and active-overlay merge path for `/ingest
 
 #### Documentation Locations (External References Only)
 
-- JSON schema conventions for API payload updates: https://json-schema.org/understanding-json-schema/
-- MCP tool output consistency principles: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
-- Node.js object/array data handling references: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
+- Verified on 2026-03-02: JSON Schema reference for field presence/omission rules (`status`, optional `phase`, schema-version compatibility): https://json-schema.org/understanding-json-schema/
+- Verified on 2026-03-02: MCP tools specification for consistent output contracts between `/ingest/roots` and MCP listing surfaces: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
+- Verified on 2026-03-02: MDN `Object` reference for safe merge/overlay behavior while preserving persisted metadata fields: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
+- Verified on 2026-03-02: Jest `expect` assertions for schema-version and synthesized-entry contract tests: https://jestjs.io/docs/expect
 
 #### Subtasks
 
@@ -848,11 +858,13 @@ Ensure no-change delta runs exit before AST parse/upsert/delete and before embed
 
 #### Documentation Locations (External References Only)
 
-- Tree-sitter project references for AST pipeline context: https://tree-sitter.github.io/tree-sitter/
-- Tree-sitter TypeScript grammar package (used by this repo): https://github.com/tree-sitter/tree-sitter-typescript
-- Node.js performance considerations for early-return pipelines: https://nodejs.org/en/learn/asynchronous-work/dont-block-the-event-loop
-- Mongoose docs (v9): https://mongoosejs.com/docs/
-- Jest test organization patterns: https://jestjs.io/docs/getting-started
+- Verified on 2026-03-02: Tree-sitter project docs for AST parse pipeline constraints and parser invocation expectations: https://tree-sitter.github.io/tree-sitter/
+- Verified on 2026-03-02: `tree-sitter-typescript` grammar repository docs used for TS/TSX parser behavior assumptions in this ingest pipeline: https://github.com/tree-sitter/tree-sitter-typescript
+- Verified on 2026-03-02: Node.js event-loop guidance for early-return optimization (avoid unnecessary AST/embedding work): https://nodejs.org/en/learn/asynchronous-work/dont-block-the-event-loop
+- Verified on 2026-03-02: Mongoose docs for database write/read semantics used by ingest delta and terminal-state mapping paths: https://mongoosejs.com/docs/
+- Verified on 2026-03-02: Jest getting-started docs for deterministic unit/integration race test structure: https://jestjs.io/docs/getting-started
+- Verified on 2026-03-02: Cucumber guides overview for feature/step convention and executable specification structure: https://cucumber.io/docs/guides/
+- Verified on 2026-03-02: Cucumber 10-minute tutorial (guides subpath requested) for concrete feature/step wiring used by ingest race scenarios: https://cucumber.io/docs/guides/10-minute-tutorial/
 
 #### Subtasks
 
@@ -932,10 +944,13 @@ Align Ingest page data normalization/rendering with server contract updates so a
 
 #### Documentation Locations (External References Only)
 
-- React data-fetching and state synchronization patterns: https://react.dev/learn/synchronizing-with-effects
-- MUI table/status UI patterns: https://llms.mui.com/material-ui/6.4.12/llms.txt
-- TypeScript discriminated unions for status models: https://www.typescriptlang.org/docs/handbook/2/narrowing.html
-- TypeScript 5.9 release notes: https://www.typescriptlang.org/docs/handbook/release-notes/typescript-5-9.html
+- Verified on 2026-03-02: React effect synchronization guidance for ingest polling/hydration and stable state transitions: https://react.dev/learn/synchronizing-with-effects
+- Verified on 2026-03-02 via MUI MCP: Material UI v6.4.12 index used for component/API behavior consistency with this repo version: https://llms.mui.com/material-ui/6.4.12/llms.txt
+- Verified on 2026-03-02 via MUI MCP: MUI Table component docs for rendering active/terminal ingest status and optional phase display: https://llms.mui.com/material-ui/6.4.12/components/table.md
+- Verified on 2026-03-02: TypeScript narrowing handbook for discriminated unions around `status` and optional `phase`: https://www.typescriptlang.org/docs/handbook/2/narrowing.html
+- Verified on 2026-03-02: TypeScript 5.9 release notes to align syntax/typing assumptions with repo toolchain: https://www.typescriptlang.org/docs/handbook/release-notes/typescript-5-9.html
+- Verified on 2026-03-02: React Testing Library intro for UI-level status/phase rendering assertions: https://testing-library.com/docs/react-testing-library/intro
+- Verified on 2026-03-02: Jest `expect` assertions for hook normalization and render contract tests: https://jestjs.io/docs/expect
 
 #### Subtasks
 
@@ -1017,9 +1032,10 @@ Update story-adjacent documentation so junior developers can understand final st
 
 #### Documentation Locations (External References Only)
 
-- Mermaid docs for diagram updates: https://mermaid.js.org/intro/
-- MCP specification references for behavior text: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
-- JSON-RPC reference for error-boundary documentation: https://www.jsonrpc.org/specification
+- Verified on 2026-03-02: Mermaid intro and syntax references for updating architecture/flow diagrams without syntax drift: https://mermaid.js.org/intro/
+- Verified on 2026-03-02: Mermaid flowchart syntax details for contract-flow updates in `design.md`: https://mermaid.js.org/syntax/flowchart.html
+- Verified on 2026-03-02: MCP tools specification for documenting terminal-only reingest response semantics accurately: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
+- Verified on 2026-03-02: JSON-RPC spec to document pre-run protocol-error boundaries correctly: https://www.jsonrpc.org/specification
 
 #### Subtasks
 
@@ -1073,9 +1089,10 @@ Perform end-to-end verification of all acceptance criteria after Tasks 1-8 are c
 
 #### Documentation Locations (External References Only)
 
-- Docker Compose docs: https://docs.docker.com/compose/
-- Playwright docs: https://playwright.dev/docs/intro
-- MCP tool call semantics: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
+- Verified on 2026-03-02: Docker Compose docs for deterministic startup/shutdown validation flow used in final regression gate: https://docs.docker.com/compose/
+- Verified on 2026-03-02: Playwright intro for end-to-end verification execution model and artifact expectations: https://playwright.dev/docs/intro
+- Verified on 2026-03-02: Playwright assertions reference for stable UI contract checks in acceptance validation: https://playwright.dev/docs/test-assertions
+- Verified on 2026-03-02: MCP tools specification for classic/v2 parity checks during manual terminal-outcome validation: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
 
 #### Subtasks
 

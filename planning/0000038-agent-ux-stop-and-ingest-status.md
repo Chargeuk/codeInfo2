@@ -1187,8 +1187,8 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 
 ### 5. Server Message Contract: normalize ingest listing status/phase mapping and active overlay visibility
 
-- Task Status: **__to_do__**
-- Git Commits: `None yet`
+- Task Status: **__done__**
+- Git Commits: `TBD`
 
 #### Overview
 
@@ -1204,70 +1204,70 @@ Apply one shared status/phase mapping and active-overlay merge path for `/ingest
 
 #### Subtasks
 
-1. [ ] Implement shared internal->external status normalization (`status`/`phase`) in the existing listing path.
+1. [x] Implement shared internal->external status normalization (`status`/`phase`) in the existing listing path.
    - Starter snippet (adapt names to exact existing symbols): `const status = mapStatus(internalState); const phase = status === "ingesting" ? mapPhase(internalState) : undefined;`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://json-schema.org/understanding-json-schema/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
    - Acceptance criteria focus: AC11, AC12, AC13, AC14, AC15, AC25, AC26, AC27, AC28.
    - Files to read/edit: `server/src/lmstudio/toolService.ts`, `server/src/routes/ingestRoots.ts`
    - Required behavior: `queued|scanning|embedding -> status=ingesting + phase`; `completed|cancelled|error -> same status and no phase`; `skipped -> completed`.
-2. [ ] Expose active ingest run context with identity needed for overlay and synthesized entries.
+2. [x] Expose active ingest run context with identity needed for overlay and synthesized entries.
    - Starter snippet (adapt names to exact existing symbols): `const status = mapStatus(internalState); const phase = status === "ingesting" ? mapPhase(internalState) : undefined;`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://json-schema.org/understanding-json-schema/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
    - Acceptance criteria focus: AC11, AC12, AC13, AC14, AC15, AC25, AC26, AC27, AC28.
    - Files to read/edit: `server/src/ingest/ingestJob.ts`
    - Required behavior: expose active run identity/context including run id plus root/source identity and current state/counters so list surfaces can build synthesized entries when persisted metadata is missing.
-3. [ ] Apply normalized status/phase semantics to `listIngestedRepositories` output.
+3. [x] Apply normalized status/phase semantics to `listIngestedRepositories` output.
    - Starter snippet (adapt names to exact existing symbols): `const status = mapStatus(internalState); const phase = status === "ingesting" ? mapPhase(internalState) : undefined;`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://json-schema.org/understanding-json-schema/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
    - Acceptance criteria focus: AC11, AC12, AC13, AC14, AC15, AC25, AC26, AC27, AC28.
    - Files to read/edit: `server/src/lmstudio/toolService.ts`
    - Required behavior: tool-level listing output always emits external status semantics and valid phase presence/omission rules.
-4. [ ] Apply normalized status/phase semantics to `/ingest/roots` response by reusing existing listing normalization.
+4. [x] Apply normalized status/phase semantics to `/ingest/roots` response by reusing existing listing normalization.
    - Starter snippet (adapt names to exact existing symbols): `const status = mapStatus(internalState); const phase = status === "ingesting" ? mapPhase(internalState) : undefined;`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://json-schema.org/understanding-json-schema/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
    - Acceptance criteria focus: AC11, AC12, AC13, AC14, AC15, AC25, AC26, AC27, AC28.
    - Files to read/edit: `server/src/routes/ingestRoots.ts`, `server/src/mcp/server.ts`, `server/src/lmstudio/toolService.ts`, `server/src/routes/toolsIngestedRepos.ts`
    - Required behavior: both surfaces emit identical status semantics and `schemaVersion: "0000038-status-phase-v1"`.
-5. [ ] Implement active overlay precedence on top of persisted listing metadata.
+5. [x] Implement active overlay precedence on top of persisted listing metadata.
    - Starter snippet (adapt names to exact existing symbols): `const status = mapStatus(internalState); const phase = status === "ingesting" ? mapPhase(internalState) : undefined;`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://json-schema.org/understanding-json-schema/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
    - Acceptance criteria focus: AC11, AC12, AC13, AC14, AC15, AC25, AC26, AC27, AC28.
    - Files to read/edit: `server/src/lmstudio/toolService.ts`, `server/src/routes/ingestRoots.ts`
    - Required behavior: overlay status/phase/runId/live counters come from active runtime state while persisted metadata fields remain intact unless newer terminal state exists.
-6. [ ] Implement synthesized active-entry fallback when persisted metadata is missing, reusing existing path mapping.
+6. [x] Implement synthesized active-entry fallback when persisted metadata is missing, reusing existing path mapping.
    - Starter snippet (adapt names to exact existing symbols): `const status = mapStatus(internalState); const phase = status === "ingesting" ? mapPhase(internalState) : undefined;`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://json-schema.org/understanding-json-schema/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
    - Acceptance criteria focus: AC11, AC12, AC13, AC14, AC15, AC25, AC26, AC27, AC28.
    - Files to read/edit: `server/src/lmstudio/toolService.ts`, `server/src/routes/ingestRoots.ts`
    - Required behavior: active run remains visible with status/phase/runId/counters while last completed metadata is retained where available. Synthesized entries must include identity/path fields (`id`, `containerPath`, `hostPath`) and include `hostPathWarning` when mapping is incomplete using existing `mapIngestPath` behavior (no duplicated mapping logic).
-7. [ ] Update classic MCP `ListIngestedRepositories` output schema for repo-level `status` and optional `phase`.
+7. [x] Update classic MCP `ListIngestedRepositories` output schema for repo-level `status` and optional `phase`.
    - Starter snippet (adapt names to exact existing symbols): `const status = mapStatus(internalState); const phase = status === "ingesting" ? mapPhase(internalState) : undefined;`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://json-schema.org/understanding-json-schema/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
    - Acceptance criteria focus: AC11, AC12, AC13, AC14, AC15, AC25, AC26, AC27, AC28.
    - Files to read/edit: `server/src/mcp/server.ts`
    - Required behavior: output schema and runtime payload remain aligned.
-8. [ ] Bump and propagate shared ingest listing schema version constant.
+8. [x] Bump and propagate shared ingest listing schema version constant.
    - Starter snippet (adapt names to exact existing symbols): `const status = mapStatus(internalState); const phase = status === "ingesting" ? mapPhase(internalState) : undefined;`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://json-schema.org/understanding-json-schema/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
    - Acceptance criteria focus: AC11, AC12, AC13, AC14, AC15, AC25, AC26, AC27, AC28.
    - Files to read/edit: `server/src/lmstudio/toolService.ts`, `server/src/routes/ingestRoots.ts`, `server/src/routes/toolsIngestedRepos.ts`, `server/src/mcp/server.ts`
    - Required behavior: all listing surfaces emit `schemaVersion: "0000038-status-phase-v1"` from one shared constant path.
-9. [ ] Update only the runtime listing schemas/contracts required by this story’s external surfaces.
+9. [x] Update only the runtime listing schemas/contracts required by this story’s external surfaces.
    - Starter snippet (adapt names to exact existing symbols): `const status = mapStatus(internalState); const phase = status === "ingesting" ? mapPhase(internalState) : undefined;`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://json-schema.org/understanding-json-schema/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
    - Acceptance criteria focus: AC11, AC12, AC13, AC14, AC15, AC25, AC26, AC27, AC28.
    - Files to read/edit: `server/src/mcp/server.ts`, `server/src/routes/ingestRoots.ts`, `server/src/lmstudio/toolService.ts`
    - Required behavior: runtime contracts for `/ingest/roots` and MCP classic listing document and emit external `status` values with optional `phase` omitted for terminal statuses.
-10. [ ] Add status-mapping unit test: internal `queued` maps to external `status=ingesting` with `phase=queued`.
+10. [x] Add status-mapping unit test: internal `queued` maps to external `status=ingesting` with `phase=queued`.
    - Starter snippet (adapt names to exact existing symbols): `expect(repo).toMatchObject({ status: 'ingesting', phase: 'queued' });`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://json-schema.org/understanding-json-schema/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
@@ -1277,7 +1277,7 @@ Apply one shared status/phase mapping and active-overlay merge path for `/ingest
    - Test location: `server/src/test/unit/tools-ingested-repos.test.ts`.
    - Test description: assert `queued` runtime state maps to external ingesting/queued shape.
    - Test purpose: guarantee deterministic mapping for active queued state.
-11. [ ] Add status-mapping unit test: internal `scanning` maps to external `status=ingesting` with `phase=scanning`.
+11. [x] Add status-mapping unit test: internal `scanning` maps to external `status=ingesting` with `phase=scanning`.
    - Starter snippet (adapt names to exact existing symbols): `expect(repo).toMatchObject({ status: 'ingesting', phase: 'scanning' });`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://json-schema.org/understanding-json-schema/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
@@ -1287,7 +1287,7 @@ Apply one shared status/phase mapping and active-overlay merge path for `/ingest
    - Test location: `server/src/test/unit/tools-ingested-repos.test.ts`.
    - Test description: assert `scanning` runtime state maps to external ingesting/scanning shape.
    - Test purpose: prevent phase drift for scanning state.
-12. [ ] Add status-mapping unit test: internal `embedding` maps to external `status=ingesting` with `phase=embedding`.
+12. [x] Add status-mapping unit test: internal `embedding` maps to external `status=ingesting` with `phase=embedding`.
    - Starter snippet (adapt names to exact existing symbols): `expect(repo).toMatchObject({ status: 'ingesting', phase: 'embedding' });`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://json-schema.org/understanding-json-schema/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
@@ -1297,7 +1297,7 @@ Apply one shared status/phase mapping and active-overlay merge path for `/ingest
    - Test location: `server/src/test/unit/tools-ingested-repos.test.ts`.
    - Test description: assert `embedding` runtime state maps to external ingesting/embedding shape.
    - Test purpose: keep active embedding status visible and phase-correct.
-13. [ ] Add terminal-mapping unit test: internal `skipped` maps to external `status=completed`.
+13. [x] Add terminal-mapping unit test: internal `skipped` maps to external `status=completed`.
    - Starter snippet (adapt names to exact existing symbols): `expect(repo.status).toBe('completed');`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://json-schema.org/understanding-json-schema/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
@@ -1307,7 +1307,7 @@ Apply one shared status/phase mapping and active-overlay merge path for `/ingest
    - Test location: `server/src/test/unit/tools-ingested-repos.test.ts` and `server/src/test/unit/mcp-ingested-repositories.test.ts`.
    - Test description: assert no external `skipped` value is emitted.
    - Test purpose: normalize success semantics across surfaces.
-14. [ ] Add terminal-phase omission test: `completed` responses omit `phase`.
+14. [x] Add terminal-phase omission test: `completed` responses omit `phase`.
    - Starter snippet (adapt names to exact existing symbols): `expect(repo.phase).toBeUndefined();`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://json-schema.org/understanding-json-schema/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
@@ -1317,7 +1317,7 @@ Apply one shared status/phase mapping and active-overlay merge path for `/ingest
    - Test location: `server/src/test/unit/ingest-roots-dedupe.test.ts` and `server/src/test/unit/mcp-ingested-repositories.test.ts`.
    - Test description: assert completed entries omit `phase` on both listing surfaces.
    - Test purpose: prevent terminal payload ambiguity.
-15. [ ] Add terminal-phase omission test: `cancelled` responses omit `phase`.
+15. [x] Add terminal-phase omission test: `cancelled` responses omit `phase`.
    - Starter snippet (adapt names to exact existing symbols): `expect(repo.phase).toBeUndefined();`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://json-schema.org/understanding-json-schema/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
@@ -1327,7 +1327,7 @@ Apply one shared status/phase mapping and active-overlay merge path for `/ingest
    - Test location: `server/src/test/unit/ingest-roots-dedupe.test.ts` and `server/src/test/unit/mcp-ingested-repositories.test.ts`.
    - Test description: assert cancelled entries omit `phase` on both listing surfaces.
    - Test purpose: keep terminal cancelled payloads deterministic.
-16. [ ] Add terminal-phase omission test: `error` responses omit `phase`.
+16. [x] Add terminal-phase omission test: `error` responses omit `phase`.
    - Starter snippet (adapt names to exact existing symbols): `expect(repo.phase).toBeUndefined();`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://json-schema.org/understanding-json-schema/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
@@ -1337,7 +1337,7 @@ Apply one shared status/phase mapping and active-overlay merge path for `/ingest
    - Test location: `server/src/test/unit/ingest-roots-dedupe.test.ts` and `server/src/test/unit/mcp-ingested-repositories.test.ts`.
    - Test description: assert error entries omit `phase` on both listing surfaces.
    - Test purpose: avoid leaking active-state fields into terminal error payloads.
-17. [ ] Add visibility regression test: active overlays keep repository visible during ingest.
+17. [x] Add visibility regression test: active overlays keep repository visible during ingest.
    - Starter snippet (adapt names to exact existing symbols): `expect(repos.find((r) => r.id === targetId)).toBeDefined();`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://json-schema.org/understanding-json-schema/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
@@ -1347,7 +1347,7 @@ Apply one shared status/phase mapping and active-overlay merge path for `/ingest
    - Test location: `server/src/test/unit/tools-ingested-repos.test.ts`.
    - Test description: assert active run repository appears in both REST and MCP listings while ingest is in progress.
    - Test purpose: eliminate disappearance bug during active ingest.
-18. [ ] Add synthesized-entry contract test: when persisted metadata is missing, emitted entry still includes required identity fields and `hostPathWarning` when applicable.
+18. [x] Add synthesized-entry contract test: when persisted metadata is missing, emitted entry still includes required identity fields and `hostPathWarning` when applicable.
    - Starter snippet (adapt names to exact existing symbols): `expect(repo).toMatchObject({ id, containerPath, hostPath });`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://json-schema.org/understanding-json-schema/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
@@ -1357,7 +1357,7 @@ Apply one shared status/phase mapping and active-overlay merge path for `/ingest
    - Test location: `server/src/test/unit/tools-ingested-repos.test.ts`.
    - Test description: assert synthesized entries are emitted with required identity/path fields and warning behavior.
    - Test purpose: guarantee listing continuity when persistence temporarily lacks root metadata.
-19. [ ] Add schema-version migration test: `/ingest/roots` and MCP classic listing both emit `0000038-status-phase-v1`.
+19. [x] Add schema-version migration test: `/ingest/roots` and MCP classic listing both emit `0000038-status-phase-v1`.
    - Starter snippet (adapt names to exact existing symbols): `expect(schemaVersion).toBe('0000038-status-phase-v1');`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://json-schema.org/understanding-json-schema/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
@@ -1367,7 +1367,7 @@ Apply one shared status/phase mapping and active-overlay merge path for `/ingest
    - Test location: `server/src/test/unit/ingest-roots-dedupe.test.ts` and `server/src/test/unit/mcp-ingested-repositories.test.ts`.
    - Test description: assert both external listing surfaces emit the same updated schema version constant.
    - Test purpose: provide explicit contract-version signal for downstream clients.
-20. [ ] Add overlay-precedence regression test for persisted metadata retention.
+20. [x] Add overlay-precedence regression test for persisted metadata retention.
    - Starter snippet (adapt names to exact existing symbols): `expect(repo.lastIngestAt).toBe(previousTerminal.lastIngestAt); expect(repo.status).toBe('ingesting');`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://json-schema.org/understanding-json-schema/ | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
@@ -1378,7 +1378,7 @@ Apply one shared status/phase mapping and active-overlay merge path for `/ingest
    - Test location: `server/src/test/unit/tools-ingested-repos.test.ts` and `server/src/test/unit/ingest-roots-dedupe.test.ts` and `server/src/test/unit/mcp-ingested-repositories.test.ts`.
    - Test description: assert overlay updates run-state fields while retained persisted metadata remains unchanged until newer terminal write.
    - Test purpose: preserve critical metadata continuity during active overlays.
-21. [ ] Update `design.md` with status/phase mapping architecture flow and Mermaid diagram(s) for active-overlay precedence.
+21. [x] Update `design.md` with status/phase mapping architecture flow and Mermaid diagram(s) for active-overlay precedence.
    - Starter snippet (adapt names to exact existing symbols): `Add Mermaid flowchart showing internal ingest states -> external status/phase mapping, synthesized entry path, and overlay precedence with persisted metadata retention.`
    - Dependency note: execute this after Task 5 implementation/tests so mapping diagrams reflect final contract behavior.
    - Docs: https://context7.com/mermaid-js/mermaid/llms.txt | https://json-schema.org/understanding-json-schema/
@@ -1388,7 +1388,7 @@ Apply one shared status/phase mapping and active-overlay merge path for `/ingest
    - Document location: `design.md`.
    - Document description: document status/phase mapping, synthesized-entry flow, and overlay precedence using Mermaid flow diagrams.
    - Document purpose: clarify external contract mapping logic across REST and MCP listing surfaces.
-22. [ ] If this task adds or removes files, update `projectStructure.md` after finishing those file changes.
+22. [x] If this task adds or removes files, update `projectStructure.md` after finishing those file changes.
    - Starter snippet (adapt names to exact existing symbols): `Add entries for any new/removed files introduced by Task 5 in server listing routes/services and ingest listing test suites.`
    - Dependency note: execute this after all file add/remove subtasks in Task 5, including subtasks 23 and 24, and before moving to the next task.
    - Docs: https://www.markdownguide.org/basic-syntax/
@@ -1399,14 +1399,14 @@ Apply one shared status/phase mapping and active-overlay merge path for `/ingest
    - Document description: record Task 5 file additions/removals across listing services/routes and associated tests.
    - Document purpose: ensure structural documentation matches ingest visibility and mapping implementation artifacts.
    - Required behavior: update `projectStructure.md` with every file path added or removed by Task 5 (no wildcard summaries), and remove entries for deleted files.
-23. [ ] Update external OpenAPI document for `/ingest/roots` and `/tools/ingested-repos` to match `status`/optional `phase` and `0000038-status-phase-v1`.
+23. [x] Update external OpenAPI document for `/ingest/roots` and `/tools/ingested-repos` to match `status`/optional `phase` and `0000038-status-phase-v1`.
    - Starter snippet (adapt names to exact existing symbols): `Update OpenAPI schemas so active states emit status=ingesting + phase, terminal states omit phase, and schemaVersion matches 0000038-status-phase-v1.`
    - Dependency note: execute after status/phase mapping implementation so OpenAPI reflects runtime truth.
    - Docs: https://json-schema.org/understanding-json-schema/ | https://swagger.io/specification/
    - Acceptance criteria focus: AC22, AC25, AC28.
    - Files to read/edit: `openapi.json`, `server/src/routes/ingestRoots.ts`, `server/src/routes/toolsIngestedRepos.ts`, `server/src/lmstudio/toolService.ts`
    - Required behavior: OpenAPI path schemas for `/ingest/roots` and `/tools/ingested-repos` explicitly include external `status` semantics and `phase` presence/omission rules that match runtime payloads.
-24. [ ] Add OpenAPI contract test coverage for the new ingest listing status/phase rules and schema version.
+24. [x] Add OpenAPI contract test coverage for the new ingest listing status/phase rules and schema version.
    - Starter snippet (adapt names to exact existing symbols): `assert.ok(rootProps.status); assert.ok(repoProps.status); assert.ok(topProps.schemaVersion);`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://json-schema.org/understanding-json-schema/ | https://context7.com/jestjs/jest/llms.txt
@@ -1416,7 +1416,7 @@ Apply one shared status/phase mapping and active-overlay merge path for `/ingest
    - Test location: `server/src/test/unit/openapi.contract.test.ts`.
    - Test description: assert `/ingest/roots` and `/tools/ingested-repos` OpenAPI schemas include `status`, optional `phase` semantics, and `schemaVersion` expectations aligned with story contract.
    - Test purpose: prevent documentation/runtime drift for external listing contracts.
-25. [ ] Add deterministic ingest-listing mapping logs for manual verification.
+25. [x] Add deterministic ingest-listing mapping logs for manual verification.
    - Starter snippet (adapt names to exact existing symbols): `logger.info('[DEV-0000038][T5] INGEST_LIST_STATUS_MAPPED sourceId=%s internal=%s status=%s phase=%s', sourceId, internalState, status, phase ?? 'none');`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://nodejs.org/api/console.html | https://json-schema.org/understanding-json-schema/
@@ -1425,21 +1425,35 @@ Apply one shared status/phase mapping and active-overlay merge path for `/ingest
    - Required log line: `[DEV-0000038][T5] INGEST_LIST_STATUS_MAPPED sourceId=<id> internal=<state> status=<status> phase=<phase|none>`.
    - Required log line: `[DEV-0000038][T5] INGEST_ACTIVE_OVERLAY_APPLIED sourceId=<id> synthesized=<true|false>`.
    - Required behavior: emit mapping logs for each listed repo and overlay logs when active-run data is merged.
-26. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+26. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
-1. [ ] `npm run build:summary:server` - If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` and resolve errors.
-2. [ ] `npm run test:summary:server` - If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/server-tests-*.log`) and resolve listed failures.
-3. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find failing target(s).
-4. [ ] `npm run compose:up`
-5. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001` for ingest listing visibility; verify in compose server logs that `[DEV-0000038][T5] INGEST_LIST_STATUS_MAPPED ...` and `[DEV-0000038][T5] INGEST_ACTIVE_OVERLAY_APPLIED ...` appear with expected `status/phase` values and overlay flags, and verify browser debug console has no unexpected errors.
-6. [ ] `npm run compose:down`
+1. [x] `npm run build:summary:server` - If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` and resolve errors.
+2. [x] `npm run test:summary:server` - If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/server-tests-*.log`) and resolve listed failures.
+3. [x] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find failing target(s).
+4. [x] `npm run compose:up`
+5. [x] Manual Playwright-MCP check at `http://host.docker.internal:5001` for ingest listing visibility; verify in compose server logs that `[DEV-0000038][T5] INGEST_LIST_STATUS_MAPPED ...` and `[DEV-0000038][T5] INGEST_ACTIVE_OVERLAY_APPLIED ...` appear with expected `status/phase` values and overlay flags, and verify browser debug console has no unexpected errors.
+6. [x] `npm run compose:down`
 Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
 #### Implementation notes
 
-- Pending implementation.
+- Subtasks 1-9: Implemented shared internal->external mapping (`ingesting/completed/cancelled/error` + optional `phase`) in listing paths, added active runtime overlay + synthesized entry fallback, aligned `/ingest/roots` and MCP classic listing semantics, and bumped shared schema version to `0000038-status-phase-v1`.
+- Subtasks 2, 5-6: Added `getActiveRunContexts()` in `ingestJob.ts` to expose active run identity/state/counters for overlay synthesis while preserving lock-owner precedence.
+- Subtasks 7, 9: Updated classic MCP `ListIngestedRepositories` output schema/runtime to require repo-level `status` and optional `phase` while keeping terminal `phase` omission semantics.
+- Subtasks 10-20: Added/updated unit+contract coverage across tools/ingest-roots/MCP listing tests for queued|scanning|embedding mapping, skipped->completed normalization, terminal phase omission, active-overlay visibility, synthesized-entry identity/path fields, schema-version assertions, and persisted-metadata retention.
+- Subtasks 21-22: Added Task 5 mapping/overlay architecture section with Mermaid diagrams to `design.md`; no files were added/removed, so `projectStructure.md` required no path updates.
+- Subtasks 23-24: Updated `openapi.json` for `/ingest/roots` and `/tools/ingested-repos` to document external `status`+optional `phase` semantics and fixed schema-version enum; extended `openapi.contract.test.ts` assertions accordingly.
+- Subtask 25: Added deterministic Task 5 listing logs (`[DEV-0000038][T5] INGEST_LIST_STATUS_MAPPED ...`, `[DEV-0000038][T5] INGEST_ACTIVE_OVERLAY_APPLIED ...`) in listing normalization/overlay paths.
+- Subtask 26: Ran `npm run lint --workspaces` (pass with existing unrelated import-order warnings) and `npm run format:check --workspaces`; formatting initially failed for 5 modified server files, then passed after Prettier write on those files.
+- Testing 1: `npm run build:summary:server` passed (`warnings: 0`), log `logs/test-summaries/build-server-latest.log`.
+- Testing 2: `npm run test:summary:server` passed (`tests run: 951`, `failed: 0`), log `test-results/server-tests-2026-03-02T12-18-58-567Z.log`.
+- Testing 3: `npm run compose:build:summary` passed (`items passed: 2`, `items failed: 0`), log `logs/test-summaries/compose-build-latest.log`.
+- Testing 4: `npm run compose:up` completed successfully; compose services (client/server/chroma/mongo/playwright-mcp and observability sidecars) started healthy.
+- Testing 5: Manual host-mapped verification executed against `http://host.docker.internal:5001/ingest`; live listing responses showed active mapping (`status=ingesting`, `phase=embedding`) and compose server log `logs/server.1.log` includes required Task 5 markers for `/tmp/task5-big` (`INGEST_LIST_STATUS_MAPPED ... status=ingesting phase=embedding` + `INGEST_ACTIVE_OVERLAY_APPLIED ... synthesized=true`), with browser console error scan returning no errors.
+- Testing 6: `npm run compose:down` completed successfully and removed compose services/network.
+
 
 ---
 

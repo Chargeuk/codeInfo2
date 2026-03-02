@@ -685,6 +685,45 @@ sequenceDiagram
   end
 ```
 
+## Story 0000038 Task 5: ingest listing status/phase normalization and active overlay precedence
+
+- External listing status contract for `/ingest/roots` and classic MCP `ListIngestedRepositories` is now normalized from internal ingest states:
+  - `queued|scanning|embedding -> status=ingesting` with matching `phase`.
+  - `completed|cancelled|error -> status` with `phase` omitted.
+  - `skipped -> status=completed`.
+- Shared listing schema version is `0000038-status-phase-v1`.
+- Active overlay precedence is explicit:
+  - active runtime fields (`status`, optional `phase`, `counts`, active `runId`) override persisted listing state while the run is active;
+  - persisted metadata (`lastIngestAt`, lock/model fields, last terminal error context) remains intact unless replaced by a newer terminal write.
+- Synthesized active-entry fallback keeps repos visible when persisted metadata is temporarily missing; synthesized entries still include identity/path fields and mapped host path/warning fields from `mapIngestPath`.
+- Listing instrumentation now emits:
+  - `[DEV-0000038][T5] INGEST_LIST_STATUS_MAPPED sourceId=<id> internal=<state> status=<status> phase=<phase|none>`
+  - `[DEV-0000038][T5] INGEST_ACTIVE_OVERLAY_APPLIED sourceId=<id> synthesized=<true|false>`
+
+```mermaid
+flowchart TD
+  A[Persisted root metadata state] --> B{Internal state}
+  B -- queued/scanning/embedding --> C[status=ingesting + phase]
+  B -- completed/cancelled/error --> D[status matches terminal + no phase]
+  B -- skipped --> E[status=completed + no phase]
+  C --> F[Base listing entry]
+  D --> F
+  E --> F
+  G[Active runtime context] --> H{Matching persisted entry exists?}
+  H -- yes --> I[Overlay runtime fields only]
+  H -- no --> J[Synthesize entry from active context + mapIngestPath]
+  I --> K[Emit listing entry]
+  J --> K
+```
+
+```mermaid
+flowchart LR
+  R[/ingest/roots] --> N[Shared state normalization]
+  M[ListIngestedRepositories] --> N
+  N --> V[schemaVersion=0000038-status-phase-v1]
+  N --> L[Task 5 mapping/overlay logs]
+```
+
 ## Flows (schema)
 
 - Flow definitions live under `flows/<flowName>.json` and are validated with a strict Zod schema before use.

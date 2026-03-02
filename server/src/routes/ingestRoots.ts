@@ -10,7 +10,11 @@ import {
   appendIngestFailureLog,
   classifyIngestFailure,
 } from '../ingest/providers/index.js';
-import { INGEST_REPO_SCHEMA_VERSION } from '../lmstudio/toolService.js';
+import { getActiveRunContexts } from '../ingest/ingestJob.js';
+import {
+  INGEST_REPO_SCHEMA_VERSION,
+  mapInternalStateToExternal,
+} from '../lmstudio/toolService.js';
 import { append as appendLog } from '../logStore.js';
 import { baseLogger } from '../logger.js';
 
@@ -34,6 +38,7 @@ type RootEntry = {
   modelId: string;
   lock: LockEnvelope;
   status: string;
+  phase?: string;
   lastIngestAt: string | null;
   counts: { files: number; chunks: number; embedded: number };
   lastError: string | null;
@@ -331,6 +336,16 @@ export function createIngestRootsRouter(deps: Partial<Deps> = {}) {
             lockedModelId: embeddingModel,
             modelId: embeddingModel,
           };
+          const external = mapInternalStateToExternal(m.state);
+          baseLogger.info(
+            {
+              sourceId: typeof m.root === 'string' ? m.root : '',
+              internal: typeof m.state === 'string' ? m.state : 'unknown',
+              status: external.status,
+              phase: external.phase ?? 'none',
+            },
+            '[DEV-0000038][T5] INGEST_LIST_STATUS_MAPPED',
+          );
           return {
             runId: typeof ids[idx] === 'string' ? ids[idx] : `run-${idx}`,
             name: typeof m.name === 'string' ? m.name : '',
@@ -343,7 +358,8 @@ export function createIngestRootsRouter(deps: Partial<Deps> = {}) {
             model: embeddingModel,
             modelId: embeddingModel,
             lock: rootLock,
-            status: typeof m.state === 'string' ? m.state : 'unknown',
+            status: external.status,
+            ...(external.phase ? { phase: external.phase } : {}),
             lastIngestAt,
             counts: {
               files: Number(m.files ?? 0),
@@ -367,6 +383,93 @@ export function createIngestRootsRouter(deps: Partial<Deps> = {}) {
       if (after !== before) {
         logLifecycle('0000020 ingest roots dedupe applied', { before, after });
       }
+
+      const activeByPath = new Map(
+        getActiveRunContexts()
+          .filter((entry) => entry.sourceId)
+          .map((entry) => [entry.sourceId as string, entry]),
+      );
+      for (const root of deduped) {
+        const active = activeByPath.get(root.path);
+        if (!active) continue;
+        const rootIsTerminal = root.status !== 'ingesting';
+        if (rootIsTerminal && root.runId === active.runId) {
+          activeByPath.delete(root.path);
+          continue;
+        }
+        const mapped = mapInternalStateToExternal(active.state);
+        root.status = mapped.status;
+        if (mapped.phase) {
+          root.phase = mapped.phase;
+        } else {
+          delete root.phase;
+        }
+        root.counts = { ...active.counts };
+        root.runId = active.runId;
+        baseLogger.info(
+          {
+            sourceId: root.path,
+            internal: active.state,
+            status: mapped.status,
+            phase: mapped.phase ?? 'none',
+          },
+          '[DEV-0000038][T5] INGEST_LIST_STATUS_MAPPED',
+        );
+        baseLogger.info(
+          { sourceId: root.path, synthesized: false },
+          '[DEV-0000038][T5] INGEST_ACTIVE_OVERLAY_APPLIED',
+        );
+        activeByPath.delete(root.path);
+      }
+
+      for (const [sourceId, active] of activeByPath.entries()) {
+        const mapped = mapInternalStateToExternal(active.state);
+        const embeddingModel = lock?.embeddingModel ?? '';
+        const embeddingProvider = lock?.embeddingProvider ?? 'lmstudio';
+        const embeddingDimensions = lock?.embeddingDimensions ?? 0;
+        deduped.push({
+          runId: active.runId,
+          name: active.name ?? '',
+          description: active.description ?? null,
+          path: sourceId,
+          embeddingProvider,
+          embeddingModel,
+          embeddingDimensions,
+          model: embeddingModel,
+          modelId: embeddingModel,
+          lock: {
+            embeddingProvider,
+            embeddingModel,
+            embeddingDimensions,
+            lockedModelId: embeddingModel,
+            modelId: embeddingModel,
+          },
+          status: mapped.status,
+          ...(mapped.phase ? { phase: mapped.phase } : {}),
+          lastIngestAt: null,
+          counts: { ...active.counts },
+          lastError: null,
+        });
+        baseLogger.info(
+          {
+            sourceId,
+            internal: active.state,
+            status: mapped.status,
+            phase: mapped.phase ?? 'none',
+          },
+          '[DEV-0000038][T5] INGEST_LIST_STATUS_MAPPED',
+        );
+        baseLogger.info(
+          { sourceId, synthesized: true },
+          '[DEV-0000038][T5] INGEST_ACTIVE_OVERLAY_APPLIED',
+        );
+      }
+      deduped.sort((a, b) => {
+        const aTs = a.lastIngestAt ? Date.parse(a.lastIngestAt) : 0;
+        const bTs = b.lastIngestAt ? Date.parse(b.lastIngestAt) : 0;
+        if (aTs !== bTs) return bTs - aTs;
+        return b.runId.localeCompare(a.runId);
+      });
 
       appendLog({
         level: 'info',

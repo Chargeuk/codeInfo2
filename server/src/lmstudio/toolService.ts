@@ -8,9 +8,17 @@ import {
   getRootsCollection,
   getVectorsCollection,
 } from '../ingest/chromaClient.js';
+import { getActiveRunContexts } from '../ingest/ingestJob.js';
 import { mapIngestPath } from '../ingest/pathMap.js';
 import { append } from '../logStore.js';
 import { baseLogger, parseNumber } from '../logger.js';
+
+export type ExternalIngestStatus =
+  | 'ingesting'
+  | 'completed'
+  | 'cancelled'
+  | 'error';
+export type ExternalIngestPhase = 'queued' | 'scanning' | 'embedding';
 
 export type ToolDeps = {
   getRootsCollection: typeof getRootsCollection;
@@ -41,6 +49,8 @@ export type RepoEntry = {
   };
   counts: { files: number; chunks: number; embedded: number };
   lastError: string | null;
+  status?: ExternalIngestStatus;
+  phase?: ExternalIngestPhase;
 };
 
 export type ListReposResult = {
@@ -56,7 +66,7 @@ export type ListReposResult = {
   schemaVersion?: string;
 };
 
-export const INGEST_REPO_SCHEMA_VERSION = '0000036-t10-canonical-alias-v1';
+export const INGEST_REPO_SCHEMA_VERSION = '0000038-status-phase-v1';
 
 export type RepoEmbeddingIdentity = {
   embeddingProvider: EmbeddingProviderId;
@@ -296,6 +306,51 @@ function resolveRepoLock(
     lockedModelId: model,
     modelId: model,
   };
+}
+
+export function mapInternalStateToExternal(internalState: unknown): {
+  status: ExternalIngestStatus;
+  phase?: ExternalIngestPhase;
+} {
+  switch (internalState) {
+    case 'queued':
+    case 'scanning':
+    case 'embedding':
+      return { status: 'ingesting', phase: internalState };
+    case 'cancelled':
+      return { status: 'cancelled' };
+    case 'error':
+      return { status: 'error' };
+    case 'completed':
+    case 'skipped':
+    default:
+      return { status: 'completed' };
+  }
+}
+
+function logStatusMapped(args: {
+  sourceId: string;
+  internalState: unknown;
+  status: ExternalIngestStatus;
+  phase?: ExternalIngestPhase;
+}) {
+  baseLogger.info(
+    {
+      sourceId: args.sourceId,
+      internal:
+        typeof args.internalState === 'string' ? args.internalState : 'unknown',
+      status: args.status,
+      phase: args.phase ?? 'none',
+    },
+    '[DEV-0000038][T5] INGEST_LIST_STATUS_MAPPED',
+  );
+}
+
+function logOverlayApplied(sourceId: string, synthesized: boolean) {
+  baseLogger.info(
+    { sourceId, synthesized },
+    '[DEV-0000038][T5] INGEST_ACTIVE_OVERLAY_APPLIED',
+  );
 }
 
 type ChromaQueryable = {
@@ -550,7 +605,6 @@ export async function listIngestedRepositories(
 
   const metadatas = Array.isArray(raw?.metadatas) ? raw.metadatas : [];
   const ids = Array.isArray(raw?.ids) ? raw.ids : [];
-
   const repos: RepoEntry[] = metadatas
     .map((meta, idx) => {
       const m = (meta ?? {}) as Record<string, unknown>;
@@ -571,6 +625,14 @@ export async function listIngestedRepositories(
             }
           : null,
       );
+      const sourceId = rawPath;
+      const mappedState = mapInternalStateToExternal(m.state);
+      logStatusMapped({
+        sourceId,
+        internalState: m.state,
+        status: mappedState.status,
+        phase: mappedState.phase,
+      });
       return {
         id: repoId,
         description: typeof m.description === 'string' ? m.description : null,
@@ -598,6 +660,8 @@ export async function listIngestedRepositories(
             : m.lastError === null
               ? null
               : null,
+        status: mappedState.status,
+        ...(mappedState.phase ? { phase: mappedState.phase } : {}),
       } satisfies RepoEntry;
     })
     .sort((a, b) => {
@@ -605,6 +669,77 @@ export async function listIngestedRepositories(
       const bTs = b.lastIngestAt ? Date.parse(b.lastIngestAt) : 0;
       return bTs - aTs;
     });
+
+  const repoBySourceId = new Map(
+    repos.map((repo) => [repo.containerPath, repo]),
+  );
+  const activeContexts = getActiveRunContexts();
+
+  for (const active of activeContexts) {
+    const sourceId = active.sourceId ?? active.rootPath ?? '';
+    if (!sourceId) continue;
+    const mappedState = mapInternalStateToExternal(active.state);
+    const existing = repoBySourceId.get(sourceId);
+    if (existing) {
+      existing.status = mappedState.status;
+      if (mappedState.phase) {
+        existing.phase = mappedState.phase;
+      } else {
+        delete existing.phase;
+      }
+      existing.counts = { ...active.counts };
+      existing.id = active.runId;
+      logStatusMapped({
+        sourceId,
+        internalState: active.state,
+        status: mappedState.status,
+        phase: mappedState.phase,
+      });
+      logOverlayApplied(sourceId, false);
+      continue;
+    }
+
+    const mapped = mapIngestPath(sourceId);
+    const repoLock = lock
+      ? resolveRepoLock(
+          {},
+          {
+            embeddingProvider: lock.embeddingProvider,
+            embeddingModel: lock.embeddingModel,
+            embeddingDimensions: lock.embeddingDimensions,
+          },
+        )
+      : resolveRepoLock({}, null);
+    const synthesized: RepoEntry = {
+      id: active.runId,
+      description: active.description ?? null,
+      containerPath: mapped.containerPath,
+      hostPath: mapped.hostPath,
+      ...(mapped.hostPathWarning
+        ? { hostPathWarning: mapped.hostPathWarning }
+        : {}),
+      lastIngestAt: null,
+      embeddingProvider: repoLock.embeddingProvider,
+      embeddingModel: repoLock.embeddingModel,
+      embeddingDimensions: repoLock.embeddingDimensions,
+      model: repoLock.embeddingModel,
+      modelId: repoLock.modelId,
+      lock: repoLock,
+      counts: { ...active.counts },
+      lastError: null,
+      status: mappedState.status,
+      ...(mappedState.phase ? { phase: mappedState.phase } : {}),
+    };
+    repos.push(synthesized);
+    repoBySourceId.set(mapped.containerPath, synthesized);
+    logStatusMapped({
+      sourceId,
+      internalState: active.state,
+      status: mappedState.status,
+      phase: mappedState.phase,
+    });
+    logOverlayApplied(sourceId, true);
+  }
 
   logLockResolverState(
     'tools/listIngestedRepositories',

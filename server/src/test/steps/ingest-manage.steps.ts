@@ -23,7 +23,10 @@ import {
   getRootsCollection,
   setLockedModel,
 } from '../../ingest/chromaClient.js';
-import { setIngestDeps } from '../../ingest/ingestJob.js';
+import {
+  __resetIngestJobsForTest,
+  setIngestDeps,
+} from '../../ingest/ingestJob.js';
 import { createRequestLogger } from '../../logger.js';
 import { createIngestCancelRouter } from '../../routes/ingestCancel.js';
 import { createIngestReembedRouter } from '../../routes/ingestReembed.js';
@@ -45,6 +48,8 @@ let lastRunId: string | null = null;
 
 Before(async () => {
   setDefaultTimeout(10000);
+  process.env.NODE_ENV = 'test';
+  __resetIngestJobsForTest();
   process.env.LMSTUDIO_BASE_URL = 'ws://localhost:1234';
   const app = express();
   app.use(cors());
@@ -105,6 +110,7 @@ After(async () => {
   }
   response = null;
   lastRunId = null;
+  __resetIngestJobsForTest();
   await clearRootsCollection();
   await clearVectorsCollection();
   await clearLockedModel();
@@ -223,7 +229,12 @@ Then(
 Then('ingest manage roots first status is {string}', async (state: string) => {
   assert(response, 'expected response');
   let roots = (response.body as { roots?: unknown[] }).roots ?? [];
-  for (let i = 0; i < 5 && roots.length === 0; i += 1) {
+  for (
+    let i = 0;
+    i < 20 &&
+    (roots.length === 0 || (roots[0] as { status?: string }).status !== state);
+    i += 1
+  ) {
     await new Promise((r) => setTimeout(r, 50));
     const res = await fetch(`${baseUrl}/ingest/roots`);
     const body = await res.json();

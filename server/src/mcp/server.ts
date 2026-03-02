@@ -249,6 +249,7 @@ const baseToolDefinitions = [
               'id',
               'containerPath',
               'hostPath',
+              'status',
               'counts',
               'embeddingProvider',
               'embeddingModel',
@@ -263,6 +264,14 @@ const baseToolDefinitions = [
               containerPath: { type: 'string' },
               hostPath: { type: 'string' },
               hostPathWarning: { type: 'string' },
+              status: {
+                type: 'string',
+                enum: ['ingesting', 'completed', 'cancelled', 'error'],
+              },
+              phase: {
+                type: 'string',
+                enum: ['queued', 'scanning', 'embedding'],
+              },
               lastIngestAt: { type: ['string', 'null'], format: 'date-time' },
               embeddingProvider: {
                 type: 'string',
@@ -731,8 +740,24 @@ export function createMcpRouter(
                     payload.schemaVersion ?? INGEST_REPO_SCHEMA_VERSION,
                 },
               });
+              const normalizedPayload = {
+                ...payload,
+                repos: payload.repos.map((repo) => {
+                  const status = repo.status ?? 'completed';
+                  const phase = status === 'ingesting' ? repo.phase : undefined;
+                  return {
+                    ...repo,
+                    status,
+                    ...(phase ? { phase } : {}),
+                  };
+                }),
+                schemaVersion:
+                  payload.schemaVersion ?? INGEST_REPO_SCHEMA_VERSION,
+              };
               return jsonRpcResult(id as never, {
-                content: [{ type: 'text', text: JSON.stringify(payload) }],
+                content: [
+                  { type: 'text', text: JSON.stringify(normalizedPayload) },
+                ],
               }) as JsonRpcLikeResponse;
             }
 

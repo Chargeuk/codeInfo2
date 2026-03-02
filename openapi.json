@@ -264,7 +264,21 @@
                             "type": "string"
                           },
                           "status": {
-                            "type": "string"
+                            "type": "string",
+                            "enum": [
+                              "ingesting",
+                              "completed",
+                              "cancelled",
+                              "error"
+                            ]
+                          },
+                          "phase": {
+                            "type": "string",
+                            "enum": [
+                              "queued",
+                              "scanning",
+                              "embedding"
+                            ]
                           },
                           "lastIngestAt": {
                             "type": "string",
@@ -413,7 +427,10 @@
                       "nullable": true
                     },
                     "schemaVersion": {
-                      "type": "string"
+                      "type": "string",
+                      "enum": [
+                        "0000038-status-phase-v1"
+                      ]
                     }
                   },
                   "required": [
@@ -1588,6 +1605,23 @@
                           "hostPathWarning": {
                             "type": "string"
                           },
+                          "status": {
+                            "type": "string",
+                            "enum": [
+                              "ingesting",
+                              "completed",
+                              "cancelled",
+                              "error"
+                            ]
+                          },
+                          "phase": {
+                            "type": "string",
+                            "enum": [
+                              "queued",
+                              "scanning",
+                              "embedding"
+                            ]
+                          },
                           "lastIngestAt": {
                             "type": "string",
                             "nullable": true
@@ -1674,6 +1708,7 @@
                           "id",
                           "containerPath",
                           "hostPath",
+                          "status",
                           "embeddingProvider",
                           "embeddingModel",
                           "embeddingDimensions",
@@ -1725,7 +1760,10 @@
                       "nullable": true
                     },
                     "schemaVersion": {
-                      "type": "string"
+                      "type": "string",
+                      "enum": [
+                        "0000038-status-phase-v1"
+                      ]
                     }
                   },
                   "required": [

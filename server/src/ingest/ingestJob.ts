@@ -125,6 +125,16 @@ export type WaitForTerminalIngestStatusResult = {
   lastKnown: IngestJobStatus | null;
 };
 
+export type ActiveIngestRunContext = {
+  runId: string;
+  state: IngestRunState;
+  counts: { files: number; chunks: number; embedded: number };
+  sourceId: string | null;
+  rootPath: string | null;
+  name: string | null;
+  description: string | null;
+};
+
 type Deps = {
   lmClientFactory: (baseUrl: string) => LMStudioClient;
   baseUrl: string;
@@ -1236,6 +1246,51 @@ export function getActiveStatus(): IngestJobStatus | null {
   return active ?? null;
 }
 
+export function getActiveRunContexts(): ActiveIngestRunContext[] {
+  const toContext = (
+    runId: string,
+    status: IngestJobStatus,
+  ): ActiveIngestRunContext => {
+    const input = jobInputs.get(runId);
+    const rootPath =
+      (typeof input?.root === 'string' && input.root.length > 0
+        ? input.root
+        : typeof input?.path === 'string' && input.path.length > 0
+          ? input.path
+          : null) ?? null;
+    return {
+      runId: status.runId,
+      state: status.state,
+      counts: { ...status.counts },
+      sourceId: rootPath,
+      rootPath,
+      name:
+        typeof input?.name === 'string' && input.name.length > 0
+          ? input.name
+          : null,
+      description:
+        typeof input?.description === 'string' && input.description.length > 0
+          ? input.description
+          : null,
+    };
+  };
+
+  const lockOwner = ingestLock.currentOwner();
+  if (lockOwner) {
+    const status = jobs.get(lockOwner);
+    if (status && !terminalStates.has(status.state)) {
+      return [toContext(lockOwner, status)];
+    }
+  }
+
+  for (const [runId, status] of jobs.entries()) {
+    if (!terminalStates.has(status.state)) {
+      return [toContext(runId, status)];
+    }
+  }
+  return [];
+}
+
 export async function resetLocksIfEmpty() {
   if (await collectionIsEmpty()) {
     await clearLockedModel({ reason: 'cleanup' });
@@ -1266,6 +1321,16 @@ export function __resetIngestJobsForTest() {
   jobs.clear();
   jobInputs.clear();
   cancelledRuns.clear();
+}
+
+export function __setJobInputForTest(
+  runId: string,
+  input: IngestJobInput & { root?: string },
+) {
+  if (process.env.NODE_ENV !== 'test') {
+    throw new Error('__setJobInputForTest is only available in test mode');
+  }
+  jobInputs.set(runId, input);
 }
 
 export async function cancelRun(runId: string) {

@@ -43,9 +43,15 @@ test('OpenAPI /ingest/roots schema includes canonical lock fields and aliases', 
   assert.ok(rootProps.model);
   assert.ok(rootProps.modelId);
   assert.ok(rootProps.lock);
+  assert.ok(rootProps.status);
+  assert.ok(rootProps.phase);
   assert.ok(topProps.lock);
   assert.ok(topProps.lockedModelId);
   assert.ok(topProps.schemaVersion);
+  assert.deepEqual(topProps.schemaVersion, {
+    type: 'string',
+    enum: ['0000038-status-phase-v1'],
+  });
 });
 
 test('OpenAPI /tools/ingested-repos schema includes canonical repo and lock alias fields', () => {
@@ -78,9 +84,15 @@ test('OpenAPI /tools/ingested-repos schema includes canonical repo and lock alia
   assert.ok(repoProps.model);
   assert.ok(repoProps.modelId);
   assert.ok(repoProps.lock);
+  assert.ok(repoProps.status);
+  assert.ok(repoProps.phase);
   assert.ok(topProps.lock);
   assert.ok(topProps.lockedModelId);
   assert.ok(topProps.schemaVersion);
+  assert.deepEqual(topProps.schemaVersion, {
+    type: 'string',
+    enum: ['0000038-status-phase-v1'],
+  });
 });
 
 test('OpenAPI /codex/device-auth schema enforces empty request and deterministic 200/400/503 responses', () => {

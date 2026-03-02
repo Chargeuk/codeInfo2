@@ -739,7 +739,7 @@ Consume Task 1’s server message-contract update in the Agents UI so Stop alway
 
 ### 3. Frontend: unblock Agents input editing and sidebar navigation during active runs
 
-- Task Status: ****done****
+- Task Status: **__done__**
 - Git Commits: `0c0f764`
 
 #### Overview

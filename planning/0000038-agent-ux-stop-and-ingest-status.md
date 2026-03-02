@@ -1621,7 +1621,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 ### 7. Frontend: consume external ingest `status`/`phase` contract and preserve active repository visibility
 
 - Task Status: **__done__**
-- Git Commits: `None yet`
+- Git Commits: `6cc4f66`
 
 #### Overview
 

@@ -523,12 +523,25 @@ Update WebSocket cancel message handling so command-run abort is always attempte
    - Test location: `server/src/test/unit/ws-chat-stream.test.ts` and `server/src/test/unit/ws-server.test.ts`.
    - Test description: send `cancel_inflight` with stale `inflightId`; assert mismatch semantics remain and command abort is still attempted by conversation.
    - Test purpose: ensure stale inflight identifiers do not bypass conversation-authoritative stop.
-16. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+16. [ ] Add structured stop-race diagnostic logs for manual verification.
+   - Starter snippet (adapt names to exact existing symbols): `logger.info('[DEV-0000038][T1] CANCEL_INFLIGHT_RECEIVED conversationId=%s inflightId=%s', conversationId, inflightId ?? 'none');`
+   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+   - Docs: https://nodejs.org/api/console.html | https://nodejs.org/api/events.html
+   - Acceptance criteria focus: AC3, AC4, AC23.
+   - Files to read/edit: `server/src/ws/server.ts`, `server/src/agents/commandsRunner.ts`
+   - Required log line: `[DEV-0000038][T1] CANCEL_INFLIGHT_RECEIVED conversationId=<id> inflightId=<id|none>`.
+   - Required log line: `[DEV-0000038][T1] ABORT_AGENT_RUN_REQUESTED conversationId=<id>`.
+   - Required behavior: emit each log once per stop request path so manual checks can verify event sequencing.
+17. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
 1. [ ] `npm run build:summary:server` - If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` and resolve errors.
 2. [ ] `npm run test:summary:server` - If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/server-tests-*.log`) and resolve listed failures.
+3. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find failing target(s).
+4. [ ] `npm run compose:up`
+5. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001` for stop-race behavior; verify in compose server logs that `[DEV-0000038][T1] CANCEL_INFLIGHT_RECEIVED ...` and `[DEV-0000038][T1] ABORT_AGENT_RUN_REQUESTED ...` are emitted with matching `conversationId` values, and verify browser debug console has no unexpected errors.
+6. [ ] `npm run compose:down`
 Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
 #### Implementation notes
@@ -644,7 +657,16 @@ Consume Task 1’s server message-contract update in the Agents UI so Stop alway
    - Document description: record Task 2 file additions/removals in client hook/page/test paths.
    - Document purpose: keep the repository structure documentation aligned with stop payload implementation changes.
    - Required behavior: update `projectStructure.md` with every file path added or removed by Task 2 (no wildcard summaries), and remove entries for deleted files.
-10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+10. [ ] Add deterministic client stop logs for Playwright-MCP console assertions.
+   - Starter snippet (adapt names to exact existing symbols): `console.info('[DEV-0000038][T2] STOP_CLICK conversationId=%s inflightId=%s', activeConversationId, inflightId ?? 'none');`
+   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+   - Docs: https://developer.mozilla.org/en-US/docs/Web/API/Console/info_static | https://react.dev/reference/react/useCallback
+   - Acceptance criteria focus: AC3, AC4, AC23.
+   - Files to read/edit: `client/src/pages/AgentsPage.tsx`, `client/src/hooks/useChatWs.ts`
+   - Required log line: `[DEV-0000038][T2] STOP_CLICK conversationId=<id> inflightId=<id|none>`.
+   - Required log line: `[DEV-0000038][T2] CANCEL_INFLIGHT_SENT conversationId=<id> inflightId=<id|none>`.
+   - Required behavior: emit one STOP_CLICK and one CANCEL_INFLIGHT_SENT line per stop attempt.
+11. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -652,7 +674,7 @@ Consume Task 1’s server message-contract update in the Agents UI so Stop alway
 2. [ ] `npm run test:summary:client` - If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`) and resolve listed failures.
 3. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find failing target(s).
 4. [ ] `npm run compose:up`
-5. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001` to verify this task’s stop-flow behavior and general regressions, including checking the debug console for logged errors.
+5. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`; verify `[DEV-0000038][T2] STOP_CLICK ...` and `[DEV-0000038][T2] CANCEL_INFLIGHT_SENT ...` appear once per stop click, with `inflightId=none` when missing and populated `inflightId` when present, and verify browser debug console has no unexpected errors.
 6. [ ] `npm run compose:down`
 Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
@@ -756,7 +778,16 @@ Limit active-run UI restrictions to submit/execute controls only. Keep instructi
    - Document description: record Task 3 file additions/removals in Agents page, conversation components, and tests.
    - Document purpose: preserve an accurate project file inventory for active-run UX changes.
    - Required behavior: update `projectStructure.md` with every file path added or removed by Task 3 (no wildcard summaries), and remove entries for deleted files.
-9. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+9. [ ] Add deterministic active-run UX logs for manual console verification.
+   - Starter snippet (adapt names to exact existing symbols): `console.info('[DEV-0000038][T3] AGENTS_INPUT_EDITABLE_WHILE_ACTIVE runActive=%s', isRunActive);`
+   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+   - Docs: https://developer.mozilla.org/en-US/docs/Web/API/Console/info_static | https://react.dev/learn/conditional-rendering
+   - Acceptance criteria focus: AC1, AC2.
+   - Files to read/edit: `client/src/pages/AgentsPage.tsx`, `client/src/components/chat/ConversationList.tsx`
+   - Required log line: `[DEV-0000038][T3] AGENTS_INPUT_EDITABLE_WHILE_ACTIVE runActive=true`.
+   - Required log line: `[DEV-0000038][T3] AGENTS_CONVERSATION_SWITCH_ALLOWED from=<id> to=<id>`.
+   - Required behavior: emit logs when editing during active run and when switching conversations while run is active.
+10. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -764,7 +795,7 @@ Limit active-run UI restrictions to submit/execute controls only. Keep instructi
 2. [ ] `npm run test:summary:client` - If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`) and resolve listed failures.
 3. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find failing target(s).
 4. [ ] `npm run compose:up`
-5. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001` to verify active-run UX behavior and general regressions, including checking the debug console for logged errors.
+5. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`; verify `[DEV-0000038][T3] AGENTS_INPUT_EDITABLE_WHILE_ACTIVE runActive=true` appears when editing during active run and `[DEV-0000038][T3] AGENTS_CONVERSATION_SWITCH_ALLOWED from=<id> to=<id>` appears on sidebar switch, and verify browser debug console has no unexpected errors.
 6. [ ] `npm run compose:down`
 Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
@@ -1068,12 +1099,25 @@ Replace immediate `status: started` reingest results with one terminal payload r
    - Test location: `server/src/test/unit/mcp.reingest.classic.test.ts` and `server/src/test/unit/mcp2.reingest.tool.test.ts`.
    - Test description: call `reingest_repository` with unsupported `wait`/`blocking` arguments and assert protocol-level invalid-params errors.
    - Test purpose: enforce non-configurable blocking behavior and prevent interface drift.
-31. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+31. [ ] Add deterministic blocking-reingest lifecycle logs for manual verification.
+   - Starter snippet (adapt names to exact existing symbols): `logger.info('[DEV-0000038][T4] REINGEST_BLOCKING_WAIT_STARTED sourceId=%s runId=%s', sourceId, runId);`
+   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+   - Docs: https://nodejs.org/api/console.html | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
+   - Acceptance criteria focus: AC5, AC7, AC8, AC19, AC20, AC24.
+   - Files to read/edit: `server/src/ingest/reingestService.ts`, `server/src/mcp/server.ts`, `server/src/mcp2/tools/reingestRepository.ts`
+   - Required log line: `[DEV-0000038][T4] REINGEST_BLOCKING_WAIT_STARTED sourceId=<id> runId=<id>`.
+   - Required log line: `[DEV-0000038][T4] REINGEST_TERMINAL_RESULT status=<completed|cancelled|error> runId=<id> errorCode=<code|null>`.
+   - Required behavior: emit exactly one STARTED and one TERMINAL log for each reingest request.
+32. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
 1. [ ] `npm run build:summary:server` - If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` and resolve errors.
 2. [ ] `npm run test:summary:server` - If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/server-tests-*.log`) and resolve listed failures.
+3. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find failing target(s).
+4. [ ] `npm run compose:up`
+5. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001` for blocking reingest flows; verify in compose server logs one `[DEV-0000038][T4] REINGEST_BLOCKING_WAIT_STARTED ...` and one `[DEV-0000038][T4] REINGEST_TERMINAL_RESULT ...` log per run (matching `runId`), and verify browser debug console has no unexpected errors.
+6. [ ] `npm run compose:down`
 Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
 #### Implementation notes
@@ -1313,12 +1357,25 @@ Apply one shared status/phase mapping and active-overlay merge path for `/ingest
    - Test location: `server/src/test/unit/openapi.contract.test.ts`.
    - Test description: assert `/ingest/roots` and `/tools/ingested-repos` OpenAPI schemas include `status`, optional `phase` semantics, and `schemaVersion` expectations aligned with story contract.
    - Test purpose: prevent documentation/runtime drift for external listing contracts.
-25. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+25. [ ] Add deterministic ingest-listing mapping logs for manual verification.
+   - Starter snippet (adapt names to exact existing symbols): `logger.info('[DEV-0000038][T5] INGEST_LIST_STATUS_MAPPED sourceId=%s internal=%s status=%s phase=%s', sourceId, internalState, status, phase ?? 'none');`
+   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+   - Docs: https://nodejs.org/api/console.html | https://json-schema.org/understanding-json-schema/
+   - Acceptance criteria focus: AC11, AC12, AC13, AC14, AC15, AC25, AC26.
+   - Files to read/edit: `server/src/lmstudio/toolService.ts`, `server/src/routes/ingestRoots.ts`, `server/src/routes/toolsIngestedRepos.ts`
+   - Required log line: `[DEV-0000038][T5] INGEST_LIST_STATUS_MAPPED sourceId=<id> internal=<state> status=<status> phase=<phase|none>`.
+   - Required log line: `[DEV-0000038][T5] INGEST_ACTIVE_OVERLAY_APPLIED sourceId=<id> synthesized=<true|false>`.
+   - Required behavior: emit mapping logs for each listed repo and overlay logs when active-run data is merged.
+26. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
 1. [ ] `npm run build:summary:server` - If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` and resolve errors.
 2. [ ] `npm run test:summary:server` - If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/server-tests-*.log`) and resolve listed failures.
+3. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find failing target(s).
+4. [ ] `npm run compose:up`
+5. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001` for ingest listing visibility; verify in compose server logs that `[DEV-0000038][T5] INGEST_LIST_STATUS_MAPPED ...` and `[DEV-0000038][T5] INGEST_ACTIVE_OVERLAY_APPLIED ...` appear with expected `status/phase` values and overlay flags, and verify browser debug console has no unexpected errors.
+6. [ ] `npm run compose:down`
 Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
 #### Implementation notes
@@ -1450,12 +1507,25 @@ Ensure no-change delta runs exit before AST parse/upsert/delete and before embed
    - Document description: record Task 6 file additions/removals across ingest pipeline and BDD/unit test paths.
    - Document purpose: keep the repository structure reference current for ingest-pipeline changes.
    - Required behavior: update `projectStructure.md` with every file path added or removed by Task 6 (no wildcard summaries), and remove entries for deleted files.
-12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+12. [ ] Add deterministic delta-path logs for no-change and changed-run manual verification.
+   - Starter snippet (adapt names to exact existing symbols): `logger.info('[DEV-0000038][T6] REEMBED_NO_CHANGE_EARLY_RETURN sourceId=%s runId=%s', sourceId, runId);`
+   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+   - Docs: https://nodejs.org/api/console.html | https://tree-sitter.github.io/tree-sitter/
+   - Acceptance criteria focus: AC16, AC17.
+   - Files to read/edit: `server/src/ingest/ingestJob.ts`, `server/src/ingest/reingestService.ts`
+   - Required log line: `[DEV-0000038][T6] REEMBED_NO_CHANGE_EARLY_RETURN sourceId=<id> runId=<id>`.
+   - Required log line: `[DEV-0000038][T6] REEMBED_DELTA_PATH deltaAdded=<n> deltaModified=<n> deltaDeleted=<n>`.
+   - Required behavior: no-change runs emit only EARLY_RETURN; changed runs emit DELTA_PATH.
+13. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
 1. [ ] `npm run build:summary:server` - If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` and resolve errors.
 2. [ ] `npm run test:summary:server` - If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/server-tests-*.log`) and resolve listed failures.
+3. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find failing target(s).
+4. [ ] `npm run compose:up`
+5. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001` for no-change and changed-delta flows; verify in compose server logs that no-change runs emit `[DEV-0000038][T6] REEMBED_NO_CHANGE_EARLY_RETURN ...` without `REEMBED_DELTA_PATH`, and changed runs emit `[DEV-0000038][T6] REEMBED_DELTA_PATH ...`, then verify browser debug console has no unexpected errors.
+6. [ ] `npm run compose:down`
 Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
 #### Implementation notes
@@ -1604,7 +1674,16 @@ Align Ingest page data normalization/rendering with server contract updates so a
    - Document description: record Task 7 file additions/removals across common/client ingest hooks, components, pages, and tests.
    - Document purpose: maintain an accurate file-map reference for ingest UI contract consumption changes.
    - Required behavior: update `projectStructure.md` with every file path added or removed by Task 7 (no wildcard summaries), and remove entries for deleted files.
-14. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+14. [ ] Add deterministic ingest UI rendering logs for Playwright-MCP console assertions.
+   - Starter snippet (adapt names to exact existing symbols): `console.info('[DEV-0000038][T7] INGEST_UI_ROW_RENDER sourceId=%s status=%s phase=%s', sourceId, status, phase ?? 'none');`
+   - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
+   - Docs: https://developer.mozilla.org/en-US/docs/Web/API/Console/info_static | https://react.dev/learn/synchronizing-with-effects
+   - Acceptance criteria focus: AC11, AC12, AC14, AC15, AC25, AC28.
+   - Files to read/edit: `client/src/hooks/useIngestRoots.ts`, `client/src/components/ingest/RootsTable.tsx`, `client/src/components/ingest/ActiveRunCard.tsx`, `client/src/pages/IngestPage.tsx`
+   - Required log line: `[DEV-0000038][T7] INGEST_UI_ROW_RENDER sourceId=<id> status=<status> phase=<phase|none>`.
+   - Required log line: `[DEV-0000038][T7] INGEST_UI_TERMINAL_PHASE_HIDDEN sourceId=<id> status=<completed|cancelled|error>`.
+   - Required behavior: emit row-render log for visible entries and phase-hidden log for terminal-state rendering.
+15. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -1614,7 +1693,7 @@ Align Ingest page data normalization/rendering with server contract updates so a
 4. [ ] `npm run test:summary:client` - If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`) and resolve listed failures.
 5. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find failing target(s).
 6. [ ] `npm run compose:up`
-7. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001` to verify ingest status/phase rendering behavior and general regressions, including checking the debug console for logged errors.
+7. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`; verify `[DEV-0000038][T7] INGEST_UI_ROW_RENDER ...` is emitted for active and terminal rows, verify `[DEV-0000038][T7] INGEST_UI_TERMINAL_PHASE_HIDDEN ...` appears for `completed|cancelled|error`, and verify browser debug console has no unexpected errors.
 8. [ ] `npm run compose:down`
 Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
@@ -1702,7 +1781,16 @@ Update story-adjacent documentation so junior developers can understand final st
    - Document location: `planning/0000038-agent-ux-stop-and-ingest-status.md`.
    - Document description: apply markdown style/format corrections to final story notes.
    - Document purpose: keep planning documentation consistent and machine/human readable.
-7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+7. [ ] Add a dedicated documentation section listing the exact manual QA log markers introduced in Tasks 1-7.
+   - Starter snippet (adapt names to exact existing symbols): `Add section \"Manual QA Log Markers (DEV-0000038)\" listing required prefixes and expected outcomes per task.`
+   - Dependency note: execute after Task 1-7 log-line subtasks so the table reflects final text exactly.
+   - Docs: https://www.markdownguide.org/basic-syntax/ | https://context7.com/mermaid-js/mermaid/llms.txt
+   - Acceptance criteria focus: AC22 documentation quality.
+   - Files to read/edit: `design.md`, `planning/0000038-agent-ux-stop-and-ingest-status.md`
+   - Required log line: include exact text for `[DEV-0000038][T1]` through `[DEV-0000038][T7]` markers.
+   - Required log line: `[DEV-0000038][T8] DOC_LOG_REFERENCE_VALIDATED marker=<T1|T2|T3|T4|T5|T6|T7>`.
+   - Required behavior: documentation table exactly matches runtime log prefixes so Playwright-MCP manual checks are deterministic.
+8. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -1710,6 +1798,10 @@ Update story-adjacent documentation so junior developers can understand final st
 2. [ ] `npm run build:summary:client` - If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-client-latest.log` and resolve errors.
 3. [ ] `npm run test:summary:server` - If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/server-tests-*.log`) and resolve listed failures.
 4. [ ] `npm run test:summary:client` - If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/client-tests-*.log`) and resolve listed failures.
+5. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find failing target(s).
+6. [ ] `npm run compose:up`
+7. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`; execute one representative stop flow and one ingest flow, verify each documented marker from `[DEV-0000038][T1]` through `[DEV-0000038][T7]` appears with expected fields/counts, and record `[DEV-0000038][T8] DOC_LOG_REFERENCE_VALIDATED marker=<...>` entries in verification evidence for each validated marker family.
+8. [ ] `npm run compose:down`
 Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
 #### Implementation notes
@@ -1958,7 +2050,16 @@ Perform end-to-end verification of all acceptance criteria after Tasks 1-8 are c
    - Test location: Server targeted test command outputs and linked artifacts.
    - Test description: run parity-focused reingest suites and no-change early-return suites, then record evidence in the AC matrix.
    - Test purpose: ensure the highest-risk cross-surface and early-return paths are explicitly covered by passing automation.
-24. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+24. [ ] Add a final regression log-assertion checklist that maps each manual flow to exact expected `DEV-0000038` log markers.
+   - Starter snippet (adapt names to exact existing symbols): `For each manual flow row, list required console/server log markers and expected count (>=1 or exactly 1).`
+   - Dependency note: execute after all task-level log-line subtasks and before final manual Playwright-MCP verification.
+   - Docs: https://playwright.dev/docs/intro | https://www.markdownguide.org/basic-syntax/
+   - Acceptance criteria focus: AC21, AC22.
+   - Files to read/edit: `planning/0000038-agent-ux-stop-and-ingest-status.md`, `test-results/screenshots/*`
+   - Required log line: include checklist entries for `[DEV-0000038][T1]` through `[DEV-0000038][T7]`.
+   - Required log line: `[DEV-0000038][T9] FINAL_REGRESSION_LOG_ASSERTION_PASSED markerFamily=<T1|T2|T3|T4|T5|T6|T7> count=<n>`.
+   - Required behavior: checklist defines expected marker counts and pass/fail criteria for manual verification evidence.
+25. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
@@ -1969,7 +2070,7 @@ Perform end-to-end verification of all acceptance criteria after Tasks 1-8 are c
 5. [ ] `timeout 7m npm run test:summary:e2e` - If `failed > 0` OR setup/teardown fails, inspect `logs/test-summaries/e2e-tests-latest.log` and resolve root causes before rerunning.
 6. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find the failing target(s).
 7. [ ] `npm run compose:up`
-8. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001` to confirm story behavior and general regressions, including verifying no debug-console errors are logged.
+8. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001`; validate final regression checklist by asserting all marker families `[DEV-0000038][T1]` to `[DEV-0000038][T7]` appear in the expected flows with correct ids/status fields and expected counts, record `[DEV-0000038][T9] FINAL_REGRESSION_LOG_ASSERTION_PASSED markerFamily=<...> count=<n>` entries in verification evidence, and verify no unexpected browser debug-console errors are logged.
 9. [ ] `npm run compose:down`
 Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 

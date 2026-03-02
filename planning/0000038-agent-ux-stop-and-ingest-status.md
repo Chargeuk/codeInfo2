@@ -429,13 +429,13 @@ Consume Task 1’s server message-contract update in the Agents UI so Stop alway
 
 1. [ ] Update WebSocket client hook API to allow optional `inflightId` on `cancelInflight`.
    - Files: `client/src/hooks/useChatWs.ts`
-   - Required behavior: send `{ type: 'cancel_inflight', conversationId }` when `inflightId` is unavailable; include `inflightId` when present.
+   - Required behavior: send `{ type: 'cancel_inflight', conversationId }` when `inflightId` is unavailable; include `inflightId` when present. Keep existing 2-argument call sites in Chat and Flows working unchanged.
 2. [ ] Update Agents stop-click logic to always send cancel when there is an active conversation.
    - Files: `client/src/pages/AgentsPage.tsx`
    - Required behavior: remove current hard dependency on a non-empty inflight id before sending cancel.
 3. [ ] Add/extend client tests for stop-without-inflight-id and stop-with-inflight-id payload behavior.
-   - Files: `client/src/test/agentsPage*.test.tsx`, `client/src/test/useChatWs*.test.ts`
-   - Required coverage: payload shape in both paths, and no regression to existing stop UI behavior.
+   - Files: `client/src/test/agentsPage.commandsRun.abort.test.tsx`, `client/src/test/chatPage.stop.test.tsx`, `client/src/test/flowsPage.stop.test.tsx`, `client/src/test/useChatWs*.test.ts`
+   - Required coverage: payload shape in both paths, no regression to existing Chat/Flows stop behavior, and preservation of existing call-site compatibility.
 4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; resolve any issues introduced by this task.
 
 #### Testing
@@ -562,18 +562,18 @@ Apply one shared status/phase mapping and active-overlay merge path for `/ingest
 
 #### Subtasks
 
-1. [ ] Implement one shared mapper from internal ingest states to external `status`/`phase`.
-   - Files: `server/src/ingest/ingestStatusMapper.ts` (new shared helper), `server/src/lmstudio/toolService.ts`, `server/src/routes/ingestRoots.ts`
+1. [ ] Implement one shared mapper from internal ingest states to external `status`/`phase` by extending existing listing logic.
+   - Files: `server/src/lmstudio/toolService.ts`, `server/src/routes/ingestRoots.ts`
    - Required behavior: `queued|scanning|embedding -> status=ingesting + phase`; `completed|cancelled|error -> same status and no phase`; `skipped -> completed`.
 2. [ ] Expose active ingest run context with identity needed for overlay and synthesized entries.
    - Files: `server/src/ingest/ingestJob.ts`
    - Required behavior: expose active run identity/context including run id plus root/source identity and current state/counters so list surfaces can build synthesized entries when persisted metadata is missing.
-3. [ ] Apply the shared mapper to `/ingest/roots` and MCP classic list output.
+3. [ ] Apply the shared mapper to `/ingest/roots` and MCP classic list output by reusing `toolService` listing outputs.
    - Files: `server/src/routes/ingestRoots.ts`, `server/src/mcp/server.ts`, `server/src/lmstudio/toolService.ts`, `server/src/routes/toolsIngestedRepos.ts` (if schemaVersion passthrough/update is needed)
    - Required behavior: both surfaces emit identical status semantics and `schemaVersion: "0000038-status-phase-v1"`.
-4. [ ] Implement active overlay precedence and synthesized active-entry fallback when persisted metadata is missing.
+4. [ ] Implement active overlay precedence and synthesized active-entry fallback when persisted metadata is missing, reusing existing path mapping.
    - Files: `server/src/lmstudio/toolService.ts`, `server/src/routes/ingestRoots.ts`
-   - Required behavior: active run remains visible with status/phase/runId/counters while last completed metadata is retained where available. Synthesized entries must include identity/path fields (`id`, `containerPath`, `hostPath`) and include `hostPathWarning` when mapping is incomplete.
+   - Required behavior: active run remains visible with status/phase/runId/counters while last completed metadata is retained where available. Synthesized entries must include identity/path fields (`id`, `containerPath`, `hostPath`) and include `hostPathWarning` when mapping is incomplete using existing `mapIngestPath` behavior (no duplicated mapping logic).
 5. [ ] Update classic MCP `ListIngestedRepositories` output schema for repo-level `status` and optional `phase`.
    - Files: `server/src/mcp/server.ts`
    - Required behavior: output schema and runtime payload remain aligned.

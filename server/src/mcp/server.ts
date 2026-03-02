@@ -334,7 +334,7 @@ const baseToolDefinitions = [
   {
     name: 'reingest_repository',
     description:
-      'Start a re-embed run for an already ingested repository root by sourceId.',
+      'Run a blocking re-embed for an already ingested repository root by sourceId and return terminal status.',
     inputSchema: {
       type: 'object',
       additionalProperties: false,
@@ -349,12 +349,27 @@ const baseToolDefinitions = [
     },
     outputSchema: {
       type: 'object',
-      required: ['status', 'operation', 'runId', 'sourceId'],
+      required: [
+        'status',
+        'operation',
+        'runId',
+        'sourceId',
+        'durationMs',
+        'files',
+        'chunks',
+        'embedded',
+        'errorCode',
+      ],
       properties: {
-        status: { type: 'string', enum: ['started'] },
+        status: { type: 'string', enum: ['completed', 'cancelled', 'error'] },
         operation: { type: 'string', enum: ['reembed'] },
         runId: { type: 'string' },
         sourceId: { type: 'string' },
+        durationMs: { type: 'number', minimum: 0 },
+        files: { type: 'number' },
+        chunks: { type: 'number' },
+        embedded: { type: 'number' },
+        errorCode: { type: ['string', 'null'] },
       },
       additionalProperties: false,
     },

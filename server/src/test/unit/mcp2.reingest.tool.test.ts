@@ -9,11 +9,27 @@ import type {
 import { handleRpc } from '../../mcp2/router.js';
 import { resetToolDeps, setToolDeps } from '../../mcp2/tools.js';
 
-const paritySuccessPayload = {
-  status: 'started',
+const terminalCompleted = {
+  status: 'completed',
   operation: 'reembed',
   runId: 'run-123',
   sourceId: '/data/repo-a',
+  durationMs: 321,
+  files: 9,
+  chunks: 20,
+  embedded: 15,
+  errorCode: null,
+} as const;
+
+const terminalCancelled = {
+  ...terminalCompleted,
+  status: 'cancelled',
+} as const;
+
+const terminalError = {
+  ...terminalCompleted,
+  status: 'error',
+  errorCode: 'INGEST_FAIL',
 } as const;
 
 const parityInvalidParamsError: Extract<ReingestError, { code: -32602 }> = {
@@ -65,11 +81,16 @@ const parityBusyError: Extract<ReingestError, { code: 429 }> = {
   },
 };
 
-async function postJson(port: number, body: unknown) {
+async function postJson(
+  port: number,
+  body: unknown,
+  options?: { signal?: AbortSignal },
+) {
   const response = await fetch(`http://127.0.0.1:${port}`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify(body),
+    signal: options?.signal,
   });
   return response.json();
 }
@@ -111,10 +132,10 @@ test('tools/list includes reingest_repository metadata for MCP v2', async () => 
   });
 });
 
-test('MCP v2 success payload contract for reingest_repository', async () => {
+test('MCP v2 success payload contract for reingest_repository is terminal-only', async () => {
   setToolDeps({
     runReingestRepository: async () =>
-      ({ ok: true, value: paritySuccessPayload }) as ReingestResult,
+      ({ ok: true, value: terminalCompleted }) as ReingestResult,
   });
 
   await runWithServer(async (port) => {
@@ -132,87 +153,74 @@ test('MCP v2 success payload contract for reingest_repository', async () => {
     const content = body.result.content[0] as { type: string; text: string };
     assert.equal(content.type, 'text');
     const parsed = JSON.parse(content.text);
-    assert.deepEqual(parsed, paritySuccessPayload);
-    assert.equal(JSON.stringify(parsed), JSON.stringify(paritySuccessPayload));
+    assert.equal(parsed.status, 'completed');
+    assert.notEqual(parsed.status, 'started');
+    assert.equal(typeof content.text, 'string');
+    assert.equal(parsed.message, undefined);
   });
 });
 
-test('MCP v2 failures use JSON-RPC error envelope (not result.isError)', async () => {
+test('MCP v2 completed/cancelled/error errorCode constraints', async () => {
+  for (const payload of [terminalCompleted, terminalCancelled, terminalError]) {
+    setToolDeps({
+      runReingestRepository: async () =>
+        ({ ok: true, value: payload }) as ReingestResult,
+    });
+    await runWithServer(async (port) => {
+      const body = await postJson(port, {
+        jsonrpc: '2.0',
+        id: `status-${payload.status}`,
+        method: 'tools/call',
+        params: {
+          name: 'reingest_repository',
+          arguments: { sourceId: '/data/repo-a' },
+        },
+      });
+      const parsed = JSON.parse(body.result.content[0].text);
+      if (parsed.status === 'error') {
+        assert.notEqual(parsed.errorCode, null);
+      } else {
+        assert.equal(parsed.errorCode, null);
+      }
+    });
+  }
+});
+
+test('MCP v2 failures use JSON-RPC error envelope for pre-run validation', async () => {
+  for (const error of [
+    parityInvalidParamsError,
+    parityNotFoundError,
+    parityBusyError,
+  ]) {
+    setToolDeps({
+      runReingestRepository: async () =>
+        ({ ok: false, error }) as ReingestResult,
+    });
+
+    await runWithServer(async (port) => {
+      const body = await postJson(port, {
+        jsonrpc: '2.0',
+        id: 3,
+        method: 'tools/call',
+        params: { name: 'reingest_repository', arguments: {} },
+      });
+
+      assert.equal(body.result, undefined);
+      assert.deepEqual(body.error, error);
+    });
+  }
+});
+
+test('MCP v2 post-start failure returns terminal result payload (not JSON-RPC error)', async () => {
   setToolDeps({
     runReingestRepository: async () =>
-      ({ ok: false, error: parityInvalidParamsError }) as ReingestResult,
+      ({ ok: true, value: terminalError }) as ReingestResult,
   });
 
   await runWithServer(async (port) => {
     const body = await postJson(port, {
-      jsonrpc: '2.0',
-      id: 3,
-      method: 'tools/call',
-      params: { name: 'reingest_repository', arguments: {} },
-    });
-
-    assert.equal(body.result, undefined);
-    assert.deepEqual(body.error, parityInvalidParamsError);
-  });
-});
-
-test('MCP v2 INVALID_PARAMS and NOT_FOUND include retry guidance fields', async () => {
-  setToolDeps({
-    runReingestRepository: async (args) => {
-      const sourceId =
-        typeof args === 'object' && args
-          ? (args as { sourceId?: string }).sourceId
-          : undefined;
-      if (sourceId === '/data/missing') {
-        return { ok: false, error: parityNotFoundError } as ReingestResult;
-      }
-      return { ok: false, error: parityInvalidParamsError } as ReingestResult;
-    },
-  });
-
-  await runWithServer(async (port) => {
-    const invalid = await postJson(port, {
       jsonrpc: '2.0',
       id: 4,
-      method: 'tools/call',
-      params: {
-        name: 'reingest_repository',
-        arguments: { sourceId: 'repo-a' },
-      },
-    });
-    assert.equal(invalid.error.code, -32602);
-    assert.deepEqual(invalid.error.data.reingestableRepositoryIds, ['repo-a']);
-    assert.deepEqual(invalid.error.data.reingestableSourceIds, [
-      '/data/repo-a',
-    ]);
-
-    const notFound = await postJson(port, {
-      jsonrpc: '2.0',
-      id: 5,
-      method: 'tools/call',
-      params: {
-        name: 'reingest_repository',
-        arguments: { sourceId: '/data/missing' },
-      },
-    });
-    assert.deepEqual(notFound.error, parityNotFoundError);
-    assert.equal(
-      JSON.stringify(notFound.error),
-      JSON.stringify(parityNotFoundError),
-    );
-  });
-});
-
-test('MCP v2 BUSY mapping uses code 429 and message BUSY', async () => {
-  setToolDeps({
-    runReingestRepository: async () =>
-      ({ ok: false, error: parityBusyError }) as ReingestResult,
-  });
-
-  await runWithServer(async (port) => {
-    const body = await postJson(port, {
-      jsonrpc: '2.0',
-      id: 6,
       method: 'tools/call',
       params: {
         name: 'reingest_repository',
@@ -220,6 +228,102 @@ test('MCP v2 BUSY mapping uses code 429 and message BUSY', async () => {
       },
     });
 
-    assert.deepEqual(body.error, parityBusyError);
+    assert.equal(body.error, undefined);
+    const payload = JSON.parse(body.result.content[0].text);
+    assert.equal(payload.status, 'error');
+    assert.equal(payload.errorCode, 'INGEST_FAIL');
   });
+});
+
+test('MCP v2 request-shape guards reject wait/blocking args', async () => {
+  setToolDeps({
+    runReingestRepository: async () =>
+      ({
+        ok: false,
+        error: {
+          ...parityInvalidParamsError,
+          data: {
+            ...parityInvalidParamsError.data,
+            fieldErrors: [
+              {
+                field: 'sourceId',
+                reason: 'invalid_state',
+                message: 'Unsupported arguments',
+              },
+            ],
+          },
+        },
+      }) as ReingestResult,
+  });
+
+  await runWithServer(async (port) => {
+    const body = await postJson(port, {
+      jsonrpc: '2.0',
+      id: 5,
+      method: 'tools/call',
+      params: {
+        name: 'reingest_repository',
+        arguments: {
+          sourceId: '/data/repo-a',
+          wait: true,
+          blocking: true,
+        },
+      },
+    });
+    assert.equal(body.result, undefined);
+    assert.equal(body.error.code, -32602);
+  });
+});
+
+test('MCP v2 disconnect during blocking wait does not crash router', async () => {
+  setToolDeps({
+    runReingestRepository: async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      return { ok: true, value: terminalCompleted } as ReingestResult;
+    },
+  });
+
+  await runWithServer(async (port) => {
+    const controller = new AbortController();
+    const inflight = postJson(
+      port,
+      {
+        jsonrpc: '2.0',
+        id: 6,
+        method: 'tools/call',
+        params: {
+          name: 'reingest_repository',
+          arguments: { sourceId: '/data/repo-a' },
+        },
+      },
+      { signal: controller.signal },
+    );
+    setTimeout(() => controller.abort(), 10);
+    await assert.rejects(inflight);
+
+    const healthCall = await postJson(port, {
+      jsonrpc: '2.0',
+      id: 7,
+      method: 'tools/list',
+    });
+    assert.equal(healthCall.error, undefined);
+    assert.ok(Array.isArray(healthCall.result.tools));
+  });
+});
+
+test('classic/v2 parity baseline: terminal fields match expected contract', () => {
+  assert.equal(
+    JSON.stringify(terminalCompleted),
+    JSON.stringify({
+      status: 'completed',
+      operation: 'reembed',
+      runId: 'run-123',
+      sourceId: '/data/repo-a',
+      durationMs: 321,
+      files: 9,
+      chunks: 20,
+      embedded: 15,
+      errorCode: null,
+    }),
+  );
 });

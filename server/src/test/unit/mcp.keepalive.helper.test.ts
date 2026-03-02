@@ -110,3 +110,28 @@ test('response end before next tick does not write after end', async () => {
   assert.equal(keepAlive.isRunning(), false);
   assert.equal(res.writes.length, writesAtEnd);
 });
+
+test('heartbeat ticks continue while a blocking operation is in progress', async () => {
+  const res = new MockResponse();
+  const keepAlive = createKeepAliveController({
+    res,
+    writeHeadersIfNeeded: () => {
+      if (res.headersSent) return;
+      res.writeHead();
+      res.flushHeaders();
+    },
+    surface: 'unit_test',
+    intervalMs: 5,
+  });
+
+  keepAlive.start();
+  await wait(22);
+  keepAlive.sendJson({ status: 'completed' });
+
+  // Initial flush + at least one heartbeat tick must have occurred.
+  assert.equal(res.writes.length > 1, true);
+  assert.equal(
+    res.writes.every((chunk) => /^\s+$/.test(chunk)),
+    true,
+  );
+});

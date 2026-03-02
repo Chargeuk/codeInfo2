@@ -114,6 +114,17 @@ export type IngestJobStatus = {
   etaMs?: number;
 };
 
+export type WaitForTerminalIngestStatusOptions = {
+  timeoutMs: number;
+  pollMs: number;
+};
+
+export type WaitForTerminalIngestStatusResult = {
+  reason: 'terminal' | 'timeout' | 'missing';
+  status: IngestJobStatus | null;
+  lastKnown: IngestJobStatus | null;
+};
+
 type Deps = {
   lmClientFactory: (baseUrl: string) => LMStudioClient;
   baseUrl: string;
@@ -1170,6 +1181,30 @@ export async function startIngest(input: IngestJobInput, d: Deps) {
 
 export function getStatus(runId: string): IngestJobStatus | null {
   return jobs.get(runId) ?? null;
+}
+
+export async function waitForTerminalIngestStatus(
+  runId: string,
+  options: WaitForTerminalIngestStatusOptions,
+): Promise<WaitForTerminalIngestStatusResult> {
+  const timeoutMs = Math.max(1, options.timeoutMs);
+  const pollMs = Math.max(1, options.pollMs);
+  const startMs = Date.now();
+  let lastKnown: IngestJobStatus | null = null;
+
+  while (Date.now() - startMs <= timeoutMs) {
+    const current = getStatus(runId);
+    if (!current) {
+      return { reason: 'missing', status: null, lastKnown };
+    }
+    lastKnown = current;
+    if (terminalStates.has(current.state)) {
+      return { reason: 'terminal', status: current, lastKnown };
+    }
+    await new Promise((resolve) => setTimeout(resolve, pollMs));
+  }
+
+  return { reason: 'timeout', status: null, lastKnown };
 }
 
 export function getActiveStatus(): IngestJobStatus | null {

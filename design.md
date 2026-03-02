@@ -580,13 +580,27 @@ flowchart TD
 - Shared service `server/src/ingest/reingestService.ts` defines canonical validation and mapping for `reingest_repository` before MCP surface wiring.
 - Validation is strict and field-level for `sourceId`: missing, non-string, empty, non-absolute, non-normalized, ambiguous path forms, and unknown roots are rejected.
 - Reingest is existing-root-only: known roots are derived from `listIngestedRepositories()` container paths and must match exactly after POSIX normalization.
-- Run-start behavior reuses existing ingest semantics (`isBusy()` + `reembed(...)`) and maps outcomes to canonical contracts:
+- Run-start behavior reuses existing ingest semantics (`isBusy()` + `reembed(...)`), then blocks on `waitForTerminalIngestStatus(...)` and maps outcomes to canonical contracts:
   - invalid params -> JSON-RPC error `-32602` / `INVALID_PARAMS`
   - unknown root -> JSON-RPC error `404` / `NOT_FOUND`
   - busy -> JSON-RPC error `429` / `BUSY`
+- Once the run has started, results are terminal-only and summary-only:
+  - `status`: `completed` | `cancelled` | `error`
+  - `operation`: `reembed`
+  - `runId`, `sourceId`, `durationMs`, `files`, `chunks`, `embedded`, `errorCode`
+  - no top-level `message` field.
+- Internal terminal mapping:
+  - internal `completed` -> external `completed`
+  - internal `skipped` -> external `completed`
+  - internal `cancelled` -> external `cancelled` with last-known counters
+  - internal `error` -> external `error` with non-null `errorCode`
+  - missing status after start -> terminal `error` (`RUN_STATUS_MISSING`)
+  - wait timeout -> terminal `error` (`WAIT_TIMEOUT`)
 - Validation/result logs are emitted with stable tags for manual verification:
   - `DEV-0000035:T5:reingest_validation_evaluated`
   - `DEV-0000035:T5:reingest_validation_result`
+  - `[DEV-0000038][T4] REINGEST_BLOCKING_WAIT_STARTED sourceId=<id> runId=<id>`
+  - `[DEV-0000038][T4] REINGEST_TERMINAL_RESULT status=<completed|cancelled|error> runId=<id> errorCode=<code|null>`
 
 ```mermaid
 flowchart TD
@@ -597,13 +611,22 @@ flowchart TD
   C -- yes --> D{ingest lock held?}
   D -- yes --> E3[429 BUSY\\nerror.data BUSY + retry lists]
   D -- no --> F[reembed(sourceId)]
-  F --> G[success payload\\nstatus started, operation reembed, runId, sourceId]
+  F --> G[waitForTerminalIngestStatus(runId)]
+  G --> H{terminal state observed?}
+  H -- completed/skipped --> I[terminal payload\\nstatus completed + required fields]
+  H -- cancelled --> J[terminal payload\\nstatus cancelled + last-known counters]
+  H -- error --> K[terminal payload\\nstatus error + non-null errorCode]
+  H -- timeout --> L[terminal payload\\nstatus error + errorCode WAIT_TIMEOUT]
+  H -- missing --> M[terminal payload\\nstatus error + errorCode RUN_STATUS_MISSING]
 ```
 
 ## Classic MCP reingest wiring
 
 - Classic MCP (`POST /mcp`) now exposes `reingest_repository` in `tools/list` and routes `tools/call` to the shared `runReingestRepository(...)` service.
-- Success path stays in the classic wrapper (`result.content[0].text` JSON string), while failures remain JSON-RPC `error` envelopes for compatibility.
+- Success path stays in the classic wrapper (`result.content[0].text` JSON string), with one terminal payload returned after blocking wait.
+- Protocol boundary remains explicit:
+  - pre-run validation failures return JSON-RPC `error` envelopes.
+  - post-start outcomes return terminal result payloads (`completed|cancelled|error`) in `result.content[0].text`.
 - Classic-MCP-specific manual-verification logs use:
   - `DEV-0000035:T6:classic_reingest_tool_call_evaluated`
   - `DEV-0000035:T6:classic_reingest_tool_call_result`
@@ -620,12 +643,12 @@ sequenceDiagram
   Classic-->>Client: includes reingest_repository
   Client->>Classic: tools/call(reingest_repository, {sourceId})
   Classic->>Service: runReingestRepository(args)
-  alt success
-    Service-->>Classic: {status, operation, runId, sourceId}
-    Classic-->>Client: jsonrpc result.content[0].text(JSON)
-  else validation/not_found/busy
+  alt pre-run validation failure
     Service-->>Classic: {code,message,data}
     Classic-->>Client: jsonrpc error(code,message,data)
+  else run started and wait reaches terminal
+    Service-->>Classic: {status,operation,runId,sourceId,durationMs,files,chunks,embedded,errorCode}
+    Classic-->>Client: jsonrpc result.content[0].text(JSON)
   end
 ```
 
@@ -2592,8 +2615,9 @@ sequenceDiagram
 
 - Tool name is identical on both surfaces: `reingest_repository`.
 - Contract parity is explicit for shared success/error mapping:
-  - success: `{ status: "started", operation: "reembed", runId, sourceId }`
-  - errors (compatibility lock): JSON-RPC `error` envelope, not `result.isError`
+  - terminal success/cancel/error payload:
+    - `{ status: "completed"|"cancelled"|"error", operation: "reembed", runId, sourceId, durationMs, files, chunks, embedded, errorCode }`
+  - pre-run failures remain JSON-RPC `error` envelopes, not `result.isError`:
     - `-32602 INVALID_PARAMS`
     - `404 NOT_FOUND`
     - `429 BUSY`
@@ -2609,14 +2633,14 @@ sequenceDiagram
   MCP2-->>Client: includes reingest_repository
   Client->>MCP2: tools/call reingest_repository {sourceId}
   MCP2->>Service: runReingestRepository(args)
-  alt success
-    Service-->>MCP2: {status, operation, runId, sourceId}
-    MCP2-->>Client: result.content[0].text(JSON)
-  else invalid/not-found/busy
+  alt pre-run validation failure
     Service-->>MCP2: {code, message, data}
     MCP2-->>Client: JSON-RPC error(code, message, data)
+  else run started and wait reaches terminal
+    Service-->>MCP2: {status, operation, runId, sourceId, durationMs, files, chunks, embedded, errorCode}
+    MCP2-->>Client: result.content[0].text(JSON)
   end
-  Note over MCP2,Classic: Success and error envelopes intentionally match classic /mcp contracts
+  Note over MCP2,Classic: terminal payload fields and semantics are intentionally identical across both MCP surfaces
 ```
 
 ## End-to-end validation

@@ -24,7 +24,7 @@ export function reingestRepositoryDefinition() {
   return {
     name: REINGEST_REPOSITORY_TOOL_NAME,
     description:
-      'Start a re-embed run for an already ingested repository root by sourceId.',
+      'Run a blocking re-embed for an already ingested repository root by sourceId and return a terminal summary payload.',
     inputSchema: {
       type: 'object',
       additionalProperties: false,

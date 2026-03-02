@@ -852,7 +852,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 
 ### 4. Server Message Contract: make `reingest_repository` blocking and terminal-only (classic + MCP v2 parity)
 
-- Task Status: **__in_progress__**
+- Task Status: **__done__**
 - Git Commits: `None yet`
 
 #### Overview
@@ -870,63 +870,63 @@ Replace immediate `status: started` reingest results with one terminal payload r
 
 #### Subtasks
 
-1. [ ] Update shared reingest service result shape to terminal-only output.
+1. [x] Update shared reingest service result shape to terminal-only output.
    - Starter snippet (adapt names to exact existing symbols): `return { status: mapTerminal(state), operation: "reembed", runId, sourceId, durationMs, files, chunks, embedded, errorCode };`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/ | https://www.jsonrpc.org/specification | https://expressjs.com/en/guide/migrating-5.html
    - Acceptance criteria focus: AC5, AC6, AC7, AC8, AC9, AC10, AC18, AC19, AC20, AC24.
    - Files to read/edit: `server/src/ingest/reingestService.ts`
    - Required behavior: success payload uses terminal `status` (`completed|cancelled|error`) and required fields (`status`, `operation`, `runId`, `sourceId`, `durationMs`, `files`, `chunks`, `embedded`, `errorCode`).
-2. [ ] Implement blocking terminal wait in reingest service using ingest runtime status.
+2. [x] Implement blocking terminal wait in reingest service using ingest runtime status.
    - Starter snippet (adapt names to exact existing symbols): `return { status: mapTerminal(state), operation: "reembed", runId, sourceId, durationMs, files, chunks, embedded, errorCode };`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/ | https://www.jsonrpc.org/specification | https://expressjs.com/en/guide/migrating-5.html
    - Acceptance criteria focus: AC5, AC6, AC7, AC8, AC9, AC10, AC18, AC19, AC20, AC24.
    - Files to read/edit: `server/src/ingest/reingestService.ts`, `server/src/ingest/ingestJob.ts`
    - Required behavior: after `reembed(...)` returns `runId`, wait until terminal state (`completed|cancelled|error|skipped`) via a shared helper exported from `ingestJob.ts`; map internal `skipped` to external `completed`, and populate terminal counters/errorCode/duration deterministically.
-3. [ ] Add explicit terminal payload mapping rules in the service for each terminal state.
+3. [x] Add explicit terminal payload mapping rules in the service for each terminal state.
    - Starter snippet (adapt names to exact existing symbols): `return { status: mapTerminal(state), operation: "reembed", runId, sourceId, durationMs, files, chunks, embedded, errorCode };`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/ | https://www.jsonrpc.org/specification | https://expressjs.com/en/guide/migrating-5.html
    - Acceptance criteria focus: AC5, AC6, AC7, AC8, AC9, AC10, AC18, AC19, AC20, AC24.
    - Files to read/edit: `server/src/ingest/reingestService.ts`
    - Required behavior: `operation` is always `reembed`, `errorCode` is null unless terminal status is `error`, and cancelled paths return last-known counters.
-4. [ ] Keep pre-run validation failures in JSON-RPC/protocol error envelopes and keep input shape `sourceId`-only.
+4. [x] Keep pre-run validation failures in JSON-RPC/protocol error envelopes and keep input shape `sourceId`-only.
    - Starter snippet (adapt names to exact existing symbols): `return { status: mapTerminal(state), operation: "reembed", runId, sourceId, durationMs, files, chunks, embedded, errorCode };`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/ | https://www.jsonrpc.org/specification | https://expressjs.com/en/guide/migrating-5.html
    - Acceptance criteria focus: AC5, AC6, AC7, AC8, AC9, AC10, AC18, AC19, AC20, AC24.
    - Files to read/edit: `server/src/ingest/reingestService.ts`, `server/src/mcp/server.ts`, `server/src/mcp2/tools/reingestRepository.ts`
    - Required behavior: invalid `sourceId`/unknown root/busy-before-start remain protocol errors; only post-start outcomes use terminal result payload. Do not add `wait`, `blocking`, or similar request flags. This story intentionally keeps existing JSON-RPC protocol-error behavior for pre-run validation (no migration to `result.isError` in scope).
-5. [ ] Update classic MCP tool output schema away from `status: started`.
+5. [x] Update classic MCP tool output schema away from `status: started`.
    - Starter snippet (adapt names to exact existing symbols): `return { status: mapTerminal(state), operation: "reembed", runId, sourceId, durationMs, files, chunks, embedded, errorCode };`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/ | https://www.jsonrpc.org/specification | https://expressjs.com/en/guide/migrating-5.html
    - Acceptance criteria focus: AC5, AC6, AC7, AC8, AC9, AC10, AC18, AC19, AC20, AC24.
    - Files to read/edit: `server/src/mcp/server.ts`
    - Required behavior: output schema matches terminal-only contract and no non-terminal values remain.
-6. [ ] Update classic MCP runtime payload mapping to match the terminal-only contract.
+6. [x] Update classic MCP runtime payload mapping to match the terminal-only contract.
    - Starter snippet (adapt names to exact existing symbols): `return { status: mapTerminal(state), operation: "reembed", runId, sourceId, durationMs, files, chunks, embedded, errorCode };`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/ | https://www.jsonrpc.org/specification | https://expressjs.com/en/guide/migrating-5.html
    - Acceptance criteria focus: AC5, AC6, AC7, AC8, AC9, AC10, AC18, AC19, AC20, AC24.
    - Files to read/edit: `server/src/mcp/server.ts`
    - Required behavior: emitted payload matches terminal field names and status semantics for all outcomes.
-7. [ ] Update MCP v2 reingest tool runtime mapping to match classic payload semantics.
+7. [x] Update MCP v2 reingest tool runtime mapping to match classic payload semantics.
    - Starter snippet (adapt names to exact existing symbols): `return { status: mapTerminal(state), operation: "reembed", runId, sourceId, durationMs, files, chunks, embedded, errorCode };`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/ | https://www.jsonrpc.org/specification | https://expressjs.com/en/guide/migrating-5.html
    - Acceptance criteria focus: AC5, AC6, AC7, AC8, AC9, AC10, AC18, AC19, AC20, AC24.
    - Files to read/edit: `server/src/mcp2/tools/reingestRepository.ts`
    - Required behavior: same field names/status semantics as classic for the same terminal outcome.
-8. [ ] Preserve keep-alive behavior during blocking wait using existing keepalive controller behavior.
+8. [x] Preserve keep-alive behavior during blocking wait using existing keepalive controller behavior.
    - Starter snippet (adapt names to exact existing symbols): `return { status: mapTerminal(state), operation: "reembed", runId, sourceId, durationMs, files, chunks, embedded, errorCode };`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/ | https://www.jsonrpc.org/specification | https://expressjs.com/en/guide/migrating-5.html
    - Acceptance criteria focus: AC5, AC6, AC7, AC8, AC9, AC10, AC18, AC19, AC20, AC24.
    - Files to read/edit: `server/src/mcp/server.ts`, `server/src/mcp2/router.ts`, `server/src/mcpCommon/keepAlive.ts`
    - Required behavior: long waits continue heartbeats and do not alter final payload shape. Avoid introducing new keepalive branches unless required to satisfy this story.
-9. [ ] Add service unit test: blocking wait returns one terminal `completed` payload after run completion.
+9. [x] Add service unit test: blocking wait returns one terminal `completed` payload after run completion.
    - Starter snippet (adapt names to exact existing symbols): `expect(result.status).toBe('completed');`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/ | https://www.jsonrpc.org/specification | https://expressjs.com/en/guide/migrating-5.html
@@ -936,7 +936,7 @@ Replace immediate `status: started` reingest results with one terminal payload r
    - Test location: `server/src/test/unit/reingestService.test.ts`.
    - Test description: invoke reingest and assert result resolves only after terminal completion with `status=completed`.
    - Test purpose: prove service no longer returns non-terminal `started` output.
-10. [ ] Add service unit test: internal `skipped` terminal state maps to external `completed`.
+10. [x] Add service unit test: internal `skipped` terminal state maps to external `completed`.
    - Starter snippet (adapt names to exact existing symbols): `expect(result.status).toBe('completed');`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/ | https://www.jsonrpc.org/specification | https://expressjs.com/en/guide/migrating-5.html
@@ -946,7 +946,7 @@ Replace immediate `status: started` reingest results with one terminal payload r
    - Test location: `server/src/test/unit/reingestService.test.ts`.
    - Test description: simulate `skipped` terminal state and assert mapped external status is `completed`.
    - Test purpose: keep terminal success semantics consistent for callers.
-11. [ ] Add service unit test: terminal payload includes all required top-level fields with deterministic counters and duration.
+11. [x] Add service unit test: terminal payload includes all required top-level fields with deterministic counters and duration.
    - Starter snippet (adapt names to exact existing symbols): `expect(result).toMatchObject({ status, operation: 'reembed', runId, sourceId, durationMs, files, chunks, embedded, errorCode });`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/ | https://www.jsonrpc.org/specification | https://expressjs.com/en/guide/migrating-5.html
@@ -956,7 +956,7 @@ Replace immediate `status: started` reingest results with one terminal payload r
    - Test location: `server/src/test/unit/reingestService.test.ts`.
    - Test description: assert required field set exists with numeric counters/duration and deterministic mapping.
    - Test purpose: enforce stable terminal payload schema for MCP consumers.
-12. [ ] Add MCP classic contract test: final tool payload never contains `status: started`.
+12. [x] Add MCP classic contract test: final tool payload never contains `status: started`.
    - Starter snippet (adapt names to exact existing symbols): `expect(payload.status).not.toBe('started');`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/ | https://www.jsonrpc.org/specification | https://expressjs.com/en/guide/migrating-5.html
@@ -966,7 +966,7 @@ Replace immediate `status: started` reingest results with one terminal payload r
    - Test location: `server/src/test/unit/mcp.reingest.classic.test.ts`.
    - Test description: call `reingest_repository` and assert final classic payload is terminal-only.
    - Test purpose: prevent legacy non-terminal response regression on classic MCP.
-13. [ ] Add MCP v2 contract test: final tool payload never contains `status: started`.
+13. [x] Add MCP v2 contract test: final tool payload never contains `status: started`.
    - Starter snippet (adapt names to exact existing symbols): `expect(payload.status).not.toBe('started');`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/ | https://www.jsonrpc.org/specification | https://expressjs.com/en/guide/migrating-5.html
@@ -976,7 +976,7 @@ Replace immediate `status: started` reingest results with one terminal payload r
    - Test location: `server/src/test/unit/mcp2.reingest.tool.test.ts`.
    - Test description: call `reingest_repository` through MCP v2 and assert final payload is terminal-only.
    - Test purpose: prevent legacy non-terminal response regression on MCP v2.
-14. [ ] Add parity test: classic and MCP v2 emit identical field names/semantics for same terminal success outcome.
+14. [x] Add parity test: classic and MCP v2 emit identical field names/semantics for same terminal success outcome.
    - Starter snippet (adapt names to exact existing symbols): `expect(classicPayload).toEqual(v2Payload);`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/ | https://www.jsonrpc.org/specification | https://expressjs.com/en/guide/migrating-5.html
@@ -986,7 +986,7 @@ Replace immediate `status: started` reingest results with one terminal payload r
    - Test location: `server/src/test/unit/mcp.reingest.classic.test.ts` and `server/src/test/unit/mcp2.reingest.tool.test.ts`.
    - Test description: run same scenario through both MCP surfaces and compare normalized terminal payloads.
    - Test purpose: guarantee cross-surface contract lock-step.
-15. [ ] Add cancel-path test: GUI cancellation during blocking wait returns terminal `status: cancelled` result.
+15. [x] Add cancel-path test: GUI cancellation during blocking wait returns terminal `status: cancelled` result.
    - Starter snippet (adapt names to exact existing symbols): `expect(payload.status).toBe('cancelled');`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/ | https://www.jsonrpc.org/specification | https://expressjs.com/en/guide/migrating-5.html
@@ -996,7 +996,7 @@ Replace immediate `status: started` reingest results with one terminal payload r
    - Test location: `server/src/test/unit/reingestService.test.ts`, `server/src/test/unit/mcp.reingest.classic.test.ts`, and `server/src/test/unit/mcp2.reingest.tool.test.ts`.
    - Test description: cancel ingest externally while MCP wait is in progress; assert returned terminal payload is `cancelled`.
    - Test purpose: preserve correct in-run cancellation contract boundary.
-16. [ ] Add protocol-boundary test: pre-run validation failures remain JSON-RPC protocol errors.
+16. [x] Add protocol-boundary test: pre-run validation failures remain JSON-RPC protocol errors.
    - Starter snippet (adapt names to exact existing symbols): `expect(response.error).toBeDefined(); expect(response.result).toBeUndefined();`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/ | https://www.jsonrpc.org/specification | https://expressjs.com/en/guide/migrating-5.html
@@ -1006,7 +1006,7 @@ Replace immediate `status: started` reingest results with one terminal payload r
    - Test location: `server/src/test/unit/mcp.reingest.classic.test.ts` and `server/src/test/unit/mcp2.reingest.tool.test.ts`.
    - Test description: send invalid input / unknown source / busy-before-start and assert protocol error envelope is returned.
    - Test purpose: enforce pre-run error boundary invariants.
-17. [ ] Add protocol-boundary test: post-start failures return terminal result payload (not JSON-RPC error).
+17. [x] Add protocol-boundary test: post-start failures return terminal result payload (not JSON-RPC error).
    - Starter snippet (adapt names to exact existing symbols): `expect(payload.status).toBe('error'); expect(response.error).toBeUndefined();`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/ | https://www.jsonrpc.org/specification | https://expressjs.com/en/guide/migrating-5.html
@@ -1016,7 +1016,7 @@ Replace immediate `status: started` reingest results with one terminal payload r
    - Test location: `server/src/test/unit/mcp.reingest.classic.test.ts` and `server/src/test/unit/mcp2.reingest.tool.test.ts`.
    - Test description: force failure after run starts and assert terminal payload is returned in result channel.
    - Test purpose: prevent accidental promotion of in-run failures to protocol errors.
-18. [ ] Add transport-wrapper test: both MCP surfaces keep `result.content[0].text` JSON-string wrapper.
+18. [x] Add transport-wrapper test: both MCP surfaces keep `result.content[0].text` JSON-string wrapper.
    - Starter snippet (adapt names to exact existing symbols): `expect(typeof response.result.content[0].text).toBe('string');`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/ | https://www.jsonrpc.org/specification | https://expressjs.com/en/guide/migrating-5.html
@@ -1026,7 +1026,7 @@ Replace immediate `status: started` reingest results with one terminal payload r
    - Test location: `server/src/test/unit/mcp.reingest.classic.test.ts` and `server/src/test/unit/mcp2.reingest.tool.test.ts`.
    - Test description: assert unchanged text-wrapper transport shape around terminal payload on both surfaces.
    - Test purpose: preserve existing client parser compatibility.
-19. [ ] Add keepalive test: heartbeat messages continue during blocking wait.
+19. [x] Add keepalive test: heartbeat messages continue during blocking wait.
    - Starter snippet (adapt names to exact existing symbols): `expect(keepaliveTickCount).toBeGreaterThan(0);`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/ | https://www.jsonrpc.org/specification | https://expressjs.com/en/guide/migrating-5.html
@@ -1036,7 +1036,7 @@ Replace immediate `status: started` reingest results with one terminal payload r
    - Test location: `server/src/test/unit/mcp.keepalive.helper.test.ts`.
    - Test description: run long blocking wait and assert keepalive heartbeat executes while waiting.
    - Test purpose: prevent long-running MCP calls from idle timeouts.
-20. [ ] Add keepalive-close-path test: disconnect during wait stops keepalive cleanly without crash.
+20. [x] Add keepalive-close-path test: disconnect during wait stops keepalive cleanly without crash.
    - Starter snippet (adapt names to exact existing symbols): `expect(serverProcessCrashed).toBe(false);`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/ | https://www.jsonrpc.org/specification | https://expressjs.com/en/guide/migrating-5.html
@@ -1046,7 +1046,7 @@ Replace immediate `status: started` reingest results with one terminal payload r
    - Test location: `server/src/test/unit/mcp2.reingest.tool.test.ts` and `server/src/test/unit/mcp.reingest.classic.test.ts`.
    - Test description: close/disconnect response path during blocking wait and assert lifecycle closes safely.
    - Test purpose: ensure transport resilience and process stability.
-21. [ ] Add terminal error contract test: `status=error` has non-null `errorCode` and full required field set.
+21. [x] Add terminal error contract test: `status=error` has non-null `errorCode` and full required field set.
    - Starter snippet (adapt names to exact existing symbols): `expect(payload.errorCode).not.toBeNull();`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/ | https://www.jsonrpc.org/specification | https://expressjs.com/en/guide/migrating-5.html
@@ -1056,7 +1056,7 @@ Replace immediate `status: started` reingest results with one terminal payload r
    - Test location: `server/src/test/unit/reingestService.test.ts`, `server/src/test/unit/mcp.reingest.classic.test.ts`, and `server/src/test/unit/mcp2.reingest.tool.test.ts`.
    - Test description: assert terminal error output contains non-null code and all required top-level fields.
    - Test purpose: enforce predictable machine-readable error contract.
-22. [ ] Add terminal response-shape test: tool result has no top-level `message` and only one terminal payload per call.
+22. [x] Add terminal response-shape test: tool result has no top-level `message` and only one terminal payload per call.
    - Starter snippet (adapt names to exact existing symbols): `expect(payload.message).toBeUndefined(); expect(terminalPayloadCount).toBe(1);`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/ | https://www.jsonrpc.org/specification | https://expressjs.com/en/guide/migrating-5.html
@@ -1066,7 +1066,7 @@ Replace immediate `status: started` reingest results with one terminal payload r
    - Test location: `server/src/test/unit/mcp.reingest.classic.test.ts` and `server/src/test/unit/mcp2.reingest.tool.test.ts`.
    - Test description: assert final payload omits top-level `message` and emits one terminal contract object per call.
    - Test purpose: keep tool outputs deterministic and summary-only.
-23. [ ] Update `design.md` with blocking reingest architecture flow and Mermaid diagram(s) for classic + MCP v2 parity.
+23. [x] Update `design.md` with blocking reingest architecture flow and Mermaid diagram(s) for classic + MCP v2 parity.
    - Starter snippet (adapt names to exact existing symbols): `Add Mermaid flowchart/sequence diagrams covering pre-run protocol-error boundary, blocking wait, keepalive during wait, and terminal payload completion.`
    - Dependency note: execute this after Task 4 implementation/tests so diagrams reflect final runtime parity across both MCP surfaces.
    - Docs: https://context7.com/mermaid-js/mermaid/llms.txt | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
@@ -1076,7 +1076,7 @@ Replace immediate `status: started` reingest results with one terminal payload r
    - Document location: `design.md`.
    - Document description: document blocking reingest flow, protocol boundaries, and classic/v2 parity with Mermaid diagrams.
    - Document purpose: make contract flow behavior and integration boundaries explicit for implementers and reviewers.
-24. [ ] If this task adds or removes files, update `projectStructure.md` after finishing those file changes.
+24. [x] If this task adds or removes files, update `projectStructure.md` after finishing those file changes.
    - Starter snippet (adapt names to exact existing symbols): `Add entries for any new/removed files introduced by Task 4 across server ingest, MCP, and server test suites.`
    - Dependency note: execute this after all file add/remove subtasks in Task 4, including subtasks 25-30, and before moving to the next task.
    - Docs: https://www.markdownguide.org/basic-syntax/
@@ -1087,14 +1087,14 @@ Replace immediate `status: started` reingest results with one terminal payload r
    - Document description: record Task 4 file additions/removals across ingest, MCP classic/v2, and related tests.
    - Document purpose: keep file-map documentation consistent with reingest contract implementation changes.
    - Required behavior: update `projectStructure.md` with every file path added or removed by Task 4 (no wildcard summaries), and remove entries for deleted files.
-25. [ ] Add bounded wait guard in reingest service so blocking calls cannot hang indefinitely.
+25. [x] Add bounded wait guard in reingest service so blocking calls cannot hang indefinitely.
    - Starter snippet (adapt names to exact existing symbols): `const terminal = await waitForTerminalIngestStatus(runId, { timeoutMs, pollMs });`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/ | https://www.jsonrpc.org/specification | https://expressjs.com/en/guide/migrating-5.html
    - Acceptance criteria focus: AC7, AC18, AC19, AC24.
    - Files to read/edit: `server/src/ingest/reingestService.ts`, `server/src/ingest/ingestJob.ts`
    - Required behavior: expose and use `waitForTerminalIngestStatus(runId, { timeoutMs, pollMs })` with task-local constants in `reingestService.ts` (no new env/config flags in this story); when timeout elapses, return one terminal result payload with `status='error'`, non-null `errorCode`, and required counters/duration fields.
-26. [ ] Add service unit test: timeout during blocking wait returns deterministic terminal error payload (not JSON-RPC error, not hang).
+26. [x] Add service unit test: timeout during blocking wait returns deterministic terminal error payload (not JSON-RPC error, not hang).
    - Starter snippet (adapt names to exact existing symbols): `expect(result).toMatchObject({ status: 'error', errorCode: 'WAIT_TIMEOUT' });`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/ | https://www.jsonrpc.org/specification | https://expressjs.com/en/guide/migrating-5.html
@@ -1104,7 +1104,7 @@ Replace immediate `status: started` reingest results with one terminal payload r
    - Test location: `server/src/test/unit/reingestService.test.ts`.
    - Test description: simulate no terminal transition until timeout and assert one terminal `status=error` result with non-null `errorCode`.
    - Test purpose: guarantee blocking contract terminates deterministically under stalled runtime status.
-27. [ ] Add missing-run-after-start contract tests on both MCP surfaces.
+27. [x] Add missing-run-after-start contract tests on both MCP surfaces.
    - Starter snippet (adapt names to exact existing symbols): `expect(payload).toMatchObject({ status: 'error', errorCode: 'RUN_STATUS_MISSING' });`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/ | https://www.jsonrpc.org/specification | https://expressjs.com/en/guide/migrating-5.html
@@ -1114,7 +1114,7 @@ Replace immediate `status: started` reingest results with one terminal payload r
    - Test location: `server/src/test/unit/reingestService.test.ts`, `server/src/test/unit/mcp.reingest.classic.test.ts`, and `server/src/test/unit/mcp2.reingest.tool.test.ts`.
    - Test description: simulate run started then runtime status missing; assert both MCP surfaces emit one terminal error result payload with stable shape.
    - Test purpose: prevent undefined/null run-state handling from causing hangs or protocol-channel regressions.
-28. [ ] Add terminal-field constraint test: `completed` and `cancelled` payloads emit `errorCode=null`.
+28. [x] Add terminal-field constraint test: `completed` and `cancelled` payloads emit `errorCode=null`.
    - Starter snippet (adapt names to exact existing symbols): `expect(payload.errorCode).toBeNull();`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://www.jsonrpc.org/specification | https://context7.com/jestjs/jest/llms.txt
@@ -1124,7 +1124,7 @@ Replace immediate `status: started` reingest results with one terminal payload r
    - Test location: `server/src/test/unit/reingestService.test.ts`, `server/src/test/unit/mcp.reingest.classic.test.ts`, and `server/src/test/unit/mcp2.reingest.tool.test.ts`.
    - Test description: assert `errorCode` is null for successful and cancelled terminal results across service and both MCP surfaces.
    - Test purpose: lock field-level terminal constraints so clients can trust result semantics.
-29. [ ] Add cancelled-counter retention test: cancelled terminal payload returns last-known counters when available.
+29. [x] Add cancelled-counter retention test: cancelled terminal payload returns last-known counters when available.
    - Starter snippet (adapt names to exact existing symbols): `expect(payload).toMatchObject({ status: 'cancelled', files: lastKnown.files, chunks: lastKnown.chunks, embedded: lastKnown.embedded });`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://context7.com/jestjs/jest/llms.txt
@@ -1134,7 +1134,7 @@ Replace immediate `status: started` reingest results with one terminal payload r
    - Test location: `server/src/test/unit/reingestService.test.ts`, `server/src/test/unit/mcp.reingest.classic.test.ts`, and `server/src/test/unit/mcp2.reingest.tool.test.ts`.
    - Test description: cancel during active progress and assert returned counters match last-known runtime values rather than reset/empty defaults.
    - Test purpose: preserve deterministic cancellation summaries for AI/client consumers.
-30. [ ] Add request-shape guard tests: extra `wait`/`blocking` flags are rejected on both MCP surfaces.
+30. [x] Add request-shape guard tests: extra `wait`/`blocking` flags are rejected on both MCP surfaces.
    - Starter snippet (adapt names to exact existing symbols): `expect(response.error).toBeDefined(); expect(response.error.code).toBe(-32602);`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/ | https://www.jsonrpc.org/specification | https://context7.com/jestjs/jest/llms.txt
@@ -1144,7 +1144,7 @@ Replace immediate `status: started` reingest results with one terminal payload r
    - Test location: `server/src/test/unit/mcp.reingest.classic.test.ts` and `server/src/test/unit/mcp2.reingest.tool.test.ts`.
    - Test description: call `reingest_repository` with unsupported `wait`/`blocking` arguments and assert protocol-level invalid-params errors.
    - Test purpose: enforce non-configurable blocking behavior and prevent interface drift.
-31. [ ] Add deterministic blocking-reingest lifecycle logs for manual verification.
+31. [x] Add deterministic blocking-reingest lifecycle logs for manual verification.
    - Starter snippet (adapt names to exact existing symbols): `logger.info('[DEV-0000038][T4] REINGEST_BLOCKING_WAIT_STARTED sourceId=%s runId=%s', sourceId, runId);`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://nodejs.org/api/console.html | https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
@@ -1153,21 +1153,35 @@ Replace immediate `status: started` reingest results with one terminal payload r
    - Required log line: `[DEV-0000038][T4] REINGEST_BLOCKING_WAIT_STARTED sourceId=<id> runId=<id>`.
    - Required log line: `[DEV-0000038][T4] REINGEST_TERMINAL_RESULT status=<completed|cancelled|error> runId=<id> errorCode=<code|null>`.
    - Required behavior: emit exactly one STARTED and one TERMINAL log for each reingest request.
-32. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+32. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
-1. [ ] `npm run build:summary:server` - If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` and resolve errors.
-2. [ ] `npm run test:summary:server` - If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/server-tests-*.log`) and resolve listed failures.
-3. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find failing target(s).
-4. [ ] `npm run compose:up`
-5. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001` for blocking reingest flows; verify in compose server logs one `[DEV-0000038][T4] REINGEST_BLOCKING_WAIT_STARTED ...` and one `[DEV-0000038][T4] REINGEST_TERMINAL_RESULT ...` log per run (matching `runId`), and verify browser debug console has no unexpected errors.
-6. [ ] `npm run compose:down`
+1. [x] `npm run build:summary:server` - If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` and resolve errors.
+2. [x] `npm run test:summary:server` - If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/server-tests-*.log`) and resolve listed failures.
+3. [x] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find failing target(s).
+4. [x] `npm run compose:up`
+5. [x] Manual Playwright-MCP check at `http://host.docker.internal:5001` for blocking reingest flows; verify in compose server logs one `[DEV-0000038][T4] REINGEST_BLOCKING_WAIT_STARTED ...` and one `[DEV-0000038][T4] REINGEST_TERMINAL_RESULT ...` log per run (matching `runId`), and verify browser debug console has no unexpected errors.
+6. [x] `npm run compose:down`
 Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
 #### Implementation notes
 
-- 2026-03-02 audit update: Local uncommitted changes are present in Task 4 implementation files (`server/src/ingest/reingestService.ts`, `server/src/ingest/ingestJob.ts`, `server/src/mcp/server.ts`, `server/src/mcp2/tools/reingestRepository.ts`) and Task 4 test files (`server/src/test/unit/reingestService.test.ts`, `server/src/test/unit/mcp.reingest.classic.test.ts`, `server/src/test/unit/mcp2.reingest.tool.test.ts`, `server/src/test/unit/mcp.keepalive.helper.test.ts`). Task status is set to `__in_progress__` because implementation work is underway but has not yet been fully finalized in this plan section with committed hashes and completed testing checklist evidence.
+- Subtasks 1-4: Updated `runReingestRepository` to return terminal-only payloads (`completed|cancelled|error`) with required top-level fields, strict `sourceId`-only request shape, and pre-run JSON-RPC validation boundary preserved.
+- Subtasks 2-3, 25: Added shared wait helper `waitForTerminalIngestStatus(...)` in `ingestJob.ts` and wired bounded polling in reingest service (`timeoutMs`/`pollMs`) with deterministic timeout/missing-run terminal error mapping.
+- Subtasks 5-7: Updated classic MCP tool definition/schema and MCP v2 reingest tool description/runtime to align both surfaces on the same blocking terminal contract semantics.
+- Subtasks 8, 19-20: Preserved keepalive behavior and added heartbeat/disconnect resilience coverage in `mcp.keepalive.helper.test.ts`, `mcp.reingest.classic.test.ts`, and `mcp2.reingest.tool.test.ts`.
+- Subtasks 9-18, 21-22, 26-30: Rebuilt Task 4 unit/contract tests to cover terminal mapping (`skipped->completed`), required field shape, protocol boundary split, request-shape guards (`wait`/`blocking` rejected), timeout/missing-run errors, cancelled counter retention, and text-wrapper compatibility.
+- Subtask 31: Added deterministic Task 4 lifecycle logs in reingest service: `[DEV-0000038][T4] REINGEST_BLOCKING_WAIT_STARTED ...` and `[DEV-0000038][T4] REINGEST_TERMINAL_RESULT ...`.
+- Subtask 23: Updated `design.md` reingest sections and Mermaid diagrams to document blocking wait flow, pre-run vs post-start error boundary, and classic/MCP v2 parity.
+- Subtask 24: No files were added/removed in Task 4; `projectStructure.md` required no structural path updates.
+- Subtask 32: Ran `npm run lint --workspaces` (pass with existing unrelated import-order warnings) and `npm run format:check --workspaces`; formatting initially failed for `server/src/test/unit/reingestService.test.ts`, then passed after running Prettier write on that file.
+- Testing 1: `npm run build:summary:server` passed (`warnings: 0`), log `logs/test-summaries/build-server-latest.log`.
+- Testing 2: `npm run test:summary:server` completed successfully; parsed latest summary log `test-results/server-tests-2026-03-02T10-28-20-484Z.log` -> `tests run: 941`, `passed: 941`, `failed: 0`.
+- Testing 3: `npm run compose:build:summary` passed (`items passed: 2`, `items failed: 0`), log `logs/test-summaries/compose-build-latest.log`.
+- Testing 4: `npm run compose:up` passed and started client/server/chroma/mongo/playwright-mcp services healthy.
+- Testing 5: Manual host-mapped verification executed at `http://host.docker.internal:5001`; blocking classic MCP reingest call returned terminal payload (`status=completed`) and `/logs` contained one matching marker pair for runId `306ef19b-08f5-4804-b058-6f56ba8014d1`; browser console check reported no `error` entries. Runtime gotcha: `localhost` targets the in-container server, so host-mapped checks were executed via `host.docker.internal` and compose data volumes were reset once to clear stale lock state before seeding an ingest root.
+- Testing 6: `npm run compose:down` completed successfully and removed compose services/network.
 
 ---
 

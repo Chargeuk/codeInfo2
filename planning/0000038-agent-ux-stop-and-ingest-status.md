@@ -66,6 +66,7 @@ This story is intentionally scoped as a contract-alignment story across existing
    - internal `skipped` is not emitted externally and is normalized to external `status: completed`.
 26. Active overlay precedence is explicit: when a run is active, overlay fields (`status`, `phase`, live counters, active `runId`) come from active runtime status, while last completed metadata (`lastIngestAt`, lock/model metadata, last terminal error context) remains from persisted root metadata unless replaced by a newer terminal write.
 27. If persisted root metadata is temporarily absent during re-embed but an active run exists for that root path/sourceId, listings still include that repository using a synthesized entry plus active overlay fields.
+28. `/ingest/roots` and MCP `ListIngestedRepositories` both emit `schemaVersion: "0000038-status-phase-v1"` after this story change.
 
 ## Message Contracts And Storage Shapes
 
@@ -87,17 +88,28 @@ Validated from current code contracts and persisted metadata usage on 2026-03-02
      - `embedded: number`
      - `errorCode: string | null` (`null` unless `status="error"`)
    - Pre-run validation errors remain protocol-level JSON-RPC errors (`INVALID_PARAMS`, `NOT_FOUND`, `BUSY`) and are not converted in this story.
+   - Transport wrapper stays unchanged on both MCP surfaces:
+     - JSON-RPC `result.content[0].text` continues to carry a JSON string;
+     - the JSON string payload must match the terminal contract above.
 
 2. Repository listing payloads (`/ingest/roots` and MCP `ListIngestedRepositories`):
-   - Introduce explicit external run-state fields for both surfaces:
+   - Introduce explicit external run-state fields for both surfaces with consistent semantics:
      - `status: "ingesting" | "completed" | "cancelled" | "error"`
      - `phase?: "queued" | "scanning" | "embedding"` (present only when `status="ingesting"`)
+   - Surface-specific shape rule:
+     - `/ingest/roots`: keep existing `status` field name but change its emitted value semantics to the external model above.
+     - MCP `ListIngestedRepositories`: add new `status` and optional `phase` fields to each repo entry.
    - Active overlay fields come from runtime status (`status`, `phase`, live counters, active `runId`) while last completed metadata remains from persisted roots metadata.
    - Internal terminal `skipped` is not emitted externally; map it to external `status: "completed"`.
    - `phase` is omitted (not null/empty) for terminal statuses.
+   - Minimum synthesized listing entry fields when persisted metadata is missing:
+     - identity/path: `id`, `containerPath`, `hostPath` (and `hostPathWarning` when mapping cannot resolve host path cleanly);
+     - run state: `status`, optional `phase`, `runId`, live counters when available;
+     - model/lock metadata: preserve last known values when available, otherwise emit empty/default-safe values already accepted by the current contract.
 
 3. Schema version signaling:
    - Bump ingest listing `schemaVersion` (shared constant used by `/ingest/roots` and MCP `ListIngestedRepositories`) to represent status/phase contract expansion.
+   - Target schema version for this story: `0000038-status-phase-v1`.
 
 ### Contracts That Stay Unchanged
 
@@ -105,6 +117,7 @@ Validated from current code contracts and persisted metadata usage on 2026-03-02
   - `ingest_snapshot` / `ingest_update` with `status: IngestJobStatus | null`.
 - MCP keep-alive transport behavior remains unchanged (heartbeat during long-running `tools/call`).
 - `reingest_repository` input shape remains unchanged (`sourceId` only).
+- Internal ingest runtime enum remains unchanged for server internals (`queued|scanning|embedding|completed|skipped|cancelled|error`); external normalization is applied at contract-mapping boundaries.
 
 ### Storage Shape Impact
 
@@ -190,6 +203,54 @@ Validated using repository analysis (`code_info`) plus protocol cross-checks (`d
   "chunks": 120,
   "embedded": 120,
   "errorCode": null
+}
+```
+
+### Contract Example (Terminal MCP Re-embed Cancelled)
+
+```json
+{
+  "status": "cancelled",
+  "operation": "reembed",
+  "runId": "run_123",
+  "sourceId": "/abs/path/repo",
+  "durationMs": 4021,
+  "files": 42,
+  "chunks": 35,
+  "embedded": 35,
+  "errorCode": null
+}
+```
+
+### Contract Example (MCP ListIngestedRepositories Repo Entry While Active)
+
+```json
+{
+  "id": "repo-a",
+  "containerPath": "/data/repo-a",
+  "hostPath": "/Users/me/repo-a",
+  "lastIngestAt": "2026-03-01T12:34:56.000Z",
+  "embeddingProvider": "lmstudio",
+  "embeddingModel": "text-embedding-nomic-embed-text-v1.5",
+  "embeddingDimensions": 768,
+  "model": "text-embedding-nomic-embed-text-v1.5",
+  "modelId": "text-embedding-nomic-embed-text-v1.5",
+  "lock": {
+    "embeddingProvider": "lmstudio",
+    "embeddingModel": "text-embedding-nomic-embed-text-v1.5",
+    "embeddingDimensions": 768,
+    "lockedModelId": "text-embedding-nomic-embed-text-v1.5",
+    "modelId": "text-embedding-nomic-embed-text-v1.5"
+  },
+  "counts": {
+    "files": 120,
+    "chunks": 800,
+    "embedded": 320
+  },
+  "lastError": null,
+  "status": "ingesting",
+  "phase": "embedding",
+  "runId": "run_123"
 }
 ```
 

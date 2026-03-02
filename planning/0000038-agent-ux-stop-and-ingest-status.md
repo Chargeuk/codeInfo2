@@ -364,7 +364,7 @@ Validated from existing repository behavior/tests and official documentation ref
 
 ### 1. Server Message Contract: make `cancel_inflight` race-safe and conversation-authoritative
 
-- Task Status: **__to_do__**
+- Task Status: **__completed__**
 - Git Commits: `None yet`
 
 #### Overview
@@ -381,28 +381,28 @@ Update WebSocket cancel message handling so command-run abort is always attempte
 
 #### Subtasks
 
-1. [ ] Update WS client-message typing/parsing to accept `cancel_inflight` with required `conversationId` and optional `inflightId`.
+1. [x] Update WS client-message typing/parsing to accept `cancel_inflight` with required `conversationId` and optional `inflightId`.
    - Starter snippet (adapt names to exact existing symbols): `if (msg.type === "cancel_inflight" && msg.conversationId) { abortAgentCommandRun(msg.conversationId); if (msg.inflightId) await abortInflight(msg.inflightId); }`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API | https://github.com/websockets/ws | https://nodejs.org/api/events.html | https://jestjs.io/docs/expect
    - Acceptance criteria focus: AC3, AC4, AC23.
    - Files to read/edit: `server/src/ws/types.ts`
    - Required behavior: payloads with only `conversationId` are valid for `cancel_inflight`; other message shapes remain unchanged.
-2. [ ] Update WS cancel handler so `abortAgentCommandRun(conversationId)` is always attempted, regardless of `abortInflight` success.
+2. [x] Update WS cancel handler so `abortAgentCommandRun(conversationId)` is always attempted, regardless of `abortInflight` success.
    - Starter snippet (adapt names to exact existing symbols): `if (msg.type === "cancel_inflight" && msg.conversationId) { abortAgentCommandRun(msg.conversationId); if (msg.inflightId) await abortInflight(msg.inflightId); }`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API | https://github.com/websockets/ws | https://nodejs.org/api/events.html | https://jestjs.io/docs/expect
    - Acceptance criteria focus: AC3, AC4, AC23.
    - Files to read/edit: `server/src/ws/server.ts`, `server/src/agents/commandsRunner.ts`
    - Required behavior: command retries/steps are blocked after stop request time in both inflight-id and no-inflight-id paths.
-3. [ ] Keep chat-stream cancellation semantics deterministic when `inflightId` is supplied but not found.
+3. [x] Keep chat-stream cancellation semantics deterministic when `inflightId` is supplied but not found.
    - Starter snippet (adapt names to exact existing symbols): `if (msg.type === "cancel_inflight" && msg.conversationId) { abortAgentCommandRun(msg.conversationId); if (msg.inflightId) await abortInflight(msg.inflightId); }`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API | https://github.com/websockets/ws | https://nodejs.org/api/events.html | https://jestjs.io/docs/expect
    - Acceptance criteria focus: AC3, AC4, AC23.
    - Files to read/edit: `server/src/ws/server.ts`
    - Required behavior: preserve existing `INFLIGHT_NOT_FOUND` turn-final behavior for chat stream cancellation mismatch when a non-empty `inflightId` is supplied, while still aborting command runs by conversation. When `inflightId` is omitted, do not emit `INFLIGHT_NOT_FOUND`.
-4. [ ] Add WS parser unit test: `cancel_inflight` accepts payload with `conversationId` only.
+4. [x] Add WS parser unit test: `cancel_inflight` accepts payload with `conversationId` only.
    - Starter snippet (adapt names to exact existing symbols): `expect(parse({ type: 'cancel_inflight', conversationId: 'c1' })).toEqual(validMessage);`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API | https://github.com/websockets/ws | https://nodejs.org/api/events.html | https://jestjs.io/docs/expect
@@ -412,7 +412,7 @@ Update WebSocket cancel message handling so command-run abort is always attempte
    - Test location: `server/src/test/unit/ws-server.test.ts`.
    - Test description: assert parser accepts `cancel_inflight` with required `conversationId` and omitted `inflightId`.
    - Test purpose: guarantee stop-race path works when inflight id is not yet known.
-5. [ ] Add WS parser unit test: `cancel_inflight` accepts payload with `conversationId` plus `inflightId`.
+5. [x] Add WS parser unit test: `cancel_inflight` accepts payload with `conversationId` plus `inflightId`.
    - Starter snippet (adapt names to exact existing symbols): `expect(parse({ type: 'cancel_inflight', conversationId: 'c1', inflightId: 'i1' })).toEqual(validMessage);`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API | https://github.com/websockets/ws | https://nodejs.org/api/events.html | https://jestjs.io/docs/expect
@@ -422,7 +422,7 @@ Update WebSocket cancel message handling so command-run abort is always attempte
    - Test location: `server/src/test/unit/ws-server.test.ts`.
    - Test description: assert parser accepts full `cancel_inflight` payload with both ids.
    - Test purpose: preserve compatibility with existing inflight-aware cancellation callers.
-6. [ ] Add WS parser unit test: malformed `cancel_inflight` payloads are rejected.
+6. [x] Add WS parser unit test: malformed `cancel_inflight` payloads are rejected.
    - Starter snippet (adapt names to exact existing symbols): `expect(parse({ type: 'cancel_inflight' })).toBeInvalid();`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API | https://github.com/websockets/ws | https://nodejs.org/api/events.html | https://jestjs.io/docs/expect
@@ -432,7 +432,7 @@ Update WebSocket cancel message handling so command-run abort is always attempte
    - Test location: `server/src/test/unit/ws-server.test.ts`.
    - Test description: cover missing/empty `conversationId` and wrong field types; assert parser rejects.
    - Test purpose: prevent invalid stop payloads from creating undefined runtime behavior.
-7. [ ] Add WS handler unit test: conversation-only cancel does not emit chat `INFLIGHT_NOT_FOUND` turn-final failure.
+7. [x] Add WS handler unit test: conversation-only cancel does not emit chat `INFLIGHT_NOT_FOUND` turn-final failure.
    - Starter snippet (adapt names to exact existing symbols): `expect(turnFinalEvents).not.toContainCode('INFLIGHT_NOT_FOUND');`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API | https://github.com/websockets/ws | https://nodejs.org/api/events.html | https://jestjs.io/docs/expect
@@ -442,7 +442,7 @@ Update WebSocket cancel message handling so command-run abort is always attempte
    - Test location: `server/src/test/unit/ws-server.test.ts`.
    - Test description: for cancel payload without `inflightId`, assert no chat mismatch error event is emitted.
    - Test purpose: keep conversation-authoritative stop path clean for race scenarios.
-8. [ ] Add WS handler unit test: stale/mismatched `inflightId` keeps existing chat mismatch semantics.
+8. [x] Add WS handler unit test: stale/mismatched `inflightId` keeps existing chat mismatch semantics.
    - Starter snippet (adapt names to exact existing symbols): `expect(turnFinalEvents).toContainCode('INFLIGHT_NOT_FOUND');`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API | https://github.com/websockets/ws | https://nodejs.org/api/events.html | https://jestjs.io/docs/expect
@@ -452,7 +452,7 @@ Update WebSocket cancel message handling so command-run abort is always attempte
    - Test location: `server/src/test/unit/ws-chat-stream.test.ts`.
    - Test description: assert stale `inflightId` still produces deterministic `INFLIGHT_NOT_FOUND` behavior.
    - Test purpose: prevent regressions to existing chat-stream cancellation contract.
-9. [ ] Add command-run stop regression test: no new command step starts after stop request.
+9. [x] Add command-run stop regression test: no new command step starts after stop request.
    - Starter snippet (adapt names to exact existing symbols): `expect(startedStepsAfterStop).toHaveLength(0);`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API | https://github.com/websockets/ws | https://nodejs.org/api/events.html | https://jestjs.io/docs/expect
@@ -462,7 +462,7 @@ Update WebSocket cancel message handling so command-run abort is always attempte
    - Test location: `server/src/test/unit/agent-commands-runner.test.ts` and `server/src/test/unit/agent-commands-runner-abort-retry.test.ts`.
    - Test description: trigger stop during command execution and assert no subsequent command step starts.
    - Test purpose: enforce hard-stop guarantee for command list/json execution.
-10. [ ] Add command-run retry regression test: no retry is scheduled after stop request.
+10. [x] Add command-run retry regression test: no retry is scheduled after stop request.
    - Starter snippet (adapt names to exact existing symbols): `expect(scheduledRetriesAfterStop).toHaveLength(0);`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API | https://github.com/websockets/ws | https://nodejs.org/api/events.html | https://jestjs.io/docs/expect
@@ -472,7 +472,7 @@ Update WebSocket cancel message handling so command-run abort is always attempte
    - Test location: `server/src/test/unit/agent-commands-runner.test.ts` and `server/src/test/unit/agent-commands-runner-abort-retry.test.ts`.
    - Test description: stop during a retry-capable failure path and assert no retries are queued post-stop.
    - Test purpose: close the retry race that caused continued work after user stop.
-11. [ ] Add duplicate-stop idempotence test: repeated cancel messages do not restart work or emit contradictory outcomes.
+11. [x] Add duplicate-stop idempotence test: repeated cancel messages do not restart work or emit contradictory outcomes.
    - Starter snippet (adapt names to exact existing symbols): `expect(terminalOutcomeCount).toBe(1);`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API | https://github.com/websockets/ws | https://nodejs.org/api/events.html | https://jestjs.io/docs/expect
@@ -482,7 +482,7 @@ Update WebSocket cancel message handling so command-run abort is always attempte
    - Test location: `server/src/test/unit/ws-server.test.ts` and `server/src/test/unit/agent-commands-runner-abort-retry.test.ts`.
    - Test description: send stop twice and assert idempotent behavior with no resumed execution.
    - Test purpose: guarantee deterministic behavior under repeated user stop clicks.
-12. [ ] Update `design.md` with the final stop/cancel flow and add Mermaid sequence diagram(s) for conversation-authoritative cancel handling.
+12. [x] Update `design.md` with the final stop/cancel flow and add Mermaid sequence diagram(s) for conversation-authoritative cancel handling.
    - Starter snippet (adapt names to exact existing symbols): `Add a Mermaid sequence diagram showing cancel_inflight paths for conversation-only cancel and inflight-id mismatch behavior.`
    - Dependency note: execute this after implementing Task 1 behavior/tests so the diagram reflects final code paths.
    - Docs: https://context7.com/mermaid-js/mermaid/llms.txt | https://context7.com/jestjs/jest/llms.txt
@@ -492,7 +492,7 @@ Update WebSocket cancel message handling so command-run abort is always attempte
    - Document location: `design.md`.
    - Document description: update the stop/cancel architecture narrative and Mermaid sequence diagrams for conversation-authoritative cancellation.
    - Document purpose: keep architecture documentation synchronized with the implemented race-safe WS cancel behavior.
-13. [ ] If this task adds or removes files, update `projectStructure.md` after finishing those file changes.
+13. [x] If this task adds or removes files, update `projectStructure.md` after finishing those file changes.
    - Starter snippet (adapt names to exact existing symbols): `Add entries for any new/removed files introduced by Task 1, grouped under server WS and server test directories.`
    - Dependency note: execute this after all file add/remove subtasks in Task 1 (including later subtasks 14 and 15) and before moving to the next task.
    - Docs: https://www.markdownguide.org/basic-syntax/
@@ -503,7 +503,7 @@ Update WebSocket cancel message handling so command-run abort is always attempte
    - Document description: record Task 1 file additions/removals in WS and related test directories.
    - Document purpose: maintain an accurate repository file map for implementation and onboarding.
    - Required behavior: update `projectStructure.md` with every file path added or removed by Task 1 (no wildcard summaries), and remove entries for deleted files.
-14. [ ] Add WS handler unit test: conversation-only `cancel_inflight` still attempts command-run abort by `conversationId`.
+14. [x] Add WS handler unit test: conversation-only `cancel_inflight` still attempts command-run abort by `conversationId`.
    - Starter snippet (adapt names to exact existing symbols): `expect(abortAgentCommandRunSpy).toHaveBeenCalledWith(conversationId);`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API | https://github.com/websockets/ws | https://nodejs.org/api/events.html | https://jestjs.io/docs/expect
@@ -513,7 +513,7 @@ Update WebSocket cancel message handling so command-run abort is always attempte
    - Test location: `server/src/test/unit/ws-server.test.ts`.
    - Test description: send `cancel_inflight` with `conversationId` only and assert command abort is attempted for that conversation.
    - Test purpose: directly verify stop-race behavior before inflight id assignment.
-15. [ ] Add WS handler unit test: stale `inflightId` path still attempts command-run abort by `conversationId`.
+15. [x] Add WS handler unit test: stale `inflightId` path still attempts command-run abort by `conversationId`.
    - Starter snippet (adapt names to exact existing symbols): `expect(abortAgentCommandRunSpy).toHaveBeenCalledWith(conversationId);`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API | https://github.com/websockets/ws | https://nodejs.org/api/events.html | https://jestjs.io/docs/expect
@@ -523,7 +523,7 @@ Update WebSocket cancel message handling so command-run abort is always attempte
    - Test location: `server/src/test/unit/ws-chat-stream.test.ts` and `server/src/test/unit/ws-server.test.ts`.
    - Test description: send `cancel_inflight` with stale `inflightId`; assert mismatch semantics remain and command abort is still attempted by conversation.
    - Test purpose: ensure stale inflight identifiers do not bypass conversation-authoritative stop.
-16. [ ] Add structured stop-race diagnostic logs for manual verification.
+16. [x] Add structured stop-race diagnostic logs for manual verification.
    - Starter snippet (adapt names to exact existing symbols): `logger.info('[DEV-0000038][T1] CANCEL_INFLIGHT_RECEIVED conversationId=%s inflightId=%s', conversationId, inflightId ?? 'none');`
    - Dependency note: this subtask must still satisfy the docs and AC bullets below even if executed in isolation.
    - Docs: https://nodejs.org/api/console.html | https://nodejs.org/api/events.html
@@ -532,21 +532,36 @@ Update WebSocket cancel message handling so command-run abort is always attempte
    - Required log line: `[DEV-0000038][T1] CANCEL_INFLIGHT_RECEIVED conversationId=<id> inflightId=<id|none>`.
    - Required log line: `[DEV-0000038][T1] ABORT_AGENT_RUN_REQUESTED conversationId=<id>`.
    - Required behavior: emit each log once per stop request path so manual checks can verify event sequencing.
-17. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
+17. [x] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; if either fails, rerun with available fix scripts (e.g., `npm run lint:fix`/`npm run format --workspaces`) and manually resolve remaining issues.
 
 #### Testing
 
-1. [ ] `npm run build:summary:server` - If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` and resolve errors.
-2. [ ] `npm run test:summary:server` - If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/server-tests-*.log`) and resolve listed failures.
-3. [ ] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find failing target(s).
-4. [ ] `npm run compose:up`
-5. [ ] Manual Playwright-MCP check at `http://host.docker.internal:5001` for stop-race behavior; verify in compose server logs that `[DEV-0000038][T1] CANCEL_INFLIGHT_RECEIVED ...` and `[DEV-0000038][T1] ABORT_AGENT_RUN_REQUESTED ...` are emitted with matching `conversationId` values, and verify browser debug console has no unexpected errors.
-6. [ ] `npm run compose:down`
+1. [x] `npm run build:summary:server` - If status is `failed` OR warnings are unexpected/non-zero, inspect `logs/test-summaries/build-server-latest.log` and resolve errors.
+2. [x] `npm run test:summary:server` - If `failed > 0`, inspect the exact log path printed by the summary (under `test-results/server-tests-*.log`) and resolve listed failures.
+3. [x] `npm run compose:build:summary` - If status is `failed`, or item counts indicate failures/unknown in a failure run, inspect `logs/test-summaries/compose-build-latest.log` to find failing target(s).
+4. [x] `npm run compose:up`
+5. [x] Manual Playwright-MCP check at `http://host.docker.internal:5001` for stop-race behavior; verify in compose server logs that `[DEV-0000038][T1] CANCEL_INFLIGHT_RECEIVED ...` and `[DEV-0000038][T1] ABORT_AGENT_RUN_REQUESTED ...` are emitted with matching `conversationId` values, and verify browser debug console has no unexpected errors.
+6. [x] `npm run compose:down`
 Log review rule: only open full logs when a wrapper reports failure, unexpected warnings, or unknown/ambiguous failure counts.
 
 #### Implementation notes
 
-- Pending implementation.
+- Subtask 1: Updated `server/src/ws/types.ts` so `cancel_inflight` accepts `conversationId` with optional `inflightId`; parser now rejects empty/wrong-type `inflightId` only when provided.
+- Subtasks 2-3: Refactored WS cancel handling in `server/src/ws/server.ts` to always request command-run abort by `conversationId`, skip chat mismatch errors when `inflightId` is omitted, and preserve `INFLIGHT_NOT_FOUND` for stale provided ids.
+- Subtasks 4-7: Added parser/handler unit coverage in `server/src/test/unit/ws-server.test.ts` for conversation-only cancel acceptance, full payload acceptance, malformed payload rejection, and no `turn_final` mismatch emission on conversation-only cancel.
+- Subtask 8: Extended stale-id chat-stream regression in `server/src/test/unit/ws-chat-stream.test.ts` to retain `INFLIGHT_NOT_FOUND` behavior.
+- Subtasks 9-11: Added stop/retry/idempotence regressions in `server/src/test/unit/agent-commands-runner-abort-retry.test.ts` to prove no post-stop step/retry progression and stable duplicate-stop behavior.
+- Subtask 12: Added a Task 1 architecture section and Mermaid sequence flow in `design.md` documenting conversation-authoritative cancel logic.
+- Subtask 13: No files were added/removed in Task 1, so `projectStructure.md` required no change.
+- Subtasks 14-15: Added explicit log-backed assertions for conversation-only and stale-id paths to verify command-run abort is still attempted by `conversationId`.
+- Subtask 16: Added required deterministic server log lines `[DEV-0000038][T1] CANCEL_INFLIGHT_RECEIVED ...` and `[DEV-0000038][T1] ABORT_AGENT_RUN_REQUESTED ...` in the WS cancel path.
+- Subtask 17: Ran workspace lint and format checks; format check initially failed on one unrelated server integration test file, then fixed with Prettier and re-ran `format:check` successfully.
+- Testing 1: `npm run build:summary:server` passed with `warnings: 0` (`logs/test-summaries/build-server-latest.log`).
+- Testing 2: `npm run test:summary:server` passed (`tests run: 926`, `failed: 0`), log at `test-results/server-tests-2026-03-02T08-48-06-674Z.log`.
+- Testing 3: `npm run compose:build:summary` passed (`items passed: 2`, `items failed: 0`) using `logs/test-summaries/compose-build-latest.log`.
+- Testing 4: `npm run compose:up` completed successfully; server/client/chroma/mongo and Playwright MCP services started healthy.
+- Testing 5: Manual Playwright-MCP session at `http://host.docker.internal:5001/chat` completed; compose log file `logs/server.1.log` contains matching marker pair for `conversationId=manual-t1-1772442080988` (`CANCEL_INFLIGHT_RECEIVED` + `ABORT_AGENT_RUN_REQUESTED`), and a fresh browser-console error scan returned no errors.
+- Testing 6: `npm run compose:down` completed successfully and removed the compose services/network.
 
 ---
 

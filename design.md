@@ -629,6 +629,39 @@ sequenceDiagram
   end
 ```
 
+## Story 0000038 Task 1: race-safe cancel_inflight and conversation-authoritative stop
+
+- `cancel_inflight` accepts `conversationId` with optional `inflightId`.
+- The WS handler always attempts command-run abort by `conversationId` when cancel is received.
+- `INFLIGHT_NOT_FOUND` is preserved only when a non-empty `inflightId` is provided and does not match active inflight state.
+- Conversation-only cancel does not emit chat mismatch `turn_final` failures.
+
+```mermaid
+sequenceDiagram
+  participant UI as Client
+  participant WS as WS /ws
+  participant IR as Inflight Registry
+  participant CR as Commands Runner
+  participant Stream as Chat Stream
+
+  UI->>WS: cancel_inflight(conversationId, inflightId?)
+  WS->>WS: log [DEV-0000038][T1] CANCEL_INFLIGHT_RECEIVED
+  WS->>CR: abortAgentCommandRun(conversationId)
+  WS->>WS: log [DEV-0000038][T1] ABORT_AGENT_RUN_REQUESTED
+
+  alt inflightId omitted
+    WS-->>UI: no INFLIGHT_NOT_FOUND turn_final
+  else inflightId provided
+    WS->>IR: abortInflight(conversationId, inflightId)
+    alt inflight matches
+      IR-->>Stream: abort signal
+      Stream-->>UI: terminal stopped or failed from stream lifecycle
+    else inflight mismatch or missing
+      WS-->>UI: turn_final failed (INFLIGHT_NOT_FOUND)
+    end
+  end
+```
+
 ## Flows (schema)
 
 - Flow definitions live under `flows/<flowName>.json` and are validated with a strict Zod schema before use.

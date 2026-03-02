@@ -21,8 +21,9 @@ const commandAbortByConversationId = new Map<string, AbortController>();
 
 export function abortAgentCommandRun(conversationId: string) {
   const controller = commandAbortByConversationId.get(conversationId);
-  if (!controller) return;
+  if (!controller) return false;
   controller.abort();
+  return true;
 }
 
 type LoggerLike = {

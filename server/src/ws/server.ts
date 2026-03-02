@@ -491,6 +491,34 @@ export function attachWs(params: { httpServer: http.Server }): WsServerHandle {
         });
         return;
       case 'cancel_inflight': {
+        const inflightId = message.inflightId ?? 'none';
+        const cancelReceivedMessage =
+          `[DEV-0000038][T1] CANCEL_INFLIGHT_RECEIVED ` +
+          `conversationId=${message.conversationId} inflightId=${inflightId}`;
+        const abortRequestedMessage =
+          `[DEV-0000038][T1] ABORT_AGENT_RUN_REQUESTED ` +
+          `conversationId=${message.conversationId}`;
+        append({
+          level: 'info',
+          message: cancelReceivedMessage,
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          requestId: message.requestId,
+          context: {
+            connectionId,
+            conversationId: message.conversationId,
+            inflightId,
+          },
+        });
+        baseLogger.info(
+          {
+            requestId: message.requestId,
+            connectionId,
+            conversationId: message.conversationId,
+            inflightId,
+          },
+          cancelReceivedMessage,
+        );
         append({
           level: 'info',
           message: 'DEV-0000021[T3] ws cancel_inflight received',
@@ -500,7 +528,7 @@ export function attachWs(params: { httpServer: http.Server }): WsServerHandle {
           context: {
             connectionId,
             conversationId: message.conversationId,
-            inflightId: message.inflightId,
+            inflightId,
           },
         });
         baseLogger.info(
@@ -508,7 +536,7 @@ export function attachWs(params: { httpServer: http.Server }): WsServerHandle {
             requestId: message.requestId,
             connectionId,
             conversationId: message.conversationId,
-            inflightId: message.inflightId,
+            inflightId,
           },
           'DEV-0000021[T3] ws cancel_inflight received',
         );
@@ -522,7 +550,7 @@ export function attachWs(params: { httpServer: http.Server }): WsServerHandle {
           context: {
             connectionId,
             conversationId: message.conversationId,
-            inflightId: message.inflightId,
+            inflightId,
           },
         });
         baseLogger.info(
@@ -530,20 +558,40 @@ export function attachWs(params: { httpServer: http.Server }): WsServerHandle {
             requestId: message.requestId,
             connectionId,
             conversationId: message.conversationId,
-            inflightId: message.inflightId,
+            inflightId,
           },
           'chat.stream.cancel',
         );
+
+        append({
+          level: 'info',
+          message: abortRequestedMessage,
+          timestamp: new Date().toISOString(),
+          source: 'server',
+          requestId: message.requestId,
+          context: {
+            connectionId,
+            conversationId: message.conversationId,
+          },
+        });
+        baseLogger.info(
+          {
+            requestId: message.requestId,
+            connectionId,
+            conversationId: message.conversationId,
+          },
+          abortRequestedMessage,
+        );
+        abortAgentCommandRun(message.conversationId);
+
+        if (!message.inflightId) {
+          return;
+        }
 
         const cancelled = abortInflight({
           conversationId: message.conversationId,
           inflightId: message.inflightId,
         });
-
-        if (cancelled.ok) {
-          abortAgentCommandRun(message.conversationId);
-        }
-
         if (!cancelled.ok) {
           publishTurnFinal({
             conversationId: message.conversationId,

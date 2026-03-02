@@ -93,3 +93,103 @@ test('command runner stops remaining steps after abortAgentCommandRun is called'
     await fs.rm(tmpDir, { recursive: true, force: true });
   }
 });
+
+test('command runner does not schedule retries after stop request', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'agent-commands-runner-abort-'),
+  );
+  try {
+    const agentHome = path.join(tmpDir, 'a1');
+    await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
+    await fs.writeFile(
+      path.join(agentHome, 'commands', 'retry.json'),
+      JSON.stringify({
+        Description: 'Retry command',
+        items: [{ type: 'message', role: 'user', content: ['s1'] }],
+      }),
+      'utf-8',
+    );
+
+    let attempts = 0;
+    const runPromise = runAgentCommandRunner({
+      agentName: 'a1',
+      agentHome,
+      commandName: 'retry',
+      conversationId: 'c-retry-stop',
+      source: 'REST',
+      sleep: async () => undefined,
+      runAgentInstructionUnlocked: async () => {
+        attempts += 1;
+        if (attempts === 1) {
+          abortAgentCommandRun('c-retry-stop');
+        }
+        throw new Error('retryable failure');
+      },
+    });
+
+    await assert.rejects(
+      runPromise,
+      (err) => (err as Error).name === 'AbortError',
+    );
+    assert.equal(attempts, 1);
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});
+
+test('duplicate stop requests are idempotent and do not restart steps', async () => {
+  const tmpDir = await fs.mkdtemp(
+    path.join(os.tmpdir(), 'agent-commands-runner-abort-'),
+  );
+  try {
+    const agentHome = path.join(tmpDir, 'a1');
+    await fs.mkdir(path.join(agentHome, 'commands'), { recursive: true });
+    await fs.writeFile(
+      path.join(agentHome, 'commands', 'idempotent.json'),
+      JSON.stringify({
+        Description: 'Idempotent stop',
+        items: [
+          { type: 'message', role: 'user', content: ['s1'] },
+          { type: 'message', role: 'user', content: ['s2'] },
+        ],
+      }),
+      'utf-8',
+    );
+
+    const calls: number[] = [];
+    let releaseAbortWait: (() => void) | undefined;
+    let startedStepOne: (() => void) | undefined;
+    const waitForAbort = new Promise<void>((resolve) => {
+      releaseAbortWait = resolve;
+    });
+    const stepOneStarted = new Promise<void>((resolve) => {
+      startedStepOne = resolve;
+    });
+
+    const runPromise = runAgentCommandRunner({
+      agentName: 'a1',
+      agentHome,
+      commandName: 'idempotent',
+      conversationId: 'c-idempotent',
+      source: 'REST',
+      runAgentInstructionUnlocked: async (params) => {
+        calls.push(params.command?.stepIndex ?? -1);
+        if (params.command?.stepIndex === 1) {
+          startedStepOne?.();
+          await waitForAbort;
+        }
+        return { modelId: 'm1' };
+      },
+    });
+
+    await stepOneStarted;
+    abortAgentCommandRun('c-idempotent');
+    abortAgentCommandRun('c-idempotent');
+    releaseAbortWait?.();
+    await runPromise;
+
+    assert.deepEqual(calls, [1]);
+  } finally {
+    await fs.rm(tmpDir, { recursive: true, force: true });
+  }
+});

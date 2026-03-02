@@ -2485,7 +2485,7 @@ Harden runtime config validation so forward-compatible unknown-key preservation 
 ### 11. Performance/operability hardening: gate high-volume DEV-0000038 marker logs behind explicit debug controls
 
 - Task Status: **__done__**
-- Git Commits: `_pending_`
+- Git Commits: `5abac0b`
 
 #### Overview
 

@@ -376,7 +376,7 @@ Update WebSocket cancel message handling so command-run abort is always attempte
 - Verified on 2026-03-02: MDN WebSocket API reference for frame lifecycle, close/error semantics, and cancel message delivery timing: https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API
 - Verified on 2026-03-02: `ws` server library documentation (README/API usage) for connection handling and server-side message processing paths: https://github.com/websockets/ws
 - Verified on 2026-03-02: Node.js `events` documentation for EventEmitter ordering/idempotent listener behavior used in race-safe stop handling: https://nodejs.org/api/events.html
-- Verified on 2026-03-02: Jest `expect` assertions for deterministic stop/cancel contract tests and race regression checks: https://jestjs.io/docs/expect
+- Verified on 2026-03-02 via Context7 MCP (`/jestjs/jest`): Jest documentation for `expect` matchers, mock assertions, and async test patterns used in stop/cancel regression tests: https://context7.com/jestjs/jest/llms.txt
 
 #### Subtasks
 
@@ -529,7 +529,7 @@ Consume Task 1’s server message-contract update in the Agents UI so Stop alway
 - Verified on 2026-03-02 via MUI MCP: MUI TextField behavior and controlled-input patterns used on Agents page forms: https://llms.mui.com/material-ui/6.4.12/components/text-fields.md
 - Verified on 2026-03-02 via MUI MCP: MUI Button API semantics for stop/submit disabled-state behavior: https://llms.mui.com/material-ui/6.4.12/api/button.md
 - Verified on 2026-03-02: React Testing Library intro for event simulation and DOM assertions on stop-click flows: https://testing-library.com/docs/react-testing-library/intro
-- Verified on 2026-03-02: Jest `expect` assertions for payload-shape and call-argument verification: https://jestjs.io/docs/expect
+- Verified on 2026-03-02 via Context7 MCP (`/jestjs/jest`): Jest documentation for payload-shape assertions and mock call-argument verification in client tests: https://context7.com/jestjs/jest/llms.txt
 
 #### Subtasks
 
@@ -654,7 +654,7 @@ Limit active-run UI restrictions to submit/execute controls only. Keep instructi
 - Verified on 2026-03-02 via MUI MCP: MUI Drawer API for sidebar interaction/disabled-state rules when run-active: https://llms.mui.com/material-ui/6.4.12/api/drawer.md
 - Verified on 2026-03-02: WAI-ARIA Authoring Practices for keyboard and pointer interaction expectations in list navigation: https://www.w3.org/WAI/ARIA/apg/
 - Verified on 2026-03-02: React Testing Library intro for interaction tests on editable input and sidebar switching: https://testing-library.com/docs/react-testing-library/intro
-- Verified on 2026-03-02: Jest `expect` for deterministic UI lock/unlock assertions: https://jestjs.io/docs/expect
+- Verified on 2026-03-02 via Context7 MCP (`/jestjs/jest`): Jest documentation for deterministic UI lock/unlock assertions and component interaction checks: https://context7.com/jestjs/jest/llms.txt
 
 #### Subtasks
 
@@ -761,7 +761,7 @@ Replace immediate `status: started` reingest results with one terminal payload r
 - Verified on 2026-03-02: MCP progress/long-running guidance for blocking waits, progress lifecycle, and cancellation expectations: https://modelcontextprotocol.io/specification/2025-11-25/basic/utilities/progress/
 - Verified on 2026-03-02: JSON-RPC spec for strict protocol error boundaries (pre-run validation failures vs post-start terminal outcomes): https://www.jsonrpc.org/specification
 - Verified on 2026-03-02: Express 5 migration docs for response/runtime behavior assumptions in server route/tool layers: https://expressjs.com/en/guide/migrating-5.html
-- Verified on 2026-03-02: Jest `expect` assertions for parity tests across classic MCP and MCP v2 surfaces: https://jestjs.io/docs/expect
+- Verified on 2026-03-02 via Context7 MCP (`/jestjs/jest`): Jest documentation for parity assertions across classic MCP and MCP v2 contract tests: https://context7.com/jestjs/jest/llms.txt
 
 #### Subtasks
 
@@ -1017,7 +1017,7 @@ Apply one shared status/phase mapping and active-overlay merge path for `/ingest
 - Verified on 2026-03-02: JSON Schema reference for field presence/omission rules (`status`, optional `phase`, schema-version compatibility): https://json-schema.org/understanding-json-schema/
 - Verified on 2026-03-02: MCP tools specification for consistent output contracts between `/ingest/roots` and MCP listing surfaces: https://modelcontextprotocol.io/specification/2025-11-25/server/tools/
 - Verified on 2026-03-02: MDN `Object` reference for safe merge/overlay behavior while preserving persisted metadata fields: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
-- Verified on 2026-03-02: Jest `expect` assertions for schema-version and synthesized-entry contract tests: https://jestjs.io/docs/expect
+- Verified on 2026-03-02 via Context7 MCP (`/jestjs/jest`): Jest documentation for schema-version and synthesized-entry contract assertions in ingest listing tests: https://context7.com/jestjs/jest/llms.txt
 
 #### Subtasks
 
@@ -1250,7 +1250,7 @@ Ensure no-change delta runs exit before AST parse/upsert/delete and before embed
 - Verified on 2026-03-02: `tree-sitter-typescript` grammar repository docs used for TS/TSX parser behavior assumptions in this ingest pipeline: https://github.com/tree-sitter/tree-sitter-typescript
 - Verified on 2026-03-02: Node.js event-loop guidance for early-return optimization (avoid unnecessary AST/embedding work): https://nodejs.org/en/learn/asynchronous-work/dont-block-the-event-loop
 - Verified on 2026-03-02: Mongoose docs for database write/read semantics used by ingest delta and terminal-state mapping paths: https://mongoosejs.com/docs/
-- Verified on 2026-03-02: Jest getting-started docs for deterministic unit/integration race test structure: https://jestjs.io/docs/getting-started
+- Verified on 2026-03-02 via Context7 MCP (`/jestjs/jest`): Jest documentation for deterministic unit/integration race test structure, including async and mock assertion patterns: https://context7.com/jestjs/jest/llms.txt
 - Verified on 2026-03-02: Cucumber guides overview for feature/step convention and executable specification structure: https://cucumber.io/docs/guides/
 - Verified on 2026-03-02: Cucumber 10-minute tutorial (guides subpath requested) for concrete feature/step wiring used by ingest race scenarios: https://cucumber.io/docs/guides/10-minute-tutorial/
 
@@ -1382,7 +1382,7 @@ Align Ingest page data normalization/rendering with server contract updates so a
 - Verified on 2026-03-02: TypeScript narrowing handbook for discriminated unions around `status` and optional `phase`: https://www.typescriptlang.org/docs/handbook/2/narrowing.html
 - Verified on 2026-03-02: TypeScript 5.9 release notes to align syntax/typing assumptions with repo toolchain: https://www.typescriptlang.org/docs/handbook/release-notes/typescript-5-9.html
 - Verified on 2026-03-02: React Testing Library intro for UI-level status/phase rendering assertions: https://testing-library.com/docs/react-testing-library/intro
-- Verified on 2026-03-02: Jest `expect` assertions for hook normalization and render contract tests: https://jestjs.io/docs/expect
+- Verified on 2026-03-02 via Context7 MCP (`/jestjs/jest`): Jest documentation for hook-normalization and render-contract assertions in ingest UI tests: https://context7.com/jestjs/jest/llms.txt
 
 #### Subtasks
 

@@ -26,6 +26,8 @@ For this story, "deterministic" means:
 - No hidden timing race can cause extra command retries/steps after Stop has been requested.
 - Both MCP surfaces exposed by this app return the same terminal contract fields for the same terminal outcome.
 
+This story is intentionally scoped as a contract-alignment story across existing surfaces (Agents UI, ingest REST/WS state, and MCP classic/v2) without introducing new protocols. It is broad in affected files but narrow in behavior: make existing operations predictable and consistent, not feature-expand them.
+
 ### Acceptance Criteria
 
 1. While an Agents run is active, the instruction input remains editable and preserves typed text, but all submit/execute actions remain disabled until that run reaches a terminal state.
@@ -54,6 +56,16 @@ For this story, "deterministic" means:
 20. MCP classic and MCP v2 return the same field names and status semantics for the same terminal outcome.
 21. Automated tests are added/updated for each behavior above across client and server, including MCP classic + MCP v2 parity and no-change early-return coverage.
 22. Documentation is updated to reflect final behavior: reliable Stop semantics, blocking MCP re-embed contract, in-progress repository visibility, and no-change early return.
+23. Stop race behavior is conversation-authoritative: even when `abortInflight` cannot find the inflight id, command execution abort is still attempted by `conversationId`, and no further command retries/steps execute after Stop is requested.
+24. Reingest error envelope boundary is explicit:
+   - pre-run validation failures (for example invalid `sourceId`, unknown root, or ingest lock already busy before run start) continue to use JSON-RPC error envelopes;
+   - once a run has started and MCP is waiting, terminal outcomes return via the terminal result payload contract (`completed` | `cancelled` | `error`) instead of protocol error envelopes.
+25. External ingest status mapping is explicit across UI/REST/MCP listings:
+   - internal `queued|scanning|embedding` maps to `status: ingesting` plus `phase` with the same value;
+   - internal terminal `completed|cancelled|error` maps to the same `status` and omits `phase`;
+   - internal `skipped` is not emitted externally and is normalized to external `status: completed`.
+26. Active overlay precedence is explicit: when a run is active, overlay fields (`status`, `phase`, live counters, active `runId`) come from active runtime status, while last completed metadata (`lastIngestAt`, lock/model metadata, last terminal error context) remains from persisted root metadata unless replaced by a newer terminal write.
+27. If persisted root metadata is temporarily absent during re-embed but an active run exists for that root path/sourceId, listings still include that repository using a synthesized entry plus active overlay fields.
 
 ### Out Of Scope
 
@@ -62,6 +74,8 @@ For this story, "deterministic" means:
 - Redesigning overall Agents or Ingest page layouts beyond changes required to support interaction and status behavior.
 - Refactoring unrelated ingestion pipeline components not required for early no-change return.
 - Changing model-lock policy or embedding provider selection rules beyond what is required for this story.
+- Implementing MCP protocol-level cancellation handling (`notifications/cancelled`, `tasks/cancel`) for this app in this story.
+- Migrating all MCP tools in this app to `result.isError`-style tool errors; this story only defines reingest terminal result semantics and keeps existing protocol-error behavior for pre-run validation failures.
 
 ### Questions
 
@@ -82,6 +96,7 @@ None. Open planning questions captured so far are resolved and this story is rea
   - Change reingest tool service contract from `started` to “wait-until-terminal”.
   - Keep keep-alive enabled during tool execution and finalize with one JSON-RPC response at terminal state.
   - Unify shared blocking implementation consumed by both `server/src/mcp/server.ts` and `server/src/mcp2/*` tool wiring.
+  - Keep existing JSON-RPC protocol error handling for pre-run validation failures (invalid params/not found/busy-before-start); only in-run terminal outcomes use the terminal payload contract.
   - Keep final tool response contract summary-only and top-level terminal fields only, without per-phase progress payload sections, nested summary blocks, or a top-level `message` string.
   - Enforce mandatory terminal top-level fields: `status`, `operation`, `runId`, `sourceId`, `durationMs`, `files`, `chunks`, `embedded`, and nullable `errorCode`.
   - On GUI-triggered cancel while MCP is waiting, return a normal terminal result payload with status cancelled instead of throwing a JSON-RPC error.
@@ -91,11 +106,12 @@ None. Open planning questions captured so far are resolved and this story is rea
   - Merge active ingest job state with persisted roots metadata in both ingest roots route and MCP list-ingested repositories tool.
   - Add repository status fields to tool payload schema and route payloads using coarse + detailed model (`status: ingesting`, `phase: queued|scanning|embedding` while active).
   - For active runs, preserve last completed ingest metadata and apply active-run overlay fields rather than replacing metadata entirely.
+  - Normalize internal terminal `skipped` to external `completed` across these listing surfaces.
   - Ensure in-progress entries are present even when roots metadata was removed/replaced during re-embed.
   - Omit `phase` for terminal states in emitted payloads (`completed`, `cancelled`, `error`).
 
 - No-change early return and status semantics:
-  - Move delta no-op decision to earliest safe point after file discovery/hash comparison.
+  - Move delta no-op decision to earliest safe point after file discovery/hash comparison and before AST support counting/parsing loops.
   - Short-circuit before AST parse loop and embedding loop when no changed/added/deleted work exists.
   - Standardize terminal success semantics so successful runs always emit `completed` (including no-change and deletion-only outcomes) with structured terminal fields.
   - For cancelled outcomes, include last-known progress counters in terminal payload fields.
@@ -122,3 +138,24 @@ None. Open planning questions captured so far are resolved and this story is rea
   "errorCode": null
 }
 ```
+
+## Research Findings (2026-03-02)
+
+- Scope assessment: this story is appropriately scoped as one consistency/contract story, but only if status mapping and error-envelope boundaries are explicit. The highest risk areas were stop timing races and reingest contract parity between MCP classic/v2.
+- Current code evidence used for scope decisions:
+  - stop race dependency on `abortInflight` success before command abort: `server/src/ws/server.ts`
+  - command abort mechanism is conversation-based and can be invoked independently: `server/src/agents/commandsRunner.ts`
+  - reingest currently returns immediate `status: started` from shared service: `server/src/ingest/reingestService.ts`
+  - MCP classic output schema currently pins `reingest_repository.status` to `started`: `server/src/mcp/server.ts`
+  - MCP v2 reingest tool forwards same shared service behavior: `server/src/mcp2/tools/reingestRepository.ts`
+  - ingest repository listings currently come from persisted roots metadata and need active-run overlay merge: `server/src/lmstudio/toolService.ts`, `server/src/routes/ingestRoots.ts`, `server/src/ingest/ingestJob.ts`
+  - no-change delta path still executes AST parse flow today and can end as `skipped`: `server/src/ingest/ingestJob.ts`, `server/src/test/unit/ingest-ast-indexing.test.ts`
+- Protocol research alignment:
+  - MCP tools/call supports returning tool execution outcomes in result payloads and distinguishes protocol errors from tool-level outcomes; long-running workflows can use progress notifications and cancellation utilities.
+  - JSON-RPC protocol errors remain appropriate for malformed/invalid requests.
+  - For this story, we intentionally do not add protocol-level cancellation handling in this app; GUI cancel remains the cancellation control while MCP waits for terminal response.
+  - External references used:
+    - https://modelcontextprotocol.io/specification/2025-06-18/server/tools/
+    - https://modelcontextprotocol.io/specification/2025-06-18/basic/utilities/progress/
+    - https://modelcontextprotocol.io/specification/2025-06-18/basic/utilities/cancellation/
+    - https://www.jsonrpc.org/specification

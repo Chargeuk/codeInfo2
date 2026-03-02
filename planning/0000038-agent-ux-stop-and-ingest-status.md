@@ -83,45 +83,52 @@ None. Open planning questions captured so far are resolved and this story is rea
 
 ## Implementation Ideas
 
-- Agents UX unblocking:
-  - Decouple input/sidebar interactivity from run submission gating. Keep submit buttons disabled while allowing text input and conversation selection.
-  - Reuse chat page interaction model as baseline parity behavior.
+Validated using repository analysis (`code_info`) plus protocol cross-checks (`deepwiki`, `context7`) on 2026-03-02.
 
-- Reliable stop for command-list runs:
-  - Ensure server-side command runner abort path is triggered even when inflight registry state is transient/missing.
-  - Consider direct command-run abort fallback by conversation id when cancel request arrives, not only when inflight abort returns `ok`.
-  - Add regression coverage for stop timing race: stop clicked before inflight id is known.
+### Rough Change Plan (No Task Breakdown)
 
-- Blocking MCP re-embed on both MCP surfaces:
-  - Change reingest tool service contract from `started` to “wait-until-terminal”.
-  - Keep keep-alive enabled during tool execution and finalize with one JSON-RPC response at terminal state.
-  - Unify shared blocking implementation consumed by both `server/src/mcp/server.ts` and `server/src/mcp2/*` tool wiring.
-  - Keep existing JSON-RPC protocol error handling for pre-run validation failures (invalid params/not found/busy-before-start); only in-run terminal outcomes use the terminal payload contract.
-  - Keep final tool response contract summary-only and top-level terminal fields only, without per-phase progress payload sections, nested summary blocks, or a top-level `message` string.
-  - Enforce mandatory terminal top-level fields: `status`, `operation`, `runId`, `sourceId`, `durationMs`, `files`, `chunks`, `embedded`, and nullable `errorCode`.
-  - On GUI-triggered cancel while MCP is waiting, return a normal terminal result payload with status cancelled instead of throwing a JSON-RPC error.
-  - Do not add MCP-side cancel request fields or JSON-RPC cancel extensions for this story; cancellation remains a web GUI concern.
+1. Agents UX unblocking (client)
+   - Primary file: `client/src/pages/AgentsPage.tsx`.
+   - Split "run active" behavior into two independent controls:
+     - keep send/execute submission disabled while active;
+     - keep instruction input editable and sidebar selection enabled while active.
+   - Keep existing stop button visibility/behavior intact.
+   - Reuse the existing chat-page interaction pattern where possible to avoid bespoke logic.
 
-- Repository visibility while ingesting:
-  - Merge active ingest job state with persisted roots metadata in both ingest roots route and MCP list-ingested repositories tool.
-  - Add repository status fields to tool payload schema and route payloads using coarse + detailed model (`status: ingesting`, `phase: queued|scanning|embedding` while active).
-  - For active runs, preserve last completed ingest metadata and apply active-run overlay fields rather than replacing metadata entirely.
-  - Normalize internal terminal `skipped` to external `completed` across these listing surfaces.
-  - Ensure in-progress entries are present even when roots metadata was removed/replaced during re-embed.
-  - Omit `phase` for terminal states in emitted payloads (`completed`, `cancelled`, `error`).
+2. Stop race reliability for command-list/json command runs (server)
+   - Primary files: `server/src/ws/server.ts`, `server/src/agents/commandsRunner.ts`.
+   - In WS `cancel_inflight`, treat command abort as conversation-authoritative:
+     - always attempt `abortAgentCommandRun(conversationId)`, even when `abortInflight(...)` misses.
+   - Preserve existing inflight-not-found signaling for chat stream semantics, but do not allow that branch to skip command abort.
 
-- No-change early return and status semantics:
-  - Move delta no-op decision to earliest safe point after file discovery/hash comparison and before AST support counting/parsing loops.
-  - Short-circuit before AST parse loop and embedding loop when no changed/added/deleted work exists.
-  - Standardize terminal success semantics so successful runs always emit `completed` (including no-change and deletion-only outcomes) with structured terminal fields.
-  - For cancelled outcomes, include last-known progress counters in terminal payload fields.
+3. Blocking `reingest_repository` with classic/v2 parity (server MCP)
+   - Primary files: `server/src/ingest/reingestService.ts`, `server/src/mcp/server.ts`, `server/src/mcp2/tools/reingestRepository.ts`, `server/src/mcp2/router.ts`.
+   - Move shared reingest service from immediate `status: started` response to wait-until-terminal contract.
+   - Keep one terminal response payload only, with required top-level fields and no top-level `message`.
+   - Keep keep-alive behavior as-is around long-running tool calls.
+   - Keep pre-run validation failures in JSON-RPC error envelope; use terminal payload for in-run completion outcomes.
 
-- Testing:
-  - Client RTL tests for Agents input/sidebar behavior during run.
-  - Server unit/integration tests for stop-abort race handling and command retry halt.
-  - MCP classic and MCP v2 tests verifying blocking semantics and final response contracts.
-  - Ingest route/tool tests for in-progress repository visibility and status fields.
-  - Ingest pipeline tests for no-change early return skipping AST + embedding work.
+4. Repository visibility/status overlay during active ingest (REST + MCP)
+   - Primary files: `server/src/lmstudio/toolService.ts`, `server/src/routes/ingestRoots.ts`, `server/src/ingest/ingestJob.ts`.
+   - Add one shared status mapper/overlay path used by both listing surfaces:
+     - internal `queued|scanning|embedding` -> external `status: ingesting` + `phase`;
+     - internal `completed|cancelled|error` -> same external `status`, no `phase`;
+     - internal `skipped` -> external `completed`.
+   - Apply active overlay precedence to status/counters/run id while preserving persisted metadata fields.
+   - Ensure synthesized listing entry exists when active runtime state exists but persisted root metadata is temporarily absent.
+
+5. No-change early return before AST and embedding (ingest pipeline)
+   - Primary file: `server/src/ingest/ingestJob.ts`.
+   - Move delta no-op exit to occur before AST support counting/parsing loops and before embedding loops.
+   - Ensure no-change and deletion-only success paths terminate as external `completed`.
+   - Keep cancellation/error handling unchanged except for contract field consistency.
+
+### Coupling Constraints To Respect
+
+- `reingestService` is shared by MCP classic and MCP v2; contract changes must be reflected in both surfaces at the same time.
+- Stop reliability crosses WS inflight cancellation and command runner conversation-abort maps; changing only one side leaves the race unresolved.
+- Status/phase overlay semantics must be identical between `/ingest/roots` and MCP `ListIngestedRepositories`; use one shared mapper path to prevent drift.
+- Keep-alive and terminal payload semantics must remain aligned with MCP transport behavior (long wait with heartbeats, single terminal tool result).
 
 ## Contract Example (Terminal MCP Re-embed Result)
 

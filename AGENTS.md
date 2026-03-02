@@ -43,13 +43,16 @@ Note that the following steps only need to be performed when you are first worki
 
 ## Run System
 ### Wrapper-First Workflow
-- Compose wrappers are the default way to start/stop local runtime stacks.
+- Compose wrappers are the default way to start/stop AI-agent testing/automation stacks.
+- Do not run any `*:local:*` commands from this agent; they manage the local developer systems that the agent is running in.
 - These wrappers centralize env-file handling and Docker socket/runtime compatibility through `scripts/docker-compose-with-env.sh`.
 - Raw underlying commands are documented in `package.json` scripts and `scripts/docker-compose-with-env.sh`.
 
 ### Run Wrappers
 - `npm run compose`
-  - Builds and starts the testing stack using `docker-compose.yml`.
+  - Builds and starts the testing stack.
+- `npm run compose:build`
+  - Builds the testing stack images.
 - `npm run compose:up`
   - Starts the testing stack (assumes images are already built).
 - `npm run compose:down`
@@ -57,7 +60,7 @@ Note that the following steps only need to be performed when you are first worki
 - `npm run compose:logs`
   - Tails testing stack logs.
 
-### Start Full Testing Docker Environment (Preferred Sequence)
+### Start Full AI-Agent Testing Docker Environment (Preferred Sequence)
 Run these commands from repo root in this order:
 1. `npm run compose:build`
 2. `npm run compose:up`
@@ -65,7 +68,7 @@ Run these commands from repo root in this order:
 Shortcut:
 - `npm run compose` (equivalent build + up sequence).
 
-### Stop Full Testing Docker Environment
+### Stop Full AI-Agent Testing Docker Environment
 Run this command from repo root:
 1. `npm run compose:down`
 
@@ -94,7 +97,8 @@ Run this command from repo root:
 
 ### Targeted Test Runs Policy
 - Summary wrappers do not currently expose targeted file/tag/name arguments.
-- Neither do the underlying scripts, so for now, ALWAYS run the Summary wrappers
+- The underlying test commands in this repository also do not currently support reliable targeted execution; attempted targeted runs still execute full suites.
+- Until targeted execution is fixed, always run the full summary wrappers.
 
 ### Test Failure Diagnosis
 1. Run the relevant wrapper and capture the log path from summary output.

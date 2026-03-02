@@ -1188,7 +1188,7 @@ Log review rule: only open full logs when a wrapper reports failure, unexpected 
 ### 5. Server Message Contract: normalize ingest listing status/phase mapping and active overlay visibility
 
 - Task Status: **__done__**
-- Git Commits: `TBD`
+- Git Commits: `263c7a1`
 
 #### Overview
 

@@ -80,10 +80,13 @@ for (let i = 0; i < args.length; i += 1) {
 const normalizeClientPath = (value) => {
   if (path.isAbsolute(value)) return value;
   const normalized = value.replace(/\\/g, '/');
-  if (normalized.startsWith('client/')) {
-    return normalized.slice('client/'.length);
+  const withoutDotPrefix = normalized.startsWith('./')
+    ? normalized.slice(2)
+    : normalized;
+  if (withoutDotPrefix.startsWith('client/')) {
+    return withoutDotPrefix.slice('client/'.length);
   }
-  return normalized;
+  return withoutDotPrefix;
 };
 
 const jestArgs = [];

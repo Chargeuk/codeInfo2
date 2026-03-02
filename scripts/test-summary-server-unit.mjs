@@ -96,8 +96,13 @@ const run = (cmd, argsValue, cwd, env = process.env) =>
 const normalizeServerPath = (value) => {
   if (path.isAbsolute(value)) return value;
   const normalized = value.replace(/\\/g, '/');
-  if (normalized.startsWith('server/')) return normalized.slice('server/'.length);
-  return normalized;
+  const withoutDotPrefix = normalized.startsWith('./')
+    ? normalized.slice(2)
+    : normalized;
+  if (withoutDotPrefix.startsWith('server/')) {
+    return withoutDotPrefix.slice('server/'.length);
+  }
+  return withoutDotPrefix;
 };
 
 const sumFromMatches = (output, pattern) =>

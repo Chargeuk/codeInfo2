@@ -188,9 +188,12 @@ const collectSummary = (report) => {
 const normalizeE2ePath = (value) => {
   if (path.isAbsolute(value)) return value;
   const normalized = value.replace(/\\/g, '/');
-  if (normalized.startsWith('e2e/')) return normalized;
-  if (normalized.endsWith('.spec.ts')) return `e2e/${normalized}`;
-  return normalized;
+  const withoutDotPrefix = normalized.startsWith('./')
+    ? normalized.slice(2)
+    : normalized;
+  if (withoutDotPrefix.startsWith('e2e/')) return withoutDotPrefix;
+  if (withoutDotPrefix.endsWith('.spec.ts')) return `e2e/${withoutDotPrefix}`;
+  return withoutDotPrefix;
 };
 
 const playwrightArgs = [

@@ -394,8 +394,8 @@ Update WebSocket cancel message handling so command-run abort is always attempte
    - Required coverage: `conversationId`-only cancel, `conversationId+inflightId` cancel, stale inflight id, duplicate stop, and no `turn_final` failure event for conversation-only cancel.
 5. [ ] Add/extend command-run regression test proving no further command step/retry starts after stop request.
    - Files: `server/src/test/unit/agents-commands*.test.ts` and/or integration suites covering command-run stop flow.
-6. [ ] Add/extend chat cancellation regression tests to ensure existing chat mismatch semantics are unchanged.
-   - Files: `server/src/test/unit/ws-chat-stream.test.ts`, `server/src/test/features/chat_cancellation.feature`, `server/src/test/steps/chat_cancellation.steps.ts`
+6. [ ] Add/extend chat cancellation unit regression tests to ensure existing chat mismatch semantics are unchanged.
+   - Files: `server/src/test/unit/ws-chat-stream.test.ts`
    - Required coverage: mismatched/stale `inflightId` still yields `INFLIGHT_NOT_FOUND` turn-final for chat-stream cancellation.
 7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; resolve any issues introduced by this task.
 
@@ -537,18 +537,18 @@ Replace immediate `status: started` reingest results with one terminal payload r
 7. [ ] Update MCP v2 reingest tool runtime mapping to match classic payload semantics.
    - Files: `server/src/mcp2/tools/reingestRepository.ts`
    - Required behavior: same field names/status semantics as classic for the same terminal outcome.
-8. [ ] Preserve keep-alive behavior during blocking wait and safe-stop keepalive on disconnect.
+8. [ ] Preserve keep-alive behavior during blocking wait using existing keepalive controller behavior.
    - Files: `server/src/mcp/server.ts`, `server/src/mcp2/router.ts`, `server/src/mcpCommon/keepAlive.ts` (if adjustments needed)
-   - Required behavior: long waits continue heartbeats and do not alter final payload shape; disconnect/write-failure paths stop keepalive safely without server crash.
+   - Required behavior: long waits continue heartbeats and do not alter final payload shape. Avoid introducing new keepalive branches unless required to satisfy this story.
 9. [ ] Add/extend service-level tests for terminal payload mapping and wait behavior.
    - Files: `server/src/test/unit/reingestService.test.ts`
    - Required coverage: terminal wait, `skipped -> completed`, required top-level fields, and deterministic duration/counter mapping.
 10. [ ] Add/extend classic + MCP v2 tests for terminal parity and protocol-error boundary.
    - Files: `server/src/test/unit/mcp-*.test.ts`, `server/src/test/unit/reingest*.test.ts`
    - Required coverage: no `started` in final result, GUI cancel while waiting returns `status: cancelled`, parity assertions across both MCP surfaces, `operation === reembed`, `errorCode` null unless `status=error`, cancelled returns last-known counters, pre-run validation failures remain JSON-RPC errors, post-start failure/cancel return terminal result payload (not protocol error), and both surfaces keep transport wrapper `result.content[0].text` as JSON string.
-11. [ ] Add/extend keepalive/disconnect resilience tests for blocking reingest wait.
+11. [ ] Add/extend one representative keepalive resilience test for blocking reingest wait.
    - Files: `server/src/test/unit/mcp.keepalive.helper.test.ts`, `server/src/test/unit/mcp2-router-*.test.ts`, `server/src/test/unit/mcp.reingest.classic.test.ts`
-   - Required coverage: client disconnect/stream close during blocking wait does not crash server and keepalive stops cleanly.
+   - Required coverage: keepalive runs during blocking wait and the response lifecycle completes cleanly on one disconnect/close path.
 12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; resolve any issues introduced by this task.
 
 #### Testing
@@ -604,15 +604,15 @@ Apply one shared status/phase mapping and active-overlay merge path for `/ingest
 8. [ ] Bump and propagate shared ingest listing schema version constant.
    - Files: `server/src/lmstudio/toolService.ts`, `server/src/routes/ingestRoots.ts`, `server/src/routes/toolsIngestedRepos.ts`, `server/src/mcp/server.ts`
    - Required behavior: all listing surfaces emit `schemaVersion: "0000038-status-phase-v1"` from one shared constant path.
-9. [ ] Update OpenAPI schemas for listing surfaces to document `status`/`phase` semantics.
-   - Files: `openapi.json`
-   - Required behavior: `/ingest/roots` and `/tools/ingested-repos` include external `status` values and optional `phase` with phase omitted for terminal statuses.
+9. [ ] Update only the runtime listing schemas/contracts required by this story’s external surfaces.
+   - Files: `server/src/mcp/server.ts`, `server/src/routes/ingestRoots.ts`, `server/src/lmstudio/toolService.ts`
+   - Required behavior: runtime contracts for `/ingest/roots` and MCP classic listing document and emit external `status` values with optional `phase` omitted for terminal statuses.
 10. [ ] Add/extend server tests for status/phase mapping and active overlay behavior.
    - Files: `server/src/test/unit/tools-ingested-repos*.test.ts`, `server/src/test/unit/ingest-roots*.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`
    - Required coverage: active overlays keep repositories visible, terminal states omit phase, and skipped is normalized to completed.
-11. [ ] Add/extend integration/contract tests for synthesized entries, schema-version migration, and OpenAPI contract updates.
-   - Files: `server/src/test/unit/tools-ingested-repos*.test.ts`, `server/src/test/unit/ingest-roots*.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`, `server/src/test/integration/mcp-ingested-repositories.test.ts`, `server/src/test/unit/openapi.contract.test.ts`
-   - Required coverage: active overlays keep repositories visible, terminal states omit phase, synthesized entries include required identity fields (and `hostPathWarning` when needed), and all schemaVersion assertions migrate to `0000038-status-phase-v1`.
+11. [ ] Add/extend focused contract tests for synthesized entries and schema-version migration.
+   - Files: `server/src/test/unit/tools-ingested-repos*.test.ts`, `server/src/test/unit/ingest-roots*.test.ts`, `server/src/test/unit/mcp-ingested-repositories.test.ts`
+   - Required coverage: active overlays keep repositories visible, terminal states omit phase, synthesized entries include required identity fields (and `hostPathWarning` when needed), and schemaVersion assertions migrate to `0000038-status-phase-v1`.
 12. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; resolve any issues introduced by this task.
 
 #### Testing
@@ -649,18 +649,18 @@ Ensure no-change delta runs exit before AST parse/upsert/delete and before embed
 1. [ ] Refactor reembed delta flow to compute no-change decision before AST parsing/writing and embedding loops.
    - Files: `server/src/ingest/ingestJob.ts`
    - Required behavior: no-change path exits without AST parse/upsert/delete and without embedding calls.
-2. [ ] Refactor deletion-only delta path so it terminates before AST parse/write and embedding loops.
+2. [ ] Keep deletion-only delta cleanup logic simple and unchanged except for terminal contract normalization.
    - Files: `server/src/ingest/ingestJob.ts`
-   - Required behavior: deletion-only successful path avoids AST parse/write and embedding calls while still applying required deletion cleanup.
+   - Required behavior: deletion-only successful path keeps existing cleanup behavior and avoids broad control-flow rewrites.
 3. [ ] Ensure successful no-change and deletion-only paths resolve as external-success `completed`.
    - Files: `server/src/ingest/ingestJob.ts`, `server/src/ingest/reingestService.ts` (if mapping updates are required)
 4. [ ] Add/extend tests proving no-change bypasses AST/embedding work.
    - Files: `server/src/test/unit/ingest-ast-indexing.test.ts`, `server/src/test/unit/reingest*.test.ts`, related ingest unit suites
 5. [ ] Add/extend tests proving deletion-only success still reports `completed`.
    - Files: `server/src/test/unit/ingest-ast-indexing.test.ts`, `server/src/test/unit/reingest*.test.ts`, related ingest unit suites
-6. [ ] Add/extend race/regression tests for cancellation near early-return boundary and non-no-change AST failure behavior.
+6. [ ] Add/extend one focused race regression test for cancellation near early-return boundary.
    - Files: `server/src/test/unit/ingest-ast-indexing.test.ts`, `server/src/test/features/ingest-delta-reembed.feature`, `server/src/test/steps/ingest-delta-reembed.steps.ts`
-   - Required coverage: exactly one terminal outcome under cancel/no-change timing race, and existing AST failure behavior for non-no-change paths remains unchanged.
+   - Required coverage: exactly one terminal outcome under cancel/no-change timing race.
 7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; resolve any issues introduced by this task.
 
 #### Testing

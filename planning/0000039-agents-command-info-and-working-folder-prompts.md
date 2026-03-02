@@ -9,13 +9,15 @@ The Questions sections should be populated by an AI at the start of the planning
 
 ### Description
 
-On the Agents page, command descriptions are currently always shown in the main layout, including a default message when nothing is selected. This adds visual noise and competes with core actions. We want command descriptions to move behind an info icon interaction, matching the existing Agent info pattern, so the page stays cleaner while still allowing users to inspect details when needed.
+On the Agents page, command descriptions are currently always rendered inline below the command selector, including the default message when no command is selected. This story removes that inline description area and moves command details behind a single command-info icon button in the command row.
 
-We also want to introduce a new prompt execution workflow tied to the selected `working_folder`. When the selected folder contains a `.github/prompts` directory (case-insensitive folder-name matching) and that directory tree contains markdown files, the user should get a `Prompts` selector. The selector should list available prompt files using paths relative to `.github/prompts/`, allow a blank selection, and include an `Execute Prompt` action beside it.
+This story also adds a prompt-assisted instruction flow based on the selected `working_folder`. If that folder contains a `.github/prompts` directory (case-insensitive match on both path segments) and at least one markdown file anywhere under it, the page shows a `Prompts` dropdown and an `Execute Prompt` button in the same row.
 
-When `Execute Prompt` is clicked, the app should send a normal user instruction to the selected agent using the existing run flow. The instruction must prepend a fixed persona/behavior preamble and include the full resolved runtime/container path to the selected markdown file. This allows the agent runtime to reliably read the file from inside the execution environment while preserving the existing conversation and transcript behaviors.
+Prompt files are discovered from the server (not directly from the browser filesystem) so path checks and host/container path resolution happen in one trusted place. The UI only displays prompt paths relative to `.github/prompts/` but stores the resolved runtime/container full path for execution.
 
-If the user changes `working_folder` at any point, any selected prompt must be cleared immediately to avoid stale or cross-folder prompt execution.
+When the user clicks `Execute Prompt`, the client sends a standard instruction run using the existing agent run API. The instruction text is the canonical preamble in this plan with `<full path of markdown file>` replaced by the resolved runtime/container path of the selected prompt file.
+
+When `working_folder` changes (typing and committing with blur/Enter, or selecting via directory picker), the current prompt selection is cleared immediately before any further prompt execution is allowed.
 
 Canonical `Execute Prompt` preamble (must be used verbatim, with placeholder replacement rule below):
 
@@ -26,33 +28,40 @@ Placeholder replacement rule:
 
 ### Acceptance Criteria
 
-- The Agents page no longer renders command description text in the main page flow beneath the command row.
-- The text `Select a command to see its description.` is removed from the main view.
-- A command info icon is shown at the end of the command selector row, consistent with the existing Agent info interaction pattern.
-- Clicking the command info icon opens a description surface (popover/dialog-style interaction consistent with current Agents UI patterns).
-- If no command is selected, the command info interaction remains safe and understandable (disabled state or clear empty message).
-- The `Prompts` selector is only shown when all of the following are true:
-  - a non-empty `working_folder` is selected,
-  - a `.github/prompts` directory exists under that working folder using case-insensitive folder-name matching,
-  - at least one markdown file exists under that prompts directory tree.
-- Prompt discovery is recursive under `.github/prompts` and includes markdown files (`.md`, case-insensitive extension handling).
-- Prompt dropdown option labels show paths relative to `.github/prompts/` (not absolute paths).
-- The prompt selector includes an explicit empty option so users can clear/de-select the selected prompt.
-- `Execute Prompt` appears at the end of the prompt selector row and is only enabled when a valid prompt file is selected.
-- Changing the `working_folder` clears any selected prompt immediately before any subsequent execution.
-- If prompt discovery fails (for example permission, path resolution, or inaccessible-directory errors), the `Prompts` area shows a visible inline error state instead of silently hiding the failure.
-- Prompt discovery trigger timing for manually typed `working_folder` values is restricted to blur/Enter events (not live per-keystroke discovery), and discovery also runs after directory picker selection.
-- Executing a prompt sends a user instruction to the selected agent conversation using existing agent run behavior.
-- The executed instruction prepends the exact canonical preamble text defined in this plan, with `<full path of markdown file>` replaced by the resolved runtime/container path of the selected markdown file.
-- The prompt file path used for execution is the runtime/container-resolved path (not host-only path text).
-- Existing Agent run behaviors (conversation selection/new conversation, transcript updates, run-state handling, error handling) remain consistent.
-- Automated tests cover:
-  - command info icon visibility/interaction and removal of inline description text,
-  - prompt discovery gating and recursive file discovery,
-  - relative display-path formatting,
-  - enable/disable rules for `Execute Prompt`,
-  - prompt reset on working-folder change,
-  - outbound payload content including required preamble and resolved runtime path.
+1. The inline command description block is removed from the main Agents page flow.
+2. The text `Select a command to see its description.` is no longer rendered anywhere on the page.
+3. A command-info icon button is displayed in the command selector row (same row as command selection controls).
+4. The command-info icon button is disabled when no command is selected.
+5. When a command is selected, clicking the command-info icon opens a popover/dialog that shows the selected command description text.
+6. Prompt discovery runs only after `working_folder` commit events:
+   - manual input `blur`,
+   - manual input `Enter`,
+   - directory picker selection.
+7. Prompt discovery does not run on every keystroke while the user is typing in `working_folder`.
+8. The prompts UI row is shown only when all conditions are true:
+   - committed `working_folder` is non-empty,
+   - a `.github/prompts` directory exists under the selected folder (case-insensitive match for `.github` and `prompts` segments),
+   - at least one markdown file exists under that directory tree.
+9. Prompt discovery is recursive below `.github/prompts` and includes `.md` files with case-insensitive extension handling (for example, `.md` and `.MD`).
+10. Prompt option labels are relative paths from `.github/prompts/` (for example, `onboarding/start.md`), never absolute host/runtime paths.
+11. The prompts dropdown includes an explicit empty option so users can clear selection after previously choosing a prompt.
+12. `Execute Prompt` is displayed in the prompts row and is disabled unless a valid prompt is selected.
+13. If prompt discovery fails, the prompts row shows an inline error message and does not silently hide the failure.
+14. Changing `working_folder` clears previously discovered prompt selection immediately and keeps `Execute Prompt` disabled until a new valid prompt is selected.
+15. Clicking `Execute Prompt` uses the existing instruction run path (`POST /agents/:agentName/run`) and does not use command-run execution.
+16. The outbound `instruction` string equals:
+    - canonical preamble text from this plan, with `<full path of markdown file>` replaced by the selected prompt runtime/container full path.
+17. The path inserted into the preamble is the runtime/container-resolved full path returned by discovery, not a host-only path string.
+18. Existing agent run behavior remains unchanged for conversation reuse/new conversation creation, run state transitions, transcript streaming, and error handling.
+19. Automated tests must cover:
+    - command-info visibility, disabled state with no command, and popover opening with selected command,
+    - removal of inline command description/default text,
+    - prompt discovery trigger timing (blur/Enter/picker only),
+    - case-insensitive `.github/prompts` detection and recursive markdown discovery,
+    - relative-path label rendering,
+    - execute button enable/disable rules,
+    - prompt reset on `working_folder` change,
+    - outbound instruction payload containing the exact preamble text and resolved runtime full path.
 
 ### Out Of Scope
 
@@ -76,6 +85,6 @@ None.
 - Implement recursive markdown discovery beneath the matched prompts root and return payload entries shaped as `{ relativePath, fullPath }`.
 - Trigger prompt discovery only on `working_folder` blur/Enter and directory-picker selection events; avoid per-keystroke scans to keep UI stable and reduce filesystem churn.
 - Surface prompt discovery failures inline in the prompts UI block so users can distinguish “no prompts found” from “prompt lookup failed.”
-- Keep prompt execution in the client as a thin composition layer: construct instruction text from the fixed preamble + selected `fullPath`, then call existing `runAgentInstruction`.
+- Keep prompt execution in the client as a thin composition layer: construct instruction text from the fixed preamble + selected `fullPath`, then call existing `runAgentInstruction` (`POST /agents/:agentName/run`).
 - Ensure working-folder edits trigger prompt list refresh and selected prompt invalidation, including manual text edits and directory-picker changes.
 - Add focused client tests for UI gating/interaction and API payload composition, plus server unit tests for prompt discovery and path-handling edge cases.

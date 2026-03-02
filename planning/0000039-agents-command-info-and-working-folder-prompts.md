@@ -109,13 +109,73 @@ None.
 
 ## Implementation Ideas
 
-- Reuse the existing Agents info popover interaction model to add a parallel command-info control and keep behavior visually/interaction consistent.
-- Introduce a server-backed prompt discovery endpoint tied to `agentName` + `working_folder` so path resolution and filesystem checks occur in one trusted place.
-- Reuse existing `working_folder` resolution logic to compute runtime/container paths and avoid duplicating host/container mapping logic in the client.
-- Implement case-insensitive `.github/prompts` folder matching by scanning directory entries and matching each segment in a normalized manner.
-- Implement recursive markdown discovery beneath the matched prompts root and return payload entries shaped as `{ relativePath, fullPath }`.
-- Trigger prompt discovery only on `working_folder` blur/Enter and directory-picker selection events; avoid per-keystroke scans to keep UI stable and reduce filesystem churn.
-- Surface prompt discovery failures inline in the prompts UI block so users can distinguish “no prompts found” from “prompt lookup failed.”
-- Keep prompt execution in the client as a thin composition layer: construct instruction text from the fixed preamble + selected `fullPath`, then call existing `runAgentInstruction` (`POST /agents/:agentName/run`).
-- Ensure working-folder edits trigger prompt list refresh and selected prompt invalidation, including manual text edits and directory-picker changes.
-- Add focused client tests for UI gating/interaction and API payload composition, plus server unit tests for prompt discovery and path-handling edge cases.
+Use a single end-to-end approach that reuses existing Agents route/service patterns and keeps prompt-specific logic minimal.
+
+1. Server routing and API surface
+- Extend [server/src/routes/agentsCommands.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/routes/agentsCommands.ts) with `GET /:agentName/prompts`.
+- Keep endpoint under the existing commands router namespace (mounted at `/agents`) to match current read-only list route patterns.
+- Accept `working_folder` as a query parameter and validate it with the same strictness used in existing routes (string, non-empty after trim).
+- Return `200 { prompts: [...] }` on success and map typed service errors to existing route conventions (`invalid_request`, `not_found`, `500` fallback).
+
+2. Server service implementation
+- Add a new service function in [server/src/agents/service.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/agents/service.ts), for example `listAgentPrompts({ agentName, working_folder })`.
+- Reuse `resolveWorkingFolderWorkingDirectory(...)` for runtime/container path resolution, so the client never performs host/container mapping logic.
+- Verify agent existence using existing discovery path (`discoverAgents`) before scanning for prompts.
+- Implement case-insensitive folder resolution for `.github/prompts` by matching each path segment against on-disk directory entries at each level.
+- Walk the resolved prompts directory recursively, include only markdown files (`.md`, case-insensitive), ignore symlink entries, and skip non-markdown files.
+- Build response items as `{ relativePath, fullPath }` where:
+- `relativePath` is relative to prompts root with forward slashes.
+- `fullPath` is the runtime/container absolute path used later for prompt execution.
+- Sort collected prompts by normalized `relativePath` before returning.
+
+3. Client API layer
+- Add `listAgentPrompts(...)` in [client/src/api/agents.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/api/agents.ts) using existing fetch/error parsing conventions from current agents API methods.
+- Keep response typing explicit as `Array<{ relativePath: string; fullPath: string }>`.
+- Keep error parsing consistent with `AgentApiError` so UI can show inline discovery errors without introducing a new error abstraction.
+
+4. Agents page UI and state flow
+- Update [client/src/pages/AgentsPage.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/pages/AgentsPage.tsx) to replace inline command description text with a command-info `IconButton` + `Popover`, following the existing agent-info popover pattern.
+- Introduce prompt discovery state in the page:
+- discovered prompt list,
+- selected prompt value (keyed by `fullPath`),
+- prompts loading state,
+- prompts inline error message,
+- last committed `working_folder` value used for discovery.
+- Trigger discovery only on committed folder events:
+- working-folder text field `blur`,
+- Enter key in working-folder input,
+- directory picker `onPick`.
+- Do not trigger discovery in `onChange` for every keystroke.
+- On each committed working-folder change:
+- clear selected prompt immediately,
+- clear old prompt list,
+- run discovery only when committed value is non-empty.
+- Render a `Prompts` selector row only when discovery returns at least one prompt.
+- Render inline error in that row when discovery fails for a non-empty committed folder.
+- Keep `Execute Prompt` disabled unless a valid prompt is selected.
+
+5. Prompt execution behavior
+- Keep execution on existing instruction flow only: `runAgentInstruction(...)` -> `POST /agents/:agentName/run`.
+- Build instruction text in the client by replacing `<full path of markdown file>` in the canonical preamble with selected prompt `fullPath`.
+- Do not introduce a separate prompt execution endpoint or command-run path.
+- Preserve existing conversation/run behavior (reuse active conversation, websocket transcript flow, abort behavior).
+
+6. Test strategy (rough coverage map)
+- Client UI tests:
+- update [client/src/test/agentsPage.commandsList.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.commandsList.test.tsx) for removal of inline description and command-info interaction.
+- extend [client/src/test/agentsPage.descriptionPopover.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.descriptionPopover.test.tsx) pattern for command popover behavior.
+- extend [client/src/test/agentsPage.workingFolderPicker.test.tsx](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsPage.workingFolderPicker.test.tsx) for commit-event discovery triggers and prompt reset behavior.
+- add a focused new Agents page prompts test file for gating, inline error vs empty-result behavior, and execute button enable rules.
+- Client API tests:
+- extend [client/src/test/agentsApi.commandsList.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/client/src/test/agentsApi.commandsList.test.ts) pattern for `listAgentPrompts`.
+- Server tests:
+- extend [server/src/test/unit/agents-commands-router-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agents-commands-router-list.test.ts) for new prompts route status/body/error mapping.
+- add service tests near [server/src/test/unit/agent-commands-list.test.ts](/Users/danielstapleton/Documents/dev/codeinfo2/codeInfo2/server/src/test/unit/agent-commands-list.test.ts) or a dedicated prompts service test file for recursive discovery, case-insensitive matching, deterministic sorting, and symlink-ignore behavior.
+
+7. Validation and delivery checks
+- Use repository wrapper commands for validation and diagnosis:
+- `npm run test:summary:client`
+- `npm run test:summary:server:unit`
+- `npm run build:summary:client`
+- `npm run build:summary:server`
+- Update documentation files already called out in scope (`README.md`, `design.md`, `projectStructure.md`) with final route and UX behavior once implementation details are finalized.

@@ -346,3 +346,388 @@ Validated from existing code behavior and tests (2026-03-02) using `code_info`, 
     - https://modelcontextprotocol.io/specification/2025-06-18/basic/utilities/progress/
     - https://modelcontextprotocol.io/specification/2025-06-18/basic/utilities/cancellation/
     - https://www.jsonrpc.org/specification
+
+# Implementation Plan
+
+## Instructions
+
+1. Read all sections above before implementation, especially Acceptance Criteria, Message Contracts, and Edge Cases.
+2. Complete tasks in the exact order listed below.
+3. Keep each task focused to one testable implementation concern.
+4. Complete server-side contract/message tasks before frontend tasks that consume those changes.
+5. Add or update deterministic tests in the same task that introduces behavior/contract changes.
+6. Keep all stop/cancel behavior conversation-authoritative and idempotent.
+7. Keep MCP classic and MCP v2 `reingest_repository` behavior in lock-step.
+8. Do not add new request flags or optional protocol branches for blocking behavior in this story.
+
+## Tasks
+
+### 1. Server Message Contract: make `cancel_inflight` race-safe and conversation-authoritative
+
+- Task Status: **__to_do__**
+- Git Commits: `None yet`
+
+#### Overview
+
+Update WebSocket cancel message handling so command-run abort is always attempted by `conversationId`, including stop races where `inflightId` is not yet known. This task defines the server-side message contract change first so dependent frontend stop behavior can safely follow.
+
+#### Documentation Locations
+
+- WebSocket protocol overview (message framing and compatibility considerations): https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API
+- Node.js event model basics for request/response timing behavior: https://nodejs.org/api/events.html
+- Jest assertions and test patterns: https://jestjs.io/docs/expect
+
+#### Subtasks
+
+1. [ ] Update WS client-message typing/parsing to accept `cancel_inflight` with required `conversationId` and optional `inflightId`.
+   - Files: `server/src/ws/types.ts`
+   - Required behavior: payloads with only `conversationId` are valid for `cancel_inflight`; other message shapes remain unchanged.
+2. [ ] Update WS cancel handler so `abortAgentCommandRun(conversationId)` is always attempted, regardless of `abortInflight` success.
+   - Files: `server/src/ws/server.ts`, `server/src/agents/commandsRunner.ts` (read/update only if required for deterministic idempotence)
+   - Required behavior: command retries/steps are blocked after stop request time in both inflight-id and no-inflight-id paths.
+3. [ ] Keep chat-stream cancellation semantics deterministic when `inflightId` is supplied but not found.
+   - Files: `server/src/ws/server.ts`
+   - Required behavior: preserve existing `INFLIGHT_NOT_FOUND` turn-final behavior for chat stream cancellation mismatch, while still aborting command runs by conversation.
+4. [ ] Add/extend unit tests for WS parsing and cancel handler race paths.
+   - Files: `server/src/test/unit/ws-*.test.ts` (existing WS parser/handler suites)
+   - Required coverage: `conversationId`-only cancel, `conversationId+inflightId` cancel, stale inflight id, duplicate stop.
+5. [ ] Add/extend command-run regression test proving no further command step/retry starts after stop request.
+   - Files: `server/src/test/unit/agents-commands*.test.ts` and/or integration suites covering command-run stop flow.
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; resolve any issues introduced by this task.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run test --workspace server`
+3. [ ] Run targeted WS cancel + command-run stop race tests and confirm pass.
+
+#### Implementation notes
+
+- Pending implementation.
+
+---
+
+### 2. Frontend: make Agents stop send `cancel_inflight` by conversation even when `inflightId` is unknown
+
+- Task Status: **__to_do__**
+- Git Commits: `None yet`
+
+#### Overview
+
+Consume Task 1’s server message-contract update in the Agents UI so Stop always emits a cancel signal while a conversation is active, even when no inflight id is available yet.
+
+#### Documentation Locations
+
+- React `useCallback` and event handler state consistency: https://react.dev/reference/react/useCallback
+- MUI input/button patterns: https://llms.mui.com/material-ui/7.2.0/llms.txt
+- React Testing Library interactions: https://testing-library.com/docs/react-testing-library/intro
+
+#### Subtasks
+
+1. [ ] Update WebSocket client hook API to allow optional `inflightId` on `cancelInflight`.
+   - Files: `client/src/hooks/useChatWs.ts`
+   - Required behavior: send `{ type: 'cancel_inflight', conversationId }` when `inflightId` is unavailable; include `inflightId` when present.
+2. [ ] Update Agents stop-click logic to always send cancel when there is an active conversation.
+   - Files: `client/src/pages/AgentsPage.tsx`
+   - Required behavior: remove current hard dependency on a non-empty inflight id before sending cancel.
+3. [ ] Add/extend client tests for stop-without-inflight-id and stop-with-inflight-id payload behavior.
+   - Files: `client/src/test/agentsPage*.test.tsx`, `client/src/test/useChatWs*.test.ts`
+   - Required coverage: payload shape in both paths, and no regression to existing stop UI behavior.
+4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; resolve any issues introduced by this task.
+
+#### Testing
+
+1. [ ] `npm run build --workspace client`
+2. [ ] `npm run test --workspace client`
+3. [ ] Run targeted Agents stop-path tests and confirm pass.
+
+#### Implementation notes
+
+- Pending implementation.
+
+---
+
+### 3. Frontend: unblock Agents input editing and sidebar navigation during active runs
+
+- Task Status: **__to_do__**
+- Git Commits: `None yet`
+
+#### Overview
+
+Limit active-run UI restrictions to submit/execute controls only. Keep instruction text editing and conversation switching available while an agent run is active.
+
+#### Documentation Locations
+
+- React state derivation and conditional rendering: https://react.dev/learn/conditional-rendering
+- MUI Drawer/List/interaction patterns: https://llms.mui.com/material-ui/7.2.0/llms.txt
+- Accessibility and keyboard interaction expectations: https://www.w3.org/WAI/ARIA/apg/
+
+#### Subtasks
+
+1. [ ] Update active-run gating logic so the input field remains editable and preserves draft text.
+   - Files: `client/src/pages/AgentsPage.tsx`
+   - Required behavior: run-active state disables submit/execute actions only; no input lock.
+2. [ ] Update sidebar interaction gating so conversation list remains clickable during active run.
+   - Files: `client/src/pages/AgentsPage.tsx`, `client/src/components/chat/ConversationList.tsx` (if prop behavior updates are needed)
+   - Required behavior: conversation switching works while run is active; no overlay blocks clicks.
+3. [ ] Add/extend client tests for active-run editability and sidebar-switch behavior.
+   - Files: `client/src/test/agentsPage*.test.tsx`
+   - Required coverage: draft persistence while run is active, switch conversation during active run, submit still disabled while active.
+4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; resolve any issues introduced by this task.
+
+#### Testing
+
+1. [ ] `npm run build --workspace client`
+2. [ ] `npm run test --workspace client`
+3. [ ] Run targeted Agents active-run UX tests and confirm pass.
+
+#### Implementation notes
+
+- Pending implementation.
+
+---
+
+### 4. Server Message Contract: make `reingest_repository` blocking and terminal-only (classic + MCP v2 parity)
+
+- Task Status: **__to_do__**
+- Git Commits: `None yet`
+
+#### Overview
+
+Replace immediate `status: started` reingest results with one terminal payload returned only after run completion/cancellation/error, shared by both MCP surfaces.
+
+#### Documentation Locations
+
+- MCP tools contract semantics: https://modelcontextprotocol.io/specification/2025-06-18/server/tools/
+- MCP progress/long-running call guidance: https://modelcontextprotocol.io/specification/2025-06-18/basic/utilities/progress/
+- JSON-RPC error envelope rules: https://www.jsonrpc.org/specification
+
+#### Subtasks
+
+1. [ ] Update shared reingest service result shape to terminal-only output.
+   - Files: `server/src/ingest/reingestService.ts`
+   - Required behavior: success payload uses terminal `status` (`completed|cancelled|error`) and required fields (`status`, `operation`, `runId`, `sourceId`, `durationMs`, `files`, `chunks`, `embedded`, `errorCode`).
+2. [ ] Keep pre-run validation failures in JSON-RPC/protocol error envelopes.
+   - Files: `server/src/ingest/reingestService.ts`, `server/src/mcp/server.ts`, `server/src/mcp2/tools/reingestRepository.ts`
+   - Required behavior: invalid `sourceId`/unknown root/busy-before-start remain protocol errors; only post-start outcomes use terminal result payload.
+3. [ ] Update classic MCP tool schema and runtime mapping away from `status: started`.
+   - Files: `server/src/mcp/server.ts`
+   - Required behavior: output schema and emitted payload match terminal-only contract.
+4. [ ] Update MCP v2 reingest tool to match classic payload semantics.
+   - Files: `server/src/mcp2/tools/reingestRepository.ts`, `server/src/mcp2/router.ts` (if router-level behavior needs alignment)
+   - Required behavior: same field names/status semantics as classic for the same terminal outcome.
+5. [ ] Preserve keep-alive behavior during blocking wait.
+   - Files: `server/src/mcp/server.ts`, `server/src/mcp2/router.ts`, `server/src/mcpCommon/keepAlive.ts` (if adjustments needed)
+   - Required behavior: long waits continue heartbeats and do not alter final payload shape.
+6. [ ] Add/extend server tests for completed/cancelled/error terminal payloads and classic/v2 parity.
+   - Files: `server/src/test/unit/mcp-*.test.ts`, `server/src/test/unit/reingest*.test.ts`
+   - Required coverage: no `started` in final result, GUI cancel while waiting returns `status: cancelled`, parity assertions across both MCP surfaces.
+7. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; resolve any issues introduced by this task.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run test --workspace server`
+3. [ ] Run targeted reingest contract tests for classic + MCP v2 and confirm pass.
+
+#### Implementation notes
+
+- Pending implementation.
+
+---
+
+### 5. Server Message Contract: normalize ingest listing status/phase mapping and active overlay visibility
+
+- Task Status: **__to_do__**
+- Git Commits: `None yet`
+
+#### Overview
+
+Apply one shared status/phase mapping and active-overlay merge path for `/ingest/roots` and MCP classic `ListIngestedRepositories`, including schema version bump and synthesized active entries when persisted metadata is missing.
+
+#### Documentation Locations
+
+- JSON schema conventions for API payload updates: https://json-schema.org/understanding-json-schema/
+- MCP tool output consistency principles: https://modelcontextprotocol.io/specification/2025-06-18/server/tools/
+- Node.js object/array data handling references: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object
+
+#### Subtasks
+
+1. [ ] Implement one shared mapper from internal ingest states to external `status`/`phase`.
+   - Files: `server/src/lmstudio/toolService.ts` (primary), plus shared helper module if introduced under `server/src/ingest/`
+   - Required behavior: `queued|scanning|embedding -> status=ingesting + phase`; `completed|cancelled|error -> same status and no phase`; `skipped -> completed`.
+2. [ ] Apply the shared mapper to `/ingest/roots` and MCP classic list output.
+   - Files: `server/src/routes/ingestRoots.ts`, `server/src/mcp/server.ts`, `server/src/lmstudio/toolService.ts`
+   - Required behavior: both surfaces emit identical status semantics and `schemaVersion: "0000038-status-phase-v1"`.
+3. [ ] Implement active overlay precedence and synthesized active entry fallback when persisted metadata is missing.
+   - Files: `server/src/lmstudio/toolService.ts`
+   - Required behavior: active run remains visible with status/phase/runId/counters while last completed metadata is retained where available.
+4. [ ] Update classic MCP `ListIngestedRepositories` output schema for repo-level `status` and optional `phase`.
+   - Files: `server/src/mcp/server.ts`
+   - Required behavior: output schema and runtime payload remain aligned.
+5. [ ] Add/extend server tests for active visibility, status/phase mapping, skipped->completed normalization, and schema version bump.
+   - Files: `server/src/test/unit/tools-ingested-repos*.test.ts`, `server/src/test/unit/ingest-roots*.test.ts`, `server/src/test/unit/mcp-list-ingested*.test.ts`
+6. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; resolve any issues introduced by this task.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run test --workspace server`
+3. [ ] Run targeted ingest listing/status mapping tests and confirm pass.
+
+#### Implementation notes
+
+- Pending implementation.
+
+---
+
+### 6. Server: move no-change reembed exit ahead of AST and embedding work, and normalize successful terminal status
+
+- Task Status: **__to_do__**
+- Git Commits: `None yet`
+
+#### Overview
+
+Ensure no-change delta runs exit before AST parse/upsert/delete and before embedding calls, while still returning successful terminal `completed` semantics for no-change and deletion-only success paths.
+
+#### Documentation Locations
+
+- Tree-sitter project references for AST pipeline context: https://tree-sitter.github.io/tree-sitter/
+- Node.js performance considerations for early-return pipelines: https://nodejs.org/en/learn/asynchronous-work/dont-block-the-event-loop
+- Jest test organization patterns: https://jestjs.io/docs/getting-started
+
+#### Subtasks
+
+1. [ ] Refactor reembed delta flow to compute no-change decision before AST parsing/writing and embedding loops.
+   - Files: `server/src/ingest/ingestJob.ts`
+   - Required behavior: no-change path exits without AST parse/upsert/delete and without embedding calls.
+2. [ ] Ensure successful no-change and deletion-only paths resolve as external-success `completed`.
+   - Files: `server/src/ingest/ingestJob.ts`, `server/src/ingest/reingestService.ts` (if mapping updates are required)
+3. [ ] Add/extend tests proving no-change bypasses AST/embedding and deletion-only success still reports `completed`.
+   - Files: `server/src/test/unit/ingest-ast-indexing.test.ts`, `server/src/test/unit/reingest*.test.ts`, related ingest unit suites
+4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; resolve any issues introduced by this task.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run test --workspace server`
+3. [ ] Run targeted no-change/deletion-only ingest tests and confirm pass.
+
+#### Implementation notes
+
+- Pending implementation.
+
+---
+
+### 7. Frontend: consume external ingest `status`/`phase` contract and preserve active repository visibility
+
+- Task Status: **__to_do__**
+- Git Commits: `None yet`
+
+#### Overview
+
+Align Ingest page data normalization/rendering with server contract updates so active runs remain visible with coarse `ingesting` status and optional phase details.
+
+#### Documentation Locations
+
+- React data-fetching and state synchronization patterns: https://react.dev/learn/synchronizing-with-effects
+- MUI table/status UI patterns: https://llms.mui.com/material-ui/7.2.0/llms.txt
+- TypeScript discriminated unions for status models: https://www.typescriptlang.org/docs/handbook/2/narrowing.html
+
+#### Subtasks
+
+1. [ ] Update ingest API/client types for external `status` and optional `phase` fields.
+   - Files: `common/src/lmstudio.ts`, `client/src/hooks/useIngestRoots.ts`
+2. [ ] Update ingest list/table/status components to render active status from new external fields.
+   - Files: `client/src/components/ingest/RootsTable.tsx`, `client/src/components/ingest/ActiveRunCard.tsx`, `client/src/pages/IngestPage.tsx`
+   - Required behavior: active repos stay visible with `status=ingesting`; phase shown only when present.
+3. [ ] Add/extend client tests for active visibility and status/phase display semantics.
+   - Files: `client/src/test/ingest*.test.tsx`
+   - Required coverage: no disappearance during active run, terminal states omit phase display.
+4. [ ] Run `npm run lint --workspaces` and `npm run format:check --workspaces`; resolve any issues introduced by this task.
+
+#### Testing
+
+1. [ ] `npm run build --workspace client`
+2. [ ] `npm run test --workspace client`
+3. [ ] Run targeted ingest status UI tests and confirm pass.
+
+#### Implementation notes
+
+- Pending implementation.
+
+---
+
+### 8. Documentation: update architecture and file-map docs for final 0000038 behavior
+
+- Task Status: **__to_do__**
+- Git Commits: `None yet`
+
+#### Overview
+
+Update story-adjacent documentation so junior developers can understand final stop semantics, blocking MCP reingest behavior, and ingest status/phase mapping without reverse-engineering code.
+
+#### Documentation Locations
+
+- Mermaid docs for diagram updates: https://mermaid.js.org/intro/
+- MCP specification references for behavior text: https://modelcontextprotocol.io/specification/2025-06-18/server/tools/
+- JSON-RPC reference for error-boundary documentation: https://www.jsonrpc.org/specification
+
+#### Subtasks
+
+1. [ ] Update `design.md` with final stop-race handling, blocking reingest contract flow, and status/phase mapper behavior.
+   - Files: `design.md`
+2. [ ] Update `projectStructure.md` with all files added/removed/renamed across this story’s implementation tasks.
+   - Files: `projectStructure.md`
+3. [ ] Update this story plan’s Implementation Notes sections as each task completes, including key decisions and deviations.
+   - Files: `planning/0000038-agent-ux-stop-and-ingest-status.md`
+4. [ ] Run `npm run format:check --workspaces` and fix markdown/style issues if needed.
+
+#### Testing
+
+1. [ ] Review docs against implemented behavior and acceptance criteria; confirm no contract contradictions remain.
+
+#### Implementation notes
+
+- Pending implementation.
+
+---
+
+### 9. Final verification: full acceptance and regression gate for story 0000038
+
+- Task Status: **__to_do__**
+- Git Commits: `None yet`
+
+#### Overview
+
+Perform end-to-end verification of all acceptance criteria after Tasks 1-8 are complete, including server/client builds, tests, docker flows, MCP parity checks, and manual UI validation.
+
+#### Documentation Locations
+
+- Docker Compose docs: https://docs.docker.com/compose/
+- Playwright docs: https://playwright.dev/docs/intro
+- MCP tool call semantics: https://modelcontextprotocol.io/specification/2025-06-18/server/tools/
+
+#### Subtasks
+
+1. [ ] Validate each acceptance criterion in this story explicitly and record pass/fail evidence in Implementation notes.
+2. [ ] Execute manual stop-race scenario: click Stop before inflight id is known and confirm no command retries/steps start afterward.
+3. [ ] Execute manual MCP reingest scenarios (classic + v2): completed, cancelled (via GUI cancel), and error path; confirm terminal contract parity.
+4. [ ] Execute manual ingest-list visibility scenario: active run remains visible in UI and MCP classic list with `status=ingesting` and valid `phase`.
+5. [ ] Save manual verification artifacts/screenshots into `test-results/screenshots` with story/task-prefixed filenames.
+6. [ ] Ensure final docs (`design.md`, `projectStructure.md`, and this story file) reflect the implemented behavior with no contradictions.
+
+#### Testing
+
+1. [ ] `npm run build --workspace server`
+2. [ ] `npm run build --workspace client`
+3. [ ] `npm run test --workspace server`
+4. [ ] `npm run test --workspace client`
+5. [ ] `npm run compose:build`
+6. [ ] `npm run compose:up`
+7. [ ] `npm run e2e`
+8. [ ] `npm run compose:down`
+
+#### Implementation notes
+
+- Pending implementation.

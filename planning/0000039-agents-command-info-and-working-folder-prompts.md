@@ -54,7 +54,7 @@ Placeholder replacement rule:
     - invalid `working_folder` shape/path -> `400 { error: 'invalid_request', code: 'WORKING_FOLDER_INVALID', ... }`
     - unresolved/non-existent `working_folder` -> `400 { error: 'invalid_request', code: 'WORKING_FOLDER_NOT_FOUND', ... }`
     - agent not found -> `404 { error: 'not_found' }`
-    - unexpected failures -> `500` with existing route-level server error pattern.
+    - unexpected failures -> `500 { error: 'agent_prompts_failed' }`.
 11. Prompt discovery is recursive below `.github/prompts`, includes markdown files with case-insensitive extension handling (`.md`, `.MD`, including names like `foo.prompt.md`), and excludes non-markdown files.
 12. Prompt discovery output is deterministic: prompt entries are sorted ascending by normalized `relativePath` before returning to the client.
 13. Symlink safety is defined: discovery does not follow symlink directories/files when walking prompt trees, preventing traversal loops and cross-root escapes.
@@ -83,6 +83,64 @@ Placeholder replacement rule:
     - prompt reset on `working_folder` change,
     - outbound instruction payload containing the exact preamble text and resolved runtime full path.
 
+### Message Contracts and Storage Shapes
+
+1. New REST contract required by this story
+- Endpoint: `GET /agents/:agentName/prompts?working_folder=<absolute path>`
+- Purpose: discover markdown prompt files under `.github/prompts` for a committed `working_folder` and return runtime/container paths for execution composition.
+- Success response shape (`200`):
+```json
+{
+  "prompts": [
+    {
+      "relativePath": "onboarding/start.md",
+      "fullPath": "/data/repo/.github/prompts/onboarding/start.md"
+    }
+  ]
+}
+```
+- Error response mapping (matches existing Agents REST conventions):
+```json
+{ "error": "invalid_request" }
+```
+```json
+{
+  "error": "invalid_request",
+  "code": "WORKING_FOLDER_INVALID",
+  "message": "working_folder must be an absolute path"
+}
+```
+```json
+{
+  "error": "invalid_request",
+  "code": "WORKING_FOLDER_NOT_FOUND",
+  "message": "working_folder not found"
+}
+```
+```json
+{ "error": "not_found" }
+```
+```json
+{ "error": "agent_prompts_failed" }
+```
+
+2. Existing contracts explicitly unchanged
+- Instruction execution contract stays unchanged:
+  - `POST /agents/:agentName/run` request body remains `{ instruction, conversationId?, working_folder? }`
+  - `202` response remains `{ status, agentName, conversationId, inflightId, modelId }`
+- Command execution contract stays unchanged:
+  - `POST /agents/:agentName/commands/run` request body remains `{ commandName, sourceId?, conversationId?, working_folder? }`
+  - `202` response remains `{ status, agentName, commandName, conversationId, modelId }`
+- WebSocket message/event contracts remain unchanged (no new client message types, no new server event types for this story).
+- MCP agents tool contracts remain unchanged (no new MCP tool in scope for this story).
+
+3. Storage/persistence shape impact
+- No Mongo schema changes are required.
+- `Conversation` document shape remains unchanged (`agentName`, `source`, `flags`, etc.); no new prompt-related fields are added.
+- `Turn` document shape remains unchanged (`command`, `usage`, `timing`, etc.); prompt execution records as standard user/assistant turns through existing flow.
+- No data migration/backfill is required.
+- Prompt selection/discovery UI state is ephemeral client state and is not persisted server-side.
+
 ### Out Of Scope
 
 - Editing, creating, renaming, or deleting prompt files from the UI.
@@ -106,6 +164,7 @@ None.
 - MUI Popover is already used in `AgentsPage` and is built on Modal with click-away/scroll lock behavior, so reusing existing popover interaction is consistent with current UI patterns.
 - GitHub documentation uses `.github/prompts` for prompt files (often `.prompt.md`), but this story intentionally supports all markdown files (`.md`, case-insensitive) under that tree for simpler, project-local behavior.
 - DeepWiki and Context7 MCP research attempts were unavailable in this environment (repository not indexed in DeepWiki; Context7 API key unavailable), so decisions were cross-checked with repo code and official Node/MUI/GitHub web documentation.
+- Contract/storage confirmation for this story: only one new REST read contract is required (`GET /agents/:agentName/prompts`), while run contracts, WS/MCP schemas, and Mongo storage shapes remain unchanged.
 
 ## Implementation Ideas
 
